@@ -4,10 +4,11 @@ import (
 	// "fmt"
 
 	"fmt"
-	"log"
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type WarpStatus int
@@ -70,9 +71,14 @@ func NewSMSPScheduler() *SMSPSWarpScheduler {
 // 	return -1, nil
 // }
 
-func isExecuteIssueOrMemoryPipeStage(stageName string) bool {
+func isIssueStage(stageName string) bool {
 	// fmt.Printf("Checking if stage %s is an execute stage\n", stageName)
-	return stageName == "Issue" || stageName == "MemoryPipe"
+	return stageName == "Issue"
+}
+
+func isMemoryPipeStage(stageName string) bool {
+	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
+	return stageName == "MemoryPipeRead" || stageName == "MemoryPipeWrite"
 }
 
 func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
@@ -101,6 +107,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 	for len(issued) < SMSPSchedulerIssueSpeed && checked < totalWarps {
 		idx := (startIndex + checked) % totalWarps
 		wu := s.warpUnitList[idx]
+		// fmt.Printf("wu.Pipeline.InstructionOpcode = %s\n", wu.Pipeline.InstructionOpcode)
 
 		if (wu.status == WarpStatusReady || wu.status == WarpStatusRunning) && wu.unfinishedInstsCount > 0 {
 			// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
@@ -108,7 +115,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
 			// 	fmt.Printf("debug: stageName = %s\n", stageName)
 			// }
-			if isExecuteIssueOrMemoryPipeStage(stageName) {
+			if isIssueStage(stageName) {
 				// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
 				// 	fmt.Printf("debug: isExecuteIssueOrMemoryPipeStage")
 				// }
@@ -120,6 +127,25 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 					// }
 					continue // resource conflict → skip
 				}
+				// fmt.Printf("cp2: To WarpStatusRunning: wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name = %s\n", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name)
+				wu.status = WarpStatusRunning
+			} else if isMemoryPipeStage(stageName) {
+				// fmt.Printf("Checking MemoryPipe stage for warp %d of SM's Scheduler\n", wu.warp.ID)
+				if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 2 {
+					// proceed; do it in Tick() later
+					// wu.status = WarpStatusWaiting
+					// checked++
+					// continue // memory pipe stage not yet launched
+				} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 1 {
+					// log.Panic("MemoryPipe stage should not be in 'Waiting' status here")
+				} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 0 {
+					// proceed
+				}
+
+				// only when a MemoryPipe stage has been launched and its status has turned from "Waiting" to "Running" can it proceed
+			} else {
+				// fmt.Printf("cp1 To WarpStatusRunning: wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name = %s\n", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name)
+				wu.status = WarpStatusRunning
 			}
 			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
 			// 	fmt.Printf("Issuing warp %d of SM's Scheduler: inst %d/%d '%s' @ '%s' stage (%d/%d)\n",
@@ -131,7 +157,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
 			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles)
 			// }
-			wu.status = WarpStatusRunning
+
 			issued = append(issued, wu)
 		}
 
@@ -170,8 +196,11 @@ func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 		unfinishedInstsCount: warp.InstructionsCount(),
 		Pipeline:             nil,
 	}
+	// fmt.Printf("warp.InstructionsCount() = %d\n", warp.InstructionsCount())
 	if len(warp.Instructions) == 0 {
-		log.Panic("warp has no instructions")
+		// log.WithField("warpID", warp.ID).Warn("warp has no instructions")
+		// return false
+		log.Panic(fmt.Sprintf("warp (ID: %d) has no instructions", warp.ID))
 	}
 	inst := warp.Instructions[0]
 

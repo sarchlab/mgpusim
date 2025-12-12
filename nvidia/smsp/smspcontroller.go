@@ -189,15 +189,17 @@ func (s *SMSPController) processMemRsp() bool {
 			log.Panic("In processing read req, the corresponding warpUnit status is not waiting")
 		}
 		delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
-		if warpUnit.unfinishedInstsCount == 1 {
-			s.scheduler.removeFinishedWarps(warpUnit)
-			s.finishedWarpsCount++
-			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
-		} else {
-			warpUnit.status = WarpStatusRunning
-			warpUnit.unfinishedInstsCount--
-		}
+		// if warpUnit.unfinishedInstsCount == 1 {
+		// 	s.scheduler.removeFinishedWarps(warpUnit)
+		// 	s.finishedWarpsCount++
+		// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+		// 	// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
+		// } else {
+		// 	warpUnit.status = WarpStatusRunning
+		// 	warpUnit.unfinishedInstsCount--
+		// }
+		warpUnit.status = WarpStatusRunning
+		warpUnit.Pipeline.Stages[warpUnit.Pipeline.PC].Left = 0
 
 	case *mem.WriteDoneRsp:
 		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
@@ -215,15 +217,17 @@ func (s *SMSPController) processMemRsp() bool {
 			log.Panic("In processing write req, the corresponding warpUnit status is not waiting")
 		}
 		delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
-		if warpUnit.unfinishedInstsCount == 1 {
-			s.scheduler.removeFinishedWarps(warpUnit)
-			s.finishedWarpsCount++
-			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
-		} else {
-			warpUnit.status = WarpStatusRunning
-			warpUnit.unfinishedInstsCount--
-		}
+		// if warpUnit.unfinishedInstsCount == 1 {
+		// 	s.scheduler.removeFinishedWarps(warpUnit)
+		// 	s.finishedWarpsCount++
+		// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+		// 	// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
+		// } else {
+		// 	warpUnit.status = WarpStatusRunning
+		// 	warpUnit.unfinishedInstsCount--
+		// }
+		warpUnit.status = WarpStatusRunning
+		warpUnit.Pipeline.Stages[warpUnit.Pipeline.PC].Left = 0
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 		s.ToVectorMem.RetrieveIncoming()
@@ -370,7 +374,42 @@ func (s *SMSPController) run() bool {
 			log.Panic("issued warp has no unfinished instructions")
 		}
 
-		progressed := wu.Pipeline.Tick()
+		progressed := false
+		stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
+		if isMemoryPipeStage(stageName) {
+			// fmt.Printf("SMSPController %s processing memory pipe stage %s for warp %d\n", s.ID, stageName, wu.warp.ID)
+			if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 2 {
+				// send mem request
+				// fmt.Printf("WarpStatusReady status for warp %d\n", wu.warp.ID)
+				inst := wu.warp.Instructions[wu.warp.InstructionsCount()-wu.unfinishedInstsCount]
+
+				switch stageName {
+				case "MemoryPipeRead":
+					wu.status = WarpStatusWaiting
+					s.doRead(wu, inst.InstructionsFullID(), inst.MemAddress, uint64(inst.MemAddressSuffix1))
+				case "MemoryPipeWrite":
+					wu.status = WarpStatusWaiting
+					data := uint32(0)
+					s.doWrite(wu, inst.InstructionsFullID(), inst.MemAddress, &data)
+				default:
+					log.Panicf("Unknown memory pipe stage name: %s", stageName)
+				}
+				wu.Pipeline.Stages[wu.Pipeline.PC].Left = 1
+			} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 1 {
+				log.Panic("MemoryPipe stage should not be in 'Waiting' (Left = 1) status here")
+			} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 0 {
+				// proceed
+				// fmt.Printf("WarpStatusRunning status for warp %d\n", wu.warp.ID)
+				// wu.Pipeline.Stages[wu.Pipeline.PC].Left = 0
+				wu.Pipeline.PC++
+				if wu.Pipeline.PC >= len(wu.Pipeline.Stages) {
+					wu.Pipeline.Done = true
+				}
+			}
+			progressed = true
+		} else {
+			progressed = wu.Pipeline.Tick()
+		}
 
 		if !progressed {
 			log.Panic("issued warp's pipeline should not be stalled")

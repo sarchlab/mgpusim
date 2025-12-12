@@ -153,7 +153,7 @@ func (t *KernelTrace) readThreadblocks() {
 					log.WithField("line", kernelScanner.Text()).Panic("Cannot find insts line")
 				}
 				fmt.Sscanf(kernelScanner.Text(), "insts = %d", &wp.instsCount)
-
+				// fmt.Printf("wp.instsCount = %d\n", wp.instsCount)
 				for j := 0; j < int(wp.instsCount); j++ {
 					moveScannerToNextLine()
 					inst := extractInst(kernelScanner.Text(), uint64(j))
@@ -164,6 +164,8 @@ func (t *KernelTrace) readThreadblocks() {
 					// fmt.Printf("tb cnt: %d, warp cnt: %d, inst cnt: %d\n",
 					// 	len(t.Threadblocks), len(tb.Warps), len(wp.Instructions))
 				}
+
+				// fmt.Printf("warp.InstructionsCount() = %d\n", wp.InstructionsCount())
 
 				tb.Warps = append(tb.Warps, wp)
 			} else {
@@ -186,6 +188,7 @@ func (t *KernelTrace) readThreadblocks() {
 	7
 */
 func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
+	// fmt.Printf("Extracting inst text: %s\n", text)
 	inst := &InstructionTrace{
 		instIndexInWarp: instIndexInWarp,
 	}

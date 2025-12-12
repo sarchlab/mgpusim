@@ -1,6 +1,8 @@
 package smsp
 
 import (
+	"log"
+
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
@@ -46,6 +48,10 @@ func (p *PipelineInstance) Tick() bool {
 
 	stage := &p.Stages[p.PC]
 
+	if isMemoryPipeStage(stage.Def.Name) {
+		log.Panic("Pipeline Tick should not be called for MemoryPipe stage")
+	}
+
 	for stage.Left == 0 {
 		// release resources
 		// if stage.Def.Unit != UnitNone {
@@ -59,10 +65,6 @@ func (p *PipelineInstance) Tick() bool {
 		}
 		stage = &p.Stages[p.PC]
 	}
-	// if stage.Def.Name == "MemoryPipe" {
-	// 	log.Panic("MemoryPipe stage should not be handled in PipelineInstance.Tick")
-	// 	return false
-	// }
 
 	// Try reserve on first cycle of stage
 	// if stage.Left == stage.Def.Latency && stage.Def.Unit != UnitNone {
@@ -72,6 +74,9 @@ func (p *PipelineInstance) Tick() bool {
 	// }
 	// fmt.Printf("Pipeline (warp %d) at stage %s, left cycles: %d->%d\n",
 	// p.Warp.warp.ID, stage.Def.Name, stage.Left, stage.Left-1)
+	if isMemoryPipeStage(stage.Def.Name) {
+		return true
+	}
 	stage.Left--
 
 	// take a peek to see if all following stages are zero-cycle, including the current one

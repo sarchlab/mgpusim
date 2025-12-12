@@ -67,3 +67,13 @@ run_simtune_ffmakernel-large-large-thread1024:
 		printf "%s\t\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
 	@rm akita_sim_d*
+
+run_rodinia_kmeans_size384:
+	@printf "#clusters\ttruth\tsimulation\n"
+	@for clusters in 16 24 32; do \
+		gt_file="data/rodinia-kmeans-size384-clusters$$clusters/gt"; \
+		truth=$$(cat $$gt_file); \
+		sim=$$(./nvidia -trace-dir data/rodinia-kmeans-size384-clusters$$clusters); \
+		printf "%s\t\t%s\t%s\n" "$$clusters" "$$truth" "$$sim"; \
+	done
+	@rm akita_sim_d*

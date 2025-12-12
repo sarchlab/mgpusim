@@ -14,7 +14,7 @@ import (
 // ========================================
 
 // Stage names used in all instruction pipelines
-//   "Decode", "Issue", "Execute", "MemoryPipe", "BranchResolve", "Writeback"
+//   "Decode", "Issue", "Execute", "MemoryPipeRead", "MemoryPipeWrite", "BranchResolve", "Writeback"
 
 // Execution unit types used for resource conflict checking
 type ExecUnitKind int
@@ -273,37 +273,37 @@ var PipelineTable = map[string]InstructionPipelineTemplate{
 	"UISETP.GT.AND":       {Opcode: "UISETP.GT.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
 
 	// --- Load / Store (Constant Cache) ---
-	"LDC":     {Opcode: "LDC", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
-	"LDC.64":  {Opcode: "LDC.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
-	"ULDC":    {Opcode: "ULDC", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
-	"ULDC.64": {Opcode: "ULDC.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
+	"LDC":     {Opcode: "LDC", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"LDC.64":  {Opcode: "LDC.64", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ULDC":    {Opcode: "ULDC", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ULDC.64": {Opcode: "ULDC.64", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
 
 	// --- Load / Store (Global) ---
-	"LDG.E":             {Opcode: "LDG.E", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
-	"LDG.E.64.CONSTANT": {Opcode: "LDG.E.64.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
-	"LDG.E.128":         {Opcode: "LDG.E.128", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},         // added
-	"LDG.E.CONSTANT":    {Opcode: "LDG.E.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},    // added
-	"LDG.E.U8":          {Opcode: "LDG.E.U8", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},          // added
-	"LDG.E.U8.CONSTANT": {Opcode: "LDG.E.U8.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
-	"STG.E":             {Opcode: "STG.E", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
-	"STG.E.64":          {Opcode: "STG.E.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},  // added
-	"STG.E.128":         {Opcode: "STG.E.128", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
-	"STG.E.U8":          {Opcode: "STG.E.U8", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},  // added
+	"LDG.E":             {Opcode: "LDG.E", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},
+	"LDG.E.64.CONSTANT": {Opcode: "LDG.E.64.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}}, // added
+	"LDG.E.128":         {Opcode: "LDG.E.128", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},         // added
+	"LDG.E.CONSTANT":    {Opcode: "LDG.E.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},    // added
+	"LDG.E.U8":          {Opcode: "LDG.E.U8", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},          // added
+	"LDG.E.U8.CONSTANT": {Opcode: "LDG.E.U8.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}}, // added
+	"STG.E":             {Opcode: "STG.E", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},
+	"STG.E.64":          {Opcode: "STG.E.64", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},  // added
+	"STG.E.128":         {Opcode: "STG.E.128", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}}, // added
+	"STG.E.U8":          {Opcode: "STG.E.U8", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},  // added
 
 	// --- Load / Store (Shared) ---
-	"LDS":     {Opcode: "LDS", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},     // added
-	"LDS.64":  {Opcode: "LDS.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},  // added
-	"LDS.128": {Opcode: "LDS.128", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
-	"STS":     {Opcode: "STS", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},     // added
-	"STS.64":  {Opcode: "STS.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},  // added
-	"STS.128": {Opcode: "STS.128", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
+	"LDS":     {Opcode: "LDS", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},      // added
+	"LDS.64":  {Opcode: "LDS.64", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},   // added
+	"LDS.128": {Opcode: "LDS.128", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},  // added
+	"STS":     {Opcode: "STS", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},     // added
+	"STS.64":  {Opcode: "STS.64", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},  // added
+	"STS.128": {Opcode: "STS.128", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}}, // added
 
 	// --- Load / Store (Local) ---
-	"LDL":    {Opcode: "LDL", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},    // added
-	"STL.64": {Opcode: "STL.64", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}}, // added
+	"LDL":    {Opcode: "LDL", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},     // added
+	"STL.64": {Opcode: "STL.64", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}}, // added
 
 	// --- Atomic / Reduction ---
-	"REDG.E.ADD.F32.FTZ.RN.STRONG.GPU": {Opcode: "REDG.E.ADD.F32.FTZ.RN.STRONG.GPU", Stages: []StageDef{stDecode(), s("MemoryPipe", 4, UnitLdSt), stWB()}}, // added
+	"REDG.E.ADD.F32.FTZ.RN.STRONG.GPU": {Opcode: "REDG.E.ADD.F32.FTZ.RN.STRONG.GPU", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
 
 	// --- Logic / Bit ---
 	"LOP3.LUT":  {Opcode: "LOP3.LUT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},

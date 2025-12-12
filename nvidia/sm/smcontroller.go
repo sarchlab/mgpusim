@@ -240,6 +240,7 @@ func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
 	s.threadblockWarpCountTableOrigin[msg.Threadblock.ID] = msg.Threadblock.WarpsCount()
 	for i := range msg.Threadblock.Warps {
 		s.undispatchedWarps = append(s.undispatchedWarps, msg.Threadblock.Warps[i])
+		// fmt.Printf("msg.Threadblock.Warps[i].InstructionsCount() = %d\n", msg.Threadblock.Warps[i].InstructionsCount())
 		// s.unfinishedWarpsCount++
 		s.warpsCount++
 	}
