@@ -195,3 +195,27 @@ jobs:
           go build
           ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
         working-directory: amd/tests/acceptance/
+
+  disassembler_test:
+    name: Disassembler Test (GFX942)
+    runs-on: Github-Large-1
+    needs: [compile]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Build MGPUSim Disassembler
+        run: go build -o gcn3disassembler .
+        working-directory: amd/insts/gcn3disassembler/
+
+      - name: Run Disassembler Test
+        run: |
+          ../../../amd/insts/gcn3disassembler/gcn3disassembler vectoradd.hsaco > vectoradd.mgpusim.disasm
+          echo "=== Comparing disassembler outputs ==="
+          diff -u vectoradd.disasm vectoradd.mgpusim.disasm
+        working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
