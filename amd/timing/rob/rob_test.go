@@ -40,7 +40,7 @@ var _ = Describe("Reorder Buffer", func() {
 		rob.controlPort = ctrlPort
 		bottomUnitPort = NewMockPort(mockCtrl)
 		bottomUnitPort.EXPECT().AsRemote().AnyTimes()
-		rob.BottomUnit = bottomUnitPort
+		rob.BottomUnit = bottomUnitPort.AsRemote()
 	})
 
 	AfterEach(func() {
@@ -96,7 +96,7 @@ var _ = Describe("Reorder Buffer", func() {
 				Send(gomock.Any()).
 				Do(func(req *mem.ReadReq) {
 					Expect(req.Src).To(BeIdenticalTo(rob.bottomPort.AsRemote()))
-					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit.AsRemote()))
+					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit))
 				}).
 				Return(nil)
 

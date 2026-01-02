@@ -74,7 +74,7 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 		case string(nvidiaconfig.H2D):
 			m.Direction = nvidiaconfig.H2D
 		case string(nvidiaconfig.D2H):
-			m.Direction = nvidiaconfig.H2D
+			m.Direction = nvidiaconfig.D2H
 		}
 
 		return m
