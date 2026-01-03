@@ -816,28 +816,33 @@ func (d *Disassembler) Disassemble(
 		}
 
 		inst.PC = pc
-
-		instStr := printer.Print(inst)
-		fmt.Fprintf(w, "\t%s", instStr)
-		for i := len(instStr); i < 59; i++ {
-			fmt.Fprint(w, " ")
-		}
-
-		fmt.Fprintf(w, "// %012X: ", pc)
-		fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
-		if inst.ByteSize == 8 {
-			fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
-		}
-
-		// Add branch target annotation if applicable
-		if annotation := printer.BranchTargetAnnotation(inst); annotation != "" {
-			fmt.Fprintf(w, " %s", annotation)
-		}
-
-		fmt.Fprintf(w, "\n")
+		d.printInstruction(inst, buf, printer, w)
 		buf = buf[inst.ByteSize:]
 		pc += uint64(inst.ByteSize)
 	}
+}
+
+func (d *Disassembler) printInstruction(
+	inst *Inst, buf []byte, printer *InstPrinter, w io.Writer,
+) {
+	instStr := printer.Print(inst)
+	fmt.Fprintf(w, "\t%s", instStr)
+	for i := len(instStr); i < 59; i++ {
+		fmt.Fprint(w, " ")
+	}
+
+	fmt.Fprintf(w, "// %012X: ", inst.PC)
+	fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
+	if inst.ByteSize == 8 {
+		fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
+	}
+
+	// Add branch target annotation if applicable
+	if annotation := printer.BranchTargetAnnotation(inst); annotation != "" {
+		fmt.Fprintf(w, " %s", annotation)
+	}
+
+	fmt.Fprintf(w, "\n")
 }
 
 func (d *Disassembler) tryPrintSymbol(
@@ -853,7 +858,10 @@ func (d *Disassembler) tryPrintSymbol(
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
 		// Only print main kernel symbols (Size > 0, no suffix like .kd)
-		if symbol.Value == pc && symbol.Size > 0 && !strings.HasSuffix(symbol.Name, ".kd") && !strings.HasPrefix(symbol.Name, "__hip_cuid_") {
+		isMainSymbol := symbol.Value == pc && symbol.Size > 0
+		isMainSymbol = isMainSymbol && !strings.HasSuffix(symbol.Name, ".kd")
+		isMainSymbol = isMainSymbol && !strings.HasPrefix(symbol.Name, "__hip_cuid_")
+		if isMainSymbol {
 			fmt.Fprintf(w, "\n%016x <%s>:\n", pc, symbol.Name)
 			printed[pc] = true
 			return
