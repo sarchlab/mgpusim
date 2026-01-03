@@ -750,7 +750,6 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 		err = d.decodeDS(inst, buf)
 	default:
 		log.Panicf("unabkle to decode instruction type %s", inst.FormatName)
-		break
 	}
 
 	if err != nil {
@@ -770,43 +769,57 @@ func (d *Disassembler) Disassemble(
 	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
 	fmt.Fprintf(w, "\n\nDisassembly of section .text:\n")
 
-	sec := file.Section(".text")
-	data, _ := sec.Data()
-	co := NewHsaCoFromData(data)
+	co := NewHsaCoFromELF(file)
+	if co == nil {
+		fmt.Fprintf(w, "Error: could not parse ELF file\n")
+		return
+	}
 
-	buf := co.InstructionData()
-	pc := uint64(0x100)
+	buf := co.Data
+	// V2/V3: each kernel has 256-byte header, V5: no headers
+	var kernelHeaderSize uint64
+	if co.Version == CodeObjectV3 {
+		kernelHeaderSize = 256
+	}
+
+	sec := file.Section(".text")
+	var pc uint64
 	d.tryPrintSymbol(file, sec.Offset, w)
+
 	for len(buf) > 0 {
 		d.tryPrintSymbol(file, sec.Offset+pc, w)
 
-		if d.isNewKenrelStart(file, sec.Offset+pc) {
-			buf = buf[0x100:]
-			pc += 0x100
+		// For V2/V3 format, each kernel has a 256-byte header
+		// For V5 format, there's no header between kernels
+		if kernelHeaderSize > 0 && d.isNewKernelStart(file, sec.Offset+pc) {
+			buf = buf[kernelHeaderSize:]
+			pc += kernelHeaderSize
 		}
 
 		inst, err := d.Decode(buf)
-		inst.PC = pc + sec.Offset
 		if err != nil {
 			fmt.Printf("Instruction not decodable\n")
 			buf = buf[4:]
 			pc += 4
-		} else {
-			instStr := inst.String(file)
-			fmt.Fprintf(w, "\t%s", instStr)
-			for i := len(instStr); i < 59; i++ {
-				fmt.Fprint(w, " ")
-			}
-
-			fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
-			fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
-			if inst.ByteSize == 8 {
-				fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
-			}
-			fmt.Fprintf(w, "\n")
-			buf = buf[inst.ByteSize:]
-			pc += uint64(inst.ByteSize)
+			continue
 		}
+
+		inst.PC = pc
+
+		instStr := inst.String(file)
+		fmt.Fprintf(w, "\t%s", instStr)
+		for i := len(instStr); i < 59; i++ {
+			fmt.Fprint(w, " ")
+		}
+
+		fmt.Fprintf(w, "// %012X: ", pc)
+		fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
+		if inst.ByteSize == 8 {
+			fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
+		}
+		fmt.Fprintf(w, "\n")
+		buf = buf[inst.ByteSize:]
+		pc += uint64(inst.ByteSize)
 	}
 }
 
@@ -831,7 +844,7 @@ func (d *Disassembler) isKernelSymbol(symbol elf.Symbol) bool {
 	return symbol.Size > 0
 }
 
-func (d *Disassembler) isNewKenrelStart(file *elf.File, offset uint64) bool {
+func (d *Disassembler) isNewKernelStart(file *elf.File, offset uint64) bool {
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
 		if symbol.Value == offset && symbol.Size > 0 {

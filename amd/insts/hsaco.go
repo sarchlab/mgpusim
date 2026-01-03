@@ -21,10 +21,9 @@ const (
 // An HsaCo is the kernel code to be executed on an AMD GPU
 type HsaCo struct {
 	*HsaCoMeta
-	Symbol               *elf.Symbol
-	Data                 []byte // Instruction data only
-	Version              CodeObjectVersion
-	InstructionByteOffset uint64
+	Symbol  *elf.Symbol
+	Data    []byte // Instruction data only (no header)
+	Version CodeObjectVersion
 }
 
 // HsaCoMeta contains the metadata of an HSACO kernel
@@ -73,29 +72,70 @@ func NewHsaCo() *HsaCo {
 	return co
 }
 
-// NewHsaCoFromData creates an HsaCo with the provided data
-// This parses V2/V3 format (256-byte header followed by instructions)
-func NewHsaCoFromData(data []byte) *HsaCo {
+// NewHsaCoFromELF creates an HsaCo from an ELF file
+// It auto-detects the code object version and extracts metadata and instructions
+// from the appropriate sections
+func NewHsaCoFromELF(elfFile *elf.File) *HsaCo {
 	o := new(HsaCo)
-	o.HsaCoMeta = parseV2V3Header(data)
-	o.Data = data[256:] // Instructions start after 256-byte header
-	o.Version = CodeObjectV3
-	o.InstructionByteOffset = 256
+
+	textSec := elfFile.Section(".text")
+	if textSec == nil {
+		return nil
+	}
+
+	textData, err := textSec.Data()
+	if err != nil {
+		return nil
+	}
+
+	// Detect version by checking if .text starts with V2/V3 header
+	if len(textData) >= 256 && isV2V3Header(textData) {
+		// V2/V3 format: 256-byte header followed by instructions in .text
+		o.HsaCoMeta = parseV2V3Header(textData)
+		o.Data = textData[256:] // Instructions start after 256-byte header
+		o.Version = CodeObjectV3
+	} else {
+		// V5 format: metadata in .rodata, instructions in .text
+		o.Data = textData
+		o.Version = CodeObjectV5
+
+		// Try to parse kernel descriptor from .rodata
+		rodataSec := elfFile.Section(".rodata")
+		if rodataSec != nil {
+			rodataData, err := rodataSec.Data()
+			if err == nil && len(rodataData) >= 64 {
+				o.HsaCoMeta = parseV5KernelDescriptor(rodataData)
+			} else {
+				o.HsaCoMeta = new(HsaCoMeta)
+			}
+		} else {
+			o.HsaCoMeta = new(HsaCoMeta)
+		}
+	}
 
 	return o
 }
 
-// NewHsaCoFromDataV5 creates an HsaCo from V5 format data
-// kernelDescriptor is the 64-byte descriptor from .rodata
-// instructionData is the raw instruction bytes from .text
-func NewHsaCoFromDataV5(kernelDescriptor []byte, instructionData []byte) *HsaCo {
-	o := new(HsaCo)
-	o.HsaCoMeta = parseV5KernelDescriptor(kernelDescriptor)
-	o.Data = instructionData
-	o.Version = CodeObjectV5
-	o.InstructionByteOffset = 0
+// isV2V3Header checks if data looks like a V2/V3 kernel header
+func isV2V3Header(data []byte) bool {
+	if len(data) < 256 {
+		return false
+	}
 
-	return o
+	// V2/V3 header signature:
+	// - CodeVersionMajor (offset 0-3) = 1
+	// - CodeVersionMinor (offset 4-7) = 0, 1, or 2
+	// - MachineKind (offset 8-9) = 1 (AMDGPU)
+	codeVersionMajor := binary.LittleEndian.Uint32(data[0:4])
+	codeVersionMinor := binary.LittleEndian.Uint32(data[4:8])
+	machineKind := binary.LittleEndian.Uint16(data[8:10])
+
+	// Check for valid V2/V3 header values
+	if codeVersionMajor == 1 && codeVersionMinor <= 2 && machineKind == 1 {
+		return true
+	}
+
+	return false
 }
 
 // parseV2V3Header parses the 256-byte V2/V3 kernel header

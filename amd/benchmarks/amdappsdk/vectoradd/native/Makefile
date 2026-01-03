@@ -8,17 +8,12 @@ SRC = vectoradd.cpp
 GPU_OBJ = vectoradd-hip-amdgcn-amd-amdhsa-$(GPU_TARGET).o
 HSACO = vectoradd.hsaco
 DISASM = vectoradd.disasm
-MGPUSIM_DISASM = vectoradd.mgpusim.disasm
-
-# MGPUSim disassembler path (relative to this directory)
-MGPUSIM_ROOT = ../../../../..
-GCN3_DISASM = $(MGPUSIM_ROOT)/amd/insts/gcn3disassembler
 
 # Run hipcc inside Docker container
 # --platform linux/amd64 required for Apple Silicon Macs
 DOCKER_RUN = docker run --rm --platform linux/amd64 -v $(PWD):/work -w /work $(DOCKER_IMAGE)
 
-.PHONY: all clean disasm test-disasm
+.PHONY: all clean clean-all regen-disasm
 
 all: $(HSACO)
 
@@ -28,25 +23,15 @@ $(HSACO): $(SRC)
 	$(DOCKER_RUN) hipcc --save-temps -c --offload-arch=$(GPU_TARGET) $<
 	cp $(GPU_OBJ) $(HSACO)
 
-# Disassemble the HSACO file
-disasm: $(HSACO)
+# Regenerate LLVM disassembly (requires Docker)
+# Use this to update the reference file when HSACO changes
+regen-disasm: $(HSACO)
 	$(DOCKER_RUN) /opt/rocm/llvm/bin/llvm-objdump --disassemble --mcpu=$(GPU_TARGET) $(HSACO) > $(DISASM)
+	@echo "Updated $(DISASM)"
 
 clean:
-	rm -f $(HSACO) $(DISASM) $(MGPUSIM_DISASM) *.ll *.bc *.s *.o *.cui *.fatbin *.hipfb
+	rm -f vectoradd.mgpusim.disasm *.ll *.bc *.s *.o *.cui *.fatbin *.hipfb
+	@echo "Note: $(HSACO) and $(DISASM) are preserved (checked into git)"
 
-# Build the MGPUSim disassembler
-$(GCN3_DISASM)/gcn3disassembler:
-	cd $(GCN3_DISASM) && go build -o gcn3disassembler .
-
-# Disassemble using MGPUSim's disassembler
-$(MGPUSIM_DISASM): $(HSACO) $(GCN3_DISASM)/gcn3disassembler
-	$(GCN3_DISASM)/gcn3disassembler $(HSACO) > $(MGPUSIM_DISASM)
-
-# Compare MGPUSim disassembler output with LLVM disassembler output
-test-disasm: $(DISASM) $(MGPUSIM_DISASM)
-	@echo "=== Comparing disassembler outputs ==="
-	@echo "LLVM output: $(DISASM)"
-	@echo "MGPUSim output: $(MGPUSIM_DISASM)"
-	@echo ""
-	diff -u $(DISASM) $(MGPUSIM_DISASM) || true
+clean-all: clean
+	rm -f $(HSACO) $(DISASM)

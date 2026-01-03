@@ -224,13 +224,6 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Build MGPUSim Disassembler
-        run: go build -o gcn3disassembler .
-        working-directory: amd/insts/gcn3disassembler/
-
       - name: Run Disassembler Test
-        run: |
-          ../../../amd/insts/gcn3disassembler/gcn3disassembler vectoradd.hsaco > vectoradd.mgpusim.disasm
-          echo "=== Comparing disassembler outputs ==="
-          diff -u vectoradd.disasm vectoradd.mgpusim.disasm
+        run: ./test-disasm.sh --check
         working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
