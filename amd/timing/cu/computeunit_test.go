@@ -40,7 +40,6 @@ func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
 
 	grid.CodeObject = insts.NewHsaCo()
-	grid.CodeObject.HsaCoHeader = new(insts.HsaCoHeader)
 
 	packet := new(kernels.HsaKernelDispatchPacket)
 	grid.Packet = packet

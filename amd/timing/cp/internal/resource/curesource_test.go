@@ -107,7 +107,7 @@ var _ = Describe("cuResource", func() {
 		// 240 units occupied, 16 units left -> 4096 Bytes available
 		r.ldsMask.setStatus(0, 240, allocStatusReserved)
 
-		co.WGGroupSegmentByteSize = 8192
+		co.GroupSegmentByteSize = 8192
 
 		_, ok := r.ReserveResourceForWG(wg)
 
@@ -132,7 +132,7 @@ var _ = Describe("cuResource", func() {
 		r.vregMasks[3].setStatus(0, 60, allocStatusReserved)
 
 		co.WFSgprCount = 20
-		co.WGGroupSegmentByteSize = 256
+		co.GroupSegmentByteSize = 256
 		co.WIVgprCount = 20
 
 		_, ok := r.ReserveResourceForWG(wg)
@@ -177,7 +177,7 @@ var _ = Describe("cuResource", func() {
 	It("should reserve resources and send ACK back if all requirement satisfy", func() {
 		co.WIVgprCount = 20
 		co.WFSgprCount = 16
-		co.WGGroupSegmentByteSize = 1024
+		co.GroupSegmentByteSize = 1024
 
 		locations, ok := r.ReserveResourceForWG(wg)
 
@@ -210,7 +210,7 @@ var _ = Describe("cuResource", func() {
 	It("should reserve resources if resources are not aligned with granularity", func() {
 		co.WIVgprCount = 18
 		co.WFSgprCount = 14
-		co.WGGroupSegmentByteSize = 900
+		co.GroupSegmentByteSize = 900
 
 		locations, ok := r.ReserveResourceForWG(wg)
 
@@ -270,7 +270,7 @@ var _ = Describe("cuResource", func() {
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 		co.WIVgprCount = 16
-		co.WGGroupSegmentByteSize = 1024
+		co.GroupSegmentByteSize = 1024
 		co.WFSgprCount = 64
 		wg.CodeObject = co
 

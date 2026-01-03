@@ -58,7 +58,7 @@ func (d *Driver) prepareLocalMemory(
 	reflect.ValueOf(newKernelArgs).Elem().
 		Set(reflect.ValueOf(kernelArgs).Elem())
 
-	ldsSize := co.WGGroupSegmentByteSize
+	ldsSize := co.GroupSegmentByteSize
 
 	if reflect.TypeOf(newKernelArgs).Kind() == reflect.Slice {
 		// From server, do nothing

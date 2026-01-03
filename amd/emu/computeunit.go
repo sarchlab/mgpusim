@@ -189,63 +189,63 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	wf.Exec = wf.InitExecMask
 
 	SGPRPtr := 0
-	if co.EnableSgprPrivateSegmentBuffer() {
+	if co.EnableSgprPrivateSegmentBuffer {
 		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
 		//fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
 		SGPRPtr += 16
 	}
 
-	if co.EnableSgprDispatchPtr() {
+	if co.EnableSgprDispatchPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
 		//fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprQueuePtr() {
+	if co.EnableSgprQueuePtr {
 		log.Printf("EnableSgprQueuePtr is not supported")
 		//fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprKernelArgSegmentPtr() {
+	if co.EnableSgprKernargSegmentPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
 		//fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchID() {
+	if co.EnableSgprDispatchID {
 		log.Printf("EnableSgprDispatchID is not supported")
 		//fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprFlatScratchInit() {
+	if co.EnableSgprFlatScratchInit {
 		log.Printf("EnableSgprFlatScratchInit is not supported")
 		//fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprPrivateSegementSize() {
+	if co.EnableSgprPrivateSegmentSize {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
 		//fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountX() {
+	if co.EnableSgprGridWorkgroupCountX {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeX+uint32(pkt.WorkgroupSizeX)-1)/uint32(pkt.WorkgroupSizeX))
 		//fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountY() {
+	if co.EnableSgprGridWorkgroupCountY {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeY+uint32(pkt.WorkgroupSizeY)-1)/uint32(pkt.WorkgroupSizeY))
 		//fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountZ() {
+	if co.EnableSgprGridWorkgroupCountZ {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeZ+uint32(pkt.WorkgroupSizeZ)-1)/uint32(pkt.WorkgroupSizeZ))
 		//fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
