@@ -104,6 +104,9 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_min_i16", 50, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_ldexp_f16", 51, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 
+	// CDNA3 VOP2 instructions
+	d.addInstType(&InstType{"v_add_u32_e32", 52, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+
 	// VOP1 instructions
 	d.addInstType(&InstType{"v_nop", 0, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_mov_b32_e32", 1, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
@@ -862,6 +865,10 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pkrtz_f16_f32", 662, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_u16_u32", 663, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_i16_i32", 664, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+
+	// CDNA3 VOP3A instructions
+	d.addInstType(&InstType{"v_add3_u32", 511, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_lshl_add_u64", 520, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 64, 0})
 
 	// SOP1 Instructions
 	d.addInstType(&InstType{"s_mov_b32", 0, FormatTable[SOP1], 0, ExeUnitScalar, 32, 32, 0, 0, 0})

@@ -365,6 +365,11 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bits = int(extractBits(bytesHi, 8, 15))
 	inst.Data = NewVRegOperand(bits, bits, 0)
 
+	// Decode SADDR (bits 16:22 of second dword)
+	// 0x7F = OFF (global addressing), otherwise scalar GPR pair
+	saddrBits := int(extractBits(bytesHi, 16, 22))
+	inst.SAddr = NewIntOperand(0, int64(saddrBits))
+
 	switch inst.Opcode {
 	case 21, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
 		inst.Data.RegCount = 2
@@ -766,8 +771,8 @@ func (d *Disassembler) Disassemble(
 	filename string,
 	w io.Writer,
 ) {
-	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
-	fmt.Fprintf(w, "\n\nDisassembly of section .text:\n")
+	fmt.Fprintf(w, "\n%s:\tfile format elf64-amdgpu\n", filename)
+	fmt.Fprintf(w, "\nDisassembly of section .text:\n")
 
 	co := NewHsaCoFromELF(file)
 	if co == nil {
@@ -784,10 +789,16 @@ func (d *Disassembler) Disassemble(
 
 	sec := file.Section(".text")
 	var pc uint64
-	d.tryPrintSymbol(file, sec.Offset, w)
+	printedSymbols := make(map[uint64]bool)
+
+	// Create printer once with ELF file for symbol resolution
+	printer := NewInstPrinter(file)
+
+	// Print symbol at start of section
+	d.tryPrintSymbol(file, pc, printedSymbols, w)
 
 	for len(buf) > 0 {
-		d.tryPrintSymbol(file, sec.Offset+pc, w)
+		d.tryPrintSymbol(file, pc, printedSymbols, w)
 
 		// For V2/V3 format, each kernel has a 256-byte header
 		// For V5 format, there's no header between kernels
@@ -806,7 +817,7 @@ func (d *Disassembler) Disassemble(
 
 		inst.PC = pc
 
-		instStr := inst.String(file)
+		instStr := printer.Print(inst)
 		fmt.Fprintf(w, "\t%s", instStr)
 		for i := len(instStr); i < 59; i++ {
 			fmt.Fprint(w, " ")
@@ -817,6 +828,12 @@ func (d *Disassembler) Disassemble(
 		if inst.ByteSize == 8 {
 			fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
 		}
+
+		// Add branch target annotation if applicable
+		if annotation := printer.BranchTargetAnnotation(inst); annotation != "" {
+			fmt.Fprintf(w, " %s", annotation)
+		}
+
 		fmt.Fprintf(w, "\n")
 		buf = buf[inst.ByteSize:]
 		pc += uint64(inst.ByteSize)
@@ -825,17 +842,21 @@ func (d *Disassembler) Disassemble(
 
 func (d *Disassembler) tryPrintSymbol(
 	file *elf.File,
-	offset uint64,
+	pc uint64,
+	printed map[uint64]bool,
 	w io.Writer,
 ) {
+	if printed[pc] {
+		return
+	}
+
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
-		if symbol.Value == offset {
-			if d.isKernelSymbol(symbol) {
-				fmt.Fprintf(w, "\n%016x %s:\n", offset+0x100, symbol.Name)
-			} else {
-				fmt.Fprintf(w, "\n%016x %s:\n", offset, symbol.Name)
-			}
+		// Only print main kernel symbols (Size > 0, no suffix like .kd)
+		if symbol.Value == pc && symbol.Size > 0 && !strings.HasSuffix(symbol.Name, ".kd") && !strings.HasPrefix(symbol.Name, "__hip_cuid_") {
+			fmt.Fprintf(w, "\n%016x <%s>:\n", pc, symbol.Name)
+			printed[pc] = true
+			return
 		}
 	}
 }

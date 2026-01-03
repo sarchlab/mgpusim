@@ -13,7 +13,7 @@ func TestDisassembler(t *testing.T) {
 	RunSpecs(t, "GCN3 Disassembler")
 }
 
-var _ = Describe("Disassembler", func() {
+var _ = Describe("GCN3 Disassembler", func() {
 
 	var (
 		disassembler *insts.Disassembler
@@ -271,5 +271,65 @@ var _ = Describe("Disassembler", func() {
 		Expect(err).To(BeNil())
 		Expect(inst.String(nil)).
 			To(Equal("ds_read_b128 v[17:20], v1 offset:128"))
+	})
+})
+
+var _ = Describe("CDNA3 Disassembler", func() {
+	var (
+		disassembler *insts.Disassembler
+	)
+
+	BeforeEach(func() {
+		disassembler = insts.NewDisassembler()
+	})
+
+	It("should decode 68020203 as v_add_u32_e32", func() {
+		// v_add_u32_e32 v1, s3, v1
+		buf := []byte{0x03, 0x02, 0x02, 0x68}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_add_u32_e32 v1, s3, v1"))
+	})
+
+	It("should decode D1FF0000 04060002 as v_add3_u32", func() {
+		// v_add3_u32 v0, s2, v0, v1
+		buf := []byte{0x00, 0x00, 0xFF, 0xD1, 0x02, 0x00, 0x06, 0x04}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_add3_u32 v0, s2, v0, v1"))
+	})
+
+	It("should decode D2080002 04010002 as v_lshl_add_u64", func() {
+		// v_lshl_add_u64 v[2:3], s[2:3], 0, v[0:1]
+		buf := []byte{0x02, 0x00, 0x08, 0xD2, 0x02, 0x00, 0x01, 0x04}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_lshl_add_u64 v[2:3], s[2:3], 0, v[0:1]"))
+	})
+
+	It("should decode DC508000 067F0004 as global_load_dword", func() {
+		// global_load_dword v6, v[4:5], off
+		buf := []byte{0x00, 0x80, 0x50, 0xDC, 0x04, 0x00, 0x7F, 0x06}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("global_load_dword v6, v[4:5], off"))
+	})
+
+	It("should decode DC708000 007F0200 as global_store_dword", func() {
+		// global_store_dword v[0:1], v2, off
+		buf := []byte{0x00, 0x80, 0x70, 0xDC, 0x00, 0x02, 0x7F, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("global_store_dword v[0:1], v2, off"))
 	})
 })
