@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/sarchlab/mgpusim/v4/amd/bitops"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
 //nolint:gocyclo,funlen
@@ -71,7 +72,7 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVLSHLREVB16(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format (%s) is not implemented",
-			inst.Opcode, inst.String(nil))
+			inst.Opcode, insts.NewInstPrinter(nil).Print(inst))
 	}
 }
 

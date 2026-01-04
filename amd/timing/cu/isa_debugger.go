@@ -95,7 +95,7 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf("{")
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
-	output += fmt.Sprintf(`"Inst":"%s",`, inst.String(nil))
+	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(inst))
 	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC&0xffffffff)
 	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC>>32)
 	output += fmt.Sprintf(`"EXECLo":%d,`, wf.EXEC&0xffffffff)

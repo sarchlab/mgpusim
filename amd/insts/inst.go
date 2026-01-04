@@ -1,9 +1,5 @@
 package insts
 
-import (
-	"debug/elf"
-)
-
 // ExeUnit defines which execution unit should execute the instruction
 type ExeUnit int
 
@@ -92,9 +88,3 @@ func NewInst() *Inst {
 	return i
 }
 
-// String returns the disassembly of an instruction.
-// This is a convenience wrapper that uses InstPrinter.
-func (i Inst) String(file *elf.File) string {
-	printer := NewInstPrinter(file)
-	return printer.Print(&i)
-}
