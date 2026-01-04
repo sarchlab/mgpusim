@@ -774,20 +774,25 @@ func (d *Disassembler) Disassemble(
 	fmt.Fprintf(w, "\n%s:\tfile format elf64-amdgpu\n", filename)
 	fmt.Fprintf(w, "\nDisassembly of section .text:\n")
 
-	co := LoadKernelCodeObjectFromELF(file, "")
-	if co == nil {
-		fmt.Fprintf(w, "Error: could not parse ELF file\n")
+	sec := file.Section(".text")
+	if sec == nil {
+		fmt.Fprintf(w, "Error: .text section not found\n")
 		return
 	}
 
-	buf := co.Data
-	// V2/V3: each kernel has 256-byte header, V5: no headers
-	var kernelHeaderSize uint64
-	if co.Version == CodeObjectV3 {
-		kernelHeaderSize = 256
+	// Read entire .text section for disassembly (unlike kernel loading which
+	// extracts specific kernels, disassembly shows everything including padding)
+	buf, err := sec.Data()
+	if err != nil {
+		fmt.Fprintf(w, "Error: could not read .text section: %v\n", err)
+		return
 	}
 
-	sec := file.Section(".text")
+	// Detect code object version for header handling
+	var kernelHeaderSize uint64
+	if len(buf) >= 256 && isV2V3Header(buf) {
+		kernelHeaderSize = 256
+	}
 	var pc uint64
 	printedSymbols := make(map[uint64]bool)
 

@@ -179,7 +179,8 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 	for _, symbol := range kernelSymbols {
 		if symbol.Name == kernelName {
 			// Extract kernel data using symbol offset and size
-			offset := symbol.Value - textSection.Offset
+			// symbol.Value is the virtual address; textSection.Addr is the section's virtual address
+			offset := symbol.Value - textSection.Addr
 			kernelData := textSectionData[offset : offset+symbol.Size]
 			co := newKernelCodeObjectFromEntireTextSection(kernelData)
 			symbolCopy := symbol
