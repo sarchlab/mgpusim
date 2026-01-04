@@ -11,7 +11,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // KernelArgs defines kernel arguments
@@ -36,7 +36,7 @@ type Benchmark struct {
 	gpus             []int
 	queues           []*driver.CommandQueue
 	useUnifiedMemory bool
-	nbodyKernel      *insts.HsaCo
+	nbodyKernel      *insts.KernelCodeObject
 	NumParticles     int32
 	delT             float32   // dT (timestep)
 	espSqr           float32   // Softening Factor
@@ -95,7 +95,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.nbodyKernel = kernels.LoadProgramFromMemory(hsacoBytes, "nbody_sim")
+	b.nbodyKernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

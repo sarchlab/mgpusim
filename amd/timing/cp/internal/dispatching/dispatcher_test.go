@@ -51,7 +51,7 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should start dispatching a new kernel", func() {
-		hsaco := insts.NewHsaCo()
+		hsaco := insts.NewKernelCodeObject()
 		packet := &kernels.HsaKernelDispatchPacket{}
 		packetAddr := uint64(0x40)
 
@@ -59,7 +59,7 @@ var _ = Describe("Dispatcher", func() {
 		nilPort.EXPECT().AsRemote().AnyTimes()
 
 		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
-		req.HsaCo = hsaco
+		req.CodeObject = hsaco
 		req.Packet = packet
 		req.PacketAddress = packetAddr
 

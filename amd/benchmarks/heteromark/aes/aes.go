@@ -11,7 +11,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 var expandedKey = []uint32{
@@ -79,7 +79,7 @@ type KernelArgs struct {
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
-	hsaco   *insts.HsaCo
+	hsaco   *insts.KernelCodeObject
 	gpus    []int
 
 	Length       int
@@ -119,7 +119,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "Encrypt")
+	b.hsaco = insts.LoadKernelObjectFromBytes(hsacoBytes, "Encrypt")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}

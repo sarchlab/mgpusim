@@ -24,7 +24,7 @@ var _ = Describe("cuResource", func() {
 	var (
 		r  *CUResourceImpl
 		wg *kernels.WorkGroup
-		co *insts.HsaCo
+		co *insts.KernelCodeObject
 	)
 
 	BeforeEach(func() {
@@ -53,7 +53,7 @@ var _ = Describe("cuResource", func() {
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 
-		co = insts.NewHsaCo()
+		co = insts.NewKernelCodeObject()
 		wg.CodeObject = co
 	})
 

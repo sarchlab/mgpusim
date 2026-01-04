@@ -343,7 +343,7 @@ func (d *Driver) processLaunchKernelCommand(
 	req := protocol.NewLaunchKernelReq(d.gpuPort,
 		d.GPUs[queue.GPUID-1])
 	req.PID = queue.Context.pid
-	req.HsaCo = cmd.CodeObject
+	req.CodeObject = cmd.CodeObject
 
 	req.Packet = cmd.Packet
 	req.PacketAddress = uint64(cmd.DPacket)
@@ -375,7 +375,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 
 		req := protocol.NewLaunchKernelReq(d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
-		req.HsaCo = cmd.CodeObject
+		req.CodeObject = cmd.CodeObject
 		req.Packet = cmd.PacketArray[i]
 		req.PacketAddress = uint64(cmd.DPacketArray[i])
 

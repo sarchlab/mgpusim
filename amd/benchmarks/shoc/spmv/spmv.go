@@ -13,7 +13,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // KernelArgs sets up kernel arguments
@@ -39,7 +39,7 @@ type Benchmark struct {
 	gpus             []int
 	queues           []*driver.CommandQueue
 	useUnifiedMemory bool
-	spmvKernel       *insts.HsaCo
+	spmvKernel       *insts.KernelCodeObject
 
 	Dim       int32
 	Sparsity  float64
@@ -79,7 +79,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.spmvKernel = kernels.LoadProgramFromMemory(
+	b.spmvKernel = insts.LoadKernelObjectFromBytes(
 		hsacoBytes, "spmv_csr_scalar_kernel")
 	if b.spmvKernel == nil {
 		log.Panic("Failed to load kernel binary")

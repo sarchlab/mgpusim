@@ -10,7 +10,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // CopyRectKernelArgs defines kernel arguments
@@ -50,8 +50,8 @@ type Benchmark struct {
 	gpus    []int
 	queues  []*driver.CommandQueue
 
-	copyRectKernel *insts.HsaCo
-	stencilKernel  *insts.HsaCo
+	copyRectKernel *insts.KernelCodeObject
+	stencilKernel  *insts.KernelCodeObject
 
 	wCenter, wCardinal, wDiagonal float32
 	hInput, hOutput               []float32
@@ -99,13 +99,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.copyRectKernel = kernels.LoadProgramFromMemory(
+	b.copyRectKernel = insts.LoadKernelObjectFromBytes(
 		hsacoBytes, "CopyRect")
 	if b.copyRectKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
-	b.stencilKernel = kernels.LoadProgramFromMemory(
+	b.stencilKernel = insts.LoadKernelObjectFromBytes(
 		hsacoBytes, "StencilKernel")
 	if b.stencilKernel == nil {
 		log.Panic("Failed to load kernel binary")

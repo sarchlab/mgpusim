@@ -1,9 +1,11 @@
 package insts
 
 import (
+	"bytes"
 	"debug/elf"
 	"encoding/binary"
 	"fmt"
+	"log"
 )
 
 // CodeObjectVersion represents the AMDGPU code object version
@@ -18,17 +20,17 @@ const (
 	CodeObjectV5 CodeObjectVersion = 5
 )
 
-// An HsaCo is the kernel code to be executed on an AMD GPU
-type HsaCo struct {
-	*HsaCoMeta
+// An KernelCodeObject is the kernel code to be executed on an AMD GPU
+type KernelCodeObject struct {
+	*KernelCodeObjectMeta
 	Symbol  *elf.Symbol
 	Data    []byte // Instruction data only (no header)
 	Version CodeObjectVersion
 }
 
-// HsaCoMeta contains the metadata of an HSACO kernel
+// KernelCodeObjectMeta contains the metadata of an HSACO kernel
 // This struct is populated from either V2/V3 header or V5 kernel descriptor
-type HsaCoMeta struct {
+type KernelCodeObjectMeta struct {
 	// Common fields across versions
 	ComputePgmRsrc1        uint32
 	ComputePgmRsrc2        uint32
@@ -65,19 +67,41 @@ type HsaCoMeta struct {
 	WIVgprCount              uint16
 }
 
-// NewHsaCo creates a zero-filled HsaCo object
-func NewHsaCo() *HsaCo {
-	co := new(HsaCo)
-	co.HsaCoMeta = new(HsaCoMeta)
+// NewKernelCodeObject creates a zero-filled KernelCodeObject object
+func NewKernelCodeObject() *KernelCodeObject {
+	co := new(KernelCodeObject)
+	co.KernelCodeObjectMeta = new(KernelCodeObjectMeta)
 	return co
 }
 
-// NewHsaCoFromELF creates an HsaCo from an ELF file
-// It auto-detects the code object version and extracts metadata and instructions
-// from the appropriate sections
-func NewHsaCoFromELF(elfFile *elf.File) *HsaCo {
-	o := new(HsaCo)
+// newKernelCodeObjectFromData creates a KernelCodeObject from raw kernel data.
+// The data should start with the 256-byte V2/V3 header followed by instructions.
+// This is an internal helper used by the load functions.
+func newKernelCodeObjectFromData(data []byte) *KernelCodeObject {
+	o := new(KernelCodeObject)
 
+	if len(data) >= 256 && isV2V3Header(data) {
+		// V2/V3 format: 256-byte header followed by instructions
+		o.KernelCodeObjectMeta = parseV2V3Header(data)
+		o.Data = data[256:] // Instructions start after 256-byte header
+		// Since we strip the 256-byte header from Data, the entry offset is now 0
+		o.KernelCodeObjectMeta.KernelCodeEntryByteOffset = 0
+		o.Version = CodeObjectV3
+	} else {
+		// Fallback: treat entire data as instructions
+		o.Data = data
+		o.KernelCodeObjectMeta = new(KernelCodeObjectMeta)
+		o.Version = CodeObjectV5
+	}
+
+	return o
+}
+
+// NewKernelCodeObjectFromELF creates a KernelCodeObject from an ELF file.
+// It auto-detects the code object version and extracts metadata and instructions.
+// Note: This loads the entire .text section. For multi-kernel ELFs, use
+// insts.LoadKernelObject or insts.LoadKernelObjectFromBytes instead.
+func NewKernelCodeObjectFromELF(elfFile *elf.File) *KernelCodeObject {
 	textSec := elfFile.Section(".text")
 	if textSec == nil {
 		return nil
@@ -88,32 +112,103 @@ func NewHsaCoFromELF(elfFile *elf.File) *HsaCo {
 		return nil
 	}
 
-	// Detect version by checking if .text starts with V2/V3 header
-	if len(textData) >= 256 && isV2V3Header(textData) {
-		// V2/V3 format: 256-byte header followed by instructions in .text
-		o.HsaCoMeta = parseV2V3Header(textData)
-		o.Data = textData[256:] // Instructions start after 256-byte header
-		o.Version = CodeObjectV3
-	} else {
-		// V5 format: metadata in .rodata, instructions in .text
-		o.Data = textData
-		o.Version = CodeObjectV5
+	return newKernelCodeObjectFromData(textData)
+}
 
-		// Try to parse kernel descriptor from .rodata
-		rodataSec := elfFile.Section(".rodata")
-		if rodataSec != nil {
-			rodataData, err := rodataSec.Data()
-			if err == nil && len(rodataData) >= 64 {
-				o.HsaCoMeta = parseV5KernelDescriptor(rodataData)
-			} else {
-				o.HsaCoMeta = new(HsaCoMeta)
-			}
-		} else {
-			o.HsaCoMeta = new(HsaCoMeta)
+// LoadKernelObject loads a kernel from an HSACO file by path.
+// If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
+func LoadKernelObject(filePath, kernelName string) *KernelCodeObject {
+	executable, err := elf.Open(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer executable.Close()
+
+	return loadKernelObjectFromELF(executable, kernelName)
+}
+
+// LoadKernelObjectFromBytes loads a kernel from embedded HSACO bytes.
+// If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
+func LoadKernelObjectFromBytes(data []byte, kernelName string) *KernelCodeObject {
+	reader := bytes.NewReader(data)
+	executable, err := elf.NewFile(reader)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return loadKernelObjectFromELF(executable, kernelName)
+}
+
+// loadKernelObjectFromELF extracts a kernel from an ELF file.
+// If kernelName is empty:
+//   - For single-kernel ELFs: uses the only kernel
+//   - For multi-kernel ELFs: panics with helpful message listing available kernels
+func loadKernelObjectFromELF(executable *elf.File, kernelName string) *KernelCodeObject {
+	textSection := executable.Section(".text")
+	if textSection == nil {
+		log.Fatal(".text section not found in ELF file")
+	}
+
+	textSectionData, err := textSection.Data()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Get symbols to find kernels
+	symbols, err := executable.Symbols()
+	if err != nil {
+		// No symbol table - treat entire .text as single kernel
+		return newKernelCodeObjectFromData(textSectionData)
+	}
+
+	// Find kernel symbols (functions in .text section)
+	var kernelSymbols []elf.Symbol
+	for _, sym := range symbols {
+		if sym.Section == elf.SHN_UNDEF {
+			continue
+		}
+		if int(sym.Section) >= len(executable.Sections) {
+			continue
+		}
+		sec := executable.Sections[sym.Section]
+		if sec.Name == ".text" && sym.Size > 0 {
+			kernelSymbols = append(kernelSymbols, sym)
 		}
 	}
 
-	return o
+	// If no kernel name specified, handle auto-detect
+	if kernelName == "" {
+		if len(kernelSymbols) == 0 {
+			// No symbols found - use entire .text section
+			return newKernelCodeObjectFromData(textSectionData)
+		} else if len(kernelSymbols) == 1 {
+			// Single kernel - use it
+			kernelName = kernelSymbols[0].Name
+		} else {
+			// Multiple kernels - error with helpful message
+			names := make([]string, len(kernelSymbols))
+			for i, sym := range kernelSymbols {
+				names[i] = sym.Name
+			}
+			log.Fatalf("multiple kernels found in ELF file, specify kernel name. Available: %v", names)
+		}
+	}
+
+	// Find the specified kernel
+	for _, symbol := range kernelSymbols {
+		if symbol.Name == kernelName {
+			// Extract kernel data using symbol offset and size
+			offset := symbol.Value - textSection.Offset
+			kernelData := textSectionData[offset : offset+symbol.Size]
+			co := newKernelCodeObjectFromData(kernelData)
+			symbolCopy := symbol
+			co.Symbol = &symbolCopy
+			return co
+		}
+	}
+
+	log.Fatalf("kernel '%s' not found in ELF file", kernelName)
+	return nil
 }
 
 // isV2V3Header checks if data looks like a V2/V3 kernel header
@@ -139,8 +234,8 @@ func isV2V3Header(data []byte) bool {
 }
 
 // parseV2V3Header parses the 256-byte V2/V3 kernel header
-func parseV2V3Header(data []byte) *HsaCoMeta {
-	meta := new(HsaCoMeta)
+func parseV2V3Header(data []byte) *KernelCodeObjectMeta {
+	meta := new(KernelCodeObjectMeta)
 
 	// Parse fields from 256-byte header using little-endian
 	meta.CodeVersionMajor = binary.LittleEndian.Uint32(data[0:4])
@@ -180,8 +275,8 @@ func parseV2V3Header(data []byte) *HsaCoMeta {
 }
 
 // parseV5KernelDescriptor parses the 64-byte V5 kernel descriptor
-func parseV5KernelDescriptor(data []byte) *HsaCoMeta {
-	meta := new(HsaCoMeta)
+func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
+	meta := new(KernelCodeObjectMeta)
 
 	// V5 Kernel Descriptor layout (64 bytes):
 	// 0:4   - group_segment_fixed_size
@@ -220,128 +315,128 @@ func parseV5KernelDescriptor(data []byte) *HsaCoMeta {
 	return meta
 }
 
-// InstructionData returns the instruction binaries in the HsaCo
-func (o *HsaCo) InstructionData() []byte {
+// InstructionData returns the instruction binaries in the KernelCodeObject
+func (o *KernelCodeObject) InstructionData() []byte {
 	return o.Data
 }
 
-// HsaCoHeader is an alias for HsaCoMeta for backward compatibility
-// Deprecated: Use HsaCoMeta instead
-type HsaCoHeader = HsaCoMeta
+// KernelCodeObjectHeader is an alias for KernelCodeObjectMeta for backward compatibility
+// Deprecated: Use KernelCodeObjectMeta instead
+type KernelCodeObjectHeader = KernelCodeObjectMeta
 
 // WorkItemVgprCount returns the number of VGPRs used by each work-item
-func (h *HsaCoHeader) WorkItemVgprCount() uint32 {
+func (h *KernelCodeObjectHeader) WorkItemVgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 0, 5)
 }
 
 // WavefrontSgprCount returns the number of SGPRs used by each wavefront
-func (h *HsaCoHeader) WavefrontSgprCount() uint32 {
+func (h *KernelCodeObjectHeader) WavefrontSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 6, 9)
 }
 
 // Priority returns the priority of the kernel
-func (h *HsaCoHeader) Priority() uint32 {
+func (h *KernelCodeObjectHeader) Priority() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 10, 11)
 }
 
 // EnableSgprPrivateSegmentWaveByteOffset enable wavebyteoffset
-func (h *HsaCoHeader) EnableSgprPrivateSegmentWaveByteOffset() bool {
+func (h *KernelCodeObjectHeader) EnableSgprPrivateSegmentWaveByteOffset() bool {
 	return extractBits(h.ComputePgmRsrc2, 0, 0) != 0
 }
 
 // UserSgprCount returns user sgpr
-func (h *HsaCoHeader) UserSgprCount() uint32 {
+func (h *KernelCodeObjectHeader) UserSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 1, 5)
 }
 
 // EnableSgprWorkGroupIDX enable idx
-func (h *HsaCoHeader) EnableSgprWorkGroupIDX() bool {
+func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDX() bool {
 	return extractBits(h.ComputePgmRsrc2, 7, 7) != 0
 }
 
 // EnableSgprWorkGroupIDY enable idy
-func (h *HsaCoHeader) EnableSgprWorkGroupIDY() bool {
+func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDY() bool {
 	return extractBits(h.ComputePgmRsrc2, 8, 8) != 0
 }
 
 // EnableSgprWorkGroupIDZ enable idz
-func (h *HsaCoHeader) EnableSgprWorkGroupIDZ() bool {
+func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDZ() bool {
 	return extractBits(h.ComputePgmRsrc2, 9, 9) != 0
 }
 
 // EnableSgprWorkGroupInfo enable wg info
-func (h *HsaCoHeader) EnableSgprWorkGroupInfo() bool {
+func (h *KernelCodeObjectHeader) EnableSgprWorkGroupInfo() bool {
 	return extractBits(h.ComputePgmRsrc2, 10, 10) != 0
 }
 
 // EnableVgprWorkItemID checks if the setup of the work-item is enabled
-func (h *HsaCoHeader) EnableVgprWorkItemID() uint32 {
+func (h *KernelCodeObjectHeader) EnableVgprWorkItemID() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 11, 12)
 }
 
 // EnableExceptionAddressWatch enable exception address watch
-func (h *HsaCoHeader) EnableExceptionAddressWatch() bool {
+func (h *KernelCodeObjectHeader) EnableExceptionAddressWatch() bool {
 	return extractBits(h.ComputePgmRsrc2, 13, 13) != 0
 }
 
 // EnableExceptionMemoryViolation enable exception memory violation
-func (h *HsaCoHeader) EnableExceptionMemoryViolation() bool {
+func (h *KernelCodeObjectHeader) EnableExceptionMemoryViolation() bool {
 	return extractBits(h.ComputePgmRsrc2, 14, 14) != 0
 }
 
 // GetEnableSgprPrivateSegmentBuffer returns if the private segment buffer
 // information needs to be written into the SGPR
-func (h *HsaCoMeta) GetEnableSgprPrivateSegmentBuffer() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprPrivateSegmentBuffer() bool {
 	return h.EnableSgprPrivateSegmentBuffer
 }
 
 // GetEnableSgprDispatchPtr returns if dispatch ptr is enabled
-func (h *HsaCoMeta) GetEnableSgprDispatchPtr() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprDispatchPtr() bool {
 	return h.EnableSgprDispatchPtr
 }
 
 // GetEnableSgprQueuePtr returns if queue ptr is enabled
-func (h *HsaCoMeta) GetEnableSgprQueuePtr() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprQueuePtr() bool {
 	return h.EnableSgprQueuePtr
 }
 
 // GetEnableSgprKernargSegmentPtr returns if kernarg segment ptr is enabled
-func (h *HsaCoMeta) GetEnableSgprKernargSegmentPtr() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprKernargSegmentPtr() bool {
 	return h.EnableSgprKernargSegmentPtr
 }
 
 // GetEnableSgprDispatchID returns if dispatch ID is enabled
-func (h *HsaCoMeta) GetEnableSgprDispatchID() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprDispatchID() bool {
 	return h.EnableSgprDispatchID
 }
 
 // GetEnableSgprFlatScratchInit returns if flat scratch init is enabled
-func (h *HsaCoMeta) GetEnableSgprFlatScratchInit() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprFlatScratchInit() bool {
 	return h.EnableSgprFlatScratchInit
 }
 
 // GetEnableSgprPrivateSegmentSize returns if private segment size is enabled
-func (h *HsaCoMeta) GetEnableSgprPrivateSegmentSize() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprPrivateSegmentSize() bool {
 	return h.EnableSgprPrivateSegmentSize
 }
 
 // GetEnableSgprGridWorkgroupCountX returns if grid workgroup count X is enabled
-func (h *HsaCoMeta) GetEnableSgprGridWorkgroupCountX() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprGridWorkgroupCountX() bool {
 	return h.EnableSgprGridWorkgroupCountX
 }
 
 // GetEnableSgprGridWorkgroupCountY returns if grid workgroup count Y is enabled
-func (h *HsaCoMeta) GetEnableSgprGridWorkgroupCountY() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprGridWorkgroupCountY() bool {
 	return h.EnableSgprGridWorkgroupCountY
 }
 
 // GetEnableSgprGridWorkgroupCountZ returns if grid workgroup count Z is enabled
-func (h *HsaCoMeta) GetEnableSgprGridWorkgroupCountZ() bool {
+func (h *KernelCodeObjectMeta) GetEnableSgprGridWorkgroupCountZ() bool {
 	return h.EnableSgprGridWorkgroupCountZ
 }
 
-// Info prints the human readable information that is carried by the HsaCoMeta
-func (h *HsaCoMeta) Info() string {
+// Info prints the human readable information that is carried by the KernelCodeObjectMeta
+func (h *KernelCodeObjectMeta) Info() string {
 	s := "HSA Code Object:\n"
 	s += fmt.Sprintf("\tVersion: %d.%d\n", h.CodeVersionMajor, h.CodeVersionMinor)
 	s += fmt.Sprintf("\tMachine: %d.%d.%d\n", h.MachineVersionMajor, h.MachineVersionMinor, h.MachineVersionStepping)

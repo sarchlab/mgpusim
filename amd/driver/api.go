@@ -11,7 +11,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
 var nextPID uint64
@@ -256,7 +256,7 @@ func (d *Driver) EnqueueMemCopyD2D(
 	src Ptr,
 	num int,
 ) {
-	co := kernels.LoadProgramFromMemory(
+	co := insts.LoadKernelObjectFromBytes(
 		kernelBytes, "copyKernel")
 	if co == nil {
 		panic("fail to load copyKernel kernel")

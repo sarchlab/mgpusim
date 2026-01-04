@@ -13,7 +13,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // SwapArgs defines arguments
@@ -50,8 +50,8 @@ type Benchmark struct {
 	gpus    []int
 	queues  []*driver.CommandQueue
 
-	computeKernel *insts.HsaCo
-	swapKernel    *insts.HsaCo
+	computeKernel *insts.KernelCodeObject
+	swapKernel    *insts.KernelCodeObject
 
 	NumClusters   int
 	NumPoints     int
@@ -86,9 +86,9 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadKernels() {
-	b.computeKernel = kernels.LoadProgramFromMemory(
+	b.computeKernel = insts.LoadKernelObjectFromBytes(
 		hsacoBytes, "kmeans_kernel_compute")
-	b.swapKernel = kernels.LoadProgramFromMemory(
+	b.swapKernel = insts.LoadKernelObjectFromBytes(
 		hsacoBytes, "kmeans_kernel_swap")
 }
 

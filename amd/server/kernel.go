@@ -47,7 +47,7 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	hsaCo := insts.NewHsaCoFromELF(elfFile)
+	hsaCo := insts.NewKernelCodeObjectFromELF(elfFile)
 
 	rawArgs, err := base64.StdEncoding.DecodeString(dataJSON.Args)
 	if err != nil {

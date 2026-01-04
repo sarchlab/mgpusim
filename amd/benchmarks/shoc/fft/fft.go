@@ -10,7 +10,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // Float2 is two floats
@@ -35,7 +35,7 @@ type Benchmark struct {
 	gpus             []int
 	queues           []*driver.CommandQueue
 	useUnifiedMemory bool
-	fftKernel        *insts.HsaCo
+	fftKernel        *insts.KernelCodeObject
 
 	Bytes      int32
 	Passes     int32
@@ -71,7 +71,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.fftKernel = kernels.LoadProgramFromMemory(hsacoBytes, "fft1D_512")
+	b.fftKernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "fft1D_512")
 	if b.fftKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

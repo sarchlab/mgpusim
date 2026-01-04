@@ -66,7 +66,7 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 	d.mustNotBeDispatchingAnotherKernel()
 
 	d.alg.StartNewKernel(kernels.KernelLaunchInfo{
-		CodeObject: req.HsaCo,
+		CodeObject: req.CodeObject,
 		Packet:     req.Packet,
 		PacketAddr: req.PacketAddress,
 		WGFilter:   req.WGFilter,

@@ -7,7 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
 )
 
@@ -23,7 +23,7 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 
-	hsaco *insts.HsaCo
+	hsaco *insts.KernelCodeObject
 
 	useUnifiedMemory bool
 }
@@ -50,7 +50,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = kernels.LoadProgram("kernels.hsaco", "")
+	b.hsaco = insts.LoadKernelObject("kernels.hsaco", "")
 }
 
 func (b *Benchmark) initMem() {
