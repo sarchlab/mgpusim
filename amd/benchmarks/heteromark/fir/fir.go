@@ -57,7 +57,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.context = b.driver.Init()
 	b.queue = driver.CreateCommandQueue(b.context)
 
-	b.hsaco = insts.LoadKernelObjectFromBytes(hsacoBytes, "FIR")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "FIR")
 
 	return b
 }

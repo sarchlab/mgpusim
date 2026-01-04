@@ -99,13 +99,13 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel1 = insts.LoadKernelObjectFromBytes(
+	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "nw_kernel1")
 	if b.kernel1 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
-	b.kernel2 = insts.LoadKernelObjectFromBytes(
+	b.kernel2 = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "nw_kernel2")
 	if b.kernel2 == nil {
 		log.Panic("Failed to load kernel binary")

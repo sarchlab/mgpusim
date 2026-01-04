@@ -48,7 +48,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 	b.driver = driver
 	b.context = driver.Init()
-	b.hsaco = insts.LoadKernelObjectFromBytes(hsacoBytes, "ReLUForward")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "ReLUForward")
 
 	return b
 }

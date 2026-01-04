@@ -310,7 +310,7 @@ var _ = Describe("Scheduler", func() {
 		It("should be marked completed if other wfs are still "+
 			"running", func() {
 			wg := new(wavefront.WorkGroup)
-			co := insts.NewKernelCodeObject()
+			co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 			for i := 0; i < 3; i++ {
 				wf := wavefront.NewWavefront(kernels.NewWavefront())
 				wf.CodeObject = co
@@ -349,7 +349,7 @@ var _ = Describe("Scheduler", func() {
 		Context("all other wavefronts are at barrier", func() {
 			It("should pass barrier", func() {
 				wg := new(wavefront.WorkGroup)
-				co := insts.NewKernelCodeObject()
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -393,7 +393,7 @@ var _ = Describe("Scheduler", func() {
 				wg := new(wavefront.WorkGroup)
 				mapReq := protocol.MapWGReqBuilder{}.Build()
 				wg.MapReq = mapReq
-				co := insts.NewKernelCodeObject()
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -428,7 +428,7 @@ var _ = Describe("Scheduler", func() {
 				wg := new(wavefront.WorkGroup)
 				mapReq := protocol.MapWGReqBuilder{}.Build()
 				wg.MapReq = mapReq
-				co := insts.NewKernelCodeObject()
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co

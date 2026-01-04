@@ -80,7 +80,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = insts.LoadKernelObjectFromBytes(
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "BFS_kernel_warp")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")

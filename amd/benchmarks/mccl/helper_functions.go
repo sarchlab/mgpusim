@@ -26,7 +26,7 @@ func init() {
 }
 
 func loadKernel(fileContent []byte, kernelName string) *insts.KernelCodeObject {
-	co := insts.LoadKernelObjectFromBytes(fileContent, kernelName)
+	co := insts.LoadKernelCodeObjectFromBytes(fileContent, kernelName)
 	if co == nil {
 		panic("fail to load pushData kernel")
 	}

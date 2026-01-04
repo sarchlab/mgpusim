@@ -99,13 +99,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.copyRectKernel = insts.LoadKernelObjectFromBytes(
+	b.copyRectKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "CopyRect")
 	if b.copyRectKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
-	b.stencilKernel = insts.LoadKernelObjectFromBytes(
+	b.stencilKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "StencilKernel")
 	if b.stencilKernel == nil {
 		log.Panic("Failed to load kernel binary")

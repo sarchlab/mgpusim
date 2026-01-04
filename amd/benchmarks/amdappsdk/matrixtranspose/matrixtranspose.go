@@ -74,7 +74,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "matrixTranspose")
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "matrixTranspose")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

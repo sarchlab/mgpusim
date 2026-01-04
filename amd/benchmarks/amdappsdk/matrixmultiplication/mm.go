@@ -145,7 +145,7 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 var hsacoBytes []byte
 
 func (m *GPUMatrixMultiplier) loadKernel() {
-	m.kernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "mmmKernel_local")
+	m.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "mmmKernel_local")
 	if m.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

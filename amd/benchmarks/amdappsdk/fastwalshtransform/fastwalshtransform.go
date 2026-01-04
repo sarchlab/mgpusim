@@ -55,7 +55,7 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "fastWalshTransform")
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "fastWalshTransform")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

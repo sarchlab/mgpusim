@@ -51,7 +51,7 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should start dispatching a new kernel", func() {
-		hsaco := insts.NewKernelCodeObject()
+		hsaco := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 		packet := &kernels.HsaKernelDispatchPacket{}
 		packetAddr := uint64(0x40)
 

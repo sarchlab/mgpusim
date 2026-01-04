@@ -180,7 +180,7 @@ func (o *GPUOperator) loadKernels() {
 }
 
 func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string) {
-	*hsaco = insts.LoadKernelObjectFromBytes(kernelBytes, name)
+	*hsaco = insts.LoadKernelCodeObjectFromBytes(kernelBytes, name)
 	if *hsaco == nil {
 		panic("Failed to load " + name + "kernel")
 	}

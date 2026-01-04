@@ -79,7 +79,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "PageRankUpdateGpu")
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

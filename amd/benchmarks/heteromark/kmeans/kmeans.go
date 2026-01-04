@@ -86,9 +86,9 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadKernels() {
-	b.computeKernel = insts.LoadKernelObjectFromBytes(
+	b.computeKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "kmeans_kernel_compute")
-	b.swapKernel = insts.LoadKernelObjectFromBytes(
+	b.swapKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "kmeans_kernel_swap")
 }
 

@@ -256,7 +256,7 @@ func (d *Driver) EnqueueMemCopyD2D(
 	src Ptr,
 	num int,
 ) {
-	co := insts.LoadKernelObjectFromBytes(
+	co := insts.LoadKernelCodeObjectFromBytes(
 		kernelBytes, "copyKernel")
 	if co == nil {
 		panic("fail to load copyKernel kernel")

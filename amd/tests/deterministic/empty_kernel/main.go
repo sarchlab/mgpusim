@@ -50,7 +50,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelObject("kernels.hsaco", "")
+	b.hsaco = insts.LoadKernelCodeObjectFromFS("kernels.hsaco", "")
 }
 
 func (b *Benchmark) initMem() {

@@ -63,7 +63,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelObjectFromBytes(hsacoBytes, "BitonicSort")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "BitonicSort")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}

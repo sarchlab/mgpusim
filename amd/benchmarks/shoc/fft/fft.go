@@ -71,7 +71,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.fftKernel = insts.LoadKernelObjectFromBytes(hsacoBytes, "fft1D_512")
+	b.fftKernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "fft1D_512")
 	if b.fftKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

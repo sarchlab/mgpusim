@@ -79,7 +79,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.spmvKernel = insts.LoadKernelObjectFromBytes(
+	b.spmvKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "spmv_csr_scalar_kernel")
 	if b.spmvKernel == nil {
 		log.Panic("Failed to load kernel binary")

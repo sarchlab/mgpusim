@@ -45,7 +45,7 @@ var _ = Describe("WfDispatcher", func() {
 			LDSOffset:  512,
 		}
 
-		co := insts.NewKernelCodeObject()
+		co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 		co.KernelCodeEntryByteOffset = 256
 		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.KernelObject = 65536

@@ -67,17 +67,10 @@ type KernelCodeObjectMeta struct {
 	WIVgprCount              uint16
 }
 
-// NewKernelCodeObject creates a zero-filled KernelCodeObject object
-func NewKernelCodeObject() *KernelCodeObject {
-	co := new(KernelCodeObject)
-	co.KernelCodeObjectMeta = new(KernelCodeObjectMeta)
-	return co
-}
-
-// newKernelCodeObjectFromData creates a KernelCodeObject from raw kernel data.
+// newKernelCodeObjectFromEntireTextSection creates a KernelCodeObject from raw kernel data.
 // The data should start with the 256-byte V2/V3 header followed by instructions.
 // This is an internal helper used by the load functions.
-func newKernelCodeObjectFromData(data []byte) *KernelCodeObject {
+func newKernelCodeObjectFromEntireTextSection(data []byte) *KernelCodeObject {
 	o := new(KernelCodeObject)
 
 	if len(data) >= 256 && isV2V3Header(data) {
@@ -97,53 +90,41 @@ func newKernelCodeObjectFromData(data []byte) *KernelCodeObject {
 	return o
 }
 
-// NewKernelCodeObjectFromELF creates a KernelCodeObject from an ELF file.
-// It auto-detects the code object version and extracts metadata and instructions.
-// Note: This loads the entire .text section. For multi-kernel ELFs, use
-// insts.LoadKernelObject or insts.LoadKernelObjectFromBytes instead.
-func NewKernelCodeObjectFromELF(elfFile *elf.File) *KernelCodeObject {
-	textSec := elfFile.Section(".text")
-	if textSec == nil {
-		return nil
-	}
-
-	textData, err := textSec.Data()
-	if err != nil {
-		return nil
-	}
-
-	return newKernelCodeObjectFromData(textData)
-}
-
-// LoadKernelObject loads a kernel from an HSACO file by path.
+// LoadKernelCodeObjectFromFS loads a kernel from an HSACO file by path.
 // If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
-func LoadKernelObject(filePath, kernelName string) *KernelCodeObject {
+func LoadKernelCodeObjectFromFS(filePath, kernelName string) *KernelCodeObject {
 	executable, err := elf.Open(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer executable.Close()
 
-	return loadKernelObjectFromELF(executable, kernelName)
+	return loadKernelCodeObjectFromELF(executable, kernelName)
 }
 
-// LoadKernelObjectFromBytes loads a kernel from embedded HSACO bytes.
+// LoadKernelCodeObjectFromBytes loads a kernel from embedded HSACO bytes.
 // If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
-func LoadKernelObjectFromBytes(data []byte, kernelName string) *KernelCodeObject {
+func LoadKernelCodeObjectFromBytes(data []byte, kernelName string) *KernelCodeObject {
 	reader := bytes.NewReader(data)
 	executable, err := elf.NewFile(reader)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return loadKernelObjectFromELF(executable, kernelName)
+	return loadKernelCodeObjectFromELF(executable, kernelName)
 }
 
-// loadKernelObjectFromELF extracts a kernel from an ELF file.
+// LoadKernelCodeObjectFromELF loads a kernel from an already-opened ELF file.
+// If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
+func LoadKernelCodeObjectFromELF(elfFile *elf.File, kernelName string) *KernelCodeObject {
+	return loadKernelCodeObjectFromELF(elfFile, kernelName)
+}
+
+// loadKernelCodeObjectFromELF extracts a kernel from an ELF file.
 // If kernelName is empty:
 //   - For single-kernel ELFs: uses the only kernel
 //   - For multi-kernel ELFs: panics with helpful message listing available kernels
-func loadKernelObjectFromELF(executable *elf.File, kernelName string) *KernelCodeObject {
+func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *KernelCodeObject {
 	textSection := executable.Section(".text")
 	if textSection == nil {
 		log.Fatal(".text section not found in ELF file")
@@ -158,7 +139,7 @@ func loadKernelObjectFromELF(executable *elf.File, kernelName string) *KernelCod
 	symbols, err := executable.Symbols()
 	if err != nil {
 		// No symbol table - treat entire .text as single kernel
-		return newKernelCodeObjectFromData(textSectionData)
+		return newKernelCodeObjectFromEntireTextSection(textSectionData)
 	}
 
 	// Find kernel symbols (functions in .text section)
@@ -180,7 +161,7 @@ func loadKernelObjectFromELF(executable *elf.File, kernelName string) *KernelCod
 	if kernelName == "" {
 		if len(kernelSymbols) == 0 {
 			// No symbols found - use entire .text section
-			return newKernelCodeObjectFromData(textSectionData)
+			return newKernelCodeObjectFromEntireTextSection(textSectionData)
 		} else if len(kernelSymbols) == 1 {
 			// Single kernel - use it
 			kernelName = kernelSymbols[0].Name
@@ -200,7 +181,7 @@ func loadKernelObjectFromELF(executable *elf.File, kernelName string) *KernelCod
 			// Extract kernel data using symbol offset and size
 			offset := symbol.Value - textSection.Offset
 			kernelData := textSectionData[offset : offset+symbol.Size]
-			co := newKernelCodeObjectFromData(kernelData)
+			co := newKernelCodeObjectFromEntireTextSection(kernelData)
 			symbolCopy := symbol
 			co.Symbol = &symbolCopy
 			return co
@@ -320,67 +301,63 @@ func (o *KernelCodeObject) InstructionData() []byte {
 	return o.Data
 }
 
-// KernelCodeObjectHeader is an alias for KernelCodeObjectMeta for backward compatibility
-// Deprecated: Use KernelCodeObjectMeta instead
-type KernelCodeObjectHeader = KernelCodeObjectMeta
-
 // WorkItemVgprCount returns the number of VGPRs used by each work-item
-func (h *KernelCodeObjectHeader) WorkItemVgprCount() uint32 {
+func (h *KernelCodeObjectMeta) WorkItemVgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 0, 5)
 }
 
 // WavefrontSgprCount returns the number of SGPRs used by each wavefront
-func (h *KernelCodeObjectHeader) WavefrontSgprCount() uint32 {
+func (h *KernelCodeObjectMeta) WavefrontSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 6, 9)
 }
 
 // Priority returns the priority of the kernel
-func (h *KernelCodeObjectHeader) Priority() uint32 {
+func (h *KernelCodeObjectMeta) Priority() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 10, 11)
 }
 
 // EnableSgprPrivateSegmentWaveByteOffset enable wavebyteoffset
-func (h *KernelCodeObjectHeader) EnableSgprPrivateSegmentWaveByteOffset() bool {
+func (h *KernelCodeObjectMeta) EnableSgprPrivateSegmentWaveByteOffset() bool {
 	return extractBits(h.ComputePgmRsrc2, 0, 0) != 0
 }
 
 // UserSgprCount returns user sgpr
-func (h *KernelCodeObjectHeader) UserSgprCount() uint32 {
+func (h *KernelCodeObjectMeta) UserSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 1, 5)
 }
 
 // EnableSgprWorkGroupIDX enable idx
-func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDX() bool {
+func (h *KernelCodeObjectMeta) EnableSgprWorkGroupIDX() bool {
 	return extractBits(h.ComputePgmRsrc2, 7, 7) != 0
 }
 
 // EnableSgprWorkGroupIDY enable idy
-func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDY() bool {
+func (h *KernelCodeObjectMeta) EnableSgprWorkGroupIDY() bool {
 	return extractBits(h.ComputePgmRsrc2, 8, 8) != 0
 }
 
 // EnableSgprWorkGroupIDZ enable idz
-func (h *KernelCodeObjectHeader) EnableSgprWorkGroupIDZ() bool {
+func (h *KernelCodeObjectMeta) EnableSgprWorkGroupIDZ() bool {
 	return extractBits(h.ComputePgmRsrc2, 9, 9) != 0
 }
 
 // EnableSgprWorkGroupInfo enable wg info
-func (h *KernelCodeObjectHeader) EnableSgprWorkGroupInfo() bool {
+func (h *KernelCodeObjectMeta) EnableSgprWorkGroupInfo() bool {
 	return extractBits(h.ComputePgmRsrc2, 10, 10) != 0
 }
 
 // EnableVgprWorkItemID checks if the setup of the work-item is enabled
-func (h *KernelCodeObjectHeader) EnableVgprWorkItemID() uint32 {
+func (h *KernelCodeObjectMeta) EnableVgprWorkItemID() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 11, 12)
 }
 
 // EnableExceptionAddressWatch enable exception address watch
-func (h *KernelCodeObjectHeader) EnableExceptionAddressWatch() bool {
+func (h *KernelCodeObjectMeta) EnableExceptionAddressWatch() bool {
 	return extractBits(h.ComputePgmRsrc2, 13, 13) != 0
 }
 
 // EnableExceptionMemoryViolation enable exception memory violation
-func (h *KernelCodeObjectHeader) EnableExceptionMemoryViolation() bool {
+func (h *KernelCodeObjectMeta) EnableExceptionMemoryViolation() bool {
 	return extractBits(h.ComputePgmRsrc2, 14, 14) != 0
 }
 

@@ -119,7 +119,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelObjectFromBytes(hsacoBytes, "Encrypt")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "Encrypt")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}

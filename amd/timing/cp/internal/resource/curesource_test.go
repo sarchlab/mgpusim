@@ -53,7 +53,7 @@ var _ = Describe("cuResource", func() {
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 
-		co = insts.NewKernelCodeObject()
+		co = &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 		wg.CodeObject = co
 	})
 

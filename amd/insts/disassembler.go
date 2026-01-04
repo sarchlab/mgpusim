@@ -774,7 +774,7 @@ func (d *Disassembler) Disassemble(
 	fmt.Fprintf(w, "\n%s:\tfile format elf64-amdgpu\n", filename)
 	fmt.Fprintf(w, "\nDisassembly of section .text:\n")
 
-	co := NewKernelCodeObjectFromELF(file)
+	co := LoadKernelCodeObjectFromELF(file, "")
 	if co == nil {
 		fmt.Fprintf(w, "Error: could not parse ELF file\n")
 		return
