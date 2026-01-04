@@ -13,7 +13,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 var sizeOfFloat32 = 4
@@ -30,27 +30,27 @@ type GPUOperator struct {
 	start, end   time.Time
 	cpuOperator  *tensor.CPUOperator
 
-	sumKernel                           *insts.HsaCo
-	transposeKernel                     *insts.HsaCo
-	repeatKernel                        *insts.HsaCo
-	rotateKernel                        *insts.HsaCo
-	dilateKernel                        *insts.HsaCo
-	im2ColKernel                        *insts.HsaCo
-	softmaxExpKernel                    *insts.HsaCo
-	softmaxDivKernel                    *insts.HsaCo
-	scaleAddKernel                      *insts.HsaCo
-	elemWiseMulKernel                   *insts.HsaCo
-	rmsPropKernel                       *insts.HsaCo
-	adamKernel                          *insts.HsaCo
-	reluForwardKernel                   *insts.HsaCo
-	reluBackwardKernel                  *insts.HsaCo
-	maxPoolingForwardKernel             *insts.HsaCo
-	maxPoolingBackwardKernel            *insts.HsaCo
-	avgPoolingForwardKernel             *insts.HsaCo
-	avgPoolingBackwardKernel            *insts.HsaCo
-	gemmKernel                          *insts.HsaCo
-	crossEntropyDerivativeKernel        *insts.HsaCo
-	softmaxCrossEntropyDerivativeKernel *insts.HsaCo
+	sumKernel                           *insts.KernelCodeObject
+	transposeKernel                     *insts.KernelCodeObject
+	repeatKernel                        *insts.KernelCodeObject
+	rotateKernel                        *insts.KernelCodeObject
+	dilateKernel                        *insts.KernelCodeObject
+	im2ColKernel                        *insts.KernelCodeObject
+	softmaxExpKernel                    *insts.KernelCodeObject
+	softmaxDivKernel                    *insts.KernelCodeObject
+	scaleAddKernel                      *insts.KernelCodeObject
+	elemWiseMulKernel                   *insts.KernelCodeObject
+	rmsPropKernel                       *insts.KernelCodeObject
+	adamKernel                          *insts.KernelCodeObject
+	reluForwardKernel                   *insts.KernelCodeObject
+	reluBackwardKernel                  *insts.KernelCodeObject
+	maxPoolingForwardKernel             *insts.KernelCodeObject
+	maxPoolingBackwardKernel            *insts.KernelCodeObject
+	avgPoolingForwardKernel             *insts.KernelCodeObject
+	avgPoolingBackwardKernel            *insts.KernelCodeObject
+	gemmKernel                          *insts.KernelCodeObject
+	crossEntropyDerivativeKernel        *insts.KernelCodeObject
+	softmaxCrossEntropyDerivativeKernel *insts.KernelCodeObject
 }
 
 // NewGPUOperator creates a new GPU Operator.
@@ -179,8 +179,8 @@ func (o *GPUOperator) loadKernels() {
 	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, crossEntropyKernelBytes, "softmax_cross_entropy_derivative")
 }
 
-func loadKernel(hsaco **insts.HsaCo, kernelBytes []byte, name string) {
-	*hsaco = kernels.LoadProgramFromMemory(kernelBytes, name)
+func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string) {
+	*hsaco = insts.LoadKernelCodeObjectFromBytes(kernelBytes, name)
 	if *hsaco == nil {
 		panic("Failed to load " + name + "kernel")
 	}

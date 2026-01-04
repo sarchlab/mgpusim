@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"debug/elf"
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
@@ -40,7 +42,12 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	hsaCo := insts.NewHsaCoFromData(rawCodeObject)
+
+	elfFile, err := elf.NewFile(bytes.NewReader(rawCodeObject))
+	if err != nil {
+		panic(err)
+	}
+	hsaCo := insts.LoadKernelCodeObjectFromELF(elfFile, "")
 
 	rawArgs, err := base64.StdEncoding.DecodeString(dataJSON.Args)
 	if err != nil {

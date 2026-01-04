@@ -11,7 +11,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // Kernel1Args list first set of kernel arguments
@@ -37,7 +37,7 @@ type Benchmark struct {
 	context          *driver.Context
 	gpus             []int
 	queues           []*driver.CommandQueue
-	kernel1, kernel2 *insts.HsaCo
+	kernel1, kernel2 *insts.KernelCodeObject
 
 	NX, NY                int
 	a, x, y, yOutput, tmp []float32
@@ -70,13 +70,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel1 = kernels.LoadProgramFromMemory(
+	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "atax_kernel1")
 	if b.kernel1 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
-	b.kernel2 = kernels.LoadProgramFromMemory(
+	b.kernel2 = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "atax_kernel2")
 	if b.kernel2 == nil {
 		log.Panic("Failed to load kernel binary")

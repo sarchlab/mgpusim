@@ -13,7 +13,7 @@ import (
 // EnqueueLaunchKernel schedules kernel to be launched later
 func (d *Driver) EnqueueLaunchKernel(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
@@ -38,7 +38,7 @@ func (d *Driver) EnqueueLaunchKernel(
 
 func (d *Driver) allocateGPUMemory(
 	ctx *Context,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 ) (dCoData, dKernArgData, dPacket Ptr) {
 	dCoData = d.AllocateMemory(ctx, uint64(len(co.Data)))
 	dKernArgData = d.AllocateMemory(ctx, co.KernargSegmentByteSize)
@@ -50,7 +50,7 @@ func (d *Driver) allocateGPUMemory(
 }
 
 func (d *Driver) prepareLocalMemory(
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	kernelArgs interface{},
 	packet *kernels.HsaKernelDispatchPacket,
 ) (newKernelArgs interface{}) {
@@ -58,7 +58,7 @@ func (d *Driver) prepareLocalMemory(
 	reflect.ValueOf(newKernelArgs).Elem().
 		Set(reflect.ValueOf(kernelArgs).Elem())
 
-	ldsSize := co.WGGroupSegmentByteSize
+	ldsSize := co.GroupSegmentByteSize
 
 	if reflect.TypeOf(newKernelArgs).Kind() == reflect.Slice {
 		// From server, do nothing
@@ -84,7 +84,7 @@ func (d *Driver) prepareLocalMemory(
 // launches the kernel immediately.
 func (d *Driver) LaunchKernel(
 	ctx *Context,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
@@ -114,7 +114,7 @@ func (d *Driver) createAQLPacket(
 
 func (d *Driver) enqueueLaunchKernelCommand(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	packet *kernels.HsaKernelDispatchPacket,
 	dPacket Ptr,
 ) {
@@ -129,7 +129,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 
 func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	packet []*kernels.HsaKernelDispatchPacket,
 	dPacket []Ptr,
 ) {
@@ -143,7 +143,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 }
 func (d *Driver) enqueueLaunchUnifiedKernel(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},

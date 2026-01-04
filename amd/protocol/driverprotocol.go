@@ -43,7 +43,7 @@ type LaunchKernelReq struct {
 
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
-	HsaCo         *insts.HsaCo
+	CodeObject    *insts.KernelCodeObject
 	WGFilter      kernels.WGFilterFunc
 }
 

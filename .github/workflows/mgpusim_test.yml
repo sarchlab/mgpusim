@@ -210,3 +210,20 @@ jobs:
           go build
           ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
         working-directory: amd/tests/acceptance/
+
+  disassembler_test:
+    name: Disassembler Test (GFX942)
+    runs-on: Github-Large-1
+    needs: [compile]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Disassembler Test
+        run: ./test-disasm.sh --check
+        working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
