@@ -124,6 +124,8 @@ func LoadKernelCodeObjectFromELF(elfFile *elf.File, kernelName string) *KernelCo
 // If kernelName is empty:
 //   - For single-kernel ELFs: uses the only kernel
 //   - For multi-kernel ELFs: panics with helpful message listing available kernels
+//
+//nolint:gocognit,funlen
 func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *KernelCodeObject {
 	textSection := executable.Section(".text")
 	if textSection == nil {
@@ -331,8 +333,6 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	computePgmRsrc2 := meta.ComputePgmRsrc2
 	userSgprCount := (computePgmRsrc2 >> 1) & 0x1F
 
-	// log.Printf("DEBUG parseV5KernelDescriptor: props=0x%04x, computePgmRsrc2=0x%08x, userSgprCount=%d", props, computePgmRsrc2, userSgprCount)
-
 	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
 	meta.EnableSgprDispatchPtr = (props & (1 << 6)) != 0
 	meta.EnableSgprQueuePtr = (props & (1 << 7)) != 0
@@ -349,9 +349,6 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 		meta.EnableSgprDispatchPtr = false
 		meta.EnableSgprQueuePtr = false
 	}
-
-	// log.Printf("DEBUG parseV5KernelDescriptor: EnableSgprDispatchPtr=%v, EnableSgprQueuePtr=%v, EnableSgprKernargSegmentPtr=%v",
-	//	meta.EnableSgprDispatchPtr, meta.EnableSgprQueuePtr, meta.EnableSgprKernargSegmentPtr)
 
 	return meta
 }

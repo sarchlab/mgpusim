@@ -377,8 +377,8 @@ func (u *ALU) runVADDI32(state emu.InstEmuState) {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
 		}
-		src0 := uint64(sp.SRC0[i])
-		src1 := uint64(sp.SRC1[i])
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
 		result := src0 + src1
 		sp.DST[i] = result & 0xFFFFFFFF
 		if result > 0xFFFFFFFF {
@@ -428,8 +428,8 @@ func (u *ALU) runVADDCU32(state emu.InstEmuState) {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
 		}
-		src0 := uint64(sp.SRC0[i])
-		src1 := uint64(sp.SRC1[i])
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
 		carry := (sp.VCC >> i) & 1
 		result := src0 + src1 + carry
 		sp.DST[i] = result & 0xFFFFFFFF
@@ -448,8 +448,8 @@ func (u *ALU) runVSUBBU32(state emu.InstEmuState) {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
 		}
-		src0 := uint64(sp.SRC0[i])
-		src1 := uint64(sp.SRC1[i])
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
 		borrow := (sp.VCC >> i) & 1
 		result := src0 - src1 - borrow
 		sp.DST[i] = result & 0xFFFFFFFF
@@ -468,8 +468,8 @@ func (u *ALU) runVSUBBREVU32(state emu.InstEmuState) {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
 		}
-		src0 := uint64(sp.SRC0[i])
-		src1 := uint64(sp.SRC1[i])
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
 		borrow := (sp.VCC >> i) & 1
 		result := src1 - src0 - borrow
 		sp.DST[i] = result & 0xFFFFFFFF

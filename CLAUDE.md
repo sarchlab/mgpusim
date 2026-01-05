@@ -87,3 +87,20 @@ Never cancel long-running commands:
 - Unit tests: ~17s
 - Acceptance tests (1 GPU): ~3.5 min
 - Multi-GPU tests: 30+ min each
+
+## Before Completing Tasks
+
+**IMPORTANT**: Before finishing any code modification task, always run linting to ensure code quality:
+
+```bash
+# Install golangci-lint v2.1.5 (if not already installed)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.5
+
+# Run linting
+golangci-lint run ./amd/... --timeout=10m
+```
+
+Fix any linting issues before considering the task complete. Common issues include:
+- Unnecessary type conversions (`unconvert`)
+- Function complexity (`gocognit`, `funlen`) - add `//nolint:gocognit,funlen` if justified
+- Line length (`lll`) - keep lines under 120 characters
