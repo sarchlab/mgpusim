@@ -20,20 +20,20 @@ type KernelArgs struct {
 	Width  int32      // offset 24 - 4 bytes
 	Height int32      // offset 28 - 4 bytes
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
-	HiddenBlockCountX uint32 // offset 32 - number of workgroups in X
-	HiddenBlockCountY uint32 // offset 36 - number of workgroups in Y
-	HiddenBlockCountZ uint32 // offset 40 - number of workgroups in Z
-	HiddenGroupSizeX  uint16 // offset 44 - workgroup size X
-	HiddenGroupSizeY  uint16 // offset 46 - workgroup size Y
-	HiddenGroupSizeZ  uint16 // offset 48 - workgroup size Z
-	HiddenRemainderX  uint16 // offset 50 - grid size % workgroup size X
-	HiddenRemainderY  uint16 // offset 52 - grid size % workgroup size Y
-	HiddenRemainderZ  uint16 // offset 54 - grid size % workgroup size Z
-	Padding           [16]byte // offset 56-71 - reserved
-	HiddenGlobalOffsetX int64  // offset 72 - global offset X
-	HiddenGlobalOffsetY int64  // offset 80 - global offset Y
-	HiddenGlobalOffsetZ int64  // offset 88 - global offset Z
-	HiddenGridDims      uint16 // offset 96 - grid dimensions
+	HiddenBlockCountX   uint32   // offset 32 - number of workgroups in X
+	HiddenBlockCountY   uint32   // offset 36 - number of workgroups in Y
+	HiddenBlockCountZ   uint32   // offset 40 - number of workgroups in Z
+	HiddenGroupSizeX    uint16   // offset 44 - workgroup size X
+	HiddenGroupSizeY    uint16   // offset 46 - workgroup size Y
+	HiddenGroupSizeZ    uint16   // offset 48 - workgroup size Z
+	HiddenRemainderX    uint16   // offset 50 - grid size % workgroup size X
+	HiddenRemainderY    uint16   // offset 52 - grid size % workgroup size Y
+	HiddenRemainderZ    uint16   // offset 54 - grid size % workgroup size Z
+	Padding             [16]byte // offset 56-71 - reserved
+	HiddenGlobalOffsetX int64    // offset 72 - global offset X
+	HiddenGlobalOffsetY int64    // offset 80 - global offset Y
+	HiddenGlobalOffsetZ int64    // offset 88 - global offset Z
+	HiddenGridDims      uint16   // offset 96 - grid dimensions
 }
 
 // Benchmark defines a benchmark
