@@ -28,7 +28,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-	storageAccessor    *storageAccessor
+	storageAccessor    StorageAccessor
 
 	nextTick    sim.VTimeInSec
 	queueingWGs []*protocol.MapWGReq
@@ -190,26 +190,22 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 
 	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer {
-		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
-		//fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
 		SGPRPtr += 16
 	}
 
 	if co.EnableSgprDispatchPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
-		//fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprQueuePtr {
-		log.Printf("EnableSgprQueuePtr is not supported")
-		//fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
-		SGPRPtr += 8
+		// Note: QueuePtr is not currently supported. For V5+ kernels, the kernel
+		// descriptor flags may be incorrect. We do NOT reserve space, as the
+		// kernel may not actually use this register.
 	}
 
 	if co.EnableSgprKernargSegmentPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
-		//fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
@@ -226,9 +222,8 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	}
 
 	if co.EnableSgprPrivateSegmentSize {
-		log.Printf("EnableSgprPrivateSegmentSize is not supported")
-		//fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
-		SGPRPtr += 4
+		// Note: PrivateSegmentSize is not currently supported. For V5+ kernels,
+		// the kernel descriptor flags may be incorrect. We do NOT reserve space.
 	}
 
 	if co.EnableSgprGridWorkgroupCountX {
@@ -409,7 +404,7 @@ func NewComputeUnit(
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
-	sAccessor *storageAccessor,
+	sAccessor StorageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(name,
@@ -428,7 +423,10 @@ func NewComputeUnit(
 	return cu
 }
 
-// BuildComputeUnit build a compute unit
+// ALUFactory is a function type that creates an ALU given a storage accessor.
+type ALUFactory func(StorageAccessor) ALU
+
+// BuildComputeUnit builds a compute unit with the default GCN3 ALU.
 func BuildComputeUnit(
 	name string,
 	engine sim.Engine,
@@ -438,10 +436,28 @@ func BuildComputeUnit(
 	storage *mem.Storage,
 	addrConverter mem.AddressConverter,
 ) *ComputeUnit {
+	return BuildComputeUnitWithALU(
+		name, engine, decoder, pageTable, log2PageSize,
+		storage, addrConverter, func(sa StorageAccessor) ALU {
+			return NewALU(sa)
+		})
+}
+
+// BuildComputeUnitWithALU builds a compute unit with a custom ALU factory.
+func BuildComputeUnitWithALU(
+	name string,
+	engine sim.Engine,
+	decoder Decoder,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
+	storage *mem.Storage,
+	addrConverter mem.AddressConverter,
+	aluFactory ALUFactory,
+) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
-	sAccessor := newStorageAccessor(
+	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
-	alu := NewALU(sAccessor)
+	alu := aluFactory(sAccessor)
 	cu := NewComputeUnit(name, engine, decoder,
 		scratchpadPreparer, alu, sAccessor)
 	return cu

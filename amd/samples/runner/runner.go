@@ -10,6 +10,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
@@ -33,6 +34,7 @@ type Runner struct {
 	Verify           bool
 	Parallel         bool
 	UseUnifiedMemory bool
+	ArchType         arch.Type
 
 	GPUIDs     []int
 	benchmarks []benchmarks.Benchmark
@@ -74,7 +76,8 @@ func (r *Runner) initSimulation() {
 func (r *Runner) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
 		b = b.WithDebugISA()

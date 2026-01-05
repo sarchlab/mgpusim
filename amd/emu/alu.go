@@ -10,25 +10,31 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// ALU does its jobs
+// ALU defines the interface for architecture-specific ALU implementations.
 type ALU interface {
 	Run(state InstEmuState)
-
 	SetLDS(lds []byte)
 	LDS() []byte
+	ArchName() string // Returns "GCN3" or "CDNA3"
 }
 
 // ALUImpl is where the instructions get executed.
+// This is the GCN3 ALU implementation (to be moved to gcn3/ package later).
 type ALUImpl struct {
-	storageAccessor *storageAccessor
+	storageAccessor StorageAccessor
 	lds             []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
-func NewALU(storageAccessor *storageAccessor) *ALUImpl {
+func NewALU(storageAccessor StorageAccessor) *ALUImpl {
 	alu := new(ALUImpl)
 	alu.storageAccessor = storageAccessor
 	return alu
+}
+
+// ArchName returns the architecture name.
+func (u *ALUImpl) ArchName() string {
+	return "GCN3"
 }
 
 // SetLDS assigns the LDS storage to be used in the following instructions.
@@ -222,10 +228,6 @@ func (u *ALUImpl) runSCBRANCHEXECNZ(state InstEmuState) {
 	if sp.EXEC != 0 {
 		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 	}
-}
-
-func laneMasked(Exec uint64, laneID uint) bool {
-	return Exec&(1<<laneID) > 0
 }
 
 func (u *ALUImpl) sdwaSrcSelect(src uint32, sel insts.SDWASelect) uint32 {
