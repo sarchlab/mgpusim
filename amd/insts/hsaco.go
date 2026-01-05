@@ -135,6 +135,14 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 		log.Fatal(err)
 	}
 
+	// Get .rodata section for V5 kernel descriptors
+	var rodataSection *elf.Section
+	var rodataSectionData []byte
+	rodataSection = executable.Section(".rodata")
+	if rodataSection != nil {
+		rodataSectionData, _ = rodataSection.Data()
+	}
+
 	// Get symbols to find kernels
 	symbols, err := executable.Symbols()
 	if err != nil {
@@ -185,6 +193,29 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 			co := newKernelCodeObjectFromEntireTextSection(kernelData)
 			symbolCopy := symbol
 			co.Symbol = &symbolCopy
+
+			// Try to find V5 kernel descriptor in .rodata
+			if rodataSection != nil && rodataSectionData != nil {
+				kdSymbolName := kernelName + ".kd"
+				for _, sym := range symbols {
+					if sym.Name == kdSymbolName && sym.Size == 64 {
+						if int(sym.Section) < len(executable.Sections) {
+							sec := executable.Sections[sym.Section]
+							if sec.Name == ".rodata" {
+								// Parse the 64-byte kernel descriptor
+								kdOffset := sym.Value - rodataSection.Addr
+								if kdOffset+64 <= uint64(len(rodataSectionData)) {
+									kdData := rodataSectionData[kdOffset : kdOffset+64]
+									co.KernelCodeObjectMeta = parseV5KernelDescriptor(kdData)
+									co.Version = CodeObjectV5
+								}
+							}
+						}
+						break
+					}
+				}
+			}
+
 			return co
 		}
 	}
@@ -283,16 +314,44 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[44:48])
 	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[48:52])
 
-	// Parse kernel_code_properties (different bit layout from V2/V3 flags)
+	// Parse kernel_code_properties
+	// AMDHSA V4+ bit layout (from LLVM AMDGPU docs):
+	// Bits 0-5:  Reserved (was ENABLE_SGPR_PRIVATE_SEGMENT_BUFFER, deprecated)
+	// Bit 6:    ENABLE_SGPR_DISPATCH_PTR
+	// Bit 7:    ENABLE_SGPR_QUEUE_PTR
+	// Bit 8:    ENABLE_SGPR_KERNARG_SEGMENT_PTR
+	// Bit 9:    ENABLE_SGPR_DISPATCH_ID
+	// Bit 10:   ENABLE_SGPR_FLAT_SCRATCH_INIT
+	// Bit 11:   ENABLE_SGPR_PRIVATE_SEGMENT_SIZE
+	// Bit 12:   Reserved
+	// Bits 13-15: Reserved
 	props := binary.LittleEndian.Uint16(data[52:54])
-	meta.EnableSgprPrivateSegmentBuffer = (props & (1 << 0)) != 0
-	meta.EnableSgprDispatchPtr = (props & (1 << 2)) != 0
-	meta.EnableSgprQueuePtr = (props & (1 << 3)) != 0
-	meta.EnableSgprKernargSegmentPtr = (props & (1 << 4)) != 0
-	meta.EnableSgprDispatchID = (props & (1 << 5)) != 0
-	meta.EnableSgprFlatScratchInit = (props & (1 << 6)) != 0
-	meta.EnableSgprPrivateSegmentSize = (props & (1 << 7)) != 0
-	// Note: V5 doesn't have grid workgroup count enables in the same way
+
+	// Parse compute_pgm_rsrc2 to get user_sgpr count
+	computePgmRsrc2 := meta.ComputePgmRsrc2
+	userSgprCount := (computePgmRsrc2 >> 1) & 0x1F
+
+	// log.Printf("DEBUG parseV5KernelDescriptor: props=0x%04x, computePgmRsrc2=0x%08x, userSgprCount=%d", props, computePgmRsrc2, userSgprCount)
+
+	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
+	meta.EnableSgprDispatchPtr = (props & (1 << 6)) != 0
+	meta.EnableSgprQueuePtr = (props & (1 << 7)) != 0
+	meta.EnableSgprKernargSegmentPtr = (props & (1 << 8)) != 0
+	meta.EnableSgprDispatchID = (props & (1 << 9)) != 0
+	meta.EnableSgprFlatScratchInit = (props & (1 << 10)) != 0
+	meta.EnableSgprPrivateSegmentSize = (props & (1 << 11)) != 0
+
+	// Workaround: Some kernels have incorrect flags in kernel descriptor.
+	// Use user_sgpr_count to validate: if kernarg_ptr is enabled and
+	// user_sgpr_count is 2, then only kernarg_ptr should be enabled.
+	if meta.EnableSgprKernargSegmentPtr && userSgprCount == 2 {
+		// Only kernarg pointer (2 SGPRs) - disable other flags that would use SGPRs
+		meta.EnableSgprDispatchPtr = false
+		meta.EnableSgprQueuePtr = false
+	}
+
+	// log.Printf("DEBUG parseV5KernelDescriptor: EnableSgprDispatchPtr=%v, EnableSgprQueuePtr=%v, EnableSgprKernargSegmentPtr=%v",
+	//	meta.EnableSgprDispatchPtr, meta.EnableSgprQueuePtr, meta.EnableSgprKernargSegmentPtr)
 
 	return meta
 }

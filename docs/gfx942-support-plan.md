@@ -2,112 +2,190 @@
 
 ## Goal
 
-Add GFX942 support to MGPUSim while maintaining GFX803 compatibility using compile-time architecture selection.
+Add GFX942 support to MGPUSim while maintaining GFX803 compatibility using **runtime architecture selection**.
 
 ## Requirements
 
 - Full ISA + timing model for GFX942
-- Compile-time selection via Go build tags
+- Runtime selection based on loaded HSACO
 - Both GFX803 and GFX942 must work
+- Emulation fails gracefully if architecture mismatch
 
 ---
 
-## Strategy: Architecture Abstraction with Build Tags
+## Strategy: Runtime Architecture Selection
 
 ### Directory Structure
 
 ```
 amd/
-├── arch/                          # NEW: Architecture abstraction
-│   ├── arch.go                    # Interface definitions
-│   ├── gcn3/                      # GFX803 (build tag: gcn3 || !cdna3)
-│   │   ├── config.go
-│   │   ├── format.go
-│   │   ├── decodetable.go
-│   │   └── hsaco.go
-│   └── cdna3/                     # GFX942 (build tag: cdna3)
-│       ├── config.go
-│       ├── format.go
-│       ├── decodetable.go
-│       └── hsaco.go
-├── insts/                         # Shared instruction infrastructure
-├── emu/                           # Emulation (uses arch.Current)
-├── timing/cu/                     # Timing model (uses arch.Current)
+├── arch/                          # Architecture configuration
+│   ├── arch.go                    # Config type definition
+│   ├── gcn3.go                    # GFX803 constants
+│   └── cdna3.go                   # GFX942 constants
+├── emu/                           # Emulation
+│   ├── emu.go                     # ALU interface, shared types
+│   ├── gcn3/                      # GCN3 ALU implementation
+│   │   ├── alu.go                 # Entry point + dispatcher
+│   │   ├── vop1.go
+│   │   ├── vop2.go
+│   │   ├── vop3a.go
+│   │   ├── vop3b.go
+│   │   ├── vopc.go
+│   │   ├── sop1.go
+│   │   ├── sop2.go
+│   │   ├── sopc.go
+│   │   ├── sopk.go
+│   │   ├── flat.go
+│   │   └── ds.go
+│   └── cdna3/                     # CDNA3 ALU implementation
+│       ├── alu.go                 # Entry point + dispatcher
+│       ├── vop1.go
+│       ├── vop2.go
+│       ├── vop3a.go               # Extended opcodes
+│       ├── vop3b.go
+│       ├── vop3p.go               # NEW: Packed math
+│       ├── mfma.go                # NEW: Matrix FMA
+│       ├── vopc.go
+│       ├── sop1.go
+│       ├── sop2.go
+│       ├── sopc.go
+│       ├── sopk.go
+│       ├── flat.go
+│       └── ds.go
+├── insts/                         # Instruction infrastructure (shared)
+├── timing/cu/                     # Timing model
 └── samples/runner/timingconfig/
     ├── r9nano/                    # Existing
     └── mi300/                     # NEW
 ```
 
-### Build Commands
+### Runtime Selection
 
-```bash
-go build -tags gcn3 ./...    # GFX803 (default)
-go build -tags cdna3 ./...   # GFX942
+The builder code selects the appropriate emulator based on the HSACO code object version:
+
+```go
+func selectEmulator(co *insts.KernelCodeObject) (emu.ALU, error) {
+    switch co.Version {
+    case insts.CodeObjectV2, insts.CodeObjectV3:
+        return gcn3.NewALU(storageAccessor), nil
+    case insts.CodeObjectV5:
+        return cdna3.NewALU(storageAccessor), nil
+    default:
+        return nil, fmt.Errorf("unsupported code object version: %v", co.Version)
+    }
+}
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Architecture Abstraction Layer
+### Phase 1: ALU Interface Abstraction
 
-**Create `/amd/arch/arch.go`:**
+**Create `amd/emu/emu.go`:**
 
 ```go
-package arch
+package emu
 
-type Architecture interface {
-    Name() string                    // "GCN3" or "CDNA3"
-    NumVGPRsPerLane() int           // 256 or 512
-    NumSGPRs() int                  // 102 or 106
-    WavefrontSize() int             // 64
-    NumSIMDsPerCU() int             // 4
-    VGPRsPerSIMD() int              // 16384 or 32768
-    SGPRsPerCU() int                // 3200
-    LDSBytesPerCU() int             // 65536
-    FormatTable() map[FormatType]*Format
-    DecodeTable() *DecodeTableProvider
+// ALU defines the interface for architecture-specific ALU implementations
+type ALU interface {
+    Run(state InstEmuState)
+    SetLDS(lds []byte)
+    LDS() []byte
+    ArchName() string  // Returns "GCN3" or "CDNA3"
 }
-
-var Current *Config  // Set by init() in gcn3 or cdna3 package
 ```
 
-**Modify existing code to use `arch.Current`:**
+**Modify existing code to use the interface:**
 
 | File | Change |
 |------|--------|
-| `emu/wavefront.go:37-38` | `SRegFile = make([]byte, 4*arch.Current.Arch.NumSGPRs())` |
-| `timing/cu/cubuilder.go:34-36` | Use `arch.Current.Arch.VGPRsPerSIMD()` etc. |
-| `insts/disassembler.go` | Use `arch.Current.Arch.FormatTable()` |
+| `emu/computeunit.go` | Accept ALU interface instead of concrete type |
+| `timing/cu/*.go` | Accept ALU interface |
 
-### Phase 2: Extract GCN3 to `arch/gcn3/`
+### Phase 2: Extract GCN3 to `emu/gcn3/`
 
-Move architecture-specific code with build tag `//go:build gcn3 || !cdna3`:
+Move architecture-specific ALU code:
 
 | Source | Destination |
 |--------|-------------|
-| `insts/format.go` (FormatTable) | `arch/gcn3/format.go` |
-| `insts/decodetable.go` | `arch/gcn3/decodetable.go` |
-| `insts/reg.go` (constants) | `arch/gcn3/reg.go` |
-| `insts/hsaco.go` (parsing) | `arch/gcn3/hsaco.go` |
+| `emu/alu.go` (impl) | `emu/gcn3/alu.go` |
+| `emu/aluvop1.go` | `emu/gcn3/vop1.go` |
+| `emu/aluvop2.go` | `emu/gcn3/vop2.go` |
+| `emu/aluvop3a.go` | `emu/gcn3/vop3a.go` |
+| `emu/aluvop3b.go` | `emu/gcn3/vop3b.go` |
+| `emu/aluvopc.go` | `emu/gcn3/vopc.go` |
+| `emu/alusop1.go` | `emu/gcn3/sop1.go` |
+| `emu/alusop2.go` | `emu/gcn3/sop2.go` |
+| `emu/alusopc.go` | `emu/gcn3/sopc.go` |
+| `emu/alusopk.go` | `emu/gcn3/sopk.go` |
+| `emu/alu_flat.go` | `emu/gcn3/flat.go` |
+| `emu/aluds.go` | `emu/gcn3/ds.go` |
 
 ### Phase 3: Create CDNA3 Implementation
 
-Create `arch/cdna3/` with build tag `//go:build cdna3`:
+Create `emu/cdna3/` package:
 
-- **New instruction formats:** VOP3P (packed math), MFMA (matrix ops)
-- **Extended registers:** 512 VGPRs per lane, 106 SGPRs
-- **New decode table:** CDNA3-specific opcodes
-- **HSACO v3:** Updated kernel descriptor parsing
+- Copy GCN3 implementations as base
+- Add missing opcodes (v_bfe_u32, etc.)
+- Add CDNA3-specific formats:
+  - `vop3p.go` - Packed vector operations
+  - `mfma.go` - Matrix fused multiply-add instructions
 
-### Phase 4: CDNA3 Emulation
+### Phase 4: Architecture Configuration
 
-Create `emu/cdna3/`:
+Create `amd/arch/` for shared constants:
 
-- `alu_mfma.go` - Matrix fused multiply-add instructions
-- `alu_vop3p.go` - Packed vector operations
+```go
+// arch/arch.go
+package arch
 
-### Phase 5: MI300 Timing Configuration
+type Config struct {
+    Name            string
+    NumVGPRsPerLane int
+    NumSGPRs        int
+    WavefrontSize   int
+    NumSIMDsPerCU   int
+    VGPRsPerSIMD    int
+    SGPRsPerCU      int
+    LDSBytesPerCU   int
+}
+
+// arch/gcn3.go
+var GCN3 = &Config{
+    Name:            "GCN3",
+    NumVGPRsPerLane: 256,
+    NumSGPRs:        102,
+    WavefrontSize:   64,
+    NumSIMDsPerCU:   4,
+    VGPRsPerSIMD:    16384,
+    SGPRsPerCU:      3200,
+    LDSBytesPerCU:   65536,
+}
+
+// arch/cdna3.go
+var CDNA3 = &Config{
+    Name:            "CDNA3",
+    NumVGPRsPerLane: 512,
+    NumSGPRs:        106,
+    WavefrontSize:   64,
+    NumSIMDsPerCU:   4,
+    VGPRsPerSIMD:    32768,
+    SGPRsPerCU:      3200,
+    LDSBytesPerCU:   65536,
+}
+```
+
+### Phase 5: Builder Integration
+
+Update builder/driver code to:
+1. Detect HSACO architecture from code object version
+2. Select appropriate ALU implementation
+3. Validate architecture compatibility
+4. Fail with clear error if mismatch
+
+### Phase 6: MI300 Timing Configuration
 
 Create `samples/runner/timingconfig/mi300/builder.go`:
 
@@ -121,11 +199,12 @@ Create `samples/runner/timingconfig/mi300/builder.go`:
 
 | File | Lines | Change |
 |------|-------|--------|
-| `amd/emu/wavefront.go` | 37-39 | Replace hardcoded `4*102`, `4*64*256` with arch config |
-| `amd/timing/cu/cubuilder.go` | 32-38 | Replace hardcoded `3200`, `16384` with arch config |
-| `amd/insts/disassembler.go` | 61-71 | Use `arch.Current.Arch.FormatTable()` |
-| `amd/insts/format.go` | 44-68 | Extract to `arch/gcn3/format.go` |
-| `amd/insts/decodetable.go` | all | Extract to `arch/gcn3/decodetable.go` |
+| `amd/emu/emu.go` | NEW | ALU interface definition |
+| `amd/emu/gcn3/alu.go` | NEW | GCN3 ALU entry point |
+| `amd/emu/cdna3/alu.go` | NEW | CDNA3 ALU entry point |
+| `amd/emu/wavefront.go` | 37-39 | Use `arch.Config` for register sizes |
+| `amd/timing/cu/cubuilder.go` | 32-38 | Use `arch.Config` for pool sizes |
+| `amd/driver/` | various | Add emulator selection logic |
 
 ---
 
@@ -148,21 +227,21 @@ Create `samples/runner/timingconfig/mi300/builder.go`:
 ### ISA Instructions (`amd/insts/`)
 
 - `format.go` - 18 instruction format types with GCN3 encodings
-- `decodetable.go` - Hardcoded GCN3 instruction opcode definitions
-- `reg.go` - 256 VGPRs (V0-V255), 102 SGPRs (S0-S101)
-- `hsaco.go` - HSACO header parsing with GCN3-specific bit positions
-- `disassembler.go` - GCN3-specific instruction decoding logic
+- `decodetable.go` - Instruction opcode definitions (shared, includes CDNA3 markers)
+- `reg.go` - Register definitions
+- `hsaco.go` - HSACO header parsing (V2/V3 and V5 support)
+- `disassembler.go` - Instruction decoding logic
 
 ### Emulator (`amd/emu/`)
 
-- `wavefront.go` - 64-lane wavefronts, register file sizes hardcoded
-- `alu*.go` - Instruction execution keyed to GCN3 opcodes
+- `wavefront.go` - 64-lane wavefronts, register file sizes
+- `alu*.go` - Instruction execution (to be split by architecture)
 - `scratchpad.go` - Per-format scratchpad layouts
 
 ### Timing Model (`amd/timing/cu/`)
 
-- `computeunit.go` - 4 SIMDs, hardcoded pool sizes
-- `cubuilder.go` - Default parameters: 16384 VGPRs per SIMD, 3200 SGPRs
+- `computeunit.go` - 4 SIMDs
+- `cubuilder.go` - Default parameters for pool sizes
 
 ### GPU Configuration (`amd/samples/runner/timingconfig/r9nano/`)
 
@@ -173,9 +252,10 @@ Create `samples/runner/timingconfig/mi300/builder.go`:
 ## Testing Strategy
 
 1. **Phase 1 validation:** All existing GCN3 tests must pass unchanged
-2. **Build verification:** Both `-tags gcn3` and `-tags cdna3` compile
-3. **CDNA3 tests:** New test suite for GFX942-specific instructions
-4. **Benchmark validation:** Run vectoradd and other benchmarks on both
+2. **Runtime selection:** Verify builder selects correct emulator based on HSACO
+3. **Error handling:** Test architecture mismatch produces clear error
+4. **CDNA3 tests:** New test suite for GFX942-specific instructions
+5. **Benchmark validation:** Run vectoradd and other benchmarks on both architectures
 
 ---
 
@@ -187,6 +267,11 @@ GFX942 introduces new instruction formats not present in GFX803:
 
 - **VOP3P** - Packed math operations (two FP16 ops per instruction)
 - **MFMA** - Matrix Fused Multiply-Add for AI/ML workloads
+
+### Code Object Format
+
+- **V2/V3** (GCN3): 256-byte header per kernel in `.text` section
+- **V5** (GFX9+/CDNA3): 64-byte kernel descriptor in `.rodata` section
 
 ### Register File
 

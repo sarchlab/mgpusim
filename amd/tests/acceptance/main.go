@@ -43,6 +43,7 @@ type benchmarkCase struct {
 	unifiedGPU    bool
 	unifiedMemory bool
 	parallel      bool
+	arch          string // GPU architecture: "gcn3" (default) or "cdna3"
 }
 
 func (b benchmark) compile() error {
@@ -144,6 +145,10 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 		args = append(args, "-use-unified-memory=true")
 	} else {
 		args = append(args, "-use-unified-memory=false")
+	}
+
+	if c.arch != "" {
+		args = append(args, "-arch="+c.arch)
 	}
 
 	return args

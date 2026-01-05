@@ -4,6 +4,8 @@ import (
 	"flag"
 	"strconv"
 	"strings"
+
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -12,6 +14,7 @@ var maxInstCount = flag.Uint64("max-inst", 0,
 var parallelFlag = flag.Bool("parallel", false,
 	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
+var archFlag = flag.String("arch", "gcn3", "GPU architecture: gcn3 or cdna3.")
 
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
@@ -99,6 +102,8 @@ func (r *Runner) parseSimulationFlags() {
 	if *useUnifiedMemoryFlag {
 		r.UseUnifiedMemory = true
 	}
+
+	r.ArchType = parseArchFlag()
 }
 
 func (r *Runner) parseGPUFlag() {
@@ -134,4 +139,13 @@ func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
 	}
 
 	return gpuIDs
+}
+
+func parseArchFlag() arch.Type {
+	switch strings.ToLower(*archFlag) {
+	case "cdna3", "gfx942":
+		return arch.CDNA3
+	default:
+		return arch.GCN3
+	}
 }

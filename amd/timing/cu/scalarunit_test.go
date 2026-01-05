@@ -45,6 +45,10 @@ func (alu *mockALU) Run(wf emu.InstEmuState) {
 	alu.wfExecuted = wf
 }
 
+func (alu *mockALU) ArchName() string {
+	return "Mock"
+}
+
 var _ = Describe("Scalar Unit", func() {
 
 	var (
