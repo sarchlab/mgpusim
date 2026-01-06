@@ -14,6 +14,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
@@ -41,6 +42,7 @@ type Builder struct {
 	rdmaAddressMapper              mem.AddressToPortMapper
 
 	gpu                *sim.Domain
+	driver             *driver.Driver
 	cp                 *cp.CommandProcessor
 	rdmaEngine         *rdma.Comp
 	pmc                *pagemigrationcontroller.PageMigrationController
@@ -159,6 +161,14 @@ func (b Builder) WithGlobalStorage(
 	return b
 }
 
+// WithGPUDriver sets the GPU driver.
+func (b Builder) WithGPUDriver(
+	driver *driver.Driver,
+) Builder {
+	b.driver = driver
+	return b
+}
+
 // WithDRAMSize sets the size of the DRAM.
 func (b Builder) WithDRAMSize(size uint64) Builder {
 	b.dramSize = size
@@ -227,6 +237,7 @@ func (b *Builder) connectCP() {
 	b.internalConn.PlugIn(b.cp.ToCUs)
 	b.internalConn.PlugIn(b.cp.ToTLBs)
 	b.internalConn.PlugIn(b.cp.ToAddressTranslators)
+	b.internalConn.PlugIn(b.cp.ToROBs)
 	b.internalConn.PlugIn(b.cp.ToRDMA)
 	b.internalConn.PlugIn(b.cp.ToPMC)
 
@@ -244,6 +255,8 @@ func (b *Builder) connectCP() {
 	b.connectCPWithAddressTranslators()
 	b.connectCPWithTLBs()
 	b.connectCPWithCaches()
+
+	b.cp.Driver = b.driver.GetPortByName("GPU")
 }
 
 func (b *Builder) connectL1ToL2() {
@@ -403,15 +416,27 @@ func (b *Builder) connectCPWithTLBs() {
 			tlb := sa.GetPortByName(fmt.Sprintf("L1VTLBCtrl[%d]", i))
 			b.cp.TLBs = append(b.cp.TLBs, tlb)
 			b.internalConn.PlugIn(tlb)
+
+			rob := sa.GetPortByName(fmt.Sprintf("L1VROBCtrl[%d]", i))
+			b.cp.ROBs = append(b.cp.ROBs, rob)
+			b.internalConn.PlugIn(rob)
 		}
 
 		l1sTLB := sa.GetPortByName("L1STLBCtrl")
 		b.cp.TLBs = append(b.cp.TLBs, l1sTLB)
 		b.internalConn.PlugIn(l1sTLB)
 
+		rob := sa.GetPortByName("L1SROBCtrl")
+		b.cp.ROBs = append(b.cp.ROBs, rob)
+		b.internalConn.PlugIn(rob)
+
 		l1iTLB := sa.GetPortByName("L1ITLBCtrl")
 		b.cp.TLBs = append(b.cp.TLBs, l1iTLB)
 		b.internalConn.PlugIn(l1iTLB)
+
+		rob = sa.GetPortByName("L1IROBCtrl")
+		b.cp.ROBs = append(b.cp.ROBs, rob)
+		b.internalConn.PlugIn(rob)
 	}
 
 	for _, tlb := range b.l2TLBs {
@@ -632,19 +657,19 @@ func (b *Builder) buildCP() {
 }
 
 func (b *Builder) buildL2TLB() {
-    numWays := 64
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumWays(numWays).
-        WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
-        WithNumMSHREntry(64).
-        WithNumReqPerCycle(1024).
-        WithPageSize(1 << b.log2PageSize).
-        WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-        WithTranslationProviderMapper(&mem.SinglePortMapper{
-            Port: b.mmu.GetPortByName("Top").AsRemote(),
-        })
+	numWays := 64
+	builder := tlb.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithNumWays(numWays).
+		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(1024).
+		WithPageSize(1 << b.log2PageSize).
+		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+		WithTranslationProviderMapper(&mem.SinglePortMapper{
+			Port: b.mmu.GetPortByName("Top").AsRemote(),
+		})
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
 

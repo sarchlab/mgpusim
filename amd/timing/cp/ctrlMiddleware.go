@@ -44,6 +44,7 @@ func (m *ctrlMiddleware) HandleInternal() bool {
 	madeProgress := false
 	madeProgress = m.processRspFromRDMAs() || madeProgress
 	madeProgress = m.processRspFromCUs() || madeProgress
+	madeProgress = m.processRspFromROBs() || madeProgress
 	madeProgress = m.processRspFromATs() || madeProgress
 	madeProgress = m.processRspFromCaches() || madeProgress
 	madeProgress = m.processRspFromTLBs() || madeProgress
@@ -116,6 +117,23 @@ func (m *ctrlMiddleware) processRspFromATs() bool {
 	panic("never")
 }
 
+func (m *ctrlMiddleware) processRspFromROBs() bool {
+	item := m.ToROBs.PeekIncoming()
+	if item == nil {
+		return false
+	}
+
+	msg := item.(*mem.ControlMsg)
+
+	if m.numROBFlushAck > 0 {
+		return m.processROBFlushRsp(msg)
+	} else if m.numROBRestartAck > 0 {
+		return m.processROBRestartRsp(msg)
+	}
+
+	panic("never")
+}
+
 func (m *ctrlMiddleware) processRspFromTLBs() bool {
 	msg := m.ToTLBs.PeekIncoming()
 	if msg == nil {
@@ -167,6 +185,28 @@ func (m *ctrlMiddleware) processCUPipelineFlushRsp(
 	m.numCUAck--
 
 	if m.numCUAck == 0 {
+		for i := 0; i < len(m.ROBs); i++ {
+			req := mem.ControlMsgBuilder{}.
+				WithSrc(m.ToROBs.AsRemote()).
+				WithDst(m.ROBs[i].AsRemote()).
+				ToDiscardTransactions().
+				Build()
+			m.ToROBs.Send(req)
+			m.numROBFlushAck++
+		}
+	}
+
+	m.ToCUs.RetrieveIncoming()
+
+	return true
+}
+
+func (m *ctrlMiddleware) processROBFlushRsp(
+	msg *mem.ControlMsg,
+) bool {
+	m.numROBFlushAck--
+
+	if m.numROBFlushAck == 0 {
 		for i := 0; i < len(m.AddressTranslators); i++ {
 			req := mem.ControlMsgBuilder{}.
 				WithSrc(m.ToAddressTranslators.AsRemote()).
@@ -178,7 +218,7 @@ func (m *ctrlMiddleware) processCUPipelineFlushRsp(
 		}
 	}
 
-	m.ToCUs.RetrieveIncoming()
+	m.ToROBs.RetrieveIncoming()
 
 	return true
 }
@@ -370,6 +410,29 @@ func (m *ctrlMiddleware) processAddressTranslatorRestartRsp(
 	m.numAddrTranslationRestartAck--
 
 	if m.numAddrTranslationRestartAck == 0 {
+		for i := 0; i < len(m.ROBs); i++ {
+			req := mem.ControlMsgBuilder{}.
+				WithSrc(m.ToROBs.AsRemote()).
+				WithDst(m.ROBs[i].AsRemote()).
+				ToRestart().
+				Build()
+			m.ToROBs.Send(req)
+
+			m.numROBRestartAck++
+		}
+	}
+
+	m.ToAddressTranslators.RetrieveIncoming()
+
+	return true
+}
+
+func (m *ctrlMiddleware) processROBRestartRsp(
+	rsp *mem.ControlMsg,
+) bool {
+	m.numROBRestartAck--
+
+	if m.numROBRestartAck == 0 {
 		for i := 0; i < len(m.CUs); i++ {
 			req := protocol.CUPipelineRestartReqBuilder{}.
 				WithSrc(m.ToCUs.AsRemote()).
@@ -381,7 +444,7 @@ func (m *ctrlMiddleware) processAddressTranslatorRestartRsp(
 		}
 	}
 
-	m.ToAddressTranslators.RetrieveIncoming()
+	m.ToROBs.RetrieveIncoming()
 
 	return true
 }

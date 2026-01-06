@@ -18,6 +18,7 @@ type CommandProcessor struct {
 	DMAEngine          sim.Port
 	Driver             sim.Port
 	TLBs               []sim.Port
+	ROBs               []sim.Port
 	CUs                []sim.RemotePort
 	AddressTranslators []sim.Port
 	RDMA               sim.Port
@@ -31,6 +32,7 @@ type CommandProcessor struct {
 	ToDriver             sim.Port
 	ToDMA                sim.Port
 	ToCUs                sim.Port
+	ToROBs               sim.Port
 	ToTLBs               sim.Port
 	ToAddressTranslators sim.Port
 	ToCaches             sim.Port
@@ -41,6 +43,8 @@ type CommandProcessor struct {
 	currFlushRequest     *protocol.FlushReq
 
 	numCUAck                     uint64
+	numROBFlushAck               uint64
+	numROBRestartAck             uint64
 	numAddrTranslationFlushAck   uint64
 	numAddrTranslationRestartAck uint64
 	numTLBAck                    uint64
