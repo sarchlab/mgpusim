@@ -831,13 +831,11 @@ var benchmarks = []benchmark{
 	// },
 
 	// CDNA3 (gfx942) architecture tests
-	// Note: Currently limited to single workgroup (64 elements) due to
-	// missing hidden kernel argument support for multi-workgroup kernels.
 	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/vectoradd",
 		executablePath: "../../samples/vectoradd",
 		executable:     "vectoradd",
-		sizeArgs:       []string{"-width=64", "-height=1"},
+		sizeArgs:       []string{"-width=4096", "-height=1"},
 		cases: []benchmarkCase{
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},

@@ -12,14 +12,28 @@ import (
 )
 
 // KernelArgs defines kernel arguments
+// Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
-	A                         driver.Ptr
-	B                         driver.Ptr
-	C                         driver.Ptr
-	Width                     int32
-	Height                    int32
-	Padding                   int32
-	OffsetX, OffsetY, OffsetZ uint64
+	A      driver.Ptr // offset 0 - 8 bytes
+	B      driver.Ptr // offset 8 - 8 bytes
+	C      driver.Ptr // offset 16 - 8 bytes
+	Width  int32      // offset 24 - 4 bytes
+	Height int32      // offset 28 - 4 bytes
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // offset 32 - number of workgroups in X
+	HiddenBlockCountY   uint32   // offset 36 - number of workgroups in Y
+	HiddenBlockCountZ   uint32   // offset 40 - number of workgroups in Z
+	HiddenGroupSizeX    uint16   // offset 44 - workgroup size X
+	HiddenGroupSizeY    uint16   // offset 46 - workgroup size Y
+	HiddenGroupSizeZ    uint16   // offset 48 - workgroup size Z
+	HiddenRemainderX    uint16   // offset 50 - grid size % workgroup size X
+	HiddenRemainderY    uint16   // offset 52 - grid size % workgroup size Y
+	HiddenRemainderZ    uint16   // offset 54 - grid size % workgroup size Z
+	Padding             [16]byte // offset 56-71 - reserved
+	HiddenGlobalOffsetX int64    // offset 72 - global offset X
+	HiddenGlobalOffsetY int64    // offset 80 - global offset Y
+	HiddenGlobalOffsetZ int64    // offset 88 - global offset Z
+	HiddenGridDims      uint16   // offset 96 - grid dimensions
 }
 
 // Benchmark defines a benchmark
@@ -113,6 +127,11 @@ func (b *Benchmark) exec() {
 	queues := make([]*driver.CommandQueue, len(b.gpus))
 	numData := b.Width * b.Height
 
+	// Workgroup size is fixed at 64x1x1
+	wgSizeX := uint16(64)
+	wgSizeY := uint16(1)
+	wgSizeZ := uint16(1)
+
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
@@ -120,12 +139,21 @@ func (b *Benchmark) exec() {
 		gridSize := numData / uint32(len(b.gpus))
 
 		kernArg := KernelArgs{
-			A:       b.dA,
-			B:       b.dB,
-			C:       b.dC,
-			Width:   int32(b.Width),
-			Height:  int32(b.Height),
-			OffsetX: uint64(gridSize * uint32(i)),
+			A:      b.dA,
+			B:      b.dB,
+			C:      b.dC,
+			Width:  int32(b.Width),
+			Height: int32(b.Height),
+			// Hidden kernel arguments for GFX942 thread ID calculation
+			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    wgSizeX,
+			HiddenGroupSizeY:    wgSizeY,
+			HiddenGroupSizeZ:    wgSizeZ,
+			HiddenGlobalOffsetX: int64(gridSize * uint32(i)),
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
 		}
 
 		b.driver.EnqueueLaunchKernel(
