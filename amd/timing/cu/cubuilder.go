@@ -24,6 +24,7 @@ type Builder struct {
 	decoder            emu.Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
+	aluFactory         emu.ALUFactory
 
 	visTracer        tracing.Tracer
 	enableVisTracing bool
@@ -107,6 +108,13 @@ func (b Builder) WithVectorMemModules(m mem.AddressToPortMapper) Builder {
 	return b
 }
 
+// WithALUFactory sets the ALU factory function to use for creating the ALU.
+// This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
+func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
+	b.aluFactory = factory
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
@@ -117,7 +125,11 @@ func (b Builder) Build(name string) *ComputeUnit {
 	cu.WfDispatcher = NewWfDispatcher(cu)
 	cu.InFlightVectorMemAccessLimit = 512
 
-	b.alu = emu.NewALU(nil)
+	if b.aluFactory != nil {
+		b.alu = b.aluFactory(nil)
+	} else {
+		b.alu = emu.NewALU(nil)
+	}
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {

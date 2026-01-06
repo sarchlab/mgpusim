@@ -348,6 +348,9 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 		// Only kernarg pointer (2 SGPRs) - disable other flags that would use SGPRs
 		meta.EnableSgprDispatchPtr = false
 		meta.EnableSgprQueuePtr = false
+		meta.EnableSgprDispatchID = false
+		meta.EnableSgprFlatScratchInit = false
+		meta.EnableSgprPrivateSegmentSize = false
 	}
 
 	return meta
