@@ -842,8 +842,14 @@ var benchmarks = []benchmark{
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			// MI300A timing tests
-			{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a"},
-			{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a"},
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
+			{
+				gpus: []int{1}, timing: true, parallel: true,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
 		},
 	},
 }
