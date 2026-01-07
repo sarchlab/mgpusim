@@ -113,8 +113,8 @@ func (b *Builder) cpuGPUMemSizeMustEqual() {
 func (b *Builder) adjustConfigForGPUType() {
 	switch b.gpuType {
 	case "mi300a":
-		b.numCUPerSA = 6
-		b.numSAPerGPU = 20
+		b.numCUPerSA = mi300a.NumCUPerShaderArray
+		b.numSAPerGPU = mi300a.NumShaderArray
 	default:
 		// Keep defaults for r9nano
 	}

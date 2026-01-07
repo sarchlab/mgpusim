@@ -23,6 +23,14 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 )
 
+// MI300A hardware configuration constants.
+const (
+	// NumCUPerShaderArray is the number of compute units per shader array.
+	NumCUPerShaderArray = 6
+	// NumShaderArray is the number of shader arrays in the GPU.
+	NumShaderArray = 20
+)
+
 // Builder builds a hardware platform for timing simulation.
 type Builder struct {
 	simulation *simulation.Simulation
@@ -62,9 +70,9 @@ type Builder struct {
 // MakeBuilder creates a new builder with MI300A default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1500 * sim.MHz, // 1.5 GHz
-		numCUPerShaderArray:            6,              // 6 CUs per shader array
-		numShaderArray:                 20,             // 20 shader arrays = 120 CUs
+		freq:                           1500 * sim.MHz,    // 1.5 GHz
+		numCUPerShaderArray:            NumCUPerShaderArray,
+		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    8 * mem.MB,     // 8 MB L2 cache
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
@@ -159,12 +167,6 @@ func (b Builder) WithGlobalStorage(
 	globalStorage *mem.Storage,
 ) Builder {
 	b.globalStorage = globalStorage
-	return b
-}
-
-// WithDRAMSize sets the size of the DRAM.
-func (b Builder) WithDRAMSize(size uint64) Builder {
-	b.dramSize = size
 	return b
 }
 
@@ -521,8 +523,8 @@ func (b *Builder) buildDRAMControllers() {
 }
 
 func (b *Builder) createDramControllerBuilder() dram.Builder {
-	memBankSize := 4 * mem.GB / uint64(b.numMemoryBank)
-	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
+	memBankSize := b.dramSize / uint64(b.numMemoryBank)
+	if b.dramSize%uint64(b.numMemoryBank) != 0 {
 		panic("GPU memory size is not a multiple of the number of memory banks")
 	}
 

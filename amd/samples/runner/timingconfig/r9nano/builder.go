@@ -160,12 +160,6 @@ func (b Builder) WithGlobalStorage(
 	return b
 }
 
-// WithDRAMSize sets the size of the DRAM.
-func (b Builder) WithDRAMSize(size uint64) Builder {
-	b.dramSize = size
-	return b
-}
-
 // WithRDMAAddressMapper sets the RDMA address mapper.
 func (b Builder) WithRDMAAddressMapper(
 	mapper mem.AddressToPortMapper,
