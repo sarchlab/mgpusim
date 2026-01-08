@@ -830,8 +830,8 @@ var benchmarks = []benchmark{
 	// },
 	// },
 
-	// CDNA3/MI300A (gfx942) architecture tests (single GPU only)
-	// Multi-GPU CDNA3 requires fixing HiddenGlobalOffset handling in vectoradd benchmark
+	// CDNA3/MI300A (gfx942) architecture tests
+	// Multi-GPU support via unified GPU mode (automatic workgroup distribution)
 	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/vectoradd",
 		executablePath: "../../samples/vectoradd",
@@ -849,6 +849,24 @@ var benchmarks = []benchmark{
 			{
 				gpus: []int{1}, timing: true, parallel: true,
 				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
+			// Unified GPU MI300A tests (2-GPU)
+			{
+				gpus: []int{1, 2}, timing: true, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
+			{
+				gpus: []int{1, 2}, timing: true, parallel: true,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
+			// Unified GPU MI300A tests (4-GPU)
+			{
+				gpus: []int{1, 2, 3, 4}, timing: true, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+			},
+			{
+				gpus: []int{1, 2, 3, 4}, timing: true, parallel: true,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
 			},
 		},
 	},
