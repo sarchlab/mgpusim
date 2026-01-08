@@ -35,6 +35,7 @@ type Runner struct {
 	Parallel         bool
 	UseUnifiedMemory bool
 	ArchType         arch.Type
+	GPUType          string
 
 	GPUIDs     []int
 	benchmarks []benchmarks.Benchmark
@@ -91,7 +92,8 @@ func (r *Runner) buildTimingPlatform() {
 
 	b := timingconfig.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithGPUType(r.GPUType)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()

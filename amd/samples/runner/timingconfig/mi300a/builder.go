@@ -1,6 +1,6 @@
-// Package r9nano contains the configuration of GPUs similar to AMD Radeon R9
-// Nano.
-package r9nano
+// Package mi300a contains the configuration of GPUs similar to AMD Instinct
+// MI300A.
+package mi300a
 
 import (
 	"fmt"
@@ -14,11 +14,21 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v4/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+)
+
+// MI300A hardware configuration constants.
+const (
+	// NumCUPerShaderArray is the number of compute units per shader array.
+	NumCUPerShaderArray = 6
+	// NumShaderArray is the number of shader arrays in the GPU.
+	NumShaderArray = 20
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -57,13 +67,13 @@ type Builder struct {
 	pmcAddressMapper   mem.AddressToPortMapper
 }
 
-// MakeBuilder creates a new builder.
+// MakeBuilder creates a new builder with MI300A default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1 * sim.GHz,
-		numCUPerShaderArray:            4,
-		numShaderArray:                 16,
-		l2CacheSize:                    2 * mem.MB,
+		freq:                           1500 * sim.MHz,    // 1.5 GHz
+		numCUPerShaderArray:            NumCUPerShaderArray,
+		numShaderArray:                 NumShaderArray,
+		l2CacheSize:                    8 * mem.MB,     // 8 MB L2 cache
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -152,7 +162,7 @@ func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
 	return b
 }
 
-// WithGlobalStorage sets the global storage that can provide the ultimate address translation.
+// WithGlobalStorage sets the global storage.
 func (b Builder) WithGlobalStorage(
 	globalStorage *mem.Storage,
 ) Builder {
@@ -443,6 +453,11 @@ func (b *Builder) connectCPWithCaches() {
 }
 
 func (b *Builder) buildSAs() {
+	// Use CDNA3 ALU for MI300A timing simulation
+	aluFactory := func(sa emu.StorageAccessor) emu.ALU {
+		return cdna3.NewALU(sa)
+	}
+
 	saBuilder := shaderarray.MakeBuilder().
 		WithSimulation(b.simulation).
 		WithFreq(b.freq).
@@ -451,15 +466,8 @@ func (b *Builder) buildSAs() {
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithLog2PageSize(b.log2PageSize).
 		WithL1AddressMapper(b.l1AddressMapper).
-		WithL1TLBAddressMapper(b.l1TLBAddressMapper)
-
-	// if b.enableISADebugging {
-	// 	saBuilder = saBuilder.withIsaDebugging()
-	// }
-
-	// if b.enableMemTracing {
-	// 	saBuilder = saBuilder.withMemTracer(b.memTracer)
-	// }
+		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
+		WithALUFactory(aluFactory)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
@@ -497,16 +505,10 @@ func (b *Builder) buildL2Caches() {
 			b.l1AddressMapper.LowModules,
 			l2.GetPortByName("Top").AsRemote(),
 		)
-
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(l2, b.memTracer)
-		// }
 	}
 }
 
 func (b *Builder) buildDRAMControllers() {
-	// memCtrlBuilder := b.createDramControllerBuilder()
-
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 		dram := idealmemcontroller.MakeBuilder().
@@ -517,16 +519,12 @@ func (b *Builder) buildDRAMControllers() {
 			Build(dramName)
 		b.simulation.RegisterComponent(dram)
 		b.drams = append(b.drams, dram)
-
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(dram, b.memTracer)
-		// }
 	}
 }
 
 func (b *Builder) createDramControllerBuilder() dram.Builder {
-	memBankSize := 4 * mem.GB / uint64(b.numMemoryBank)
-	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
+	memBankSize := b.dramSize / uint64(b.numMemoryBank)
+	if b.dramSize%uint64(b.numMemoryBank) != 0 {
 		panic("GPU memory size is not a multiple of the number of memory banks")
 	}
 
@@ -629,19 +627,19 @@ func (b *Builder) buildCP() {
 }
 
 func (b *Builder) buildL2TLB() {
-    numWays := 64
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumWays(numWays).
-        WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
-        WithNumMSHREntry(64).
-        WithNumReqPerCycle(1024).
-        WithPageSize(1 << b.log2PageSize).
-        WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-        WithTranslationProviderMapper(&mem.SinglePortMapper{
-            Port: b.mmu.GetPortByName("Top").AsRemote(),
-        })
+	numWays := 64
+	builder := tlb.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithNumWays(numWays).
+		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(1024).
+		WithPageSize(1 << b.log2PageSize).
+		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+		WithTranslationProviderMapper(&mem.SinglePortMapper{
+			Port: b.mmu.GetPortByName("Top").AsRemote(),
+		})
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
 

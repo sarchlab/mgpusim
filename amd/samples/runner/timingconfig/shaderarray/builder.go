@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rob"
 )
@@ -28,6 +29,7 @@ type Builder struct {
 	log2PageSize       uint64
 	l1AddressMapper    mem.AddressToPortMapper
 	l1TLBAddressMapper mem.AddressToPortMapper
+	aluFactory         emu.ALUFactory
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -119,6 +121,13 @@ func (b Builder) WithL1TLBAddressMapper(
 	l1TLBAddressMapper mem.AddressToPortMapper,
 ) Builder {
 	b.l1TLBAddressMapper = l1TLBAddressMapper
+	return b
+}
+
+// WithALUFactory sets the ALU factory for creating compute unit ALUs.
+// This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
+func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
+	b.aluFactory = factory
 	return b
 }
 
@@ -334,6 +343,10 @@ func (b *Builder) buildCUs() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithLog2CachelineSize(b.log2CacheLineSize)
+
+	if b.aluFactory != nil {
+		cuBuilder = cuBuilder.WithALUFactory(b.aluFactory)
+	}
 
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
