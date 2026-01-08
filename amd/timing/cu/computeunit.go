@@ -391,11 +391,12 @@ func (cu *ComputeUnit) handleMapWGReq(
 				newEvent := wavefront.NewWfCompletionEvent(
 					predictedTime, cu, wf)
 				cu.Engine.Schedule(newEvent)
-				tracing.StartTask(wf.UID,
+				tracing.StartTaskWithSpecificLocation(wf.UID,
 					tracing.MsgIDAtReceiver(req, cu),
 					cu,
 					"wavefront",
 					"wavefront",
+					cu.Name()+".WFPool",
 					nil,
 				)
 			}

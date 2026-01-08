@@ -2,6 +2,7 @@ package cu
 
 import (
 	"log"
+	"reflect"
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/tracing"
@@ -163,7 +164,15 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		u.cu.InFlightScalarMemAccess = append(
 			u.cu.InFlightScalarMemAccess, info)
 
-		tracing.TraceReqInitiate(req, u.cu, u.toExec.DynamicInst().ID)
+		tracing.StartTaskWithSpecificLocation(
+			req.Meta().ID+"_req_out",
+			u.toExec.DynamicInst().ID,
+			u.cu,
+			"req_out",
+			reflect.TypeOf(req).String(),
+			u.cu.Name()+".ScalarUnit",
+			req,
+		)
 
 		curr += bytesLeftInCacheline
 	}

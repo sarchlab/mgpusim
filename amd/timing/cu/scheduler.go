@@ -149,8 +149,8 @@ func (s *SchedulerImpl) DoFetch() bool {
 
 			madeProgress = true
 
-			tracing.StartTask(req.ID+"_fetch", wf.UID,
-				s.cu, "fetch", "fetch", nil)
+			tracing.StartTaskWithSpecificLocation(req.ID+"_fetch", wf.UID,
+				s.cu, "fetch", "fetch", s.cu.Name()+".InstFetch", nil)
 			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
 		}
 	}
