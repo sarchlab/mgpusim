@@ -227,7 +227,7 @@ func (b *SMBuilder) buildL1VCaches() {
 			WithLog2BlockSize(b.log2CacheLineSize).
 			WithWayAssociativity(4).
 			WithNumMSHREntry(16).
-			WithTotalByteSize(16 * mem.KB).
+			WithTotalByteSize(64 * mem.KB). // was 16 KB
 			WithAddressToPortMapper(b.l1AddressMapper)
 
 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)

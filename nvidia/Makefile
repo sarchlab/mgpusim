@@ -78,6 +78,21 @@ run_rodinia_kmeans_size384:
 	done
 	@rm akita_sim_d*
 
+run_simtune-pc-l1:
+	@printf "L1\n"
+	@printf "#size\ttruth\t\tsimulation\tsimulation_time(min)\n"
+	@for exp in 12 13 14; do \
+		size=$$((1<<exp)); \
+		gt_file="data/simtune-pointerchasing-l1-size2^$$exp/gt"; \
+		truth=$$(cat $$gt_file); \
+		start=$$(python -c 'import time; print(time.time())'); \
+		sim=$$(./nvidia -trace-dir data/simtune-pointerchasing-l1-size2^$$exp); \
+		end=$$(python -c 'import time; print(time.time())'); \
+		simf=$$(awk -v v="$$sim" 'BEGIN{printf "%.3E", v}'); \
+		sim_time_min=$$(awk -v s="$$start" -v e="$$end" 'BEGIN{printf "%.2f", (e-s)/60 }'); \
+		printf "%s\t%s\t%s\t%s\n" "$$size" "$$truth" "$$simf" "$$sim_time_min"; \
+	done
+
 run_simtune-pc:
 # 	@printf "L1\n"
 # 	@printf "#size\ttruth\t\tsimulation\tsimulation_time(min)\n"
