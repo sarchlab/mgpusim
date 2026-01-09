@@ -37,3 +37,7 @@ test
 **/mock_*_test.go
 
 .history
+
+# Built CLI binaries
+/mgpusim_amd
+/amd/cmd/mgpusim_amd/mgpusim_amd
