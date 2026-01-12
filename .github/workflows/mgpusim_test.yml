@@ -281,27 +281,6 @@ jobs:
           ./acceptance -num-gpu=1 -arch=cdna3
         working-directory: amd/tests/acceptance/
 
-  cdna3_two_discrete_gpu_test:
-    name: CDNA3 Two Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [cdna3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run CDNA3 Two Discrete GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          # Multi-GPU CDNA3 tests - placeholder until HiddenGlobalOffset is fixed
-          echo "CDNA3 multi-GPU tests not yet implemented"
-        working-directory: amd/tests/acceptance/
-
   cdna3_two_unified_gpu_test:
     name: CDNA3 Two Unified GPU Test
     runs-on: Github-Large-1
@@ -319,29 +298,7 @@ jobs:
         timeout-minutes: 60
         run: |
           go build
-          # Multi-GPU CDNA3 tests - placeholder until HiddenGlobalOffset is fixed
-          echo "CDNA3 multi-GPU tests not yet implemented"
-        working-directory: amd/tests/acceptance/
-
-  cdna3_four_discrete_gpu_test:
-    name: CDNA3 Four Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [cdna3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run CDNA3 Four Discrete GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          # Multi-GPU CDNA3 tests - placeholder until HiddenGlobalOffset is fixed
-          echo "CDNA3 multi-GPU tests not yet implemented"
+          ./acceptance -num-gpu=2 -only-unified-gpu -arch=cdna3
         working-directory: amd/tests/acceptance/
 
   cdna3_four_unified_gpu_test:
@@ -361,6 +318,5 @@ jobs:
         timeout-minutes: 60
         run: |
           go build
-          # Multi-GPU CDNA3 tests - placeholder until HiddenGlobalOffset is fixed
-          echo "CDNA3 multi-GPU tests not yet implemented"
+          ./acceptance -num-gpu=4 -only-unified-gpu -arch=cdna3
         working-directory: amd/tests/acceptance/
