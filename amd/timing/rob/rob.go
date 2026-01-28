@@ -50,6 +50,14 @@ func (b *ReorderBuffer) processControlMsg() (madeProgress bool) {
 		return false
 	}
 
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(item, b),
+		tracing.MilestoneKindQueue,
+		"control_entry",
+		b.Name(),
+		b,
+	)
+
 	msg := item.(*mem.ControlMsg)
 	if msg.DiscardTransations {
 		return b.discardTransactions(msg)
@@ -137,6 +145,14 @@ func (b *ReorderBuffer) topDown() bool {
 		return false
 	}
 
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(item, b),
+		tracing.MilestoneKindQueue,
+		"entry",
+		b.Name(),
+		b,
+	)
+
 	if b.isFull() {
 		return false
 	}
@@ -182,6 +198,14 @@ func (b *ReorderBuffer) parseBottom() bool {
 		return false
 	}
 
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(item, b),
+		tracing.MilestoneKindQueue,
+		"parse_entry",
+		b.Name(),
+		b,
+	)
+
 	rsp := item.(mem.AccessRsp)
 	rspTo := rsp.GetRspTo()
 	transElement, found := b.toBottomReqIDToTransactionTable[rspTo]
@@ -189,6 +213,14 @@ func (b *ReorderBuffer) parseBottom() bool {
 	if found {
 		trans := transElement.Value.(*transaction)
 		trans.rspFromBottom = rsp
+
+		tracing.AddMilestone(
+			tracing.MsgIDAtReceiver(trans.reqFromTop, b),
+			tracing.MilestoneKindData,
+			"data",
+			b.Name(),
+			b,
+		)
 
 		tracing.TraceReqFinalize(trans.reqToBottom, b)
 	}
@@ -211,8 +243,8 @@ func (b *ReorderBuffer) bottomUp() bool {
 
 	tracing.AddMilestone(
 		tracing.MsgIDAtReceiver(trans.reqFromTop, b),
-		tracing.MilestoneKindData,
-		"data",
+		tracing.MilestoneKindDependency,
+		trans.reqToBottom.Meta().ID+"_req_out",
 		b.Name(),
 		b,
 	)
