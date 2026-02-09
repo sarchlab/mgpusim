@@ -96,7 +96,7 @@ func (r *CUResourceImpl) withinLDSLimitation(
 	locations []WfLocation,
 ) bool {
 	co := wg.CodeObject
-	required := r.unitsOccupy(int(co.WGGroupSegmentByteSize), r.ldsGranularity)
+	required := r.unitsOccupy(int(co.GroupSegmentByteSize), r.ldsGranularity)
 	offset, ok := r.ldsMask.nextRegion(required, allocStatusFree)
 	if !ok {
 		return false
@@ -213,7 +213,7 @@ func (r *CUResourceImpl) FreeResourcesForWG(wg *kernels.WorkGroup) {
 	for _, location := range locations {
 		r.wfPoolFreeCount[location.SIMDID]++
 
-		ldsUnits := r.unitsOccupy(int(co.WGGroupSegmentByteSize),
+		ldsUnits := r.unitsOccupy(int(co.GroupSegmentByteSize),
 			r.ldsGranularity)
 		r.ldsMask.setStatus(location.LDSOffset/r.ldsGranularity, ldsUnits,
 			allocStatusFree)

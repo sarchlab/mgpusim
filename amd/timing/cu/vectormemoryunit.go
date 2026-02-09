@@ -118,7 +118,8 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 			return false
 		}
 	default:
-		log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
+		log.Panicf("running inst %s in vector memory unit is not supported",
+			insts.NewInstPrinter(nil).Print(inst))
 	}
 
 	u.postInstructionPipelineBuffer.Pop()

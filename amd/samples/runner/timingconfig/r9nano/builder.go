@@ -14,6 +14,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
@@ -79,7 +80,7 @@ func (b Builder) WithSimulation(sim *simulation.Simulation) Builder {
 }
 
 // WithGPUID sets the GPU ID to use.
-func (b Builder) WithGPUID(id uint64) Builder {
+func (b Builder) WithGPUID(id uint64) gpubuilder.GPUBuilder {
 	b.gpuID = id
 	return b
 }
@@ -110,7 +111,7 @@ func (b Builder) WithLog2PageSize(size uint64) Builder {
 }
 
 // WithMemAddrOffset sets the memory address offset.
-func (b Builder) WithMemAddrOffset(offset uint64) Builder {
+func (b Builder) WithMemAddrOffset(offset uint64) gpubuilder.GPUBuilder {
 	b.memAddrOffset = offset
 	return b
 }
@@ -159,14 +160,10 @@ func (b Builder) WithGlobalStorage(
 	return b
 }
 
-// WithDRAMSize sets the size of the DRAM.
-func (b Builder) WithDRAMSize(size uint64) Builder {
-	b.dramSize = size
-	return b
-}
-
 // WithRDMAAddressMapper sets the RDMA address mapper.
-func (b Builder) WithRDMAAddressMapper(mapper mem.AddressToPortMapper) Builder {
+func (b Builder) WithRDMAAddressMapper(
+	mapper mem.AddressToPortMapper,
+) gpubuilder.GPUBuilder {
 	b.rdmaAddressMapper = mapper
 	return b
 }

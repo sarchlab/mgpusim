@@ -6,7 +6,7 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 var lastUsedGroupID = 0
@@ -17,16 +17,16 @@ var broadcastHsaCoFile []byte
 //go:embed allreduce.hsaco
 var reduceHsaCoFile []byte
 
-var coPush *insts.HsaCo
-var coReduce *insts.HsaCo
+var coPush *insts.KernelCodeObject
+var coReduce *insts.KernelCodeObject
 
 func init() {
 	coPush = loadKernel(broadcastHsaCoFile, "pushData")
 	coReduce = loadKernel(reduceHsaCoFile, "reduceData")
 }
 
-func loadKernel(fileContent []byte, kernelName string) *insts.HsaCo {
-	co := kernels.LoadProgramFromMemory(fileContent, kernelName)
+func loadKernel(fileContent []byte, kernelName string) *insts.KernelCodeObject {
+	co := insts.LoadKernelCodeObjectFromBytes(fileContent, kernelName)
 	if co == nil {
 		panic("fail to load pushData kernel")
 	}

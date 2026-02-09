@@ -10,7 +10,7 @@ type WGFilterFunc func(
 
 // KernelLaunchInfo includes the necessary information to launch a kernel.
 type KernelLaunchInfo struct {
-	CodeObject *insts.HsaCo
+	CodeObject *insts.KernelCodeObject
 	Packet     *HsaKernelDispatchPacket
 	PacketAddr uint64
 	WGFilter   WGFilterFunc
@@ -31,7 +31,7 @@ func NewGridBuilder() GridBuilder {
 }
 
 type gridBuilderImpl struct {
-	hsaco      *insts.HsaCo
+	hsaco      *insts.KernelCodeObject
 	packet     *HsaKernelDispatchPacket
 	filter     WGFilterFunc
 	packetAddr uint64

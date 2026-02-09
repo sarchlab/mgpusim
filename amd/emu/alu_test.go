@@ -36,7 +36,7 @@ var _ = Describe("ALU", func() {
 		state         *mockInstState
 		storage       *mem.Storage
 		addrConverter *mem.InterleavingConverter
-		sAccessor     *storageAccessor
+		sAccessor     StorageAccessor
 	)
 
 	BeforeEach(func() {
@@ -50,7 +50,7 @@ var _ = Describe("ALU", func() {
 			CurrentElementIndex: 0,
 			Offset:              0,
 		}
-		sAccessor = newStorageAccessor(storage, pageTable, 12, addrConverter)
+		sAccessor = NewStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
 		state = new(mockInstState)

@@ -78,14 +78,14 @@ type ComputeUnit struct {
 
 // ControlPort returns the port that can receive controlling messages from the
 // Command Processor.
-func (cu *ComputeUnit) ControlPort() sim.Port {
-	return cu.ToCP
+func (cu *ComputeUnit) ControlPort() sim.RemotePort {
+	return cu.ToCP.AsRemote()
 }
 
 // DispatchingPort returns the port that the dispatcher can use to dispatch
 // work-groups to the CU.
-func (cu *ComputeUnit) DispatchingPort() sim.Port {
-	return cu.ToACE
+func (cu *ComputeUnit) DispatchingPort() sim.RemotePort {
+	return cu.ToACE.AsRemote()
 }
 
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit

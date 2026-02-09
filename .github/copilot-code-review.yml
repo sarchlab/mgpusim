@@ -1,0 +1,9 @@
+# Configuration for GitHub Copilot code review
+# https://docs.github.com/en/copilot/using-github-copilot/code-review/using-copilot-code-review
+
+review:
+  path_filters:
+    # Exclude external HIP/CUDA source files in native directories
+    - "!**/native/*.cpp"
+    - "!**/native/*.cu"
+    - "!**/native/*.hip"

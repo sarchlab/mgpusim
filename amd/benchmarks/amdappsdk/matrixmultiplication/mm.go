@@ -8,7 +8,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // A MatrixMultiplier is a service type that can calculate the result of matrix
@@ -23,7 +23,7 @@ type GPUMatrixMultiplier struct {
 	driver           *driver.Driver
 	context          *driver.Context
 	gpus             []int
-	kernel           *insts.HsaCo
+	kernel           *insts.KernelCodeObject
 	useUnifiedMemory bool
 }
 
@@ -145,7 +145,7 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 var hsacoBytes []byte
 
 func (m *GPUMatrixMultiplier) loadKernel() {
-	m.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "mmmKernel_local")
+	m.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "mmmKernel_local")
 	if m.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

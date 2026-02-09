@@ -13,7 +13,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // KernelArgs defines kernel arguments
@@ -35,7 +35,7 @@ type Benchmark struct {
 	context *driver.Context
 	gpus    []int
 	queues  []*driver.CommandQueue
-	kernel  *insts.HsaCo
+	kernel  *insts.KernelCodeObject
 
 	NumNodes       uint32
 	NumConnections uint32
@@ -79,7 +79,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "PageRankUpdateGpu")
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

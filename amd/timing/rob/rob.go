@@ -23,7 +23,7 @@ type ReorderBuffer struct {
 	bottomPort  sim.Port
 	controlPort sim.Port
 
-	BottomUnit sim.Port
+	BottomUnit sim.RemotePort
 
 	bufferSize     int
 	numReqPerCycle int
@@ -311,7 +311,7 @@ func (b *ReorderBuffer) duplicateReadReq(req *mem.ReadReq) *mem.ReadReq {
 		WithAddress(req.Address).
 		WithByteSize(req.AccessByteSize).
 		WithPID(req.PID).
-		WithDst(b.BottomUnit.AsRemote()).
+		WithDst(b.BottomUnit).
 		Build()
 }
 
@@ -321,7 +321,7 @@ func (b *ReorderBuffer) duplicateWriteReq(req *mem.WriteReq) *mem.WriteReq {
 		WithPID(req.PID).
 		WithData(req.Data).
 		WithDirtyMask(req.DirtyMask).
-		WithDst(b.BottomUnit.AsRemote()).
+		WithDst(b.BottomUnit).
 		Build()
 }
 

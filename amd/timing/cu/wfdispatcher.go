@@ -59,13 +59,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	pkt := wf.Packet
 
 	SGPRPtr := 0
-	if co.EnableSgprPrivateSegmentBuffer() {
+	if co.EnableSgprPrivateSegmentBuffer {
 		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
 		// fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
 		SGPRPtr += 16
 	}
 
-	if co.EnableSgprDispatchPtr() {
+	if co.EnableSgprDispatchPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
 			insts.Uint64ToBytes(wf.PacketAddress),
@@ -76,13 +76,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprQueuePtr() {
+	if co.EnableSgprQueuePtr {
 		log.Printf("EnableSgprQueuePtr is not supported")
 		// fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprKernelArgSegmentPtr() {
+	if co.EnableSgprKernargSegmentPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
 			insts.Uint64ToBytes(pkt.KernargAddress),
@@ -93,25 +93,25 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchID() {
+	if co.EnableSgprDispatchID {
 		log.Printf("EnableSgprDispatchID is not supported")
 		// fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprFlatScratchInit() {
+	if co.EnableSgprFlatScratchInit {
 		log.Printf("EnableSgprFlatScratchInit is not supported")
 		// fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprPrivateSegementSize() {
+	if co.EnableSgprPrivateSegmentSize {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
 		// fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountX() {
+	if co.EnableSgprGridWorkgroupCountX {
 		// fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
 
 		wgCountX := (pkt.GridSizeX + uint32(pkt.WorkgroupSizeX) - 1) /
@@ -126,7 +126,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountY() {
+	if co.EnableSgprGridWorkgroupCountY {
 		// fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
 
 		wgCountY := (pkt.GridSizeY + uint32(pkt.WorkgroupSizeY) - 1) /
@@ -141,7 +141,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountZ() {
+	if co.EnableSgprGridWorkgroupCountZ {
 		// fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
 
 		wgCountZ := (pkt.GridSizeZ + uint32(pkt.WorkgroupSizeZ) - 1) /

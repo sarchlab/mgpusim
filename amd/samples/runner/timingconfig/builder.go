@@ -11,6 +11,8 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/mi300a"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/r9nano"
 )
 
@@ -25,6 +27,7 @@ type Builder struct {
 	gpuMemSize         uint64
 	log2PageSize       uint64
 	useMagicMemoryCopy bool
+	gpuType            string
 
 	platform          *sim.Domain
 	globalStorage     *mem.Storage
@@ -41,6 +44,7 @@ func MakeBuilder() Builder {
 		gpuMemSize:         4 * mem.GB,
 		log2PageSize:       12,
 		useMagicMemoryCopy: false,
+		gpuType:            "r9nano",
 	}
 }
 
@@ -62,8 +66,15 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 	return b
 }
 
+// WithGPUType sets the GPU type for timing simulation (r9nano or mi300a).
+func (b Builder) WithGPUType(gpuType string) Builder {
+	b.gpuType = gpuType
+	return b
+}
+
 // Build builds the hardware platform.
 func (b Builder) Build() *sim.Domain {
+	b.adjustConfigForGPUType()
 	b.cpuGPUMemSizeMustEqual()
 
 	b.platform = &sim.Domain{}
@@ -74,7 +85,7 @@ func (b Builder) Build() *sim.Domain {
 	mmuComp, pageTable := b.createMMU()
 	gpuDriver := b.buildGPUDriver(pageTable)
 
-	gpuBuilder := b.createGPUBuilder(gpuDriver, mmuComp)
+	gpuBuilder := b.createGPUBuilder(mmuComp)
 	pcieConnector, rootComplexID :=
 		b.createConnection(gpuDriver, mmuComp)
 
@@ -96,6 +107,16 @@ func (b Builder) Build() *sim.Domain {
 func (b *Builder) cpuGPUMemSizeMustEqual() {
 	if b.cpuMemSize != b.gpuMemSize {
 		panic("currently only support cpuMemSize == gpuMemSize")
+	}
+}
+
+func (b *Builder) adjustConfigForGPUType() {
+	switch b.gpuType {
+	case "mi300a":
+		b.numCUPerSA = mi300a.NumCUPerShaderArray
+		b.numSAPerGPU = mi300a.NumShaderArray
+	default:
+		// Keep defaults for r9nano
 	}
 }
 
@@ -139,32 +160,30 @@ func (b *Builder) buildGPUDriver(
 }
 
 func (b *Builder) createGPUBuilder(
-	gpuDriver *driver.Driver,
 	mmuComponent *mmu.Comp,
-) r9nano.Builder {
-	gpuBuilder := r9nano.MakeBuilder().
-		WithFreq(1 * sim.GHz).
-		WithSimulation(b.simulation).
-		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(b.numCUPerSA).
-		WithNumShaderArray(b.numSAPerGPU).
-		WithNumMemoryBank(16).
-		WithLog2MemoryBankInterleavingSize(7).
-		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(b.globalStorage)
-
+) gpubuilder.GPUBuilder {
 	b.createRDMAAddressMapper()
 
-	// gpuBuilder = b.setMemTracer(gpuBuilder)
-	// gpuBuilder = b.setISADebugger(gpuBuilder)
-
-	return gpuBuilder
+	switch b.gpuType {
+	case "mi300a":
+		return mi300a.MakeBuilder().
+			WithSimulation(b.simulation).
+			WithMMU(mmuComponent).
+			WithLog2PageSize(b.log2PageSize).
+			WithGlobalStorage(b.globalStorage)
+	default:
+		return r9nano.MakeBuilder().
+			WithSimulation(b.simulation).
+			WithMMU(mmuComponent).
+			WithLog2PageSize(b.log2PageSize).
+			WithGlobalStorage(b.globalStorage)
+	}
 }
 
 func (b *Builder) createGPUs(
 	rootComplexID int,
 	pcieConnector *pcie.Connector,
-	gpuBuilder r9nano.Builder,
+	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
 	pmcAddressTable *mem.BankedAddressPortMapper,
 ) {
@@ -181,14 +200,14 @@ func (b *Builder) createGPUs(
 
 func (b *Builder) createPMCPageTable() *mem.BankedAddressPortMapper {
 	pmcAddressTable := new(mem.BankedAddressPortMapper)
-	pmcAddressTable.BankSize = 4 * mem.GB
+	pmcAddressTable.BankSize = b.gpuMemSize
 	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, "")
 	return pmcAddressTable
 }
 
 func (b *Builder) createRDMAAddrTable() *mem.BankedAddressPortMapper {
 	rdmaAddressTable := new(mem.BankedAddressPortMapper)
-	rdmaAddressTable.BankSize = 4 * mem.GB
+	rdmaAddressTable.BankSize = b.gpuMemSize
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, "")
 	return rdmaAddressTable
 }
@@ -226,14 +245,14 @@ func (b *Builder) createRDMAAddressMapper() {
 
 func (b *Builder) createGPU(
 	index int,
-	gpuBuilder r9nano.Builder,
+	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
 	pmcAddressTable *mem.BankedAddressPortMapper,
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
 ) *sim.Domain {
 	name := fmt.Sprintf("GPU[%d]", index)
-	memAddrOffset := uint64(index) * 4 * mem.GB
+	memAddrOffset := uint64(index) * b.gpuMemSize
 	gpu := gpuBuilder.
 		WithGPUID(uint64(index)).
 		WithMemAddrOffset(memAddrOffset).
@@ -244,7 +263,7 @@ func (b *Builder) createGPU(
 		gpu.GetPortByName("CommandProcessor"),
 		driver.DeviceProperties{
 			CUCount:  b.numCUPerSA * b.numSAPerGPU,
-			DRAMSize: 4 * mem.GB,
+			DRAMSize: b.gpuMemSize,
 		},
 	)
 	// gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")

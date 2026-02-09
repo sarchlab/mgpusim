@@ -7,7 +7,7 @@ import (
 
 // A Grid is a running instance of a kernel.
 type Grid struct {
-	CodeObject    *insts.HsaCo
+	CodeObject    *insts.KernelCodeObject
 	Packet        *HsaKernelDispatchPacket
 	PacketAddress uint64
 
@@ -26,7 +26,7 @@ func NewGrid() *Grid {
 // A WorkGroup is part of the kernel that runs on one ComputeUnit.
 type WorkGroup struct {
 	UID                             string
-	CodeObject                      *insts.HsaCo
+	CodeObject                      *insts.KernelCodeObject
 	Packet                          *HsaKernelDispatchPacket
 	PacketAddress                   uint64
 	SizeX, SizeY, SizeZ             int
@@ -49,7 +49,7 @@ func NewWorkGroup() *WorkGroup {
 // A Wavefront is a collection of work-items.
 type Wavefront struct {
 	UID           string
-	CodeObject    *insts.HsaCo
+	CodeObject    *insts.KernelCodeObject
 	Packet        *HsaKernelDispatchPacket
 	PacketAddress uint64
 	FirstWiFlatID int

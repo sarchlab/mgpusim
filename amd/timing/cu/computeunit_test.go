@@ -39,8 +39,7 @@ func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
 
-	grid.CodeObject = insts.NewHsaCo()
-	grid.CodeObject.HsaCoHeader = new(insts.HsaCoHeader)
+	grid.CodeObject = &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 
 	packet := new(kernels.HsaKernelDispatchPacket)
 	grid.Packet = packet

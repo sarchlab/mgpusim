@@ -9,7 +9,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 // KernelArgs defines kernel arguments
@@ -28,7 +28,7 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 	gpus    []int
-	hsaco   *insts.HsaCo
+	hsaco   *insts.KernelCodeObject
 
 	Length      int
 	inputData   []float32
@@ -48,7 +48,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 	b.driver = driver
 	b.context = driver.Init()
-	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "ReLUForward")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "ReLUForward")
 
 	return b
 }

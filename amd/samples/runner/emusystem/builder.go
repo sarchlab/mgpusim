@@ -9,6 +9,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem/emugpu"
 )
@@ -19,6 +20,7 @@ type Builder struct {
 	numGPUs      int
 	log2PageSize uint64
 	debugISA     bool
+	archType     arch.Type
 
 	storage    *mem.Storage
 	pageTable  vm.PageTable
@@ -56,6 +58,12 @@ func (b Builder) WithLog2PageSize(n uint64) Builder {
 // states after each instruction.
 func (b Builder) WithDebugISA() Builder {
 	b.debugISA = true
+	return b
+}
+
+// WithArchitecture sets the GPU architecture for emulation.
+func (b Builder) WithArchitecture(archType arch.Type) Builder {
+	b.archType = archType
 	return b
 }
 
@@ -107,7 +115,8 @@ func (b *Builder) createGPUBuilder(
 		WithDriver(gpuDriver).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
-		WithStorage(storage)
+		WithStorage(storage).
+		WithArchitecture(b.archType)
 
 	if b.debugISA {
 		gpuBuilder = gpuBuilder.WithISADebugging()

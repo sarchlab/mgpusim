@@ -13,7 +13,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	
 )
 
 var doPerPassVerify = false
@@ -36,7 +36,7 @@ type Benchmark struct {
 	driver    *driver.Driver
 	context   *driver.Context
 
-	hsaco *insts.HsaCo
+	hsaco *insts.KernelCodeObject
 
 	Length         int
 	OrderAscending bool
@@ -63,7 +63,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "BitonicSort")
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "BitonicSort")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}

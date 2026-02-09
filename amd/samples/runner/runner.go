@@ -10,7 +10,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
@@ -34,6 +34,8 @@ type Runner struct {
 	Verify           bool
 	Parallel         bool
 	UseUnifiedMemory bool
+	ArchType         arch.Type
+	GPUType          string
 
 	GPUIDs     []int
 	benchmarks []benchmarks.Benchmark
@@ -65,13 +67,18 @@ func (r *Runner) initSimulation() {
 		builder = builder.WithParallelEngine()
 	}
 
+	if *visTracing {
+		builder = builder.WithVisTracingOnStart()
+	}
+
 	r.simulation = builder.Build()
 }
 
 func (r *Runner) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
 		b = b.WithDebugISA()
@@ -85,7 +92,8 @@ func (r *Runner) buildTimingPlatform() {
 
 	b := timingconfig.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithGPUType(r.GPUType)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
@@ -93,18 +101,6 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 	r.reporter = newReporter(r.simulation)
-	r.configureVisTracing()
-}
-
-func (r *Runner) configureVisTracing() {
-	if !*visTracing {
-		return
-	}
-
-	visTracer := r.simulation.GetVisTracer()
-	for _, comp := range r.simulation.Components() {
-		tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
-	}
 }
 
 func (r *Runner) createUnifiedGPUs() {
