@@ -285,6 +285,7 @@ var PipelineTable = map[string]InstructionPipelineTemplate{
 	"LDG.E.CONSTANT":    {Opcode: "LDG.E.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},    // added
 	"LDG.E.U8":          {Opcode: "LDG.E.U8", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},          // added
 	"LDG.E.U8.CONSTANT": {Opcode: "LDG.E.U8.CONSTANT", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}}, // added
+	"LDG.E.STRONG.SYS":  {Opcode: "LDG.E.STRONG.SYS", Stages: []StageDef{stDecode(), s("MemoryPipeRead", 2, UnitLdSt), stWB()}},  // added
 	"STG.E":             {Opcode: "STG.E", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},
 	"STG.E.64":          {Opcode: "STG.E.64", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}},  // added
 	"STG.E.128":         {Opcode: "STG.E.128", Stages: []StageDef{stDecode(), s("MemoryPipeWrite", 2, UnitLdSt), stWB()}}, // added
