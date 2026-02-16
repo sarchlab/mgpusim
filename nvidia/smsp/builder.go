@@ -63,6 +63,8 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
 	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
 	s.PendingSMSPMemMsgID2Warp = make(map[string]*SMSPWarpUnit)
+	s.PendingSMSPMemMsgID2DstRegs = make(map[string][]string)
+	s.PendingSMSPMemMsgID2SrcRegs = make(map[string][]string)
 
 	atexit.Register(s.LogStatus)
 

@@ -209,6 +209,11 @@ func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
 		inst.SrcRegs = append(inst.SrcRegs, NewRegister(elems[4+inst.DestNum+i+1]))
 	}
 
+	// if len(inst.DestRegs) > 0 {
+	// 	fmt.Printf("DestRegs: %v (type: %v), SrcRegs: %v\n", inst.DestRegs, reflect.TypeOf(inst.DestRegs[0]), inst.SrcRegs)
+	// } else {
+	// 	fmt.Printf("DestRegs: %v, SrcRegs: %v\n", inst.DestRegs, inst.SrcRegs)
+	// }
 	updateInstMemoryPart(inst, elems[5+inst.DestNum+inst.SrcNum:])
 	return inst
 }

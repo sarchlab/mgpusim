@@ -4,6 +4,8 @@ import (
 	// "fmt"
 
 	"encoding/binary"
+	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -34,9 +36,11 @@ type SMSPController struct {
 	// waitingForMemRsp  bool
 	// waitingCycle uint64
 
-	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
-	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
-	PendingSMSPMemMsgID2Warp map[string]*SMSPWarpUnit
+	PendingSMSPtoMemReadReq     map[string]*mem.ReadReq
+	PendingSMSPtoMemWriteReq    map[string]*mem.WriteReq
+	PendingSMSPMemMsgID2Warp    map[string]*SMSPWarpUnit
+	PendingSMSPMemMsgID2DstRegs map[string][]string
+	PendingSMSPMemMsgID2SrcRegs map[string][]string
 
 	// unfinishedInstsCount uint64
 	scheduler *SMSPSWarpScheduler
@@ -181,12 +185,18 @@ func (s *SMSPController) processMemRsp() bool {
 		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		// s.waitingForMemRsp = false
 		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
+		srcRegs := s.PendingSMSPMemMsgID2SrcRegs[originalReqMsg.ID]
+		dstRegs := s.PendingSMSPMemMsgID2DstRegs[originalReqMsg.ID]
 		if warpUnit == nil {
 			log.Panic("In processing read req, warpUnit not found")
 		}
 		if warpUnit.status != WarpStatusWaiting {
-			// fmt.Printf("warpUnit.status = %d\n", warpUnit.status)
-			log.Panic("In processing read req, the corresponding warpUnit status is not waiting")
+			fmt.Printf("[*mem.DataReadyRsp] SMSP: %v, warpUnit.status != WarpStatusWaiting, warpUnit.status = %d\n", s.Name(), warpUnit.status)
+			s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
+			// log.Panic("In processing read req, the corresponding warpUnit status is not waiting")
+			// May be empty dst & src memorypipe insts
+			s.ToVectorMem.RetrieveIncoming()
+			return true
 		}
 		delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
 		// if warpUnit.unfinishedInstsCount == 1 {
@@ -198,8 +208,13 @@ func (s *SMSPController) processMemRsp() bool {
 		// 	warpUnit.status = WarpStatusRunning
 		// 	warpUnit.unfinishedInstsCount--
 		// }
-		warpUnit.status = WarpStatusRunning
+
+		warpUnit.Scoreboard.MarkCompleted(srcRegs, dstRegs)
 		warpUnit.Pipeline.Stages[warpUnit.Pipeline.PC].Left = 0
+
+		if !warpUnit.Scoreboard.HasAnyBusy() {
+			warpUnit.status = WarpStatusRunning
+		}
 
 	case *mem.WriteDoneRsp:
 		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
@@ -210,11 +225,18 @@ func (s *SMSPController) processMemRsp() bool {
 		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		// s.waitingForMemRsp = false
 		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
+		srcRegs := s.PendingSMSPMemMsgID2SrcRegs[originalReqMsg.ID]
+		dstRegs := s.PendingSMSPMemMsgID2DstRegs[originalReqMsg.ID]
 		if warpUnit == nil {
 			log.Panic("In processing write req, warpUnit not found")
 		}
 		if warpUnit.status != WarpStatusWaiting {
-			log.Panic("In processing write req, the corresponding warpUnit status is not waiting")
+			fmt.Printf("[*mem.WriteDoneRsp] SMSP: %v, warpUnit.status != WarpStatusWaiting, warpUnit.status = %d\n", s.Name(), warpUnit.status)
+			s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
+			// log.Panic("In processing write req, the corresponding warpUnit status is not waiting")
+			// May be empty dst & src memorypipe insts
+			s.ToVectorMem.RetrieveIncoming()
+			return true
 		}
 		delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
 		// if warpUnit.unfinishedInstsCount == 1 {
@@ -226,8 +248,13 @@ func (s *SMSPController) processMemRsp() bool {
 		// 	warpUnit.status = WarpStatusRunning
 		// 	warpUnit.unfinishedInstsCount--
 		// }
-		warpUnit.status = WarpStatusRunning
+		warpUnit.Scoreboard.MarkCompleted(srcRegs, dstRegs)
 		warpUnit.Pipeline.Stages[warpUnit.Pipeline.PC].Left = 0
+
+		if !warpUnit.Scoreboard.HasAnyBusy() {
+			warpUnit.status = WarpStatusRunning
+		}
+
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 		s.ToVectorMem.RetrieveIncoming()
@@ -347,11 +374,16 @@ func (s *SMSPController) run() bool {
 	madeProgress := true
 
 	// 1) Scheduler issues up to SMSPSchedulerIssueSpeed warps (or as configured)
-	// if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
-	// 	s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
-	// }
+	if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
+		s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
+	}
 	// s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	issued := s.scheduler.issueWarps(s.ResourcePool) //  s.Name()
+	if len(issued) == 0 {
+		fmt.Printf("%.10f, %s's Scheduler has nothing to issue, warpUnitList length = %d\n", s.Engine.CurrentTime(), s.Name(), len(s.scheduler.warpUnitList))
+	} else {
+		fmt.Printf("%.10f, %s's Scheduler issued %d warps:\n", s.Engine.CurrentTime(), s.Name(), len(issued))
+	}
 	if len(issued) == 0 {
 		madeProgress = false
 	}
@@ -378,23 +410,67 @@ func (s *SMSPController) run() bool {
 		stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
 		if isMemoryPipeStage(stageName) {
 			// fmt.Printf("SMSPController %s processing memory pipe stage %s for warp %d\n", s.ID, stageName, wu.warp.ID)
-			if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 2 {
+			if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 2 { // Left=2: not yet launched; Left=1: launched but not yet completed; Left=0: completed
 				// send mem request
 				// fmt.Printf("WarpStatusReady status for warp %d\n", wu.warp.ID)
-				inst := wu.warp.Instructions[wu.warp.InstructionsCount()-wu.unfinishedInstsCount]
+				issuedMemoryPipeNum := uint64(0)
+				reachMaxNumMemoryPipeInst := false
+				lastAvailableMemoryPipeInstIdx := uint64(0)
+				previousPipelinePC := wu.Pipeline.PC
+				for !reachMaxNumMemoryPipeInst && wu.warp.InstructionsCount()-wu.unfinishedInstsCount+issuedMemoryPipeNum < wu.warp.InstructionsCount() {
+					inst := wu.warp.Instructions[wu.warp.InstructionsCount()-wu.unfinishedInstsCount+issuedMemoryPipeNum]
+					if !isMemoryPipeStage(getPipelineStages(inst.OpCode.String()).Stages[previousPipelinePC].Name) {
+						break
+					}
 
-				switch stageName {
-				case "MemoryPipeRead":
-					wu.status = WarpStatusWaiting
-					s.doRead(wu, inst.InstructionsFullID(), inst.MemAddress, uint64(inst.MemAddressSuffix1))
-				case "MemoryPipeWrite":
-					wu.status = WarpStatusWaiting
-					data := uint32(0)
-					s.doWrite(wu, inst.InstructionsFullID(), inst.MemAddress, &data)
-				default:
-					log.Panicf("Unknown memory pipe stage name: %s", stageName)
+					srcRegs := inst.SrcRegs
+					destRegs := inst.DestRegs
+
+					srcStringRegs := make([]string, len(srcRegs))
+					destStringRegs := make([]string, len(destRegs))
+					for i, r := range destRegs {
+						destStringRegs[i] = r.Name
+					}
+					for i, r := range srcRegs {
+						srcStringRegs[i] = r.Name
+					}
+
+					switch stageName {
+					case "MemoryPipeRead":
+						conflict := wu.Scoreboard.HasReadConflict(srcStringRegs, destStringRegs)
+						if conflict {
+							reachMaxNumMemoryPipeInst = true // stall due to register conflict
+						} else {
+							wu.status = WarpStatusWaiting
+							lastAvailableMemoryPipeInstIdx = wu.warp.InstructionsCount() - wu.unfinishedInstsCount + issuedMemoryPipeNum
+							issuedMemoryPipeNum++
+							wu.Scoreboard.MarkIssued(srcStringRegs, destStringRegs)
+							s.doRead(wu, inst.InstructionsFullID(), srcStringRegs, destStringRegs, inst.MemAddress, uint64(inst.MemAddressSuffix1))
+						}
+					case "MemoryPipeWrite":
+						conflict := wu.Scoreboard.HasWriteConflict(srcStringRegs, destStringRegs)
+						if conflict {
+							reachMaxNumMemoryPipeInst = true // stall due to register conflict
+						} else {
+							wu.status = WarpStatusWaiting
+							lastAvailableMemoryPipeInstIdx = wu.warp.InstructionsCount() - wu.unfinishedInstsCount + issuedMemoryPipeNum
+							issuedMemoryPipeNum++
+							wu.Scoreboard.MarkIssued(srcStringRegs, destStringRegs)
+							data := uint32(0)
+							s.doWrite(wu, inst.InstructionsFullID(), srcStringRegs, destStringRegs, inst.MemAddress, &data)
+						}
+					default:
+						log.Panicf("Unknown memory pipe stage name: %s", stageName)
+					}
 				}
+
+				currentInst := wu.warp.Instructions[lastAvailableMemoryPipeInstIdx]
+				wu.Pipeline = NewPipelineInstance(currentInst, wu)
+				wu.Pipeline.PC = previousPipelinePC
 				wu.Pipeline.Stages[wu.Pipeline.PC].Left = 1
+				// wu.Pipeline.Stages[wu.Pipeline.PC].Left = 1
+				// fmt.Printf("memLoop's issuedMemoryPipeNum = %d for warp %d\n", issuedMemoryPipeNum, wu.warp.ID)
+
 			} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 1 {
 				log.Panic("MemoryPipe stage should not be in 'Waiting' (Left = 1) status here")
 			} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 0 {
@@ -645,7 +721,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	return true
 }
 
-func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr uint64, byteSize uint64) bool {
+func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, srcRegs []string, dstRegs []string, addr uint64, byteSize uint64) bool {
 	// fmt.Printf("[start] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
 	const cacheBlockSize = 512
 	blockOffset := addr % cacheBlockSize
@@ -673,8 +749,16 @@ func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr
 	if s.VisTracing {
 		tracing.TraceReqInitiate(msg, s, reqParentID)
 	}
+	if s.PendingSMSPMemMsgID2DstRegs == nil {
+		s.PendingSMSPMemMsgID2DstRegs = make(map[string][]string)
+	}
+	if s.PendingSMSPMemMsgID2SrcRegs == nil {
+		s.PendingSMSPMemMsgID2SrcRegs = make(map[string][]string)
+	}
 	s.PendingSMSPtoMemReadReq[msg.ID] = msg
 	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
+	s.PendingSMSPMemMsgID2DstRegs[msg.ID] = dstRegs
+	s.PendingSMSPMemMsgID2SrcRegs[msg.ID] = srcRegs
 	err := s.ToVectorMem.Send(msg)
 	if err != nil {
 		return false
@@ -685,7 +769,7 @@ func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr
 	return true
 }
 
-func (s *SMSPController) doWrite(warpUnit *SMSPWarpUnit, reqParentID string, addr uint64, d *uint32) bool {
+func (s *SMSPController) doWrite(warpUnit *SMSPWarpUnit, reqParentID string, srcRegs []string, dstRegs []string, addr uint64, d *uint32) bool {
 	// fmt.Printf("[start] SMSPController %s doRead from address %x\n", s.ID, addr)
 	msg := mem.WriteReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
@@ -700,8 +784,16 @@ func (s *SMSPController) doWrite(warpUnit *SMSPWarpUnit, reqParentID string, add
 	if s.VisTracing {
 		tracing.TraceReqInitiate(msg, s, reqParentID)
 	}
+	if s.PendingSMSPMemMsgID2DstRegs == nil {
+		s.PendingSMSPMemMsgID2DstRegs = make(map[string][]string)
+	}
+	if s.PendingSMSPMemMsgID2SrcRegs == nil {
+		s.PendingSMSPMemMsgID2SrcRegs = make(map[string][]string)
+	}
 	s.PendingSMSPtoMemWriteReq[msg.ID] = msg
 	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
+	s.PendingSMSPMemMsgID2DstRegs[msg.ID] = dstRegs
+	s.PendingSMSPMemMsgID2SrcRegs[msg.ID] = srcRegs
 	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToVectorMem.Send(msg)
 	if err != nil {

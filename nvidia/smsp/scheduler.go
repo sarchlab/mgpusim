@@ -41,6 +41,7 @@ type SMSPWarpUnit struct {
 	status               WarpStatus
 	unfinishedInstsCount uint64
 	Pipeline             *PipelineInstance
+	Scoreboard           *Scoreboard
 	// currentInstructionRemainingCycles uint64
 
 }
@@ -81,18 +82,31 @@ func isMemoryPipeStage(stageName string) bool {
 	return stageName == "MemoryPipeRead" || stageName == "MemoryPipeWrite"
 }
 
+func isMemoryPipeReadStage(stageName string) bool {
+	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
+	return stageName == "MemoryPipeRead"
+}
+
+func isMemoryPipeWriteStage(stageName string) bool {
+	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
+	return stageName == "MemoryPipeWrite"
+}
+
 func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
 	fmt.Printf("%.10f, %s's Scheduler has %d Warps:", engineCurrentTime, smspName, len(s.warpUnitList))
 	for i, wu := range s.warpUnitList {
-		fmt.Printf(" [wu %d/%d: inst %d/%d '%s' @ '%s' stage (%d/%d)]",
+		fmt.Printf(" [wu %d/%d (status: %v): inst %d/%d '%s' @ '%s' stage (%d/%d)] [scoreboard: read #: %d, write #: %d]",
 			i+1,
 			len(s.warpUnitList),
+			wu.status,
 			wu.warp.InstructionsCount()-wu.unfinishedInstsCount+1,
 			wu.warp.InstructionsCount(),
 			wu.Pipeline.InstructionOpcode,
 			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name,
 			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
-			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles)
+			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles,
+			wu.Scoreboard.getNumOfRegReadBusy(),
+			wu.Scoreboard.getNumOfRegWriteBusy())
 	}
 	fmt.Println()
 }
@@ -170,7 +184,6 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 	} else {
 		log.Panic("unsupported issue policy")
 	}
-
 	return issued
 
 	// issuedWarps := []*SMSPWarpUnit{}
@@ -195,6 +208,7 @@ func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 		status:               WarpStatusReady,
 		unfinishedInstsCount: warp.InstructionsCount(),
 		Pipeline:             nil,
+		Scoreboard:           NewScoreboard(),
 	}
 	// fmt.Printf("warp.InstructionsCount() = %d\n", warp.InstructionsCount())
 	if len(warp.Instructions) == 0 {
