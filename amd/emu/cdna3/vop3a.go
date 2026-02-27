@@ -276,6 +276,16 @@ func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
 				sp.SRC2[i] = uint64(math.Float32bits(src2))
 			}
 		}
+	} else if strings.Contains(inst.InstName, "U32") ||
+		strings.Contains(inst.InstName, "u32") ||
+		strings.Contains(inst.InstName, "I32") ||
+		strings.Contains(inst.InstName, "i32") ||
+		strings.Contains(inst.InstName, "U64") ||
+		strings.Contains(inst.InstName, "u64") ||
+		strings.Contains(inst.InstName, "I24") ||
+		strings.Contains(inst.InstName, "i24") {
+		// Integer instructions: abs modifier is not applicable (used as opsel or unused).
+		// The instruction still executes correctly without applying abs.
 	} else {
 		log.Printf("Absolute operation for %s is not implemented.", inst.InstName)
 	}
