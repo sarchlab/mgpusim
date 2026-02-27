@@ -310,7 +310,10 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	for {
 		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
 
-		inst, _ := cu.decoder.Decode(instBuf)
+		inst, err := cu.decoder.Decode(instBuf)
+		if err != nil {
+			log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", wf.PC, err, instBuf)
+		}
 		wf.inst = inst
 
 		wf.PC += uint64(inst.ByteSize)

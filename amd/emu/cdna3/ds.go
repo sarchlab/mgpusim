@@ -25,6 +25,10 @@ func (u *ALU) runDS(state emu.InstEmuState) {
 		u.runDSREADB64(state)
 	case 119:
 		u.runDSREAD2B64(state)
+	case 223:
+		u.runDSWRITEB128(state)
+	case 255:
+		u.runDSREADB128(state)
 	default:
 		log.Panicf("Opcode %d for DS format is not implemented", inst.Opcode)
 	}
@@ -164,6 +168,42 @@ func (u *ALU) runDSREADB64(state emu.InstEmuState) {
 		addr := layout.ADDR[i]
 		dstOffset := uint(8 + 64*4 + 256*4*2)
 		copy(sp[dstOffset+i*16:dstOffset+i*16+8], lds[addr:addr+8])
+	}
+}
+
+func (u *ALU) runDSWRITEB128(state emu.InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad()
+	layout := sp.AsDS()
+	lds := u.LDS()
+
+	i := uint(0)
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(layout.EXEC, i) {
+			continue
+		}
+
+		addr0 := layout.ADDR[i] + inst.Offset0
+		data0offset := uint(8 + 64*4)
+		copy(lds[addr0:addr0+16], sp[data0offset+i*16:data0offset+i*16+16])
+	}
+}
+
+func (u *ALU) runDSREADB128(state emu.InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad()
+	layout := sp.AsDS()
+	lds := u.LDS()
+
+	i := uint(0)
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(layout.EXEC, i) {
+			continue
+		}
+
+		addr0 := layout.ADDR[i] + inst.Offset0
+		dstOffset := uint(8 + 64*4 + 256*4*2)
+		copy(sp[dstOffset+i*16:dstOffset+i*16+16], lds[addr0:addr0+16])
 	}
 }
 

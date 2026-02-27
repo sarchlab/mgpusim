@@ -58,6 +58,8 @@ func (u *ALU) runSOP2(state emu.InstEmuState) {
 		u.runSMULI32(state)
 	case 37:
 		u.runSBFEI32(state)
+	case 44:
+		u.runSMULHIU32(state)
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
@@ -310,6 +312,13 @@ func (u *ALU) runSMULI32(state emu.InstEmuState) {
 	src1 := emu.AsInt32(uint32(sp.SRC1))
 	result := src0 * src1
 	sp.DST = uint64(emu.Int32ToBits(result))
+}
+
+func (u *ALU) runSMULHIU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+	// S_MUL_HI_U32: D = (S0 * S1) >> 32
+	result := sp.SRC0 * sp.SRC1
+	sp.DST = result >> 32
 }
 
 func (u *ALU) runSBFEI32(state emu.InstEmuState) {
