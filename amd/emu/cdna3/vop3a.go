@@ -91,6 +91,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVMULLOU32(state)
 	case 646:
 		u.runVMULHIU32(state)
+	case 509:
+		u.runVLSHLADDU32(state)
 	case 511:
 		u.runVADD3U32(state)
 	case 520:
@@ -170,6 +172,26 @@ func (u *ALU) runVBFEI32(state emu.InstEmuState) {
 		}
 
 		sp.DST[i] = uint64(emu.Int32ToBits(result))
+	}
+}
+
+// runVLSHLADDU32 implements v_lshl_add_u32 (shift left and add 32-bit)
+// D.u = (S0.u << S1.u[4:0]) + S2.u
+func (u *ALU) runVLSHLADDU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		shift := uint32(sp.SRC1[i]) & 0x1F // [4:0] = 5 bits
+		src2 := uint32(sp.SRC2[i])
+
+		result := (src0 << shift) + src2
+		sp.DST[i] = uint64(result)
 	}
 }
 
@@ -254,6 +276,16 @@ func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
 				sp.SRC2[i] = uint64(math.Float32bits(src2))
 			}
 		}
+	} else if strings.Contains(inst.InstName, "U32") ||
+		strings.Contains(inst.InstName, "u32") ||
+		strings.Contains(inst.InstName, "I32") ||
+		strings.Contains(inst.InstName, "i32") ||
+		strings.Contains(inst.InstName, "U64") ||
+		strings.Contains(inst.InstName, "u64") ||
+		strings.Contains(inst.InstName, "I24") ||
+		strings.Contains(inst.InstName, "i24") {
+		// Integer instructions: abs modifier is not applicable (used as opsel or unused).
+		// The instruction still executes correctly without applying abs.
 	} else {
 		log.Printf("Absolute operation for %s is not implemented.", inst.InstName)
 	}

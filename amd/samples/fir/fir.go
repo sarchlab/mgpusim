@@ -16,6 +16,7 @@ func main() {
 
 	benchmark := fir.NewBenchmark(runner.Driver())
 	benchmark.Length = *numData
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

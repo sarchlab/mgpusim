@@ -16,6 +16,7 @@ func main() {
 
 	benchmark := matrixtranspose.NewBenchmark(runner.Driver())
 	benchmark.Width = *dataWidth
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

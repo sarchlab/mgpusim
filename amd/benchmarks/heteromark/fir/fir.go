@@ -8,13 +8,13 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs defines kernel arguments
-type KernelArgs struct {
+// GCN3KernelArgs defines kernel arguments for GCN3 architecture
+type GCN3KernelArgs struct {
 	Output              driver.Ptr
 	Filter              driver.Ptr
 	Input               driver.Ptr
@@ -26,6 +26,31 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3KernelArgs struct {
+	Output  driver.Ptr // offset 0
+	Filter  driver.Ptr // offset 8
+	Input   driver.Ptr // offset 16
+	History driver.Ptr // offset 24
+	NumTaps uint32     // offset 32
+	Pad     uint32     // offset 36 - alignment padding
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // offset 40
+	HiddenBlockCountY   uint32   // offset 44
+	HiddenBlockCountZ   uint32   // offset 48
+	HiddenGroupSizeX    uint16   // offset 52
+	HiddenGroupSizeY    uint16   // offset 54
+	HiddenGroupSizeZ    uint16   // offset 56
+	HiddenRemainderX    uint16   // offset 58
+	HiddenRemainderY    uint16   // offset 60
+	HiddenRemainderZ    uint16   // offset 62
+	Padding             [16]byte // offset 64-79 - reserved
+	HiddenGlobalOffsetX int64    // offset 80
+	HiddenGlobalOffsetY int64    // offset 88
+	HiddenGlobalOffsetZ int64    // offset 96
+	HiddenGridDims      uint16   // offset 104
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
@@ -34,6 +59,7 @@ type Benchmark struct {
 	hsaco   *insts.KernelCodeObject
 	gpus    []int
 
+	Arch         arch.Type
 	Length       int
 	numTaps      int
 	inputData    []float32
@@ -47,7 +73,10 @@ type Benchmark struct {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -57,9 +86,20 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.context = b.driver.Init()
 	b.queue = driver.CreateCommandQueue(b.context)
 
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "FIR")
-
 	return b
+}
+
+func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "FIR")
+	if b.hsaco == nil {
+		log.Panic("Failed to load kernel binary")
+	}
 }
 
 // SelectGPU select GPU
@@ -74,6 +114,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.exec()
@@ -137,22 +179,58 @@ func (b *Benchmark) exec() {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
 
-		kernArg := KernelArgs{
-			b.gOutputData,
-			b.gFilterData[i],
-			b.gInputData,
-			b.gHistoryData,
-			uint32(b.numTaps),
-			0,
-			int64(i * numWi / len(b.gpus)), 0, 0,
-		}
+		if b.Arch == arch.CDNA3 {
+			wgSizeX := uint16(256)
+			wgSizeY := uint16(1)
+			wgSizeZ := uint16(1)
+			gridSize := uint32(numWi / len(b.gpus))
 
-		b.driver.EnqueueLaunchKernel(
-			queues[i],
-			b.hsaco,
-			[3]uint32{uint32(numWi / len(b.gpus)), 1, 1},
-			[3]uint16{256, 1, 1}, &kernArg,
-		)
+			kernArg := CDNA3KernelArgs{
+				Output:  b.gOutputData,
+				Filter:  b.gFilterData[i],
+				Input:   b.gInputData,
+				History: b.gHistoryData,
+				NumTaps: uint32(b.numTaps),
+				// Hidden kernel arguments for GFX942
+				HiddenBlockCountX:   gridSize / uint32(wgSizeX),
+				HiddenBlockCountY:   1,
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    wgSizeX,
+				HiddenGroupSizeY:    wgSizeY,
+				HiddenGroupSizeZ:    wgSizeZ,
+				HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
+				HiddenRemainderY:    0,
+				HiddenRemainderZ:    0,
+				HiddenGlobalOffsetX: int64(i * numWi / len(b.gpus)),
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      1,
+			}
+
+			b.driver.EnqueueLaunchKernel(
+				queues[i],
+				b.hsaco,
+				[3]uint32{gridSize, 1, 1},
+				[3]uint16{256, 1, 1}, &kernArg,
+			)
+		} else {
+			kernArg := GCN3KernelArgs{
+				b.gOutputData,
+				b.gFilterData[i],
+				b.gInputData,
+				b.gHistoryData,
+				uint32(b.numTaps),
+				0,
+				int64(i * numWi / len(b.gpus)), 0, 0,
+			}
+
+			b.driver.EnqueueLaunchKernel(
+				queues[i],
+				b.hsaco,
+				[3]uint32{uint32(numWi / len(b.gpus)), 1, 1},
+				[3]uint16{256, 1, 1}, &kernArg,
+			)
+		}
 	}
 
 	for i := range b.gpus {

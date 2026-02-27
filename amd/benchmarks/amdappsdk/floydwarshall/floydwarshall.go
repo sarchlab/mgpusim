@@ -9,18 +9,40 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs defines kernel arguments
-type KernelArgs struct {
+// GCN3KernelArgs defines kernel arguments for GCN3 architecture
+type GCN3KernelArgs struct {
 	OutputPathDistanceMatrix driver.Ptr
 	OutputPathMatrix         driver.Ptr
+	NumNodes                 uint32
+	Pass                     uint32
+}
 
-	NumNodes uint32
-	Pass     uint32
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3KernelArgs struct {
+	OutputPathDistanceMatrix driver.Ptr
+	OutputPathMatrix         driver.Ptr
+	NumNodes                 uint32
+	Pass                     uint32
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // number of workgroups in X
+	HiddenBlockCountY   uint32   // number of workgroups in Y
+	HiddenBlockCountZ   uint32   // number of workgroups in Z
+	HiddenGroupSizeX    uint16   // workgroup size X
+	HiddenGroupSizeY    uint16   // workgroup size Y
+	HiddenGroupSizeZ    uint16   // workgroup size Z
+	HiddenRemainderX    uint16   // grid size % workgroup size X
+	HiddenRemainderY    uint16   // grid size % workgroup size Y
+	HiddenRemainderZ    uint16   // grid size % workgroup size Z
+	Padding             [16]byte // reserved
+	HiddenGlobalOffsetX int64    // global offset X
+	HiddenGlobalOffsetY int64    // global offset Y
+	HiddenGlobalOffsetZ int64    // global offset Z
+	HiddenGridDims      uint16   // grid dimensions
 }
 
 // Benchmark defines a benchmark
@@ -31,6 +53,7 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
+	Arch                      arch.Type
 	NumNodes                  uint32
 	NumIterations             uint32
 	hOutputPathMatrix         []uint32
@@ -49,7 +72,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	return b
 }
 
@@ -64,9 +86,18 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
 	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "floydWarshallPass")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -75,6 +106,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs the benchmark
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -162,20 +195,55 @@ func (b *Benchmark) exec() {
 	for k := uint32(0); k < b.NumIterations; k++ {
 		pass := k
 
-		kernArg := KernelArgs{
-			b.dOutputPathDistanceMatrix,
-			b.dOutputPathMatrix,
-			numNodes,
-			pass,
-		}
+		if b.Arch == arch.CDNA3 {
+			wgSizeX := uint16(blockSize)
+			wgSizeY := uint16(blockSize)
+			wgSizeZ := uint16(1)
 
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			[3]uint32{numNodes, numNodes, 1},
-			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-			&kernArg,
-		)
+			kernArg := CDNA3KernelArgs{
+				OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+				OutputPathMatrix:         b.dOutputPathMatrix,
+				NumNodes:                 numNodes,
+				Pass:                     pass,
+				// Hidden kernel arguments for GFX942
+				HiddenBlockCountX:   numNodes / uint32(wgSizeX),
+				HiddenBlockCountY:   numNodes / uint32(wgSizeY),
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    wgSizeX,
+				HiddenGroupSizeY:    wgSizeY,
+				HiddenGroupSizeZ:    wgSizeZ,
+				HiddenRemainderX:    uint16(numNodes % uint32(wgSizeX)),
+				HiddenRemainderY:    uint16(numNodes % uint32(wgSizeY)),
+				HiddenRemainderZ:    0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      2,
+			}
+
+			b.driver.LaunchKernel(
+				b.context,
+				b.kernel,
+				[3]uint32{numNodes, numNodes, 1},
+				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+				&kernArg,
+			)
+		} else {
+			kernArg := GCN3KernelArgs{
+				OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+				OutputPathMatrix:         b.dOutputPathMatrix,
+				NumNodes:                 numNodes,
+				Pass:                     pass,
+			}
+
+			b.driver.LaunchKernel(
+				b.context,
+				b.kernel,
+				[3]uint32{numNodes, numNodes, 1},
+				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+				&kernArg,
+			)
+		}
 	}
 
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)

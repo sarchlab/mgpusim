@@ -69,6 +69,12 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 		u.runVLSHLREVB16(state)
 	case 52:
 		u.runVADDU32(state)
+	case 53:
+		u.runVSUBU32(state)
+	case 54:
+		u.runVSUBREVU32(state)
+	case 59:
+		u.runVFMACF32(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
 	}
@@ -491,6 +497,50 @@ func (u *ALU) runVLSHLREVB16(state emu.InstEmuState) {
 		src0 := uint16(sp.SRC0[i]) & 0x0F
 		src1 := uint16(sp.SRC1[i])
 		sp.DST[i] = uint64(src1 << src0)
+	}
+}
+
+// runVSUBU32 implements v_sub_u32 (simple unsigned 32-bit sub, no borrow output)
+func (u *ALU) runVSUBU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		sp.DST[i] = uint64(src0 - src1)
+	}
+}
+
+// runVSUBREVU32 implements v_subrev_u32 (simple unsigned 32-bit subrev, no borrow output)
+func (u *ALU) runVSUBREVU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		sp.DST[i] = uint64(src1 - src0)
+	}
+}
+
+// runVFMACF32 implements v_fmac_f32 (fused multiply-add, dst = src0 * src1 + dst)
+func (u *ALU) runVFMACF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		dst := math.Float32frombits(uint32(sp.DST[i]))
+		dst = src0*src1 + dst
+		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 
