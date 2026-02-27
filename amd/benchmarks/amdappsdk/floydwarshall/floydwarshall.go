@@ -15,12 +15,27 @@ import (
 )
 
 // KernelArgs defines kernel arguments
+// Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
 	OutputPathDistanceMatrix driver.Ptr
 	OutputPathMatrix         driver.Ptr
-
-	NumNodes uint32
-	Pass     uint32
+	NumNodes                 uint32
+	Pass                     uint32
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // number of workgroups in X
+	HiddenBlockCountY   uint32   // number of workgroups in Y
+	HiddenBlockCountZ   uint32   // number of workgroups in Z
+	HiddenGroupSizeX    uint16   // workgroup size X
+	HiddenGroupSizeY    uint16   // workgroup size Y
+	HiddenGroupSizeZ    uint16   // workgroup size Z
+	HiddenRemainderX    uint16   // grid size % workgroup size X
+	HiddenRemainderY    uint16   // grid size % workgroup size Y
+	HiddenRemainderZ    uint16   // grid size % workgroup size Z
+	Padding             [16]byte // reserved
+	HiddenGlobalOffsetX int64    // global offset X
+	HiddenGlobalOffsetY int64    // global offset Y
+	HiddenGlobalOffsetZ int64    // global offset Z
+	HiddenGridDims      uint16   // grid dimensions
 }
 
 // Benchmark defines a benchmark
@@ -159,14 +174,32 @@ func (b *Benchmark) exec() {
 		numNodes = (numNodes/blockSize + 1) * blockSize
 	}
 
+	wgSizeX := uint16(blockSize)
+	wgSizeY := uint16(blockSize)
+	wgSizeZ := uint16(1)
+
 	for k := uint32(0); k < b.NumIterations; k++ {
 		pass := k
 
 		kernArg := KernelArgs{
-			b.dOutputPathDistanceMatrix,
-			b.dOutputPathMatrix,
-			numNodes,
-			pass,
+			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+			OutputPathMatrix:         b.dOutputPathMatrix,
+			NumNodes:                 numNodes,
+			Pass:                     pass,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX: numNodes / uint32(wgSizeX),
+			HiddenBlockCountY: numNodes / uint32(wgSizeY),
+			HiddenBlockCountZ: 1,
+			HiddenGroupSizeX:  wgSizeX,
+			HiddenGroupSizeY:  wgSizeY,
+			HiddenGroupSizeZ:  wgSizeZ,
+			HiddenRemainderX:  uint16(numNodes % uint32(wgSizeX)),
+			HiddenRemainderY:  uint16(numNodes % uint32(wgSizeY)),
+			HiddenRemainderZ:  0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      2,
 		}
 
 		b.driver.LaunchKernel(

@@ -16,9 +16,27 @@ import (
 )
 
 // KernelArgs defines kernel arguments
+// Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
 	TArray driver.Ptr
 	Step   uint32
+	// Padding to align hidden args to next 4-byte boundary
+	Pad uint32
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // number of workgroups in X
+	HiddenBlockCountY   uint32   // number of workgroups in Y
+	HiddenBlockCountZ   uint32   // number of workgroups in Z
+	HiddenGroupSizeX    uint16   // workgroup size X
+	HiddenGroupSizeY    uint16   // workgroup size Y
+	HiddenGroupSizeZ    uint16   // workgroup size Z
+	HiddenRemainderX    uint16   // grid size % workgroup size X
+	HiddenRemainderY    uint16   // grid size % workgroup size Y
+	HiddenRemainderZ    uint16   // grid size % workgroup size Z
+	Padding             [16]byte // reserved
+	HiddenGlobalOffsetX int64    // global offset X
+	HiddenGlobalOffsetY int64    // global offset Y
+	HiddenGlobalOffsetZ int64    // global offset Z
+	HiddenGridDims      uint16   // grid dimensions
 }
 
 // Benchmark defines a benchmark
@@ -107,12 +125,29 @@ func printArray(array []float32, n uint32) {
 func (b *Benchmark) exec() {
 	globalThreadSize := b.Length / 2
 	localThreadSize := uint16(256)
+	wgSizeX := localThreadSize
+	wgSizeY := uint16(1)
+	wgSizeZ := uint16(1)
 
 	for _, queue := range b.queues {
 		for step := uint32(1); step < b.Length; step <<= 1 {
 			kernArg := KernelArgs{
 				TArray: b.dInputArray,
 				Step:   step,
+				// Hidden kernel arguments for GFX942
+				HiddenBlockCountX: globalThreadSize / uint32(wgSizeX),
+				HiddenBlockCountY: 1,
+				HiddenBlockCountZ: 1,
+				HiddenGroupSizeX:  wgSizeX,
+				HiddenGroupSizeY:  wgSizeY,
+				HiddenGroupSizeZ:  wgSizeZ,
+				HiddenRemainderX:  uint16(globalThreadSize % uint32(wgSizeX)),
+				HiddenRemainderY:  0,
+				HiddenRemainderZ:  0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      1,
 			}
 
 			b.driver.EnqueueLaunchKernel(

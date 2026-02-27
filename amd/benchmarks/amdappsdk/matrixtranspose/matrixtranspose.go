@@ -14,18 +14,32 @@ import (
 )
 
 // KernelArgs defines kernel arguments
+// Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
-	Output              driver.Ptr
-	Input               driver.Ptr
-	Block               driver.LocalPtr
-	WIWidth             uint32
-	WIHeight            uint32
-	NumWGWidth          uint32
-	GroupXOffset        uint32
-	GroupYOffset        uint32
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
+	Output       driver.Ptr    // offset 0
+	Input        driver.Ptr    // offset 8
+	Block        driver.LocalPtr // offset 16
+	WIWidth      uint32        // offset 24
+	WIHeight     uint32        // offset 28
+	NumWGWidth   uint32        // offset 32
+	GroupXOffset uint32        // offset 36
+	GroupYOffset uint32        // offset 40
+	Pad          uint32        // offset 44 - alignment padding
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // offset 48
+	HiddenBlockCountY   uint32   // offset 52
+	HiddenBlockCountZ   uint32   // offset 56
+	HiddenGroupSizeX    uint16   // offset 60
+	HiddenGroupSizeY    uint16   // offset 62
+	HiddenGroupSizeZ    uint16   // offset 64
+	HiddenRemainderX    uint16   // offset 66
+	HiddenRemainderY    uint16   // offset 68
+	HiddenRemainderZ    uint16   // offset 70
+	Padding             [16]byte // offset 72-87 - reserved
+	HiddenGlobalOffsetX int64    // offset 88
+	HiddenGlobalOffsetY int64    // offset 96
+	HiddenGlobalOffsetZ int64    // offset 104
+	HiddenGridDims      uint16   // offset 112
 }
 
 // Benchmark defines a benchmark
@@ -124,24 +138,46 @@ func (b *Benchmark) exec() {
 	numWGWidth := wiWidth / uint32(b.blockSize)
 	wgXPerGPU := numWGWidth / uint32(len(b.queues))
 
+	wgSizeX := uint16(b.blockSize)
+	wgSizeY := uint16(b.blockSize)
+	wgSizeZ := uint16(1)
+
 	for i, queue := range b.queues {
 		wiWidthPerGPU := int(wiWidth) / len(b.queues)
+		gridSizeX := uint32(wiWidthPerGPU)
+		gridSizeY := wiHeight
 
 		kernArg := KernelArgs{
-			b.dOutputData,
-			b.dInputData,
-			driver.LocalPtr(b.blockSize * b.blockSize *
+			Output:       b.dOutputData,
+			Input:        b.dInputData,
+			Block: driver.LocalPtr(b.blockSize * b.blockSize *
 				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-			wiWidth, wiHeight, numWGWidth,
-			wgXPerGPU * uint32(i), 0,
-			0, 0, 0,
+			WIWidth:      wiWidth,
+			WIHeight:     wiHeight,
+			NumWGWidth:   numWGWidth,
+			GroupXOffset: wgXPerGPU * uint32(i),
+			GroupYOffset: 0,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX: gridSizeX / uint32(wgSizeX),
+			HiddenBlockCountY: gridSizeY / uint32(wgSizeY),
+			HiddenBlockCountZ: 1,
+			HiddenGroupSizeX:  wgSizeX,
+			HiddenGroupSizeY:  wgSizeY,
+			HiddenGroupSizeZ:  wgSizeZ,
+			HiddenRemainderX:  uint16(gridSizeX % uint32(wgSizeX)),
+			HiddenRemainderY:  uint16(gridSizeY % uint32(wgSizeY)),
+			HiddenRemainderZ:  0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      2,
 		}
 
 		b.driver.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
-			[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
-			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
+			[3]uint32{gridSizeX, gridSizeY, 1},
+			[3]uint16{wgSizeX, wgSizeY, 1},
 			&kernArg,
 		)
 	}

@@ -14,14 +14,30 @@ import (
 )
 
 // KernelArgs defines kernel arguments
+// Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
-	Input                           driver.Ptr
-	Mask                            driver.Ptr
-	Output                          driver.Ptr
-	InputDimensions, MaskDimensions [2]uint32
-	NExWidth                        uint32
-	Padding                         uint32
-	OffsetX, OffsetY, OffsetZ       uint64
+	Input           driver.Ptr // offset 0
+	Mask            driver.Ptr // offset 8
+	Output          driver.Ptr // offset 16
+	InputDimensions [2]uint32  // offset 24 (inputWidth, inputHeight)
+	MaskDimensions  [2]uint32  // offset 32 (maskWidth, maskHeight)
+	NExWidth        uint32     // offset 40
+	Pad             uint32     // offset 44 - alignment padding
+	// Hidden kernel arguments (required by HIP runtime for GFX942)
+	HiddenBlockCountX   uint32   // offset 48
+	HiddenBlockCountY   uint32   // offset 52
+	HiddenBlockCountZ   uint32   // offset 56
+	HiddenGroupSizeX    uint16   // offset 60
+	HiddenGroupSizeY    uint16   // offset 62
+	HiddenGroupSizeZ    uint16   // offset 64
+	HiddenRemainderX    uint16   // offset 66
+	HiddenRemainderY    uint16   // offset 68
+	HiddenRemainderZ    uint16   // offset 70
+	Padding             [16]byte // offset 72-87 - reserved
+	HiddenGlobalOffsetX int64    // offset 88
+	HiddenGlobalOffsetY int64    // offset 96
+	HiddenGlobalOffsetZ int64    // offset 104
+	HiddenGridDims      uint16   // offset 112
 }
 
 // Benchmark defines a benchmark
@@ -145,6 +161,10 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 	queues := make([]*driver.CommandQueue, len(b.gpus))
+	wgSizeX := uint16(64)
+	wgSizeY := uint16(1)
+	wgSizeZ := uint16(1)
+
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
@@ -153,21 +173,33 @@ func (b *Benchmark) exec() {
 			uint32(len(b.gpus))
 
 		kernArg := KernelArgs{
-			b.dInputData,
-			b.dMasks[i],
-			b.dOutputData,
-			[2]uint32{b.Width, b.Height},
-			[2]uint32{b.maskSize, b.maskSize},
-			b.Width + b.padWidth,
-			0,
-			uint64(gridSize * uint32(i)), 0, 0,
+			Input:           b.dInputData,
+			Mask:            b.dMasks[i],
+			Output:          b.dOutputData,
+			InputDimensions: [2]uint32{b.Width, b.Height},
+			MaskDimensions:  [2]uint32{b.maskSize, b.maskSize},
+			NExWidth:        b.Width + b.padWidth,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX: gridSize / uint32(wgSizeX),
+			HiddenBlockCountY: 1,
+			HiddenBlockCountZ: 1,
+			HiddenGroupSizeX:  wgSizeX,
+			HiddenGroupSizeY:  wgSizeY,
+			HiddenGroupSizeZ:  wgSizeZ,
+			HiddenRemainderX:  uint16(gridSize % uint32(wgSizeX)),
+			HiddenRemainderY:  0,
+			HiddenRemainderZ:  0,
+			HiddenGlobalOffsetX: int64(gridSize * uint32(i)),
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
 		}
 
 		b.driver.EnqueueLaunchKernel(
 			queues[i],
 			b.kernel,
 			[3]uint32{gridSize, 1, 1},
-			[3]uint16{uint16(64), 1, 1},
+			[3]uint16{wgSizeX, 1, 1},
 			&kernArg,
 		)
 	}
