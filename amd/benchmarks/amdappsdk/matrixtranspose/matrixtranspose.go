@@ -16,15 +16,16 @@ import (
 // KernelArgs defines kernel arguments
 // Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
-	Output       driver.Ptr    // offset 0
-	Input        driver.Ptr    // offset 8
-	Block        driver.LocalPtr // offset 16
-	WIWidth      uint32        // offset 24
-	WIHeight     uint32        // offset 28
-	NumWGWidth   uint32        // offset 32
-	GroupXOffset uint32        // offset 36
-	GroupYOffset uint32        // offset 40
-	Pad          uint32        // offset 44 - alignment padding
+	Output       driver.Ptr      // offset 0
+	Input        driver.Ptr      // offset 8
+	Block        driver.LocalPtr // offset 16 (LDS allocation for HIP_DYNAMIC_SHARED)
+	BlockPad     uint32          // offset 20 (pad to match 8-byte ptr in HSACO)
+	WIWidth      uint32          // offset 24
+	WIHeight     uint32          // offset 28
+	NumWGWidth   uint32          // offset 32
+	GroupXOffset uint32          // offset 36
+	GroupYOffset uint32          // offset 40
+	Pad          uint32          // offset 44 - alignment padding
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
 	HiddenBlockCountX   uint32   // offset 48
 	HiddenBlockCountY   uint32   // offset 52
