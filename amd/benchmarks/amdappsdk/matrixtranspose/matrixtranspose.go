@@ -8,14 +8,28 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs defines kernel arguments
-// Layout must match AMDGPU hidden kernel argument format for GFX942
-type KernelArgs struct {
+// GCN3KernelArgs defines kernel arguments for GCN3 architecture
+type GCN3KernelArgs struct {
+	Output              driver.Ptr
+	Input               driver.Ptr
+	Block               driver.LocalPtr
+	WIWidth             uint32
+	WIHeight            uint32
+	NumWGWidth          uint32
+	GroupXOffset        uint32
+	GroupYOffset        uint32
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+}
+
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3KernelArgs struct {
 	Output       driver.Ptr      // offset 0
 	Input        driver.Ptr      // offset 8
 	Block        driver.LocalPtr // offset 16 (LDS allocation for HIP_DYNAMIC_SHARED)
@@ -52,6 +66,7 @@ type Benchmark struct {
 
 	kernel *insts.KernelCodeObject
 
+	Arch               arch.Type
 	Width              int
 	elemsPerThread1Dim int
 	blockSize          int
@@ -69,7 +84,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	b.elemsPerThread1Dim = 4
 	b.blockSize = 16
 	return b
@@ -86,9 +100,18 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
 	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "matrixTranspose")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -97,6 +120,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -139,48 +164,68 @@ func (b *Benchmark) exec() {
 	numWGWidth := wiWidth / uint32(b.blockSize)
 	wgXPerGPU := numWGWidth / uint32(len(b.queues))
 
-	wgSizeX := uint16(b.blockSize)
-	wgSizeY := uint16(b.blockSize)
-	wgSizeZ := uint16(1)
-
 	for i, queue := range b.queues {
 		wiWidthPerGPU := int(wiWidth) / len(b.queues)
-		gridSizeX := uint32(wiWidthPerGPU)
-		gridSizeY := wiHeight
 
-		kernArg := KernelArgs{
-			Output:       b.dOutputData,
-			Input:        b.dInputData,
-			Block: driver.LocalPtr(b.blockSize * b.blockSize *
-				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-			WIWidth:      wiWidth,
-			WIHeight:     wiHeight,
-			NumWGWidth:   numWGWidth,
-			GroupXOffset: wgXPerGPU * uint32(i),
-			GroupYOffset: 0,
-			// Hidden kernel arguments for GFX942
-			HiddenBlockCountX: gridSizeX / uint32(wgSizeX),
-			HiddenBlockCountY: gridSizeY / uint32(wgSizeY),
-			HiddenBlockCountZ: 1,
-			HiddenGroupSizeX:  wgSizeX,
-			HiddenGroupSizeY:  wgSizeY,
-			HiddenGroupSizeZ:  wgSizeZ,
-			HiddenRemainderX:  uint16(gridSizeX % uint32(wgSizeX)),
-			HiddenRemainderY:  uint16(gridSizeY % uint32(wgSizeY)),
-			HiddenRemainderZ:  0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
-			HiddenGridDims:      2,
+		if b.Arch == arch.CDNA3 {
+			wgSizeX := uint16(b.blockSize)
+			wgSizeY := uint16(b.blockSize)
+			wgSizeZ := uint16(1)
+			gridSizeX := uint32(wiWidthPerGPU)
+			gridSizeY := wiHeight
+
+			kernArg := CDNA3KernelArgs{
+				Output: b.dOutputData,
+				Input:  b.dInputData,
+				Block: driver.LocalPtr(b.blockSize * b.blockSize *
+					b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
+				WIWidth:      wiWidth,
+				WIHeight:     wiHeight,
+				NumWGWidth:   numWGWidth,
+				GroupXOffset: wgXPerGPU * uint32(i),
+				GroupYOffset: 0,
+				// Hidden kernel arguments for GFX942
+				HiddenBlockCountX:   gridSizeX / uint32(wgSizeX),
+				HiddenBlockCountY:   gridSizeY / uint32(wgSizeY),
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    wgSizeX,
+				HiddenGroupSizeY:    wgSizeY,
+				HiddenGroupSizeZ:    wgSizeZ,
+				HiddenRemainderX:    uint16(gridSizeX % uint32(wgSizeX)),
+				HiddenRemainderY:    uint16(gridSizeY % uint32(wgSizeY)),
+				HiddenRemainderZ:    0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      2,
+			}
+
+			b.driver.EnqueueLaunchKernel(
+				queue,
+				b.kernel,
+				[3]uint32{gridSizeX, gridSizeY, 1},
+				[3]uint16{wgSizeX, wgSizeY, 1},
+				&kernArg,
+			)
+		} else {
+			kernArg := GCN3KernelArgs{
+				b.dOutputData,
+				b.dInputData,
+				driver.LocalPtr(b.blockSize * b.blockSize *
+					b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
+				wiWidth, wiHeight, numWGWidth,
+				wgXPerGPU * uint32(i), 0,
+				0, 0, 0,
+			}
+
+			b.driver.EnqueueLaunchKernel(
+				queue,
+				b.kernel,
+				[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
+				[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
+				&kernArg,
+			)
 		}
-
-		b.driver.EnqueueLaunchKernel(
-			queue,
-			b.kernel,
-			[3]uint32{gridSizeX, gridSizeY, 1},
-			[3]uint16{wgSizeX, wgSizeY, 1},
-			&kernArg,
-		)
 	}
 
 	for _, q := range b.queues {
