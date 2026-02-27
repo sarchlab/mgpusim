@@ -37,3 +37,9 @@ test
 **/mock_*_test.go
 
 .history
+
+fastwalshtransform
+fir
+floydwarshall
+matrixtranspose
+simpleconvolution

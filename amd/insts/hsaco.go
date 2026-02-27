@@ -316,42 +316,55 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[44:48])
 	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[48:52])
 
-	// Parse kernel_code_properties
-	// AMDHSA V4+ bit layout (from LLVM AMDGPU docs):
-	// Bits 0-5:  Reserved (was ENABLE_SGPR_PRIVATE_SEGMENT_BUFFER, deprecated)
-	// Bit 6:    ENABLE_SGPR_DISPATCH_PTR
-	// Bit 7:    ENABLE_SGPR_QUEUE_PTR
-	// Bit 8:    ENABLE_SGPR_KERNARG_SEGMENT_PTR
-	// Bit 9:    ENABLE_SGPR_DISPATCH_ID
-	// Bit 10:   ENABLE_SGPR_FLAT_SCRATCH_INIT
-	// Bit 11:   ENABLE_SGPR_PRIVATE_SEGMENT_SIZE
-	// Bit 12:   Reserved
-	// Bits 13-15: Reserved
-	props := binary.LittleEndian.Uint16(data[52:54])
-
-	// Parse compute_pgm_rsrc2 to get user_sgpr count
-	computePgmRsrc2 := meta.ComputePgmRsrc2
-	userSgprCount := (computePgmRsrc2 >> 1) & 0x1F
+	// For V5 (AMDHSA Code Object V4+) kernel descriptors:
+	// The kernel_code_properties field and compute_pgm_rsrc2 may not
+	// accurately reflect all SGPR setup requirements, especially for
+	// kernels compiled with extern "C". Instead of relying solely on
+	// the property flags, we use a practical approach:
+	//
+	// 1. If kernarg_size > 0, the kernel needs a kernarg segment pointer
+	// 2. Workgroup ID and work-item ID enables come from compute_pgm_rsrc2
+	// 3. We disable unused/deprecated SGPR features (dispatch ptr, queue ptr, etc.)
+	//
+	// The SGPR layout for V5 kernels is always:
+	//   s[0:1] = kernarg segment pointer (if kernel has kernargs)
+	//   s2     = workgroup ID X (if enabled in rsrc2)
+	//   s3     = workgroup ID Y (if enabled in rsrc2)
+	//   s4     = workgroup ID Z (if enabled in rsrc2)
 
 	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
-	meta.EnableSgprDispatchPtr = (props & (1 << 6)) != 0
-	meta.EnableSgprQueuePtr = (props & (1 << 7)) != 0
-	meta.EnableSgprKernargSegmentPtr = (props & (1 << 8)) != 0
-	meta.EnableSgprDispatchID = (props & (1 << 9)) != 0
-	meta.EnableSgprFlatScratchInit = (props & (1 << 10)) != 0
-	meta.EnableSgprPrivateSegmentSize = (props & (1 << 11)) != 0
 
-	// Workaround: Some kernels have incorrect flags in kernel descriptor.
-	// Use user_sgpr_count to validate: if kernarg_ptr is enabled and
-	// user_sgpr_count is 2, then only kernarg_ptr should be enabled.
-	if meta.EnableSgprKernargSegmentPtr && userSgprCount == 2 {
-		// Only kernarg pointer (2 SGPRs) - disable other flags that would use SGPRs
-		meta.EnableSgprDispatchPtr = false
-		meta.EnableSgprQueuePtr = false
-		meta.EnableSgprDispatchID = false
-		meta.EnableSgprFlatScratchInit = false
-		meta.EnableSgprPrivateSegmentSize = false
+	// For V5 code objects, always enable kernarg ptr if there are kernel arguments
+	meta.EnableSgprKernargSegmentPtr = meta.KernargSegmentByteSize > 0
+
+	// Disable features we don't support / that may have incorrect flags
+	meta.EnableSgprDispatchPtr = false
+	meta.EnableSgprQueuePtr = false
+	meta.EnableSgprDispatchID = false
+	meta.EnableSgprFlatScratchInit = false
+	meta.EnableSgprPrivateSegmentSize = false
+
+	// Fix compute_pgm_rsrc2: Some extern "C" kernels have incorrect
+	// enable_sgpr_workgroup_id and enable_vgpr_workitem_id bits.
+	// For V5 code objects, we ensure these are always enabled since
+	// all HIP kernels use workgroup and work-item IDs.
+	// Bit 1-5:  user_sgpr_count → set to 2 (for kernarg ptr s[0:1])
+	// Bit 7:    enable_sgpr_workgroup_id_x → force enable
+	// Bit 8:    enable_sgpr_workgroup_id_y → force enable
+	// Bit 9:    enable_sgpr_workgroup_id_z → leave as-is
+	// Bit 11-12: enable_vgpr_workitem_id → force to at least 1 (X+Y)
+	rsrc2 := meta.ComputePgmRsrc2
+	if meta.EnableSgprKernargSegmentPtr {
+		// Set user_sgpr_count to 2 (kernarg ptr uses 2 SGPRs)
+		rsrc2 = (rsrc2 &^ (0x1F << 1)) | (2 << 1)
 	}
+	rsrc2 |= (1 << 7) // enable_sgpr_workgroup_id_x
+	rsrc2 |= (1 << 8) // enable_sgpr_workgroup_id_y
+	// Set enable_vgpr_workitem_id to at least 1 (enable X and Y)
+	if (rsrc2>>11)&3 == 0 {
+		rsrc2 = (rsrc2 &^ (3 << 11)) | (1 << 11)
+	}
+	meta.ComputePgmRsrc2 = rsrc2
 
 	return meta
 }
