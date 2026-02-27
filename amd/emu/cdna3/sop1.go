@@ -9,32 +9,33 @@ import (
 //nolint:gocyclo
 func (u *ALU) runSOP1(state emu.InstEmuState) {
 	inst := state.Inst()
+	// Opcodes match the GCN3 decode table numbering (used by the shared decoder)
 	switch inst.Opcode {
-	case 3:
+	case 0:
 		u.runSMOVB32(state)
-	case 4:
+	case 1:
 		u.runSMOVB64(state)
-	case 7:
+	case 4:
 		u.runSNOTU32(state)
-	case 12:
+	case 8:
 		u.runSBREVB32(state)
 	case 28:
 		u.runSGETPCB64(state)
-	case 32, 33:
+	case 32:
 		u.runSANDSAVEEXECB64(state)
-	case 34:
+	case 33:
 		u.runSORSAVEEXECB64(state)
-	case 35:
+	case 34:
 		u.runSXORSAVEEXECB64(state)
-	case 36:
+	case 35:
 		u.runSANDN2SAVEEXECB64(state)
-	case 37:
+	case 36:
 		u.runSORN2SAVEEXECB64(state)
-	case 38:
+	case 37:
 		u.runSNANDSAVEEXECB64(state)
-	case 39:
+	case 38:
 		u.runSNORSAVEEXECB64(state)
-	case 40:
+	case 39:
 		u.runSNXORSAVEEXECB64(state)
 	default:
 		log.Panicf("Opcode %d for SOP1 format is not implemented", inst.Opcode)

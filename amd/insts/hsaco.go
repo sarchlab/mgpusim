@@ -354,6 +354,8 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	// Bit 9:    enable_sgpr_workgroup_id_z → leave as-is
 	// Bit 11-12: enable_vgpr_workitem_id → force to at least 1 (X+Y)
 	rsrc2 := meta.ComputePgmRsrc2
+	// Clear bit 0 (enable_sgpr_private_segment_wave_byte_offset) — deprecated in V5
+	rsrc2 &^= 1
 	if meta.EnableSgprKernargSegmentPtr {
 		// Set user_sgpr_count to 2 (kernarg ptr uses 2 SGPRs)
 		rsrc2 = (rsrc2 &^ (0x1F << 1)) | (2 << 1)
