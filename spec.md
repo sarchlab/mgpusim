@@ -6,4 +6,15 @@ We need to support emulating a wide range of gfx942 hip kernels. This work is al
 
 ## How do you consider the project is success?
 
-We should be able to support all the benchmarks from shoc, polybench, Rodinia, parboil. But also find other berchmark suite. You can get the CUDA version and convert it to HIP. You can either rewrite the code yourself, or you can use hipify to convert the code. Then, for every benchmark, always write a go version of the code. So that you can compare the calculation results. There is a docker file so that you can use to compile the kernels. The eventual goal is that the emulated the kernel generate byte-level correct result. No need to work on timing simulation at this stage.
+We should be able to support all the benchmarks from SHOC, PolyBench, Rodinia, and Parboil. We should also find and integrate additional benchmark suites. CUDA benchmarks can be converted to HIP either manually or with hipify. For every benchmark, always provide a Go reference implementation so calculation results can be compared.
+
+Use the existing Docker-based workflow to compile kernels. The core goal is byte-level correct kernel emulation results. Timing simulation is out of scope at this stage.
+
+In addition, milestone acceptance tests must be runnable in GitHub Actions CI so progress is continuously verifiable and regressions are caught automatically.
+
+## Constraints
+
+- Preserve existing GCN3 behavior while adding gfx942/CDNA3 support.
+- Keep benchmark integration dual-arch (GCN3 + CDNA3) where applicable.
+- Prefer small, verifiable milestones with explicit acceptance commands.
+- Avoid long local full-suite runs; use focused local checks and CI for broader validation.
