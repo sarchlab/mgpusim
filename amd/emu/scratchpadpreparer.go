@@ -219,8 +219,33 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
 
+	// Check if this is a global instruction with scalar base address (SAddr)
+	useSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
+	
+	var scalarBase uint64
+	if useSAddr {
+		// Read the scalar base address from SGPR pair
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		buf := wf.ReadReg(sAddrOperand.Register, sAddrOperand.RegCount, 0)
+		scalarBase = insts.BytesToUint64(buf)
+	}
+
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+		if useSAddr {
+			// For global with SAddr: addr = SAddr + zero_extend(VGPR)
+			// The VGPR is a single 32-bit register (not a pair)
+			vAddrOperand := insts.NewVRegOperand(
+				inst.Addr.Register.RegIndex(), 
+				inst.Addr.Register.RegIndex(), 1)
+			vBuf := wf.ReadReg(vAddrOperand.Register, 1, i)
+			vOffset := uint64(insts.BytesToUint32(vBuf))
+			addr := scalarBase + vOffset
+			copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
+		} else {
+			// For flat/global with off: addr = VGPR pair (64-bit)
+			p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+		}
 		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
 	}
 }

@@ -22,6 +22,8 @@ func (u *ALU) runVOP3B(state emu.InstEmuState) {
 		u.runVSUBBU32VOP3b(state)
 	case 286:
 		u.runVSUBBREVU32VOP3b(state)
+	case 480:
+		u.runVDIVSCALEF32(state)
 	case 494:
 		u.runVDIVSCALEF64(state)
 	default:
@@ -130,6 +132,34 @@ func (u *ALU) runVSUBBREVU32VOP3b(state emu.InstEmuState) {
 		sp.DST[i] = result & 0xFFFFFFFF
 		if src0+borrow > src1 {
 			sp.SDST |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVDIVSCALEF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+
+		// v_div_scale_f32: Part of software division sequence
+		// Simplified: Returns src0, sets VCC bit if quotient is denormal
+		dst := src0
+		sp.DST[i] = uint64(math.Float32bits(dst))
+		
+		// Set SDST bit if result might be denormal (simplified check)
+		if src1 != 0 && src2 != 0 {
+			quotient := src0 / src2
+			bits := math.Float32bits(quotient)
+			exp := (bits >> 23) & 0xFF
+			if exp == 0 {
+				sp.SDST |= (1 << i)
+			}
 		}
 	}
 }

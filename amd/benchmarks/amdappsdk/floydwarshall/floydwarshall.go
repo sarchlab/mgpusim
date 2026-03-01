@@ -184,6 +184,58 @@ func printMatrix(matrix []uint32, n uint32) {
 	}
 }
 
+func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
+	if b.Arch == arch.CDNA3 {
+		wgSizeX := uint16(blockSize)
+		wgSizeY := uint16(blockSize)
+		wgSizeZ := uint16(1)
+
+		kernArg := CDNA3KernelArgs{
+			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+			OutputPathMatrix:         b.dOutputPathMatrix,
+			NumNodes:                 numNodes,
+			Pass:                     pass,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX:   numNodes / uint32(wgSizeX),
+			HiddenBlockCountY:   numNodes / uint32(wgSizeY),
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    wgSizeX,
+			HiddenGroupSizeY:    wgSizeY,
+			HiddenGroupSizeZ:    wgSizeZ,
+			HiddenRemainderX:    uint16(numNodes % uint32(wgSizeX)),
+			HiddenRemainderY:    uint16(numNodes % uint32(wgSizeY)),
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      2,
+		}
+
+		b.driver.LaunchKernel(
+			b.context,
+			b.kernel,
+			[3]uint32{numNodes, numNodes, 1},
+			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+			&kernArg,
+		)
+	} else {
+		kernArg := GCN3KernelArgs{
+			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+			OutputPathMatrix:         b.dOutputPathMatrix,
+			NumNodes:                 numNodes,
+			Pass:                     pass,
+		}
+
+		b.driver.LaunchKernel(
+			b.context,
+			b.kernel,
+			[3]uint32{numNodes, numNodes, 1},
+			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+			&kernArg,
+		)
+	}
+}
+
 func (b *Benchmark) exec() {
 	numNodes := b.NumNodes
 	blockSize := uint32(8)
@@ -193,57 +245,7 @@ func (b *Benchmark) exec() {
 	}
 
 	for k := uint32(0); k < b.NumIterations; k++ {
-		pass := k
-
-		if b.Arch == arch.CDNA3 {
-			wgSizeX := uint16(blockSize)
-			wgSizeY := uint16(blockSize)
-			wgSizeZ := uint16(1)
-
-			kernArg := CDNA3KernelArgs{
-				OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-				OutputPathMatrix:         b.dOutputPathMatrix,
-				NumNodes:                 numNodes,
-				Pass:                     pass,
-				// Hidden kernel arguments for GFX942
-				HiddenBlockCountX:   numNodes / uint32(wgSizeX),
-				HiddenBlockCountY:   numNodes / uint32(wgSizeY),
-				HiddenBlockCountZ:   1,
-				HiddenGroupSizeX:    wgSizeX,
-				HiddenGroupSizeY:    wgSizeY,
-				HiddenGroupSizeZ:    wgSizeZ,
-				HiddenRemainderX:    uint16(numNodes % uint32(wgSizeX)),
-				HiddenRemainderY:    uint16(numNodes % uint32(wgSizeY)),
-				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      2,
-			}
-
-			b.driver.LaunchKernel(
-				b.context,
-				b.kernel,
-				[3]uint32{numNodes, numNodes, 1},
-				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-				&kernArg,
-			)
-		} else {
-			kernArg := GCN3KernelArgs{
-				OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-				OutputPathMatrix:         b.dOutputPathMatrix,
-				NumNodes:                 numNodes,
-				Pass:                     pass,
-			}
-
-			b.driver.LaunchKernel(
-				b.context,
-				b.kernel,
-				[3]uint32{numNodes, numNodes, 1},
-				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-				&kernArg,
-			)
-		}
+		b.launchKernelIteration(numNodes, blockSize, k)
 	}
 
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)

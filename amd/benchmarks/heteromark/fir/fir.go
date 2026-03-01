@@ -171,66 +171,70 @@ func (b *Benchmark) initMem() {
 	}
 }
 
+func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex, numGPUs int) {
+	numWi := b.Length
+	gridSize := uint32(numWi / numGPUs)
+
+	if b.Arch == arch.CDNA3 {
+		wgSizeX := uint16(256)
+		wgSizeY := uint16(1)
+		wgSizeZ := uint16(1)
+
+		kernArg := CDNA3KernelArgs{
+			Output:  b.gOutputData,
+			Filter:  b.gFilterData[gpuIndex],
+			Input:   b.gInputData,
+			History: b.gHistoryData,
+			NumTaps: uint32(b.numTaps),
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    wgSizeX,
+			HiddenGroupSizeY:    wgSizeY,
+			HiddenGroupSizeZ:    wgSizeZ,
+			HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
+			HiddenRemainderY:    0,
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: int64(gpuIndex * numWi / numGPUs),
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.hsaco,
+			[3]uint32{gridSize, 1, 1},
+			[3]uint16{256, 1, 1}, &kernArg,
+		)
+	} else {
+		kernArg := GCN3KernelArgs{
+			b.gOutputData,
+			b.gFilterData[gpuIndex],
+			b.gInputData,
+			b.gHistoryData,
+			uint32(b.numTaps),
+			0,
+			int64(gpuIndex * numWi / numGPUs), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.hsaco,
+			[3]uint32{gridSize, 1, 1},
+			[3]uint16{256, 1, 1}, &kernArg,
+		)
+	}
+}
+
 func (b *Benchmark) exec() {
 	queues := make([]*driver.CommandQueue, len(b.gpus))
-	numWi := b.Length
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
-
-		if b.Arch == arch.CDNA3 {
-			wgSizeX := uint16(256)
-			wgSizeY := uint16(1)
-			wgSizeZ := uint16(1)
-			gridSize := uint32(numWi / len(b.gpus))
-
-			kernArg := CDNA3KernelArgs{
-				Output:  b.gOutputData,
-				Filter:  b.gFilterData[i],
-				Input:   b.gInputData,
-				History: b.gHistoryData,
-				NumTaps: uint32(b.numTaps),
-				// Hidden kernel arguments for GFX942
-				HiddenBlockCountX:   gridSize / uint32(wgSizeX),
-				HiddenBlockCountY:   1,
-				HiddenBlockCountZ:   1,
-				HiddenGroupSizeX:    wgSizeX,
-				HiddenGroupSizeY:    wgSizeY,
-				HiddenGroupSizeZ:    wgSizeZ,
-				HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
-				HiddenRemainderY:    0,
-				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: int64(i * numWi / len(b.gpus)),
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      1,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				queues[i],
-				b.hsaco,
-				[3]uint32{gridSize, 1, 1},
-				[3]uint16{256, 1, 1}, &kernArg,
-			)
-		} else {
-			kernArg := GCN3KernelArgs{
-				b.gOutputData,
-				b.gFilterData[i],
-				b.gInputData,
-				b.gHistoryData,
-				uint32(b.numTaps),
-				0,
-				int64(i * numWi / len(b.gpus)), 0, 0,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				queues[i],
-				b.hsaco,
-				[3]uint32{uint32(numWi / len(b.gpus)), 1, 1},
-				[3]uint16{256, 1, 1}, &kernArg,
-			)
-		}
+		b.enqueueKernel(queues[i], i, len(b.gpus))
 	}
 
 	for i := range b.gpus {

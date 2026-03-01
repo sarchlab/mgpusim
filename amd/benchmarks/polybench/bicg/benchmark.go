@@ -9,12 +9,14 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// Kernel1Args list first set of kernel arguments
+// GCN3 Kernel Arguments
+
+// Kernel1Args list first set of kernel arguments for GCN3
 type Kernel1Args struct {
 	A      driver.Ptr
 	P      driver.Ptr
@@ -22,12 +24,62 @@ type Kernel1Args struct {
 	NX, NY int32
 }
 
-// Kernel2Args list second set of kernel arguments
+// Kernel2Args list second set of kernel arguments for GCN3
 type Kernel2Args struct {
 	A      driver.Ptr
 	R      driver.Ptr
 	S      driver.Ptr
 	NX, NY int32
+}
+
+// CDNA3 Kernel Arguments
+
+// CDNA3Kernel1Args defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3Kernel1Args struct {
+	A                   driver.Ptr
+	P                   driver.Ptr
+	Q                   driver.Ptr
+	NX                  int32
+	NY                  int32
+	Padding             int32
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
+}
+
+// CDNA3Kernel2Args defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3Kernel2Args struct {
+	A                   driver.Ptr
+	R                   driver.Ptr
+	S                   driver.Ptr
+	NX                  int32
+	NY                  int32
+	Padding             int32
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
 }
 
 // Benchmark defines a benchmark
@@ -38,6 +90,7 @@ type Benchmark struct {
 	queues           []*driver.CommandQueue
 	kernel1, kernel2 *insts.KernelCodeObject
 
+	Arch               arch.Type
 	NX, NY             int
 	a, r, s, p, q      []float32
 	sOutput, qOutput   []float32
@@ -52,7 +105,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	return b
 }
 
@@ -67,9 +119,19 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+
 	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "bicgKernel1")
 	if b.kernel1 == nil {
@@ -85,6 +147,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -140,6 +204,80 @@ func (b *Benchmark) initMem() {
 	}
 }
 
+func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32, globalSizeX uint32) {
+	if b.Arch == arch.CDNA3 {
+		kernel1Arg := CDNA3Kernel1Args{
+			A:                   b.dA,
+			P:                   b.dP,
+			Q:                   b.dQ,
+			NX:                  int32(b.NX),
+			NY:                  int32(b.NY),
+			HiddenBlockCountX:   globalSizeX / uint32(localSize[0]),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    localSize[0],
+			HiddenGroupSizeY:    localSize[1],
+			HiddenGroupSizeZ:    localSize[2],
+			HiddenRemainderX:    uint16(globalSizeX % uint32(localSize[0])),
+			HiddenRemainderY:    0,
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
+		}
+		b.driver.LaunchKernel(b.context, b.kernel1,
+			globalSize, localSize, &kernel1Arg)
+	} else {
+		kernel1Arg := Kernel1Args{
+			A:  b.dA,
+			P:  b.dP,
+			Q:  b.dQ,
+			NX: int32(b.NX),
+			NY: int32(b.NY),
+		}
+		b.driver.LaunchKernel(b.context, b.kernel1,
+			globalSize, localSize, &kernel1Arg)
+	}
+}
+
+func (b *Benchmark) launchKernel2(localSize [3]uint16, globalSize [3]uint32, globalSizeX uint32) {
+	if b.Arch == arch.CDNA3 {
+		kernel2Arg := CDNA3Kernel2Args{
+			A:                   b.dA,
+			R:                   b.dR,
+			S:                   b.dS,
+			NX:                  int32(b.NX),
+			NY:                  int32(b.NY),
+			HiddenBlockCountX:   globalSizeX / uint32(localSize[0]),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    localSize[0],
+			HiddenGroupSizeY:    localSize[1],
+			HiddenGroupSizeZ:    localSize[2],
+			HiddenRemainderX:    uint16(globalSizeX % uint32(localSize[0])),
+			HiddenRemainderY:    0,
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
+		}
+		b.driver.LaunchKernel(b.context, b.kernel2,
+			globalSize, localSize, &kernel2Arg)
+	} else {
+		kernel2Arg := Kernel2Args{
+			A:  b.dA,
+			R:  b.dR,
+			S:  b.dS,
+			NX: int32(b.NX),
+			NY: int32(b.NY),
+		}
+		b.driver.LaunchKernel(b.context, b.kernel2,
+			globalSize, localSize, &kernel2Arg)
+	}
+}
+
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dA, b.a)
 	b.driver.MemCopyH2D(b.context, b.dR, b.r)
@@ -149,28 +287,12 @@ func (b *Benchmark) exec() {
 	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
 	globalSize := [3]uint32{globalSizeX, 1, 1}
 
-	kernel1Arg := Kernel1Args{
-		A:  b.dA,
-		P:  b.dP,
-		Q:  b.dQ,
-		NX: int32(b.NX),
-		NY: int32(b.NY),
-	}
-	b.driver.LaunchKernel(b.context, b.kernel1,
-		globalSize, localSize, &kernel1Arg)
+	b.launchKernel1(localSize, globalSize, globalSizeX)
 
 	globalSizeX = uint32(((b.NY-1)/256 + 1) * 256)
 	globalSize = [3]uint32{globalSizeX, 1, 1}
 
-	kernel2Arg := Kernel2Args{
-		A:  b.dA,
-		R:  b.dR,
-		S:  b.dS,
-		NX: int32(b.NX),
-		NY: int32(b.NY),
-	}
-	b.driver.LaunchKernel(b.context, b.kernel2,
-		globalSize, localSize, &kernel2Arg)
+	b.launchKernel2(localSize, globalSize, globalSizeX)
 
 	b.driver.MemCopyD2H(b.context, b.sOutput, b.dS)
 	b.driver.MemCopyD2H(b.context, b.qOutput, b.dQ)

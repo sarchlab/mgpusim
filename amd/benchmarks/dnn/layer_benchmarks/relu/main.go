@@ -7,9 +7,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 // KernelArgs defines kernel arguments
@@ -30,6 +30,7 @@ type Benchmark struct {
 	gpus    []int
 	hsaco   *insts.KernelCodeObject
 
+	Arch        arch.Type
 	Length      int
 	inputData   []float32
 	outputData  []float32
@@ -40,7 +41,10 @@ type Benchmark struct {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -48,9 +52,21 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 	b.driver = driver
 	b.context = driver.Init()
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "ReLUForward")
 
 	return b
+}
+
+func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "ReLUForward")
+	if b.hsaco == nil {
+		log.Panic("Failed to load kernel binary")
+	}
 }
 
 // SelectGPU selects GPU
@@ -65,6 +81,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.exec()

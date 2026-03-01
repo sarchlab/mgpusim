@@ -9,9 +9,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 // KernelArgs defines kernel arguments
@@ -37,6 +37,7 @@ type Benchmark struct {
 	queues           []*driver.CommandQueue
 	useUnifiedMemory bool
 	nbodyKernel      *insts.KernelCodeObject
+	Arch             arch.Type
 	NumParticles     int32
 	delT             float32   // dT (timestep)
 	espSqr           float32   // Softening Factor
@@ -65,7 +66,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	b.groupSize = 256
 	b.delT = 0.005
 	b.espSqr = 500.0
@@ -92,9 +92,18 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed nbody.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed nbody_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
 	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -103,6 +112,7 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))

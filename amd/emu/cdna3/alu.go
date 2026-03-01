@@ -40,9 +40,6 @@ func (u *ALU) LDS() []byte {
 func (u *ALU) Run(state emu.InstEmuState) {
 	inst := state.Inst()
 
-	// Debug: log every instruction being executed (commented out for normal operation)
-	// log.Printf("DEBUG ALU.Run: format=%s, opcode=%d, inst=%s", inst.FormatName, inst.Opcode, inst.InstName)
-
 	switch inst.FormatType {
 	case insts.SOP1:
 		u.runSOP1(state)

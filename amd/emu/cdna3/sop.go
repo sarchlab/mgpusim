@@ -38,8 +38,6 @@ func (u *ALU) runSLOADDWORDX2(state emu.InstEmuState) {
 	pid := state.PID()
 	addr := sp.Base + sp.Offset
 	buf := u.storageAccessor.Read(pid, addr, 8)
-	// log.Printf("DEBUG s_load_dwordx2: pid=%d, base=0x%016x, offset=0x%x, addr=0x%016x", pid, sp.Base, sp.Offset, addr)
-	// log.Printf("DEBUG   loaded bytes: %v", buf)
 	copy(spRaw[32:40], buf)
 }
 

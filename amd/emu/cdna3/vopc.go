@@ -11,6 +11,9 @@ import (
 func (u *ALU) runVOPC(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
+	// f32 special comparisons
+	case 0x10:
+		u.runVCmpClassF32(state)
 	// f32 comparisons (0x40-0x4f range)
 	case 0x41:
 		u.runVCmpLtF32(state)
@@ -397,6 +400,69 @@ func (u *ALU) runVCmpTruU64(state emu.InstEmuState) {
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
 			// Always true
+			sp.VCC |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpClassF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		classMask := uint32(sp.SRC1[i])
+
+		// IEEE754 class bits:
+		// 0: signaling NaN
+		// 1: quiet NaN
+		// 2: negative infinity
+		// 3: negative normal
+		// 4: negative denormal
+		// 5: negative zero
+		// 6: positive zero
+		// 7: positive denormal
+		// 8: positive normal
+		// 9: positive infinity
+
+		var class uint32
+		if math.IsNaN(float64(src0)) {
+			// Treat all NaN as quiet NaN (bit 1)
+			class = 1 << 1
+		} else if math.IsInf(float64(src0), -1) {
+			class = 1 << 2 // negative infinity
+		} else if math.IsInf(float64(src0), 1) {
+			class = 1 << 9 // positive infinity
+		} else if src0 == 0 {
+			if math.Signbit(float64(src0)) {
+				class = 1 << 5 // negative zero
+			} else {
+				class = 1 << 6 // positive zero
+			}
+		} else {
+			// Check for denormals
+			bits := math.Float32bits(src0)
+			exp := (bits >> 23) & 0xFF
+			if exp == 0 {
+				// Denormal
+				if math.Signbit(float64(src0)) {
+					class = 1 << 4 // negative denormal
+				} else {
+					class = 1 << 7 // positive denormal
+				}
+			} else {
+				// Normal
+				if math.Signbit(float64(src0)) {
+					class = 1 << 3 // negative normal
+				} else {
+					class = 1 << 8 // positive normal
+				}
+			}
+		}
+
+		if (class & classMask) != 0 {
 			sp.VCC |= (1 << i)
 		}
 	}

@@ -1,7 +1,6 @@
 package emu
 
 import (
-	"fmt"
 	"log"
 	"math"
 )
@@ -399,15 +398,11 @@ func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
 func (u *ALUImpl) runLogLegacyF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
-	fmt.Printf("Print value inst:\n")
-
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
-
-		fmt.Printf("Print value %d\n", sp.SRC0[i])
 
 		sp.DST[i] = sp.SRC0[i]
 	}

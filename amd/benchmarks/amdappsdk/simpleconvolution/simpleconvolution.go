@@ -180,71 +180,72 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.dOutputData, b.hOutputData)
 }
 
+func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex int, gridSize uint32) {
+	if b.Arch == arch.CDNA3 {
+		wgSizeX := uint16(64)
+		wgSizeY := uint16(1)
+		wgSizeZ := uint16(1)
+
+		kernArg := CDNA3KernelArgs{
+			Input:           b.dInputData,
+			Mask:            b.dMasks[gpuIndex],
+			Output:          b.dOutputData,
+			InputDimensions: [2]uint32{b.Width, b.Height},
+			MaskDimensions:  [2]uint32{b.maskSize, b.maskSize},
+			NExWidth:        b.Width + b.padWidth,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    wgSizeX,
+			HiddenGroupSizeY:    wgSizeY,
+			HiddenGroupSizeZ:    wgSizeZ,
+			HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
+			HiddenRemainderY:    0,
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: int64(gridSize * uint32(gpuIndex)),
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.kernel,
+			[3]uint32{gridSize, 1, 1},
+			[3]uint16{wgSizeX, 1, 1},
+			&kernArg,
+		)
+	} else {
+		kernArg := GCN3KernelArgs{
+			b.dInputData,
+			b.dMasks[gpuIndex],
+			b.dOutputData,
+			[2]uint32{b.Width, b.Height},
+			[2]uint32{b.maskSize, b.maskSize},
+			b.Width + b.padWidth,
+			0,
+			uint64(gridSize * uint32(gpuIndex)), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.kernel,
+			[3]uint32{gridSize, 1, 1},
+			[3]uint16{uint16(64), 1, 1},
+			&kernArg,
+		)
+	}
+}
+
 func (b *Benchmark) exec() {
 	queues := make([]*driver.CommandQueue, len(b.gpus))
+	gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) / uint32(len(b.gpus))
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
-
-		gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) /
-			uint32(len(b.gpus))
-
-		if b.Arch == arch.CDNA3 {
-			wgSizeX := uint16(64)
-			wgSizeY := uint16(1)
-			wgSizeZ := uint16(1)
-
-			kernArg := CDNA3KernelArgs{
-				Input:           b.dInputData,
-				Mask:            b.dMasks[i],
-				Output:          b.dOutputData,
-				InputDimensions: [2]uint32{b.Width, b.Height},
-				MaskDimensions:  [2]uint32{b.maskSize, b.maskSize},
-				NExWidth:        b.Width + b.padWidth,
-				// Hidden kernel arguments for GFX942
-				HiddenBlockCountX:   gridSize / uint32(wgSizeX),
-				HiddenBlockCountY:   1,
-				HiddenBlockCountZ:   1,
-				HiddenGroupSizeX:    wgSizeX,
-				HiddenGroupSizeY:    wgSizeY,
-				HiddenGroupSizeZ:    wgSizeZ,
-				HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
-				HiddenRemainderY:    0,
-				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: int64(gridSize * uint32(i)),
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      1,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				queues[i],
-				b.kernel,
-				[3]uint32{gridSize, 1, 1},
-				[3]uint16{wgSizeX, 1, 1},
-				&kernArg,
-			)
-		} else {
-			kernArg := GCN3KernelArgs{
-				b.dInputData,
-				b.dMasks[i],
-				b.dOutputData,
-				[2]uint32{b.Width, b.Height},
-				[2]uint32{b.maskSize, b.maskSize},
-				b.Width + b.padWidth,
-				0,
-				uint64(gridSize * uint32(i)), 0, 0,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				queues[i],
-				b.kernel,
-				[3]uint32{gridSize, 1, 1},
-				[3]uint16{uint16(64), 1, 1},
-				&kernArg,
-			)
-		}
+		b.enqueueKernel(queues[i], i, gridSize)
 	}
 
 	for _, q := range queues {

@@ -16,6 +16,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := bitonicsort.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Length = *length
 	benchmark.OrderAscending = *orderAscending
 

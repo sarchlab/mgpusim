@@ -100,6 +100,20 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
 	} else if reg.RegType == insts.M0 {
 		copy(value, insts.Uint32ToBytes(wf.M0))
+	} else if reg.Name == "vcclo" {
+		// Fallback for vcclo when RegType is not properly set
+		if regCount == 1 {
+			copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
+		} else {
+			copy(value, insts.Uint64ToBytes(wf.VCC))
+		}
+	} else if reg.Name == "vcchi" {
+		// Fallback for vcchi when RegType is not properly set
+		if regCount == 1 {
+			copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+		} else {
+			copy(value, insts.Uint64ToBytes(wf.VCC))
+		}
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
@@ -145,6 +159,22 @@ func (wf *Wavefront) WriteReg(
 		wf.Exec = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.M0 {
 		wf.M0 = insts.BytesToUint32(data)
+	} else if reg.Name == "vcclo" {
+		// Fallback for vcclo when RegType is not properly set
+		if regCount == 1 {
+			wf.VCC &= uint64(0xffffffff00000000)
+			wf.VCC |= uint64(insts.BytesToUint32(data))
+		} else {
+			wf.VCC = insts.BytesToUint64(data)
+		}
+	} else if reg.Name == "vcchi" {
+		// Fallback for vcchi when RegType is not properly set
+		if regCount == 1 {
+			wf.VCC &= uint64(0x00000000ffffffff)
+			wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
+		} else {
+			wf.VCC = insts.BytesToUint64(data)
+		}
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}

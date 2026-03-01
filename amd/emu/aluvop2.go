@@ -70,6 +70,9 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVSUBBREVU32(state)
 	case 42:
 		u.runVLSHLREVB16(state)
+	case 52:
+		// v_add_u32_e32 (GCN3 encoding)
+		u.runVADDI32(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format (%s) is not implemented",
 			inst.Opcode, insts.NewInstPrinter(nil).Print(inst))

@@ -359,16 +359,23 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	}
 
 	bits := int(extractBits(bytesHi, 0, 7))
-	inst.Addr = NewVRegOperand(bits, bits, 2)
-	bits = int(extractBits(bytesHi, 24, 31))
-	inst.Dst = NewVRegOperand(bits, bits, 0)
-	bits = int(extractBits(bytesHi, 8, 15))
-	inst.Data = NewVRegOperand(bits, bits, 0)
-
 	// Decode SADDR (bits 16:22 of second dword)
 	// 0x7F = OFF (global addressing), otherwise scalar GPR pair
 	saddrBits := int(extractBits(bytesHi, 16, 22))
 	inst.SAddr = NewIntOperand(0, int64(saddrBits))
+	
+	// When SAddr != 0x7F and SAddr != 0, the Addr is a single 32-bit VGPR offset, not a 64-bit pair
+	// SAddr=0 is reserved in GCN3, SAddr=0x7F is OFF mode in CDNA3
+	if saddrBits != 0x7F && saddrBits != 0 {
+		inst.Addr = NewVRegOperand(bits, bits, 1)
+	} else {
+		inst.Addr = NewVRegOperand(bits, bits, 2)
+	}
+	
+	bits = int(extractBits(bytesHi, 24, 31))
+	inst.Dst = NewVRegOperand(bits, bits, 0)
+	bits = int(extractBits(bytesHi, 8, 15))
+	inst.Data = NewVRegOperand(bits, bits, 0)
 
 	switch inst.Opcode {
 	case 21, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
@@ -581,6 +588,12 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 	d.parseNeg(inst, inst.Neg)
+
+	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
+	if inst.Opcode >= 944 && inst.Opcode <= 946 {
+		inst.OpSel = int(extractBits(bytesLo, 11, 14))    // bits 11-14
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))  // bits 59-60 (same as OMOD position)
+	}
 
 	return nil
 }

@@ -43,3 +43,9 @@ fir
 floydwarshall
 matrixtranspose
 simpleconvolution
+
+# HIP/ROCm build artifacts
+*.hipi
+*.bc
+*.s
+*.hipfb
