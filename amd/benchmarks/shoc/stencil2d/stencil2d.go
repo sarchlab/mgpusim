@@ -226,6 +226,62 @@ func (b *Benchmark) initMem() {
 	b.newData = &b.dData2
 }
 
+func (b *Benchmark) launchStencilKernel(
+	globalSize [3]uint32,
+	localSize [3]uint16,
+	ldsSize int,
+) {
+	if b.Arch == arch.CDNA3 {
+		args := CDNA3StencilKernelArgs{
+			Data:                *b.currData,
+			NewData:             *b.newData,
+			Alignment:           16,
+			WCenter:             b.wCenter,
+			WCardinal:           b.wCardinal,
+			WDiagonal:           b.wDiagonal,
+			Sh:                  b.dSharedMem, // Pass global memory buffer
+			Padding:             0,
+			HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
+			HiddenBlockCountY:   globalSize[1] / uint32(localSize[1]),
+			HiddenBlockCountZ:   globalSize[2] / uint32(localSize[2]),
+			HiddenGroupSizeX:    localSize[0],
+			HiddenGroupSizeY:    localSize[1],
+			HiddenGroupSizeZ:    localSize[2],
+			HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
+			HiddenRemainderY:    uint16(globalSize[1] % uint32(localSize[1])),
+			HiddenRemainderZ:    uint16(globalSize[2] % uint32(localSize[2])),
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      2,
+		}
+		b.driver.LaunchKernel(b.context,
+			b.stencilKernel,
+			globalSize, localSize,
+			&args,
+		)
+	} else {
+		args := StencilKernelArgs{
+			Data:                *b.currData,
+			NewData:             *b.newData,
+			Alignment:           16,
+			WCenter:             b.wCenter,
+			WCardinal:           b.wCardinal,
+			WDiagonal:           b.wDiagonal,
+			Sh:                  driver.LocalPtr(ldsSize),
+			Padding:             0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+		}
+		b.driver.LaunchKernel(b.context,
+			b.stencilKernel,
+			globalSize, localSize,
+			&args,
+		)
+	}
+}
+
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, *b.currData, b.hInput)
 	b.driver.MemCopyH2D(b.context, *b.newData, b.hInput)
@@ -240,56 +296,7 @@ func (b *Benchmark) exec() {
 		}
 		localSize := [3]uint16{1, uint16(b.localCols), 1}
 
-		if b.Arch == arch.CDNA3 {
-			args := CDNA3StencilKernelArgs{
-				Data:                *b.currData,
-				NewData:             *b.newData,
-				Alignment:           16,
-				WCenter:             b.wCenter,
-				WCardinal:           b.wCardinal,
-				WDiagonal:           b.wDiagonal,
-				Sh:                  b.dSharedMem, // Pass global memory buffer
-				Padding:             0,
-				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
-				HiddenBlockCountY:   globalSize[1] / uint32(localSize[1]),
-				HiddenBlockCountZ:   globalSize[2] / uint32(localSize[2]),
-				HiddenGroupSizeX:    localSize[0],
-				HiddenGroupSizeY:    localSize[1],
-				HiddenGroupSizeZ:    localSize[2],
-				HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
-				HiddenRemainderY:    uint16(globalSize[1] % uint32(localSize[1])),
-				HiddenRemainderZ:    uint16(globalSize[2] % uint32(localSize[2])),
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      2,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.stencilKernel,
-				globalSize, localSize,
-				&args,
-			)
-		} else {
-			args := StencilKernelArgs{
-				Data:                *b.currData,
-				NewData:             *b.newData,
-				Alignment:           16,
-				WCenter:             b.wCenter,
-				WCardinal:           b.wCardinal,
-				WDiagonal:           b.wDiagonal,
-				Sh:                  driver.LocalPtr(ldsSize),
-				Padding:             0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.stencilKernel,
-				globalSize, localSize,
-				&args,
-			)
-		}
-
+		b.launchStencilKernel(globalSize, localSize, ldsSize)
 		b.currData, b.newData = b.newData, b.currData
 	}
 
