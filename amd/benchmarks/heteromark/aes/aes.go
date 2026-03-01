@@ -94,6 +94,7 @@ type CDNA3KernelArgs struct {
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
 	HiddenGridDims      uint16
+	Pad1                [190]byte
 }
 
 // Benchmark defines a benchmark
@@ -121,7 +122,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.loadProgram()
 	return b
 }
 
@@ -202,6 +202,7 @@ func (b *Benchmark) initMem() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.LaunchKernel()
