@@ -41,7 +41,6 @@ type CDNA3Kernel1Args struct {
 	Q                   driver.Ptr
 	NX                  int32
 	NY                  int32
-	Padding             int32
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -51,7 +50,7 @@ type CDNA3Kernel1Args struct {
 	HiddenRemainderX    uint16
 	HiddenRemainderY    uint16
 	HiddenRemainderZ    uint16
-	Padding2            [16]byte
+	Pad0                [16]byte
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -65,7 +64,6 @@ type CDNA3Kernel2Args struct {
 	S                   driver.Ptr
 	NX                  int32
 	NY                  int32
-	Padding             int32
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -75,7 +73,7 @@ type CDNA3Kernel2Args struct {
 	HiddenRemainderX    uint16
 	HiddenRemainderY    uint16
 	HiddenRemainderZ    uint16
-	Padding2            [16]byte
+	Pad0                [16]byte
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64

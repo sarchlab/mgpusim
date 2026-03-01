@@ -117,6 +117,7 @@ func (b *Benchmark) Run() {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
 	}
+	b.loadProgram()
 	b.initMem()
 	b.exec()
 }

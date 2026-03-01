@@ -10,12 +10,14 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 ## Current State
 - CDNA3 ALU emulator exists (~4000 lines in `amd/emu/cdna3/`)
 - V5 HSACO loading works
-- 11 benchmarks pass with `-arch=cdna3 -verify`:
+- 12 benchmarks pass with `-arch=cdna3 -verify`:
   - **M1 (5)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
   - **M2 (4)**: bitonicsort, kmeans, atax, bicg (merged in PR #4)
+  - **M3.1 (1)**: relu
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
 - All benchmarks maintain GCN3 backward compatibility
+- CDNA3 kernarg struct layout pattern established: hidden args, proper padding, exact offset matching
 
 ## Milestones
 
@@ -71,8 +73,10 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.1: Add CDNA3 support for relu and nbody
 **Budget**: 3 cycles  
-**Status**: BLOCKED - kernarg/memory investigation (Cycle 1 used)  
+**Status**: ⚠️ PARTIAL (1/2 benchmarks working, 3/3 cycles used)  
 **Scope**: Get relu and nbody benchmarks working with -arch=cdna3 -verify
+
+**Result**: relu passes `-arch=cdna3 -verify` and is complete. nbody deferred due to multi-workgroup LocalPos buffer allocation complexity.
 
 **Cycle 1 Progress**:
 - Leo: ✅ Compiled HIP to gfx942 HSACO (both benchmarks)
@@ -83,10 +87,23 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
   - relu: runs but outputs all zeros
 - Regression testing incomplete due to failures
 
-**Root Cause Found** (Morgan's investigation, issue #47):
-- relu: Missing hidden kernel args in CDNA3KernelArgs struct (needs 280 bytes total, currently 48)
-- nbody: LocalPos field type mismatch (should be driver.Ptr, currently driver.LocalPtr) + missing hidden args (needs 312 bytes, currently 72)
+**Cycle 2 Progress** (Morgan's investigation, issue #47):
+- Root cause analysis completed for all failing benchmarks
+- relu: Missing hidden kernel args in CDNA3KernelArgs struct (needs 280 bytes total, had 48)
+- nbody: LocalPos field type mismatch (should be driver.Ptr, was driver.LocalPtr) + missing hidden args (needs 312 bytes, had 72)
 - bicg: Has erroneous Padding field shifting hidden args +4 bytes (works with small inputs, fails with x=512, y=512)
+- Detailed investigation report with exact struct layouts created
+
+**Cycle 3 Progress**:
+- Maya: ✅ Fixed relu CDNA3KernelArgs struct with correct 280-byte layout (commit 13143e63)
+- Riley: ✅ Fixed bicg padding bug (commit 4486b140)
+- Maya: Attempted nbody fix with correct struct layout (commits 87b8eaf1, 2b6b1cf4)
+- **nbody decision**: Deferred due to multi-workgroup LocalPos buffer allocation complexity beyond M3.1 scope
+- Maya: ✅ Reverted nbody to GCN3-only to maintain working state (commit 1f6fa2bc)
+- Leo: ✅ Cleaned up debug code and leftover files (commit 00e99ccf)
+
+**Deferred Work**:
+- nbody CDNA3 support requires solving multi-workgroup local memory buffer allocation pattern where HIP converts `__local` to `__global` pointer. This is a deeper architectural issue that warrants separate investigation rather than blocking M3 progress.
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
@@ -121,10 +138,15 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 - **CI checks must pass**: Code quality checks aren't optional - fix lint violations before merge.
 - **Deadlines need finer slicing**: A 5-benchmark mixed milestone was too large; split by failure type (opcode gaps vs memory faults).
 
-### M3.1 (Cycle 1, blocked on kernarg bugs)
+### M3.1 (Cycles 1-3, partial success: 1/2 benchmarks)
 - **Recurring patterns are red flags**: Third occurrence of "all zeros" or "page not found" bugs (matrixmultiplication, relu, nbody). This is a systematic issue, not isolated bugs.
 - **Stop and investigate**: When the same type of bug appears repeatedly, STOP adding benchmarks and find the root cause. Adding more failing benchmarks doesn't teach us anything new.
 - **Successful opcode implementation ≠ working benchmark**: All M3.1 opcodes were implemented correctly, but benchmarks still fail. The problem is deeper (kernarg layout, memory addressing).
 - **Need systematic debugging methodology**: Can't just keep trying benchmarks and hoping they work. Need proper investigation tools and process.
 - **KernelArgs layout must match HSACO metadata exactly**: Hidden argument/padding mismatch causes hard-to-debug runtime errors. Morgan's investigation found exact root causes for relu, nbody, and bicg failures.
+- **Root cause analysis pays off**: Dedicated investigation cycle (Morgan) provided clear struct layouts and fix patterns that enabled quick fixes for relu and bicg.
+- **Know when to defer vs. fix**: relu and bicg were straightforward struct fixes. nbody requires multi-workgroup local memory allocation pattern that's beyond current scope.
+- **Ship what works**: 1/2 working (relu) is better than 0/2 stuck in investigation. Defer nbody and move forward with other benchmarks.
+- **Revert cleanly**: When deferring work, revert to a known-good state (GCN3-only) rather than leaving broken CDNA3 code in the repo.
+- **LocalPtr vs Ptr semantics**: HIP's conversion of `__local` to `__global` means some benchmarks need different memory allocation patterns than OpenCL equivalents.
 - **CI must validate milestone acceptance**: Relying only on local spot checks allows late regressions and misses human-requested acceptance automation.
