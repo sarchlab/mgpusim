@@ -22,6 +22,7 @@ __pycache__
 *.swo
 *.o
 
+*.orig
 *.orig.bc
 .idea
 vendor
