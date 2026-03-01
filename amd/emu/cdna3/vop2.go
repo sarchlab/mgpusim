@@ -316,12 +316,26 @@ func (u *ALU) runVLSHLREVB32(state emu.InstEmuState) {
 
 func (u *ALU) runVANDB32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	inst := state.Inst()
 	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
-			continue
+	if !inst.IsSdwa {
+		for i = 0; i < 64; i++ {
+			if !emu.LaneMasked(sp.EXEC, i) {
+				continue
+			}
+			sp.DST[i] = sp.SRC0[i] & sp.SRC1[i]
 		}
-		sp.DST[i] = sp.SRC0[i] & sp.SRC1[i]
+	} else {
+		for i = 0; i < 64; i++ {
+			if !emu.LaneMasked(sp.EXEC, i) {
+				continue
+			}
+			src0 := u.sdwaSrcSelect(uint32(sp.SRC0[i]), inst.Src0Sel)
+			src1 := u.sdwaSrcSelect(uint32(sp.SRC1[i]), inst.Src1Sel)
+			dst := src0 & src1
+			dst = u.sdwaDstSelect(uint32(sp.DST[i]), dst, inst.DstSel, inst.DstUnused)
+			sp.DST[i] = uint64(dst)
+		}
 	}
 }
 
