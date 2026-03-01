@@ -188,9 +188,6 @@ func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32) {
 			HiddenGroupSizeY: localSize[1],
 			HiddenGroupSizeZ: localSize[2],
 		}
-		log.Printf("DEBUG kernel1 args: A=0x%x, X=0x%x, Tmp=0x%x, NX=%d, NY=%d, wg_size=(%d,%d,%d)", 
-			kernel1Arg.A, kernel1Arg.X, kernel1Arg.Tmp, kernel1Arg.NX, kernel1Arg.NY,
-			kernel1Arg.HiddenGroupSizeX, kernel1Arg.HiddenGroupSizeY, kernel1Arg.HiddenGroupSizeZ)
 		b.driver.LaunchKernel(b.context, b.kernel1,
 			globalSize, localSize, &kernel1Arg)
 	} else{
