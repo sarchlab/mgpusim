@@ -101,27 +101,59 @@ func (u *ALU) sdwaDstSelect(
 	sel insts.SDWASelect,
 	unused insts.SDWAUnused,
 ) uint32 {
-	value := dstNew
+	var value uint32
+	var mask uint32
+	var signBit bool
+	
 	switch sel {
 	case insts.SDWASelectByte0:
-		value = value & 0x000000ff
+		value = dstNew & 0x000000ff
+		mask = 0x000000ff
+		signBit = (value & 0x80) != 0
 	case insts.SDWASelectByte1:
-		value = (value << 8) & 0x0000ff00
+		value = (dstNew << 8) & 0x0000ff00
+		mask = 0x0000ff00
+		signBit = (dstNew & 0x80) != 0
 	case insts.SDWASelectByte2:
-		value = (value << 16) & 0x00ff0000
+		value = (dstNew << 16) & 0x00ff0000
+		mask = 0x00ff0000
+		signBit = (dstNew & 0x80) != 0
 	case insts.SDWASelectByte3:
-		value = (value << 24) & 0xff000000
+		value = (dstNew << 24) & 0xff000000
+		mask = 0xff000000
+		signBit = (dstNew & 0x80) != 0
 	case insts.SDWASelectWord0:
-		value = value & 0x0000ffff
+		value = dstNew & 0x0000ffff
+		mask = 0x0000ffff
+		signBit = (value & 0x8000) != 0
 	case insts.SDWASelectWord1:
-		value = (value << 16) & 0xffff0000
+		value = (dstNew << 16) & 0xffff0000
+		mask = 0xffff0000
+		signBit = (dstNew & 0x8000) != 0
 	case insts.SDWASelectDWord:
 		return dstNew
 	default:
 		return dstNew
 	}
 
-	// For now, always use PAD semantics (zero unused bits)
-	// The reference implementation doesn't seem to handle PRESERVE or SEXT either
-	return value
+	// Handle unused bits according to dst_unused mode
+	switch unused {
+	case insts.SDWAUnusedPad:
+		// Zero out unused bits (already done, value only has selected bits set)
+		return value
+	case insts.SDWAUnusedSEXT:
+		// Sign extend the result into unused bits
+		if signBit {
+			// Sign bit is 1, fill unused bits with 1s
+			return value | ^mask
+		}
+		// Sign bit is 0, unused bits stay 0
+		return value
+	case insts.SDWAUnusedPreserve:
+		// Keep the old destination value in unused bits
+		return (dstOld & ^mask) | value
+	default:
+		// Default to PAD behavior
+		return value
+	}
 }
