@@ -7,17 +7,19 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 3. Byte-level correct emulated results
 4. Acceptance tests runnable in GitHub Actions CI
 
-## Current State
+## Current State (as of M3.1 PARTIAL merge)
 - CDNA3 ALU emulator exists (~4000 lines in `amd/emu/cdna3/`)
 - V5 HSACO loading works
-- 12 benchmarks pass with `-arch=cdna3 -verify`:
-  - **M1 (5)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
+- **10 of 12 attempted benchmarks pass** with `-arch=cdna3 -verify`:
+  - **M1 (7)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
   - **M2 (4)**: bitonicsort, kmeans, atax, bicg (merged in PR #4)
-  - **M3.1 (1)**: relu
+  - **M3.1 (1)**: relu (merged in PR #5)
+  - **Deferred (2)**: nbody (multi-workgroup LocalPtr complexity), aes (verification mismatch)
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
-- All benchmarks maintain GCN3 backward compatibility
+- All benchmarks maintain GCN3 backward compatibility (12/12 GCN3 tests passing)
 - CDNA3 kernarg struct layout pattern established: hidden args, proper padding, exact offset matching
+- Code quality issues identified: debug logging and .orig file need cleanup (M3.2)
 
 ## Milestones
 
@@ -104,6 +106,18 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 **Deferred Work**:
 - nbody CDNA3 support requires solving multi-workgroup local memory buffer allocation pattern where HIP converts `__local` to `__global` pointer. This is a deeper architectural issue that warrants separate investigation rather than blocking M3 progress.
+
+#### M3.2: Code quality cleanup
+**Budget**: 1 cycle  
+**Status**: ⏳ IN PROGRESS  
+**Scope**: Remove technical debt that slipped through M3.1 merge
+
+**Blockers identified by Sage**:
+1. Remove debug logging in `amd/benchmarks/polybench/atax/benchmark.go:191-193`
+2. Remove committed .orig file: `amd/insts/decodetable.go.orig` (105KB)
+3. Add `*.orig` to .gitignore to prevent future occurrences
+
+**Rationale**: Code quality issues must be fixed immediately before they become permanent debt. Quick win to rebuild momentum after missed deadline.
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
