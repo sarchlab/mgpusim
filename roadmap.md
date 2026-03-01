@@ -120,25 +120,69 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 **Outcome**: All code quality issues resolved. Clean codebase ready for next milestone.
 
-#### M3.3: Add CDNA3 support to AES benchmark
-**Budget**: 2 cycles  
-**Status**: Not started  
-**Scope**: Add gfx942 CDNA3 emulation to AES benchmark following established dual-arch pattern
+#### M3.3: Add CDNA3 support to stencil2d and pagerank
+**Budget**: 2 cycles (extended to 3)
+**Status**: ❌ FAILED (deadline missed, 3/3 cycles used, incomplete)
+**Scope**: Add gfx942 CDNA3 emulation to stencil2d and pagerank benchmarks
 
-**Rationale**: AES is currently GCN3-only (no CDNA3 HSACO exists). Unlike nbody/matrixmultiplication which have complex bugs, AES is straightforward addition following M1/M2 pattern. Low risk, clear scope, quick win to increase coverage from 12 to 13 working benchmarks.
+**What Happened:**
+- Cycle 1: Leo and Maya implemented dual-arch for both benchmarks. Pagerank ✅ works. Stencil2d ❌ page fault.
+- Cycle 2: Leo tried LocalPtr → Ptr fix. Still page fault.
+- Cycle 3: Leo rewrote kernel with __shared__ memory. Revealed missing opcode 510 (v_add_lshl_u32).
 
-**Tasks**:
-1. Compile HIP to kernels_gfx942.hsaco using Docker ROCm 7.1.1
-2. Add CDNA3KernelArgs struct with hidden kernel args
-3. Update benchmark for dual-arch support (embed both HSACOs, arch-conditional loading)
-4. Test with -arch=cdna3 -verify
-5. Fix any missing CDNA3 instructions
-6. Verify GCN3 mode still works (no regression)
+**Result**: Pagerank complete, stencil2d blocked on missing opcode.
 
-**Deferred items** (revisit after M3.3):
+**Root Cause Analysis (Athena investigation):**
+1. **Branch isolation**: Opcode 510 was already implemented on `ares/cdna3-aes` branch but Ares started from stale main
+2. **V2/V3 header bug**: `isV2V3Header()` in hsaco.go false-positives on V5 kernels, strips first 256 bytes of instructions
+3. **Workflow dysfunction**: Multiple parallel branches (ares/cdna3-aes, ares/cdna3-benchmarks-m2) contain fixes that never merged to main
+
+**Key Finding**: We have ~11-12 working benchmarks across all branches, but main only shows 10. The problem is integration velocity, not implementation capability.
+
+**Lessons Learned:**
+- **Branch debt accumulates**: 3+ unmerged feature branches created duplication of effort
+- **Systemic bugs go undetected**: V2/V3 header bug is a time bomb affecting any V5 kernel
+- **Starting from main is risky**: Main lacks recent fixes from parallel branches
+- **Integration must be continuous**: Treating merge as milestone endpoint causes branch proliferation
+
+**Deferred items**:
 - nbody: multi-workgroup local memory allocation (architectural gap)
 - matrixmultiplication: CDNA3 flat memory page table bug
-- SHOC benchmarks (bfs, fft, spmv, stencil2d): pending complexity audit
+- AES: non-deterministic output (investigation complete on ares/cdna3-aes, 6 bugs fixed but AES still broken)
+
+#### M3.4: Branch Consolidation & Technical Debt Cleanup
+**Budget**: 4 cycles  
+**Status**: Not started  
+**Scope**: Merge valuable feature branches, fix V2/V3 header bug, verify all benchmarks
+
+**Rationale**: M3.3 failure revealed workflow dysfunction. Multiple branches contain fixes that should be in main:
+- `ares/cdna3-aes`: 6 bug fixes + 2 opcodes (510, 164)
+- `ares/cdna3-benchmarks-m2`: working stencil2d with __shared__ memory
+- V2/V3 header detection bug is systemic, affects any V5 kernel
+
+Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents future duplication of effort.
+
+**Tasks**:
+1. Merge ares/cdna3-aes to main (issue #98)
+2. Merge ares/cdna3-benchmarks-m2 to main (issue #99)
+3. Fix V2/V3 header detection bug in hsaco.go (issue #100)
+4. Comprehensive testing of all 13 benchmarks (issue #101)
+5. Update roadmap to reflect actual state
+6. Audit and close stale branches
+
+**Success Criteria**:
+- All valuable branches merged to main
+- V2/V3 bug fixed without regressions
+- 11-12 benchmarks passing on main (up from 10)
+- CI green
+- Clean branch list (≤3 active branches)
+- Documentation reflects actual state
+
+**Expected Outcome**:
+- Stencil2d working (opcode 510 from ares/cdna3-aes + fix from ares/cdna3-benchmarks-m2)
+- Pagerank working (already complete)
+- All M1/M2/M3.1 benchmarks still working
+- Clean foundation for adding remaining benchmarks efficiently
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
@@ -185,3 +229,13 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 - **Revert cleanly**: When deferring work, revert to a known-good state (GCN3-only) rather than leaving broken CDNA3 code in the repo.
 - **LocalPtr vs Ptr semantics**: HIP's conversion of `__local` to `__global` means some benchmarks need different memory allocation patterns than OpenCL equivalents.
 - **CI must validate milestone acceptance**: Relying only on local spot checks allows late regressions and misses human-requested acceptance automation.
+
+### M3.3 (Cycles 1-3, failed: 1/2 benchmarks, deadline missed)
+- **Branch isolation kills productivity**: Ares spent 3 cycles "discovering" opcode 510 was missing, when it was already implemented on ares/cdna3-aes. Starting from stale main means missing recent fixes.
+- **Integration velocity < implementation velocity**: We can build features fast, but branches pile up because merging is treated as a milestone endpoint, not a continuous process.
+- **Unmerged branches = duplicated effort**: Every day fixes sit on feature branches increases risk of rediscovering the same issues.
+- **Systemic bugs need immediate investigation**: V2/V3 header detection bug is a time bomb that can hit any V5 kernel. Devon found it affects stencil2d because kernel bytes coincidentally match V2/V3 signature, causing emulator to strip first 256 bytes of real instructions.
+- **Workarounds hide bugs**: Rewriting stencil2d to use __shared__ memory works around V2/V3 bug but doesn't fix it. Workarounds accumulate tech debt.
+- **Branch audit reveals hidden value**: Kai's investigation of ares/cdna3-aes found 6 critical bug fixes (SOPK, VOPC VCC, SDWA) that benefit ALL benchmarks, not just AES. These should have been merged immediately.
+- **Know when to stop adding features**: When workflow dysfunction blocks progress, FIX THE WORKFLOW before adding more features. We proved we can implement benchmarks (10 working!). Now prove we can integrate them efficiently.
+- **Merge small, merge often**: Feature branch lifespan should be days, not weeks. Merge bug fixes immediately, don't wait for milestones.
