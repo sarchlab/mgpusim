@@ -27,6 +27,9 @@ func (u *ALU) runVOPC(state emu.InstEmuState) {
 		u.runVCmpLgF32(state)
 	case 0x46:
 		u.runVCmpGeF32(state)
+	// i16 comparisons
+	case 0xa4:
+		u.runVCmpGtI16(state)
 	// i32 comparisons (0xc0-0xc7 range)
 	case 0xc1:
 		u.runVCmpLtI32(state)
@@ -158,6 +161,22 @@ func (u *ALU) runVCmpGeF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
 		if src0 >= src1 {
+			sp.VCC |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpGtI16(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		// Extract 16-bit values and sign-extend to int32
+		src0 := int16(sp.SRC0[i] & 0xFFFF)
+		src1 := int16(sp.SRC1[i] & 0xFFFF)
+		if src0 > src1 {
 			sp.VCC |= (1 << i)
 		}
 	}
