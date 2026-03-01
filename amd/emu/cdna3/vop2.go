@@ -65,6 +65,8 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 		u.runVSUBBU32(state)
 	case 30:
 		u.runVSUBBREVU32(state)
+	case 38:
+		u.runVADDU16(state)
 	case 42:
 		u.runVLSHLREVB16(state)
 	case 52:
@@ -484,6 +486,20 @@ func (u *ALU) runVSUBBREVU32(state emu.InstEmuState) {
 		} else {
 			sp.VCC &= ^(uint64(1) << i)
 		}
+	}
+}
+
+// runVADDU16 implements v_add_u16 (16-bit unsigned integer addition)
+func (u *ALU) runVADDU16(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := uint16(sp.SRC0[i])
+		src1 := uint16(sp.SRC1[i])
+		sp.DST[i] = uint64(src0 + src1)
 	}
 }
 
