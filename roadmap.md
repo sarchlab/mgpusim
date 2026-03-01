@@ -109,15 +109,36 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.2: Code quality cleanup
 **Budget**: 1 cycle  
-**Status**: ⏳ IN PROGRESS  
+**Status**: ✅ COMPLETE (cycle 92, PR #6 merged)
 **Scope**: Remove technical debt that slipped through M3.1 merge
 
-**Blockers identified by Sage**:
-1. Remove debug logging in `amd/benchmarks/polybench/atax/benchmark.go:191-193`
-2. Remove committed .orig file: `amd/insts/decodetable.go.orig` (105KB)
-3. Add `*.orig` to .gitignore to prevent future occurrences
+**Completed tasks**:
+1. ✅ Removed debug logging from `amd/benchmarks/polybench/atax/benchmark.go:191-193` (Maya, commit dad81c45)
+2. ✅ Removed .orig file `amd/insts/decodetable.go.orig` (Leo, commit 29dda4fd)
+3. ✅ Added `*.orig` to .gitignore (Leo, commit 29dda4fd)
+4. ✅ PR #6 merged to main (2026-03-01)
 
-**Rationale**: Code quality issues must be fixed immediately before they become permanent debt. Quick win to rebuild momentum after missed deadline.
+**Outcome**: All code quality issues resolved. Clean codebase ready for next milestone.
+
+#### M3.3: Add CDNA3 support to AES benchmark
+**Budget**: 2 cycles  
+**Status**: Not started  
+**Scope**: Add gfx942 CDNA3 emulation to AES benchmark following established dual-arch pattern
+
+**Rationale**: AES is currently GCN3-only (no CDNA3 HSACO exists). Unlike nbody/matrixmultiplication which have complex bugs, AES is straightforward addition following M1/M2 pattern. Low risk, clear scope, quick win to increase coverage from 12 to 13 working benchmarks.
+
+**Tasks**:
+1. Compile HIP to kernels_gfx942.hsaco using Docker ROCm 7.1.1
+2. Add CDNA3KernelArgs struct with hidden kernel args
+3. Update benchmark for dual-arch support (embed both HSACOs, arch-conditional loading)
+4. Test with -arch=cdna3 -verify
+5. Fix any missing CDNA3 instructions
+6. Verify GCN3 mode still works (no regression)
+
+**Deferred items** (revisit after M3.3):
+- nbody: multi-workgroup local memory allocation (architectural gap)
+- matrixmultiplication: CDNA3 flat memory page table bug
+- SHOC benchmarks (bfs, fft, spmv, stencil2d): pending complexity audit
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
