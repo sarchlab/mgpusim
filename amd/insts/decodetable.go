@@ -875,6 +875,7 @@ func (d *Disassembler) initializeDecodeTable() {
 
 	// CDNA3 VOP3A instructions
 	d.addInstType(&InstType{"v_lshl_add_u32", 509, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_add_lshl_u32", 510, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_add3_u32", 511, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_lshl_add_u64", 520, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 64, 0})
 
