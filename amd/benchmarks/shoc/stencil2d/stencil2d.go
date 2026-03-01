@@ -8,9 +8,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 // CopyRectKernelArgs defines kernel arguments
@@ -43,6 +43,23 @@ type StencilKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// CDNA3StencilKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+// Does not include Sh parameter since shared memory is declared inside kernel
+type CDNA3StencilKernelArgs struct {
+	Data      driver.Ptr // offset 0
+	NewData   driver.Ptr // offset 8
+	Alignment int32      // offset 16
+	WCenter   float32    // offset 20
+	WCardinal float32    // offset 24
+	WDiagonal float32    // offset 28
+	// Implicit args expected by CDNA3 runtime
+	Pad1             [12]byte // offset 32-43 (padding)
+	HiddenGroupSizeX uint16   // offset 44 (0x2c)
+	HiddenGroupSizeY uint16   // offset 46
+	HiddenGroupSizeZ uint16   // offset 48
+	Pad2             [238]byte // offset 50-287 (rest of implicit args)
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
@@ -53,6 +70,7 @@ type Benchmark struct {
 	copyRectKernel *insts.KernelCodeObject
 	stencilKernel  *insts.KernelCodeObject
 
+	Arch                          arch.Type
 	wCenter, wCardinal, wDiagonal float32
 	hInput, hOutput               []float32
 	NumIteration                  int
@@ -81,7 +99,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.wCenter = 0.5
 	b.wCardinal = 0.0
 	b.wDiagonal = 0.0
-	b.loadProgram()
 	return b
 }
 
@@ -96,9 +113,19 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+
 	b.copyRectKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "CopyRect")
 	if b.copyRectKernel == nil {
@@ -114,6 +141,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -155,34 +184,52 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, *b.currData, b.hInput)
 	b.driver.MemCopyH2D(b.context, *b.newData, b.hInput)
 
+	globalSize := [3]uint32{
+		uint32((b.NumRows - 2) / b.localRows),
+		uint32(b.NumCols - 2),
+		1,
+	}
+	localSize := [3]uint16{1, uint16(b.localCols), 1}
+
 	for i := 0; i < b.NumIteration; i++ {
-		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
-
-		args := StencilKernelArgs{
-			Data:                *b.currData,
-			NewData:             *b.newData,
-			Alignment:           16,
-			WCenter:             b.wCenter,
-			WCardinal:           b.wCardinal,
-			WDiagonal:           b.wDiagonal,
-			Sh:                  driver.LocalPtr(ldsSize),
-			Padding:             0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
+		if b.Arch == arch.CDNA3 {
+			args := CDNA3StencilKernelArgs{
+				Data:             *b.currData,
+				NewData:          *b.newData,
+				Alignment:        16,
+				WCenter:          b.wCenter,
+				WCardinal:        b.wCardinal,
+				WDiagonal:        b.wDiagonal,
+				HiddenGroupSizeX: localSize[0],
+				HiddenGroupSizeY: localSize[1],
+				HiddenGroupSizeZ: localSize[2],
+			}
+			b.driver.LaunchKernel(b.context,
+				b.stencilKernel,
+				globalSize, localSize,
+				&args,
+			)
+		} else {
+			ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
+			args := StencilKernelArgs{
+				Data:                *b.currData,
+				NewData:             *b.newData,
+				Alignment:           16,
+				WCenter:             b.wCenter,
+				WCardinal:           b.wCardinal,
+				WDiagonal:           b.wDiagonal,
+				Sh:                  driver.LocalPtr(ldsSize),
+				Padding:             0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+			}
+			b.driver.LaunchKernel(b.context,
+				b.stencilKernel,
+				globalSize, localSize,
+				&args,
+			)
 		}
-
-		globalSize := [3]uint32{
-			uint32((b.NumRows - 2) / b.localRows),
-			uint32(b.NumCols - 2),
-			1,
-		}
-		localSize := [3]uint16{1, uint16(b.localCols), 1}
-		b.driver.LaunchKernel(b.context,
-			b.stencilKernel,
-			globalSize, localSize,
-			&args,
-		)
 
 		b.currData, b.newData = b.newData, b.currData
 	}
