@@ -122,23 +122,39 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.3: Add CDNA3 support to AES benchmark
 **Budget**: 2 cycles  
-**Status**: Not started  
+**Status**: ❌ FAILED (2/2 cycles used, verification still failing)  
 **Scope**: Add gfx942 CDNA3 emulation to AES benchmark following established dual-arch pattern
 
-**Rationale**: AES is currently GCN3-only (no CDNA3 HSACO exists). Unlike nbody/matrixmultiplication which have complex bugs, AES is straightforward addition following M1/M2 pattern. Low risk, clear scope, quick win to increase coverage from 12 to 13 working benchmarks.
+**What was completed**:
+- ✅ Created native/ directory with HIP source and Makefile (Maya, commit a9fadf05)
+- ✅ Compiled kernels_gfx942.hsaco (Maya)
+- ✅ Added CDNA3KernelArgs struct (Leo, commit bee02407)
+- ✅ Added dual-arch support (Leo, commit bee02407)
+- ✅ Updated sample main (Leo, commit 4f4f9a08)
+- ✅ Implemented SDWA support for v_xor_b32, v_or_b32 (Niko, commits de789cfb, fa3ececf)
+- ✅ Implemented SDWA dst_unused (PAD, SEXT, PRESERVE) (Niko, commit 394e419d)
+- ✅ Added SDWA to v_and_b32 (Niko, commit f44fd038)
+- ❌ GCN3 mode: passes ✓
+- ❌ CDNA3 mode: fails with "Mismatch at position 0: should be d6 but get 0a"
 
-**Tasks**:
-1. Compile HIP to kernels_gfx942.hsaco using Docker ROCm 7.1.1
-2. Add CDNA3KernelArgs struct with hidden kernel args
-3. Update benchmark for dual-arch support (embed both HSACOs, arch-conditional loading)
-4. Test with -arch=cdna3 -verify
-5. Fix any missing CDNA3 instructions
-6. Verify GCN3 mode still works (no regression)
+**Result**: The "established pattern" was insufficient. All structural pieces were implemented correctly, but verification still fails. This suggests deeper emulation bugs beyond missing instructions or kernarg layout.
 
-**Deferred items** (revisit after M3.3):
-- nbody: multi-workgroup local memory allocation (architectural gap)
-- matrixmultiplication: CDNA3 flat memory page table bug
-- SHOC benchmarks (bfs, fft, spmv, stencil2d): pending complexity audit
+**Lesson**: Not all benchmarks follow the same pattern. After 80% success rate (12/15), we're hitting benchmarks with more complex issues. Need systematic investigation instead of pattern-following.
+
+**Next**: Break down into investigation milestone (M3.3.1) to understand root cause before attempting fix.
+
+#### M3.3.1: Systematic debugging of AES CDNA3 failure
+**Budget**: 2 cycles  
+**Status**: In progress  
+**Scope**: Investigate why AES CDNA3 produces wrong results despite correct structural implementation
+
+**Approach**:
+- Deep debugging with execution tracing
+- Code review to verify implementation correctness
+- Hypothesis testing with minimal changes
+- Document findings for future similar failures
+
+**Success criteria**: Clear understanding of root cause with reproducible test case, OR determination that AES requires architectural changes beyond current scope
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
@@ -185,3 +201,13 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 - **Revert cleanly**: When deferring work, revert to a known-good state (GCN3-only) rather than leaving broken CDNA3 code in the repo.
 - **LocalPtr vs Ptr semantics**: HIP's conversion of `__local` to `__global` means some benchmarks need different memory allocation patterns than OpenCL equivalents.
 - **CI must validate milestone acceptance**: Relying only on local spot checks allows late regressions and misses human-requested acceptance automation.
+
+### M3.3 (Cycles 96-97, failed: AES still not working)
+- **"Established pattern" isn't universal**: 12/15 benchmarks followed the pattern (native/, HSACO, CDNA3KernelArgs, dual-arch). But 3 don't - suggesting the remaining 20% have deeper issues.
+- **Structural completeness ≠ functional correctness**: All AES implementation pieces were correct (HSACO compiled, kernarg struct added, SDWA implemented), but verification still fails.
+- **Instruction implementation alone isn't enough**: SDWA dst_unused was implemented completely (PAD, SEXT, PRESERVE), but AES still produces wrong results.
+- **Success rate plateau**: Hit 80% success rate (12/15 attempted). The remaining 20% likely represent harder problems (emulation bugs, architectural gaps, complex memory patterns).
+- **Investigation > iteration**: At this point, systematically investigating WHY failures happen is more valuable than trying more benchmarks.
+- **Hypothesis testing needed**: Can't just "implement the pattern and hope it works" - need to form hypotheses, test them, and understand root causes.
+- **Budget for unknowns**: Simple benchmarks (M1) took 0.25 cycles each. Complex benchmarks (M3.3) can fail even after 2 cycles of work. Adjust expectations.
+- **Know when to stop following patterns**: After 80% success with a pattern, the remaining failures likely need different approaches.
