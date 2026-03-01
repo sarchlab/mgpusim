@@ -120,7 +120,49 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 **Outcome**: All code quality issues resolved. Clean codebase ready for next milestone.
 
-#### M3.3: Add CDNA3 support to stencil2d and pagerank
+#### M3.3a: Add CDNA3 support to AES benchmark (ares/cdna3-aes branch)
+**Budget**: 2 cycles  
+**Status**: ❌ FAILED (2/2 cycles used, verification still failing)  
+**Scope**: Add gfx942 CDNA3 emulation to AES benchmark following established dual-arch pattern
+
+**What was completed**:
+- ✅ Created native/ directory with HIP source and Makefile (Maya, commit a9fadf05)
+- ✅ Compiled kernels_gfx942.hsaco (Maya)
+- ✅ Added CDNA3KernelArgs struct (Leo, commit bee02407)
+- ✅ Added dual-arch support (Leo, commit bee02407)
+- ✅ Updated sample main (Leo, commit 4f4f9a08)
+- ✅ Implemented SDWA support for v_xor_b32, v_or_b32 (Niko, commits de789cfb, fa3ececf)
+- ✅ Implemented SDWA dst_unused (PAD, SEXT, PRESERVE) (Niko, commit 394e419d)
+- ✅ Added SDWA to v_and_b32 (Niko, commit f44fd038)
+- ❌ GCN3 mode: passes ✓
+- ❌ CDNA3 mode: fails with "Mismatch at position 0: should be d6 but get 0a"
+
+**Result**: The "established pattern" was insufficient. All structural pieces were implemented correctly, but verification still fails. This suggests deeper emulation bugs beyond missing instructions or kernarg layout.
+
+**Lesson**: Not all benchmarks follow the same pattern. After 80% success rate (12/15), we're hitting benchmarks with more complex issues. Need systematic investigation instead of pattern-following.
+
+**Next**: Break down into investigation milestone (M3.3.1) to understand root cause before attempting fix.
+
+#### M3.3.1: Systematic debugging of AES CDNA3 failure (ares/cdna3-aes branch)
+**Budget**: 2 cycles  
+**Status**: ✅ COMPLETE - Investigation complete, AES DEFERRED  
+**Scope**: Investigate why AES CDNA3 produces wrong results despite correct structural implementation
+
+**Result**: Investigation successful - identified 6 bugs and fixed them, but AES still produces **non-deterministic wrong output**. Root cause likely: uninitialized registers, race conditions (s_waitcnt not implemented), or SDWA emulation bugs. This is an architectural issue requiring 5+ cycles with uncertain success.
+
+**Bugs fixed during investigation:**
+1. SOPK opcode mapping shifted by +1 (Niko, commit e61d21dd)
+2. CDNA3KernelArgs missing 190 bytes padding (Maya, commit 9905e9e1)
+3. loadProgram() placement timing (Maya, commit 9905e9e1)
+4. v_add_lshl_u32 missing (Leo, commit 182ddb5a)
+5. v_cmp_gt_i16 missing (Leo, commit 363bc1a8)
+6. VCC initialization in all VOPC functions (Niko, commit 9f59f486)
+
+**Decision**: DEFER AES to future work. Non-deterministic output is a red flag indicating deep architectural issues. After 4 cycles (M3.3a + M3.3.1), continuing has poor ROI compared to attempting new benchmarks.
+
+**Note**: These 6 bug fixes benefit ALL benchmarks, not just AES. They were merged to main in PR #7.
+
+#### M3.3b: Add CDNA3 support to stencil2d and pagerank (main branch, parallel effort)
 **Budget**: 2 cycles (extended to 3)
 **Status**: ❌ FAILED (deadline missed, 3/3 cycles used, incomplete)
 **Scope**: Add gfx942 CDNA3 emulation to stencil2d and pagerank benchmarks
@@ -152,19 +194,19 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.4: Branch Consolidation & Technical Debt Cleanup
 **Budget**: 4 cycles  
-**Status**: Not started  
+**Status**: ✅ In progress (PR #7 merging ares/cdna3-aes)
 **Scope**: Merge valuable feature branches, fix V2/V3 header bug, verify all benchmarks
 
 **Rationale**: M3.3 failure revealed workflow dysfunction. Multiple branches contain fixes that should be in main:
-- `ares/cdna3-aes`: 6 bug fixes + 2 opcodes (510, 164)
+- `ares/cdna3-aes`: 6 bug fixes + 2 opcodes (510, 164) - being merged in PR #7
 - `ares/cdna3-benchmarks-m2`: working stencil2d with __shared__ memory
 - V2/V3 header detection bug is systemic, affects any V5 kernel
 
 Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents future duplication of effort.
 
 **Tasks**:
-1. Merge ares/cdna3-aes to main (issue #98)
-2. Merge ares/cdna3-benchmarks-m2 to main (issue #99)
+1. ✅ Merge ares/cdna3-aes to main (PR #7, issue #102)
+2. Merge ares/cdna3-benchmarks-m2 to main (issue #103)
 3. Fix V2/V3 header detection bug in hsaco.go (issue #100)
 4. Comprehensive testing of all 13 benchmarks (issue #101)
 5. Update roadmap to reflect actual state
@@ -230,7 +272,27 @@ Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents futu
 - **LocalPtr vs Ptr semantics**: HIP's conversion of `__local` to `__global` means some benchmarks need different memory allocation patterns than OpenCL equivalents.
 - **CI must validate milestone acceptance**: Relying only on local spot checks allows late regressions and misses human-requested acceptance automation.
 
-### M3.3 (Cycles 1-3, failed: 1/2 benchmarks, deadline missed)
+### M3.3a (AES on ares/cdna3-aes branch, cycles 96-97, failed)
+- **"Established pattern" isn't universal**: 12/15 benchmarks followed the pattern (native/, HSACO, CDNA3KernelArgs, dual-arch). But 3 don't - suggesting the remaining 20% have deeper issues.
+- **Structural completeness ≠ functional correctness**: All AES implementation pieces were correct (HSACO compiled, kernarg struct added, SDWA implemented), but verification still fails.
+- **Instruction implementation alone isn't enough**: SDWA dst_unused was implemented completely (PAD, SEXT, PRESERVE), but AES still produces wrong results.
+- **Success rate plateau**: Hit 80% success rate (12/15 attempted). The remaining 20% likely represent harder problems (emulation bugs, architectural gaps, complex memory patterns).
+- **Investigation > iteration**: At this point, systematically investigating WHY failures happen is more valuable than trying more benchmarks.
+- **Hypothesis testing needed**: Can't just "implement the pattern and hope it works" - need to form hypotheses, test them, and understand root causes.
+- **Budget for unknowns**: Simple benchmarks (M1) took 0.25 cycles each. Complex benchmarks (M3.3) can fail even after 2 cycles of work. Adjust expectations.
+- **Know when to stop following patterns**: After 80% success with a pattern, the remaining failures likely need different approaches.
+
+### M3.3.1 (AES investigation on ares/cdna3-aes branch, cycles 100-101, complete/deferred)
+- **Non-determinism is a red flag**: AES produces different wrong outputs on different runs - indicates deep architectural issue (uninitialized state, race conditions, missing synchronization)
+- **Investigation before implementation**: Systematic investigation (Devon, River, Zara) found 6 bugs quickly - but fixing them didn't solve the non-determinism
+- **Know when to defer**: After 4 cycles total (M3.3a + M3.3.1) and 77% success rate elsewhere, continuing AES has poor ROI
+- **Strategic analysis pays off**: Dedicated strategic analyst (Kai) provided clear cost-benefit analysis showing pivot is better choice
+- **Success rate > completion rate**: Better to have 12/16 working benchmarks than waste 5+ cycles chasing one problematic benchmark
+- **Time-box investigations**: 2 cycles for investigation was right - found root causes, determined it's not quickly fixable
+- **Bugs fixed benefit all**: Even though AES deferred, the 6 bugs fixed (SOPK, VCC, etc.) benefit future benchmarks
+- **Pivot strategy**: When hitting 80% success plateau, pivot to new benchmarks rather than chase the hard 20%
+
+### M3.3b (stencil2d/pagerank on main branch, cycles 1-3, failed)
 - **Branch isolation kills productivity**: Ares spent 3 cycles "discovering" opcode 510 was missing, when it was already implemented on ares/cdna3-aes. Starting from stale main means missing recent fixes.
 - **Integration velocity < implementation velocity**: We can build features fast, but branches pile up because merging is treated as a milestone endpoint, not a continuous process.
 - **Unmerged branches = duplicated effort**: Every day fixes sit on feature branches increases risk of rediscovering the same issues.

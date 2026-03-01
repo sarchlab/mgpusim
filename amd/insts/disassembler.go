@@ -226,10 +226,11 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 		switch dstUnused {
 		case 0:
+			inst.DstUnused = SDWAUnusedPad
 		case 1:
-			log.Panicf("DST_UNUSED SEXT is not implemented")
+			inst.DstUnused = SDWAUnusedSEXT
 		case 2:
-			log.Panicf("DST_UNUSED PRESERVE is not implemented")
+			inst.DstUnused = SDWAUnusedPreserve
 		}
 
 		switch clamp {

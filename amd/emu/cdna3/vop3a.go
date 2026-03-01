@@ -107,6 +107,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVPKADDF32(state)
 	case 509:
 		u.runVLSHLADDU32(state)
+	case 510:
+		u.runVADDLSHLU32(state)
 	case 511:
 		u.runVADD3U32(state)
 	case 520:
@@ -205,6 +207,26 @@ func (u *ALU) runVLSHLADDU32(state emu.InstEmuState) {
 		src2 := uint32(sp.SRC2[i])
 
 		result := (src0 << shift) + src2
+		sp.DST[i] = uint64(result)
+	}
+}
+
+// runVADDLSHLU32 implements v_add_lshl_u32 (add and shift left 32-bit)
+// D.u = (S0.u + S1.u) << S2.u[4:0]
+func (u *ALU) runVADDLSHLU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		shift := uint32(sp.SRC2[i]) & 0x1F // [4:0] = 5 bits
+
+		result := (src0 + src1) << shift
 		sp.DST[i] = uint64(result)
 	}
 }
