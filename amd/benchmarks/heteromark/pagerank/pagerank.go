@@ -184,81 +184,97 @@ func printMatrix(matrix [][]float32, n uint32) {
 	}
 }
 
+func (b *Benchmark) launchCDNA3PageRank(
+	i uint32,
+	globalSize [3]uint32,
+	localSize [3]uint16,
+) {
+	var xPtr, yPtr driver.Ptr
+	if i%2 == 0 {
+		xPtr = b.dPageRank
+		yPtr = b.dPageRankTemp
+	} else {
+		xPtr = b.dPageRankTemp
+		yPtr = b.dPageRank
+	}
+
+	kernArg := CDNA3KernelArgs{
+		NumRows:             b.NumNodes,
+		RowOffset:           b.dRowOffsets,
+		Col:                 b.dColumnNumbers,
+		Val:                 b.dValues,
+		X:                   xPtr,
+		Y:                   yPtr,
+		HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
+		HiddenBlockCountY:   1,
+		HiddenBlockCountZ:   1,
+		HiddenGroupSizeX:    localSize[0],
+		HiddenGroupSizeY:    localSize[1],
+		HiddenGroupSizeZ:    localSize[2],
+		HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
+		HiddenRemainderY:    0,
+		HiddenRemainderZ:    0,
+		HiddenGlobalOffsetX: 0,
+		HiddenGlobalOffsetY: 0,
+		HiddenGlobalOffsetZ: 0,
+		HiddenGridDims:      1,
+	}
+
+	b.driver.LaunchKernel(
+		b.context,
+		b.kernel,
+		globalSize,
+		localSize,
+		&kernArg,
+	)
+}
+
+func (b *Benchmark) launchGCN3PageRank(
+	i uint32,
+	globalSize [3]uint32,
+	localSize [3]uint16,
+) {
+	var kernArg KernelArgs
+	if i%2 == 0 {
+		kernArg = KernelArgs{
+			NumRows:   b.NumNodes,
+			RowOffset: b.dRowOffsets,
+			Col:       b.dColumnNumbers,
+			Val:       b.dValues,
+			Vals:      b.dLocalValues,
+			X:         b.dPageRank,
+			Y:         b.dPageRankTemp,
+		}
+	} else {
+		kernArg = KernelArgs{
+			NumRows:   b.NumNodes,
+			RowOffset: b.dRowOffsets,
+			Col:       b.dColumnNumbers,
+			Val:       b.dValues,
+			Vals:      b.dLocalValues,
+			X:         b.dPageRankTemp,
+			Y:         b.dPageRank,
+		}
+	}
+
+	b.driver.LaunchKernel(
+		b.context,
+		b.kernel,
+		globalSize,
+		localSize,
+		&kernArg,
+	)
+}
+
 func (b *Benchmark) launchPageRankKernel(
 	i uint32,
 	globalSize [3]uint32,
 	localSize [3]uint16,
 ) {
 	if b.Arch == arch.CDNA3 {
-		var xPtr, yPtr driver.Ptr
-		if i%2 == 0 {
-			xPtr = b.dPageRank
-			yPtr = b.dPageRankTemp
-		} else {
-			xPtr = b.dPageRankTemp
-			yPtr = b.dPageRank
-		}
-
-		kernArg := CDNA3KernelArgs{
-			NumRows:             b.NumNodes,
-			RowOffset:           b.dRowOffsets,
-			Col:                 b.dColumnNumbers,
-			Val:                 b.dValues,
-			X:                   xPtr,
-			Y:                   yPtr,
-			HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
-			HiddenBlockCountY:   1,
-			HiddenBlockCountZ:   1,
-			HiddenGroupSizeX:    localSize[0],
-			HiddenGroupSizeY:    localSize[1],
-			HiddenGroupSizeZ:    localSize[2],
-			HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
-			HiddenRemainderY:    0,
-			HiddenRemainderZ:    0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
-			HiddenGridDims:      1,
-		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			globalSize,
-			localSize,
-			&kernArg,
-		)
+		b.launchCDNA3PageRank(i, globalSize, localSize)
 	} else {
-		var kernArg KernelArgs
-		if i%2 == 0 {
-			kernArg = KernelArgs{
-				NumRows:   b.NumNodes,
-				RowOffset: b.dRowOffsets,
-				Col:       b.dColumnNumbers,
-				Val:       b.dValues,
-				Vals:      b.dLocalValues,
-				X:         b.dPageRank,
-				Y:         b.dPageRankTemp,
-			}
-		} else {
-			kernArg = KernelArgs{
-				NumRows:   b.NumNodes,
-				RowOffset: b.dRowOffsets,
-				Col:       b.dColumnNumbers,
-				Val:       b.dValues,
-				Vals:      b.dLocalValues,
-				X:         b.dPageRankTemp,
-				Y:         b.dPageRank,
-			}
-		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			globalSize,
-			localSize,
-			&kernArg,
-		)
+		b.launchGCN3PageRank(i, globalSize, localSize)
 	}
 }
 
