@@ -93,18 +93,8 @@ func (u *ALU) sdwaSrcSelect(src uint32, sel insts.SDWASelect) uint32 {
 	return src
 }
 
-// sdwaDstSelect applies SDWA destination selection to place the result in the
-// appropriate sub-dword position, handling unused bits according to dst_unused.
-func (u *ALU) sdwaDstSelect(
-	dstOld uint32,
-	dstNew uint32,
-	sel insts.SDWASelect,
-	unused insts.SDWAUnused,
-) uint32 {
-	var value uint32
-	var mask uint32
-	var signBit bool
-	
+// sdwaSelectValue computes the value, mask, and sign bit for SDWA dst_sel.
+func sdwaSelectValue(dstNew uint32, sel insts.SDWASelect) (value, mask uint32, signBit bool) {
 	switch sel {
 	case insts.SDWASelectByte0:
 		value = dstNew & 0x000000ff
@@ -130,30 +120,36 @@ func (u *ALU) sdwaDstSelect(
 		value = (dstNew << 16) & 0xffff0000
 		mask = 0xffff0000
 		signBit = (dstNew & 0x8000) != 0
-	case insts.SDWASelectDWord:
-		return dstNew
-	default:
+	}
+	return value, mask, signBit
+}
+
+// sdwaDstSelect applies SDWA destination selection to place the result in the
+// appropriate sub-dword position, handling unused bits according to dst_unused.
+func (u *ALU) sdwaDstSelect(
+	dstOld uint32,
+	dstNew uint32,
+	sel insts.SDWASelect,
+	unused insts.SDWAUnused,
+) uint32 {
+	if sel == insts.SDWASelectDWord {
 		return dstNew
 	}
+
+	value, mask, signBit := sdwaSelectValue(dstNew, sel)
 
 	// Handle unused bits according to dst_unused mode
 	switch unused {
 	case insts.SDWAUnusedPad:
-		// Zero out unused bits (already done, value only has selected bits set)
 		return value
 	case insts.SDWAUnusedSEXT:
-		// Sign extend the result into unused bits
 		if signBit {
-			// Sign bit is 1, fill unused bits with 1s
 			return value | ^mask
 		}
-		// Sign bit is 0, unused bits stay 0
 		return value
 	case insts.SDWAUnusedPreserve:
-		// Keep the old destination value in unused bits
 		return (dstOld & ^mask) | value
 	default:
-		// Default to PAD behavior
 		return value
 	}
 }
