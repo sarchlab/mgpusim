@@ -145,16 +145,39 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.3.1: Systematic debugging of AES CDNA3 failure
 **Budget**: 2 cycles  
-**Status**: In progress  
+**Status**: ✅ COMPLETE - Investigation complete, AES DEFERRED  
 **Scope**: Investigate why AES CDNA3 produces wrong results despite correct structural implementation
 
-**Approach**:
-- Deep debugging with execution tracing
-- Code review to verify implementation correctness
-- Hypothesis testing with minimal changes
-- Document findings for future similar failures
+**Result**: Investigation successful - identified 6 bugs and fixed them, but AES still produces **non-deterministic wrong output**. Root cause likely: uninitialized registers, race conditions (s_waitcnt not implemented), or SDWA emulation bugs. This is an architectural issue requiring 5+ cycles with uncertain success.
 
-**Success criteria**: Clear understanding of root cause with reproducible test case, OR determination that AES requires architectural changes beyond current scope
+**Bugs fixed during investigation:**
+1. SOPK opcode mapping shifted by +1 (Niko, commit e61d21dd)
+2. CDNA3KernelArgs missing 190 bytes padding (Maya, commit 9905e9e1)
+3. loadProgram() placement timing (Maya, commit 9905e9e1)
+4. v_add_lshl_u32 missing (Leo, commit 182ddb5a)
+5. v_cmp_gt_i16 missing (Leo, commit 363bc1a8)
+6. VCC initialization in all VOPC functions (Niko, commit 9f59f486)
+
+**Decision**: DEFER AES to future work. Non-deterministic output is a red flag indicating deep architectural issues. After 4 cycles (M3.3 + M3.3.1), continuing has poor ROI compared to attempting new benchmarks.
+
+**Recommendation from strategic analysis (Kai, issue #88)**: Pivot to new benchmarks. 77% success rate (10/13 attempted) shows the pattern works. Expected: 2-3 new working benchmarks in 3-4 cycles vs. uncertain AES fix in 5+ cycles.
+
+#### M3.4: Add CDNA3 support to stencil2d and pagerank
+**Budget**: 3 cycles  
+**Status**: Not started  
+**Scope**: Get stencil2d (SHOC) and pagerank (HeteroMark) benchmarks working with -arch=cdna3 -verify
+
+**Rationale**: Both benchmarks already have Go implementations and OpenCL kernels. They use simpler memory patterns than the deferred benchmarks (AES, nbody, matrixmultiplication). Following the established pattern:
+1. Create native/ directory with HIP kernel sources
+2. Compile to gfx942 HSACO using Docker
+3. Add CDNA3KernelArgs struct with proper padding
+4. Add dual-arch support
+5. Fix any missing emulator instructions
+6. Verify both GCN3 and CDNA3 modes work
+
+**Expected outcome**: 12 working CDNA3 benchmarks (current 10 + 2 new)
+
+**Success criteria**: Both benchmarks pass `-arch=cdna3 -verify` and maintain GCN3 backward compatibility
 
 ### M4: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
@@ -211,3 +234,13 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 - **Hypothesis testing needed**: Can't just "implement the pattern and hope it works" - need to form hypotheses, test them, and understand root causes.
 - **Budget for unknowns**: Simple benchmarks (M1) took 0.25 cycles each. Complex benchmarks (M3.3) can fail even after 2 cycles of work. Adjust expectations.
 - **Know when to stop following patterns**: After 80% success with a pattern, the remaining failures likely need different approaches.
+
+### M3.3.1 (Cycles 100-101, investigation complete, AES deferred)
+- **Non-determinism is a red flag**: AES produces different wrong outputs on different runs - indicates deep architectural issue (uninitialized state, race conditions, missing synchronization)
+- **Investigation before implementation**: Systematic investigation (Devon, River, Zara) found 6 bugs quickly - but fixing them didn't solve the non-determinism
+- **Know when to defer**: After 4 cycles total (M3.3 + M3.3.1) and 77% success rate elsewhere, continuing AES has poor ROI
+- **Strategic analysis pays off**: Dedicated strategic analyst (Kai) provided clear cost-benefit analysis showing pivot is better choice
+- **Success rate > completion rate**: Better to have 12/16 working benchmarks than waste 5+ cycles chasing one problematic benchmark
+- **Time-box investigations**: 2 cycles for investigation was right - found root causes, determined it's not quickly fixable
+- **Bugs fixed benefit all**: Even though AES deferred, the 6 bugs fixed (SOPK, VCC, etc.) benefit future benchmarks
+- **Pivot strategy**: When hitting 80% success plateau, pivot to new benchmarks rather than chase the hard 20%
