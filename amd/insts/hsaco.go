@@ -192,32 +192,43 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 			// symbol.Value is the virtual address; textSection.Addr is the section's virtual address
 			offset := symbol.Value - textSection.Addr
 			kernelData := textSectionData[offset : offset+symbol.Size]
-			co := newKernelCodeObjectFromEntireTextSection(kernelData)
 			symbolCopy := symbol
-			co.Symbol = &symbolCopy
 
-			// Try to find V5 kernel descriptor in .rodata
-			if rodataSection != nil && rodataSectionData != nil {
-				kdSymbolName := kernelName + ".kd"
-				for _, sym := range symbols {
-					if sym.Name == kdSymbolName && sym.Size == 64 {
-						if int(sym.Section) < len(executable.Sections) {
-							sec := executable.Sections[sym.Section]
-							if sec.Name == ".rodata" {
-								// Parse the 64-byte kernel descriptor
-								kdOffset := sym.Value - rodataSection.Addr
-								if kdOffset+64 <= uint64(len(rodataSectionData)) {
-									kdData := rodataSectionData[kdOffset : kdOffset+64]
-									co.KernelCodeObjectMeta = parseV5KernelDescriptor(kdData)
-									co.Version = CodeObjectV5
-								}
-							}
-						}
-						break
-					}
-				}
+			// FIX: Check for V5 kernel descriptor FIRST, before V2/V3 detection.
+			//
+			// Background: V5 (AMDHSA Code Object V4+) kernels store their
+			// metadata in a 64-byte kernel descriptor in the .rodata section,
+			// identified by a "<kernelName>.kd" symbol. The .text section
+			// contains only raw instructions with no header.
+			//
+			// V2/V3 kernels embed a 256-byte header at the start of .text
+			// data, identified by signature bytes (CodeVersionMajor=1,
+			// CodeVersionMinor<=2, MachineKind=1).
+			//
+			// The old code called isV2V3Header() first, which could produce
+			// false positives when V5 kernel instructions happened to start
+			// with bytes matching the V2/V3 signature. This caused the first
+			// 256 bytes of real instructions to be stripped, corrupting the
+			// kernel (see: stencil2d page fault bug).
+			//
+			// By checking for V5 descriptors first, we avoid the false
+			// positive entirely: if a .kd symbol exists, the kernel is
+			// definitively V5 and we use the raw .text data as-is.
+			if v5Meta := findV5KernelDescriptor(
+				kernelName, symbols, executable,
+				rodataSection, rodataSectionData,
+			); v5Meta != nil {
+				co := new(KernelCodeObject)
+				co.Data = kernelData // V5: entire kernel data is instructions
+				co.KernelCodeObjectMeta = v5Meta
+				co.Version = CodeObjectV5
+				co.Symbol = &symbolCopy
+				return co
 			}
 
+			// No V5 descriptor found — fall back to V2/V3 detection
+			co := newKernelCodeObjectFromEntireTextSection(kernelData)
+			co.Symbol = &symbolCopy
 			return co
 		}
 	}
@@ -226,26 +237,79 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 	return nil
 }
 
-// isV2V3Header checks if data looks like a V2/V3 kernel header
+// findV5KernelDescriptor looks for a V5 kernel descriptor (.kd symbol) in .rodata.
+// Returns the parsed metadata if found, or nil if this kernel has no V5 descriptor.
+func findV5KernelDescriptor(
+	kernelName string,
+	symbols []elf.Symbol,
+	executable *elf.File,
+	rodataSection *elf.Section,
+	rodataSectionData []byte,
+) *KernelCodeObjectMeta {
+	if rodataSection == nil || rodataSectionData == nil {
+		return nil
+	}
+
+	kdSymbolName := kernelName + ".kd"
+	for _, sym := range symbols {
+		if sym.Name == kdSymbolName && sym.Size == 64 {
+			if int(sym.Section) < len(executable.Sections) {
+				sec := executable.Sections[sym.Section]
+				if sec.Name == ".rodata" {
+					kdOffset := sym.Value - rodataSection.Addr
+					if kdOffset+64 <= uint64(len(rodataSectionData)) {
+						kdData := rodataSectionData[kdOffset : kdOffset+64]
+						return parseV5KernelDescriptor(kdData)
+					}
+				}
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+// isV2V3Header checks if data looks like a V2/V3 kernel header.
+//
+// This performs multi-field validation to reduce false positives.
+// A real V2/V3 header has specific structure beyond just the first 10 bytes:
+//   - CodeVersionMajor (offset 0-3) = 1
+//   - CodeVersionMinor (offset 4-7) = 0, 1, or 2
+//   - MachineKind (offset 8-9) = 1 (AMDGPU)
+//   - MachineVersionMajor (offset 10-11) = known GPU generation (7, 8, 9, etc.)
+//   - KernelCodeEntryByteOffset (offset 16-23) = 256 (instructions follow header)
 func isV2V3Header(data []byte) bool {
 	if len(data) < 256 {
 		return false
 	}
 
-	// V2/V3 header signature:
-	// - CodeVersionMajor (offset 0-3) = 1
-	// - CodeVersionMinor (offset 4-7) = 0, 1, or 2
-	// - MachineKind (offset 8-9) = 1 (AMDGPU)
 	codeVersionMajor := binary.LittleEndian.Uint32(data[0:4])
 	codeVersionMinor := binary.LittleEndian.Uint32(data[4:8])
 	machineKind := binary.LittleEndian.Uint16(data[8:10])
 
-	// Check for valid V2/V3 header values
-	if codeVersionMajor == 1 && codeVersionMinor <= 2 && machineKind == 1 {
-		return true
+	// Primary signature check
+	if codeVersionMajor != 1 || codeVersionMinor > 2 || machineKind != 1 {
+		return false
 	}
 
-	return false
+	// Secondary validation: MachineVersionMajor should be a known AMD GPU
+	// generation. Valid values: 7 (GCN3/Sea Islands), 8 (GCN4/Volcanic Islands),
+	// 9 (GCN5/Vega). Values outside this range indicate this is not a real header.
+	machineVersionMajor := binary.LittleEndian.Uint16(data[10:12])
+	if machineVersionMajor < 7 || machineVersionMajor > 9 {
+		return false
+	}
+
+	// Tertiary validation: KernelCodeEntryByteOffset must be 256 for V2/V3 headers.
+	// This is the offset from the start of the code object to the first instruction,
+	// which is always immediately after the 256-byte header.
+	kernelCodeEntryByteOffset := binary.LittleEndian.Uint64(data[16:24])
+	if kernelCodeEntryByteOffset != 256 {
+		return false
+	}
+
+	return true
 }
 
 // parseV2V3Header parses the 256-byte V2/V3 kernel header
