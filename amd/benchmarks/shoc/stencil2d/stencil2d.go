@@ -81,7 +81,7 @@ type CDNA3StencilKernelArgs struct {
 	WCenter             float32
 	WCardinal           float32
 	WDiagonal           float32
-	Sh                  driver.LocalPtr
+	Sh                  driver.Ptr // Changed from LocalPtr to Ptr for CDNA3 HIP kernel
 	Padding             int32
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
@@ -115,6 +115,7 @@ type Benchmark struct {
 	NumIteration                  int
 	haloWidth                     int
 	dData1, dData2                driver.Ptr
+	dSharedMem                    driver.Ptr // CDNA3 global memory for shared memory buffer
 	currData, newData             *driver.Ptr
 	NumRows, NumCols              int
 	dataSize                      int
@@ -215,6 +216,12 @@ func (b *Benchmark) initMem() {
 			uint64(b.paddedDataSize*4))
 	}
 
+	// Allocate global memory for shared memory buffer (CDNA3 HIP kernel requirement)
+	if b.Arch == arch.CDNA3 {
+		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
+		b.dSharedMem = b.driver.AllocateMemory(b.context, uint64(ldsSize))
+	}
+
 	b.currData = &b.dData1
 	b.newData = &b.dData2
 }
@@ -241,7 +248,7 @@ func (b *Benchmark) exec() {
 				WCenter:             b.wCenter,
 				WCardinal:           b.wCardinal,
 				WDiagonal:           b.wDiagonal,
-				Sh:                  driver.LocalPtr(ldsSize),
+				Sh:                  b.dSharedMem, // Pass global memory buffer
 				Padding:             0,
 				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
 				HiddenBlockCountY:   globalSize[1] / uint32(localSize[1]),
