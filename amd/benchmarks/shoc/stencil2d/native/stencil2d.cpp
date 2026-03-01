@@ -1,6 +1,10 @@
-#include <hip/hip_runtime.h>
+/**
+ * stencil2d.cpp: HIP implementation of stencil2d kernels
+ * Translated from stencil2d.cl for gfx942 CDNA3 architecture
+ */
 
-// define types based on compiler "command line"
+#include "hip/hip_runtime.h"
+
 #define VALTYPE float
 #define LROWS 16
 
@@ -22,14 +26,16 @@ __device__ inline int ToFlatHaloedIdx(int row, int col, int rowPitch) {
   return (row + 1) * (rowPitch + 2) + (col + 1);
 }
 
-__device__ inline int ToFlatIdx(int row, int col, int pitch) { return row * pitch + col; }
+__device__ inline int ToFlatIdx(int row, int col, int pitch) { 
+  return row * pitch + col; 
+}
 
 extern "C" __global__ void CopyRect(VALTYPE* dest, int doffset, int dpitch,
                        VALTYPE* src, int soffset, int spitch,
                        int width, int height) {
   int gid = hipBlockIdx_x;
   int lid = hipThreadIdx_x;
-  int gsz = hipBlockDim_x * hipGridDim_x;
+  int gsz = hipGridDim_x * hipBlockDim_x;
   int lsz = hipBlockDim_x;
   int grow = gid * lsz + lid;
 
@@ -43,11 +49,8 @@ extern "C" __global__ void CopyRect(VALTYPE* dest, int doffset, int dpitch,
 
 extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
                             const int alignment, VALTYPE wCenter,
-                            VALTYPE wCardinal, VALTYPE wDiagonal) {
-  // Declare shared memory inside the kernel
-  // Size: (LROWS+2) * (64+2) = 18 * 66 = 1188 floats
-  __shared__ VALTYPE sh[(LROWS+2)*(64+2)];
-
+                            VALTYPE wCardinal, VALTYPE wDiagonal,
+                            VALTYPE* sh) {
   // determine our location in the HIP coordinate system
   // To match with the row-major ordering used to store the 2D
   // array in both the host and on the device, we use:
@@ -74,6 +77,7 @@ extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
   int gRowWidth = nPaddedCols - 2;  // remove the halo
 
   // Copy my global data item to a shared local buffer.
+  // That local buffer is passed to us as a parameter.
   // We assume it is large enough to hold all the data computed by
   // our block, plus a halo of width 1.
   int lRowWidth = lszCol;  // logical, not haloed
