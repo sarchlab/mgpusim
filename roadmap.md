@@ -7,19 +7,23 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 3. Byte-level correct emulated results
 4. Acceptance tests runnable in GitHub Actions CI
 
-## Current State (as of M3.1 PARTIAL merge)
+## Current State (as of M3.4 completion)
 - CDNA3 ALU emulator exists (~4000 lines in `amd/emu/cdna3/`)
-- V5 HSACO loading works
-- **10 of 12 attempted benchmarks pass** with `-arch=cdna3 -verify`:
+- V5 HSACO loading works (V2/V3 header detection bug fixed in PR #10)
+- **11 of 13 implemented benchmarks pass** with `-arch=cdna3 -verify`:
   - **M1 (7)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
-  - **M2 (4)**: bitonicsort, kmeans, atax, bicg (merged in PR #4)
-  - **M3.1 (1)**: relu (merged in PR #5)
-  - **Deferred (2)**: nbody (multi-workgroup LocalPtr complexity), aes (verification mismatch)
+  - **M2 (4)**: bitonicsort, kmeans, atax, bicg
+  - **M3.1 (1)**: relu
+  - **M3.3b (1)**: pagerank
+  - **Failing (2)**: aes (non-deterministic output, deferred), stencil2d (verification mismatch, SGPR layout issue)
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
-- All benchmarks maintain GCN3 backward compatibility (12/12 GCN3 tests passing)
+- All 11 working benchmarks maintain GCN3 backward compatibility
 - CDNA3 kernarg struct layout pattern established: hidden args, proper padding, exact offset matching
-- Code quality issues identified: debug logging and .orig file need cleanup (M3.2)
+- V2/V3 header detection bug fixed (was silently stripping first 256 bytes of V5 kernels)
+- Branches consolidated: all critical fixes on main, ≤3 active branches
+- Open WIP branch: julia/fix-stencil2d-struct-layout (page fault fixed, SGPR layout issue remains)
+- **Benchmarks WITHOUT CDNA3 support yet**: bfs, fft, spmv (SHOC), matrixmultiplication, nbody (AMDAPPSDK), nw (Rodinia)
 
 ## Milestones
 
@@ -194,7 +198,7 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 
 #### M3.4: Branch Consolidation & Technical Debt Cleanup
 **Budget**: 4 cycles  
-**Status**: ✅ In progress (PR #7 merging ares/cdna3-aes)
+**Status**: ✅ COMPLETE (11/13 benchmarks passing, all branches merged, V2/V3 bug fixed)
 **Scope**: Merge valuable feature branches, fix V2/V3 header bug, verify all benchmarks
 
 **Rationale**: M3.3 failure revealed workflow dysfunction. Multiple branches contain fixes that should be in main:
@@ -226,12 +230,26 @@ Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents futu
 - All M1/M2/M3.1 benchmarks still working
 - Clean foundation for adding remaining benchmarks efficiently
 
-### M4: Add Parboil benchmarks (CUDA→HIP conversion)
+#### M3.5: Fix stencil2d + Add bfs and nw CDNA3 support
+**Budget**: 4 cycles  
+**Status**: Not started  
+**Scope**: 
+1. Fix stencil2d CDNA3 verification (SGPR layout mismatch in julia/fix-stencil2d-struct-layout branch)
+2. Add CDNA3 support for bfs (SHOC) and nw (Rodinia) - both have GCN3 implementations
+**Target**: 13/15 benchmarks passing (3 new benchmarks, though stencil2d is already 90% done)
+**Success criteria**: All 3 benchmarks pass `go run . -arch=cdna3 -verify`, GCN3 unaffected, CI green
+
+### M4: Add more SHOC/Rodinia benchmarks (fft, spmv, matrixmultiplication)
+**Budget**: 6 cycles  
+**Status**: Not started  
+**Scope**: Add CDNA3 support to fft (SHOC), spmv (SHOC), matrixmultiplication (AMDAPPSDK). These are all GCN3-only currently.
+
+### M5: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
 **Status**: Not started  
 **Scope**: Identify Parboil benchmarks, convert CUDA→HIP, compile to gfx942, write Go reference, get emulation passing.
 
-### M5: Expand SHOC/PolyBench/Rodinia/additional coverage
+### M6: Expand SHOC/PolyBench/Rodinia/additional coverage
 **Budget**: 10 cycles  
 **Status**: Not started  
 **Scope**: Add benchmarks from these suites not already covered; find and integrate additional benchmark suites.
