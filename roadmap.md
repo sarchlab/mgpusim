@@ -7,23 +7,26 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 3. Byte-level correct emulated results
 4. Acceptance tests runnable in GitHub Actions CI
 
-## Current State (as of M3.4 completion)
+## Current State (as of M3.5 completion)
 - CDNA3 ALU emulator exists (~4000 lines in `amd/emu/cdna3/`)
 - V5 HSACO loading works (V2/V3 header detection bug fixed in PR #10)
-- **11 of 13 implemented benchmarks pass** with `-arch=cdna3 -verify`:
+- **14 benchmarks pass** with `-arch=cdna3 -verify`:
   - **M1 (7)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
   - **M2 (4)**: bitonicsort, kmeans, atax, bicg
   - **M3.1 (1)**: relu
   - **M3.3b (1)**: pagerank
-  - **Failing (2)**: aes (non-deterministic output, deferred), stencil2d (verification mismatch, SGPR layout issue)
+  - **M3.5 (3)**: stencil2d, bfs, nw (PRs #12, #13 merged)
+  - **Deferred (3)**: aes (non-deterministic output), nbody (architectural gap), matrixmultiplication (page table bug)
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
-- All 11 working benchmarks maintain GCN3 backward compatibility
+- All 14 working benchmarks maintain GCN3 backward compatibility
 - CDNA3 kernarg struct layout pattern established: hidden args, proper padding, exact offset matching
 - V2/V3 header detection bug fixed (was silently stripping first 256 bytes of V5 kernels)
-- Branches consolidated: all critical fixes on main, ≤3 active branches
-- Open WIP branch: julia/fix-stencil2d-struct-layout (page fault fixed, SGPR layout issue remains)
-- **Benchmarks WITHOUT CDNA3 support yet**: bfs, fft, spmv (SHOC), matrixmultiplication, nbody (AMDAPPSDK), nw (Rodinia)
+- SOPC 32-bit comparison truncation bug fixed (PR #13)
+- Branches consolidated: all PRs merged, clean main branch
+- CI: CDNA3 tests pass; GCN3 has spmv timeout flake (pre-existing, not CDNA3-related)
+- **Benchmarks WITHOUT CDNA3 support yet**: fft, spmv (SHOC), matrixmultiplication (AMDAPPSDK, deferred)
+- **DNN benchmarks** (conv2d, im2col, lenet, minerva, vgg16, xor) use gputensor abstraction layer — separate category, much more complex
 
 ## Milestones
 
@@ -232,17 +235,29 @@ Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents futu
 
 #### M3.5: Fix stencil2d + Add bfs and nw CDNA3 support
 **Budget**: 4 cycles  
-**Status**: Not started  
+**Status**: ✅ COMPLETE (2 cycles used, verified by Apollo)
 **Scope**: 
-1. Fix stencil2d CDNA3 verification (SGPR layout mismatch in julia/fix-stencil2d-struct-layout branch)
-2. Add CDNA3 support for bfs (SHOC) and nw (Rodinia) - both have GCN3 implementations
-**Target**: 13/15 benchmarks passing (3 new benchmarks, though stencil2d is already 90% done)
-**Success criteria**: All 3 benchmarks pass `go run . -arch=cdna3 -verify`, GCN3 unaffected, CI green
+1. Fix stencil2d CDNA3 verification (merged via PR #12)
+2. Add CDNA3 support for bfs (SHOC) and nw (Rodinia) (merged via PR #13)
 
-### M4: Add more SHOC/Rodinia benchmarks (fft, spmv, matrixmultiplication)
-**Budget**: 6 cycles  
+**Result**: All 3 benchmarks pass `-arch=cdna3 -verify`. SOPC 32-bit comparison truncation bug fixed (was causing NW infinite loop). Total CDNA3 benchmarks: 14.
+
+### M4: Add CDNA3 support to FFT and SPMV (SHOC)
+**Budget**: 4 cycles  
 **Status**: Not started  
-**Scope**: Add CDNA3 support to fft (SHOC), spmv (SHOC), matrixmultiplication (AMDAPPSDK). These are all GCN3-only currently.
+**Scope**: Add CDNA3 support to fft and spmv (both SHOC benchmarks). Both have single kernels with OpenCL source that need HIP conversion, gfx942 compilation, dual-arch support, and CDNA3KernelArgs.
+- fft: kernel `fft1D_512` — uses local memory (Smem), complex floating-point ops
+- spmv: kernel `spmv_csr_scalar_kernel` — sparse matrix-vector multiply, likely simpler
+- Also fix the GCN3 spmv CI timeout flake if possible (spmv with unified memory hangs in CI)
+
+**Tasks**:
+1. Convert fft.cl and spmv.cl to HIP, compile to gfx942 HSACO
+2. Add dual-arch support (CDNA3KernelArgs, conditional HSACO loading)  
+3. Verify both pass `-arch=cdna3 -verify`
+4. Add CDNA3 acceptance tests to cases.go
+5. Ensure GCN3 unaffected, CI green
+
+**Note**: matrixmultiplication deferred to M4.1 — has known deep bugs from M2.
 
 ### M5: Add Parboil benchmarks (CUDA→HIP conversion)
 **Budget**: 10 cycles  
