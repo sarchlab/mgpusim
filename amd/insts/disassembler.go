@@ -347,6 +347,19 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
+	// Extract 13-bit signed offset from bits [12:0] of the first dword.
+	// In CDNA3 (GFX9+), FLAT/GLOBAL instructions support a signed 13-bit
+	// immediate offset added to the address. For example:
+	//   global_load_dword v11, v[64:65], off offset:4
+	// encodes offset=4 in bits [12:0].
+	rawOffset := extractBits(bytesLo, 0, 12)
+	// Sign-extend the 13-bit value
+	if rawOffset&(1<<12) != 0 {
+		inst.Offset0 = rawOffset | 0xFFFFE000 // sign extend to 32-bit
+	} else {
+		inst.Offset0 = rawOffset
+	}
+
 	if extractBits(bytesLo, 17, 17) != 0 {
 		inst.SystemLevelCoherent = true
 	}
@@ -364,7 +377,7 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	// 0x7F = OFF (global addressing), otherwise scalar GPR pair
 	saddrBits := int(extractBits(bytesHi, 16, 22))
 	inst.SAddr = NewIntOperand(0, int64(saddrBits))
-	
+
 	// When SAddr != 0x7F and SAddr != 0, the Addr is a single 32-bit VGPR offset, not a 64-bit pair
 	// SAddr=0 is reserved in GCN3, SAddr=0x7F is OFF mode in CDNA3
 	if saddrBits != 0x7F && saddrBits != 0 {
@@ -372,7 +385,7 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	} else {
 		inst.Addr = NewVRegOperand(bits, bits, 2)
 	}
-	
+
 	bits = int(extractBits(bytesHi, 24, 31))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytesHi, 8, 15))

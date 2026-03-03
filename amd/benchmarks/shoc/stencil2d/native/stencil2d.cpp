@@ -1,9 +1,13 @@
 /**
  * stencil2d.cpp: HIP implementation of stencil2d kernels
  * Translated from stencil2d.cl for gfx942 CDNA3 architecture
+ *
+ * This version uses __shared__ memory for the stencil shared buffer,
+ * instead of passing a global pointer. This avoids the need for
+ * scratch/private memory and produces a cleaner HSACO binary.
  */
 
-#include "hip/hip_runtime.h"
+#include <hip/hip_runtime.h>
 
 #define VALTYPE float
 #define LROWS 16
@@ -26,8 +30,8 @@ __device__ inline int ToFlatHaloedIdx(int row, int col, int rowPitch) {
   return (row + 1) * (rowPitch + 2) + (col + 1);
 }
 
-__device__ inline int ToFlatIdx(int row, int col, int pitch) { 
-  return row * pitch + col; 
+__device__ inline int ToFlatIdx(int row, int col, int pitch) {
+  return row * pitch + col;
 }
 
 extern "C" __global__ void CopyRect(VALTYPE* dest, int doffset, int dpitch,
@@ -35,7 +39,7 @@ extern "C" __global__ void CopyRect(VALTYPE* dest, int doffset, int dpitch,
                        int width, int height) {
   int gid = hipBlockIdx_x;
   int lid = hipThreadIdx_x;
-  int gsz = hipGridDim_x * hipBlockDim_x;
+  int gsz = hipBlockDim_x * hipGridDim_x;
   int lsz = hipBlockDim_x;
   int grow = gid * lsz + lid;
 
@@ -49,13 +53,12 @@ extern "C" __global__ void CopyRect(VALTYPE* dest, int doffset, int dpitch,
 
 extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
                             const int alignment, VALTYPE wCenter,
-                            VALTYPE wCardinal, VALTYPE wDiagonal,
-                            VALTYPE* sh) {
+                            VALTYPE wCardinal, VALTYPE wDiagonal) {
+  // Declare shared memory inside the kernel using __shared__
+  // Size: (LROWS+2) * (64+2) = 18 * 66 = 1188 floats = 4752 bytes
+  __shared__ VALTYPE sh[(LROWS+2)*(64+2)];
+
   // determine our location in the HIP coordinate system
-  // To match with the row-major ordering used to store the 2D
-  // array in both the host and on the device, we use:
-  //   dimension 0 == rows,
-  //   dimension 1 == columns
   int gidRow = hipBlockIdx_x;
   int gidCol = hipBlockIdx_y;
   int gszRow = hipGridDim_x;
@@ -76,10 +79,7 @@ extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
       (((nCols % alignment) == 0) ? 0 : (alignment - (nCols % alignment)));
   int gRowWidth = nPaddedCols - 2;  // remove the halo
 
-  // Copy my global data item to a shared local buffer.
-  // That local buffer is passed to us as a parameter.
-  // We assume it is large enough to hold all the data computed by
-  // our block, plus a halo of width 1.
+  // Copy global data to shared memory buffer
   int lRowWidth = lszCol;  // logical, not haloed
   for (int i = 0; i < (lszRow + 2); i++) {
     int lidx = ToFlatHaloedIdx(lidRow - 1 + i, lidCol, lRowWidth);
@@ -87,8 +87,7 @@ extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
     sh[lidx] = data[gidx];
   }
 
-  // Copy the "left" and "right" halo rows into our local memory buffer.
-  // Only two threads are involved (first column and last column).
+  // Copy the "left" and "right" halo columns
   if (lidCol == 0) {
     for (int i = 0; i < (lszRow + 2); i++) {
       int lidx = ToFlatHaloedIdx(lidRow - 1 + i, lidCol - 1, lRowWidth);
@@ -103,10 +102,10 @@ extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
     }
   }
 
-  // let all those loads finish
+  // Synchronize to ensure all shared memory loads are complete
   __syncthreads();
 
-  // do my part of the smoothing operation
+  // Perform the stencil smoothing operation
   for (int i = 0; i < lszRow; i++) {
     int cidx = ToFlatHaloedIdx(lidRow + i, lidCol, lRowWidth);
     int nidx = ToFlatHaloedIdx(lidRow - 1 + i, lidCol, lRowWidth);

@@ -73,7 +73,32 @@ type CDNA3CopyRectKernelArgs struct {
 	HiddenGridDims      uint16
 }
 
-// CDNA3StencilKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+// CDNA3StencilKernelArgs defines kernel arguments for CDNA3 architecture (GFX942).
+// The CDNA3 kernel uses __shared__ memory (LDS) instead of a global Sh pointer,
+// so there is no Sh parameter in the kernel arguments.
+//
+// Layout must match the HSACO metadata from kernels_gfx942.hsaco:
+//
+//	offset 0x00: Data             (8 bytes, global_buffer)
+//	offset 0x08: NewData          (8 bytes, global_buffer)
+//	offset 0x10: Alignment        (4 bytes, by_value)
+//	offset 0x14: WCenter          (4 bytes, by_value)
+//	offset 0x18: WCardinal        (4 bytes, by_value)
+//	offset 0x1c: WDiagonal        (4 bytes, by_value)
+//	offset 0x20: HiddenBlockCountX  (4 bytes)
+//	offset 0x24: HiddenBlockCountY  (4 bytes)
+//	offset 0x28: HiddenBlockCountZ  (4 bytes)
+//	offset 0x2c: HiddenGroupSizeX   (2 bytes)
+//	offset 0x2e: HiddenGroupSizeY   (2 bytes)
+//	offset 0x30: HiddenGroupSizeZ   (2 bytes)
+//	offset 0x32: HiddenRemainderX   (2 bytes)
+//	offset 0x34: HiddenRemainderY   (2 bytes)
+//	offset 0x36: HiddenRemainderZ   (2 bytes)
+//	offset 0x38: (padding, 16 bytes)
+//	offset 0x48: HiddenGlobalOffsetX (8 bytes)
+//	offset 0x50: HiddenGlobalOffsetY (8 bytes)
+//	offset 0x58: HiddenGlobalOffsetZ (8 bytes)
+//	offset 0x60: HiddenGridDims      (2 bytes)
 type CDNA3StencilKernelArgs struct {
 	Data                driver.Ptr
 	NewData             driver.Ptr
@@ -81,8 +106,6 @@ type CDNA3StencilKernelArgs struct {
 	WCenter             float32
 	WCardinal           float32
 	WDiagonal           float32
-	Sh                  driver.Ptr // Changed from LocalPtr to Ptr for CDNA3 HIP kernel
-	Padding             int32
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -92,7 +115,7 @@ type CDNA3StencilKernelArgs struct {
 	HiddenRemainderX    uint16
 	HiddenRemainderY    uint16
 	HiddenRemainderZ    uint16
-	Padding2            [16]byte
+	Padding             [16]byte
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -114,9 +137,8 @@ type Benchmark struct {
 	hInput, hOutput               []float32
 	NumIteration                  int
 	haloWidth                     int
-	dData1, dData2                driver.Ptr
-	dSharedMem                    driver.Ptr // CDNA3 global memory for shared memory buffer
-	currData, newData             *driver.Ptr
+	dData1, dData2    driver.Ptr
+	currData, newData *driver.Ptr
 	NumRows, NumCols              int
 	dataSize                      int
 	numPaddedCols                 int
@@ -216,12 +238,6 @@ func (b *Benchmark) initMem() {
 			uint64(b.paddedDataSize*4))
 	}
 
-	// Allocate global memory for shared memory buffer (CDNA3 HIP kernel requirement)
-	if b.Arch == arch.CDNA3 {
-		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
-		b.dSharedMem = b.driver.AllocateMemory(b.context, uint64(ldsSize))
-	}
-
 	b.currData = &b.dData1
 	b.newData = &b.dData2
 }
@@ -239,8 +255,6 @@ func (b *Benchmark) launchStencilKernel(
 			WCenter:             b.wCenter,
 			WCardinal:           b.wCardinal,
 			WDiagonal:           b.wDiagonal,
-			Sh:                  b.dSharedMem, // Pass global memory buffer
-			Padding:             0,
 			HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
 			HiddenBlockCountY:   globalSize[1] / uint32(localSize[1]),
 			HiddenBlockCountZ:   globalSize[2] / uint32(localSize[2]),

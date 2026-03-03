@@ -221,7 +221,7 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 
 	// Check if this is a global instruction with scalar base address (SAddr)
 	useSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
-	
+
 	var scalarBase uint64
 	if useSAddr {
 		// Read the scalar base address from SGPR pair
@@ -231,20 +231,32 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 		scalarBase = insts.BytesToUint64(buf)
 	}
 
+	// Compute signed FLAT offset from the instruction encoding (bits [12:0]).
+	// In GFX9+/CDNA3, FLAT/GLOBAL instructions support a 13-bit signed
+	// immediate offset, e.g. "global_load_dword v11, v[64:65], off offset:4".
+	var flatOffset int64
+	if inst.Offset0 != 0 {
+		flatOffset = int64(int32(inst.Offset0)) // already sign-extended in decode
+	}
+
 	for i := 0; i < 64; i++ {
 		if useSAddr {
-			// For global with SAddr: addr = SAddr + zero_extend(VGPR)
+			// For global with SAddr: addr = SAddr + zero_extend(VGPR) + offset
 			// The VGPR is a single 32-bit register (not a pair)
 			vAddrOperand := insts.NewVRegOperand(
-				inst.Addr.Register.RegIndex(), 
+				inst.Addr.Register.RegIndex(),
 				inst.Addr.Register.RegIndex(), 1)
 			vBuf := wf.ReadReg(vAddrOperand.Register, 1, i)
 			vOffset := uint64(insts.BytesToUint32(vBuf))
-			addr := scalarBase + vOffset
+			addr := scalarBase + vOffset + uint64(flatOffset)
 			copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
 		} else {
-			// For flat/global with off: addr = VGPR pair (64-bit)
+			// For flat/global with off: addr = VGPR pair (64-bit) + offset
 			p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+			if flatOffset != 0 {
+				addr := insts.BytesToUint64(sp[8+i*8:8+i*8+8]) + uint64(flatOffset)
+				copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
+			}
 		}
 		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
 	}

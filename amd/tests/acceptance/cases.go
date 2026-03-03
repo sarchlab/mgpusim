@@ -870,4 +870,25 @@ var benchmarks = []benchmark{
 			},
 		},
 	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/stencil2d",
+		executablePath: "../../samples/stencil2d",
+		executable:     "stencil2d",
+		sizeArgs:       []string{},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			// Unified GPU MI300A tests (2-GPU)
+			{
+				gpus: []int{1, 2}, timing: false, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",
+			},
+			// Unified GPU MI300A tests (4-GPU)
+			{
+				gpus: []int{1, 2, 3, 4}, timing: false, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",
+			},
+		},
+	},
 }
