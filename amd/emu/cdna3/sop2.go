@@ -50,6 +50,10 @@ func (u *ALU) runSOP2(state emu.InstEmuState) {
 		u.runSANDN2B32(state)
 	case 19:
 		u.runSANDN2B64(state)
+	case 20:
+		u.runSORN2B32(state)
+	case 21:
+		u.runSORN2B64(state)
 	case 28:
 		u.runSLSHLB32(state)
 	case 29:
@@ -284,6 +288,26 @@ func (u *ALU) runSANDN2B32(state emu.InstEmuState) {
 func (u *ALU) runSANDN2B64(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 	sp.DST = sp.SRC0 & ^sp.SRC1
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALU) runSORN2B32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+	sp.DST = uint64(uint32(sp.SRC0) | ^uint32(sp.SRC1))
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALU) runSORN2B64(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+	sp.DST = sp.SRC0 | ^sp.SRC1
 	if sp.DST != 0 {
 		sp.SCC = 1
 	} else {

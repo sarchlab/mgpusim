@@ -15,6 +15,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := nw.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.SetLength(*length)
 
 	runner.AddBenchmark(benchmark)

@@ -41,7 +41,9 @@ func (u *ALU) runSOPC(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPEQI32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 == sp.SRC1 {
+	src0 := emu.AsInt32(uint32(sp.SRC0))
+	src1 := emu.AsInt32(uint32(sp.SRC1))
+	if src0 == src1 {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -50,7 +52,9 @@ func (u *ALU) runSCMPEQI32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPLGI32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 != sp.SRC1 {
+	src0 := emu.AsInt32(uint32(sp.SRC0))
+	src1 := emu.AsInt32(uint32(sp.SRC1))
+	if src0 != src1 {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -59,7 +63,7 @@ func (u *ALU) runSCMPLGI32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPEQU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 == sp.SRC1 {
+	if uint32(sp.SRC0) == uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -68,7 +72,7 @@ func (u *ALU) runSCMPEQU32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPLGU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 != sp.SRC1 {
+	if uint32(sp.SRC0) != uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -77,7 +81,7 @@ func (u *ALU) runSCMPLGU32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPGTU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 > sp.SRC1 {
+	if uint32(sp.SRC0) > uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -86,7 +90,7 @@ func (u *ALU) runSCMPGTU32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPLTU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 < sp.SRC1 {
+	if uint32(sp.SRC0) < uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -95,7 +99,7 @@ func (u *ALU) runSCMPLTU32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPGEU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 >= sp.SRC1 {
+	if uint32(sp.SRC0) >= uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -104,7 +108,7 @@ func (u *ALU) runSCMPGEU32(state emu.InstEmuState) {
 
 func (u *ALU) runSCMPLEU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 <= sp.SRC1 {
+	if uint32(sp.SRC0) <= uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0

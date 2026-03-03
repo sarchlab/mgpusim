@@ -277,7 +277,7 @@ func (u *ALU) runVCmpLtU32(state emu.InstEmuState) {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
 		}
-		if sp.SRC0[i] < sp.SRC1[i] {
+		if uint32(sp.SRC0[i]) < uint32(sp.SRC1[i]) {
 			sp.VCC |= (1 << i)
 		}
 	}
@@ -289,7 +289,7 @@ func (u *ALU) runVCmpEqU32(state emu.InstEmuState) {
 	var i uint
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] == sp.SRC1[i] {
+			if uint32(sp.SRC0[i]) == uint32(sp.SRC1[i]) {
 				sp.VCC |= (1 << i)
 			}
 		}
@@ -302,7 +302,7 @@ func (u *ALU) runVCmpLeU32(state emu.InstEmuState) {
 	var i uint
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] <= sp.SRC1[i] {
+			if uint32(sp.SRC0[i]) <= uint32(sp.SRC1[i]) {
 				sp.VCC |= (1 << i)
 			}
 		}
@@ -315,7 +315,7 @@ func (u *ALU) runVCmpGtU32(state emu.InstEmuState) {
 	var i uint
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] > sp.SRC1[i] {
+			if uint32(sp.SRC0[i]) > uint32(sp.SRC1[i]) {
 				sp.VCC |= (1 << i)
 			}
 		}
@@ -328,7 +328,7 @@ func (u *ALU) runVCmpNeU32(state emu.InstEmuState) {
 	var i uint
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] != sp.SRC1[i] {
+			if uint32(sp.SRC0[i]) != uint32(sp.SRC1[i]) {
 				sp.VCC |= (1 << i)
 			}
 		}
@@ -341,7 +341,7 @@ func (u *ALU) runVCmpGeU32(state emu.InstEmuState) {
 	var i uint
 	for i = 0; i < 64; i++ {
 		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] >= sp.SRC1[i] {
+			if uint32(sp.SRC0[i]) >= uint32(sp.SRC1[i]) {
 				sp.VCC |= (1 << i)
 			}
 		}

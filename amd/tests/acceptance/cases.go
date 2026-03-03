@@ -891,4 +891,26 @@ var benchmarks = []benchmark{
 			},
 		},
 	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/bfs",
+		executablePath: "../../samples/bfs",
+		executable:     "bfs",
+		sizeArgs:       []string{"-node=1024"},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/rodinia/nw",
+		executablePath: "../../samples/nw",
+		executable:     "nw",
+		sizeArgs:       []string{"-length=64"},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+		},
+	},
 }

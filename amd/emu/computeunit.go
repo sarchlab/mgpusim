@@ -315,6 +315,10 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 }
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
+	if wf.Completed {
+		return nil
+	}
+
 	for {
 		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
 
@@ -326,13 +330,13 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		wf.PC += uint64(inst.ByteSize)
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
+		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_BARRIER
 			wf.AtBarrier = true
 			cu.logInst(wf, inst)
 			break
 		}
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
+		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_ENDPGM
 			wf.Completed = true
 			cu.logInst(wf, inst)
 			break

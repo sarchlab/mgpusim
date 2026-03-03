@@ -2,17 +2,15 @@
 package bfs
 
 import (
-	"fmt"
 	"log"
 	"math"
-	"os"
 
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 // KernelArg represents the arguments to pass to the kernel
@@ -27,6 +25,33 @@ type KernelArg struct {
 	Flag         driver.Ptr
 }
 
+// CDNA3KernelArg represents the arguments for CDNA3 (gfx942) architecture
+type CDNA3KernelArg struct {
+	Levels       driver.Ptr // offset 0
+	EdgeArray    driver.Ptr // offset 8
+	EdgeArrayAux driver.Ptr // offset 16
+	WSize        int32      // offset 24
+	ChunkSize    int32      // offset 28
+	NumNodes     uint32     // offset 32
+	Curr         int32      // offset 36
+	Flag         driver.Ptr // offset 40
+	// Hidden args required by HIP runtime for gfx942
+	HiddenBlockCountX   uint32   // offset 48
+	HiddenBlockCountY   uint32   // offset 52
+	HiddenBlockCountZ   uint32   // offset 56
+	HiddenGroupSizeX    uint16   // offset 60
+	HiddenGroupSizeY    uint16   // offset 62
+	HiddenGroupSizeZ    uint16   // offset 64
+	HiddenRemainderX    uint16   // offset 66
+	HiddenRemainderY    uint16   // offset 68
+	HiddenRemainderZ    uint16   // offset 70
+	Padding             [16]byte // offset 72-87
+	HiddenGlobalOffsetX int64    // offset 88
+	HiddenGlobalOffsetY int64    // offset 96
+	HiddenGlobalOffsetZ int64    // offset 104
+	HiddenGridDims      uint16   // offset 112
+}
+
 // Benchmark is the BFS benchmark
 type Benchmark struct {
 	driver  *driver.Driver
@@ -35,6 +60,7 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
+	Arch          arch.Type
 	Path          string
 	NumNode       int
 	Degree        int
@@ -59,7 +85,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	return b
 }
 
@@ -77,11 +102,19 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "BFS_kernel_warp")
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "BFS_kernel_warp")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -89,6 +122,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs the benchmark
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -155,20 +190,42 @@ func (b *Benchmark) exec() {
 		Flag:         b.dFlag,
 	}
 
+	cdna3Args := CDNA3KernelArg{
+		Levels:            b.dFrontier,
+		EdgeArray:         b.dEdgeArray,
+		EdgeArrayAux:      b.dEdgeArrayAux,
+		WSize:             32,
+		ChunkSize:         32,
+		NumNodes:          uint32(b.NumNode),
+		Flag:              b.dFlag,
+		HiddenBlockCountX: globalSize / uint32(localSize),
+		HiddenBlockCountY: 1,
+		HiddenBlockCountZ: 1,
+		HiddenGroupSizeX:  localSize,
+		HiddenGroupSizeY:  1,
+		HiddenGroupSizeZ:  1,
+	}
+
 	for i := 0; i < b.MaxDepth; i++ {
 		flag := int32(0)
 		b.driver.MemCopyH2D(b.context, b.dFlag, flag)
-		args.Curr = int32(i)
 
-		fmt.Fprintf(os.Stderr, "Depth %d\n", i)
-
-		b.driver.LaunchKernel(b.context,
-			b.kernel,
-			[3]uint32{globalSize, 1, 1},
-			[3]uint16{localSize, 1, 1},
-			&args)
+		if b.Arch == arch.CDNA3 {
+			cdna3Args.Curr = int32(i)
+			b.driver.LaunchKernel(b.context, b.kernel,
+				[3]uint32{globalSize, 1, 1},
+				[3]uint16{localSize, 1, 1},
+				&cdna3Args)
+		} else {
+			args.Curr = int32(i)
+			b.driver.LaunchKernel(b.context, b.kernel,
+				[3]uint32{globalSize, 1, 1},
+				[3]uint16{localSize, 1, 1},
+				&args)
+		}
 
 		b.driver.MemCopyD2H(b.context, &flag, b.dFlag)
+
 		if flag == 0 {
 			break
 		}
