@@ -7,10 +7,10 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 3. Byte-level correct emulated results
 4. Acceptance tests runnable in GitHub Actions CI
 
-## Current State (as of M5 completion)
+## Current State (as of M6 completion)
 - CDNA3 ALU emulator exists (~4000+ lines in `amd/emu/cdna3/`)
 - V5 HSACO loading works (V2/V3 header detection bug fixed in PR #10)
-- **20 benchmarks pass** with `-arch=cdna3 -verify`:
+- **22 benchmarks pass** with `-arch=cdna3 -verify`:
   - **M1 (7)**: vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform, fir, simpleconvolution
   - **M2 (4)**: bitonicsort, kmeans, atax, bicg
   - **M3.1 (1)**: relu
@@ -18,16 +18,19 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
   - **M3.5 (3)**: stencil2d, bfs, nw (PRs #12, #13 merged)
   - **M4 (2)**: fft, spmv (PR #14 merged, Apollo verified)
   - **M5 (2)**: matrixmultiplication (VCC clearing fix, PR #15), nbody (simplified kernel, PR #16)
+  - **M6 (2)**: conv2d, im2col (gputensor CDNA3, PR #17 merged)
   - **Deferred (1)**: aes (non-deterministic output after 4 cycles investigation)
-- **DNN benchmarks not yet CDNA3**: conv2d, im2col, xor (page faults), lenet, minerva, vgg16 (missing datasets)
-- **Suite coverage**: SHOC (6/6), PolyBench (2/2), Rodinia (1/1), AMD APP SDK (6/6), HeteroMark (3/4), DNN (1/7+)
+- **Remaining DNN**: xor (page faults), lenet, minerva, vgg16 (missing datasets)
+- **Suite coverage**: SHOC (6/6), PolyBench (2/2), Rodinia (1/1), AMD APP SDK (6/6), HeteroMark (3/4), DNN (3/7+)
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
-- All 20 working benchmarks maintain GCN3 backward compatibility
+- All 22 working benchmarks maintain GCN3 backward compatibility
 - CDNA3 kernarg struct layout pattern established: hidden args, proper padding, exact offset matching
 - V2/V3 header detection bug fixed (was silently stripping first 256 bytes of V5 kernels)
 - SOPC 32-bit comparison truncation bug fixed (PR #13)
 - VCC clearing bug fixed for v_add_u32/v_sub_u32/v_subrev_u32 (PR #15)
+- SOP2 32-bit carry/borrow bug fixed (PR #17)
+- Disassembler and scratchpadpreparer made arch-conditional for GCN3/CDNA3 (PR #17)
 - Branches consolidated: all PRs merged, clean main branch
 - CI: All 30 checks pass (Compile, Lint, Unit Test, Disassembler, GCN3/CDNA3 Emulation, Timing, Multi-GPU)
 - **DNN benchmarks** (conv2d, im2col, lenet, minerva, vgg16, xor) use gputensor abstraction layer — separate category, requires converting 7+ shared OpenCL kernels to HIP
@@ -271,13 +274,22 @@ Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents futu
 
 ### M6: Add DNN benchmark CDNA3 support (conv2d, im2col)
 **Budget**: 8 cycles  
-**Status**: Not started  
-**Scope**: Add CDNA3 support to the gputensor package and layer_benchmarks (conv2d, im2col). This requires converting 7+ shared OpenCL kernels to HIP. xor benchmark also uses gputensor and should benefit.
+**Status**: ✅ COMPLETE (PR #17 merged, verified by Apollo)
+**Scope**: Add CDNA3 support to the gputensor package and layer_benchmarks (conv2d, im2col).
+
+**Result**: Both conv2d and im2col pass `-arch=cdna3 -verify`. 7 HIP kernel files created from OpenCL, 21 CDNA3 kernel launch helpers added, dual-arch loading in operator.go. Also fixed: SOP2 carry/borrow bug, v_mad_u64_u32 decode, arch-conditional disassembler/scratchpadpreparer. Total CDNA3 benchmarks: 22.
 
 ### M7: Generate GPU performance measurement scripts
 **Budget**: 4 cycles  
-**Status**: Not started  
-**Scope**: Create scripts for running all CDNA3 benchmarks on real AMD GPUs to measure hardware performance. Scripts should run multiple iterations and compute averages. This prepares the next stage of timing simulation. (Human request: tbc-db issue #131)
+**Status**: In progress  
+**Scope**: Create standalone HIP programs and shell scripts for running all 22 CDNA3 benchmarks on real AMD GPUs (gfx942/MI300A). Each benchmark needs:
+1. A standalone HIP C++ program that runs the kernel with representative inputs
+2. Built-in timing using HIP events (hipEventElapsedTime)
+3. Multiple iterations (configurable, default 10) with average/min/max reporting
+4. CSV output for easy analysis
+5. A master script that builds and runs all benchmarks, collects results
+
+Human request: tbc-db issue #131. This prepares the next stage of timing simulation accuracy validation.
 
 ### M8: Expand remaining coverage (AES, Parboil, additional suites)
 **Budget**: 10 cycles  
