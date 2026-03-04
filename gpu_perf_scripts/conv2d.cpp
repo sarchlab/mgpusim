@@ -116,8 +116,8 @@ int main(int argc, char** argv) {
     const unsigned int IN_CHANNELS = 1;
     unsigned int HEIGHT = (unsigned int)parseIntParam(argc, argv, "--size", 28);
     unsigned int WIDTH  = HEIGHT;
-    const unsigned int MASK_H = 3;
-    const unsigned int MASK_W = 3;
+    unsigned int MASK_H = (unsigned int)parseIntParam(argc, argv, "--mask", 3);
+    unsigned int MASK_W = MASK_H;
     const unsigned int OUT_CHANNELS = 3;
     const unsigned int STRIDE_X = 1;
     const unsigned int STRIDE_Y = 1;

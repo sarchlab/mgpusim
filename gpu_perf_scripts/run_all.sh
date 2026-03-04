@@ -1,9 +1,19 @@
 #!/bin/bash
-# run_all.sh — Run all 22 HIP benchmarks with 20-25 problem sizes each
+# run_all.sh — Run all 22 HIP benchmarks with multi-dimensional size sweeps
 #
-# Sizes form a geometric (log-scale) sweep from the kernel-launch-overhead
-# floor up to several seconds per iteration for compute-intensive kernels.
-# Constraints are respected per benchmark (power-of-2, multiples of 8/32/64/256/512).
+# 1D benchmarks (single size parameter):
+#   vectoradd, memcopy, matrixtranspose, floydwarshall, fastwalshtransform,
+#   bitonicsort, atax, bicg, relu, pagerank, stencil2d, nw, fft,
+#   matrixmultiplication, nbody
+#
+# 2D benchmarks (Cartesian product of two parameters):
+#   fir           length × taps         (5×4 = 20 combos)
+#   simpleconvolution  size × mask      (6×4 = 24 combos)
+#   kmeans        points × features     (5×4 = 20 combos)
+#   bfs           nodes × degree        (5×4 = 20 combos)
+#   spmv          rows × nnz_per_row    (5×4 = 20 combos)
+#   conv2d        size × mask           (8×3 = 24 combos)
+#   im2col        size × mask           (8×3 = 24 combos)
 #
 # NOTE: rebuild all benchmarks with ./build_all.sh before running so that
 #       the CLI size parameters are active.
@@ -179,57 +189,24 @@ run_bench fastwalshtransform \
     "--size 268435456"
 
 # ---------------------------------------------------------------------------
-# fir  --length N  (multiple of 256; 21 sizes)
-# O(N), bandwidth-limited.  ~0.005 ms → ~370 ms.
+# fir  --length N --taps T  (length: multiple of 256; 2D: 5×4 = 20 combos)
+# O(N·T), bandwidth/compute.  Sweeps signal length × filter order.
 # ---------------------------------------------------------------------------
-run_bench fir \
-    "--length 256" \
-    "--length 512" \
-    "--length 1024" \
-    "--length 2048" \
-    "--length 4096" \
-    "--length 8192" \
-    "--length 16384" \
-    "--length 32768" \
-    "--length 65536" \
-    "--length 131072" \
-    "--length 262144" \
-    "--length 524288" \
-    "--length 1048576" \
-    "--length 2097152" \
-    "--length 4194304" \
-    "--length 8388608" \
-    "--length 16777216" \
-    "--length 33554432" \
-    "--length 67108864" \
-    "--length 134217728" \
-    "--length 268435456"
+for fir_len in 1024 4096 16384 65536 262144; do
+    for fir_taps in 8 16 32 64; do
+        run_bench fir "--length ${fir_len} --taps ${fir_taps}"
+    done
+done
 
 # ---------------------------------------------------------------------------
-# simpleconvolution  --size N  (N×N image, 3×3 mask; 20 sizes)
-# O(N²).  ~0.007 ms → ~30 ms.
+# simpleconvolution  --size N --mask M  (2D: 6×4 = 24 combos)
+# O(N²·M²).  Sweeps image resolution × convolution kernel size (odd only).
 # ---------------------------------------------------------------------------
-run_bench simpleconvolution \
-    "--size 48" \
-    "--size 64" \
-    "--size 96" \
-    "--size 128" \
-    "--size 192" \
-    "--size 256" \
-    "--size 384" \
-    "--size 512" \
-    "--size 768" \
-    "--size 1024" \
-    "--size 1536" \
-    "--size 2048" \
-    "--size 3072" \
-    "--size 4096" \
-    "--size 6144" \
-    "--size 8192" \
-    "--size 12288" \
-    "--size 16384" \
-    "--size 24576" \
-    "--size 32768"
+for sc_size in 128 256 512 1024 2048 4096; do
+    for sc_mask in 3 5 7 9; do
+        run_bench simpleconvolution "--size ${sc_size} --mask ${sc_mask}"
+    done
+done
 
 # ---------------------------------------------------------------------------
 # bitonicsort  --size N  (power of 2; 15 sizes — algorithm constraint)
@@ -253,35 +230,14 @@ run_bench bitonicsort \
     "--size 16777216"
 
 # ---------------------------------------------------------------------------
-# kmeans  --points N  (any; 32 features, 5 clusters; 25 sizes)
-# O(N).  ~0.02 ms → ~73 ms.
+# kmeans  --points N --features F --clusters K  (2D: 5×4 = 20 combos)
+# O(N·F·K).  Sweeps data points × feature dimensionality (clusters=5 fixed).
 # ---------------------------------------------------------------------------
-run_bench kmeans \
-    "--points 1024" \
-    "--points 1536" \
-    "--points 2048" \
-    "--points 3072" \
-    "--points 4096" \
-    "--points 6144" \
-    "--points 8192" \
-    "--points 12288" \
-    "--points 16384" \
-    "--points 24576" \
-    "--points 32768" \
-    "--points 49152" \
-    "--points 65536" \
-    "--points 98304" \
-    "--points 131072" \
-    "--points 196608" \
-    "--points 262144" \
-    "--points 393216" \
-    "--points 524288" \
-    "--points 786432" \
-    "--points 1048576" \
-    "--points 1572864" \
-    "--points 2097152" \
-    "--points 3145728" \
-    "--points 4194304"
+for km_pts in 1024 4096 16384 65536 262144; do
+    for km_feat in 8 16 32 64; do
+        run_bench kmeans "--points ${km_pts} --features ${km_feat}"
+    done
+done
 
 # ---------------------------------------------------------------------------
 # atax  --size N  (N×N matrix; 20 sizes)
@@ -414,31 +370,14 @@ run_bench stencil2d \
     "--size 65536"
 
 # ---------------------------------------------------------------------------
-# bfs  --nodes N  (any; avg degree 6; 21 sizes)
-# O(N) per level, ~O(N log N) total.  ~0.3 ms → ~2 s.
+# bfs  --nodes N --degree D  (2D: 5×4 = 20 combos)
+# Sweeps graph size × average vertex degree (edge density).
 # ---------------------------------------------------------------------------
-run_bench bfs \
-    "--nodes 256" \
-    "--nodes 384" \
-    "--nodes 512" \
-    "--nodes 768" \
-    "--nodes 1024" \
-    "--nodes 1536" \
-    "--nodes 2048" \
-    "--nodes 3072" \
-    "--nodes 4096" \
-    "--nodes 6144" \
-    "--nodes 8192" \
-    "--nodes 12288" \
-    "--nodes 16384" \
-    "--nodes 24576" \
-    "--nodes 32768" \
-    "--nodes 49152" \
-    "--nodes 65536" \
-    "--nodes 131072" \
-    "--nodes 524288" \
-    "--nodes 2097152" \
-    "--nodes 8388608"
+for bfs_nodes in 1024 4096 16384 65536 262144; do
+    for bfs_deg in 4 8 16 32; do
+        run_bench bfs "--nodes ${bfs_nodes} --degree ${bfs_deg}"
+    done
+done
 
 # ---------------------------------------------------------------------------
 # nw  --size N  (multiple of 64; 24 sizes)
@@ -498,33 +437,14 @@ run_bench fft \
     "--size 536870912"
 
 # ---------------------------------------------------------------------------
-# spmv  --rows N  (any; 10 nnz/row; 23 sizes)
-# O(N), bandwidth-limited.  ~0.006 ms → ~12 ms.
+# spmv  --rows N --nnz K  (2D: 5×4 = 20 combos)
+# O(N·K), bandwidth-limited.  Sweeps matrix rows × non-zeros per row.
 # ---------------------------------------------------------------------------
-run_bench spmv \
-    "--rows 1024" \
-    "--rows 1536" \
-    "--rows 2048" \
-    "--rows 3072" \
-    "--rows 4096" \
-    "--rows 6144" \
-    "--rows 8192" \
-    "--rows 12288" \
-    "--rows 16384" \
-    "--rows 24576" \
-    "--rows 32768" \
-    "--rows 49152" \
-    "--rows 65536" \
-    "--rows 98304" \
-    "--rows 131072" \
-    "--rows 196608" \
-    "--rows 262144" \
-    "--rows 393216" \
-    "--rows 524288" \
-    "--rows 786432" \
-    "--rows 1048576" \
-    "--rows 1572864" \
-    "--rows 2097152"
+for spmv_rows in 1024 4096 16384 65536 262144; do
+    for spmv_nnz in 4 8 16 32; do
+        run_bench spmv "--rows ${spmv_rows} --nnz ${spmv_nnz}"
+    done
+done
 
 # ---------------------------------------------------------------------------
 # matrixmultiplication  --size N  (multiple of 32; 22 sizes)
@@ -583,58 +503,24 @@ run_bench nbody \
     "--bodies 131072"
 
 # ---------------------------------------------------------------------------
-# conv2d  --size N  (N×N input; 3×3 kernel, 3 output channels; 21 sizes)
-# O(N²).  ~0.009 ms → ~900 ms.
+# conv2d  --size N --mask M  (2D: 8×3 = 24 combos)
+# O(N²·M²).  Sweeps input resolution × convolution kernel size.
 # ---------------------------------------------------------------------------
-run_bench conv2d \
-    "--size 4" \
-    "--size 6" \
-    "--size 8" \
-    "--size 12" \
-    "--size 16" \
-    "--size 24" \
-    "--size 32" \
-    "--size 48" \
-    "--size 64" \
-    "--size 96" \
-    "--size 128" \
-    "--size 192" \
-    "--size 256" \
-    "--size 384" \
-    "--size 512" \
-    "--size 768" \
-    "--size 1024" \
-    "--size 1536" \
-    "--size 2048" \
-    "--size 3072" \
-    "--size 4096"
+for c2d_size in 8 16 32 64 128 256 512 1024; do
+    for c2d_mask in 3 5 7; do
+        run_bench conv2d "--size ${c2d_size} --mask ${c2d_mask}"
+    done
+done
 
 # ---------------------------------------------------------------------------
-# im2col  --size N  (N×N input; 3×3 kernel; 21 sizes)
-# O(N²).  ~0.007 ms → ~200 ms.
+# im2col  --size N --mask M  (2D: 8×3 = 24 combos)
+# O(N²·M²).  Sweeps input resolution × kernel size.
 # ---------------------------------------------------------------------------
-run_bench im2col \
-    "--size 4" \
-    "--size 6" \
-    "--size 8" \
-    "--size 12" \
-    "--size 16" \
-    "--size 24" \
-    "--size 32" \
-    "--size 48" \
-    "--size 64" \
-    "--size 96" \
-    "--size 128" \
-    "--size 192" \
-    "--size 256" \
-    "--size 384" \
-    "--size 512" \
-    "--size 768" \
-    "--size 1024" \
-    "--size 1536" \
-    "--size 2048" \
-    "--size 3072" \
-    "--size 4096"
+for i2c_size in 8 16 32 64 128 256 512 1024; do
+    for i2c_mask in 3 5 7; do
+        run_bench im2col "--size ${i2c_size} --mask ${i2c_mask}"
+    done
+done
 
 echo ""
 echo "Run summary: ${pass} passed, ${fail} failed, ${skip} skipped"
