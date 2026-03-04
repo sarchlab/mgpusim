@@ -875,7 +875,10 @@ func (u *ALU) runVMADU64U32(state emu.InstEmuState) {
 			continue
 		}
 
-		sp.DST[i] = sp.SRC0[i]*sp.SRC1[i] + sp.SRC2[i]
+		s0 := uint64(uint32(sp.SRC0[i]))
+		s1 := uint64(uint32(sp.SRC1[i]))
+		s2 := sp.SRC2[i]
+		sp.DST[i] = s0*s1 + s2
 	}
 }
 

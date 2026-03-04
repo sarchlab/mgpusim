@@ -17,7 +17,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	)
 
 	BeforeEach(func() {
-		sp = NewScratchpadPreparerImpl()
+		sp = NewScratchpadPreparerImpl(false)
 		wf = NewWavefront(nil)
 	})
 

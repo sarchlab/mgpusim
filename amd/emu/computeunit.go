@@ -455,7 +455,7 @@ func BuildComputeUnit(
 		name, engine, decoder, pageTable, log2PageSize,
 		storage, addrConverter, func(sa StorageAccessor) ALU {
 			return NewALU(sa)
-		})
+		}, false)
 }
 
 // BuildComputeUnitWithALU builds a compute unit with a custom ALU factory.
@@ -468,8 +468,9 @@ func BuildComputeUnitWithALU(
 	storage *mem.Storage,
 	addrConverter mem.AddressConverter,
 	aluFactory ALUFactory,
+	isCDNA3 bool,
 ) *ComputeUnit {
-	scratchpadPreparer := NewScratchpadPreparerImpl()
+	scratchpadPreparer := NewScratchpadPreparerImpl(isCDNA3)
 	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
 	alu := aluFactory(sAccessor)

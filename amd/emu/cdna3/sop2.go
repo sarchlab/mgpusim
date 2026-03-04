@@ -83,7 +83,9 @@ func (u *ALU) runSOP2(state emu.InstEmuState) {
 
 func (u *ALU) runSADDU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
-	sum := sp.SRC0 + sp.SRC1
+	src0 := sp.SRC0 & 0xFFFFFFFF
+	src1 := sp.SRC1 & 0xFFFFFFFF
+	sum := src0 + src1
 	sp.DST = sum & 0xFFFFFFFF
 	if sum > 0xFFFFFFFF {
 		sp.SCC = 1
@@ -94,8 +96,10 @@ func (u *ALU) runSADDU32(state emu.InstEmuState) {
 
 func (u *ALU) runSSUBU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
-	sp.DST = sp.SRC0 - sp.SRC1
-	if sp.SRC1 > sp.SRC0 {
+	src0 := sp.SRC0 & 0xFFFFFFFF
+	src1 := sp.SRC1 & 0xFFFFFFFF
+	sp.DST = (src0 - src1) & 0xFFFFFFFF
+	if src1 > src0 {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -130,7 +134,9 @@ func (u *ALU) runSSUBI32(state emu.InstEmuState) {
 
 func (u *ALU) runSADDCU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
-	sum := sp.SRC0 + sp.SRC1 + uint64(sp.SCC)
+	src0 := sp.SRC0 & 0xFFFFFFFF
+	src1 := sp.SRC1 & 0xFFFFFFFF
+	sum := src0 + src1 + uint64(sp.SCC)
 	sp.DST = sum & 0xFFFFFFFF
 	if sum > 0xFFFFFFFF {
 		sp.SCC = 1
@@ -141,8 +147,10 @@ func (u *ALU) runSADDCU32(state emu.InstEmuState) {
 
 func (u *ALU) runSSUBBU32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
-	sp.DST = sp.SRC0 - sp.SRC1 - uint64(sp.SCC)
-	if sp.SRC1+uint64(sp.SCC) > sp.SRC0 {
+	src0 := sp.SRC0 & 0xFFFFFFFF
+	src1 := sp.SRC1 & 0xFFFFFFFF
+	sp.DST = (src0 - src1 - uint64(sp.SCC)) & 0xFFFFFFFF
+	if src1+uint64(sp.SCC) > src0 {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0

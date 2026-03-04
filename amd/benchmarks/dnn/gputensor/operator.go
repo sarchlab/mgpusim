@@ -10,10 +10,10 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 var sizeOfFloat32 = 4
@@ -21,14 +21,17 @@ var sizeOfInt32 = 4
 
 // GPUOperator can perform operations on GPU tensors.
 type GPUOperator struct {
-	driver       *driver.Driver
-	ctx          *driver.Context
-	verification bool
-	timerMutex   sync.Mutex
-	reportTime   bool
-	vStart, vEnd sim.VTimeInSec
-	start, end   time.Time
-	cpuOperator  *tensor.CPUOperator
+	driver        *driver.Driver
+	ctx           *driver.Context
+	Arch          arch.Type
+	kernelsLoaded bool
+	loadedArch    arch.Type
+	verification  bool
+	timerMutex    sync.Mutex
+	reportTime    bool
+	vStart, vEnd  sim.VTimeInSec
+	start, end    time.Time
+	cpuOperator   *tensor.CPUOperator
 
 	sumKernel                           *insts.KernelCodeObject
 	transposeKernel                     *insts.KernelCodeObject
@@ -63,9 +66,16 @@ func NewGPUOperator(
 		ctx:    ctx,
 	}
 
-	o.loadKernels()
-
 	return o
+}
+
+// ensureKernelsLoaded loads or reloads kernels if the architecture changed.
+func (o *GPUOperator) ensureKernelsLoaded() {
+	if !o.kernelsLoaded || o.loadedArch != o.Arch {
+		o.loadKernels()
+		o.kernelsLoaded = true
+		o.loadedArch = o.Arch
+	}
 }
 
 // EnableVerification will run the same operations in a CPU operator and
@@ -134,49 +144,95 @@ func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
 	}
 }
 
+// GCN3 HSACO embeds
+//
 //go:embed operator.hsaco
-var operatorKernelBytes []byte
+var gcn3OperatorKernelBytes []byte
 
 //go:embed repeat.hsaco
-var repeatKernelBytes []byte
+var gcn3RepeatKernelBytes []byte
 
 //go:embed im2col.hsaco
-var im2ColKernelBytes []byte
+var gcn3Im2ColKernelBytes []byte
 
 //go:embed maxpooling.hsaco
-var maxPoolingKernelBytes []byte
+var gcn3MaxPoolingKernelBytes []byte
 
 //go:embed avgpooling.hsaco
-var avgPoolingKernelBytes []byte
+var gcn3AvgPoolingKernelBytes []byte
 
 //go:embed gemm.hsaco
-var gemmKernelBytes []byte
+var gcn3GemmKernelBytes []byte
 
 //go:embed cross_entropy.hsaco
-var crossEntropyKernelBytes []byte
+var gcn3CrossEntropyKernelBytes []byte
+
+// CDNA3 (gfx942) HSACO embeds
+//
+//go:embed operator_gfx942.hsaco
+var cdna3OperatorKernelBytes []byte
+
+//go:embed repeat_gfx942.hsaco
+var cdna3RepeatKernelBytes []byte
+
+//go:embed im2col_gfx942.hsaco
+var cdna3Im2ColKernelBytes []byte
+
+//go:embed maxpooling_gfx942.hsaco
+var cdna3MaxPoolingKernelBytes []byte
+
+//go:embed avgpooling_gfx942.hsaco
+var cdna3AvgPoolingKernelBytes []byte
+
+//go:embed gemm_gfx942.hsaco
+var cdna3GemmKernelBytes []byte
+
+//go:embed cross_entropy_gfx942.hsaco
+var cdna3CrossEntropyKernelBytes []byte
 
 func (o *GPUOperator) loadKernels() {
-	loadKernel(&o.sumKernel, operatorKernelBytes, "sum_one_axis")
-	loadKernel(&o.transposeKernel, operatorKernelBytes, "transpose_tensor")
-	loadKernel(&o.rotateKernel, operatorKernelBytes, "rotate_tensor")
-	loadKernel(&o.dilateKernel, operatorKernelBytes, "dilate_tensor")
-	loadKernel(&o.softmaxExpKernel, operatorKernelBytes, "softmax_exp")
-	loadKernel(&o.softmaxDivKernel, operatorKernelBytes, "softmax_div")
-	loadKernel(&o.scaleAddKernel, operatorKernelBytes, "scaleAdd")
-	loadKernel(&o.elemWiseMulKernel, operatorKernelBytes, "mul")
-	loadKernel(&o.rmsPropKernel, operatorKernelBytes, "rmsProp")
-	loadKernel(&o.adamKernel, operatorKernelBytes, "adam")
-	loadKernel(&o.reluForwardKernel, operatorKernelBytes, "reluForward")
-	loadKernel(&o.reluBackwardKernel, operatorKernelBytes, "reluBackward")
-	loadKernel(&o.repeatKernel, repeatKernelBytes, "repeat")
-	loadKernel(&o.im2ColKernel, im2ColKernelBytes, "im2col_2d")
-	loadKernel(&o.maxPoolingForwardKernel, maxPoolingKernelBytes, "MaxPoolForward")
-	loadKernel(&o.maxPoolingBackwardKernel, maxPoolingKernelBytes, "MaxPoolBackward")
-	loadKernel(&o.avgPoolingForwardKernel, avgPoolingKernelBytes, "AvgPoolForward")
-	loadKernel(&o.avgPoolingBackwardKernel, avgPoolingKernelBytes, "AvgPoolBackward")
-	loadKernel(&o.gemmKernel, gemmKernelBytes, "gemm_old")
-	loadKernel(&o.crossEntropyDerivativeKernel, crossEntropyKernelBytes, "cross_entropy_derivative")
-	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, crossEntropyKernelBytes, "softmax_cross_entropy_derivative")
+	var opBytes, repeatBytes, im2colBytes []byte
+	var maxpoolBytes, avgpoolBytes, gemmBytes, ceBytes []byte
+
+	if o.Arch == arch.CDNA3 {
+		opBytes = cdna3OperatorKernelBytes
+		repeatBytes = cdna3RepeatKernelBytes
+		im2colBytes = cdna3Im2ColKernelBytes
+		maxpoolBytes = cdna3MaxPoolingKernelBytes
+		avgpoolBytes = cdna3AvgPoolingKernelBytes
+		gemmBytes = cdna3GemmKernelBytes
+		ceBytes = cdna3CrossEntropyKernelBytes
+	} else {
+		opBytes = gcn3OperatorKernelBytes
+		repeatBytes = gcn3RepeatKernelBytes
+		im2colBytes = gcn3Im2ColKernelBytes
+		maxpoolBytes = gcn3MaxPoolingKernelBytes
+		avgpoolBytes = gcn3AvgPoolingKernelBytes
+		gemmBytes = gcn3GemmKernelBytes
+		ceBytes = gcn3CrossEntropyKernelBytes
+	}
+
+	loadKernel(&o.sumKernel, opBytes, "sum_one_axis")
+	loadKernel(&o.transposeKernel, opBytes, "transpose_tensor")
+	loadKernel(&o.rotateKernel, opBytes, "rotate_tensor")
+	loadKernel(&o.dilateKernel, opBytes, "dilate_tensor")
+	loadKernel(&o.softmaxExpKernel, opBytes, "softmax_exp")
+	loadKernel(&o.softmaxDivKernel, opBytes, "softmax_div")
+	loadKernel(&o.scaleAddKernel, opBytes, "scaleAdd")
+	loadKernel(&o.elemWiseMulKernel, opBytes, "mul")
+	loadKernel(&o.rmsPropKernel, opBytes, "rmsProp")
+	loadKernel(&o.adamKernel, opBytes, "adam")
+	loadKernel(&o.reluForwardKernel, opBytes, "reluForward")
+	loadKernel(&o.reluBackwardKernel, opBytes, "reluBackward")
+	loadKernel(&o.repeatKernel, repeatBytes, "repeat")
+	loadKernel(&o.im2ColKernel, im2colBytes, "im2col_2d")
+	loadKernel(&o.maxPoolingForwardKernel, maxpoolBytes, "MaxPoolForward")
+	loadKernel(&o.maxPoolingBackwardKernel, maxpoolBytes, "MaxPoolBackward")
+	loadKernel(&o.avgPoolingForwardKernel, avgpoolBytes, "AvgPoolForward")
+	loadKernel(&o.avgPoolingBackwardKernel, avgpoolBytes, "AvgPoolBackward")
+	loadKernel(&o.gemmKernel, gemmBytes, "gemm_old")
+	loadKernel(&o.crossEntropyDerivativeKernel, ceBytes, "cross_entropy_derivative")
+	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, ceBytes, "softmax_cross_entropy_derivative")
 }
 
 func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string) {
@@ -334,6 +390,7 @@ type repeatArgs struct {
 // Repeat will create another tensor that duplicates the input tensor by n
 // times.
 func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	numElem := t.NumElement()
 	out := o.Create([]int{numElem * times}).(*Tensor)
 
@@ -345,11 +402,17 @@ func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
 		OutputLength: uint32(outLength),
 	}
 
-	o.driver.LaunchKernel(o.ctx, o.repeatKernel,
-		[3]uint32{uint32(outLength), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	globalSize := [3]uint32{uint32(outLength), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
+	if o.Arch == arch.CDNA3 {
+		o.launchRepeatCDNA3(globalSize, localSize,
+			out.ptr, t.(*Tensor).ptr,
+			uint32(t.NumElement()), uint32(outLength))
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.repeatKernel,
+			globalSize, localSize, &args)
+	}
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -395,11 +458,36 @@ type transposeKernelArgs struct {
 
 // Transpose reorders the axises of the tensor.
 func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	if len(order) != len(input.Size()) {
 		panic("order should include all axes")
 	}
 
+	output, args, cleanup := o.prepareTranspose(t, order)
+	defer cleanup()
+
+	globalSize := [3]uint32{uint32(t.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
+	o.timerStart()
+	if o.Arch == arch.CDNA3 {
+		o.launchTransposeCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.transposeKernel,
+			globalSize, localSize, &args)
+	}
+	o.timerEnd("Transpose")
+
+	o.setTransposeOutputDescriptor(output, input, order)
+	o.verifyTranspose(output, input, order)
+
+	return output
+}
+
+func (o *GPUOperator) prepareTranspose(
+	t tensor.Tensor, order []int,
+) (*Tensor, transposeKernelArgs, func()) {
 	dim := len(order)
 	hOrder := make([]int32, dim)
 	hInSize := make([]int32, dim)
@@ -416,44 +504,31 @@ func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
 
 	dOrder := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
 	o.driver.MemCopyH2D(o.ctx, dOrder, hOrder)
-	defer o.driver.FreeMemory(o.ctx, dOrder)
 	dInSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
 	o.driver.MemCopyH2D(o.ctx, dInSize, hInSize)
-	defer o.driver.FreeMemory(o.ctx, dInSize)
 	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
 	o.driver.MemCopyH2D(o.ctx, dOutSize, hOutSize)
-	defer o.driver.FreeMemory(o.ctx, dOutSize)
 	dInIndexBuf := o.driver.AllocateMemory(o.ctx,
 		uint64(t.NumElement()*dim*sizeOfInt32))
-	defer o.driver.FreeMemory(o.ctx, dInIndexBuf)
 	dOutIndexBuf := o.driver.AllocateMemory(o.ctx,
 		uint64(t.NumElement()*dim*sizeOfInt32))
-	defer o.driver.FreeMemory(o.ctx, dOutIndexBuf)
 
-	args := transposeKernelArgs{
-		In:          t.(*Tensor).ptr,
-		Out:         output.ptr,
-		InSize:      dInSize,
-		OutSize:     dOutSize,
-		Order:       dOrder,
-		InIndexBuf:  dInIndexBuf,
-		OutIndexBuf: dOutIndexBuf,
-		Dim:         int32(len(order)),
+	cleanup := func() {
+		o.driver.FreeMemory(o.ctx, dOrder)
+		o.driver.FreeMemory(o.ctx, dInSize)
+		o.driver.FreeMemory(o.ctx, dOutSize)
+		o.driver.FreeMemory(o.ctx, dInIndexBuf)
+		o.driver.FreeMemory(o.ctx, dOutIndexBuf)
 	}
 
-	o.timerStart()
-	o.driver.LaunchKernel(o.ctx,
-		o.transposeKernel,
-		[3]uint32{uint32(t.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
-	o.timerEnd("Transpose")
+	args := transposeKernelArgs{
+		In: t.(*Tensor).ptr, Out: output.ptr,
+		InSize: dInSize, OutSize: dOutSize, Order: dOrder,
+		InIndexBuf: dInIndexBuf, OutIndexBuf: dOutIndexBuf,
+		Dim: int32(len(order)),
+	}
 
-	o.setTransposeOutputDescriptor(output, input, order)
-	o.verifyTranspose(output, input, order)
-
-	return output
+	return output, args, cleanup
 }
 
 func (o *GPUOperator) setTransposeOutputDescriptor(
@@ -487,6 +562,7 @@ type rotateKernelArgs struct {
 
 // Rotate180 rotates the lowest two dimensions of the tensor by 180 degree.
 func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	dim := len(t.Size())
 	hInSize := make([]int32, dim)
 	hOutSize := make([]int32, dim)
@@ -522,13 +598,16 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 		Dim:         int32(len(t.Size())),
 	}
 
+	globalSize := [3]uint32{uint32(t.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx,
-		o.rotateKernel,
-		[3]uint32{uint32(t.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchRotateCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.rotateKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("Rotate180")
 
 	if o.verification {
@@ -551,6 +630,7 @@ type dilateKernelArgs struct {
 
 // Dilate adds 0s between rows and columns.
 func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	dim := len(t.Size())
 	hDilate := []int32{int32(dilate[0]), int32(dilate[1])}
 
@@ -595,13 +675,16 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 		Dim:         int32(len(t.Size())),
 	}
 
+	globalSize := [3]uint32{uint32(output.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx,
-		o.dilateKernel,
-		[3]uint32{uint32(output.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchDilateCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.dilateKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("Dilate")
 
 	o.verifyDilate(t, dilate, output)
@@ -620,6 +703,7 @@ func (o *GPUOperator) verifyDilate(t tensor.Tensor, dilate []int, output *Tensor
 
 // Sum reduces the number of axes by summing the numbers on given axes.
 func (o *GPUOperator) Sum(t tensor.Tensor, axis []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	var in, out tensor.Tensor
 
 	o.axisMustBeIncreasing(axis)
@@ -669,56 +753,58 @@ func (o *GPUOperator) sumOneAxis(t tensor.Tensor, axis int) tensor.Tensor {
 	}
 
 	out := o.Create(outSize)
+	args, cleanup := o.prepareSumOneAxis(t, out, outSize, axis)
+	defer cleanup()
 
+	gs := [3]uint32{uint32(out.NumElement()), 1, 1}
+	ls := [3]uint16{64, 1, 1}
+
+	o.timerStart()
+	if o.Arch == arch.CDNA3 {
+		o.launchSumOneAxisCDNA3(gs, ls, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.sumKernel, gs, ls, &args)
+	}
+	o.timerEnd("Sum")
+
+	return out
+}
+
+func (o *GPUOperator) prepareSumOneAxis(
+	t, out tensor.Tensor, outSize []int, axis int,
+) (sumOneAxisKernelArgs, func()) {
 	hOutSize := make([]int32, len(outSize))
 	for i := range outSize {
 		hOutSize[i] = int32(outSize[i])
 	}
-
 	hInSize := make([]int32, len(t.Size()))
 	for i := range t.Size() {
 		hInSize[i] = int32(t.Size()[i])
 	}
 
-	localSize := 64
 	globalSize := out.NumElement()
-
 	dInSize := o.driver.AllocateMemory(o.ctx, uint64(t.Dim()*4))
 	o.driver.MemCopyH2D(o.ctx, dInSize, hInSize)
-	defer o.driver.FreeMemory(o.ctx, dInSize)
-
 	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(len(outSize)*4))
 	o.driver.MemCopyH2D(o.ctx, dOutSize, hOutSize)
-	defer o.driver.FreeMemory(o.ctx, dOutSize)
+	dInIndexBuf := o.driver.AllocateMemory(o.ctx, uint64(globalSize*t.Dim()*4))
+	dOutIndexBuf := o.driver.AllocateMemory(o.ctx, uint64(globalSize*out.Dim()*4))
 
-	dInIndexBuf := o.driver.AllocateMemory(o.ctx,
-		uint64(globalSize*t.Dim()*4))
-	defer o.driver.FreeMemory(o.ctx, dInIndexBuf)
-
-	dOutIndexBuf := o.driver.AllocateMemory(o.ctx,
-		uint64(globalSize*out.Dim()*4))
-	defer o.driver.FreeMemory(o.ctx, dOutIndexBuf)
-
-	args := sumOneAxisKernelArgs{
-		In:          t.(*Tensor).ptr,
-		Out:         out.(*Tensor).ptr,
-		InSize:      dInSize,
-		OutSize:     dOutSize,
-		InDim:       int32(t.Dim()),
-		Axis:        int32(axis),
-		InIndexBuf:  dInIndexBuf,
-		OutIndexBuf: dOutIndexBuf,
+	cleanup := func() {
+		o.driver.FreeMemory(o.ctx, dInSize)
+		o.driver.FreeMemory(o.ctx, dOutSize)
+		o.driver.FreeMemory(o.ctx, dInIndexBuf)
+		o.driver.FreeMemory(o.ctx, dOutIndexBuf)
 	}
 
-	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.sumKernel,
-		[3]uint32{uint32(globalSize), 1, 1},
-		[3]uint16{uint16(localSize), 1, 1},
-		&args,
-	)
-	o.timerEnd("Sum")
+	args := sumOneAxisKernelArgs{
+		In: t.(*Tensor).ptr, Out: out.(*Tensor).ptr,
+		InSize: dInSize, OutSize: dOutSize,
+		InDim: int32(t.Dim()), Axis: int32(axis),
+		InIndexBuf: dInIndexBuf, OutIndexBuf: dOutIndexBuf,
+	}
 
-	return out
+	return args, cleanup
 }
 
 type gemmKernArgs struct {
@@ -735,6 +821,7 @@ func (o *GPUOperator) Gemm(
 	alpha, beta float64,
 	a, b, c tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	tempA := a
 	if transA {
 		tempA = o.Transpose(a, []int{1, 0})
@@ -796,14 +883,16 @@ func (o *GPUOperator) matrixMultiplication(
 		D:     d.(*Tensor).ptr,
 	}
 
+	globalSize := [3]uint32{uint32(wiWidth), uint32(wiHeight), 1}
+	localSize := [3]uint16{uint16(blockSize), uint16(blockSize), 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(
-		o.ctx,
-		o.gemmKernel,
-		[3]uint32{uint32(wiWidth), uint32(wiHeight), 1},
-		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-		&kernArg,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchGemmCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.gemmKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("Gemm")
 
 	return d
@@ -845,6 +934,7 @@ func (o *GPUOperator) Im2Col(
 	t tensor.Tensor,
 	kernelSize, padding, stride, dilation []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	inputSize := t.Size()
 
 	batch := inputSize[0]
@@ -882,26 +972,34 @@ func (o *GPUOperator) Im2Col(
 		"dilation %v, output %v\n",
 		inputSize, kernelSize, stride, padding, dilation, output.Size())
 
+	globalSize := [3]uint32{uint32(outWidth), uint32(outHeight), 1}
+	localSize := [3]uint16{uint16(8), uint16(8), 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(
-		o.ctx,
-		o.im2ColKernel,
-		[3]uint32{uint32(outWidth), uint32(outHeight), 1},
-		[3]uint16{uint16(8), uint16(8), 1},
-		&kernArg,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchIm2ColCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.im2ColKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("Im2Col")
 
+	o.verifyIm2Col(t, output, kernelSize, padding, stride, dilation)
+
+	return output
+}
+
+func (o *GPUOperator) verifyIm2Col(
+	t, output tensor.Tensor,
+	kernelSize, padding, stride, dilation []int,
+) {
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
 		cpuOut := o.cpuOperator.Im2Col(cpuIn,
 			kernelSize, padding, stride, dilation)
-
 		o.tensorMustMatch(cpuOut, output)
 		fmt.Println("Im2Col verified.")
 	}
-
-	return output
 }
 
 func (o *GPUOperator) timerStart() {
@@ -943,6 +1041,7 @@ func (o *GPUOperator) MaxPoolingForward(
 	t tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) (out tensor.Tensor, mask tensor.Tensor) {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	n := input.size[0]
 	c := input.size[1]
@@ -974,14 +1073,16 @@ func (o *GPUOperator) MaxPoolingForward(
 		MaskData:   maskT.ptr,
 	}
 
+	globalSize := [3]uint32{uint32(n * c * hOut * wOut), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(
-		o.ctx,
-		o.maxPoolingForwardKernel,
-		[3]uint32{uint32(n * c * hOut * wOut), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchMaxPoolFwdCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.maxPoolingForwardKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("MaxPoolingForward")
 
 	return outT, maskT
@@ -1006,6 +1107,7 @@ func (o *GPUOperator) MaxPoolingBackward(
 	mask tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	n := forwardIn.Size()[0]
 	c := forwardIn.Size()[1]
 	hIn := forwardIn.Size()[2]
@@ -1034,12 +1136,16 @@ func (o *GPUOperator) MaxPoolingBackward(
 		BottomDiff:   out.(*Tensor).ptr,
 	}
 
+	globalSize := [3]uint32{uint32(n * c * hIn * wIn), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx,
-		o.maxPoolingBackwardKernel,
-		[3]uint32{uint32(n * c * hIn * wIn), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg)
+	if o.Arch == arch.CDNA3 {
+		o.launchMaxPoolBwdCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.maxPoolingBackwardKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("MaxPoolingBackward")
 
 	return out
@@ -1074,6 +1180,7 @@ func (o *GPUOperator) AvgPoolingForward(
 	t tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	B := input.size[0]
 	C := input.size[1]
@@ -1095,14 +1202,16 @@ func (o *GPUOperator) AvgPoolingForward(
 		0, 0, 0,
 	}
 
+	globalSize := [3]uint32{uint32(B * C * Hout * Wout), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(
-		o.ctx,
-		o.avgPoolingForwardKernel,
-		[3]uint32{uint32(B * C * Hout * Wout), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchAvgPoolFwdCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.avgPoolingForwardKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("AvgPoolingForward")
 
 	if o.verification {
@@ -1146,6 +1255,7 @@ func (o *GPUOperator) AvgPoolingBackward(
 	forwardIn, backwardIn tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := backwardIn
 	ks := kernelSize
 	B := forwardIn.Size()[0]
@@ -1168,14 +1278,16 @@ func (o *GPUOperator) AvgPoolingBackward(
 		0, 0, 0,
 	}
 
+	globalSize := [3]uint32{uint32(B * C * Hin * Win), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(
-		o.ctx,
-		o.avgPoolingBackwardKernel,
-		[3]uint32{uint32(B * C * Hin * Win), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchAvgPoolBwdCDNA3(globalSize, localSize, &kernArg)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.avgPoolingBackwardKernel,
+			globalSize, localSize, &kernArg)
+	}
 	o.timerEnd("AvgPoolingBackward")
 
 	if o.verification {
@@ -1218,6 +1330,7 @@ type softmaxDivKernelArg struct {
 
 // Softmax performs the softmax operation.
 func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	o.mustBeTwoDimension(t)
 
 	input := t.(*Tensor)
@@ -1227,33 +1340,43 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 	).(*Tensor)
 	defer o.Free(expInput)
 
-	expArgs := softmaxExpKernelArg{
-		Input:  input.ptr,
-		Output: expInput.ptr,
-		N:      int32(input.NumElement()),
+	expGlobalSize := [3]uint32{uint32(input.NumElement()), 1, 1}
+	expLocalSize := [3]uint16{64, 1, 1}
+
+	if o.Arch == arch.CDNA3 {
+		o.launchSoftmaxExpCDNA3(expGlobalSize, expLocalSize,
+			input.ptr, expInput.ptr, int32(input.NumElement()))
+	} else {
+		expArgs := softmaxExpKernelArg{
+			Input:  input.ptr,
+			Output: expInput.ptr,
+			N:      int32(input.NumElement()),
+		}
+		o.driver.LaunchKernel(o.ctx, o.softmaxExpKernel,
+			expGlobalSize, expLocalSize, &expArgs)
 	}
-	o.driver.LaunchKernel(o.ctx, o.softmaxExpKernel,
-		[3]uint32{uint32(input.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&expArgs,
-	)
 
 	denominator := o.Sum(expInput, []int{1})
 
-	divArgs := softmaxDivKernelArg{
-		ExpInput:    expInput.ptr,
-		Output:      output.ptr,
-		Denominator: denominator.(*Tensor).ptr,
-		NumElement:  int32(expInput.NumElement()),
-		BatchSize:   int32(t.Size()[0]),
-	}
+	divGlobalSize := [3]uint32{uint32(expInput.NumElement()), 1, 1}
+	divLocalSize := [3]uint16{64, 1, 1}
 
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.softmaxDivKernel,
-		[3]uint32{uint32(expInput.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&divArgs,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchSoftmaxDivCDNA3(divGlobalSize, divLocalSize,
+			expInput.ptr, output.ptr, denominator.(*Tensor).ptr,
+			int32(expInput.NumElement()), int32(t.Size()[0]))
+	} else {
+		divArgs := softmaxDivKernelArg{
+			ExpInput:    expInput.ptr,
+			Output:      output.ptr,
+			Denominator: denominator.(*Tensor).ptr,
+			NumElement:  int32(expInput.NumElement()),
+			BatchSize:   int32(t.Size()[0]),
+		}
+		o.driver.LaunchKernel(o.ctx, o.softmaxDivKernel,
+			divGlobalSize, divLocalSize, &divArgs)
+	}
 	o.timerEnd("Softmax")
 
 	if o.verification {
@@ -1275,6 +1398,7 @@ func (o *GPUOperator) mustBeTwoDimension(t tensor.Tensor) {
 
 // CrossEntropy calculates the cross entropy of the output.
 func (o *GPUOperator) CrossEntropy(t tensor.Tensor, label []int) float64 {
+	o.ensureKernelsLoaded()
 	o.mustBeTwoDimension(t)
 
 	loss := 0.0
@@ -1314,6 +1438,7 @@ type crossEntropyDerivativeArgs struct {
 func (o *GPUOperator) CrossEntropyDerivative(
 	t tensor.Tensor, label []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	hLabel := make([]int32, len(label))
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
@@ -1332,12 +1457,17 @@ func (o *GPUOperator) CrossEntropyDerivative(
 		NumPerImage: int32(t.Size()[1]),
 	}
 
+	globalSize := [3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.crossEntropyDerivativeKernel,
-		[3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchCrossEntropyDerivCDNA3(globalSize, localSize,
+			o.crossEntropyDerivativeKernel, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.crossEntropyDerivativeKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("CrossEntropyDerivative")
 
 	if o.verification {
@@ -1356,6 +1486,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	t tensor.Tensor,
 	label []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	hLabel := make([]int32, len(label))
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
@@ -1374,12 +1505,18 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 		NumPerImage: int32(t.Size()[1]),
 	}
 
+	globalSize := [3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.softmaxCrossEntropyDerivativeKernel,
-		[3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchCrossEntropyDerivCDNA3(globalSize, localSize,
+			o.softmaxCrossEntropyDerivativeKernel, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx,
+			o.softmaxCrossEntropyDerivativeKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("SoftmaxCrossEntropyDerivative")
 
 	if o.verification {
@@ -1402,6 +1539,7 @@ type elemWiseMulKernArg struct {
 func (o *GPUOperator) ElementWiseMul(
 	a, b tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	if a.NumElement() != b.NumElement() {
 		panic("size not match")
 	}
@@ -1414,12 +1552,18 @@ func (o *GPUOperator) ElementWiseMul(
 		N:   int32(a.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(a.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.elemWiseMulKernel,
-		[3]uint32{uint32(a.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchElemWiseMulCDNA3(globalSize, localSize,
+			out.ptr, a.(*Tensor).ptr, b.(*Tensor).ptr,
+			int32(a.NumElement()))
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.elemWiseMulKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("ElementWiseMul")
 
 	if o.verification {
@@ -1445,6 +1589,7 @@ func (o *GPUOperator) ScaleAdd(
 	alpha, beta float64,
 	a, b tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	if a.NumElement() != b.NumElement() {
 		panic("size not match")
 	}
@@ -1459,12 +1604,16 @@ func (o *GPUOperator) ScaleAdd(
 		N:     int32(a.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(a.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.scaleAddKernel,
-		[3]uint32{uint32(a.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args,
-	)
+	if o.Arch == arch.CDNA3 {
+		o.launchScaleAddCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.scaleAddKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("ScaleAdd")
 
 	if o.verification {
@@ -1490,6 +1639,7 @@ func (o *GPUOperator) RMSProp(
 	params, gradient, sHistory tensor.Tensor,
 	smoothFactor, learningRate float64,
 ) {
+	o.ensureKernelsLoaded()
 	if params.NumElement() != gradient.NumElement() ||
 		params.NumElement() != sHistory.NumElement() {
 		panic("size mismatch")
@@ -1504,11 +1654,16 @@ func (o *GPUOperator) RMSProp(
 		N:            int32(params.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(params.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.rmsPropKernel,
-		[3]uint32{uint32(params.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args)
+	if o.Arch == arch.CDNA3 {
+		o.launchRmsPropCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.rmsPropKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("RMSProp")
 }
 
@@ -1524,6 +1679,7 @@ func (o *GPUOperator) Adam(
 	params, gradient, vHistory, sHistory tensor.Tensor,
 	smoothFactor1, smoothFactor2, learningRate float64,
 ) {
+	o.ensureKernelsLoaded()
 	if params.NumElement() != gradient.NumElement() ||
 		params.NumElement() != sHistory.NumElement() ||
 		params.NumElement() != vHistory.NumElement() {
@@ -1549,11 +1705,16 @@ func (o *GPUOperator) Adam(
 		N:             int32(params.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(params.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.adamKernel,
-		[3]uint32{uint32(params.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args)
+	if o.Arch == arch.CDNA3 {
+		o.launchAdamCDNA3(globalSize, localSize, &args)
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.adamKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("Adam")
 
 	if o.verification {
@@ -1575,6 +1736,7 @@ type reluForwardKernelArgs struct {
 func (o *GPUOperator) ReluForward(
 	in tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	out := o.Create(in.Size()).(*Tensor)
 	out.descriptor = in.Descriptor()
 
@@ -1584,11 +1746,17 @@ func (o *GPUOperator) ReluForward(
 		Count: int32(in.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(in.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.reluForwardKernel,
-		[3]uint32{uint32(in.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args)
+	if o.Arch == arch.CDNA3 {
+		o.launchReluForwardCDNA3(globalSize, localSize,
+			in.(*Tensor).ptr, out.ptr, int32(in.NumElement()))
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.reluForwardKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("ReluForward")
 
 	if o.verification {
@@ -1611,6 +1779,7 @@ type reluBackwardKernelArgs struct {
 func (o *GPUOperator) ReluBackward(
 	forwardIn, backIn tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	out := o.Create(forwardIn.Size()).(*Tensor)
 	args := reluBackwardKernelArgs{
 		In:     forwardIn.(*Tensor).ptr,
@@ -1619,11 +1788,18 @@ func (o *GPUOperator) ReluBackward(
 		Count:  int32(forwardIn.NumElement()),
 	}
 
+	globalSize := [3]uint32{uint32(forwardIn.NumElement()), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+
 	o.timerStart()
-	o.driver.LaunchKernel(o.ctx, o.reluBackwardKernel,
-		[3]uint32{uint32(forwardIn.NumElement()), 1, 1},
-		[3]uint16{64, 1, 1},
-		&args)
+	if o.Arch == arch.CDNA3 {
+		o.launchReluBackwardCDNA3(globalSize, localSize,
+			forwardIn.(*Tensor).ptr, backIn.(*Tensor).ptr,
+			out.ptr, int32(forwardIn.NumElement()))
+	} else {
+		o.driver.LaunchKernel(o.ctx, o.reluBackwardKernel,
+			globalSize, localSize, &args)
+	}
 	o.timerEnd("ReluBackward")
 
 	if o.verification {

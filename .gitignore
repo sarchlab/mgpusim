@@ -50,3 +50,5 @@ simpleconvolution
 *.bc
 *.s
 *.hipfb
+conv2d
+im2col

@@ -20,12 +20,14 @@ type ScratchpadPreparer interface {
 
 // ScratchpadPreparerImpl reads and write registers for the emulator
 type ScratchpadPreparerImpl struct {
+	IsCDNA3 bool
 }
 
 // NewScratchpadPreparerImpl returns a newly created ScratchpadPreparerImpl,
 // injecting the dependency of the RegInterface.
-func NewScratchpadPreparerImpl() *ScratchpadPreparerImpl {
+func NewScratchpadPreparerImpl(isCDNA3 bool) *ScratchpadPreparerImpl {
 	p := new(ScratchpadPreparerImpl)
+	p.IsCDNA3 = isCDNA3
 	return p
 }
 
@@ -220,7 +222,15 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
 
 	// Check if this is a global instruction with scalar base address (SAddr)
-	useSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
+	// SAddr handling is architecture-dependent:
+	// - CDNA3: SAddr=0x7F means OFF mode, any other value (including 0) is valid.
+	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode.
+	var useSAddr bool
+	if p.IsCDNA3 {
+		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
+	} else {
+		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
+	}
 
 	var scalarBase uint64
 	if useSAddr {
@@ -404,6 +414,7 @@ func (p *ScratchpadPreparerImpl) commitSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.SCC], 1, 0, scratchpad[24:25])
 }
