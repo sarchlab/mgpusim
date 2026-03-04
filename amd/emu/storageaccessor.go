@@ -37,7 +37,11 @@ func (a *storageAccessorImpl) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 
 		page, found := a.pageTable.Find(pid, currVAddr)
 		if !found {
-			panic(fmt.Sprintf("page not found in page table: pid=%d, vAddr=0x%x, origVAddr=0x%x, size=%d, offset=%d", pid, currVAddr, vAddr, byteSize, offset))
+			panic(fmt.Sprintf(
+				"page not found in page table: "+
+					"pid=%d, vAddr=0x%x, origVAddr=0x%x, "+
+					"size=%d, offset=%d",
+				pid, currVAddr, vAddr, byteSize, offset))
 		}
 		pAddr := page.PAddr + (currVAddr - page.VAddr)
 
