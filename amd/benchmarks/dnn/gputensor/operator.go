@@ -10,10 +10,10 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 var sizeOfFloat32 = 4
@@ -23,6 +23,7 @@ var sizeOfInt32 = 4
 type GPUOperator struct {
 	driver       *driver.Driver
 	ctx          *driver.Context
+	Arch         arch.Type
 	verification bool
 	timerMutex   sync.Mutex
 	reportTime   bool
@@ -134,49 +135,95 @@ func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
 	}
 }
 
+// GCN3 HSACO embeds
+//
 //go:embed operator.hsaco
-var operatorKernelBytes []byte
+var gcn3OperatorKernelBytes []byte
 
 //go:embed repeat.hsaco
-var repeatKernelBytes []byte
+var gcn3RepeatKernelBytes []byte
 
 //go:embed im2col.hsaco
-var im2ColKernelBytes []byte
+var gcn3Im2ColKernelBytes []byte
 
 //go:embed maxpooling.hsaco
-var maxPoolingKernelBytes []byte
+var gcn3MaxPoolingKernelBytes []byte
 
 //go:embed avgpooling.hsaco
-var avgPoolingKernelBytes []byte
+var gcn3AvgPoolingKernelBytes []byte
 
 //go:embed gemm.hsaco
-var gemmKernelBytes []byte
+var gcn3GemmKernelBytes []byte
 
 //go:embed cross_entropy.hsaco
-var crossEntropyKernelBytes []byte
+var gcn3CrossEntropyKernelBytes []byte
+
+// CDNA3 (gfx942) HSACO embeds
+//
+//go:embed operator_gfx942.hsaco
+var cdna3OperatorKernelBytes []byte
+
+//go:embed repeat_gfx942.hsaco
+var cdna3RepeatKernelBytes []byte
+
+//go:embed im2col_gfx942.hsaco
+var cdna3Im2ColKernelBytes []byte
+
+//go:embed maxpooling_gfx942.hsaco
+var cdna3MaxPoolingKernelBytes []byte
+
+//go:embed avgpooling_gfx942.hsaco
+var cdna3AvgPoolingKernelBytes []byte
+
+//go:embed gemm_gfx942.hsaco
+var cdna3GemmKernelBytes []byte
+
+//go:embed cross_entropy_gfx942.hsaco
+var cdna3CrossEntropyKernelBytes []byte
 
 func (o *GPUOperator) loadKernels() {
-	loadKernel(&o.sumKernel, operatorKernelBytes, "sum_one_axis")
-	loadKernel(&o.transposeKernel, operatorKernelBytes, "transpose_tensor")
-	loadKernel(&o.rotateKernel, operatorKernelBytes, "rotate_tensor")
-	loadKernel(&o.dilateKernel, operatorKernelBytes, "dilate_tensor")
-	loadKernel(&o.softmaxExpKernel, operatorKernelBytes, "softmax_exp")
-	loadKernel(&o.softmaxDivKernel, operatorKernelBytes, "softmax_div")
-	loadKernel(&o.scaleAddKernel, operatorKernelBytes, "scaleAdd")
-	loadKernel(&o.elemWiseMulKernel, operatorKernelBytes, "mul")
-	loadKernel(&o.rmsPropKernel, operatorKernelBytes, "rmsProp")
-	loadKernel(&o.adamKernel, operatorKernelBytes, "adam")
-	loadKernel(&o.reluForwardKernel, operatorKernelBytes, "reluForward")
-	loadKernel(&o.reluBackwardKernel, operatorKernelBytes, "reluBackward")
-	loadKernel(&o.repeatKernel, repeatKernelBytes, "repeat")
-	loadKernel(&o.im2ColKernel, im2ColKernelBytes, "im2col_2d")
-	loadKernel(&o.maxPoolingForwardKernel, maxPoolingKernelBytes, "MaxPoolForward")
-	loadKernel(&o.maxPoolingBackwardKernel, maxPoolingKernelBytes, "MaxPoolBackward")
-	loadKernel(&o.avgPoolingForwardKernel, avgPoolingKernelBytes, "AvgPoolForward")
-	loadKernel(&o.avgPoolingBackwardKernel, avgPoolingKernelBytes, "AvgPoolBackward")
-	loadKernel(&o.gemmKernel, gemmKernelBytes, "gemm_old")
-	loadKernel(&o.crossEntropyDerivativeKernel, crossEntropyKernelBytes, "cross_entropy_derivative")
-	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, crossEntropyKernelBytes, "softmax_cross_entropy_derivative")
+	var opBytes, repeatBytes, im2colBytes []byte
+	var maxpoolBytes, avgpoolBytes, gemmBytes, ceBytes []byte
+
+	if o.Arch == arch.CDNA3 {
+		opBytes = cdna3OperatorKernelBytes
+		repeatBytes = cdna3RepeatKernelBytes
+		im2colBytes = cdna3Im2ColKernelBytes
+		maxpoolBytes = cdna3MaxPoolingKernelBytes
+		avgpoolBytes = cdna3AvgPoolingKernelBytes
+		gemmBytes = cdna3GemmKernelBytes
+		ceBytes = cdna3CrossEntropyKernelBytes
+	} else {
+		opBytes = gcn3OperatorKernelBytes
+		repeatBytes = gcn3RepeatKernelBytes
+		im2colBytes = gcn3Im2ColKernelBytes
+		maxpoolBytes = gcn3MaxPoolingKernelBytes
+		avgpoolBytes = gcn3AvgPoolingKernelBytes
+		gemmBytes = gcn3GemmKernelBytes
+		ceBytes = gcn3CrossEntropyKernelBytes
+	}
+
+	loadKernel(&o.sumKernel, opBytes, "sum_one_axis")
+	loadKernel(&o.transposeKernel, opBytes, "transpose_tensor")
+	loadKernel(&o.rotateKernel, opBytes, "rotate_tensor")
+	loadKernel(&o.dilateKernel, opBytes, "dilate_tensor")
+	loadKernel(&o.softmaxExpKernel, opBytes, "softmax_exp")
+	loadKernel(&o.softmaxDivKernel, opBytes, "softmax_div")
+	loadKernel(&o.scaleAddKernel, opBytes, "scaleAdd")
+	loadKernel(&o.elemWiseMulKernel, opBytes, "mul")
+	loadKernel(&o.rmsPropKernel, opBytes, "rmsProp")
+	loadKernel(&o.adamKernel, opBytes, "adam")
+	loadKernel(&o.reluForwardKernel, opBytes, "reluForward")
+	loadKernel(&o.reluBackwardKernel, opBytes, "reluBackward")
+	loadKernel(&o.repeatKernel, repeatBytes, "repeat")
+	loadKernel(&o.im2ColKernel, im2colBytes, "im2col_2d")
+	loadKernel(&o.maxPoolingForwardKernel, maxpoolBytes, "MaxPoolForward")
+	loadKernel(&o.maxPoolingBackwardKernel, maxpoolBytes, "MaxPoolBackward")
+	loadKernel(&o.avgPoolingForwardKernel, avgpoolBytes, "AvgPoolForward")
+	loadKernel(&o.avgPoolingBackwardKernel, avgpoolBytes, "AvgPoolBackward")
+	loadKernel(&o.gemmKernel, gemmBytes, "gemm_old")
+	loadKernel(&o.crossEntropyDerivativeKernel, ceBytes, "cross_entropy_derivative")
+	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, ceBytes, "softmax_cross_entropy_derivative")
 }
 
 func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string) {
