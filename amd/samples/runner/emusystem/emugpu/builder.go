@@ -111,14 +111,17 @@ func (b Builder) Build(name string) *sim.Domain {
 }
 
 func (b *Builder) buildComputeUnits() {
+	isCDNA3 := b.archType == arch.CDNA3
 	disassembler := insts.NewDisassembler()
+	disassembler.IsCDNA3 = isCDNA3
 	aluFactory := b.getALUFactory()
 
 	for i := range 64 {
 		computeUnit := emu.BuildComputeUnitWithALU(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
-			b.log2PageSize, b.gpuMem.Storage, nil, aluFactory)
+			b.log2PageSize, b.gpuMem.Storage, nil, aluFactory,
+			isCDNA3)
 		b.simulation.RegisterComponent(computeUnit)
 
 		b.computeUnits = append(b.computeUnits, computeUnit)

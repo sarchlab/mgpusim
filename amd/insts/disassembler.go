@@ -42,6 +42,8 @@ func newDecodeTable() *decodeTable {
 
 // Disassembler is the unit that can decode .hsaco file
 type Disassembler struct {
+	IsCDNA3 bool
+
 	formatList []*Format
 
 	// Maps from the format to table
@@ -387,13 +389,22 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	saddrBits := int(extractBits(bytesHi, 16, 22))
 	inst.SAddr = NewIntOperand(0, int64(saddrBits))
 
-	// In GFX9+/CDNA3, SAddr=0x7F means OFF mode (VGPR pair as 64-bit address).
-	// Any other value (including 0, meaning s[0:1]) is a valid scalar base register,
-	// and the VGPR is a single 32-bit offset.
-	if saddrBits != 0x7F {
-		inst.Addr = NewVRegOperand(bits, bits, 1)
+	// SAddr handling is architecture-dependent:
+	// - CDNA3 (GFX9+): SAddr=0x7F means OFF mode, any other value (including 0
+	//   for s[0:1]) is a valid scalar base register.
+	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
+	if d.IsCDNA3 {
+		if saddrBits != 0x7F {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
 	} else {
-		inst.Addr = NewVRegOperand(bits, bits, 2)
+		if saddrBits != 0x7F && saddrBits != 0 {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
 	}
 
 	bits = int(extractBits(bytesHi, 24, 31))
