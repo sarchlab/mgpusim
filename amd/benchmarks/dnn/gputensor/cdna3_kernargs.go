@@ -225,7 +225,7 @@ type cdna3Im2ColKernelArg struct {
 	InputDim [2]uint32  // offset 16
 	MaskDim  [2]uint32  // offset 24
 	Stride   [2]uint32  // offset 32
-	Pad2     [2]uint32  // offset 40 (this is the padding argument)
+	PadArg   [2]uint32  // offset 40 (kernel's pad parameter)
 	Dilation [2]uint32  // offset 48
 	Channel  uint32     // offset 56
 	Batch    uint32     // offset 60
