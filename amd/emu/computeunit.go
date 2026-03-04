@@ -342,7 +342,12 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 			break
 		}
 
+		prevS1val := binary.LittleEndian.Uint32(wf.SRegFile[4:8])
 		cu.executeInst(wf)
+		newS1val := binary.LittleEndian.Uint32(wf.SRegFile[4:8])
+		if prevS1val != newS1val {
+			_ = prevS1val // suppress unused var if needed
+		}
 		cu.logInst(wf, inst)
 	}
 

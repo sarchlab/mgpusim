@@ -220,7 +220,9 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
 
 	// Check if this is a global instruction with scalar base address (SAddr)
-	useSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
+	// In GFX9+/CDNA3, SAddr=0x7F means OFF mode. Any other value (including 0
+	// for s[0:1]) is a valid scalar base register.
+	useSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
 
 	var scalarBase uint64
 	if useSAddr {
@@ -404,6 +406,7 @@ func (p *ScratchpadPreparerImpl) commitSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.SCC], 1, 0, scratchpad[24:25])
 }
