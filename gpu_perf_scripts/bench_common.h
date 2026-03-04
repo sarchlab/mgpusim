@@ -92,8 +92,8 @@ struct BenchmarkTimer {
     }
 
     ~BenchmarkTimer() {
-        hipEventDestroy(start);
-        hipEventDestroy(stop);
+        (void)hipEventDestroy(start);
+        (void)hipEventDestroy(stop);
     }
 
     void record_start(hipStream_t stream = 0) {

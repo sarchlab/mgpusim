@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NUM_NODES; i++) {
         int nnz_row = 0;
         for (int j = 0; j < NUM_NODES; j++) {
-            float r = (float)rand() / RAND_MAX;
+            float r = (float)rand() / (float)RAND_MAX;
             if (r < SPARSITY) {
                 h_col.push_back((unsigned int)j);
                 nnz_row++;
