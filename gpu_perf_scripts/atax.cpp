@@ -30,9 +30,8 @@ __global__ void atax_kernel2(DATA_TYPE *A, DATA_TYPE *y, DATA_TYPE *tmp, int nx,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NX = 256;
-    const int NY = 256;
+    int NX = parseIntParam(argc, argv, "--size", 256);
+    int NY = NX;
 
     // Host allocations
     DATA_TYPE* h_A = (DATA_TYPE*)malloc(NX * NY * sizeof(DATA_TYPE));

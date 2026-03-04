@@ -29,8 +29,7 @@ extern "C" __global__ void spmv_csr_scalar_kernel(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NUM_ROWS = 1024;
+    int NUM_ROWS = parseIntParam(argc, argv, "--rows", 1024);
     const int NNZ_PER_ROW = 10;
     const int TOTAL_NNZ = NUM_ROWS * NNZ_PER_ROW;
 

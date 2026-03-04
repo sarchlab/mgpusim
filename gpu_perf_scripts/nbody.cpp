@@ -81,8 +81,8 @@ void nbody_sim(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NUM_BODIES = 1024;
+    // NUM_BODIES must be a multiple of THREADS (256)
+    int NUM_BODIES = parseIntParam(argc, argv, "--bodies", 1024);
     const float DELTA_TIME = 0.005f;
     const float EPS_SQR = 50.0f;
 

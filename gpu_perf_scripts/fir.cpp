@@ -27,8 +27,8 @@ __global__ void FIR(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int LENGTH   = 8192;
+    // LENGTH must be a multiple of WG_SIZE (256)
+    int LENGTH   = parseIntParam(argc, argv, "--length", 8192);
     const int NUM_TAPS = 16;
     const int WG_SIZE  = 256;
 

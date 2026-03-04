@@ -62,8 +62,8 @@ int main(int argc, char** argv) {
     // Input dimensions
     const unsigned int BATCH = 1;
     const unsigned int CHANNEL = 1;
-    const unsigned int HEIGHT = 28;
-    const unsigned int WIDTH = 28;
+    unsigned int HEIGHT = (unsigned int)parseIntParam(argc, argv, "--size", 28);
+    unsigned int WIDTH  = HEIGHT;
     const unsigned int MASK_H = 3;
     const unsigned int MASK_W = 3;
     const unsigned int STRIDE_X = 1;

@@ -48,8 +48,7 @@ __global__ void kmeans_kernel_swap(float *feature,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NPOINTS   = 1024;
+    int NPOINTS   = parseIntParam(argc, argv, "--points", 1024);
     const int NFEATURES = 32;
     const int NCLUSTERS = 5;
 

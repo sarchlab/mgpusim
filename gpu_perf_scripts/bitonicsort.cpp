@@ -48,8 +48,8 @@ __global__ void BitonicSort(unsigned int* array,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int LENGTH = 4096;
+    // LENGTH must be a power of 2
+    int LENGTH = parseIntParam(argc, argv, "--size", 4096);
     const int WG_SIZE = 64;
     const int NUM_THREADS = LENGTH / 2;  // each thread handles one compare-swap
     const unsigned int DIRECTION = 1;     // ascending

@@ -101,12 +101,13 @@ extern "C" __global__ void mmmKernel_local(float4 *matrixA,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
+    // N must be a multiple of 32 (blockDim constraints); min 64
+    int N = parseIntParam(argc, argv, "--size", 128);
 
-    // Matrix dimensions: A[heightA x widthA] * B[widthA x widthB] = C[heightA x widthB]
-    // For the acceptance test: x=128, y=128, z=128
-    const int heightA = 128; // y
-    const int widthA  = 128; // z (shared dimension)
-    const int widthB  = 128; // x
+    // Matrix dimensions: A[N x N] * B[N x N] = C[N x N]
+    const int heightA = N;
+    const int widthA  = N;
+    const int widthB  = N;
 
     // Sizes in float4 (each float4 packs 4 floats)
     int sizeA_f4 = heightA * (widthA / 4);

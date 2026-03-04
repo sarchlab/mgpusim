@@ -19,8 +19,7 @@ __global__ void vectoradd_float(float* __restrict__ a,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int WIDTH  = 4096;
+    int WIDTH  = parseIntParam(argc, argv, "--size", 4096);
     const int HEIGHT = 1;
     const int NUM    = WIDTH * HEIGHT;
 

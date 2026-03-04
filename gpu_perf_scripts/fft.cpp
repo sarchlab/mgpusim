@@ -180,10 +180,8 @@ void fft1D_512(float2 *work) {
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    // 1 MB = 1048576 bytes; each float2 = 8 bytes => 131072 complex elements
-    // Must be a multiple of 512 for fft1D_512
-    const int NUM_ELEMENTS = 131072; // 256 * 512
+    // NUM_ELEMENTS must be a multiple of 512 (fft1D_512 kernel)
+    int NUM_ELEMENTS = parseIntParam(argc, argv, "--size", 131072);
     const int DATA_SIZE = NUM_ELEMENTS * sizeof(float2);
 
     // Host allocation
@@ -207,7 +205,7 @@ int main(int argc, char** argv) {
     dim3 grid(numFFTs);
 
     char problemSize[64];
-    snprintf(problemSize, sizeof(problemSize), "1MB_%d_elements", NUM_ELEMENTS);
+    snprintf(problemSize, sizeof(problemSize), "%d_elements", NUM_ELEMENTS);
 
     BenchResult r = runBenchmark("fft1D_512", problemSize, iterations, [&]() {
         fft1D_512<<<grid, block>>>(d_data);
