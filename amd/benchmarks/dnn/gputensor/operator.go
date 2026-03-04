@@ -21,15 +21,17 @@ var sizeOfInt32 = 4
 
 // GPUOperator can perform operations on GPU tensors.
 type GPUOperator struct {
-	driver       *driver.Driver
-	ctx          *driver.Context
-	Arch         arch.Type
-	verification bool
-	timerMutex   sync.Mutex
-	reportTime   bool
-	vStart, vEnd sim.VTimeInSec
-	start, end   time.Time
-	cpuOperator  *tensor.CPUOperator
+	driver        *driver.Driver
+	ctx           *driver.Context
+	Arch          arch.Type
+	kernelsLoaded bool
+	loadedArch    arch.Type
+	verification  bool
+	timerMutex    sync.Mutex
+	reportTime    bool
+	vStart, vEnd  sim.VTimeInSec
+	start, end    time.Time
+	cpuOperator   *tensor.CPUOperator
 
 	sumKernel                           *insts.KernelCodeObject
 	transposeKernel                     *insts.KernelCodeObject
@@ -64,9 +66,16 @@ func NewGPUOperator(
 		ctx:    ctx,
 	}
 
-	o.loadKernels()
-
 	return o
+}
+
+// ensureKernelsLoaded loads or reloads kernels if the architecture changed.
+func (o *GPUOperator) ensureKernelsLoaded() {
+	if !o.kernelsLoaded || o.loadedArch != o.Arch {
+		o.loadKernels()
+		o.kernelsLoaded = true
+		o.loadedArch = o.Arch
+	}
 }
 
 // EnableVerification will run the same operations in a CPU operator and
@@ -381,6 +390,7 @@ type repeatArgs struct {
 // Repeat will create another tensor that duplicates the input tensor by n
 // times.
 func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	numElem := t.NumElement()
 	out := o.Create([]int{numElem * times}).(*Tensor)
 
@@ -448,6 +458,7 @@ type transposeKernelArgs struct {
 
 // Transpose reorders the axises of the tensor.
 func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	if len(order) != len(input.Size()) {
 		panic("order should include all axes")
@@ -551,6 +562,7 @@ type rotateKernelArgs struct {
 
 // Rotate180 rotates the lowest two dimensions of the tensor by 180 degree.
 func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	dim := len(t.Size())
 	hInSize := make([]int32, dim)
 	hOutSize := make([]int32, dim)
@@ -618,6 +630,7 @@ type dilateKernelArgs struct {
 
 // Dilate adds 0s between rows and columns.
 func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	dim := len(t.Size())
 	hDilate := []int32{int32(dilate[0]), int32(dilate[1])}
 
@@ -690,6 +703,7 @@ func (o *GPUOperator) verifyDilate(t tensor.Tensor, dilate []int, output *Tensor
 
 // Sum reduces the number of axes by summing the numbers on given axes.
 func (o *GPUOperator) Sum(t tensor.Tensor, axis []int) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	var in, out tensor.Tensor
 
 	o.axisMustBeIncreasing(axis)
@@ -807,6 +821,7 @@ func (o *GPUOperator) Gemm(
 	alpha, beta float64,
 	a, b, c tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	tempA := a
 	if transA {
 		tempA = o.Transpose(a, []int{1, 0})
@@ -919,6 +934,7 @@ func (o *GPUOperator) Im2Col(
 	t tensor.Tensor,
 	kernelSize, padding, stride, dilation []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	inputSize := t.Size()
 
 	batch := inputSize[0]
@@ -1025,6 +1041,7 @@ func (o *GPUOperator) MaxPoolingForward(
 	t tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) (out tensor.Tensor, mask tensor.Tensor) {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	n := input.size[0]
 	c := input.size[1]
@@ -1090,6 +1107,7 @@ func (o *GPUOperator) MaxPoolingBackward(
 	mask tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	n := forwardIn.Size()[0]
 	c := forwardIn.Size()[1]
 	hIn := forwardIn.Size()[2]
@@ -1162,6 +1180,7 @@ func (o *GPUOperator) AvgPoolingForward(
 	t tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
 	B := input.size[0]
 	C := input.size[1]
@@ -1236,6 +1255,7 @@ func (o *GPUOperator) AvgPoolingBackward(
 	forwardIn, backwardIn tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	input := backwardIn
 	ks := kernelSize
 	B := forwardIn.Size()[0]
@@ -1310,6 +1330,7 @@ type softmaxDivKernelArg struct {
 
 // Softmax performs the softmax operation.
 func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	o.mustBeTwoDimension(t)
 
 	input := t.(*Tensor)
@@ -1377,6 +1398,7 @@ func (o *GPUOperator) mustBeTwoDimension(t tensor.Tensor) {
 
 // CrossEntropy calculates the cross entropy of the output.
 func (o *GPUOperator) CrossEntropy(t tensor.Tensor, label []int) float64 {
+	o.ensureKernelsLoaded()
 	o.mustBeTwoDimension(t)
 
 	loss := 0.0
@@ -1416,6 +1438,7 @@ type crossEntropyDerivativeArgs struct {
 func (o *GPUOperator) CrossEntropyDerivative(
 	t tensor.Tensor, label []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	hLabel := make([]int32, len(label))
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
@@ -1463,6 +1486,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	t tensor.Tensor,
 	label []int,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	hLabel := make([]int32, len(label))
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
@@ -1515,6 +1539,7 @@ type elemWiseMulKernArg struct {
 func (o *GPUOperator) ElementWiseMul(
 	a, b tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	if a.NumElement() != b.NumElement() {
 		panic("size not match")
 	}
@@ -1564,6 +1589,7 @@ func (o *GPUOperator) ScaleAdd(
 	alpha, beta float64,
 	a, b tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	if a.NumElement() != b.NumElement() {
 		panic("size not match")
 	}
@@ -1613,6 +1639,7 @@ func (o *GPUOperator) RMSProp(
 	params, gradient, sHistory tensor.Tensor,
 	smoothFactor, learningRate float64,
 ) {
+	o.ensureKernelsLoaded()
 	if params.NumElement() != gradient.NumElement() ||
 		params.NumElement() != sHistory.NumElement() {
 		panic("size mismatch")
@@ -1652,6 +1679,7 @@ func (o *GPUOperator) Adam(
 	params, gradient, vHistory, sHistory tensor.Tensor,
 	smoothFactor1, smoothFactor2, learningRate float64,
 ) {
+	o.ensureKernelsLoaded()
 	if params.NumElement() != gradient.NumElement() ||
 		params.NumElement() != sHistory.NumElement() ||
 		params.NumElement() != vHistory.NumElement() {
@@ -1708,6 +1736,7 @@ type reluForwardKernelArgs struct {
 func (o *GPUOperator) ReluForward(
 	in tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	out := o.Create(in.Size()).(*Tensor)
 	out.descriptor = in.Descriptor()
 
@@ -1750,6 +1779,7 @@ type reluBackwardKernelArgs struct {
 func (o *GPUOperator) ReluBackward(
 	forwardIn, backIn tensor.Tensor,
 ) tensor.Tensor {
+	o.ensureKernelsLoaded()
 	out := o.Create(forwardIn.Size()).(*Tensor)
 	args := reluBackwardKernelArgs{
 		In:     forwardIn.(*Tensor).ptr,

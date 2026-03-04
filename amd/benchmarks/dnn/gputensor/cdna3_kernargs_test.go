@@ -11,8 +11,8 @@ import (
 // kernarg_segment_size from the HSACO is typically larger than the
 // Go struct size because the driver zero-fills the allocation.
 func TestCDNA3KernargOffsets(t *testing.T) {
-	// Verify cdna3HiddenArgs internal layout
-	h := cdna3HiddenArgs{}
+	// Verify CDNA3HiddenArgs internal layout
+	h := CDNA3HiddenArgs{}
 	if off := unsafe.Offsetof(h.HiddenBlockCountX); off != 0 {
 		t.Errorf("HiddenBlockCountX offset: got %d, want 0", off)
 	}
@@ -23,7 +23,7 @@ func TestCDNA3KernargOffsets(t *testing.T) {
 		t.Errorf("HiddenGridDims offset: got %d, want 64", off)
 	}
 	if sz := binary.Size(h); sz != 66 {
-		t.Errorf("cdna3HiddenArgs binary size: got %d, want 66", sz)
+		t.Errorf("CDNA3HiddenArgs binary size: got %d, want 66", sz)
 	}
 
 	// Verify repeat struct (280 byte kernarg, hidden at offset 24)

@@ -2,11 +2,14 @@ package gputensor
 
 import "github.com/sarchlab/mgpusim/v4/amd/driver"
 
-// cdna3HiddenArgs contains the hidden kernel arguments required by CDNA3
+// CDNA3HiddenArgs contains the hidden kernel arguments required by CDNA3
 // (gfx942) HSACOs. These must follow the explicit kernel arguments.
 // The hidden block occupies 66 bytes of data at specific offsets with
 // 16 bytes of padding between remainder and global offset fields.
-type cdna3HiddenArgs struct {
+// CDNA3HiddenArgs contains the hidden kernel arguments required by CDNA3
+// (gfx942) HSACOs. Fields must be exported for reflect-based serialization
+// in the driver's prepareLocalMemory.
+type CDNA3HiddenArgs struct {
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -26,8 +29,8 @@ type cdna3HiddenArgs struct {
 func newCDNA3HiddenArgs(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-) cdna3HiddenArgs {
-	h := cdna3HiddenArgs{
+) CDNA3HiddenArgs {
+	h := CDNA3HiddenArgs{
 		HiddenGroupSizeX: localSize[0],
 		HiddenGroupSizeY: localSize[1],
 		HiddenGroupSizeZ: localSize[2],
@@ -76,7 +79,7 @@ type cdna3RepeatArgs struct {
 	Input    driver.Ptr // offset 8
 	InputLen uint32     // offset 16
 	OutLen   uint32     // offset 20
-	cdna3HiddenArgs     // offset 24
+	CDNA3HiddenArgs     // offset 24
 }
 
 // transpose_tensor kernel: 320 bytes total
@@ -90,7 +93,7 @@ type cdna3TransposeKernelArgs struct {
 	OutIndexBuf driver.Ptr // offset 48
 	Dim         int32      // offset 56
 	Pad0        uint32     // offset 60
-	cdna3HiddenArgs        // offset 64
+	CDNA3HiddenArgs        // offset 64
 }
 
 // rotate_tensor kernel: 312 bytes total
@@ -103,7 +106,7 @@ type cdna3RotateKernelArgs struct {
 	OutIndexBuf driver.Ptr // offset 40
 	Dim         int32      // offset 48
 	Pad0        uint32     // offset 52
-	cdna3HiddenArgs        // offset 56
+	CDNA3HiddenArgs        // offset 56
 }
 
 // dilate_tensor kernel: 320 bytes total
@@ -117,7 +120,7 @@ type cdna3DilateKernelArgs struct {
 	OutIndexBuf driver.Ptr // offset 48
 	Dim         int32      // offset 56
 	Pad0        uint32     // offset 60
-	cdna3HiddenArgs        // offset 64
+	CDNA3HiddenArgs        // offset 64
 }
 
 // softmax_exp kernel: 280 bytes total
@@ -126,7 +129,7 @@ type cdna3SoftmaxExpArgs struct {
 	Output driver.Ptr // offset 8
 	N      int32      // offset 16
 	Pad0   uint32     // offset 20
-	cdna3HiddenArgs   // offset 24
+	CDNA3HiddenArgs   // offset 24
 }
 
 // softmax_div kernel: 288 bytes total
@@ -136,7 +139,7 @@ type cdna3SoftmaxDivArgs struct {
 	Denominator driver.Ptr // offset 16
 	NumElement  int32      // offset 24
 	BatchSize   int32      // offset 28
-	cdna3HiddenArgs        // offset 32
+	CDNA3HiddenArgs        // offset 32
 }
 
 // sum_one_axis kernel: 312 bytes total
@@ -149,7 +152,7 @@ type cdna3SumOneAxisKernelArgs struct {
 	Axis        int32      // offset 36
 	InIndexBuf  driver.Ptr // offset 40
 	OutIndexBuf driver.Ptr // offset 48
-	cdna3HiddenArgs        // offset 56
+	CDNA3HiddenArgs        // offset 56
 }
 
 // scaleAdd kernel: 296 bytes total
@@ -161,7 +164,7 @@ type cdna3ScaleAddArgs struct {
 	Beta  float32    // offset 28
 	N     int32      // offset 32
 	Pad0  uint32     // offset 36
-	cdna3HiddenArgs  // offset 40
+	CDNA3HiddenArgs  // offset 40
 }
 
 // mul kernel: 288 bytes total
@@ -171,7 +174,7 @@ type cdna3MulArgs struct {
 	In2  driver.Ptr // offset 16
 	N    int32      // offset 24
 	Pad0 uint32     // offset 28
-	cdna3HiddenArgs // offset 32
+	CDNA3HiddenArgs // offset 32
 }
 
 // rmsProp kernel: 296 bytes total
@@ -183,7 +186,7 @@ type cdna3RmsPropArgs struct {
 	LearningRate float32    // offset 28
 	N            int32      // offset 32
 	Pad0         uint32     // offset 36
-	cdna3HiddenArgs         // offset 40
+	CDNA3HiddenArgs         // offset 40
 }
 
 // adam kernel: 304 bytes total
@@ -196,7 +199,7 @@ type cdna3AdamArgs struct {
 	SmoothFactor2 float32    // offset 36
 	LearningRate  float32    // offset 40
 	N             int32      // offset 44
-	cdna3HiddenArgs          // offset 48
+	CDNA3HiddenArgs          // offset 48
 }
 
 // reluForward kernel: 280 bytes total
@@ -205,7 +208,7 @@ type cdna3ReluForwardArgs struct {
 	Out   driver.Ptr // offset 8
 	Count int32      // offset 16
 	Pad0  uint32     // offset 20
-	cdna3HiddenArgs  // offset 24
+	CDNA3HiddenArgs  // offset 24
 }
 
 // reluBackward kernel: 288 bytes total
@@ -215,7 +218,7 @@ type cdna3ReluBackwardArgs struct {
 	Out    driver.Ptr // offset 16
 	Count  int32      // offset 24
 	Pad0   uint32     // offset 28
-	cdna3HiddenArgs   // offset 32
+	CDNA3HiddenArgs   // offset 32
 }
 
 // im2col_2d kernel: 320 bytes total
@@ -229,7 +232,7 @@ type cdna3Im2ColKernelArg struct {
 	Dilation [2]uint32  // offset 48
 	Channel  uint32     // offset 56
 	Batch    uint32     // offset 60
-	cdna3HiddenArgs     // offset 64
+	CDNA3HiddenArgs     // offset 64
 }
 
 // gemm_old kernel: 312 bytes total
@@ -244,7 +247,7 @@ type cdna3GemmKernArgs struct {
 	B     driver.Ptr // offset 32
 	C     driver.Ptr // offset 40
 	D     driver.Ptr // offset 48
-	cdna3HiddenArgs   // offset 56
+	CDNA3HiddenArgs   // offset 56
 }
 
 // MaxPoolForward kernel: 336 bytes total
@@ -266,7 +269,7 @@ type cdna3MaxPoolingForwardKernelArgs struct {
 	PadW         int32      // offset 60
 	TopData      driver.Ptr // offset 64
 	MaskData     driver.Ptr // offset 72
-	cdna3HiddenArgs         // offset 80
+	CDNA3HiddenArgs         // offset 80
 }
 
 // MaxPoolBackward kernel: 336 bytes total
@@ -288,7 +291,7 @@ type cdna3MaxPoolingBackwardKernelArgs struct {
 	PadH         int32      // offset 64
 	PadW         int32      // offset 68
 	BottomDiff   driver.Ptr // offset 72
-	cdna3HiddenArgs         // offset 80
+	CDNA3HiddenArgs         // offset 80
 }
 
 // AvgPoolForward kernel: 328 bytes total
@@ -309,7 +312,7 @@ type cdna3AvgPoolingForwardKernelArgs struct {
 	PadH         int32      // offset 56
 	PadW         int32      // offset 60
 	TopData      driver.Ptr // offset 64
-	cdna3HiddenArgs         // offset 72
+	CDNA3HiddenArgs         // offset 72
 }
 
 // AvgPoolBackward kernel: 328 bytes total
@@ -330,7 +333,7 @@ type cdna3AvgPoolingBackwardKernelArgs struct {
 	PadH         int32      // offset 56
 	PadW         int32      // offset 60
 	BottomDiff   driver.Ptr // offset 64
-	cdna3HiddenArgs         // offset 72
+	CDNA3HiddenArgs         // offset 72
 }
 
 // cross_entropy_derivative / softmax_cross_entropy_derivative: 288 bytes
@@ -340,5 +343,5 @@ type cdna3CrossEntropyDerivativeArgs struct {
 	Label       driver.Ptr // offset 16
 	BatchSize   int32      // offset 24
 	NumPerImage int32      // offset 28
-	cdna3HiddenArgs        // offset 32
+	CDNA3HiddenArgs        // offset 32
 }

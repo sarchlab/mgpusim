@@ -16,7 +16,7 @@ func (o *GPUOperator) launchRepeatCDNA3(
 		Input:           input,
 		InputLen:        inputLen,
 		OutLen:          outLen,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.repeatKernel,
 		globalSize, localSize, &args)
@@ -36,7 +36,7 @@ func (o *GPUOperator) launchTransposeCDNA3(
 		InIndexBuf:      args.InIndexBuf,
 		OutIndexBuf:     args.OutIndexBuf,
 		Dim:             args.Dim,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.transposeKernel,
 		globalSize, localSize, &cdna3Args)
@@ -55,7 +55,7 @@ func (o *GPUOperator) launchRotateCDNA3(
 		InIndexBuf:      args.InIndexBuf,
 		OutIndexBuf:     args.OutIndexBuf,
 		Dim:             args.Dim,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.rotateKernel,
 		globalSize, localSize, &cdna3Args)
@@ -75,7 +75,7 @@ func (o *GPUOperator) launchDilateCDNA3(
 		InIndexBuf:      args.InIndexBuf,
 		OutIndexBuf:     args.OutIndexBuf,
 		Dim:             args.Dim,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.dilateKernel,
 		globalSize, localSize, &cdna3Args)
@@ -95,7 +95,7 @@ func (o *GPUOperator) launchSumOneAxisCDNA3(
 		Axis:            args.Axis,
 		InIndexBuf:      args.InIndexBuf,
 		OutIndexBuf:     args.OutIndexBuf,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.sumKernel,
 		globalSize, localSize, &cdna3Args)
@@ -116,7 +116,7 @@ func (o *GPUOperator) launchGemmCDNA3(
 		B:               args.B,
 		C:               args.C,
 		D:               args.D,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.gemmKernel,
 		globalSize, localSize, &cdna3Args)
@@ -137,7 +137,7 @@ func (o *GPUOperator) launchIm2ColCDNA3(
 		Dilation:        args.Dilation,
 		Channel:         args.Channel,
 		Batch:           args.Batch,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.im2ColKernel,
 		globalSize, localSize, &cdna3Args)
@@ -165,7 +165,7 @@ func (o *GPUOperator) launchMaxPoolFwdCDNA3(
 		PadW:            args.PadW,
 		TopData:         args.TopData,
 		MaskData:        args.MaskData,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.maxPoolingForwardKernel,
 		globalSize, localSize, &cdna3Args)
@@ -193,7 +193,7 @@ func (o *GPUOperator) launchMaxPoolBwdCDNA3(
 		PadH:            args.PadH,
 		PadW:            args.PadW,
 		BottomDiff:      args.BottomDiff,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.maxPoolingBackwardKernel,
 		globalSize, localSize, &cdna3Args)
@@ -220,7 +220,7 @@ func (o *GPUOperator) launchAvgPoolFwdCDNA3(
 		PadH:            args.PadH,
 		PadW:            args.PadW,
 		TopData:         args.Top,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.avgPoolingForwardKernel,
 		globalSize, localSize, &cdna3Args)
@@ -247,7 +247,7 @@ func (o *GPUOperator) launchAvgPoolBwdCDNA3(
 		PadH:            args.PadH,
 		PadW:            args.PadW,
 		BottomDiff:      args.Bottom,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.avgPoolingBackwardKernel,
 		globalSize, localSize, &cdna3Args)
@@ -263,7 +263,7 @@ func (o *GPUOperator) launchSoftmaxExpCDNA3(
 		Input:           input,
 		Output:          output,
 		N:               n,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.softmaxExpKernel,
 		globalSize, localSize, &args)
@@ -281,7 +281,7 @@ func (o *GPUOperator) launchSoftmaxDivCDNA3(
 		Denominator:     denominator,
 		NumElement:      numElement,
 		BatchSize:       batchSize,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.softmaxDivKernel,
 		globalSize, localSize, &args)
@@ -299,7 +299,7 @@ func (o *GPUOperator) launchCrossEntropyDerivCDNA3(
 		Label:           args.Label,
 		BatchSize:       args.BatchSize,
 		NumPerImage:     args.NumPerImage,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, kernel,
 		globalSize, localSize, &cdna3Args)
@@ -316,7 +316,7 @@ func (o *GPUOperator) launchElemWiseMulCDNA3(
 		In1:             in1,
 		In2:             in2,
 		N:               n,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.elemWiseMulKernel,
 		globalSize, localSize, &args)
@@ -334,7 +334,7 @@ func (o *GPUOperator) launchScaleAddCDNA3(
 		Alpha:           args.Alpha,
 		Beta:            args.Beta,
 		N:               args.N,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.scaleAddKernel,
 		globalSize, localSize, &cdna3Args)
@@ -352,7 +352,7 @@ func (o *GPUOperator) launchRmsPropCDNA3(
 		SmoothFactor:    args.SmoothFactor,
 		LearningRate:    args.LearningRate,
 		N:               args.N,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.rmsPropKernel,
 		globalSize, localSize, &cdna3Args)
@@ -372,7 +372,7 @@ func (o *GPUOperator) launchAdamCDNA3(
 		SmoothFactor2:   args.SmoothFactor2,
 		LearningRate:    args.LearningRate,
 		N:               args.N,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.adamKernel,
 		globalSize, localSize, &cdna3Args)
@@ -388,7 +388,7 @@ func (o *GPUOperator) launchReluForwardCDNA3(
 		In:              in,
 		Out:             out,
 		Count:           count,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.reluForwardKernel,
 		globalSize, localSize, &args)
@@ -405,7 +405,7 @@ func (o *GPUOperator) launchReluBackwardCDNA3(
 		BackIn:          backIn,
 		Out:             out,
 		Count:           count,
-		cdna3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
+		CDNA3HiddenArgs: newCDNA3HiddenArgs(globalSize, localSize),
 	}
 	o.driver.LaunchKernel(o.ctx, o.reluBackwardKernel,
 		globalSize, localSize, &args)
