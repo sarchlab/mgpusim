@@ -52,7 +52,9 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 	case 22:
 		u.runVMACF32(state)
 	case 23:
-		u.runVMADAKF32(state)
+		u.runVFMAMKF32(state)
+	case 24:
+		u.runVFMAAKF32(state)
 	case 25:
 		u.runVADDI32(state) // v_add_u32 with VCC carry out
 	case 26:
@@ -406,7 +408,26 @@ func (u *ALU) runVMACF32(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMADAKF32(state emu.InstEmuState) {
+// runVFMAMKF32 implements v_fmamk_f32 / v_madmk_f32 (opcode 23)
+// D = S0 * K + S1
+func (u *ALU) runVFMAMKF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	k := math.Float32frombits(uint32(sp.LiteralConstant))
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		dst := src0*k + src1
+		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
+// runVFMAAKF32 implements v_fmaak_f32 / v_madak_f32 (opcode 24)
+// D = S0 * S1 + K
+func (u *ALU) runVFMAAKF32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	k := math.Float32frombits(uint32(sp.LiteralConstant))
 	var i uint

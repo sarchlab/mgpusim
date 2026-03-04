@@ -329,7 +329,16 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 
 	switch inst.Opcode {
-	case 24, 37: // v_madak
+	case 23, 36: // v_madmk / v_fmamk: D = S0 * K + S1
+		inst.Imm = true
+		inst.ByteSize += 4
+		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
+
+		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
+	case 24, 37: // v_madak / v_fmaak: D = S0 * S1 + K
 		inst.Imm = true
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}

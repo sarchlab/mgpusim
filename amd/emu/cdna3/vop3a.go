@@ -23,6 +23,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCmpGtF32VOP3a(state)
 	case 70: // 0x46
 		u.runVCmpLeF32VOP3a(state)
+	case 16: // v_cmp_class_f32
+		u.runVCmpClassF32VOP3a(state)
 	case 78: // 0x41
 		u.runVCmpNltF32VOP3a(state)
 	case 193: // 0xC1
@@ -51,6 +53,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCNDMASKB32VOP3a(state)
 	case 258:
 		u.runVSUBF32VOP3a(state)
+	case 261:
+		u.runVMULF32VOP3a(state)
 	case 449:
 		u.runVMADF32(state)
 	case 450:
@@ -111,6 +115,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVADDLSHLU32(state)
 	case 511:
 		u.runVADD3U32(state)
+	case 512:
+		u.runVLSHLORB32(state)
 	case 520:
 		u.runVLSHLADDU64(state)
 	case 655:
@@ -207,6 +213,26 @@ func (u *ALU) runVLSHLADDU32(state emu.InstEmuState) {
 		src2 := uint32(sp.SRC2[i])
 
 		result := (src0 << shift) + src2
+		sp.DST[i] = uint64(result)
+	}
+}
+
+// runVLSHLORB32 implements v_lshl_or_b32 (shift left and OR 32-bit)
+// D.u = (S0.u << S1.u[4:0]) | S2.u
+func (u *ALU) runVLSHLORB32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		shift := uint32(sp.SRC1[i]) & 0x1F
+		src2 := uint32(sp.SRC2[i])
+
+		result := (src0 << shift) | src2
 		sp.DST[i] = uint64(result)
 	}
 }
@@ -497,6 +523,52 @@ func (u *ALU) runVCmpLeF32VOP3a(state emu.InstEmuState) {
 	}
 }
 
+func matchesF32Class(src0 float32, classMask uint32) bool {
+	bits := math.Float32bits(src0)
+	sign := (bits >> 31) != 0
+	exp := (bits >> 23) & 0xFF
+	frac := bits & 0x7FFFFF
+	isNaN := math.IsNaN(float64(src0))
+	isInf := math.IsInf(float64(src0), 0)
+	isDenorm := exp == 0 && frac != 0
+	isZero := exp == 0 && frac == 0
+	isNorm := !isNaN && !isInf && !isDenorm && !isZero
+
+	classChecks := [10]bool{
+		isNaN && frac&(1<<22) == 0,  // 0: signaling NaN
+		isNaN && frac&(1<<22) != 0,  // 1: quiet NaN
+		isInf && sign,               // 2: negative infinity
+		isNorm && sign,              // 3: negative normal
+		isDenorm && sign,            // 4: negative denormal
+		isZero && sign,              // 5: negative zero
+		isZero && !sign,             // 6: positive zero
+		isDenorm && !sign,           // 7: positive denormal
+		isNorm && !sign,             // 8: positive normal
+		isInf && !sign,              // 9: positive infinity
+	}
+	for bit, check := range classChecks {
+		if classMask&(1<<uint(bit)) != 0 && check {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *ALU) runVCmpClassF32VOP3a(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		classMask := uint32(sp.SRC1[i])
+		if matchesF32Class(src0, classMask) {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
 func (u *ALU) runVCmpNltF32VOP3a(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 	var i uint
@@ -739,6 +811,21 @@ func (u *ALU) runVSUBF32VOP3a(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
 		dst := src0 - src1
+		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
+func (u *ALU) runVMULF32VOP3a(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		dst := src0 * src1
 		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }

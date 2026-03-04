@@ -16,6 +16,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := fft.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Bytes = int32(*mb)
 	benchmark.Passes = int32(*passes)
 
