@@ -9,12 +9,11 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// KernelArgs defines kernel arguments for GCN3
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	Pos                 driver.Ptr
 	Vel                 driver.Ptr
@@ -29,33 +28,6 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-// CDNA3KernelArgs defines kernel arguments for CDNA3 native kernel
-type CDNA3KernelArgs struct {
-	Pos                 driver.Ptr
-	Vel                 driver.Ptr
-	NumBodies           int32
-	DeltaTime           float32
-	EpsSqr              float32
-	Pad0                uint32 // padding to 8-byte alignment
-	LocalPos            driver.Ptr
-	NewPosition         driver.Ptr
-	NewVelocity         driver.Ptr
-	HiddenBlockCountX   uint32
-	HiddenBlockCountY   uint32
-	HiddenBlockCountZ   uint32
-	HiddenGroupSizeX    uint16
-	HiddenGroupSizeY    uint16
-	HiddenGroupSizeZ    uint16
-	HiddenRemainderX    uint16
-	HiddenRemainderY    uint16
-	HiddenRemainderZ    uint16
-	Pad1                [16]byte
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-	HiddenGridDims      uint16
-}
-
 // Benchmark defines a benchmark
 type Benchmark struct {
 	driver           *driver.Driver
@@ -64,7 +36,6 @@ type Benchmark struct {
 	queues           []*driver.CommandQueue
 	useUnifiedMemory bool
 	nbodyKernel      *insts.KernelCodeObject
-	Arch             arch.Type
 	NumParticles     int32
 	delT             float32   // dT (timestep)
 	espSqr           float32   // Softening Factor
@@ -86,7 +57,6 @@ type Benchmark struct {
 	dVel             *driver.Ptr
 	dNewPos          *driver.Ptr
 	dNewVel          *driver.Ptr
-	localPosMem      driver.Ptr // CDNA3: global memory for localPos
 }
 
 // NewBenchmark returns a benchmark
@@ -120,19 +90,11 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed nbody.hsaco
-var gcn3HSACOBytes []byte
-
-//go:embed nbody_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
-	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nbody_sim")
+	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(
+		hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -143,9 +105,9 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+		b.queues = append(b.queues,
+			b.driver.CreateCommandQueue(b.context))
 	}
-	b.loadProgram()
 	b.initMem()
 	b.exec()
 }
@@ -153,8 +115,8 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	b.initPos = make([]float32, b.numBodies*4)
 	b.initVel = make([]float32, b.numBodies*4)
-	b.pos = make([]float32, b.numBodies*4) // Should be aligned to 16
-	b.vel = make([]float32, b.numBodies*4) // Should be aligned to 16
+	b.pos = make([]float32, b.numBodies*4)
+	b.vel = make([]float32, b.numBodies*4)
 
 	b.fill()
 
@@ -180,13 +142,6 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.currPos, b.pos)
 	b.driver.MemCopyH2D(b.context, b.currVel, b.vel)
 
-	if b.Arch == arch.CDNA3 {
-		// CDNA3 native kernel uses global memory instead of LDS for localPos
-		// Allocate same size as position buffer (numBodies * float4)
-		b.localPosMem = b.driver.AllocateMemory(b.context,
-			uint64(b.numBodies)*4*4)
-	}
-
 	b.dPos = &b.currPos
 	b.dVel = &b.currVel
 	b.dNewPos = &b.newPos
@@ -198,55 +153,24 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
-		if b.Arch == arch.CDNA3 {
-			args := CDNA3KernelArgs{
-				Pos:               *b.dPos,
-				Vel:               *b.dVel,
-				NumBodies:         b.numBodies,
-				DeltaTime:         b.delT,
-				EpsSqr:            b.espSqr,
-				LocalPos:          b.localPosMem,
-				NewPosition:       *b.dNewPos,
-				NewVelocity:       *b.dNewVel,
-				HiddenBlockCountX: uint32(b.numBodies) / uint32(b.groupSize),
-				HiddenBlockCountY: 1,
-				HiddenBlockCountZ: 1,
-				HiddenGroupSizeX:  uint16(b.groupSize),
-				HiddenGroupSizeY:  1,
-				HiddenGroupSizeZ:  1,
-				HiddenRemainderX:  uint16(uint32(b.numBodies) % uint32(b.groupSize)),
-				HiddenRemainderY:  0,
-				HiddenRemainderZ:  0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      1,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.nbodyKernel,
-				globalSize, localSize,
-				&args,
-			)
-		} else {
-			args := KernelArgs{
-				Pos:                 *b.dPos,
-				Vel:                 *b.dVel,
-				NumBodies:           b.numBodies,
-				DeltaTime:           b.delT,
-				EpsSqr:              b.espSqr,
-				LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
-				NewPosition:         *b.dNewPos,
-				NewVelocity:         *b.dNewVel,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.nbodyKernel,
-				globalSize, localSize,
-				&args,
-			)
+		args := KernelArgs{
+			Pos:                 *b.dPos,
+			Vel:                 *b.dVel,
+			NumBodies:           b.numBodies,
+			DeltaTime:           b.delT,
+			EpsSqr:              b.espSqr,
+			LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
+			NewPosition:         *b.dNewPos,
+			NewVelocity:         *b.dNewVel,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
 		}
+		b.driver.LaunchKernel(b.context,
+			b.nbodyKernel,
+			globalSize, localSize,
+			&args,
+		)
 
 		b.dPos, b.dNewPos = b.dNewPos, b.dPos
 		b.dVel, b.dNewVel = b.dNewVel, b.dVel
@@ -307,7 +231,9 @@ func (b *Benchmark) nbodyCPU() {
 		}
 
 		for k := int32(0); k < 3; k++ {
-			b.refPos[myIndex+k] += b.refVel[myIndex+k]*b.delT + 0.5*acc[k]*b.delT*b.delT
+			b.refPos[myIndex+k] +=
+				b.refVel[myIndex+k]*b.delT +
+					0.5*acc[k]*b.delT*b.delT
 			b.refVel[myIndex+k] += acc[k] * b.delT
 		}
 	}
@@ -325,10 +251,8 @@ func (b *Benchmark) fill() {
 
 		for j := int32(0); j < 3; j++ {
 			b.initPos[index+j] = random(3, 50)
-			// b.initPos[index+j] = 1.0
 		}
 		b.initPos[index+3] = random(1, 1000)
-		// b.initPos[index+3] = 1.0
 
 		for j := int32(0); j < 3; j++ {
 			b.initVel[index+j] = 0.0
