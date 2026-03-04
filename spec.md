@@ -26,6 +26,8 @@ The project is successful when:
 
 5. **Documented patterns**: Each new instruction type, memory addressing mode, or kernarg layout is documented so future benchmarks can follow the pattern
 
+6. **GPU performance measurement scripts**: Once emulation is complete, generate scripts for running kernels on real GPUs to measure actual hardware performance (averaging multiple runs). This prepares the next stage of implementing accurate timing simulation.
+
 ## Constraints
 
 - Must maintain backward compatibility with GCN3
