@@ -7,7 +7,7 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 3. Byte-level correct emulated results
 4. Acceptance tests runnable in GitHub Actions CI
 
-## Current State (as of M6 completion)
+## Current State (as of M7 completion)
 - CDNA3 ALU emulator exists (~4000+ lines in `amd/emu/cdna3/`)
 - V5 HSACO loading works (V2/V3 header detection bug fixed in PR #10)
 - **22 benchmarks pass** with `-arch=cdna3 -verify`:
@@ -22,6 +22,7 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
   - **Deferred (1)**: aes (non-deterministic output after 4 cycles investigation)
 - **Remaining DNN**: xor (page faults), lenet, minerva, vgg16 (missing datasets)
 - **Suite coverage**: SHOC (6/6), PolyBench (2/2), Rodinia (1/1), AMD APP SDK (6/6), HeteroMark (3/4), DNN (3/7+)
+- **GPU perf scripts**: 22 standalone HIP benchmark programs in `gpu_perf_scripts/` (PR #18 merged)
 - Dual-arch pattern established: each benchmark embeds both GCN3 and gfx942 HSACOs
 - Docker-based HIP compilation workflow established
 - All 22 working benchmarks maintain GCN3 backward compatibility
@@ -34,7 +35,7 @@ Support byte-level correct emulation of a wide range of gfx942 HIP kernels acros
 - Branches consolidated: all PRs merged, clean main branch
 - CI: All 30 checks pass (Compile, Lint, Unit Test, Disassembler, GCN3/CDNA3 Emulation, Timing, Multi-GPU)
 - **DNN benchmarks** (conv2d, im2col, lenet, minerva, vgg16, xor) use gputensor abstraction layer — separate category, requires converting 7+ shared OpenCL kernels to HIP
-- **Human request**: Generate GPU performance measurement scripts (issue #131) — for after emulation is complete
+- **Human request (issue #131)**: ✅ COMPLETE — GPU performance measurement scripts generated (M7)
 
 ## Milestones
 
@@ -281,15 +282,17 @@ Merging these unlocks 11-12 working benchmarks (vs 10 on main) and prevents futu
 
 ### M7: Generate GPU performance measurement scripts
 **Budget**: 4 cycles  
-**Status**: In progress  
-**Scope**: Create standalone HIP programs and shell scripts for running all 22 CDNA3 benchmarks on real AMD GPUs (gfx942/MI300A). Each benchmark needs:
-1. A standalone HIP C++ program that runs the kernel with representative inputs
-2. Built-in timing using HIP events (hipEventElapsedTime)
-3. Multiple iterations (configurable, default 10) with average/min/max reporting
-4. CSV output for easy analysis
-5. A master script that builds and runs all benchmarks, collects results
+**Status**: ✅ COMPLETE (3 cycles used, PR #18 merged, Apollo verified)
+**Scope**: Create standalone HIP programs and shell scripts for running all 22 CDNA3 benchmarks on real AMD GPUs (gfx942/MI300A).
 
-Human request: tbc-db issue #131. This prepares the next stage of timing simulation accuracy validation.
+**Result**: All 22 standalone HIP benchmark programs created in `gpu_perf_scripts/` with:
+- `bench_common.h` — timing infrastructure (HIP events, warmup, CSV output)
+- `build_all.sh` — compiles all with `hipcc --offload-arch=gfx942`
+- `run_all.sh` — runs all benchmarks, collects `results.csv`
+- `README.md` — prerequisites, usage, output format documentation
+- Problem sizes verified against emulator test sizes (cases.go)
+
+Human request: tbc-db issue #131 (closed). This prepares the next stage of timing simulation accuracy validation.
 
 ### M8: Expand remaining coverage (AES, Parboil, additional suites)
 **Budget**: 10 cycles  
