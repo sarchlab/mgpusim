@@ -14,7 +14,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// KernelArgs defines kernel arguments
+// KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
 	Pos                 driver.Ptr
 	Vel                 driver.Ptr
@@ -27,6 +27,33 @@ type KernelArgs struct {
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
+}
+
+// CDNA3KernelArgs defines kernel arguments for CDNA3 native kernel
+type CDNA3KernelArgs struct {
+	Pos                 driver.Ptr
+	Vel                 driver.Ptr
+	NumBodies           int32
+	DeltaTime           float32
+	EpsSqr              float32
+	Pad0                uint32 // padding to 8-byte alignment
+	LocalPos            driver.Ptr
+	NewPosition         driver.Ptr
+	NewVelocity         driver.Ptr
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Pad1                [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
 }
 
 // Benchmark defines a benchmark
@@ -59,6 +86,7 @@ type Benchmark struct {
 	dVel             *driver.Ptr
 	dNewPos          *driver.Ptr
 	dNewVel          *driver.Ptr
+	localPosMem      driver.Ptr // CDNA3: global memory for localPos
 }
 
 // NewBenchmark returns a benchmark
@@ -152,6 +180,13 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.currPos, b.pos)
 	b.driver.MemCopyH2D(b.context, b.currVel, b.vel)
 
+	if b.Arch == arch.CDNA3 {
+		// CDNA3 native kernel uses global memory instead of LDS for localPos
+		// Allocate same size as position buffer (numBodies * float4)
+		b.localPosMem = b.driver.AllocateMemory(b.context,
+			uint64(b.numBodies)*4*4)
+	}
+
 	b.dPos = &b.currPos
 	b.dVel = &b.currVel
 	b.dNewPos = &b.newPos
@@ -163,25 +198,55 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
-		args := KernelArgs{
-			Pos:                 *b.dPos,
-			Vel:                 *b.dVel,
-			NumBodies:           b.numBodies,
-			DeltaTime:           b.delT,
-			EpsSqr:              b.espSqr,
-			LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
-			NewPosition:         *b.dNewPos,
-			NewVelocity:         *b.dNewVel,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
+		if b.Arch == arch.CDNA3 {
+			args := CDNA3KernelArgs{
+				Pos:               *b.dPos,
+				Vel:               *b.dVel,
+				NumBodies:         b.numBodies,
+				DeltaTime:         b.delT,
+				EpsSqr:            b.espSqr,
+				LocalPos:          b.localPosMem,
+				NewPosition:       *b.dNewPos,
+				NewVelocity:       *b.dNewVel,
+				HiddenBlockCountX: uint32(b.numBodies) / uint32(b.groupSize),
+				HiddenBlockCountY: 1,
+				HiddenBlockCountZ: 1,
+				HiddenGroupSizeX:  uint16(b.groupSize),
+				HiddenGroupSizeY:  1,
+				HiddenGroupSizeZ:  1,
+				HiddenRemainderX:  uint16(uint32(b.numBodies) % uint32(b.groupSize)),
+				HiddenRemainderY:  0,
+				HiddenRemainderZ:  0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      1,
+			}
+			b.driver.LaunchKernel(b.context,
+				b.nbodyKernel,
+				globalSize, localSize,
+				&args,
+			)
+		} else {
+			args := KernelArgs{
+				Pos:                 *b.dPos,
+				Vel:                 *b.dVel,
+				NumBodies:           b.numBodies,
+				DeltaTime:           b.delT,
+				EpsSqr:              b.espSqr,
+				LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
+				NewPosition:         *b.dNewPos,
+				NewVelocity:         *b.dNewVel,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+			}
+			b.driver.LaunchKernel(b.context,
+				b.nbodyKernel,
+				globalSize, localSize,
+				&args,
+			)
 		}
-
-		b.driver.LaunchKernel(b.context,
-			b.nbodyKernel,
-			globalSize, localSize,
-			&args,
-		)
 
 		b.dPos, b.dNewPos = b.dNewPos, b.dPos
 		b.dVel, b.dNewVel = b.dNewVel, b.dVel

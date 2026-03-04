@@ -444,6 +444,7 @@ func (u *ALU) runVFMAAKF32(state emu.InstEmuState) {
 
 func (u *ALU) runVADDI32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 	for i := uint(0); i < 64; i++ {
 		if !emu.LaneMasked(sp.EXEC, i) {
 			continue
@@ -460,6 +461,7 @@ func (u *ALU) runVADDI32(state emu.InstEmuState) {
 
 func (u *ALU) runVSUBI32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !emu.LaneMasked(sp.EXEC, i) {
@@ -477,6 +479,7 @@ func (u *ALU) runVSUBI32(state emu.InstEmuState) {
 
 func (u *ALU) runVSUBREVI32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !emu.LaneMasked(sp.EXEC, i) {
