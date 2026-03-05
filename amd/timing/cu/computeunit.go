@@ -462,6 +462,7 @@ func (cu *ComputeUnit) wrapWG(
 
 	for _, rawWf := range req.WorkGroup.Wavefronts {
 		wf := wavefront.NewWavefront(rawWf)
+		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
 		wg.Wfs = append(wg.Wfs, wf)
 		wf.WG = wg
 		wf.SetPID(req.PID)
@@ -669,13 +670,13 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 // UpdatePCAndSetReady is self explained
 func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
 	wf.State = wavefront.WfReady
-	wf.PC += uint64(wf.Inst().ByteSize)
+	wf.SetPC(wf.PC() + uint64(wf.Inst().ByteSize))
 	cu.removeStaleInstBuffer(wf)
 }
 
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
 	if len(wf.InstBuffer) != 0 {
-		for wf.PC >= wf.InstBufferStartPC+64 {
+		for wf.PC() >= wf.InstBufferStartPC+64 {
 			wf.InstBuffer = wf.InstBuffer[64:]
 			wf.InstBufferStartPC += 64
 		}

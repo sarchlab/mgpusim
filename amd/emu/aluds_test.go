@@ -17,8 +17,7 @@ var _ = Describe("ALU", func() {
 		alu = NewALU(nil)
 		alu.lds = make([]byte, 4096)
 
-		state = new(mockInstState)
-		state.scratchpad = make([]byte, 4096)
+		state = newMockInstState()
 	})
 
 	It("should run DS_WRITE_B32", func() {

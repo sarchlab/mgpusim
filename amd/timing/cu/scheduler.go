@@ -84,7 +84,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
 			if len(wf.InstBuffer) == 0 {
-				wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+				wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 				continue
 			}
 
@@ -101,7 +101,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			}
 
 			inst, err := s.cu.Decoder.Decode(
-				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
+				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
 				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
@@ -113,7 +113,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 }
 
 func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 4
+	return len(wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]) >= 4
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
@@ -126,7 +126,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 		wf := wfs[0]
 
 		if len(wf.InstBuffer) == 0 {
-			wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+			wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0

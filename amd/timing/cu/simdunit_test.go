@@ -57,7 +57,7 @@ var _ = Describe("SIMD Unit", func() {
 		wave.InstBufferStartPC = 0x100
 		wave.SetDynamicInst(inst)
 
-		wave.PC = 0x13C
+		wave.SetPC(0x13C)
 
 		wave.State = wavefront.WfRunning
 
@@ -67,7 +67,7 @@ var _ = Describe("SIMD Unit", func() {
 		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.PC).To(Equal(uint64(0x140)))
+		Expect(wave.PC()).To(Equal(uint64(0x140)))
 
 		Expect(bu.toExec).To(BeNil())
 		Expect(bu.cycleLeft).To(Equal(0))
@@ -90,7 +90,7 @@ var _ = Describe("SIMD Unit", func() {
 		wave.InstBuffer = make([]byte, 256)
 		wave.InstBufferStartPC = 0x100
 		wave.SetDynamicInst(inst)
-		wave.PC = 0x13C
+		wave.SetPC(0x13C)
 
 		wave.State = wavefront.WfRunning
 

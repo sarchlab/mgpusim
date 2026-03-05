@@ -63,6 +63,6 @@ var _ = Describe("WfDispatcher", func() {
 		Expect(wf.VRegOffset).To(Equal(16))
 		Expect(wf.SRegOffset).To(Equal(8))
 		Expect(wf.LDSOffset).To(Equal(512))
-		Expect(wf.PC).To(Equal(uint64(65536 + 256)))
+		Expect(wf.PC()).To(Equal(uint64(65536 + 256)))
 	})
 })

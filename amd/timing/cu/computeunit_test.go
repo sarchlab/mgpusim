@@ -214,7 +214,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf = new(wavefront.Wavefront)
 			inst := wavefront.NewInst(nil)
 			wf.SetDynamicInst(inst)
-			wf.PC = 0x1000
+			wf.SetPC(0x1000)
 
 			req := mem.ReadReqBuilder{}.
 				WithSrc(cu.ToInstMem.AsRemote()).
@@ -254,7 +254,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(0x1000)))
+			Expect(wf.PC()).To(Equal(uint64(0x1000)))
 			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
 			Expect(madeProgress).To(BeTrue())
