@@ -73,27 +73,14 @@ func (p *ScratchpadPreparerImpl) prepareSOP1(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-	layout := scratchPad.AsSOP1()
-
-	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
-	layout.SCC = wf.SCC()
-	layout.EXEC = wf.EXEC()
+	// SOP1 instructions now read directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareSOP2(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-	layout := scratchPad.AsSOP2()
-
-	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
-	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
-
-	layout.SCC = wf.SCC()
+	// SOP2 instructions now read directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP1(
@@ -231,6 +218,8 @@ func (p *ScratchpadPreparerImpl) prepareSMEM(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
+	// In timing mode, SMEM uses the scratchpad for Base/Offset to create
+	// memory read requests (not through alu.Run). Keep scratchpad preparation.
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
@@ -246,38 +235,21 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-	layout := scratchPad.AsSOPP()
-
-	layout.PC = wf.PC()
-	layout.SCC = wf.SCC()
-	layout.EXEC = wf.EXEC()
-	layout.VCC = wf.VCC()
-	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
+	// SOPP instructions now read directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareSOPK(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-	layout := scratchPad.AsSOPK()
-	layout.SCC = wf.SCC()
-	p.readOperand(inst.Dst, wf, 0, scratchPad[0:8])
-	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
+	// SOPK instructions now read directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareSOPC(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-
-	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
-	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
+	// SOPC instructions now read directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareDS(
@@ -354,24 +326,14 @@ func (p *ScratchpadPreparerImpl) commitSOP1(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	layout := scratchpad.AsSOP1()
-
-	p.writeOperand(inst.Dst, wf, 0, scratchpad[8:16])
-	wf.SetEXEC(layout.EXEC)
-	wf.SetSCC(layout.SCC)
+	// SOP1 instructions now write directly via WriteOperand/SetSCC/SetEXEC.
 }
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	layout := scratchpad.AsSOP2()
-	p.writeOperand(inst.Dst, wf, 0, scratchpad[16:24])
-	wf.SetSCC(layout.SCC)
+	// SOP2 instructions now write directly via WriteOperand/SetSCC.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP1(
@@ -500,38 +462,29 @@ func (p *ScratchpadPreparerImpl) commitSMEM(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-
-	if inst.Opcode <= 12 { // Load instructions
-		p.writeOperand(inst.Data, wf, 0, scratchpad[32:96])
-	}
+	// SMEM in timing mode is handled by memory response handlers,
+	// not through scratchpad commit.
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPK(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	p.writeOperand(inst.Dst, wf, 0, scratchpad[0:8])
-	wf.SetSCC(scratchpad.AsSOPK().SCC)
+	// SOPK instructions now write directly via WriteOperand/SetSCC.
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPC(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	scratchpad := instEmuState.Scratchpad()
-	wf.SetSCC(scratchpad.AsSOPC().SCC)
+	// SOPC instructions now write directly via SetSCC.
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPP(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	scratchpad := instEmuState.Scratchpad()
-	wf.SetPC(scratchpad.AsSOPP().PC)
+	// SOPP instructions now write directly via SetPC.
 }
 
 func (p *ScratchpadPreparerImpl) commitDS(

@@ -1,8 +1,6 @@
 package cu
 
 import (
-	"bytes"
-	"encoding/binary"
 	"log"
 
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
@@ -47,10 +45,11 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
-		sp := wf.Scratchpad().AsSOP1()
-		Expect(sp.SRC0).To(Equal(uint64(517)))
-		Expect(sp.EXEC).To(Equal(uint64(0xffffffff00000000)))
-		Expect(sp.SCC).To(Equal(byte(1)))
+		// SOP1 instructions now use ReadOperand directly; scratchpad is not used.
+		layout := wf.Scratchpad().AsSOP1()
+		Expect(layout.SRC0).To(Equal(uint64(0)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.SCC).To(Equal(byte(0)))
 	})
 
 	It("should prepare for SOP2", func() {
@@ -61,17 +60,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
-		//wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
 		wf.SetSCC(1)
 
 		sp.Prepare(wf, wf)
 
+		// SOP2 instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsSOP2()
-		binary.Read(bytes.NewBuffer(wf.Scratchpad()), binary.LittleEndian, layout)
-		Expect(layout.SRC0).To(Equal(uint64(517)))
-		Expect(layout.SRC1).To(Equal(uint64(1)))
-		Expect(layout.SCC).To(Equal(byte(1)))
-
+		Expect(layout.SRC0).To(Equal(uint64(0)))
+		Expect(layout.SRC1).To(Equal(uint64(0)))
+		Expect(layout.SCC).To(Equal(byte(0)))
 	})
 
 	It("should prepare for VOP1", func() {
@@ -274,11 +271,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
+		// SOPP instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsSOPP()
-		Expect(layout.EXEC).To(Equal(uint64(0x0f)))
-		Expect(layout.IMM).To(Equal(uint64(1)))
-		Expect(layout.PC).To(Equal(uint64(160)))
-		Expect(layout.SCC).To(Equal(byte(1)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.IMM).To(Equal(uint64(0)))
+		Expect(layout.PC).To(Equal(uint64(0)))
+		Expect(layout.SCC).To(Equal(byte(0)))
 	})
 
 	It("should prepare for SOPK", func() {
@@ -292,10 +290,11 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
+		// SOPK instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsSOPK()
-		Expect(layout.DST).To(Equal(uint64(100)))
-		Expect(layout.IMM).To(Equal(uint64(1)))
-		Expect(layout.SCC).To(Equal(byte(1)))
+		Expect(layout.DST).To(Equal(uint64(0)))
+		Expect(layout.IMM).To(Equal(uint64(0)))
+		Expect(layout.SCC).To(Equal(byte(0)))
 	})
 
 	It("should prepare for SOPC", func() {
@@ -308,9 +307,10 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
+		// SOPC instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsSOPC()
-		Expect(layout.SRC0).To(Equal(uint64(100)))
-		Expect(layout.SRC1).To(Equal(uint64(64)))
+		Expect(layout.SRC0).To(Equal(uint64(0)))
+		Expect(layout.SRC1).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for DS", func() {
@@ -351,10 +351,10 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		layout := wf.Scratchpad().AsSOP1()
-		layout.DST = 517
-		layout.EXEC = 0xffffffff00000000
-		layout.SCC = 1
+		// SOP1 commit is now a no-op; instructions write directly.
+		wf.SetSCC(1)
+		wf.SetEXEC(0xffffffff00000000)
+		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 
 		sp.Commit(wf, wf)
 
@@ -369,9 +369,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		layout := wf.Scratchpad().AsSOP2()
-		layout.DST = 517
-		layout.SCC = 1
+		// SOP2 commit is now a no-op; instructions write directly.
+		wf.SetSCC(1)
+		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 
 		sp.Commit(wf, wf)
 
@@ -560,9 +560,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 16)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		layout := wf.Scratchpad().AsSMEM()
+		// SMEM commit is now a no-op; data comes from memory response handlers.
 		for i := 0; i < 16; i++ {
-			layout.DST[i] = uint32(i)
+			sp.writeReg(insts.SReg(i), 1, wf, 0, insts.Uint32ToBytes(uint32(i)))
 		}
 
 		sp.Commit(wf, wf)
@@ -577,8 +577,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.SOPC
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		layout := wf.Scratchpad().AsSOPC()
-		layout.SCC = 1
+		// SOPC commit is now a no-op; instructions write directly.
+		wf.SetSCC(1)
 
 		sp.Commit(wf, wf)
 
@@ -591,9 +591,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		layout := wf.Scratchpad().AsSOPK()
-		layout.SCC = 1
-		layout.DST = 517
+		// SOPK commit is now a no-op; instructions write directly.
+		wf.SetSCC(1)
+		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 
 		sp.Commit(wf, wf)
 
@@ -605,10 +605,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPP
 		wf.SetDynamicInst(wavefront.NewInst(inst))
-		wf.SetPC(0)
 
-		layout := wf.Scratchpad().AsSOPP()
-		layout.PC = 164
+		// SOPP commit is now a no-op; instructions write directly.
+		wf.SetPC(164)
 
 		sp.Commit(wf, wf)
 

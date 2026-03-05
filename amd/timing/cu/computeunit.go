@@ -462,6 +462,7 @@ func (cu *ComputeUnit) wrapWG(
 
 	for _, rawWf := range req.WorkGroup.Wavefronts {
 		wf := wavefront.NewWavefront(rawWf)
+		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
 		wg.Wfs = append(wg.Wfs, wf)
 		wf.WG = wg
 		wf.SetPID(req.PID)
