@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
 func (u *ALU) runSMEM(state emu.InstEmuState) {
@@ -26,43 +25,53 @@ func (u *ALU) runSMEM(state emu.InstEmuState) {
 }
 
 func (u *ALU) runSLOADDWORD(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 4)
-	sp.DST[0] = insts.BytesToUint32(buf)
+
+	buf := u.storageAccessor.Read(pid, base+offset, 4)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALU) runSLOADDWORDX2(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
-	addr := sp.Base + sp.Offset
-	buf := u.storageAccessor.Read(pid, addr, 8)
-	copy(spRaw[32:40], buf)
+
+	buf := u.storageAccessor.Read(pid, base+offset, 8)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALU) runSLOADDWORDX4(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 16)
-	copy(spRaw[32:48], buf)
+
+	buf := u.storageAccessor.Read(pid, base+offset, 16)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALU) runSLOADDWORDX8(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 32)
-	copy(spRaw[32:64], buf)
+
+	buf := u.storageAccessor.Read(pid, base+offset, 32)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALU) runSLOADDWORDX16(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 64)
-	copy(spRaw[32:96], buf)
+
+	buf := u.storageAccessor.Read(pid, base+offset, 64)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 //nolint:gocyclo
