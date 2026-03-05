@@ -177,11 +177,11 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
-		// Flat instructions now use ReadOperand directly; scratchpad is not used.
+		// In timing mode, scratchpad is populated for the coalescer.
 		layout := wf.Scratchpad().AsFlat()
-		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 		for i := 0; i < 64; i++ {
-			Expect(layout.ADDR[i]).To(Equal(uint64(0)))
+			Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
 		}
 	})
 
@@ -283,11 +283,11 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
-		// DS instructions now use ReadOperand directly; scratchpad is not used.
+		// In timing mode, scratchpad is populated for DS operations.
 		layout := wf.Scratchpad().AsDS()
-		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 		for i := 0; i < 64; i++ {
-			Expect(layout.ADDR[i]).To(Equal(uint32(0)))
+			Expect(layout.ADDR[i]).To(Equal(uint32(i)))
 		}
 	})
 
@@ -469,7 +469,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		// Flat commit is now a no-op; instructions write directly.
+		// In timing mode, memory responses write to scratchpad DST.
+		// Commit writes DST back to registers.
 		layout := wf.Scratchpad().AsFlat()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -481,12 +482,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		// Scratchpad values should NOT be written to registers (no-op).
+		// Scratchpad values should be written to registers.
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(3), wf, i)).To(Equal(uint32(0)))
-			Expect(sp.readRegAsUint32(insts.VReg(4), wf, i)).To(Equal(uint32(0)))
-			Expect(sp.readRegAsUint32(insts.VReg(5), wf, i)).To(Equal(uint32(0)))
-			Expect(sp.readRegAsUint32(insts.VReg(6), wf, i)).To(Equal(uint32(0)))
+			Expect(sp.readRegAsUint32(insts.VReg(3), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(4), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(5), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(6), wf, i)).To(Equal(uint32(i)))
 		}
 	})
 
@@ -584,7 +585,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 2)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		// DS commit is now a no-op; instructions write directly.
+		// In timing mode, DS data is written to scratchpad DST.
+		// Commit writes DST back to registers.
 		layout := wf.Scratchpad().AsDS()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -594,10 +596,10 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		// Scratchpad values should NOT be written to registers (no-op).
+		// Scratchpad values should be written to registers.
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(0)))
-			Expect(sp.readRegAsUint32(insts.VReg(1), wf, i)).To(Equal(uint32(0)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(1), wf, i)).To(Equal(uint32(i + 1)))
 		}
 	})
 
