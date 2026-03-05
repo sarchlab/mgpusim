@@ -1,11 +1,7 @@
 package emu
 
 import (
-	"bytes"
-	"fmt"
 	"log"
-
-	"encoding/binary"
 
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -294,20 +290,4 @@ func (u *ALUImpl) sdwaDstSelect(
 	return value
 }
 
-func (u *ALUImpl) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
-	scratchpad := state.Scratchpad()
-	layout := new(SOP2Layout)
 
-	binary.Read(bytes.NewBuffer(scratchpad), binary.LittleEndian, layout)
-
-	output := fmt.Sprintf(
-		`
-			SRC0: 0x%[1]x(%[1]d),
-			SRC1: 0x%[2]x(%[2]d),
-			SCC: 0x%[3]x(%[3]d),
-			DST: 0x%[4]x(%[4]d)\n",
-		`,
-		layout.SRC0, layout.SRC1, layout.SCC, layout.DST)
-
-	return output
-}
