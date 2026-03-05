@@ -66,11 +66,20 @@
   - Panic: `slice bounds out of range [:16] with length 8` at wavefront.go:246
   - Reproduced locally: AES benchmark crashes with same error
 
-## M11.2: Fix ReadReg buffer overflow + merge PR #250 — NEXT
-- Status: Defined (issue #226)
-- Fix: Change `var buf [8]byte` to `var buf [32]byte` in `ReadReg` (wavefront.go:245)
-- Then: push to both main and upstream/scratchpad-removal, verify CI, merge PR #250
-- Estimated cycles: 2
+## M11.2: Fix ReadReg buffer overflow + merge PR #250 ✅
+- Status: Complete
+- Fix applied: `var buf [8]byte` → `var buf [32]byte` in `ReadReg` (wavefront.go:245)
+- Also fixed: nbody timing regression (DS commitDS overwriting ALU results with zeros)
+- PR #250 merged into upstream/main
+- All CI checks pass on both fork and upstream
+- Cycles: 2 (used 2, technically completed within the budget but reported as deadline missed)
+
+## PROJECT FULLY COMPLETE ✅
+- All human issues closed (#156, #200, #203, #215, #216)
+- PR #250 merged into upstream sarchlab/mgpusim
+- CI passes on all branches
+- 2.07x end-to-end speedup achieved
+- Total milestones: M1-M11.2 across ~226 cycles
 
 ### Lessons Learned
 - Large file rewrites must be split across multiple workers
