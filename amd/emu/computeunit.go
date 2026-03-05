@@ -38,6 +38,7 @@ type ComputeUnit struct {
 
 	ToDispatcher sim.Port
 
+	instCache         map[uint64]*insts.Inst
 	finishedMapWGReqs []string
 }
 
@@ -319,11 +320,16 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	}
 
 	for {
-		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC(), 8)
-
-		inst, err := cu.decoder.Decode(instBuf)
-		if err != nil {
-			log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", wf.PC(), err, instBuf)
+		pc := wf.PC()
+		inst, ok := cu.instCache[pc]
+		if !ok {
+			instBuf := cu.storageAccessor.Read(wf.pid, pc, 8)
+			var err error
+			inst, err = cu.decoder.Decode(instBuf)
+			if err != nil {
+				log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", pc, err, instBuf)
+			}
+			cu.instCache[pc] = inst
 		}
 		wf.inst = inst
 
@@ -427,6 +433,7 @@ func NewComputeUnit(
 
 	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
+	cu.instCache = make(map[uint64]*insts.Inst)
 
 	cu.ToDispatcher = sim.NewPort(cu, 1, 1, name+".ToDispatcher")
 
