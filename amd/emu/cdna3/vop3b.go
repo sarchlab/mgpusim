@@ -32,154 +32,171 @@ func (u *ALU) runVOP3B(state emu.InstEmuState) {
 }
 
 func (u *ALU) runVADDU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-		result := src0 + src1
-		sp.DST[i] = result & 0xFFFFFFFF
-		if result > 0xFFFFFFFF {
-			sp.SDST |= (1 << i)
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
+		sum := src0 + src1
+		state.WriteOperand(inst.Dst, i, sum&0xffffffff)
+		if sum > 0xffffffff {
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVSUBU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := uint32(sp.SRC0[i])
-		src1 := uint32(sp.SRC1[i])
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		result := src0 - src1
-		sp.DST[i] = uint64(result)
+		state.WriteOperand(inst.Dst, i, uint64(result))
 		if src1 > src0 {
-			sp.SDST |= (1 << i)
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVSUBREVU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := uint32(sp.SRC0[i])
-		src1 := uint32(sp.SRC1[i])
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		result := src1 - src0
-		sp.DST[i] = uint64(result)
+		state.WriteOperand(inst.Dst, i, uint64(result))
 		if src0 > src1 {
-			sp.SDST |= (1 << i)
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVADDCU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-		carry := (sp.SRC2[i] >> i) & 1
-		result := src0 + src1 + carry
-		sp.DST[i] = result & 0xFFFFFFFF
-		if result > 0xFFFFFFFF {
-			sp.SDST |= (1 << i)
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
+		src2 := state.ReadOperand(inst.Src2, i)
+		carry := (src2 >> uint(i)) & 1
+		sum := src0 + src1 + carry
+		state.WriteOperand(inst.Dst, i, sum&0xffffffff)
+		if sum > 0xffffffff {
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVSUBBU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-		borrow := (sp.SRC2[i] >> i) & 1
-		result := src0 - src1 - borrow
-		sp.DST[i] = result & 0xFFFFFFFF
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
+		src2 := state.ReadOperand(inst.Src2, i)
+		borrow := (src2 >> uint(i)) & 1
+		diff := src0 - src1 - borrow
+		state.WriteOperand(inst.Dst, i, diff&0xffffffff)
 		if src1+borrow > src0 {
-			sp.SDST |= (1 << i)
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVSUBBREVU32VOP3b(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-		borrow := (sp.SRC2[i] >> i) & 1
-		result := src1 - src0 - borrow
-		sp.DST[i] = result & 0xFFFFFFFF
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
+		src2 := state.ReadOperand(inst.Src2, i)
+		borrow := (src2 >> uint(i)) & 1
+		diff := src1 - src0 - borrow
+		state.WriteOperand(inst.Dst, i, diff&0xffffffff)
 		if src0+borrow > src1 {
-			sp.SDST |= (1 << i)
+			sdst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVDIVSCALEF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
-		src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		src2 := math.Float32frombits(uint32(state.ReadOperand(inst.Src2, i)))
 
 		// v_div_scale_f32: Part of software division sequence
 		// Simplified: Returns src0, sets VCC bit if quotient is denormal
 		dst := src0
-		sp.DST[i] = uint64(math.Float32bits(dst))
-		
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+
 		// Set SDST bit if result might be denormal (simplified check)
 		if src1 != 0 && src2 != 0 {
 			quotient := src0 / src2
 			bits := math.Float32bits(quotient)
 			exp := (bits >> 23) & 0xFF
 			if exp == 0 {
-				sp.SDST |= (1 << i)
+				sdst |= 1 << uint(i)
 			}
 		}
 	}
+	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
 func (u *ALU) runVDIVSCALEF64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3B()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float64frombits(sp.SRC0[i])
-		src1 := math.Float64frombits(sp.SRC1[i])
-		src2 := math.Float64frombits(sp.SRC2[i])
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		src2 := math.Float64frombits(state.ReadOperand(inst.Src2, i))
 
 		// Simplified implementation
 		dst := src0
 		if src1 != 0 && src2 != 0 {
 			dst = src0
 		}
-		sp.DST[i] = math.Float64bits(dst)
+		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
 }
