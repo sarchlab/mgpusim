@@ -15,10 +15,9 @@ type Wavefront struct {
 
 	pid vm.PID
 
-	Completed  bool
-	AtBarrier  bool
-	inst       *insts.Inst
-	scratchpad Scratchpad
+	Completed bool
+	AtBarrier bool
+	inst      *insts.Inst
 
 	pc       uint64
 	exec     uint64
@@ -37,7 +36,6 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 
 	wf.SRegFile = make([]byte, 4*102)
 	wf.VRegFile = make([]byte, 4*64*256)
-	wf.scratchpad = make([]byte, 4096)
 
 	return wf
 }
@@ -49,7 +47,7 @@ func (wf *Wavefront) Inst() *insts.Inst {
 
 // Scratchpad returns the scratchpad that is associated with the wavefront
 func (wf *Wavefront) Scratchpad() Scratchpad {
-	return wf.scratchpad
+	return nil
 }
 
 // PID returns pid

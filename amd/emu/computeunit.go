@@ -25,10 +25,9 @@ type emulationEvent struct {
 type ComputeUnit struct {
 	*sim.TickingComponent
 
-	decoder            Decoder
-	scratchpadPreparer ScratchpadPreparer
-	alu                ALU
-	storageAccessor    StorageAccessor
+	decoder         Decoder
+	alu             ALU
+	storageAccessor StorageAccessor
 
 	nextTick    sim.VTimeInSec
 	queueingWGs []*protocol.MapWGReq
@@ -359,9 +358,7 @@ func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
 }
 
 func (cu *ComputeUnit) executeInst(wf *Wavefront) {
-	cu.scratchpadPreparer.Prepare(wf, wf)
 	cu.alu.Run(wf)
-	cu.scratchpadPreparer.Commit(wf, wf)
 }
 
 func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
@@ -417,7 +414,6 @@ func NewComputeUnit(
 	name string,
 	engine sim.Engine,
 	decoder Decoder,
-	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
 	sAccessor StorageAccessor,
 ) *ComputeUnit {
@@ -426,7 +422,6 @@ func NewComputeUnit(
 		engine, 1*sim.GHz, cu)
 
 	cu.decoder = decoder
-	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
 	cu.storageAccessor = sAccessor
 
@@ -470,11 +465,9 @@ func BuildComputeUnitWithALU(
 	aluFactory ALUFactory,
 	isCDNA3 bool,
 ) *ComputeUnit {
-	scratchpadPreparer := NewScratchpadPreparerImpl(isCDNA3)
 	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
 	alu := aluFactory(sAccessor)
-	cu := NewComputeUnit(name, engine, decoder,
-		scratchpadPreparer, alu, sAccessor)
+	cu := NewComputeUnit(name, engine, decoder, alu, sAccessor)
 	return cu
 }
