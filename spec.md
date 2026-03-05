@@ -2,7 +2,7 @@
 
 ## What do you want to build
 
-Remove the scratchpad abstraction from the emulator to improve emulation performance, and eliminate remaining heap allocation bottlenecks in the hot path. The scratchpad has been fully removed. The instruction decode cache has been added. Now the focus is on eliminating unnecessary heap allocations in ReadReg, DS read operations, flat address computation, and other hot paths.
+Fix CI pipeline so all checks pass. The previous work (scratchpad removal, heap allocation elimination) is complete. The current CI failure is a `gocognit` lint violation in `amd/emu/wavefront.go` — the `ReadOperand` function has cognitive complexity 52 (max 30). This blocks PR #250 and all downstream CI jobs.
 
 ## How do you consider the project is success
 

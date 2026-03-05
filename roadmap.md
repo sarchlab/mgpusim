@@ -48,17 +48,24 @@
 - Independent evaluator (Alex) confirmed project completeness
 - Remaining optimizations (StorageAccessor.Read, logInst) deferred as diminishing returns
 
-## PROJECT COMPLETE ✅
+## PROJECT COMPLETE (Scratchpad Removal) ✅
 - All 10 milestones achieved across ~222 cycles
 - Human's request (issue #156) fully satisfied: scratchpad evaluated, removed, benchmarked
 
-## Future (deferred — diminishing returns)
-- StorageAccessor.Read buffer reuse (~500ns/inst for memory ops)
-- logInst hook short-circuit (~15ns/inst)
+---
 
-### Lessons Learned
+## M11: Fix CI lint failure (gocognit) — IN PROGRESS
+- Status: Planning
+- Issue: `ReadOperand` in `amd/emu/wavefront.go` has cognitive complexity 52 (max 30)
+- Root cause: The function grew during heap allocation optimization (M9) with many inline register-type checks
+- Fix approach: Refactor `ReadOperand` by extracting register-type handling into a helper function `readRegOperand`
+- Acceptance: CI passes on scratchpad-removal branch (Lint + all downstream jobs)
+- Estimated cycles: 2
+
+### Lessons Learned (continued)
 - Large file rewrites must be split across multiple workers
 - GCN3 regression wasn't caught by unit tests — need integration-level testing
 - Budget honestly: most milestones took ~50% more cycles than estimated
 - Making functions no-ops first, then removing later, is a safe two-phase approach
 - Iris's performance analysis was excellent — use dedicated analysis workers early
+- Always check lint locally before pushing — the gocognit violation was introduced during optimization and not caught
