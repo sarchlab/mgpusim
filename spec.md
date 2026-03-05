@@ -2,54 +2,46 @@
 
 ## What do you want to build?
 
-Add byte-level correct emulation support for AMD CDNA3 (gfx942) architecture to MGPUSim, enabling benchmarks from multiple suites (SHOC, PolyBench, Rodinia, Parboil, AMD APP SDK, HeteroMark, and others) to run on both GCN3 and CDNA3 architectures.
+Improve the emulation performance of MGPUSim by removing the scratchpad intermediary layer from the emulator's instruction execution pipeline.
 
-The system should support:
-- V5 HSACO code object format (gfx942)
-- Dual-architecture benchmarks (both GCN3 and CDNA3 HSACOs embedded)
-- CDNA3-specific instruction set (ALU, memory, control flow)
-- Proper kernel argument layout for V5 code objects
-- CUDA-to-HIP conversion where needed (manual or via hipify)
-- Go reference implementations for all benchmarks to enable result comparison
+Currently, the emulator uses a "scratchpad" — a flat byte buffer that acts as an intermediary between the wavefront's register files and the ALU. For every instruction:
+1. `ScratchpadPreparer.Prepare()` copies operand data from the wavefront's registers into the scratchpad
+2. `ALU.Run()` reads inputs from and writes outputs to the scratchpad (via typed layout structs like `VOP2Layout`)
+3. `ScratchpadPreparer.Commit()` copies results from the scratchpad back into the wavefront's registers
+
+The alternative design is to let the wavefront struct hold emulation register and LDS data directly, and have the ALU read/write register data through the wavefront interface — eliminating the copy-in/copy-out overhead entirely.
 
 ## How do you consider the project is successful?
 
-The project is successful when:
+1. **Scratchpad removed**: The `Scratchpad` type, scratchpad layout structs (`SOP1Layout`, `VOP2Layout`, etc.), and `ScratchpadPreparer` are no longer used in the emulation path. The ALU directly interfaces with the wavefront to read/write register data.
 
-1. **Broad benchmark coverage**: A wide range of benchmarks from multiple suites pass byte-level verification in CDNA3 mode with `-arch=cdna3 -verify`
+2. **Performance improvement**: Emulation benchmarks run faster than before the change. The overhead of clearing ~4KB, copying operands in, and copying results out on every instruction is eliminated.
 
-2. **No regressions**: All benchmarks continue to work correctly in GCN3 mode — dual-arch support must not break existing functionality
+3. **No regressions**: All 22 CDNA3 benchmarks and all GCN3 benchmarks continue to pass byte-level verification (`-verify` flag). All CI checks pass.
 
-3. **Clean implementation**: Code passes CI checks (lint, tests), follows project conventions, and is maintainable
+4. **Clean implementation**: Both GCN3 (`amd/emu/`) and CDNA3 (`amd/emu/cdna3/`) ALU implementations are updated. Code passes lint, unit tests, and integration tests.
 
-4. **CI validation**: Milestone acceptance tests are runnable in GitHub Actions CI so progress is continuously verifiable and regressions are caught automatically
-
-5. **Documented patterns**: Each new instruction type, memory addressing mode, or kernarg layout is documented so future benchmarks can follow the pattern
-
-6. **GPU performance measurement scripts**: Once emulation is complete, generate scripts for running kernels on real GPUs to measure actual hardware performance (averaging multiple runs). This prepares the next stage of implementing accurate timing simulation.
+5. **Benchmarked**: Before/after performance measurements demonstrate the improvement.
 
 ## Constraints
 
-- Must maintain backward compatibility with GCN3
-- Must follow existing project architecture and conventions
-- Must pass all CI checks (lint, unit tests, integration tests)
-- Must use Docker-based ROCm toolchain for HIP compilation
+- Must maintain backward compatibility with both GCN3 and CDNA3 architectures
+- Must pass all CI checks (lint, unit tests, integration tests, emulation tests)
 - Must have byte-level correct emulation (not approximate)
-- Prefer small, verifiable milestones (2-3 benchmarks) with explicit acceptance commands
-- Avoid long local full-suite runs; use focused local checks and CI for broader validation
-- Timing simulation is out of scope at this stage
+- The timing simulation path (`amd/timing/`) may also reference scratchpad — handle or preserve as needed
+- Incremental approach: refactor one instruction format at a time, verify, then proceed
 
 ## Resources
 
-- Docker with ROCm 7.1.1 for compiling HIP to gfx942 HSACO
-- Existing test infrastructure with 1000+ test cases in GitHub Actions CI
-- Existing GCN3 emulator as reference
-- AMD ISA documentation for CDNA3
-- Existing dual-arch pattern from M1 benchmarks
+- Existing emulator code: `amd/emu/` (GCN3) and `amd/emu/cdna3/` (CDNA3)
+- Scratchpad: `amd/emu/scratchpad.go`, `amd/emu/scratchpadpreparer.go`
+- Wavefront: `amd/emu/wavefront.go`
+- 22 CDNA3 benchmarks + GCN3 benchmarks for regression testing
+- CI with 30+ checks
 
 ## Notes
 
-- Focus on incremental progress: add benchmarks in small batches (2-3 at a time)
-- When benchmarks fail, investigate root cause before moving on
-- Budget time for "unknown unknowns" — new benchmarks often reveal missing instructions or addressing modes
-- Don't let technical debt accumulate — clean up branches before merging
+- The scratchpad provides a clean interface but adds significant overhead. Every instruction requires: (1) clearing 4096 bytes, (2) copying operands from register files to scratchpad, (3) ALU execution, (4) copying results back. Steps 1, 2, and 4 are pure overhead.
+- The wavefront already holds `SRegFile`, `VRegFile`, `LDS`, `VCC`, `EXEC`, `SCC`, `PC`, `M0` — all the data the ALU needs.
+- The `InstEmuState` interface currently exposes `Scratchpad()` — this interface will need to change or be replaced.
+- The timing simulation (`amd/timing/`) may use the scratchpad differently — investigate before removing.
