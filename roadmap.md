@@ -32,21 +32,22 @@
 - Scratchpad type moved to timing/wavefront, emu/scratchpad.go deleted
 - instCache map[uint64]*insts.Inst added to emu ComputeUnit
 
-## M9: Eliminate heap allocations in emulation hot path (NEXT)
-- Goal: Fix remaining performance bottlenecks identified by Iris
-- Scope:
-  1. **ReadReg**: Eliminate `make([]byte, numBytes)` allocation — read directly from register files and return uint64 or use fixed-size stack buffer
-  2. **ReadOperand padding**: Eliminate `make([]byte, 8)` on line 99 of wavefront.go — use `[8]byte` stack buffer
-  3. **DS reads**: Move `make([]byte, N)` outside lane loops in aluds.go and cdna3/ds.go — use stack-allocated `[16]byte`
-  4. **flatAddr**: Hoist scalar base read outside the lane loop in alu_flat.go and cdna3/flat.go
-  5. All tests pass
-  6. Benchmark showing allocation reduction
+## M9: Eliminate heap allocations in emulation hot path ✅
+- Status: Complete (verified by Apollo, merged to main)
+- Scope completed:
+  1. ✅ ReadReg: Stack buffer `[8]byte` replaces `make([]byte, numBytes)`
+  2. ✅ ReadOperand: Inlined register reads (VReg/SReg/SCC/VCC/EXEC/M0) return uint64 directly via binary.LittleEndian
+  3. ✅ DS reads: Stack-allocated buffers outside lane loops
+  4. ✅ flatAddr: Scalar base hoisted outside lane loop via flatPrecomputeScalarBase
 - Estimated cycles: 6
 
-## Future (after M9)
-- StorageAccessor.Read buffer reuse
-- logInst hook short-circuit
-- End-to-end benchmark comparison with original baseline
+## M10: Final evaluation and project completion (CURRENT)
+- Goal: Run final benchmarks, verify project completeness, close out
+- Evaluating whether remaining optimizations (StorageAccessor.Read, logInst) are worth pursuing or are diminishing returns
+
+## Future (deferred — diminishing returns)
+- StorageAccessor.Read buffer reuse (~500ns/inst for memory ops)
+- logInst hook short-circuit (~15ns/inst)
 
 ### Lessons Learned
 - Large file rewrites must be split across multiple workers
