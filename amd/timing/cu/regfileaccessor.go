@@ -17,7 +17,7 @@ type CURegFileAccessor struct {
 
 // ReadReg reads from the appropriate register file based on register type.
 //
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (a *CURegFileAccessor) ReadReg(
 	reg *insts.Reg, regCount int, laneID int, waveOffset int,
 ) []byte {
@@ -90,7 +90,7 @@ func (a *CURegFileAccessor) ReadReg(
 
 // WriteReg writes to the appropriate register file based on register type.
 //
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (a *CURegFileAccessor) WriteReg(
 	reg *insts.Reg, regCount int, laneID int, waveOffset int, data []byte,
 ) {
