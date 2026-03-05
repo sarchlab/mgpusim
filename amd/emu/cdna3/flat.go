@@ -5,7 +5,39 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
+
+// flatAddr computes the effective address for a flat/global instruction
+// for a given lane. It handles:
+//   - SAddr mode (scalar base + VGPR offset) vs OFF mode (VGPR pair as 64-bit addr)
+//   - Signed 13-bit immediate offset (Offset0)
+//
+// CDNA3 rules: SAddr is OFF only when value is 0x7F.
+func (u *ALU) flatAddr(state emu.InstEmuState, laneID int) uint64 {
+	inst := state.Inst()
+
+	// Read the VGPR address component
+	addr := state.ReadOperand(inst.Addr, laneID)
+
+	// Check if SAddr is a valid scalar base register (not OFF)
+	// CDNA3: SAddr=0x7F means OFF mode
+	if inst.SAddr != nil && inst.SAddr.IntValue != 0x7F {
+		// SAddr mode: addr = scalar_base + zero_extend(VGPR_32) + offset
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		scalarBase := state.ReadOperand(sAddrOperand, 0)
+		// VGPR is 32-bit in SAddr mode, zero-extend it
+		addr = scalarBase + (addr & 0xFFFFFFFF)
+	}
+
+	// Add signed immediate offset
+	if inst.Offset0 != 0 {
+		addr += uint64(int64(int32(inst.Offset0)))
+	}
+
+	return addr
+}
 
 //nolint:gocyclo
 func (u *ALU) runFlat(state emu.InstEmuState) {
@@ -46,7 +78,7 @@ func (u *ALU) runFlatLoadUByte(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 1)
 
 		result := make([]byte, 4)
@@ -65,7 +97,7 @@ func (u *ALU) runFlatLoadSByte(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 1)
 
 		signedByte := int8(buf[0])
@@ -85,7 +117,7 @@ func (u *ALU) runFlatLoadUShort(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 2)
 
 		result := make([]byte, 4)
@@ -105,7 +137,7 @@ func (u *ALU) runFlatLoadDWord(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 4)
 		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
@@ -121,7 +153,7 @@ func (u *ALU) runFlatLoadDWordX2(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 8)
 		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
@@ -137,7 +169,7 @@ func (u *ALU) runFlatLoadDWordX4(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		buf := u.storageAccessor.Read(pid, addr, 16)
 		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
@@ -153,7 +185,7 @@ func (u *ALU) runFlatStoreDWord(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		data := state.ReadOperandBytes(inst.Data, i, 4)
 		u.storageAccessor.Write(pid, addr, data)
 	}
@@ -169,7 +201,7 @@ func (u *ALU) runFlatStoreDWordX2(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		data := state.ReadOperandBytes(inst.Data, i, 8)
 		u.storageAccessor.Write(pid, addr, data)
 	}
@@ -185,7 +217,7 @@ func (u *ALU) runFlatStoreDWordX3(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		data := state.ReadOperandBytes(inst.Data, i, 12)
 		u.storageAccessor.Write(pid, addr, data)
 	}
@@ -201,7 +233,7 @@ func (u *ALU) runFlatStoreDWordX4(state emu.InstEmuState) {
 			continue
 		}
 
-		addr := state.ReadOperand(inst.Addr, i)
+		addr := u.flatAddr(state, i)
 		data := state.ReadOperandBytes(inst.Data, i, 16)
 		u.storageAccessor.Write(pid, addr, data)
 	}
