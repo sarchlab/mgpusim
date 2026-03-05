@@ -48,10 +48,9 @@ __global__ void kmeans_kernel_swap(float *feature,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NPOINTS   = 1024;
-    const int NFEATURES = 32;
-    const int NCLUSTERS = 5;
+    int NPOINTS   = parseIntParam(argc, argv, "--points",   1024);
+    int NFEATURES = parseIntParam(argc, argv, "--features", 32);
+    int NCLUSTERS = parseIntParam(argc, argv, "--clusters", 5);
 
     // Host allocations
     float* h_feature = (float*)malloc(NPOINTS * NFEATURES * sizeof(float));

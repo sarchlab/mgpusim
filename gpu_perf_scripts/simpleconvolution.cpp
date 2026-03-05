@@ -48,10 +48,9 @@ __global__ void simpleNonSeparableConvolution(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const unsigned int WIDTH     = 512;
-    const unsigned int HEIGHT    = 512;
-    const unsigned int MASK_SIZE = 3;
+    unsigned int WIDTH     = (unsigned int)parseIntParam(argc, argv, "--size", 512);
+    unsigned int HEIGHT    = WIDTH;
+    unsigned int MASK_SIZE = (unsigned int)parseIntParam(argc, argv, "--mask", 3);
     const unsigned int PAD_W     = MASK_SIZE - 1;  // 2
     const unsigned int PAD_H     = MASK_SIZE - 1;  // 2
     const unsigned int NE_WIDTH  = WIDTH + PAD_W;   // extended width

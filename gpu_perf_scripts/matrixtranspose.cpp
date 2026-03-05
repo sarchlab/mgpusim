@@ -68,8 +68,8 @@ __global__ void matrixTranspose(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int WIDTH = 1024;               // matrix dimension
+    // WIDTH must be a multiple of 64 (BLOCK_SIZE=16 * ELEMS_PER_THREAD_1D=4)
+    int WIDTH = parseIntParam(argc, argv, "--size", 1024);
     const int ELEMS_PER_THREAD_1D = 4;    // each thread handles 4x4 block
     const int BLOCK_SIZE = 16;            // work-group size per dim
 

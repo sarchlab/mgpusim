@@ -24,9 +24,9 @@ __global__ void fastWalshTransform(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const unsigned int LENGTH = 1024;
-    const unsigned int GLOBAL_THREADS = LENGTH / 2;  // 512 threads
+    // LENGTH must be a power of 2 and >= 512
+    unsigned int LENGTH = (unsigned int)parseIntParam(argc, argv, "--size", 1024);
+    const unsigned int GLOBAL_THREADS = LENGTH / 2;
     const unsigned int LOCAL_THREADS  = 256;
 
     // Host allocation

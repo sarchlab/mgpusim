@@ -108,10 +108,9 @@ __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    // Grid dimensions (logical, without halo)
-    const int ROWS = 512;
-    const int COLS = 512;
+    // ROWS and COLS must be multiples of 64 (LROWS=16, LOCAL_COLS=64)
+    int ROWS = parseIntParam(argc, argv, "--size", 512);
+    int COLS = ROWS;
     const int ALIGNMENT = 16;
 
     // Total dimensions including halo (1-wide border)

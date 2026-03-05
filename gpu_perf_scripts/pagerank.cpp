@@ -39,8 +39,8 @@ __global__ void PageRankUpdateGpu(unsigned int num_rows,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NUM_NODES  = 64;
+    // NUM_NODES must be a multiple of 64 (WARP_SIZE used in kernel)
+    int NUM_NODES  = parseIntParam(argc, argv, "--nodes", 64);
     const float SPARSITY = 0.5f;
     const int PR_ITERS   = 2;   // PageRank iterations per benchmark invocation
 
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NUM_NODES; i++) {
         int nnz_row = 0;
         for (int j = 0; j < NUM_NODES; j++) {
-            float r = (float)rand() / RAND_MAX;
+            float r = (float)rand() / (float)RAND_MAX;
             if (r < SPARSITY) {
                 h_col.push_back((unsigned int)j);
                 nnz_row++;

@@ -12,8 +12,7 @@ __global__ void ReLUForward(const int count, float* in, float* out) {
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int COUNT = 65536;
+    int COUNT = parseIntParam(argc, argv, "--size", 65536);
 
     // Host allocation
     float* h_in = (float*)malloc(COUNT * sizeof(float));

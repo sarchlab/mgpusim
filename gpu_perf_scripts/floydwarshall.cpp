@@ -27,9 +27,9 @@ __global__ void floydWarshallPass(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const unsigned int NUM_NODES = 256;
-    const unsigned int MATRIX_SIZE = NUM_NODES * NUM_NODES;
+    // NUM_NODES must be a multiple of BLOCK_SIZE (8)
+    unsigned int NUM_NODES = (unsigned int)parseIntParam(argc, argv, "--nodes", 256);
+    unsigned int MATRIX_SIZE = NUM_NODES * NUM_NODES;
     const unsigned int BLOCK_SIZE = 8;
 
     // Host allocations

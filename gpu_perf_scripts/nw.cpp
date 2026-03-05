@@ -171,8 +171,8 @@ extern "C" __global__ void nw_kernel2(
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int LENGTH = 64;
+    // LENGTH must be a multiple of BLOCK_SIZE (64)
+    int LENGTH = parseIntParam(argc, argv, "--size", 64);
     const int BLOCK_SIZE = 64;
     const int PENALTY = 10;
 

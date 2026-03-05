@@ -85,9 +85,8 @@ void generateGraph(int numNodes, int avgDegree,
 
 int main(int argc, char** argv) {
     int iterations = parseIterations(argc, argv);
-
-    const int NUM_NODES = 1024;
-    const int AVG_DEGREE = 6;
+    int NUM_NODES  = parseIntParam(argc, argv, "--nodes",  1024);
+    int AVG_DEGREE = parseIntParam(argc, argv, "--degree", 6);
     const int W_SZ = 32;      // warp size for BFS kernel
     const int CHUNK_SZ = 32;  // vertices per warp
 

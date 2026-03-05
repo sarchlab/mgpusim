@@ -54,6 +54,20 @@ inline int parseIterations(int argc, char** argv) {
 }
 
 // ---------------------------------------------------------------------------
+// Parse --name N from argv (returns defaultVal if not found)
+// ---------------------------------------------------------------------------
+inline int parseIntParam(int argc, char** argv, const char* name, int defaultVal) {
+    for (int i = 1; i < argc - 1; ++i) {
+        if (strcmp(argv[i], name) == 0) {
+            int v = atoi(argv[i + 1]);
+            if (v > 0) return v;
+            break;
+        }
+    }
+    return defaultVal;
+}
+
+// ---------------------------------------------------------------------------
 // CSV output helpers
 // ---------------------------------------------------------------------------
 inline void printCSVHeader() {
@@ -78,8 +92,8 @@ struct BenchmarkTimer {
     }
 
     ~BenchmarkTimer() {
-        hipEventDestroy(start);
-        hipEventDestroy(stop);
+        (void)hipEventDestroy(start);
+        (void)hipEventDestroy(stop);
     }
 
     void record_start(hipStream_t stream = 0) {
