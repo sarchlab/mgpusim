@@ -2,7 +2,6 @@ package emu
 
 import (
 	"log"
-	"math"
 
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -89,113 +88,40 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
-	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.VCC], 1, 0))
-
-	offset := 528
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[offset:offset+8])
-		offset += 8
-	}
+	// VOP1 instructions now read directly via ReadOperand/EXEC/VCC.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP2(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
-	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.VCC], 1, 0))
-
-	if inst.Src2 != nil {
-		p.readOperand(inst.Src2, wf, 0, sp[1552:1560])
-	}
-
-	dstOffset := 8
-	src0Offset := 528
-	src1Offset := 1040
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Dst, wf, i, sp[dstOffset:dstOffset+8])
-		dstOffset += 8
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-	}
+	// VOP2 instructions now read directly via ReadOperand/EXEC/VCC.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3a(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
-	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.VCC], 1, 0))
-
-	src0Offset := 528
-	src1Offset := 1040
-	src2Offset := 1552
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-		if inst.Src2 != nil {
-			p.readOperand(inst.Src2, wf, i, sp[src2Offset:src2Offset+8])
-			src2Offset += 8
-		}
-	}
+	// VOP3A instructions now read directly via ReadOperand/EXEC/VCC.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3b(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
-	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.VCC], 1, 0))
-
-	src0Offset := 528
-	src1Offset := 1040
-	src2Offset := 1552
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-		if inst.Src2 != nil {
-			p.readOperand(inst.Src2, wf, i, sp[src2Offset:src2Offset+8])
-			src2Offset += 8
-		}
-	}
+	// VOP3B instructions now read directly via ReadOperand/EXEC/VCC.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOPC(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	src0Offset := 16
-	src1Offset := 16 + 64*8
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-	}
-
-	layout := sp.AsVOPC()
-	layout.EXEC = wf.EXEC()
+	// VOPC instructions now read directly via ReadOperand/EXEC.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareFlat(
@@ -305,105 +231,40 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	exec := scratchpad.AsVOP1().EXEC
-
-	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-	}
+	// VOP1 instructions now write directly via WriteOperand/SetVCC.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP2(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	exec := scratchpad.AsVOP2().EXEC
-
-	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
-
-	for i := 0; i < 64; i++ {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-	}
+	// VOP2 instructions now write directly via WriteOperand/SetVCC.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP3a(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	if inst.Opcode <= 255 {
-		p.commitVOP3aCmp(instEmuState, wf)
-		return
-	}
-
-	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
-
-	exec := sp.AsVOP3A().EXEC
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
-	}
-}
-
-func (p *ScratchpadPreparerImpl) commitVOP3aCmp(
-	instEmuState InstEmuState,
-	wf *Wavefront,
-) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	p.writeOperand(inst.Dst, wf, 0, sp[8:16])
+	// VOP3A instructions now write directly via WriteOperand/SetVCC.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP3b(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP3B()
-
-	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
-	exec := layout.EXEC
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
-	}
-	p.writeOperand(inst.SDst, wf, 0, insts.Uint64ToBytes(layout.SDST))
+	// VOP3B instructions now write directly via WriteOperand/SetVCC.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOPC(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	sp := instEmuState.Scratchpad().AsVOPC()
-	wf.SetVCC(sp.VCC)
-	wf.SetEXEC(sp.EXEC)
+	// VOPC instructions now write directly via SetVCC.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitFlat(
@@ -452,39 +313,6 @@ func (p *ScratchpadPreparerImpl) commitDS(
 ) {
 	// DS instructions now write results directly via WriteOperand.
 	// No scratchpad commit needed.
-}
-
-func (p *ScratchpadPreparerImpl) readOperand(
-	operand *insts.Operand,
-	wf *Wavefront,
-	laneID int,
-	buf []byte,
-) {
-	switch operand.OperandType {
-	case insts.RegOperand:
-		copy(buf, wf.ReadReg(operand.Register, operand.RegCount, laneID))
-	case insts.IntOperand:
-		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
-	case insts.FloatOperand:
-		copy(buf, insts.Uint64ToBytes(uint64(math.Float32bits(float32(operand.FloatValue)))))
-	case insts.LiteralConstant:
-		copy(buf, insts.Uint32ToBytes(operand.LiteralConstant))
-	default:
-		log.Panicf("Operand %s is not supported", operand.String())
-	}
-}
-
-func (p *ScratchpadPreparerImpl) writeOperand(
-	operand *insts.Operand,
-	wf *Wavefront,
-	laneID int,
-	buf []byte,
-) {
-	if operand.OperandType != insts.RegOperand {
-		log.Panic("Can only write into reg operand")
-	}
-
-	wf.WriteReg(operand.Register, operand.RegCount, laneID, buf)
 }
 
 func (p *ScratchpadPreparerImpl) clear(buf []byte) {
