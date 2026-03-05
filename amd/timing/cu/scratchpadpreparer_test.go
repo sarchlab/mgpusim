@@ -283,12 +283,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Prepare(wf, wf)
 
-		// In timing mode, scratchpad is populated for DS operations.
+		// DS instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsDS()
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
-		for i := 0; i < 64; i++ {
-			Expect(layout.ADDR[i]).To(Equal(uint32(i)))
-		}
+		Expect(layout.EXEC).To(Equal(uint64(0)))
 	})
 
 	It("should commit for SOP1", func() {
@@ -585,21 +582,19 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 2)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		// In timing mode, DS data is written to scratchpad DST.
-		// Commit writes DST back to registers.
-		layout := wf.Scratchpad().AsDS()
-		layout.EXEC = 0xffffffffffffffff
+		// DS commit is now a no-op; ALU writes directly via WriteOperand.
+		// Set some register values and verify they are NOT overwritten by commit.
 		for i := 0; i < 64; i++ {
-			layout.DST[i*4] = uint32(i)
-			layout.DST[i*4+1] = uint32(i + 1)
+			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i+100)))
+			sp.writeReg(insts.VReg(1), 1, wf, i, insts.Uint32ToBytes(uint32(i+200)))
 		}
 
 		sp.Commit(wf, wf)
 
-		// Scratchpad values should be written to registers.
+		// Register values should be preserved (not overwritten by scratchpad).
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
-			Expect(sp.readRegAsUint32(insts.VReg(1), wf, i)).To(Equal(uint32(i + 1)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i + 100)))
+			Expect(sp.readRegAsUint32(insts.VReg(1), wf, i)).To(Equal(uint32(i + 200)))
 		}
 	})
 
