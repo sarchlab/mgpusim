@@ -2,54 +2,38 @@
 
 ## What do you want to build?
 
-Add byte-level correct emulation support for AMD CDNA3 (gfx942) architecture to MGPUSim, enabling benchmarks from multiple suites (SHOC, PolyBench, Rodinia, Parboil, AMD APP SDK, HeteroMark, and others) to run on both GCN3 and CDNA3 architectures.
+Improve MGPUSim emulation performance by removing the scratchpad intermediary pattern from instruction execution. The scratchpad is a 4096-byte buffer that copies register operands before ALU execution and copies results back afterward. Profiling shows **88.5% of emulation time is scratchpad overhead** (Prepare + Commit), with only 11.5% doing actual computation.
 
-The system should support:
-- V5 HSACO code object format (gfx942)
-- Dual-architecture benchmarks (both GCN3 and CDNA3 HSACOs embedded)
-- CDNA3-specific instruction set (ALU, memory, control flow)
-- Proper kernel argument layout for V5 code objects
-- CUDA-to-HIP conversion where needed (manual or via hipify)
-- Go reference implementations for all benchmarks to enable result comparison
+The replacement design uses a `ReadOperand`/`WriteOperand` interface on `InstEmuState`, allowing ALU implementations to read and write wavefront registers directly without the intermediate copy.
 
 ## How do you consider the project is successful?
 
-The project is successful when:
-
-1. **Broad benchmark coverage**: A wide range of benchmarks from multiple suites pass byte-level verification in CDNA3 mode with `-arch=cdna3 -verify`
-
-2. **No regressions**: All benchmarks continue to work correctly in GCN3 mode — dual-arch support must not break existing functionality
-
-3. **Clean implementation**: Code passes CI checks (lint, tests), follows project conventions, and is maintainable
-
-4. **CI validation**: Milestone acceptance tests are runnable in GitHub Actions CI so progress is continuously verifiable and regressions are caught automatically
-
-5. **Documented patterns**: Each new instruction type, memory addressing mode, or kernarg layout is documented so future benchmarks can follow the pattern
-
-6. **GPU performance measurement scripts**: Once emulation is complete, generate scripts for running kernels on real GPUs to measure actual hardware performance (averaging multiple runs). This prepares the next stage of implementing accurate timing simulation.
+1. **All instruction formats migrated**: SOP1, SOP2, SOPC, SOPK, SOPP, SMEM, VOP1, VOP2, VOP3A, VOP3B, VOPC, FLAT, DS — all use ReadOperand/WriteOperand instead of scratchpad
+2. **Scratchpad removed**: The `Scratchpad()` method, scratchpad layout structs, and `ScratchpadPreparer` code are fully removed
+3. **No regressions**: All CI checks pass (lint, unit tests, emulation tests, timing tests, determinism tests, multi-GPU tests)
+4. **Measurable speedup**: Emulation benchmarks show significant performance improvement (target: 3-5x faster)
+5. **Clean implementation**: Code is maintainable, follows project conventions, passes lint
 
 ## Constraints
 
-- Must maintain backward compatibility with GCN3
-- Must follow existing project architecture and conventions
-- Must pass all CI checks (lint, unit tests, integration tests)
-- Must use Docker-based ROCm toolchain for HIP compilation
-- Must have byte-level correct emulation (not approximate)
-- Prefer small, verifiable milestones (2-3 benchmarks) with explicit acceptance commands
-- Avoid long local full-suite runs; use focused local checks and CI for broader validation
-- Timing simulation is out of scope at this stage
+- Must maintain backward compatibility with both GCN3 and CDNA3 architectures
+- Must keep timing simulation working (timing wavefront uses CURegFileAccessor)
+- Migrate incrementally — keep `Scratchpad()` until all formats are migrated, then remove
+- Must pass all CI checks at each milestone
+- Prefer small, verifiable milestones (one instruction format family per milestone)
 
 ## Resources
 
-- Docker with ROCm 7.1.1 for compiling HIP to gfx942 HSACO
-- Existing test infrastructure with 1000+ test cases in GitHub Actions CI
-- Existing GCN3 emulator as reference
-- AMD ISA documentation for CDNA3
-- Existing dual-arch pattern from M1 benchmarks
+- Existing `ReadOperand`/`WriteOperand` interface already implemented (M2 complete)
+- All scalar instructions (SOP1/SOP2/SOPC/SOPK/SOPP/SMEM) already migrated
+- Devon's scratchpad usage map: full inventory of all 471+ call sites
+- Morgan's performance baseline: detailed profiling data for before/after comparison
+- Kai's design proposal: architecture for the replacement
 
 ## Notes
 
-- Focus on incremental progress: add benchmarks in small batches (2-3 at a time)
-- When benchmarks fail, investigate root cause before moving on
-- Budget time for "unknown unknowns" — new benchmarks often reveal missing instructions or addressing modes
-- Don't let technical debt accumulate — clean up branches before merging
+- Scalar instructions (M2) demonstrated the pattern works — same approach for vector/memory
+- Vector instructions have 64 lanes, so ReadOperand/WriteOperand must handle per-lane access
+- FLAT and DS instructions interact with memory (storageAccessor) — migration must preserve this
+- Timing path has 5 non-ALU scratchpad consumers (coalescer, scalar unit) that need special handling
+- The `clear()` call alone (zeroing 4096 bytes) accounts for 27.6% of instruction execution time
