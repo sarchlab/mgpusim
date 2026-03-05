@@ -167,6 +167,11 @@ func (wf *Wavefront) ReadOperand(operand *insts.Operand, laneID int) uint64 {
 			waveOffset = wf.VRegOffset
 		}
 		buf := wf.RegAccessor.ReadReg(operand.Register, operand.RegCount, laneID, waveOffset)
+		if len(buf) < 8 {
+			padded := make([]byte, 8)
+			copy(padded, buf)
+			buf = padded
+		}
 		return insts.BytesToUint64(buf)
 	case insts.IntOperand:
 		return uint64(operand.IntValue)
