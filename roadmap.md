@@ -21,19 +21,30 @@
 - Status: Complete (commit ebc4e7eb on gfx942_emu)
 - Root cause: emu scratchpadpreparer Commit functions were overwriting correct register values with stale scratchpad data
 - Fix: Made all VOP Prepare/Commit functions no-ops in emu scratchpadpreparer
-- gputensor tests pass, all emu/cdna3 tests pass
 
-## M6: Performance benchmarking and final cleanup (next)
-- Status: Pending
-- Goal: Benchmark emulation performance before vs. after scratchpad removal
-- Compare gfx942_emu (after) against the pre-migration baseline (main branch, commit 6d36b99d)
-- Use gputensor operator tests and/or emu unit tests as benchmark targets
-- Write Go benchmark functions if needed
-- Report results (expected: meaningful speedup from avoiding scratchpad copy overhead)
-- Estimated cycles: 6
+## M6: Performance benchmarking ✅
+- Status: Complete (commit e8767713 on gfx942_emu)
+- Benchmark results: 2x speedup for vector instruction Prepare/Commit, 13.5% end-to-end
+- Microbenchmarks and end-to-end results documented in docs/benchmark_results.md
+- Zero heap allocations achieved in Prepare/Commit path
+
+## M7: Fully remove emu scratchpad + performance optimization (NEXT)
+- Status: Defining
+- Goal: Per human issue #200 — fully remove scratchpad prepare/commit from emu package, investigate and fix additional performance bottlenecks
+- Scope:
+  1. Remove emu ScratchpadPreparer (entire file `amd/emu/scratchpadpreparer.go`)
+  2. Remove Prepare/Commit calls from `executeInst` in `amd/emu/computeunit.go`
+  3. Remove scratchpad field from emu Wavefront (save 4KB per wavefront)
+  4. Move scratchpad.go layout types to timing package (only timing uses them)
+  5. Handle InstEmuState interface: either keep Scratchpad() for timing compatibility or restructure
+  6. Investigate other emulation performance bottlenecks (e.g., instruction decode, memory access patterns)
+  7. Run benchmarks to verify improvement
+- Estimated cycles: 8
+- Risk: Interface changes may have wide-reaching effects on timing package
 
 ### Lessons Learned
 - Large file rewrites must be split across multiple workers
 - GCN3 regression wasn't caught by unit tests — need integration-level testing
-- The emu scratchpadpreparer Prepare/Commit still gets called (just does nothing) — full removal could yield more gains
 - Budget honestly: most milestones took ~50% more cycles than estimated
+- Making functions no-ops first, then removing later, is a safe two-phase approach
+- Benchmarking should be done early — it builds confidence and provides data for decisions
