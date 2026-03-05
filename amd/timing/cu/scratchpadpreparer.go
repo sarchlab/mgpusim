@@ -121,16 +121,7 @@ func (p *ScratchpadPreparerImpl) prepareVOPC(
 func (p *ScratchpadPreparerImpl) prepareFlat(
 	instEmuState emu.InstEmuState, wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsFlat()
-
-	layout.EXEC = wf.EXEC()
-
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
-		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
-	}
+	// Flat instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareSMEM(
@@ -175,30 +166,7 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsDS()
-
-	layout.EXEC = wf.EXEC()
-
-	offset := 8
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[offset+i*4:offset+i*4+4])
-	}
-
-	if inst.Data != nil {
-		offset = 8 + 64*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
-
-	if inst.Data1 != nil {
-		offset = 8 + 64*4 + 256*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data1, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now read operands directly via ReadOperand.
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -294,18 +262,7 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	exec := scratchpad.AsFlat().EXEC
-
-	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
-		for i := 0; i < 64; i++ {
-			if !laneMasked(exec, uint(i)) {
-				continue
-			}
-			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
-		}
-	}
+	// Flat instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitSMEM(
@@ -341,19 +298,7 @@ func (p *ScratchpadPreparerImpl) commitDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	exec := sp.AsDS().EXEC
-
-	if inst.Dst != nil {
-		offset := 8 + 64*4 + 256*4*2
-		for i := 0; i < 64; i++ {
-			if !laneMasked(exec, uint(i)) {
-				continue
-			}
-			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(
@@ -431,19 +376,6 @@ func (p *ScratchpadPreparerImpl) readReg(
 	} else {
 		log.Panicf("Unsupported register read %s\n", reg.Name)
 	}
-}
-
-func (p *ScratchpadPreparerImpl) writeOperand(
-	operand *insts.Operand,
-	wf *wavefront.Wavefront,
-	laneID int,
-	buf []byte,
-) {
-	if operand.OperandType != insts.RegOperand {
-		log.Panic("Can only write into reg operand")
-	}
-
-	p.writeReg(operand.Register, operand.RegCount, wf, laneID, buf)
 }
 
 //nolint:gocyclo
