@@ -87,116 +87,35 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP1()
-
-	layout.EXEC = wf.EXEC()
-	layout.VCC = wf.VCC()
-
-	offset := 528
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[offset:offset+8])
-		offset += 8
-	}
+	// VOP1 instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP2(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP2()
-
-	layout.EXEC = wf.EXEC()
-	layout.VCC = wf.VCC()
-	if inst.Src2 != nil {
-		p.readOperand(inst.Src2, wf, 0, sp[1552:1560])
-	}
-	dstOffset := 8
-	src0Offset := 528
-	src1Offset := 1040
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Dst, wf, i, sp[dstOffset:dstOffset+8])
-		dstOffset += 8
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-	}
+	// VOP2 instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3a(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP3A()
-
-	layout.EXEC = wf.EXEC()
-	layout.VCC = wf.VCC()
-
-	src0Offset := 528
-	src1Offset := 1040
-	src2Offset := 1552
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-		if inst.Src2 != nil {
-			p.readOperand(inst.Src2, wf, i, sp[src2Offset:src2Offset+8])
-			src2Offset += 8
-		}
-	}
+	// VOP3a instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3b(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP3B()
-
-	layout.EXEC = wf.EXEC()
-	layout.VCC = wf.VCC()
-
-	src0Offset := 528
-	src1Offset := 1040
-	src2Offset := 1552
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-		if inst.Src2 != nil {
-			p.readOperand(inst.Src2, wf, i, sp[src2Offset:src2Offset+8])
-			src2Offset += 8
-		}
-	}
+	// VOP3b instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOPC(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	src0Offset := 16
-	src1Offset := 16 + 64*8
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
-		src0Offset += 8
-		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
-		src1Offset += 8
-	}
-
-	layout := sp.AsVOPC()
-	layout.EXEC = wf.EXEC()
+	// VOPC instructions now read operands directly via ReadOperand.
 }
 
 func (p *ScratchpadPreparerImpl) prepareFlat(
@@ -340,104 +259,35 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	layout := scratchpad.AsVOP1()
-	exec := layout.EXEC
-	wf.SetVCC(layout.VCC)
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-	}
+	// VOP1 instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP2(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	layout := scratchpad.AsVOP2()
-	exec := layout.EXEC
-	wf.SetVCC(layout.VCC)
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-	}
+	// VOP2 instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP3a(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-
-	if inst.Opcode <= 255 {
-		p.commitVOP3aCmp(instEmuState, wf)
-		return
-	}
-
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP3A()
-	exec := layout.EXEC
-	wf.SetVCC(layout.VCC)
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
-	}
-}
-
-func (p *ScratchpadPreparerImpl) commitVOP3aCmp(
-	instEmuState emu.InstEmuState,
-	wf *wavefront.Wavefront,
-) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	p.writeOperand(inst.Dst, wf, 0, sp[8:16])
+	// VOP3a instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP3b(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsVOP3B()
-	exec := layout.EXEC
-	wf.SetVCC(layout.VCC)
-	// wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
-
-	for i := 63; i >= 0; i-- {
-		if !laneMasked(exec, uint(i)) {
-			continue
-		}
-
-		offset := 8 + i*8
-		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
-	}
-	p.writeOperand(inst.SDst, wf, 0, insts.Uint64ToBytes(layout.SDST))
+	// VOP3b instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitVOPC(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	sp := instEmuState.Scratchpad().AsVOPC()
-	wf.SetVCC(sp.VCC)
-	wf.SetEXEC(sp.EXEC)
+	// VOPC instructions now write results directly via WriteOperand.
 }
 
 func (p *ScratchpadPreparerImpl) commitFlat(
