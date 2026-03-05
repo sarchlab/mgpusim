@@ -28,19 +28,22 @@
 - Microbenchmarks and end-to-end results documented in docs/benchmark_results.md
 - Zero heap allocations achieved in Prepare/Commit path
 
-## M7: Fully remove emu scratchpad + performance optimization (NEXT)
-- Status: Defining
-- Goal: Per human issue #200 — fully remove scratchpad prepare/commit from emu package, investigate and fix additional performance bottlenecks
+## M7: Remove emu scratchpadpreparer.go ✅ (Partial)
+- Status: Partial — scratchpadpreparer.go deleted, Prepare/Commit calls removed from computeunit.go
+- Remaining: scratchpad.go still in amd/emu/ (types needed by timing)
+
+## M8: Delete scratchpad.go from emu + add instruction decode cache (NEXT)
+- Goal: Complete issue #200 (move scratchpad types to timing, delete emu/scratchpad.go) AND implement issue #203 (decoded instruction table indexed by PC)
 - Scope:
-  1. Remove emu ScratchpadPreparer (entire file `amd/emu/scratchpadpreparer.go`)
-  2. Remove Prepare/Commit calls from `executeInst` in `amd/emu/computeunit.go`
-  3. Remove scratchpad field from emu Wavefront (save 4KB per wavefront)
-  4. Move scratchpad.go layout types to timing package (only timing uses them)
-  5. Handle InstEmuState interface: either keep Scratchpad() for timing compatibility or restructure
-  6. Investigate other emulation performance bottlenecks (e.g., instruction decode, memory access patterns)
-  7. Run benchmarks to verify improvement
-- Estimated cycles: 8
-- Risk: Interface changes may have wide-reaching effects on timing package
+  1. Move Scratchpad type + all layout structs from `amd/emu/scratchpad.go` to `amd/timing/cu/` (or a shared sub-package)
+  2. Update all timing imports to use the new location
+  3. Remove `Scratchpad()` from `InstEmuState` interface in `amd/emu/inst.go` (or split interface)
+  4. Delete `amd/emu/scratchpad.go`
+  5. Clean up test mocks that reference Scratchpad
+  6. Implement decoded instruction cache: map[uint64]*insts.Inst in the decoder or compute unit
+  7. In `runWfUntilBarrier`, check cache by PC before calling Decode
+  8. All tests pass
+- Estimated cycles: 6
 
 ### Lessons Learned
 - Large file rewrites must be split across multiple workers
@@ -48,3 +51,4 @@
 - Budget honestly: most milestones took ~50% more cycles than estimated
 - Making functions no-ops first, then removing later, is a safe two-phase approach
 - Benchmarking should be done early — it builds confidence and provides data for decisions
+- scratchpadpreparer.go was successfully deleted in M7 with no issues — the remaining scratchpad.go deletion is blocked by timing imports
