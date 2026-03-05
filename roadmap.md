@@ -54,13 +54,20 @@
 
 ---
 
-## M11: Fix CI lint failure (gocognit) — IN PROGRESS
+## M11: Fix CI lint failure (gocognit) — FAILED (3/3 cycles used)
+- Status: Code fix complete, but CI verification incomplete
+- Issue: `ReadOperand` cognitive complexity 52 → fixed by extracting `readRegOperand` helper
+- Code is on main and passes all CI (run 22722972753 — Lint success)
+- PR #250 CI was stale (ran on pre-fix commit e10826ba, not the fixed code)
+- Apollo flagged funlen violation but main CI passed — false positive from local check
+- Estimated cycles: 2, Actual cycles: 3 (failed due to CI retrigger issues, not code)
+
+## M11.1: Verify CI passes on PR #250 and merge — NEXT
 - Status: Planning
-- Issue: `ReadOperand` in `amd/emu/wavefront.go` has cognitive complexity 52 (max 30)
-- Root cause: The function grew during heap allocation optimization (M9) with many inline register-type checks
-- Fix approach: Refactor `ReadOperand` by extracting register-type handling into a helper function `readRegOperand`
-- Acceptance: CI passes on scratchpad-removal branch (Lint + all downstream jobs)
-- Estimated cycles: 2
+- The code fix is already on main and scratchpad-removal (identical `wavefront.go`)
+- New CI run triggered (run 22733965555 on SHA 7f7d5a7b)
+- Need: Wait for CI to pass, verify all checks green, merge PR #250
+- Estimated cycles: 1
 
 ### Lessons Learned (continued)
 - Large file rewrites must be split across multiple workers
@@ -69,3 +76,6 @@
 - Making functions no-ops first, then removing later, is a safe two-phase approach
 - Iris's performance analysis was excellent — use dedicated analysis workers early
 - Always check lint locally before pushing — the gocognit violation was introduced during optimization and not caught
+- **NEW: Don't trust local lint checks over CI results — CI on main passed, local check was wrong about funlen**
+- **NEW: GitHub Actions sometimes doesn't trigger on push — always verify CI runs were created for the right SHA**
+- **NEW: When code is on main and passing CI, the PR branch just needs a retrigger, not more code changes**
