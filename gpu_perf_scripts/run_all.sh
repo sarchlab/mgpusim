@@ -60,12 +60,11 @@ run_bench() {
     for args in "$@"; do
         echo "[RUN]  ${name} ${args}"
         # shellcheck disable=SC2086
+        exit_code=0
         if [ "${TIMEOUT}" -gt 0 ]; then
-            output=$(timeout "${TIMEOUT}" ./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1)
-            exit_code=$?
+            output=$(timeout "${TIMEOUT}" ./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1) || exit_code=$?
         else
-            output=$(./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1)
-            exit_code=$?
+            output=$(./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1) || exit_code=$?
         fi
         if [ ${exit_code} -eq 0 ]; then
             echo "$output" | grep -v '^kernel_name' >> "$OUTPUT"
