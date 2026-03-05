@@ -19,8 +19,10 @@
 #       the CLI size parameters are active.
 #
 # Usage:
-#   ./run_all.sh                    # 10 iterations per size
-#   ./run_all.sh --iterations 5     # 5 iterations per size
+#   ./run_all.sh                          # 10 iterations, 120s timeout
+#   ./run_all.sh --iterations 5           # 5 iterations per size
+#   ./run_all.sh --timeout 60             # kill any run exceeding 60s
+#   ./run_all.sh --timeout 0              # disable timeout
 #   ./run_all.sh --output out.csv
 
 set -euo pipefail
@@ -30,11 +32,13 @@ cd "$SCRIPT_DIR"
 
 ITERATIONS=10
 OUTPUT="results.csv"
+TIMEOUT=120   # seconds per benchmark run; 0 = no timeout
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --iterations) ITERATIONS="$2"; shift 2 ;;
         --output)     OUTPUT="$2";     shift 2 ;;
+        --timeout)    TIMEOUT="$2";    shift 2 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -44,6 +48,7 @@ echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "$OUTPUT"
 pass=0
 fail=0
 skip=0
+timed_out=0
 
 run_bench() {
     local name="$1"; shift
@@ -55,11 +60,21 @@ run_bench() {
     for args in "$@"; do
         echo "[RUN]  ${name} ${args}"
         # shellcheck disable=SC2086
-        if output=$(./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1); then
+        if [ "${TIMEOUT}" -gt 0 ]; then
+            output=$(timeout "${TIMEOUT}" ./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1)
+            exit_code=$?
+        else
+            output=$(./"${name}" --iterations "${ITERATIONS}" ${args} 2>&1)
+            exit_code=$?
+        fi
+        if [ ${exit_code} -eq 0 ]; then
             echo "$output" | grep -v '^kernel_name' >> "$OUTPUT"
             pass=$((pass + 1))
+        elif [ ${exit_code} -eq 124 ]; then
+            echo "[TIMEOUT] ${name} ${args} (>${TIMEOUT}s)"
+            timed_out=$((timed_out + 1))
         else
-            echo "[FAIL] ${name} ${args}"
+            echo "[FAIL] ${name} ${args} (exit ${exit_code})"
             fail=$((fail + 1))
         fi
     done
@@ -523,5 +538,5 @@ for i2c_size in 8 16 32 64 128 256 512 1024; do
 done
 
 echo ""
-echo "Run summary: ${pass} passed, ${fail} failed, ${skip} skipped"
+echo "Run summary: ${pass} passed, ${fail} failed, ${timed_out} timed out, ${skip} skipped"
 echo "Results written to: ${OUTPUT}"
