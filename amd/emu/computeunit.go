@@ -472,7 +472,6 @@ func BuildComputeUnitWithALU(
 	aluFactory ALUFactory,
 	isCDNA3 bool,
 ) *ComputeUnit {
-
 	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
 	alu := aluFactory(sAccessor)
