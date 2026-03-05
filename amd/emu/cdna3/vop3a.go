@@ -8,7 +8,39 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/bitops"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
+
+func applyF32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
+	f := math.Float32frombits(uint32(val))
+	if inst.Abs&(1<<uint(srcIdx)) != 0 {
+		f = float32(math.Abs(float64(f)))
+	}
+	if inst.Neg&(1<<uint(srcIdx)) != 0 {
+		f = -f
+	}
+	return uint64(math.Float32bits(f))
+}
+
+func applyF64Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
+	f := math.Float64frombits(val)
+	if inst.Abs&(1<<uint(srcIdx)) != 0 {
+		f = math.Abs(f)
+	}
+	if inst.Neg&(1<<uint(srcIdx)) != 0 {
+		f = -f
+	}
+	return math.Float64bits(f)
+}
+
+func applyB32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
+	if inst.Neg&(1<<uint(srcIdx)) != 0 {
+		v := emu.AsInt32(uint32(val))
+		v = -v
+		return uint64(emu.Int32ToBits(v))
+	}
+	return val
+}
 
 //nolint:gocyclo,funlen
 func (u *ALU) runVOP3A(state emu.InstEmuState) {
@@ -298,169 +330,7 @@ func (u *ALU) runVLSHLADDU64(state emu.InstEmuState) {
 }
 
 func (u *ALU) vop3aPreprocess(state emu.InstEmuState) {
-	inst := state.Inst()
-
-	if inst.Abs != 0 {
-		u.vop3aPreProcessAbs(state)
-	}
-
-	if inst.Neg != 0 {
-		u.vop3aPreProcessNeg(state)
-	}
-}
-
-func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
-	inst := state.Inst()
-	sp := state.Scratchpad().AsVOP3A()
-
-	if strings.HasPrefix(inst.InstName, "v_pk_") {
-		return
-	}
-
-	if strings.Contains(inst.InstName, "F32") ||
-		strings.Contains(inst.InstName, "f32") {
-		if inst.Abs&0x1 != 0 {
-			for i := 0; i < 64; i++ {
-				src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-				src0 = float32(math.Abs(float64(src0)))
-				sp.SRC0[i] = uint64(math.Float32bits(src0))
-			}
-		}
-
-		if inst.Abs&0x2 != 0 {
-			for i := 0; i < 64; i++ {
-				src1 := math.Float32frombits(uint32(sp.SRC1[i]))
-				src1 = float32(math.Abs(float64(src1)))
-				sp.SRC1[i] = uint64(math.Float32bits(src1))
-			}
-		}
-
-		if inst.Abs&0x4 != 0 {
-			for i := 0; i < 64; i++ {
-				src2 := math.Float32frombits(uint32(sp.SRC2[i]))
-				src2 = float32(math.Abs(float64(src2)))
-				sp.SRC2[i] = uint64(math.Float32bits(src2))
-			}
-		}
-	} else if strings.Contains(inst.InstName, "U32") ||
-		strings.Contains(inst.InstName, "u32") ||
-		strings.Contains(inst.InstName, "I32") ||
-		strings.Contains(inst.InstName, "i32") ||
-		strings.Contains(inst.InstName, "U64") ||
-		strings.Contains(inst.InstName, "u64") ||
-		strings.Contains(inst.InstName, "I24") ||
-		strings.Contains(inst.InstName, "i24") {
-		// Integer instructions: abs modifier is not applicable (used as opsel or unused).
-		// The instruction still executes correctly without applying abs.
-	} else {
-		log.Printf("Absolute operation for %s is not implemented.", inst.InstName)
-	}
-}
-
-func (u *ALU) vop3aPreProcessNeg(state emu.InstEmuState) {
-	inst := state.Inst()
-
-	if strings.HasPrefix(inst.InstName, "v_pk_") {
-		return
-	}
-
-	if strings.Contains(inst.InstName, "F64") ||
-		strings.Contains(inst.InstName, "f64") {
-		u.vop3aPreProcessF64Neg(state)
-	} else if strings.Contains(inst.InstName, "F32") ||
-		strings.Contains(inst.InstName, "f32") {
-		u.vop3aPreProcessF32Neg(state)
-	} else if strings.Contains(inst.InstName, "B32") ||
-		strings.Contains(inst.InstName, "b32") {
-		u.vop3aPreProcessB32Neg(state)
-	} else {
-		log.Printf("Negative operation for %s is not implemented.", inst.InstName)
-	}
-}
-
-func (u *ALU) vop3aPreProcessF64Neg(state emu.InstEmuState) {
-	inst := state.Inst()
-	sp := state.Scratchpad().AsVOP3A()
-
-	if inst.Neg&0x1 != 0 {
-		for i := 0; i < 64; i++ {
-			src0 := math.Float64frombits(sp.SRC0[i])
-			src0 = src0 * (-1.0)
-			sp.SRC0[i] = math.Float64bits(src0)
-		}
-	}
-
-	if inst.Neg&0x2 != 0 {
-		for i := 0; i < 64; i++ {
-			src1 := math.Float64frombits(sp.SRC1[i])
-			src1 = src1 * (-1.0)
-			sp.SRC1[i] = math.Float64bits(src1)
-		}
-	}
-
-	if inst.Neg&0x4 != 0 {
-		for i := 0; i < 64; i++ {
-			src2 := math.Float64frombits(sp.SRC2[i])
-			src2 = src2 * (-1.0)
-			sp.SRC2[i] = math.Float64bits(src2)
-		}
-	}
-}
-
-func (u *ALU) vop3aPreProcessF32Neg(state emu.InstEmuState) {
-	inst := state.Inst()
-	sp := state.Scratchpad().AsVOP3A()
-	if inst.Neg&0x1 != 0 {
-		for i := 0; i < 64; i++ {
-			src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-			src0 = src0 * (-1.0)
-			sp.SRC0[i] = uint64(math.Float32bits(src0))
-		}
-	}
-
-	if inst.Neg&0x2 != 0 {
-		for i := 0; i < 64; i++ {
-			src1 := math.Float32frombits(uint32(sp.SRC1[i]))
-			src1 = src1 * (-1.0)
-			sp.SRC1[i] = uint64(math.Float32bits(src1))
-		}
-	}
-
-	if inst.Neg&0x4 != 0 {
-		for i := 0; i < 64; i++ {
-			src2 := math.Float32frombits(uint32(sp.SRC2[i]))
-			src2 = src2 * (-1.0)
-			sp.SRC2[i] = uint64(math.Float32bits(src2))
-		}
-	}
-}
-
-func (u *ALU) vop3aPreProcessB32Neg(state emu.InstEmuState) {
-	inst := state.Inst()
-	sp := state.Scratchpad().AsVOP3A()
-	if inst.Neg&0x1 != 0 {
-		for i := 0; i < 64; i++ {
-			src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-			src0 = src0 * (-1.0)
-			sp.SRC0[i] = uint64(emu.Int32ToBits(src0))
-		}
-	}
-
-	if inst.Neg&0x2 != 0 {
-		for i := 0; i < 64; i++ {
-			src1 := emu.AsInt32(uint32(sp.SRC1[i]))
-			src1 = src1 * (-1.0)
-			sp.SRC1[i] = uint64(emu.Int32ToBits(src1))
-		}
-	}
-
-	if inst.Neg&0x4 != 0 {
-		for i := 0; i < 64; i++ {
-			src2 := emu.AsInt32(uint32(sp.SRC2[i]))
-			src2 = src2 * (-1.0)
-			sp.SRC2[i] = uint64(emu.Int32ToBits(src2))
-		}
-	}
+	// Abs/neg modifiers are now applied inline via helper functions.
 }
 
 func (u *ALU) vop3aPostprocess(state emu.InstEmuState) {
@@ -476,51 +346,54 @@ func (u *ALU) vop3aPostprocess(state emu.InstEmuState) {
 }
 
 func (u *ALU) runVCmpLtF32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	var i uint
-	var src0, src1 float32
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		if src0 < src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpGtF32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	var i uint
-	var src0, src1 float32
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		if src0 > src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLeF32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	var i uint
-	var src0, src1 float32
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		if src0 <= src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func matchesF32Class(src0 float32, classMask uint32) bool {
@@ -555,232 +428,224 @@ func matchesF32Class(src0 float32, classMask uint32) bool {
 }
 
 func (u *ALU) runVCmpClassF32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		classMask := uint32(sp.SRC1[i])
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		classMask := uint32(state.ReadOperand(inst.Src1, i))
 		if matchesF32Class(src0, classMask) {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpNltF32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	var i uint
-	var src0, src1 float32
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		if !(src0 < src1) {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLtI32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
-
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 < src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLeI32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
-
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 <= src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpGtI32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
-
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 > src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpGEI32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
-
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 >= src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLtU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		if src0 < src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpEqU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
-		if uint32(src0) == uint32(src1) {
-			sp.DST[0] |= (1 << i)
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
+		if src0 == src1 {
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLeU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		if src0 <= src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpGtU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		if src0 > src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLgU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		if src0 != src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpGeU32VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		if src0 >= src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCmpLtU64VOP3a(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0 := sp.SRC0[i]
-		src1 := sp.SRC1[i]
-
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
 		if src0 < src1 {
-			sp.DST[0] |= (1 << i)
+			dst |= 1 << uint(i)
 		}
 	}
+	state.WriteOperand(inst.Dst, 0, dst)
 }
 
 func (u *ALU) runVCNDMASKB32VOP3a(state emu.InstEmuState) {
