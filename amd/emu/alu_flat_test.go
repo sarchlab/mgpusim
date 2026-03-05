@@ -36,8 +36,7 @@ var _ = Describe("ALU", func() {
 		sAccessor = NewStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
-		state = new(mockInstState)
-		state.scratchpad = make([]byte, 4096)
+		state = newMockInstState()
 	})
 
 	AfterEach(func() {

@@ -12,10 +12,20 @@ import (
 type mockInstState struct {
 	inst       *insts.Inst
 	scratchpad Scratchpad
+	sRegFile   []byte // 102 scalar registers * 4 bytes each
+	vRegFile   []byte // 256 vector registers * 4 bytes * 64 lanes
 	exec       uint64
 	vcc        uint64
 	scc        byte
 	pc         uint64
+}
+
+func newMockInstState() *mockInstState {
+	s := new(mockInstState)
+	s.scratchpad = make([]byte, 4096)
+	s.sRegFile = make([]byte, 102*4)
+	s.vRegFile = make([]byte, 256*4*64)
+	return s
 }
 
 func (s *mockInstState) PID() vm.PID {
@@ -30,20 +40,120 @@ func (s *mockInstState) Scratchpad() Scratchpad {
 	return s.scratchpad
 }
 
+func (s *mockInstState) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
+	numBytes := reg.ByteSize
+	if regCount >= 2 {
+		numBytes *= regCount
+	}
+	value := make([]byte, numBytes)
+	if reg.IsSReg() {
+		offset := reg.RegIndex() * 4
+		copy(value, s.sRegFile[offset:offset+numBytes])
+	} else if reg.IsVReg() {
+		offset := laneID*256*4 + reg.RegIndex()*4
+		copy(value, s.vRegFile[offset:offset+numBytes])
+	} else if reg.RegType == insts.SCC {
+		value[0] = s.scc
+	} else if reg.RegType == insts.VCCLO && regCount == 2 {
+		copy(value, insts.Uint64ToBytes(s.vcc))
+	} else if reg.RegType == insts.VCCLO && regCount <= 1 {
+		copy(value, insts.Uint32ToBytes(uint32(s.vcc)))
+	} else if reg.RegType == insts.VCCHI && regCount <= 1 {
+		copy(value, insts.Uint32ToBytes(uint32(s.vcc>>32)))
+	} else if reg.RegType == insts.VCC {
+		copy(value, insts.Uint64ToBytes(s.vcc))
+	} else if reg.RegType == insts.EXEC || reg.RegType == insts.EXECLO {
+		if numBytes >= 8 {
+			copy(value, insts.Uint64ToBytes(s.exec))
+		} else {
+			copy(value, insts.Uint32ToBytes(uint32(s.exec)))
+		}
+	} else if reg.RegType == insts.EXECHI {
+		copy(value, insts.Uint32ToBytes(uint32(s.exec>>32)))
+	}
+	return value
+}
+
+func (s *mockInstState) WriteReg(reg *insts.Reg, regCount int, laneID int, data []byte) {
+	if reg.IsSReg() {
+		offset := reg.RegIndex() * 4
+		copy(s.sRegFile[offset:], data)
+	} else if reg.IsVReg() {
+		offset := laneID*256*4 + reg.RegIndex()*4
+		copy(s.vRegFile[offset:], data)
+	} else if reg.RegType == insts.SCC {
+		s.scc = data[0]
+	} else if reg.RegType == insts.VCC || reg.RegType == insts.VCCLO {
+		if len(data) >= 8 {
+			s.vcc = insts.BytesToUint64(data)
+		} else {
+			s.vcc = (s.vcc & 0xFFFFFFFF00000000) | uint64(insts.BytesToUint32(data))
+		}
+	} else if reg.RegType == insts.VCCHI {
+		s.vcc = (s.vcc & 0x00000000FFFFFFFF) | (uint64(insts.BytesToUint32(data)) << 32)
+	} else if reg.RegType == insts.EXEC || reg.RegType == insts.EXECLO {
+		if len(data) >= 8 {
+			s.exec = insts.BytesToUint64(data)
+		} else {
+			s.exec = (s.exec & 0xFFFFFFFF00000000) | uint64(insts.BytesToUint32(data))
+		}
+	} else if reg.RegType == insts.EXECHI {
+		s.exec = (s.exec & 0x00000000FFFFFFFF) | (uint64(insts.BytesToUint32(data)) << 32)
+	}
+}
+
 func (s *mockInstState) ReadOperand(operand *insts.Operand, laneID int) uint64 {
-	panic("not implemented")
+	switch operand.OperandType {
+	case insts.RegOperand:
+		buf := s.ReadReg(operand.Register, operand.RegCount, laneID)
+		// Pad to 8 bytes for BytesToUint64
+		padded := make([]byte, 8)
+		copy(padded, buf)
+		return insts.BytesToUint64(padded)
+	case insts.IntOperand:
+		return uint64(operand.IntValue)
+	case insts.FloatOperand:
+		return uint64(operand.FloatValue)
+	case insts.LiteralConstant:
+		return uint64(operand.LiteralConstant)
+	default:
+		panic("unsupported operand type in mock")
+	}
 }
 
 func (s *mockInstState) WriteOperand(operand *insts.Operand, laneID int, value uint64) {
-	panic("not implemented")
+	if operand.OperandType != insts.RegOperand {
+		panic("cannot write to non-register operand")
+	}
+	numBytes := operand.Register.ByteSize
+	if operand.RegCount >= 2 {
+		numBytes *= operand.RegCount
+	}
+	data := insts.Uint64ToBytes(value)
+	s.WriteReg(operand.Register, operand.RegCount, laneID, data[:numBytes])
 }
 
 func (s *mockInstState) ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte {
-	panic("not implemented")
+	switch operand.OperandType {
+	case insts.RegOperand:
+		buf := s.ReadReg(operand.Register, operand.RegCount, laneID)
+		if len(buf) > byteCount {
+			return buf[:byteCount]
+		}
+		return buf
+	case insts.IntOperand:
+		data := insts.Uint64ToBytes(uint64(operand.IntValue))
+		return data[:byteCount]
+	default:
+		panic("unsupported operand type in mock ReadOperandBytes")
+	}
 }
 
 func (s *mockInstState) WriteOperandBytes(operand *insts.Operand, laneID int, data []byte) {
-	panic("not implemented")
+	if operand.OperandType != insts.RegOperand {
+		panic("cannot write to non-register operand")
+	}
+	s.WriteReg(operand.Register, operand.RegCount, laneID, data)
 }
 
 func (s *mockInstState) EXEC() uint64    { return s.exec }
@@ -82,8 +192,7 @@ var _ = Describe("ALU", func() {
 		sAccessor = NewStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
-		state = new(mockInstState)
-		state.scratchpad = make([]byte, 4096)
+		state = newMockInstState()
 	})
 
 	AfterEach(func() {

@@ -16,8 +16,7 @@ var _ = Describe("ALU", func() {
 	BeforeEach(func() {
 		alu = NewALU(nil)
 
-		state = new(mockInstState)
-		state.scratchpad = make([]byte, 4096)
+		state = newMockInstState()
 	})
 
 	It("should run S_ADD_U32", func() {
