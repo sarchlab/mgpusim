@@ -4,49 +4,65 @@
 Remove the scratchpad intermediary from the emulator's instruction execution pipeline. The ALU should read/write wavefront registers directly instead of going through a copy-in/execute/copy-out cycle via a flat byte buffer.
 
 ## Current State
-- Project previously completed M1-M7 (22 CDNA3 benchmarks, GPU perf scripts)
-- New task from human (issue #156): Remove scratchpad for performance improvement
-- Scratchpad files: `scratchpad.go` (197 lines), `scratchpadpreparer.go` (640 lines)
-- Both GCN3 ALU (`amd/emu/alu*.go`) and CDNA3 ALU (`amd/emu/cdna3/`) use scratchpad extensively
-- GCN3 ALU: ~500+ `Scratchpad()` references across instruction implementations
-- CDNA3 ALU: ~250+ `Scratchpad()` references
-- Timing simulation (`amd/timing/`) may also reference scratchpad — needs investigation
+- M1 (Investigation) is **COMPLETE** (1 cycle used, 3 budgeted)
+- Key findings:
+  - **88.5% of emulation time is scratchpad overhead** (only 11.5% is actual ALU computation)
+  - 532 total `Scratchpad()` call sites across the codebase
+  - GCN3 ALU: ~220 calls across 13 files; CDNA3 ALU: ~251 calls across 13 files
+  - Emu scratchpad preparer: 640 lines; Timing scratchpad preparer: 703 lines
+  - **Design chosen**: Replace `Scratchpad()` with `ReadOperand()`/`WriteOperand()` on `InstEmuState` interface (Kai's Option C)
+  - **Timing path has non-ALU scratchpad consumers**: `defaultcoalescer.go` and `scalarunit.go` read scratchpad directly
+  - **Field naming conflicts**: `emu.Wavefront` has fields `VCC`, `SCC`, `PC`, `Exec` that conflict with proposed interface method names — fields must be renamed to unexported
+
+## Design Summary (from Kai's proposal)
+The new `InstEmuState` interface adds:
+- `ReadOperand(operand, laneID) uint64` — resolves any operand type (reg, int, float, literal)
+- `WriteOperand(operand, laneID, value)` — writes to register operand
+- `ReadOperandBytes(operand, laneID, byteCount) []byte` — for multi-dword (SMEM, Flat, DS)
+- `WriteOperandBytes(operand, laneID, data)` — for multi-dword writes
+- `EXEC()/SetEXEC()`, `VCC()/SetVCC()`, `SCC()/SetSCC()`, `PC()/SetPC()` — special register access
+
+Both `emu.Wavefront` and `timing.Wavefront` implement this interface. The ALU code changes from `sp := state.Scratchpad().AsVOP2(); sp.SRC0[i]` to `state.ReadOperand(inst.Src0, i)`.
 
 ## Milestones
 
-### M1: Investigation & Performance Baseline
-**Budget**: 3 cycles
-**Status**: Not started
-**Scope**: 
-1. Evaluate the current scratchpad overhead with benchmarks (before measurement)
-2. Investigate how the timing simulation (`amd/timing/`) uses scratchpad
-3. Design the new interface: how ALU will read/write wavefront registers directly
-4. Identify all code that references scratchpad (both emu and timing paths)
-5. Plan the migration order (which instruction formats to convert first)
+### M1: Investigation & Performance Baseline ✅ COMPLETE
+**Budget**: 3 cycles | **Actual**: 1 cycle
+**Outcome**: Full scope mapped, design chosen, performance baseline established.
 
-### M2: Implement direct wavefront access for scalar instructions
-**Budget**: 6 cycles
-**Status**: Not started
-**Scope**: Convert SOP1, SOP2, SOPC, SOPK, SOPP, SMEM instruction formats to use direct wavefront register access instead of scratchpad. Both GCN3 and CDNA3 ALUs.
+### M2: Add New Interface + Migrate Scalar Instructions
+**Budget**: 8 cycles
+**Status**: NEXT
+**Scope**:
+1. Add `ReadOperand`/`WriteOperand`/`ReadOperandBytes`/`WriteOperandBytes` + special register accessors to `InstEmuState` interface
+2. Implement on `emu.Wavefront` (rename conflicting fields to unexported)
+3. Implement on `timing/wavefront.Wavefront` (add `RegFileAccessor` for CU register file access)
+4. Migrate SOP1, SOP2, SOPC, SOPK, SOPP instruction implementations in GCN3 ALU
+5. Migrate SOP1, SOP2, SOPC, SOPK, SOPP instruction implementations in CDNA3 ALU
+6. Migrate SMEM instruction implementations (both arches)
+7. Update corresponding unit tests
+8. All CI checks pass, all benchmarks still correct (`-verify`)
 
-### M3: Implement direct wavefront access for vector instructions
+**Why 8 cycles**: Interface changes affect foundational types used everywhere. The field renaming in `emu.Wavefront` will ripple through many files. Plus ~100 instruction implementations + tests across 2 arches.
+
+### M3: Migrate Vector Instructions
+**Budget**: 10 cycles
+**Status**: Not started
+**Scope**: Convert VOP1, VOP2, VOP3A, VOP3B, VOPC in both GCN3 and CDNA3 ALUs. ~350 instruction implementations. Mechanically straightforward but high volume.
+
+### M4: Migrate Memory Instructions + Timing Path
 **Budget**: 8 cycles
 **Status**: Not started
-**Scope**: Convert VOP1, VOP2, VOP3a, VOP3b, VOPC instruction formats. These are more complex due to 64-lane vector operations.
+**Scope**: Convert FLAT, DS instructions. Handle timing path's non-ALU scratchpad consumers (coalescer, scalar unit). Add staging buffer for timing memory operations.
 
-### M4: Implement direct wavefront access for memory/DS instructions
-**Budget**: 6 cycles
-**Status**: Not started
-**Scope**: Convert FLAT, DS instruction formats. Handle the storage accessor integration.
-
-### M5: Cleanup & Performance Measurement
+### M5: Cleanup + Performance Benchmark
 **Budget**: 4 cycles
 **Status**: Not started
-**Scope**: Remove scratchpad code, measure performance improvement, update documentation.
+**Scope**: Remove scratchpad code, measure before/after performance, update documentation.
 
-## Lessons Learned (from previous project phase M1-M7)
+## Lessons Learned
+- M1 investigation completed in 1 cycle (budgeted 3) — good use of parallel workers
 - Smaller milestones = better (2-3 items each)
 - Budget for unknowns — instruction format changes often reveal hidden dependencies
-- Commit early, test often
-- Integration must be continuous — merge bug fixes immediately
-- Know when to defer vs. fix
+- The investigation revealed that timing path changes are more complex than expected (non-ALU consumers)
+- Field naming conflicts in Go require careful planning (fields vs methods with same name)
