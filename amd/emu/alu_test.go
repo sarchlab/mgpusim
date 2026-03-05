@@ -208,16 +208,18 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 0
+		state.inst.Base = insts.NewSRegOperand(0, 0, 2)
+		state.inst.Offset = insts.NewIntOperand(0, 16)
+		state.inst.Data = insts.NewSRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsSMEM()
-		layout.Base = 1024
-		layout.Offset = 16
+		state.WriteReg(insts.SReg(0), 2, 0, insts.Uint64ToBytes(1024))
 
 		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
 
 		alu.Run(state)
 
-		Expect(layout.DST[0]).To(Equal(uint32(217)))
+		dst := state.ReadOperand(state.inst.Data, 0)
+		Expect(uint32(dst)).To(Equal(uint32(217)))
 	})
 
 	It("should run S_LOAD_DWORDX2", func() {
@@ -229,18 +231,21 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 1
+		state.inst.Base = insts.NewSRegOperand(0, 0, 2)
+		state.inst.Offset = insts.NewIntOperand(0, 16)
+		state.inst.Data = insts.NewSRegOperand(0, 4, 2)
 
-		layout := state.Scratchpad().AsSMEM()
-		layout.Base = 1024
-		layout.Offset = 16
+		state.WriteReg(insts.SReg(0), 2, 0, insts.Uint64ToBytes(1024))
 
 		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
 		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
 
 		alu.Run(state)
 
-		Expect(layout.DST[0]).To(Equal(uint32(217)))
-		Expect(layout.DST[1]).To(Equal(uint32(218)))
+		// Read back the 2 dwords through reg file
+		buf := state.ReadReg(insts.SReg(4), 2, 0)
+		Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(217)))
+		Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(218)))
 	})
 
 	It("should run S_LOAD_DWORDX4", func() {
@@ -252,10 +257,11 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 2
+		state.inst.Base = insts.NewSRegOperand(0, 0, 2)
+		state.inst.Offset = insts.NewIntOperand(0, 16)
+		state.inst.Data = insts.NewSRegOperand(0, 4, 4)
 
-		layout := state.Scratchpad().AsSMEM()
-		layout.Base = 1024
-		layout.Offset = 16
+		state.WriteReg(insts.SReg(0), 2, 0, insts.Uint64ToBytes(1024))
 
 		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
 		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
@@ -264,10 +270,11 @@ var _ = Describe("ALU", func() {
 
 		alu.Run(state)
 
-		Expect(layout.DST[0]).To(Equal(uint32(217)))
-		Expect(layout.DST[1]).To(Equal(uint32(218)))
-		Expect(layout.DST[2]).To(Equal(uint32(219)))
-		Expect(layout.DST[3]).To(Equal(uint32(220)))
+		buf := state.ReadReg(insts.SReg(4), 4, 0)
+		Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(217)))
+		Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(218)))
+		Expect(insts.BytesToUint32(buf[8:12])).To(Equal(uint32(219)))
+		Expect(insts.BytesToUint32(buf[12:16])).To(Equal(uint32(220)))
 	})
 
 	It("should run S_LOAD_DWORDX8", func() {
@@ -279,30 +286,22 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 3
+		state.inst.Base = insts.NewSRegOperand(0, 0, 2)
+		state.inst.Offset = insts.NewIntOperand(0, 16)
+		state.inst.Data = insts.NewSRegOperand(0, 4, 8)
 
-		layout := state.Scratchpad().AsSMEM()
-		layout.Base = 1024
-		layout.Offset = 16
+		state.WriteReg(insts.SReg(0), 2, 0, insts.Uint64ToBytes(1024))
 
-		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
-		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
-		storage.Write(uint64(1048), insts.Uint32ToBytes(219))
-		storage.Write(uint64(1052), insts.Uint32ToBytes(220))
-		storage.Write(uint64(1056), insts.Uint32ToBytes(221))
-		storage.Write(uint64(1060), insts.Uint32ToBytes(222))
-		storage.Write(uint64(1064), insts.Uint32ToBytes(223))
-		storage.Write(uint64(1068), insts.Uint32ToBytes(224))
+		for i := 0; i < 8; i++ {
+			storage.Write(uint64(1040+i*4), insts.Uint32ToBytes(uint32(217+i)))
+		}
 
 		alu.Run(state)
 
-		Expect(layout.DST[0]).To(Equal(uint32(217)))
-		Expect(layout.DST[1]).To(Equal(uint32(218)))
-		Expect(layout.DST[2]).To(Equal(uint32(219)))
-		Expect(layout.DST[3]).To(Equal(uint32(220)))
-		Expect(layout.DST[4]).To(Equal(uint32(221)))
-		Expect(layout.DST[5]).To(Equal(uint32(222)))
-		Expect(layout.DST[6]).To(Equal(uint32(223)))
-		Expect(layout.DST[7]).To(Equal(uint32(224)))
+		buf := state.ReadReg(insts.SReg(4), 8, 0)
+		for i := 0; i < 8; i++ {
+			Expect(insts.BytesToUint32(buf[i*4 : i*4+4])).To(Equal(uint32(217 + i)))
+		}
 	})
 
 	It("should run S_LOAD_DWORDX16", func() {
@@ -314,224 +313,188 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 4
+		state.inst.Base = insts.NewSRegOperand(0, 0, 2)
+		state.inst.Offset = insts.NewIntOperand(0, 16)
+		state.inst.Data = insts.NewSRegOperand(0, 4, 16)
 
-		layout := state.Scratchpad().AsSMEM()
-		layout.Base = 1024
-		layout.Offset = 16
+		state.WriteReg(insts.SReg(0), 2, 0, insts.Uint64ToBytes(1024))
 
-		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
-		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
-		storage.Write(uint64(1048), insts.Uint32ToBytes(219))
-		storage.Write(uint64(1052), insts.Uint32ToBytes(220))
-		storage.Write(uint64(1056), insts.Uint32ToBytes(221))
-		storage.Write(uint64(1060), insts.Uint32ToBytes(222))
-		storage.Write(uint64(1064), insts.Uint32ToBytes(223))
-		storage.Write(uint64(1068), insts.Uint32ToBytes(224))
-		storage.Write(uint64(1072), insts.Uint32ToBytes(225))
-		storage.Write(uint64(1076), insts.Uint32ToBytes(226))
-		storage.Write(uint64(1080), insts.Uint32ToBytes(227))
-		storage.Write(uint64(1084), insts.Uint32ToBytes(228))
-		storage.Write(uint64(1088), insts.Uint32ToBytes(229))
-		storage.Write(uint64(1092), insts.Uint32ToBytes(230))
-		storage.Write(uint64(1096), insts.Uint32ToBytes(231))
-		storage.Write(uint64(1100), insts.Uint32ToBytes(232))
+		for i := 0; i < 16; i++ {
+			storage.Write(uint64(1040+i*4), insts.Uint32ToBytes(uint32(217+i)))
+		}
 
 		alu.Run(state)
 
-		Expect(layout.DST[0]).To(Equal(uint32(217)))
-		Expect(layout.DST[1]).To(Equal(uint32(218)))
-		Expect(layout.DST[2]).To(Equal(uint32(219)))
-		Expect(layout.DST[3]).To(Equal(uint32(220)))
-		Expect(layout.DST[4]).To(Equal(uint32(221)))
-		Expect(layout.DST[5]).To(Equal(uint32(222)))
-		Expect(layout.DST[6]).To(Equal(uint32(223)))
-		Expect(layout.DST[7]).To(Equal(uint32(224)))
-		Expect(layout.DST[8]).To(Equal(uint32(225)))
-		Expect(layout.DST[9]).To(Equal(uint32(226)))
-		Expect(layout.DST[10]).To(Equal(uint32(227)))
-		Expect(layout.DST[11]).To(Equal(uint32(228)))
-		Expect(layout.DST[12]).To(Equal(uint32(229)))
-		Expect(layout.DST[13]).To(Equal(uint32(230)))
-		Expect(layout.DST[14]).To(Equal(uint32(231)))
-		Expect(layout.DST[15]).To(Equal(uint32(232)))
+		buf := state.ReadReg(insts.SReg(4), 16, 0)
+		for i := 0; i < 16; i++ {
+			Expect(insts.BytesToUint32(buf[i*4 : i*4+4])).To(Equal(uint32(217 + i)))
+		}
 	})
 
 	It("should run S_CBRANCH", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 2
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
+		state.SetPC(160)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH, when IMM is negative", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 2
+		state.inst.SImm16 = insts.NewIntOperand(0, -32)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 1024
-		layout.IMM = int64ToBits(-32)
+		state.SetPC(1024)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(1024 - 32*4)))
+		Expect(state.PC()).To(Equal(uint64(1024 - 32*4)))
 	})
 
 	It("should run S_CBRANCH_SCC0", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.SCC = 0
+		state.SetPC(160)
+		state.SetSCC(0)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH_SCC0, when IMM is negative", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
+		state.inst.SImm16 = insts.NewIntOperand(0, -32)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 1024
-		layout.IMM = int64ToBits(-32)
-		layout.SCC = 0
+		state.SetPC(1024)
+		state.SetSCC(0)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(1024 - 32*4)))
+		Expect(state.PC()).To(Equal(uint64(1024 - 32*4)))
 	})
 
 	It("should skip S_CBRANCH_SCC0, if SCC is 1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.SCC = 1
+		state.SetPC(160)
+		state.SetSCC(1)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160)))
+		Expect(state.PC()).To(Equal(uint64(160)))
 	})
 
 	It("should run S_CBRANCH_SCC1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.SCC = 1
+		state.SetPC(160)
+		state.SetSCC(1)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH_SCC1, when IMM is negative", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
+		state.inst.SImm16 = insts.NewIntOperand(0, -32)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 1024
-		layout.IMM = int64ToBits(-32)
-		layout.SCC = 1
+		state.SetPC(1024)
+		state.SetSCC(1)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(1024 - 32*4)))
+		Expect(state.PC()).To(Equal(uint64(1024 - 32*4)))
 	})
 
 	It("should skip S_CBRANCH_SCC1, if SCC is 0", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.SCC = 0
+		state.SetPC(160)
+		state.SetSCC(0)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160)))
+		Expect(state.PC()).To(Equal(uint64(160)))
 	})
 
 	It("should run S_CBRANCH_VCCZ", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 6
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.VCC = 0
+		state.SetPC(160)
+		state.SetVCC(0)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH_VCCNZ", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 7
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.VCC = 0xffffffffffffffff
+		state.SetPC(160)
+		state.SetVCC(0xffffffffffffffff)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH_EXECZ", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 8
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.EXEC = 0
+		state.SetPC(160)
+		state.SetEXEC(0)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 	It("should run S_CBRANCH_EXECNZ", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 9
+		state.inst.SImm16 = insts.NewIntOperand(0, 16)
 
-		layout := state.Scratchpad().AsSOPP()
-		layout.PC = 160
-		layout.IMM = 16
-		layout.EXEC = 1
+		state.SetPC(160)
+		state.SetEXEC(1)
 
 		alu.Run(state)
 
-		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
 
 })
