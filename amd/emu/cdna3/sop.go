@@ -93,55 +93,69 @@ func (u *ALU) runSOPP(state emu.InstEmuState) {
 }
 
 func (u *ALU) runSCBRANCH(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	pc := state.PC()
+	state.SetPC(uint64(int64(pc) + int64(imm)*4))
 }
 
 func (u *ALU) runSCBRANCHSCC0(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.SCC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.SCC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALU) runSCBRANCHSCC1(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.SCC == 1 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.SCC() == 1 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALU) runSCBRANCHVCCZ(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.VCC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.VCC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALU) runSCBRANCHVCCNZ(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.VCC != 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.VCC() != 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALU) runSCBRANCHEXECZ(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.EXEC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.EXEC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALU) runSCBRANCHEXECNZ(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := emu.AsInt16(uint16(sp.IMM & 0xffff))
-	if sp.EXEC != 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := emu.AsInt16(uint16(immRaw & 0xffff))
+	if state.EXEC() != 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }

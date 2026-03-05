@@ -15,6 +15,15 @@ type mockInstState struct {
 	vcc        uint64
 	scc        byte
 	pc         uint64
+	operands   map[*insts.Operand]uint64
+}
+
+func newMockInstState() *mockInstState {
+	return &mockInstState{
+		inst:       insts.NewInst(),
+		scratchpad: make([]byte, 4096),
+		operands:   make(map[*insts.Operand]uint64),
+	}
 }
 
 func (s *mockInstState) PID() vm.PID { return 1 }
@@ -24,11 +33,14 @@ func (s *mockInstState) Inst() *insts.Inst { return s.inst }
 func (s *mockInstState) Scratchpad() emu.Scratchpad { return s.scratchpad }
 
 func (s *mockInstState) ReadOperand(operand *insts.Operand, laneID int) uint64 {
-	panic("not implemented")
+	if v, ok := s.operands[operand]; ok {
+		return v
+	}
+	return 0
 }
 
 func (s *mockInstState) WriteOperand(operand *insts.Operand, laneID int, value uint64) {
-	panic("not implemented")
+	s.operands[operand] = value
 }
 
 func (s *mockInstState) ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte {
@@ -50,34 +62,37 @@ func (s *mockInstState) SetPC(v uint64)   { s.pc = v }
 
 func TestSOP1Opcode48SABSI32(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.SOP1
 	state.inst.Opcode = 48
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
 
-	sp := state.scratchpad.AsSOP1()
-	sp.SRC0 = uint64(emu.Int32ToBits(-7))
+	// Test negative input
+	state.operands[state.inst.Src0] = uint64(emu.Int32ToBits(-7))
 	alu.Run(state)
 
-	if got := emu.AsInt32(uint32(sp.DST)); got != 7 {
+	if got := emu.AsInt32(uint32(state.operands[state.inst.Dst])); got != 7 {
 		t.Fatalf("expected abs(-7)=7, got %d", got)
 	}
-	if sp.SCC != 1 {
-		t.Fatalf("expected SCC=1 for negative input, got %d", sp.SCC)
+	if state.scc != 1 {
+		t.Fatalf("expected SCC=1 for negative input, got %d", state.scc)
 	}
 
-	sp.SRC0 = uint64(emu.Int32ToBits(7))
+	// Test non-negative input
+	state.operands[state.inst.Src0] = uint64(emu.Int32ToBits(7))
 	alu.Run(state)
-	if got := emu.AsInt32(uint32(sp.DST)); got != 7 {
+	if got := emu.AsInt32(uint32(state.operands[state.inst.Dst])); got != 7 {
 		t.Fatalf("expected abs(7)=7, got %d", got)
 	}
-	if sp.SCC != 0 {
-		t.Fatalf("expected SCC=0 for non-negative input, got %d", sp.SCC)
+	if state.scc != 0 {
+		t.Fatalf("expected SCC=0 for non-negative input, got %d", state.scc)
 	}
 }
 
 func TestSOP2Opcode33SASHRI64(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 33
 
@@ -97,7 +112,7 @@ func TestSOP2Opcode33SASHRI64(t *testing.T) {
 
 func TestSOP2Opcode34SBFMB32(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 34
 
@@ -114,7 +129,7 @@ func TestSOP2Opcode34SBFMB32(t *testing.T) {
 
 func TestSOP2Opcode37SBFEU32(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 37
 
@@ -134,7 +149,7 @@ func TestSOP2Opcode37SBFEU32(t *testing.T) {
 
 func TestSOP2Opcode38SBFEI32(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 38
 
@@ -154,7 +169,7 @@ func TestSOP2Opcode38SBFEI32(t *testing.T) {
 
 func TestVOP1Opcode56VMOVRELSDB32(t *testing.T) {
 	alu := NewALU(nil)
-	state := &mockInstState{inst: insts.NewInst(), scratchpad: make([]byte, 4096)}
+	state := newMockInstState()
 	state.inst.FormatType = insts.VOP1
 	state.inst.Opcode = 56
 
