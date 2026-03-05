@@ -1,11 +1,7 @@
 package emu
 
 import (
-	"bytes"
-	"fmt"
 	"log"
-
-	"encoding/binary"
 
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -105,48 +101,53 @@ func (u *ALUImpl) runSMEM(state InstEmuState) {
 }
 
 func (u *ALUImpl) runSLOADDWORD(state InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
 
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 4)
-
-	sp.DST[0] = insts.BytesToUint32(buf)
+	buf := u.storageAccessor.Read(pid, base+offset, 4)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALUImpl) runSLOADDWORDX2(state InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
 
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 8)
-	copy(spRaw[32:40], buf)
+	buf := u.storageAccessor.Read(pid, base+offset, 8)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALUImpl) runSLOADDWORDX4(state InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
 
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 16)
-	copy(spRaw[32:48], buf)
+	buf := u.storageAccessor.Read(pid, base+offset, 16)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALUImpl) runSLOADDWORDX8(state InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
 
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 32)
-	copy(spRaw[32:64], buf)
+	buf := u.storageAccessor.Read(pid, base+offset, 32)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 func (u *ALUImpl) runSLOADDWORDX16(state InstEmuState) {
-	sp := state.Scratchpad().AsSMEM()
-	spRaw := state.Scratchpad()
+	inst := state.Inst()
+	base := state.ReadOperand(inst.Base, 0)
+	offset := state.ReadOperand(inst.Offset, 0)
 	pid := state.PID()
 
-	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 64)
-	copy(spRaw[32:96], buf)
+	buf := u.storageAccessor.Read(pid, base+offset, 64)
+	state.WriteOperandBytes(inst.Data, 0, buf)
 }
 
 //nolint:gocyclo
@@ -177,56 +178,70 @@ func (u *ALUImpl) runSOPP(state InstEmuState) {
 }
 
 func (u *ALUImpl) runSCBRANCH(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	pc := state.PC()
+	state.SetPC(uint64(int64(pc) + int64(imm)*4))
 }
 
 func (u *ALUImpl) runSCBRANCHSCC0(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.SCC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.SCC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALUImpl) runSCBRANCHSCC1(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.SCC == 1 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.SCC() == 1 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALUImpl) runSCBRANCHVCCZ(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.VCC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.VCC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALUImpl) runSCBRANCHVCCNZ(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.VCC != 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.VCC() != 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALUImpl) runSCBRANCHEXECZ(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.EXEC == 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.EXEC() == 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
 func (u *ALUImpl) runSCBRANCHEXECNZ(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPP()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if sp.EXEC != 0 {
-		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	inst := state.Inst()
+	immRaw := state.ReadOperand(inst.SImm16, 0)
+	imm := asInt16(uint16(immRaw & 0xffff))
+	if state.EXEC() != 0 {
+		pc := state.PC()
+		state.SetPC(uint64(int64(pc) + int64(imm)*4))
 	}
 }
 
@@ -275,20 +290,4 @@ func (u *ALUImpl) sdwaDstSelect(
 	return value
 }
 
-func (u *ALUImpl) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
-	scratchpad := state.Scratchpad()
-	layout := new(SOP2Layout)
 
-	binary.Read(bytes.NewBuffer(scratchpad), binary.LittleEndian, layout)
-
-	output := fmt.Sprintf(
-		`
-			SRC0: 0x%[1]x(%[1]d),
-			SRC1: 0x%[2]x(%[2]d),
-			SCC: 0x%[3]x(%[3]d),
-			DST: 0x%[4]x(%[4]d)\n",
-		`,
-		layout.SRC0, layout.SRC1, layout.SCC, layout.DST)
-
-	return output
-}

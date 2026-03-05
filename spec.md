@@ -1,55 +1,43 @@
-# Project Specification
+# Spec
 
-## What do you want to build?
+## What do you want to build
 
-Add byte-level correct emulation support for AMD CDNA3 (gfx942) architecture to MGPUSim, enabling benchmarks from multiple suites (SHOC, PolyBench, Rodinia, Parboil, AMD APP SDK, HeteroMark, and others) to run on both GCN3 and CDNA3 architectures.
+Remove the scratchpad abstraction from the emulator to improve emulation performance. The scratchpad prepares operand data for ALU units and collects results, providing a clean interface but adding performance overhead. The alternative is to let the wavefront struct hold emulation register and LDS data, with the emulator ALU directly interfacing with the wavefront to read/write register data via ReadOperand/WriteOperand.
 
-The system should support:
-- V5 HSACO code object format (gfx942)
-- Dual-architecture benchmarks (both GCN3 and CDNA3 HSACOs embedded)
-- CDNA3-specific instruction set (ALU, memory, control flow)
-- Proper kernel argument layout for V5 code objects
-- CUDA-to-HIP conversion where needed (manual or via hipify)
-- Go reference implementations for all benchmarks to enable result comparison
+**Phase 2 (issue #200):** Fully remove the scratchpad prepare and commit functions from the emu package — not just make them no-ops, but delete the entire ScratchpadPreparer, Scratchpad type, and all related code. Also investigate and fix any unreasonable delays or performance bottlenecks in the emulation process.
 
-## How do you consider the project is successful?
+## How do you consider the project is success
 
-The project is successful when:
-
-1. **Broad benchmark coverage**: A wide range of benchmarks from multiple suites pass byte-level verification in CDNA3 mode with `-arch=cdna3 -verify`
-
-2. **No regressions**: All benchmarks continue to work correctly in GCN3 mode — dual-arch support must not break existing functionality
-
-3. **Clean implementation**: Code passes CI checks (lint, tests), follows project conventions, and is maintainable
-
-4. **CI validation**: Milestone acceptance tests are runnable in GitHub Actions CI so progress is continuously verifiable and regressions are caught automatically
-
-5. **Documented patterns**: Each new instruction type, memory addressing mode, or kernarg layout is documented so future benchmarks can follow the pattern
-
-6. **GPU performance measurement scripts**: Once emulation is complete, generate scripts for running kernels on real GPUs to measure actual hardware performance (averaging multiple runs). This prepares the next stage of implementing accurate timing simulation.
+1. ✅ All instruction implementations use ReadOperand/WriteOperand instead of Scratchpad.
+2. ✅ All emu Prepare/Commit functions are no-ops.
+3. ✅ All tests pass.
+4. ✅ Benchmarks show emulation performance improvement (2x for vector instructions, 13.5% end-to-end).
+5. The emu ScratchpadPreparer, Scratchpad type, scratchpad layouts, and scratchpad field on emu Wavefront are fully removed.
+6. The `Scratchpad()` method is removed from the `InstEmuState` interface (or kept only for timing).
+7. The `executeInst` function in emu computeunit.go no longer calls Prepare/Commit.
+8. Any additional performance bottlenecks in the emulation process are identified and fixed.
+9. All tests continue to pass after full removal.
 
 ## Constraints
+- Must not break existing GCN3 or CDNA3 emulation functionality.
+- Must not break timing simulation (timing scratchpadpreparer still uses scratchpad for Flat/DS/SMEM coalescing).
+- The `Scratchpad()` method may need to remain in the `InstEmuState` interface because timing's wavefront also implements it and timing still uses it. The approach should either: (a) keep `Scratchpad()` in the interface but remove it from emu Wavefront's usage, or (b) split the interface.
 
-- Must maintain backward compatibility with GCN3
-- Must follow existing project architecture and conventions
-- Must pass all CI checks (lint, unit tests, integration tests)
-- Must use Docker-based ROCm toolchain for HIP compilation
-- Must have byte-level correct emulation (not approximate)
-- Prefer small, verifiable milestones (2-3 benchmarks) with explicit acceptance commands
-- Avoid long local full-suite runs; use focused local checks and CI for broader validation
-- Timing simulation is out of scope at this stage
+## Architecture Notes
 
-## Resources
+### Timing mode scratchpad usage (MUST KEEP)
+- `amd/timing/cu/defaultcoalescer.go` — reads `Scratchpad().AsFlat()` for EXEC, ADDR, DATA to generate memory transactions
+- `amd/timing/cu/scalarunit.go` — reads `Scratchpad().AsSMEM()` for Base/Offset
+- `amd/timing/cu/scratchpadpreparer.go` — prepareFlat, prepareSMEM, prepareDS still write to scratchpad; commitFlat, commitDS still read from scratchpad
 
-- Docker with ROCm 7.1.1 for compiling HIP to gfx942 HSACO
-- Existing test infrastructure with 1000+ test cases in GitHub Actions CI
-- Existing GCN3 emulator as reference
-- AMD ISA documentation for CDNA3
-- Existing dual-arch pattern from M1 benchmarks
+### Emu mode scratchpad usage (CAN FULLY REMOVE)
+- `amd/emu/scratchpadpreparer.go` — all Prepare/Commit are no-ops, plus a clear() that's wasted
+- `amd/emu/computeunit.go` — calls Prepare/Commit on every instruction (wasted)
+- `amd/emu/wavefront.go` — allocates 4096-byte scratchpad (wasted)
+- `amd/emu/scratchpad.go` — type + layout definitions (only needed by timing now)
+- `amd/emu/inst.go` — `Scratchpad()` in InstEmuState interface (needed by timing)
 
 ## Notes
-
-- Focus on incremental progress: add benchmarks in small batches (2-3 at a time)
-- When benchmarks fail, investigate root cause before moving on
-- Budget time for "unknown unknowns" — new benchmarks often reveal missing instructions or addressing modes
-- Don't let technical debt accumulate — clean up branches before merging
+- M1-M5 complete: All instruction types migrated to ReadOperand/WriteOperand.
+- M6 complete: Benchmark results documented (2x speedup for vector Prepare/Commit, 13.5% end-to-end).
+- M7 (issue #200): Full removal of emu scratchpad + performance bottleneck investigation.

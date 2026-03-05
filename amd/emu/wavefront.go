@@ -2,6 +2,7 @@ package emu
 
 import (
 	"log"
+	"math"
 
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
@@ -14,15 +15,14 @@ type Wavefront struct {
 
 	pid vm.PID
 
-	Completed  bool
-	AtBarrier  bool
-	inst       *insts.Inst
-	scratchpad Scratchpad
+	Completed bool
+	AtBarrier bool
+	inst      *insts.Inst
 
-	PC       uint64
-	Exec     uint64
-	SCC      byte
-	VCC      uint64
+	pc       uint64
+	exec     uint64
+	scc      byte
+	vcc      uint64
 	M0       uint32
 	SRegFile []byte
 	VRegFile []byte
@@ -36,7 +36,6 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 
 	wf.SRegFile = make([]byte, 4*102)
 	wf.VRegFile = make([]byte, 4*64*256)
-	wf.scratchpad = make([]byte, 4096)
 
 	return wf
 }
@@ -48,12 +47,123 @@ func (wf *Wavefront) Inst() *insts.Inst {
 
 // Scratchpad returns the scratchpad that is associated with the wavefront
 func (wf *Wavefront) Scratchpad() Scratchpad {
-	return wf.scratchpad
+	return nil
 }
 
 // PID returns pid
 func (wf *Wavefront) PID() vm.PID {
 	return wf.pid
+}
+
+// PC returns the program counter
+func (wf *Wavefront) PC() uint64 {
+	return wf.pc
+}
+
+// SetPC sets the program counter
+func (wf *Wavefront) SetPC(v uint64) {
+	wf.pc = v
+}
+
+// EXEC returns the exec mask
+func (wf *Wavefront) EXEC() uint64 {
+	return wf.exec
+}
+
+// SetEXEC sets the exec mask
+func (wf *Wavefront) SetEXEC(v uint64) {
+	wf.exec = v
+}
+
+// SCC returns the scalar condition code
+func (wf *Wavefront) SCC() byte {
+	return wf.scc
+}
+
+// SetSCC sets the scalar condition code
+func (wf *Wavefront) SetSCC(v byte) {
+	wf.scc = v
+}
+
+// VCC returns the vector condition code
+func (wf *Wavefront) VCC() uint64 {
+	return wf.vcc
+}
+
+// SetVCC sets the vector condition code
+func (wf *Wavefront) SetVCC(v uint64) {
+	wf.vcc = v
+}
+
+// ReadOperand reads the value of an operand
+func (wf *Wavefront) ReadOperand(operand *insts.Operand, laneID int) uint64 {
+	switch operand.OperandType {
+	case insts.RegOperand:
+		buf := wf.ReadReg(operand.Register, operand.RegCount, laneID)
+		if len(buf) < 8 {
+			padded := make([]byte, 8)
+			copy(padded, buf)
+			buf = padded
+		}
+		return insts.BytesToUint64(buf)
+	case insts.IntOperand:
+		return uint64(operand.IntValue)
+	case insts.FloatOperand:
+		return uint64(math.Float32bits(float32(operand.FloatValue)))
+	case insts.LiteralConstant:
+		return uint64(operand.LiteralConstant)
+	default:
+		log.Panicf("Unsupported operand type: %s", operand.String())
+		return 0
+	}
+}
+
+// WriteOperand writes a value to an operand
+func (wf *Wavefront) WriteOperand(operand *insts.Operand, laneID int, value uint64) {
+	if operand.OperandType != insts.RegOperand {
+		log.Panicf("Cannot write to non-register operand: %s", operand.String())
+	}
+
+	numBytes := operand.Register.ByteSize
+	if operand.RegCount >= 2 {
+		numBytes *= operand.RegCount
+	}
+
+	data := insts.Uint64ToBytes(value)
+	wf.WriteReg(operand.Register, operand.RegCount, laneID, data[:numBytes])
+}
+
+// ReadOperandBytes reads the raw bytes of an operand
+func (wf *Wavefront) ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte {
+	switch operand.OperandType {
+	case insts.RegOperand:
+		buf := wf.ReadReg(operand.Register, operand.RegCount, laneID)
+		if len(buf) > byteCount {
+			return buf[:byteCount]
+		}
+		return buf
+	case insts.IntOperand:
+		data := insts.Uint64ToBytes(uint64(operand.IntValue))
+		return data[:byteCount]
+	case insts.FloatOperand:
+		data := insts.Uint64ToBytes(uint64(math.Float32bits(float32(operand.FloatValue))))
+		return data[:byteCount]
+	case insts.LiteralConstant:
+		data := insts.Uint64ToBytes(uint64(operand.LiteralConstant))
+		return data[:byteCount]
+	default:
+		log.Panicf("Unsupported operand type: %s", operand.String())
+		return nil
+	}
+}
+
+// WriteOperandBytes writes raw bytes to an operand
+func (wf *Wavefront) WriteOperandBytes(operand *insts.Operand, laneID int, data []byte) {
+	if operand.OperandType != insts.RegOperand {
+		log.Panicf("Cannot write to non-register operand: %s", operand.String())
+	}
+
+	wf.WriteReg(operand.Register, operand.RegCount, laneID, data)
 }
 
 // SRegValue returns s(i)'s value
@@ -85,34 +195,34 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		offset := laneID*256*4 + reg.RegIndex()*4
 		copy(value, wf.VRegFile[offset:offset+numBytes])
 	} else if reg.RegType == insts.SCC {
-		value[0] = wf.SCC
+		value[0] = wf.scc
 	} else if reg.RegType == insts.VCC {
-		copy(value, insts.Uint64ToBytes(wf.VCC))
+		copy(value, insts.Uint64ToBytes(wf.vcc))
 	} else if reg.RegType == insts.VCCLO && regCount == 1 {
-		copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
+		copy(value, insts.Uint32ToBytes(uint32(wf.vcc)))
 	} else if reg.RegType == insts.VCCHI && regCount == 1 {
-		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+		copy(value, insts.Uint32ToBytes(uint32(wf.vcc>>32)))
 	} else if reg.RegType == insts.VCCLO && regCount == 2 {
-		copy(value, insts.Uint64ToBytes(wf.VCC))
+		copy(value, insts.Uint64ToBytes(wf.vcc))
 	} else if reg.RegType == insts.EXEC {
-		copy(value, insts.Uint64ToBytes(wf.Exec))
+		copy(value, insts.Uint64ToBytes(wf.exec))
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
-		copy(value, insts.Uint64ToBytes(wf.Exec))
+		copy(value, insts.Uint64ToBytes(wf.exec))
 	} else if reg.RegType == insts.M0 {
 		copy(value, insts.Uint32ToBytes(wf.M0))
 	} else if reg.Name == "vcclo" {
 		// Fallback for vcclo when RegType is not properly set
 		if regCount == 1 {
-			copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
+			copy(value, insts.Uint32ToBytes(uint32(wf.vcc)))
 		} else {
-			copy(value, insts.Uint64ToBytes(wf.VCC))
+			copy(value, insts.Uint64ToBytes(wf.vcc))
 		}
 	} else if reg.Name == "vcchi" {
 		// Fallback for vcchi when RegType is not properly set
 		if regCount == 1 {
-			copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+			copy(value, insts.Uint32ToBytes(uint32(wf.vcc>>32)))
 		} else {
-			copy(value, insts.Uint64ToBytes(wf.VCC))
+			copy(value, insts.Uint64ToBytes(wf.vcc))
 		}
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
@@ -142,38 +252,38 @@ func (wf *Wavefront) WriteReg(
 		offset := laneID*256*4 + reg.RegIndex()*4
 		copy(wf.VRegFile[offset:offset+numBytes], data)
 	} else if reg.RegType == insts.SCC {
-		wf.SCC = data[0]
+		wf.scc = data[0]
 	} else if reg.RegType == insts.VCC {
-		wf.VCC = insts.BytesToUint64(data)
+		wf.vcc = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.VCCLO && regCount == 2 {
-		wf.VCC = insts.BytesToUint64(data)
+		wf.vcc = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.VCCLO && regCount == 1 {
-		wf.VCC &= uint64(0x00000000ffffffff)
-		wf.VCC |= uint64(insts.BytesToUint32(data))
+		wf.vcc &= uint64(0x00000000ffffffff)
+		wf.vcc |= uint64(insts.BytesToUint32(data))
 	} else if reg.RegType == insts.VCCHI && regCount == 1 {
-		wf.VCC &= uint64(0xffffffff00000000)
-		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
+		wf.vcc &= uint64(0xffffffff00000000)
+		wf.vcc |= uint64(insts.BytesToUint32(data)) << 32
 	} else if reg.RegType == insts.EXEC {
-		wf.Exec = insts.BytesToUint64(data)
+		wf.exec = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
-		wf.Exec = insts.BytesToUint64(data)
+		wf.exec = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.M0 {
 		wf.M0 = insts.BytesToUint32(data)
 	} else if reg.Name == "vcclo" {
 		// Fallback for vcclo when RegType is not properly set
 		if regCount == 1 {
-			wf.VCC &= uint64(0xffffffff00000000)
-			wf.VCC |= uint64(insts.BytesToUint32(data))
+			wf.vcc &= uint64(0xffffffff00000000)
+			wf.vcc |= uint64(insts.BytesToUint32(data))
 		} else {
-			wf.VCC = insts.BytesToUint64(data)
+			wf.vcc = insts.BytesToUint64(data)
 		}
 	} else if reg.Name == "vcchi" {
 		// Fallback for vcchi when RegType is not properly set
 		if regCount == 1 {
-			wf.VCC &= uint64(0x00000000ffffffff)
-			wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
+			wf.vcc &= uint64(0x00000000ffffffff)
+			wf.vcc |= uint64(insts.BytesToUint32(data)) << 32
 		} else {
-			wf.VCC = insts.BytesToUint64(data)
+			wf.vcc = insts.BytesToUint64(data)
 		}
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)

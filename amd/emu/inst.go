@@ -11,4 +11,18 @@ type InstEmuState interface {
 	PID() vm.PID
 	Inst() *insts.Inst
 	Scratchpad() Scratchpad
+
+	ReadOperand(operand *insts.Operand, laneID int) uint64
+	WriteOperand(operand *insts.Operand, laneID int, value uint64)
+	ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte
+	WriteOperandBytes(operand *insts.Operand, laneID int, data []byte)
+
+	EXEC() uint64
+	SetEXEC(v uint64)
+	VCC() uint64
+	SetVCC(v uint64)
+	SCC() byte
+	SetSCC(v byte)
+	PC() uint64
+	SetPC(v uint64)
 }
