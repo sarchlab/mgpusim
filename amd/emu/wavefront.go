@@ -91,6 +91,20 @@ func (wf *Wavefront) SetVCC(v uint64) {
 	wf.vcc = v
 }
 
+// readFromRegFile reads a uint64 value from a register file byte slice at the
+// given offset, using inline binary.LittleEndian reads. It returns a 32-bit or
+// 64-bit value depending on byteSize and regCount.
+func readFromRegFile(file []byte, offset, byteSize, regCount int) uint64 {
+	numBytes := byteSize
+	if regCount >= 2 {
+		numBytes *= regCount
+	}
+	if numBytes == 4 {
+		return uint64(binary.LittleEndian.Uint32(file[offset : offset+4]))
+	}
+	return binary.LittleEndian.Uint64(file[offset : offset+8])
+}
+
 // readRegOperand reads the value of a register operand with inline
 // binary.LittleEndian reads for VReg/SReg hot paths.
 func (wf *Wavefront) readRegOperand(
@@ -98,30 +112,12 @@ func (wf *Wavefront) readRegOperand(
 ) uint64 {
 	if reg.IsVReg() {
 		offset := laneID*256*4 + reg.RegIndex()*4
-		numBytes := reg.ByteSize
-		if regCount >= 2 {
-			numBytes *= regCount
-		}
-		if numBytes == 4 {
-			return uint64(binary.LittleEndian.Uint32(
-				wf.VRegFile[offset : offset+4]))
-		}
-		return binary.LittleEndian.Uint64(
-			wf.VRegFile[offset : offset+8])
+		return readFromRegFile(wf.VRegFile, offset, reg.ByteSize, regCount)
 	}
 
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
-		numBytes := reg.ByteSize
-		if regCount >= 2 {
-			numBytes *= regCount
-		}
-		if numBytes == 4 {
-			return uint64(binary.LittleEndian.Uint32(
-				wf.SRegFile[offset : offset+4]))
-		}
-		return binary.LittleEndian.Uint64(
-			wf.SRegFile[offset : offset+8])
+		return readFromRegFile(wf.SRegFile, offset, reg.ByteSize, regCount)
 	}
 
 	switch reg.RegType {
