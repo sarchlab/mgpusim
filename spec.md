@@ -18,5 +18,6 @@ Remove the scratchpad abstraction from the emulator to improve emulation perform
 - Follow the established ReadOperand/WriteOperand migration pattern.
 
 ## Notes
-- Scalar instructions (M2) migration is complete and merged.
-- Vector instructions (M3) are ~95% complete — only CDNA3 vop3a.go remains.
+- M1-M5 complete: All instruction types (SOP, VOP, Flat, DS, SMEM) migrated. gputensor regression fixed.
+- M6 (performance benchmarking) is the next milestone.
+- The emu scratchpadpreparer still clears the scratchpad on every instruction even though individual prepare/commit functions are no-ops. This is an optimization opportunity.
