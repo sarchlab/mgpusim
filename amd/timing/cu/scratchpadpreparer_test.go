@@ -31,7 +31,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp = NewScratchpadPreparerImpl(cu)
 		wf = wavefront.NewWavefront(nil)
-		wf.EXEC = 0xffffffffffffffff
+		wf.SetEXEC(0xffffffffffffffff)
 	})
 
 	It("should prepare for SOP1", func() {
@@ -42,8 +42,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0,
 			insts.Uint32ToBytes(517))
-		wf.SCC = 1
-		wf.EXEC = 0xffffffff00000000
+		wf.SetSCC(1)
+		wf.SetEXEC(0xffffffff00000000)
 
 		sp.Prepare(wf, wf)
 
@@ -62,7 +62,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 		//wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
-		wf.SCC = 1
+		wf.SetSCC(1)
 
 		sp.Prepare(wf, wf)
 
@@ -83,8 +83,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
 		}
-		wf.VCC = uint64(0xffff0000ffff0000)
-		wf.EXEC = 0xff
+		wf.SetVCC(uint64(0xffff0000ffff0000))
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -109,8 +109,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i+1)))
 			sp.writeReg(insts.VReg(6), 2, wf, i, insts.Uint64ToBytes(uint64(i+2)))
 		}
-		wf.VCC = 0xffff0000ffff0000
-		wf.EXEC = 0xff
+		wf.SetVCC(0xffff0000ffff0000)
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -136,8 +136,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
 			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
 		}
-		wf.VCC = 0xffff0000ffff0000
-		wf.EXEC = 0xff
+		wf.SetVCC(0xffff0000ffff0000)
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -163,8 +163,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
 			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
 		}
-		wf.VCC = 0xffff0000ffff0000
-		wf.EXEC = 0xff
+		wf.SetVCC(0xffff0000ffff0000)
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -190,8 +190,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
 			sp.writeReg(insts.VReg(1), 1, wf, i, insts.Uint64ToBytes(uint64(i+1)))
 		}
-		wf.VCC = 1
-		wf.EXEC = 0xff
+		wf.SetVCC(1)
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -218,7 +218,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			sp.writeReg(insts.VReg(4), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
 			sp.writeReg(insts.VReg(5), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
 		}
-		wf.EXEC = 0xff
+		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
@@ -266,9 +266,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
-		wf.EXEC = 0x0f
-		wf.PC = 160
-		wf.SCC = 1
+		wf.SetEXEC(0x0f)
+		wf.SetPC(160)
+		wf.SetSCC(1)
 
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
@@ -287,7 +287,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
-		wf.SCC = 1
+		wf.SetSCC(1)
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
 
 		sp.Prepare(wf, wf)
@@ -321,7 +321,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 
 		wf.SetDynamicInst(wavefront.NewInst(inst))
-		wf.EXEC = uint64(0xff)
+		wf.SetEXEC(uint64(0xff))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
@@ -358,8 +358,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.SCC).To(Equal(byte(1)))
-		Expect(wf.EXEC).To(Equal(uint64(0xffffffff00000000)))
+		Expect(wf.SCC()).To(Equal(byte(1)))
+		Expect(wf.EXEC()).To(Equal(uint64(0xffffffff00000000)))
 		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(517)))
 	})
 
@@ -375,7 +375,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SCC()).To(Equal(byte(1)))
 		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(517)))
 	})
 
@@ -397,7 +397,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(sp.readRegAsUint32(insts.VReg(i), wf, 0)).To(Equal(uint32(0)))
 		}
-		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for VOP2", func() {
@@ -418,7 +418,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(sp.readRegAsUint32(insts.VReg(i), wf, 0)).To(Equal(uint32(0)))
 		}
-		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for VOP3a", func() {
@@ -440,7 +440,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
 		}
-		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for VOP3a CMP", func() {
@@ -483,7 +483,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(2)))
 		Expect(sp.readRegAsUint32(insts.SReg(1), wf, 0)).To(Equal(uint32(0)))
-		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit VOPC", func() {
@@ -497,8 +497,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.VCC).To(Equal(uint64(0xff)))
-		Expect(wf.EXEC).To(Equal(uint64(0x01)))
+		Expect(wf.VCC()).To(Equal(uint64(0xff)))
+		Expect(wf.EXEC()).To(Equal(uint64(0x01)))
 	})
 
 	It("should commit for FLAT", func() {
@@ -582,7 +582,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SCC()).To(Equal(byte(1)))
 	})
 
 	It("should commit for SOPK", func() {
@@ -597,7 +597,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SCC()).To(Equal(byte(1)))
 		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(517)))
 	})
 
@@ -605,14 +605,14 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPP
 		wf.SetDynamicInst(wavefront.NewInst(inst))
-		wf.PC = 0
+		wf.SetPC(0)
 
 		layout := wf.Scratchpad().AsSOPP()
 		layout.PC = 164
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.PC).To(Equal(uint64(164)))
+		Expect(wf.PC()).To(Equal(uint64(164)))
 	})
 
 	It("should commit for DS", func() {

@@ -12,6 +12,10 @@ import (
 type mockInstState struct {
 	inst       *insts.Inst
 	scratchpad Scratchpad
+	exec       uint64
+	vcc        uint64
+	scc        byte
+	pc         uint64
 }
 
 func (s *mockInstState) PID() vm.PID {
@@ -25,6 +29,31 @@ func (s *mockInstState) Inst() *insts.Inst {
 func (s *mockInstState) Scratchpad() Scratchpad {
 	return s.scratchpad
 }
+
+func (s *mockInstState) ReadOperand(operand *insts.Operand, laneID int) uint64 {
+	panic("not implemented")
+}
+
+func (s *mockInstState) WriteOperand(operand *insts.Operand, laneID int, value uint64) {
+	panic("not implemented")
+}
+
+func (s *mockInstState) ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte {
+	panic("not implemented")
+}
+
+func (s *mockInstState) WriteOperandBytes(operand *insts.Operand, laneID int, data []byte) {
+	panic("not implemented")
+}
+
+func (s *mockInstState) EXEC() uint64    { return s.exec }
+func (s *mockInstState) SetEXEC(v uint64) { s.exec = v }
+func (s *mockInstState) VCC() uint64     { return s.vcc }
+func (s *mockInstState) SetVCC(v uint64)  { s.vcc = v }
+func (s *mockInstState) SCC() byte       { return s.scc }
+func (s *mockInstState) SetSCC(v byte)    { s.scc = v }
+func (s *mockInstState) PC() uint64      { return s.pc }
+func (s *mockInstState) SetPC(v uint64)   { s.pc = v }
 
 var _ = Describe("ALU", func() {
 

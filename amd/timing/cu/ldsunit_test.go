@@ -54,7 +54,7 @@ var _ = Describe("LDS Unit", func() {
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 		inst.ByteSize = 4
 		wave3.SetDynamicInst(inst)
-		wave3.PC = 0x13C
+		wave3.SetPC(0x13C)
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
 
@@ -67,7 +67,7 @@ var _ = Describe("LDS Unit", func() {
 		bu.Run()
 
 		Expect(wave3.State).To(Equal(wavefront.WfReady))
-		Expect(wave3.PC).To(Equal(uint64(0x140)))
+		Expect(wave3.PC()).To(Equal(uint64(0x140)))
 
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
@@ -95,7 +95,7 @@ var _ = Describe("LDS Unit", func() {
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 		inst.ByteSize = 4
 		wave3.SetDynamicInst(inst)
-		wave3.PC = 0x13C
+		wave3.SetPC(0x13C)
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
 

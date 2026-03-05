@@ -102,7 +102,7 @@ func (u *BranchUnit) runWriteStage() bool {
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)
-	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
+	u.toWrite.InstBufferStartPC = u.toWrite.PC() & 0xffffffffffffffc0
 	u.toWrite = nil
 	u.isIdle = false
 	return true

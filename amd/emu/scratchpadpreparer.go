@@ -79,7 +79,7 @@ func (p *ScratchpadPreparerImpl) prepareSOP1(
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
 	layout := scratchPad.AsSOP1()
-	layout.PC = wf.PC
+	layout.PC = wf.PC()
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	copy(scratchPad[24:25], wf.ReadReg(insts.Regs[insts.SCC], 1, 0))
 	copy(scratchPad[16:24], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
@@ -210,7 +210,7 @@ func (p *ScratchpadPreparerImpl) prepareVOPC(
 	}
 
 	layout := sp.AsVOPC()
-	layout.EXEC = wf.Exec
+	layout.EXEC = wf.EXEC()
 }
 
 func (p *ScratchpadPreparerImpl) prepareFlat(
@@ -295,10 +295,10 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	scratchPad := instEmuState.Scratchpad()
 	layout := scratchPad.AsSOPP()
 
-	layout.PC = wf.PC
-	layout.SCC = wf.SCC
-	layout.EXEC = wf.Exec
-	layout.VCC = wf.VCC
+	layout.PC = wf.PC()
+	layout.SCC = wf.SCC()
+	layout.EXEC = wf.EXEC()
+	layout.VCC = wf.VCC()
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
 }
 
@@ -309,7 +309,7 @@ func (p *ScratchpadPreparerImpl) prepareSOPK(
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
 	layout := scratchPad.AsSOPK()
-	layout.SCC = wf.SCC
+	layout.SCC = wf.SCC()
 	p.readOperand(inst.Dst, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
 }
@@ -333,7 +333,7 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	sp := instEmuState.Scratchpad()
 	layout := sp.AsDS()
 
-	layout.EXEC = wf.Exec
+	layout.EXEC = wf.EXEC()
 
 	offset := 8
 	for i := 0; i < 64; i++ {
@@ -405,7 +405,7 @@ func (p *ScratchpadPreparerImpl) commitSOP1(
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[8:16])
 	wf.WriteReg(insts.Regs[insts.EXEC], 1, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.SCC], 1, 0, scratchpad[24:25])
-	wf.PC = scratchpad.AsSOP1().PC
+	wf.SetPC(scratchpad.AsSOP1().PC)
 }
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
@@ -520,8 +520,8 @@ func (p *ScratchpadPreparerImpl) commitVOPC(
 	wf *Wavefront,
 ) {
 	sp := instEmuState.Scratchpad().AsVOPC()
-	wf.VCC = sp.VCC
-	wf.Exec = sp.EXEC
+	wf.SetVCC(sp.VCC)
+	wf.SetEXEC(sp.EXEC)
 }
 
 func (p *ScratchpadPreparerImpl) commitFlat(
@@ -560,7 +560,7 @@ func (p *ScratchpadPreparerImpl) commitSOPC(
 	wf *Wavefront,
 ) {
 	scratchpad := instEmuState.Scratchpad()
-	wf.SCC = scratchpad.AsSOPC().SCC
+	wf.SetSCC(scratchpad.AsSOPC().SCC)
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPP(
@@ -568,7 +568,7 @@ func (p *ScratchpadPreparerImpl) commitSOPP(
 	wf *Wavefront,
 ) {
 	scratchpad := instEmuState.Scratchpad()
-	wf.PC = scratchpad.AsSOPP().PC
+	wf.SetPC(scratchpad.AsSOPP().PC)
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPK(
@@ -578,7 +578,7 @@ func (p *ScratchpadPreparerImpl) commitSOPK(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[0:8])
-	wf.SCC = scratchpad.AsSOPK().SCC
+	wf.SetSCC(scratchpad.AsSOPK().SCC)
 }
 
 func (p *ScratchpadPreparerImpl) commitDS(
