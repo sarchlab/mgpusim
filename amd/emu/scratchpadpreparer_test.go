@@ -1,8 +1,6 @@
 package emu
 
 import (
-	"log"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
@@ -201,24 +199,17 @@ var _ = Describe("ScratchpadPreparer", func() {
 			wf.WriteReg(insts.VReg(0), 2, i,
 				insts.Uint64ToBytes(uint64(i+1024)))
 			wf.WriteReg(insts.VReg(2), 1, i, insts.Uint32ToBytes(uint32(i)))
-			wf.WriteReg(insts.VReg(3), 1, i, insts.Uint32ToBytes(uint32(i)))
-			wf.WriteReg(insts.VReg(4), 1, i, insts.Uint32ToBytes(uint32(i)))
-			wf.WriteReg(insts.VReg(5), 1, i, insts.Uint32ToBytes(uint32(i)))
 		}
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// Flat instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsFlat()
+		Expect(layout.EXEC).To(Equal(uint64(0)))
 		for i := 0; i < 64; i++ {
-			log.Printf("iter %d", i)
-			Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
-			Expect(layout.DATA[i*4+0]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+1]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+2]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+3]).To(Equal(uint32(i)))
+			Expect(layout.ADDR[i]).To(Equal(uint64(0)))
 		}
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
 	It("should prepare for SMEM", func() {
@@ -311,22 +302,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			wf.WriteReg(insts.VReg(0), 1, i, insts.Uint64ToBytes(uint64(i)))
 			wf.WriteReg(insts.VReg(2), 1, i, insts.Uint64ToBytes(uint64(i+1)))
-			wf.WriteReg(insts.VReg(3), 1, i, insts.Uint64ToBytes(uint64(i+2)))
-			wf.WriteReg(insts.VReg(4), 1, i, insts.Uint64ToBytes(uint64(i+3)))
-			wf.WriteReg(insts.VReg(5), 1, i, insts.Uint64ToBytes(uint64(i+4)))
 		}
 
 		sp.Prepare(wf, wf)
 
+		// DS instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsDS()
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
-
+		Expect(layout.EXEC).To(Equal(uint64(0)))
 		for i := 0; i < 64; i++ {
-			Expect(layout.ADDR[i]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4]).To(Equal(uint32(i + 1)))
-			Expect(layout.DATA[i*4+1]).To(Equal(uint32(i + 2)))
-			Expect(layout.DATA1[i*4]).To(Equal(uint32(i + 3)))
-			Expect(layout.DATA1[i*4+1]).To(Equal(uint32(i + 4)))
+			Expect(layout.ADDR[i]).To(Equal(uint32(0)))
 		}
 	})
 
@@ -497,22 +481,16 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		wf.inst = inst
 
-		layout := wf.Scratchpad().AsFlat()
-		layout.EXEC = 0xffffffffffffffff
+		// Flat commit is now a no-op; instructions write directly.
+		// Set values before commit and verify they are unchanged.
 		for i := 0; i < 64; i++ {
-			layout.DST[i*4+0] = uint32(i)
-			layout.DST[i*4+1] = uint32(i)
-			layout.DST[i*4+2] = uint32(i)
-			layout.DST[i*4+3] = uint32(i)
+			wf.WriteReg(insts.VReg(3), 1, i, insts.Uint32ToBytes(uint32(i+10)))
 		}
 
 		sp.Commit(wf, wf)
 
 		for i := 0; i < 64; i++ {
-			Expect(wf.VRegValue(i, 3)).To(Equal(uint32(i)))
-			Expect(wf.VRegValue(i, 4)).To(Equal(uint32(i)))
-			Expect(wf.VRegValue(i, 5)).To(Equal(uint32(i)))
-			Expect(wf.VRegValue(i, 6)).To(Equal(uint32(i)))
+			Expect(wf.VRegValue(i, 3)).To(Equal(uint32(i + 10)))
 		}
 	})
 
@@ -523,13 +501,10 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Opcode = 28 // Store dword
 		wf.inst = inst
 
-		layout := wf.Scratchpad().AsFlat()
-		layout.EXEC = 0xffffffffffffffff
+		// Flat commit is now a no-op; registers should not be modified.
 		for i := 0; i < 64; i++ {
-			layout.DST[i*4+0] = uint32(i)
-			layout.DST[i*4+1] = uint32(i)
-			layout.DST[i*4+2] = uint32(i)
-			layout.DST[i*4+3] = uint32(i)
+			Expect(wf.VRegValue(i, 3)).To(Equal(uint32(0)))
+			Expect(wf.VRegValue(i, 4)).To(Equal(uint32(0)))
 		}
 
 		sp.Commit(wf, wf)
@@ -537,8 +512,6 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(wf.VRegValue(i, 3)).To(Equal(uint32(0)))
 			Expect(wf.VRegValue(i, 4)).To(Equal(uint32(0)))
-			Expect(wf.VRegValue(i, 5)).To(Equal(uint32(0)))
-			Expect(wf.VRegValue(i, 6)).To(Equal(uint32(0)))
 		}
 	})
 
@@ -609,18 +582,18 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 2)
 		wf.inst = inst
 
-		layout := wf.Scratchpad().AsDS()
-		layout.EXEC = 0xffffffffffffffff
+		// DS commit is now a no-op; instructions write directly.
+		// Set values before commit and verify they are unchanged.
 		for i := 0; i < 64; i++ {
-			layout.DST[i*4] = uint32(i)
-			layout.DST[i*4+1] = uint32(i + 1)
+			wf.WriteReg(insts.VReg(0), 1, i, insts.Uint32ToBytes(uint32(i+5)))
+			wf.WriteReg(insts.VReg(1), 1, i, insts.Uint32ToBytes(uint32(i+6)))
 		}
 
 		sp.Commit(wf, wf)
 
 		for i := 0; i < 64; i++ {
-			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
-			Expect(wf.VRegValue(i, 1)).To(Equal(uint32(i + 1)))
+			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i + 5)))
+			Expect(wf.VRegValue(i, 1)).To(Equal(uint32(i + 6)))
 		}
 	})
 

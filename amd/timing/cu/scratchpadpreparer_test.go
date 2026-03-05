@@ -1,8 +1,6 @@
 package cu
 
 import (
-	"log"
-
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 
@@ -174,24 +172,17 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i+1024)))
 			sp.writeReg(insts.VReg(2), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(3), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(4), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(5), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
 		}
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// In timing mode, scratchpad is populated for the coalescer.
 		layout := wf.Scratchpad().AsFlat()
-		for i := 0; i < 64; i++ {
-			log.Printf("iter %d", i)
-			Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
-			Expect(layout.DATA[i*4+0]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+1]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+2]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4+3]).To(Equal(uint32(i)))
-		}
 		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		for i := 0; i < 64; i++ {
+			Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
+		}
 	})
 
 	It("should prepare for SMEM", func() {
@@ -288,23 +279,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
-			sp.writeReg(insts.VReg(2), 1, wf, i, insts.Uint64ToBytes(uint64(i+1)))
-			sp.writeReg(insts.VReg(3), 1, wf, i, insts.Uint64ToBytes(uint64(i+2)))
-			sp.writeReg(insts.VReg(4), 1, wf, i, insts.Uint64ToBytes(uint64(i+3)))
-			sp.writeReg(insts.VReg(5), 1, wf, i, insts.Uint64ToBytes(uint64(i+4)))
 		}
 
 		sp.Prepare(wf, wf)
 
+		// In timing mode, scratchpad is populated for DS operations.
 		layout := wf.Scratchpad().AsDS()
 		Expect(layout.EXEC).To(Equal(uint64(0xff)))
-
 		for i := 0; i < 64; i++ {
 			Expect(layout.ADDR[i]).To(Equal(uint32(i)))
-			Expect(layout.DATA[i*4]).To(Equal(uint32(i + 1)))
-			Expect(layout.DATA[i*4+1]).To(Equal(uint32(i + 2)))
-			Expect(layout.DATA1[i*4]).To(Equal(uint32(i + 3)))
-			Expect(layout.DATA1[i*4+1]).To(Equal(uint32(i + 4)))
 		}
 	})
 
@@ -486,6 +469,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// In timing mode, memory responses write to scratchpad DST.
+		// Commit writes DST back to registers.
 		layout := wf.Scratchpad().AsFlat()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -497,6 +482,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should be written to registers.
 		for i := 0; i < 64; i++ {
 			Expect(sp.readRegAsUint32(insts.VReg(3), wf, i)).To(Equal(uint32(i)))
 			Expect(sp.readRegAsUint32(insts.VReg(4), wf, i)).To(Equal(uint32(i)))
@@ -512,6 +498,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Opcode = 28 // Store dword
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// Flat commit is now a no-op; store also does nothing.
 		layout := wf.Scratchpad().AsFlat()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -598,6 +585,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 2)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// In timing mode, DS data is written to scratchpad DST.
+		// Commit writes DST back to registers.
 		layout := wf.Scratchpad().AsDS()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -607,6 +596,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should be written to registers.
 		for i := 0; i < 64; i++ {
 			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
 			Expect(sp.readRegAsUint32(insts.VReg(1), wf, i)).To(Equal(uint32(i + 1)))

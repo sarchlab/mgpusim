@@ -121,6 +121,8 @@ func (p *ScratchpadPreparerImpl) prepareVOPC(
 func (p *ScratchpadPreparerImpl) prepareFlat(
 	instEmuState emu.InstEmuState, wf *wavefront.Wavefront,
 ) {
+	// In timing mode, the coalescer reads EXEC, ADDR, DATA from the scratchpad
+	// to generate memory transactions. Keep scratchpad preparation.
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 	layout := sp.AsFlat()
@@ -175,6 +177,8 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
+	// In timing mode, DS instructions still use the scratchpad for address
+	// and data marshaling. Keep scratchpad preparation.
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 	layout := sp.AsDS()
@@ -294,6 +298,8 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
+	// In timing mode, memory responses write data into the scratchpad DST area.
+	// We must commit that data back to registers.
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 	exec := scratchpad.AsFlat().EXEC
@@ -341,6 +347,8 @@ func (p *ScratchpadPreparerImpl) commitDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
+	// In timing mode, DS data is written to the scratchpad DST area.
+	// We must commit that data back to registers.
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 	exec := sp.AsDS().EXEC

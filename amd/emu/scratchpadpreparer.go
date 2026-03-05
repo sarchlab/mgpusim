@@ -19,15 +19,12 @@ type ScratchpadPreparer interface {
 }
 
 // ScratchpadPreparerImpl reads and write registers for the emulator
-type ScratchpadPreparerImpl struct {
-	IsCDNA3 bool
-}
+type ScratchpadPreparerImpl struct{}
 
 // NewScratchpadPreparerImpl returns a newly created ScratchpadPreparerImpl,
 // injecting the dependency of the RegInterface.
 func NewScratchpadPreparerImpl(isCDNA3 bool) *ScratchpadPreparerImpl {
 	p := new(ScratchpadPreparerImpl)
-	p.IsCDNA3 = isCDNA3
 	return p
 }
 
@@ -204,60 +201,8 @@ func (p *ScratchpadPreparerImpl) prepareVOPC(
 func (p *ScratchpadPreparerImpl) prepareFlat(
 	instEmuState InstEmuState, wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-
-	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
-
-	// Check if this is a global instruction with scalar base address (SAddr)
-	// SAddr handling is architecture-dependent:
-	// - CDNA3: SAddr=0x7F means OFF mode, any other value (including 0) is valid.
-	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode.
-	var useSAddr bool
-	if p.IsCDNA3 {
-		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
-	} else {
-		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
-	}
-
-	var scalarBase uint64
-	if useSAddr {
-		// Read the scalar base address from SGPR pair
-		sAddrReg := int(inst.SAddr.IntValue)
-		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
-		buf := wf.ReadReg(sAddrOperand.Register, sAddrOperand.RegCount, 0)
-		scalarBase = insts.BytesToUint64(buf)
-	}
-
-	// Compute signed FLAT offset from the instruction encoding (bits [12:0]).
-	// In GFX9+/CDNA3, FLAT/GLOBAL instructions support a 13-bit signed
-	// immediate offset, e.g. "global_load_dword v11, v[64:65], off offset:4".
-	var flatOffset int64
-	if inst.Offset0 != 0 {
-		flatOffset = int64(int32(inst.Offset0)) // already sign-extended in decode
-	}
-
-	for i := 0; i < 64; i++ {
-		if useSAddr {
-			// For global with SAddr: addr = SAddr + zero_extend(VGPR) + offset
-			// The VGPR is a single 32-bit register (not a pair)
-			vAddrOperand := insts.NewVRegOperand(
-				inst.Addr.Register.RegIndex(),
-				inst.Addr.Register.RegIndex(), 1)
-			vBuf := wf.ReadReg(vAddrOperand.Register, 1, i)
-			vOffset := uint64(insts.BytesToUint32(vBuf))
-			addr := scalarBase + vOffset + uint64(flatOffset)
-			copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
-		} else {
-			// For flat/global with off: addr = VGPR pair (64-bit) + offset
-			p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
-			if flatOffset != 0 {
-				addr := insts.BytesToUint64(sp[8+i*8:8+i*8+8]) + uint64(flatOffset)
-				copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
-			}
-		}
-		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
-	}
+	// Flat instructions now read operands directly via ReadOperand.
+	// No scratchpad preparation needed.
 }
 
 func (p *ScratchpadPreparerImpl) prepareSMEM(
@@ -296,30 +241,8 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	layout := sp.AsDS()
-
-	layout.EXEC = wf.EXEC()
-
-	offset := 8
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[offset+i*4:offset+i*4+4])
-	}
-
-	if inst.Data != nil {
-		offset = 8 + 64*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
-
-	if inst.Data1 != nil {
-		offset = 8 + 64*4 + 256*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data1, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now read operands directly via ReadOperand.
+	// No scratchpad preparation needed.
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -487,19 +410,8 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
-	exec := scratchpad.AsFlat().EXEC
-
-	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
-		for i := 0; i < 64; i++ {
-			if !laneMasked(exec, uint(i)) {
-				continue
-			}
-
-			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
-		}
-	}
+	// Flat instructions now write results directly via WriteOperand.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) commitSMEM(
@@ -538,19 +450,8 @@ func (p *ScratchpadPreparerImpl) commitDS(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
-	exec := sp.AsDS().EXEC
-
-	if inst.Dst != nil {
-		offset := 8 + 64*4 + 256*4*2
-		for i := 0; i < 64; i++ {
-			if !laneMasked(exec, uint(i)) {
-				continue
-			}
-			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now write results directly via WriteOperand.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(

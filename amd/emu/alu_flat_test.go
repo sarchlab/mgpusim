@@ -53,21 +53,22 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 16
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 4)
+			// Write 64-bit address into v[0:1] for lane i
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*4)))
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
-			Expect(layout.DST[i*4+1]).To(Equal(uint32(0)))
-			Expect(layout.DST[i*4+2]).To(Equal(uint32(0)))
-			Expect(layout.DST[i*4+3]).To(Equal(uint32(0)))
+			buf := state.ReadReg(insts.VReg(4), 1, i)
+			val := insts.BytesToUint32(buf)
+			Expect(val).To(Equal(uint32(i)))
 		}
 	})
 
@@ -81,22 +82,22 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 17
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 4)
-			// Write signed bytes to the storage (e.g., values from -128 to 127)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*4)))
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(int8(i-128))))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
 			signedByte := int8(i - 128)
 			extendedValue := int32(signedByte)
-			// Check that the value is extended correctly
-			Expect(layout.DST[i*4]).To(Equal(uint32(extendedValue)))
+			buf := state.ReadReg(insts.VReg(4), 1, i)
+			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(extendedValue)))
 		}
 	})
 
@@ -111,19 +112,20 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 18
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 4)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*4)))
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
-
+			buf := state.ReadReg(insts.VReg(4), 1, i)
+			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
 		}
 	})
 
@@ -138,18 +140,20 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 20
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 4)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*4)))
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			buf := state.ReadReg(insts.VReg(4), 1, i)
+			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
 		}
 	})
 
@@ -164,20 +168,22 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 21
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 2)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 8)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*8)))
 			storage.Write(uint64(i*8), insts.Uint32ToBytes(uint32(i)))
 			storage.Write(uint64(i*8+4), insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
-			Expect(layout.DST[i*4+1]).To(Equal(uint32(i)))
+			buf := state.ReadReg(insts.VReg(4), 2, i)
+			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
+			Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(i)))
 		}
 	})
 
@@ -192,24 +198,26 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 23
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Dst = insts.NewVRegOperand(0, 4, 4)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 16)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*16)))
 			storage.Write(uint64(i*16), insts.Uint32ToBytes(uint32(i)))
 			storage.Write(uint64(i*16+4), insts.Uint32ToBytes(uint32(i)))
 			storage.Write(uint64(i*16+8), insts.Uint32ToBytes(uint32(i)))
 			storage.Write(uint64(i*16+12), insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
-			Expect(layout.DST[i*4+1]).To(Equal(uint32(i)))
-			Expect(layout.DST[i*4+2]).To(Equal(uint32(i)))
-			Expect(layout.DST[i*4+3]).To(Equal(uint32(i)))
+			buf := state.ReadReg(insts.VReg(4), 4, i)
+			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
+			Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(i)))
+			Expect(insts.BytesToUint32(buf[8:12])).To(Equal(uint32(i)))
+			Expect(insts.BytesToUint32(buf[12:16])).To(Equal(uint32(i)))
 		}
 	})
 
@@ -224,13 +232,14 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 28
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Data = insts.NewVRegOperand(0, 4, 1)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 4)
-			layout.DATA[i*4] = uint32(i)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*4)))
+			state.WriteReg(insts.VReg(4), 1, i, insts.Uint32ToBytes(uint32(i)))
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -252,14 +261,17 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 29
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Data = insts.NewVRegOperand(0, 4, 2)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 16)
-			layout.DATA[i*4] = uint32(i)
-			layout.DATA[(i*4)+1] = uint32(i)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*16)))
+			buf := make([]byte, 8)
+			copy(buf[0:4], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[4:8], insts.Uint32ToBytes(uint32(i)))
+			state.WriteReg(insts.VReg(4), 2, i, buf)
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -281,15 +293,18 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 30
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Data = insts.NewVRegOperand(0, 4, 3)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 16)
-			layout.DATA[i*4] = uint32(i)
-			layout.DATA[(i*4)+1] = uint32(i)
-			layout.DATA[(i*4)+2] = uint32(i)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*16)))
+			buf := make([]byte, 12)
+			copy(buf[0:4], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[4:8], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[8:12], insts.Uint32ToBytes(uint32(i)))
+			state.WriteReg(insts.VReg(4), 3, i, buf)
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -313,16 +328,19 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 31
+		state.inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		state.inst.Data = insts.NewVRegOperand(0, 4, 4)
 
-		layout := state.Scratchpad().AsFlat()
+		state.exec = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 16)
-			layout.DATA[i*4] = uint32(i)
-			layout.DATA[(i*4)+1] = uint32(i)
-			layout.DATA[(i*4)+2] = uint32(i)
-			layout.DATA[(i*4)+3] = uint32(i)
+			state.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i*16)))
+			buf := make([]byte, 16)
+			copy(buf[0:4], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[4:8], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[8:12], insts.Uint32ToBytes(uint32(i)))
+			copy(buf[12:16], insts.Uint32ToBytes(uint32(i)))
+			state.WriteReg(insts.VReg(4), 4, i, buf)
 		}
-		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
