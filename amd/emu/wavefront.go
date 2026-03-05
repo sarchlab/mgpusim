@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"encoding/binary"
 	"log"
 	"math"
 
@@ -91,16 +92,102 @@ func (wf *Wavefront) SetVCC(v uint64) {
 }
 
 // ReadOperand reads the value of an operand
+//
+//nolint:gocyclo
 func (wf *Wavefront) ReadOperand(operand *insts.Operand, laneID int) uint64 {
 	switch operand.OperandType {
 	case insts.RegOperand:
-		buf := wf.ReadReg(operand.Register, operand.RegCount, laneID)
-		if len(buf) < 8 {
-			padded := make([]byte, 8)
-			copy(padded, buf)
-			buf = padded
+		reg := operand.Register
+		regCount := operand.RegCount
+
+		if reg.IsVReg() {
+			offset := laneID*256*4 + reg.RegIndex()*4
+			numBytes := reg.ByteSize
+			if regCount >= 2 {
+				numBytes *= regCount
+			}
+			if numBytes == 4 {
+				return uint64(binary.LittleEndian.Uint32(
+					wf.VRegFile[offset : offset+4]))
+			}
+			return binary.LittleEndian.Uint64(
+				wf.VRegFile[offset : offset+8])
 		}
-		return insts.BytesToUint64(buf)
+
+		if reg.IsSReg() {
+			offset := reg.RegIndex() * 4
+			numBytes := reg.ByteSize
+			if regCount >= 2 {
+				numBytes *= regCount
+			}
+			if numBytes == 4 {
+				return uint64(binary.LittleEndian.Uint32(
+					wf.SRegFile[offset : offset+4]))
+			}
+			return binary.LittleEndian.Uint64(
+				wf.SRegFile[offset : offset+8])
+		}
+
+		if reg.RegType == insts.SCC {
+			return uint64(wf.scc)
+		}
+
+		if reg.RegType == insts.VCC {
+			return wf.vcc
+		}
+
+		if reg.RegType == insts.VCCLO {
+			if regCount == 1 {
+				return uint64(uint32(wf.vcc))
+			}
+			return wf.vcc
+		}
+
+		if reg.RegType == insts.VCCHI {
+			if regCount == 1 {
+				return uint64(uint32(wf.vcc >> 32))
+			}
+			return wf.vcc
+		}
+
+		if reg.RegType == insts.EXEC {
+			return wf.exec
+		}
+
+		if reg.RegType == insts.EXECLO {
+			if regCount == 2 {
+				return wf.exec
+			}
+			return uint64(uint32(wf.exec))
+		}
+
+		if reg.RegType == insts.M0 {
+			return uint64(wf.M0)
+		}
+
+		if reg.Name == "vcclo" {
+			if regCount == 1 {
+				return uint64(uint32(wf.vcc))
+			}
+			return wf.vcc
+		}
+
+		if reg.Name == "vcchi" {
+			if regCount == 1 {
+				return uint64(uint32(wf.vcc >> 32))
+			}
+			return wf.vcc
+		}
+
+		// Fall back to ReadReg for any unhandled register types
+		buf := wf.ReadReg(reg, regCount, laneID)
+		if len(buf) < 8 {
+			var padded [8]byte
+			copy(padded[:], buf)
+			return binary.LittleEndian.Uint64(padded[:])
+		}
+		return binary.LittleEndian.Uint64(buf)
+
 	case insts.IntOperand:
 		return uint64(operand.IntValue)
 	case insts.FloatOperand:
@@ -182,7 +269,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	}
 
 	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
-	var value = make([]byte, numBytes)
+	var buf [8]byte
+	value := buf[:numBytes]
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
 		copy(value, wf.SRegFile[offset:offset+numBytes])
