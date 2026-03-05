@@ -36,194 +36,185 @@ func (u *ALU) runDS(state emu.InstEmuState) {
 
 func (u *ALU) runDSWRITEB32(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0
-		data0offset := uint(8 + 64*4)
-		copy(lds[addr0:addr0+4], sp[data0offset+i*16:data0offset+i*16+4])
+		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
+		data := state.ReadOperandBytes(inst.Data, i, 4)
+		copy(lds[addr0:addr0+4], data)
 	}
 }
 
 func (u *ALU) runDSWRITE2B32(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0*4
-		data0offset := uint(8 + 64*4)
-		addr1 := layout.ADDR[i] + inst.Offset1*4
-		data1offset := uint(8 + 64*4 + 256*4)
+		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
+		addr0 := baseAddr + inst.Offset0*4
+		addr1 := baseAddr + inst.Offset1*4
 
-		copy(lds[addr0:addr0+4], sp[data0offset+i*16:data0offset+i*16+4])
-		copy(lds[addr1:addr1+4], sp[data1offset+i*16:data1offset+i*16+4])
+		data0 := state.ReadOperandBytes(inst.Data, i, 4)
+		data1 := state.ReadOperandBytes(inst.Data1, i, 4)
+
+		copy(lds[addr0:addr0+4], data0)
+		copy(lds[addr1:addr1+4], data1)
 	}
 }
 
 func (u *ALU) runDSWRITEB8(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0
-		dstOffset := uint(8 + 64*4)
-		data := sp[dstOffset+i*16]
-		lds[addr0] = data
+		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
+		data := state.ReadOperandBytes(inst.Data, i, 1)
+		lds[addr0] = data[0]
 	}
 }
 
 func (u *ALU) runDSREADB32(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	var buf [4]byte
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0
-		dstOffset := uint(8 + 64*4 + 256*4*2)
-		copy(sp[dstOffset+i*16:dstOffset+i*16+4], lds[addr0:addr0+4])
+		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
+		copy(buf[:], lds[addr0:addr0+4])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
 func (u *ALU) runDSREAD2B32(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	var buf [8]byte
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0*4
-		dstOffset := uint(8 + 64*4 + 256*4*2)
-		copy(sp[dstOffset+i*16:dstOffset+i*16+4], lds[addr0:addr0+4])
+		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
+		addr0 := baseAddr + inst.Offset0*4
+		addr1 := baseAddr + inst.Offset1*4
 
-		addr1 := layout.ADDR[i] + inst.Offset1*4
-		copy(sp[dstOffset+i*16+4:dstOffset+i*16+8], lds[addr1:addr1+4])
+		copy(buf[0:4], lds[addr0:addr0+4])
+		copy(buf[4:8], lds[addr1:addr1+4])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
 func (u *ALU) runDSWRITE2B64(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0*8
-		data0Offset := uint(8 + 64*4)
-		copy(lds[addr0:addr0+8], sp[data0Offset+i*16:data0Offset+i*16+8])
+		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
+		addr0 := baseAddr + inst.Offset0*8
+		addr1 := baseAddr + inst.Offset1*8
 
-		addr1 := layout.ADDR[i] + inst.Offset1*8
-		data1Offset := uint(8 + 64*4 + 256*4)
-		copy(lds[addr1:addr1+8], sp[data1Offset+i*16:data1Offset+i*16+8])
+		data0 := state.ReadOperandBytes(inst.Data, i, 8)
+		data1 := state.ReadOperandBytes(inst.Data1, i, 8)
+
+		copy(lds[addr0:addr0+8], data0)
+		copy(lds[addr1:addr1+8], data1)
 	}
 }
 
 func (u *ALU) runDSREADB64(state emu.InstEmuState) {
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	inst := state.Inst()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	var buf [8]byte
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr := layout.ADDR[i]
-		dstOffset := uint(8 + 64*4 + 256*4*2)
-		copy(sp[dstOffset+i*16:dstOffset+i*16+8], lds[addr:addr+8])
+		addr := uint32(state.ReadOperand(inst.Addr, i))
+		copy(buf[:], lds[addr:addr+8])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
 func (u *ALU) runDSWRITEB128(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0
-		data0offset := uint(8 + 64*4)
-		copy(lds[addr0:addr0+16], sp[data0offset+i*16:data0offset+i*16+16])
+		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
+		data := state.ReadOperandBytes(inst.Data, i, 16)
+		copy(lds[addr0:addr0+16], data)
 	}
 }
 
 func (u *ALU) runDSREADB128(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	var buf [16]byte
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0
-		dstOffset := uint(8 + 64*4 + 256*4*2)
-		copy(sp[dstOffset+i*16:dstOffset+i*16+16], lds[addr0:addr0+16])
+		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
+		copy(buf[:], lds[addr0:addr0+16])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
 func (u *ALU) runDSREAD2B64(state emu.InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad()
-	layout := sp.AsDS()
+	exec := state.EXEC()
 	lds := u.LDS()
 
-	i := uint(0)
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(layout.EXEC, i) {
+	var buf [16]byte
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + inst.Offset0*8
-		dstOffset := uint(8 + 64*4 + 256*4*2)
-		copy(sp[dstOffset+i*16:dstOffset+i*16+8], lds[addr0:addr0+8])
+		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
+		addr0 := baseAddr + inst.Offset0*8
+		addr1 := baseAddr + inst.Offset1*8
 
-		addr1 := layout.ADDR[i] + inst.Offset1*8
-		copy(sp[dstOffset+i*16+8:dstOffset+i*16+16], lds[addr1:addr1+8])
+		copy(buf[0:8], lds[addr0:addr0+8])
+		copy(buf[8:16], lds[addr1:addr1+8])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }

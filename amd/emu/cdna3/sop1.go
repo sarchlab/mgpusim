@@ -45,136 +45,169 @@ func (u *ALU) runSOP1(state emu.InstEmuState) {
 }
 
 func (u *ALU) runSMOVB32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.SRC0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	state.WriteOperand(inst.Dst, 0, src0)
 }
 
 func (u *ALU) runSMOVB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.SRC0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	state.WriteOperand(inst.Dst, 0, src0)
 }
 
 func (u *ALU) runSNOTU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = ^sp.SRC0
-	if sp.DST != 0 {
-		sp.SCC = 1
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	dst := ^src0
+	state.WriteOperand(inst.Dst, 0, dst)
+	if dst != 0 {
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSBREVB32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	src := uint32(sp.SRC0)
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	src := uint32(src0)
 	var dst uint32
 	for i := 0; i < 32; i++ {
 		if (src & (1 << i)) != 0 {
 			dst |= 1 << (31 - i)
 		}
 	}
-	sp.DST = uint64(dst)
+	state.WriteOperand(inst.Dst, 0, uint64(dst))
 }
 
 func (u *ALU) runSGETPCB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.PC
+	inst := state.Inst()
+	pc := state.PC()
+	state.WriteOperand(inst.Dst, 0, pc)
 }
 
 func (u *ALU) runSANDSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = sp.SRC0 & sp.EXEC
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = src0 & exec
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSORSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = sp.SRC0 | sp.EXEC
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = src0 | exec
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSXORSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = sp.SRC0 ^ sp.EXEC
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = src0 ^ exec
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSANDN2SAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = sp.SRC0 & ^sp.EXEC
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = src0 & ^exec
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSORN2SAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = sp.SRC0 | ^sp.EXEC
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = src0 | ^exec
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSNANDSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = ^(sp.SRC0 & sp.EXEC)
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = ^(src0 & exec)
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSNORSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = ^(sp.SRC0 | sp.EXEC)
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = ^(src0 | exec)
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSNXORSAVEEXECB64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	sp.DST = sp.EXEC
-	sp.EXEC = ^(sp.SRC0 ^ sp.EXEC)
-	if sp.EXEC == 0 {
-		sp.SCC = 0
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	exec := state.EXEC()
+	state.WriteOperand(inst.Dst, 0, exec)
+	exec = ^(src0 ^ exec)
+	state.SetEXEC(exec)
+	if exec == 0 {
+		state.SetSCC(0)
 	} else {
-		sp.SCC = 1
+		state.SetSCC(1)
 	}
 }
 
 func (u *ALU) runSABSI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOP1()
-	src := emu.AsInt32(uint32(sp.SRC0))
+	inst := state.Inst()
+	src0 := state.ReadOperand(inst.Src0, 0)
+	src := emu.AsInt32(uint32(src0))
 	if src < 0 {
-		sp.DST = uint64(emu.Int32ToBits(-src))
-		sp.SCC = 1
+		state.WriteOperand(inst.Dst, 0, uint64(emu.Int32ToBits(-src)))
+		state.SetSCC(1)
 	} else {
-		sp.DST = uint64(emu.Int32ToBits(src))
-		sp.SCC = 0
+		state.WriteOperand(inst.Dst, 0, uint64(emu.Int32ToBits(src)))
+		state.SetSCC(0)
 	}
 }
+
+

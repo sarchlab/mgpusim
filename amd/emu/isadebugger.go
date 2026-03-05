@@ -67,13 +67,13 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(wf.Inst()))
-	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC&0xffffffff)
-	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC>>32)
-	output += fmt.Sprintf(`"EXECLo":%d,`, wf.Exec&0xffffffff)
-	output += fmt.Sprintf(`"EXECHi":%d,`, wf.Exec>>32)
-	output += fmt.Sprintf(`"VCCLo":%d,`, wf.VCC&0xffffffff)
-	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC>>32)
-	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC)
+	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC()&0xffffffff)
+	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC()>>32)
+	output += fmt.Sprintf(`"EXECLo":%d,`, wf.EXEC()&0xffffffff)
+	output += fmt.Sprintf(`"EXECHi":%d,`, wf.EXEC()>>32)
+	output += fmt.Sprintf(`"VCCLo":%d,`, wf.VCC()&0xffffffff)
+	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC()>>32)
+	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
 	output += fmt.Sprintf(`"SGPRs":[`)
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {

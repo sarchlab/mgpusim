@@ -77,383 +77,418 @@ func (u *ALU) runVOPC(state emu.InstEmuState) {
 }
 
 func (u *ALU) runVCmpLtF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 < src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpEqF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 == src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLeF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 <= src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGtF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 > src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLgF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 != src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGeF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 >= src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGtI16(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 		// Extract 16-bit values and sign-extend to int32
-		src0 := int16(sp.SRC0[i] & 0xFFFF)
-		src1 := int16(sp.SRC1[i] & 0xFFFF)
+		src0 := int16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+		src1 := int16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
 		if src0 > src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLtI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 < src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLeI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 <= src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGtI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 > src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLgI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 != src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGeI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := emu.AsInt32(uint32(sp.SRC0[i]))
-		src1 := emu.AsInt32(uint32(sp.SRC1[i]))
+		src0 := emu.AsInt32(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := emu.AsInt32(uint32(state.ReadOperand(inst.Src1, i)))
 		if src0 >= src1 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLtU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		if uint32(sp.SRC0[i]) < uint32(sp.SRC1[i]) {
-			sp.VCC |= (1 << i)
+		if uint32(state.ReadOperand(inst.Src0, i)) < uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpEqU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if uint32(sp.SRC0[i]) == uint32(sp.SRC1[i]) {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if uint32(state.ReadOperand(inst.Src0, i)) == uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLeU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if uint32(sp.SRC0[i]) <= uint32(sp.SRC1[i]) {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if uint32(state.ReadOperand(inst.Src0, i)) <= uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGtU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if uint32(sp.SRC0[i]) > uint32(sp.SRC1[i]) {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if uint32(state.ReadOperand(inst.Src0, i)) > uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpNeU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if uint32(sp.SRC0[i]) != uint32(sp.SRC1[i]) {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if uint32(state.ReadOperand(inst.Src0, i)) != uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGeU32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if uint32(sp.SRC0[i]) >= uint32(sp.SRC1[i]) {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if uint32(state.ReadOperand(inst.Src0, i)) >= uint32(state.ReadOperand(inst.Src1, i)) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpFU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	// VCC is already 0, so no need to loop - all bits are already false
+	// VCC is always 0 — all bits false
+	state.SetVCC(0)
 }
 
 func (u *ALU) runVCmpLtU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] < sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) < state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpEqU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] == sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) == state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLeU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] <= sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) <= state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGtU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] > sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) > state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpLgU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] != sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) != state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpGeU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			if sp.SRC0[i] >= sp.SRC1[i] {
-				sp.VCC |= (1 << i)
-			}
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		if state.ReadOperand(inst.Src0, i) >= state.ReadOperand(inst.Src1, i) {
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpTruU64(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if emu.LaneMasked(sp.EXEC, i) {
-			// Always true
-			sp.VCC |= (1 << i)
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
 		}
+		// Always true
+		vcc |= 1 << uint(i)
 	}
+	state.SetVCC(vcc)
 }
 
 func (u *ALU) runVCmpClassF32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsVOPC()
-	sp.VCC = 0
-	var i uint
-	for i = 0; i < 64; i++ {
-		if !emu.LaneMasked(sp.EXEC, i) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-		classMask := uint32(sp.SRC1[i])
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		classMask := uint32(state.ReadOperand(inst.Src1, i))
 
 		// IEEE754 class bits:
 		// 0: signaling NaN
@@ -503,7 +538,8 @@ func (u *ALU) runVCmpClassF32(state emu.InstEmuState) {
 		}
 
 		if (class & classMask) != 0 {
-			sp.VCC |= (1 << i)
+			vcc |= 1 << uint(i)
 		}
 	}
+	state.SetVCC(vcc)
 }
