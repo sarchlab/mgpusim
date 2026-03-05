@@ -85,15 +85,15 @@ func (u *ALUImpl) runDSREADB32(state InstEmuState) {
 	exec := state.EXEC()
 	lds := u.LDS()
 
+	var buf [4]byte
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
 		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
-		buf := make([]byte, 4)
-		copy(buf, lds[addr0:addr0+4])
-		state.WriteOperandBytes(inst.Dst, i, buf)
+		copy(buf[:], lds[addr0:addr0+4])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
@@ -102,6 +102,7 @@ func (u *ALUImpl) runDSREAD2B32(state InstEmuState) {
 	exec := state.EXEC()
 	lds := u.LDS()
 
+	var buf [8]byte
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
@@ -110,10 +111,9 @@ func (u *ALUImpl) runDSREAD2B32(state InstEmuState) {
 		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0*4
 		addr1 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset1*4
 
-		buf := make([]byte, 8)
 		copy(buf[0:4], lds[addr0:addr0+4])
 		copy(buf[4:8], lds[addr1:addr1+4])
-		state.WriteOperandBytes(inst.Dst, i, buf)
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
@@ -142,15 +142,15 @@ func (u *ALUImpl) runDSREADB64(state InstEmuState) {
 	exec := state.EXEC()
 	lds := u.LDS()
 
+	var buf [8]byte
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
 		addr := uint32(state.ReadOperand(inst.Addr, i))
-		buf := make([]byte, 8)
-		copy(buf, lds[addr:addr+8])
-		state.WriteOperandBytes(inst.Dst, i, buf)
+		copy(buf[:], lds[addr:addr+8])
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
 
@@ -159,6 +159,7 @@ func (u *ALUImpl) runDSREAD2B64(state InstEmuState) {
 	exec := state.EXEC()
 	lds := u.LDS()
 
+	var buf [16]byte
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
@@ -167,9 +168,8 @@ func (u *ALUImpl) runDSREAD2B64(state InstEmuState) {
 		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0*8
 		addr1 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset1*8
 
-		buf := make([]byte, 16)
 		copy(buf[0:8], lds[addr0:addr0+8])
 		copy(buf[8:16], lds[addr1:addr1+8])
-		state.WriteOperandBytes(inst.Dst, i, buf)
+		state.WriteOperandBytes(inst.Dst, i, buf[:])
 	}
 }
