@@ -41,9 +41,16 @@
   4. ✅ flatAddr: Scalar base hoisted outside lane loop via flatPrecomputeScalarBase
 - Estimated cycles: 6
 
-## M10: Final evaluation and project completion (CURRENT)
-- Goal: Run final benchmarks, verify project completeness, close out
-- Evaluating whether remaining optimizations (StorageAccessor.Read, logInst) are worth pursuing or are diminishing returns
+## M10: Final evaluation and project completion ✅
+- Status: Complete
+- Final benchmarks: **2.07× end-to-end speedup** (gputensor: 2.86s → 1.38s)
+- 0 heap allocations in all ReadOperand/WriteOperand hot paths
+- Independent evaluator (Alex) confirmed project completeness
+- Remaining optimizations (StorageAccessor.Read, logInst) deferred as diminishing returns
+
+## PROJECT COMPLETE ✅
+- All 10 milestones achieved across ~222 cycles
+- Human's request (issue #156) fully satisfied: scratchpad evaluated, removed, benchmarked
 
 ## Future (deferred — diminishing returns)
 - StorageAccessor.Read buffer reuse (~500ns/inst for memory ops)
