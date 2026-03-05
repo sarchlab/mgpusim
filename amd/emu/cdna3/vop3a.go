@@ -21,6 +21,10 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCmpLtF32VOP3a(state)
 	case 68: // 0x44
 		u.runVCmpGtF32VOP3a(state)
+	case 70: // 0x46
+		u.runVCmpLeF32VOP3a(state)
+	case 16: // v_cmp_class_f32
+		u.runVCmpClassF32VOP3a(state)
 	case 78: // 0x41
 		u.runVCmpNltF32VOP3a(state)
 	case 193: // 0xC1
@@ -49,6 +53,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCNDMASKB32VOP3a(state)
 	case 258:
 		u.runVSUBF32VOP3a(state)
+	case 261:
+		u.runVMULF32VOP3a(state)
 	case 449:
 		u.runVMADF32(state)
 	case 450:
@@ -59,6 +65,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVBFEU32(state)
 	case 457: // v_bfe_i32
 		u.runVBFEI32(state)
+	case 459: // v_fma_f32
+		u.runVFMAF32(state)
 	case 460:
 		u.runVFMAF64(state)
 	case 464:
@@ -79,8 +87,12 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVMED3I32(state)
 	case 472:
 		u.runVMED3U32(state)
+	case 478:
+		u.runVDIVFIXUPF32(state)
 	case 479:
 		u.runVDIVFIXUPF64(state)
+	case 482:
+		u.runVDIVFMASF32(state)
 	case 483:
 		u.runVDIVFMASF64(state)
 	case 640:
@@ -91,8 +103,20 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVMULLOU32(state)
 	case 646:
 		u.runVMULHIU32(state)
+	case 944:
+		u.runVPKFMAF32(state)
+	case 945:
+		u.runVPKMULF32(state)
+	case 946:
+		u.runVPKADDF32(state)
+	case 509:
+		u.runVLSHLADDU32(state)
+	case 510:
+		u.runVADDLSHLU32(state)
 	case 511:
 		u.runVADD3U32(state)
+	case 512:
+		u.runVLSHLORB32(state)
 	case 520:
 		u.runVLSHLADDU64(state)
 	case 655:
@@ -173,6 +197,66 @@ func (u *ALU) runVBFEI32(state emu.InstEmuState) {
 	}
 }
 
+// runVLSHLADDU32 implements v_lshl_add_u32 (shift left and add 32-bit)
+// D.u = (S0.u << S1.u[4:0]) + S2.u
+func (u *ALU) runVLSHLADDU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		shift := uint32(sp.SRC1[i]) & 0x1F // [4:0] = 5 bits
+		src2 := uint32(sp.SRC2[i])
+
+		result := (src0 << shift) + src2
+		sp.DST[i] = uint64(result)
+	}
+}
+
+// runVLSHLORB32 implements v_lshl_or_b32 (shift left and OR 32-bit)
+// D.u = (S0.u << S1.u[4:0]) | S2.u
+func (u *ALU) runVLSHLORB32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		shift := uint32(sp.SRC1[i]) & 0x1F
+		src2 := uint32(sp.SRC2[i])
+
+		result := (src0 << shift) | src2
+		sp.DST[i] = uint64(result)
+	}
+}
+
+// runVADDLSHLU32 implements v_add_lshl_u32 (add and shift left 32-bit)
+// D.u = (S0.u + S1.u) << S2.u[4:0]
+func (u *ALU) runVADDLSHLU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		shift := uint32(sp.SRC2[i]) & 0x1F // [4:0] = 5 bits
+
+		result := (src0 + src1) << shift
+		sp.DST[i] = uint64(result)
+	}
+}
+
 // runVADD3U32 implements v_add3_u32 (add three unsigned 32-bit values)
 // D.u = S0.u + S1.u + S2.u
 func (u *ALU) runVADD3U32(state emu.InstEmuState) {
@@ -229,6 +313,10 @@ func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
 	inst := state.Inst()
 	sp := state.Scratchpad().AsVOP3A()
 
+	if strings.HasPrefix(inst.InstName, "v_pk_") {
+		return
+	}
+
 	if strings.Contains(inst.InstName, "F32") ||
 		strings.Contains(inst.InstName, "f32") {
 		if inst.Abs&0x1 != 0 {
@@ -254,6 +342,16 @@ func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
 				sp.SRC2[i] = uint64(math.Float32bits(src2))
 			}
 		}
+	} else if strings.Contains(inst.InstName, "U32") ||
+		strings.Contains(inst.InstName, "u32") ||
+		strings.Contains(inst.InstName, "I32") ||
+		strings.Contains(inst.InstName, "i32") ||
+		strings.Contains(inst.InstName, "U64") ||
+		strings.Contains(inst.InstName, "u64") ||
+		strings.Contains(inst.InstName, "I24") ||
+		strings.Contains(inst.InstName, "i24") {
+		// Integer instructions: abs modifier is not applicable (used as opsel or unused).
+		// The instruction still executes correctly without applying abs.
 	} else {
 		log.Printf("Absolute operation for %s is not implemented.", inst.InstName)
 	}
@@ -261,6 +359,10 @@ func (u *ALU) vop3aPreProcessAbs(state emu.InstEmuState) {
 
 func (u *ALU) vop3aPreProcessNeg(state emu.InstEmuState) {
 	inst := state.Inst()
+
+	if strings.HasPrefix(inst.InstName, "v_pk_") {
+		return
+	}
 
 	if strings.Contains(inst.InstName, "F64") ||
 		strings.Contains(inst.InstName, "f64") {
@@ -364,6 +466,10 @@ func (u *ALU) vop3aPreProcessB32Neg(state emu.InstEmuState) {
 func (u *ALU) vop3aPostprocess(state emu.InstEmuState) {
 	inst := state.Inst()
 
+	if strings.HasPrefix(inst.InstName, "v_pk_") {
+		return
+	}
+
 	if inst.Omod != 0 {
 		log.Panic("Output modifiers are not supported.")
 	}
@@ -396,6 +502,68 @@ func (u *ALU) runVCmpGtF32VOP3a(state emu.InstEmuState) {
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
 		if src0 > src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpLeF32VOP3a(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 <= src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func matchesF32Class(src0 float32, classMask uint32) bool {
+	bits := math.Float32bits(src0)
+	sign := (bits >> 31) != 0
+	exp := (bits >> 23) & 0xFF
+	frac := bits & 0x7FFFFF
+	isNaN := math.IsNaN(float64(src0))
+	isInf := math.IsInf(float64(src0), 0)
+	isDenorm := exp == 0 && frac != 0
+	isZero := exp == 0 && frac == 0
+	isNorm := !isNaN && !isInf && !isDenorm && !isZero
+
+	classChecks := [10]bool{
+		isNaN && frac&(1<<22) == 0,  // 0: signaling NaN
+		isNaN && frac&(1<<22) != 0,  // 1: quiet NaN
+		isInf && sign,               // 2: negative infinity
+		isNorm && sign,              // 3: negative normal
+		isDenorm && sign,            // 4: negative denormal
+		isZero && sign,              // 5: negative zero
+		isZero && !sign,             // 6: positive zero
+		isDenorm && !sign,           // 7: positive denormal
+		isNorm && !sign,             // 8: positive normal
+		isInf && !sign,              // 9: positive infinity
+	}
+	for bit, check := range classChecks {
+		if classMask&(1<<uint(bit)) != 0 && check {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *ALU) runVCmpClassF32VOP3a(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		classMask := uint32(sp.SRC1[i])
+		if matchesF32Class(src0, classMask) {
 			sp.DST[0] |= (1 << i)
 		}
 	}
@@ -647,6 +815,21 @@ func (u *ALU) runVSUBF32VOP3a(state emu.InstEmuState) {
 	}
 }
 
+func (u *ALU) runVMULF32VOP3a(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		dst := src0 * src1
+		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
 func (u *ALU) runVMADF32(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
@@ -692,7 +875,10 @@ func (u *ALU) runVMADU64U32(state emu.InstEmuState) {
 			continue
 		}
 
-		sp.DST[i] = sp.SRC0[i]*sp.SRC1[i] + sp.SRC2[i]
+		s0 := uint64(uint32(sp.SRC0[i]))
+		s1 := uint64(uint32(sp.SRC1[i]))
+		s2 := sp.SRC2[i]
+		sp.DST[i] = s0*s1 + s2
 	}
 }
 
@@ -768,6 +954,24 @@ func (u *ALU) runVADDF64(state emu.InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVFMAF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+
+		// v_fma_f32: D.f = S0.f * S1.f + S2.f (fused multiply-add)
+		dst := src0*src1 + src2
+		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 
@@ -1071,6 +1275,33 @@ func (u *ALU) runVMULF64(state emu.InstEmuState) {
 	}
 }
 
+func (u *ALU) runVDIVFMASF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		vccBit := (sp.VCC >> i) & 1
+
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+
+		// v_div_fmas_f32: Part of software division - final step
+		// Simplified: if VCC[i], scale by 2^32, else normal FMA
+		var dst float32
+		if vccBit == 1 {
+			dst = float32(math.Pow(2.0, 32)) * (src0*src1 + src2)
+		} else {
+			dst = src0*src1 + src2
+		}
+		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
 func (u *ALU) runVDIVFMASF64(state emu.InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 	inst := state.Inst()
@@ -1098,6 +1329,42 @@ func (u *ALU) runVDIVFMASF64(state emu.InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVDIVFIXUPF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+
+		// v_div_fixup_f32: Final fixup for division
+		// Simplified: handles special cases (NaN, inf, denormals)
+		// For normal values, just use src0 as the quotient
+		dst := src0
+		
+		// Handle special cases
+		if math.IsNaN(float64(src1)) || math.IsNaN(float64(src2)) {
+			dst = float32(math.NaN())
+		} else if math.IsInf(float64(src1), 0) && math.IsInf(float64(src2), 0) {
+			dst = float32(math.NaN())
+		} else if src2 == 0 && src1 != 0 {
+			// Division by zero
+			if src1 > 0 {
+				dst = float32(math.Inf(1))
+			} else {
+				dst = float32(math.Inf(-1))
+			}
+		}
+		
+		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 
@@ -1188,4 +1455,141 @@ func (u *ALU) isDIVFIXUPF64Overflow(
 ) bool {
 	return int64(exponentSrc2-exponentSrc1) < -1075 ||
 		exponentSrc1 == 2047
+}
+
+func (u *ALU) runVPKFMAF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	
+	// VOP3P encoding: OpSel (bits 11-14) and OpSelHi (bits 59-60)
+	op_sel := inst.OpSel
+	op_sel_hi := inst.OpSelHi
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0Bits := sp.SRC0[i]
+		src1Bits := sp.SRC1[i]
+		src2Bits := sp.SRC2[i]
+
+		src0_lo := math.Float32frombits(uint32(src0Bits))
+		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
+		src1_lo := math.Float32frombits(uint32(src1Bits))
+		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
+		src2_lo := math.Float32frombits(uint32(src2Bits))
+		src2_hi := math.Float32frombits(uint32(src2Bits >> 32))
+
+		var a_lo, a_hi float32
+		var b_lo, b_hi float32
+		var c_lo, c_hi float32
+
+		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
+		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+		if op_sel&4 != 0 { c_lo = src2_hi } else { c_lo = src2_lo }
+
+		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
+		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+		if op_sel_hi&4 != 0 { c_hi = src2_hi } else { c_hi = src2_lo }
+
+		res_lo := a_lo * b_lo + c_lo
+		res_hi := a_hi * b_hi + c_hi
+
+		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
+		sp.DST[i] = dstBits
+	}
+}
+
+func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	
+	// VOP3P encoding for 2-source packed f32 operations:
+	// OpSel (bits 11-14, 4 bits total) controls ALL source selection:
+	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
+	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
+	// OpSel[2] (bit 2): src0 word select for upper result (0=lo, 1=hi)
+	// OpSel[3] (bit 3): src1 word select for upper result (0=lo, 1=hi)
+	// Note: OpSelHi is NOT used for 2-source packed ops, only for 3-source FMA
+	op_sel := inst.OpSel
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0Bits := sp.SRC0[i]
+		src1Bits := sp.SRC1[i]
+
+		src0_lo := math.Float32frombits(uint32(src0Bits))
+		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
+		src1_lo := math.Float32frombits(uint32(src1Bits))
+		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
+
+		var a_lo, b_lo float32  // Inputs for lower result
+		var a_hi, b_hi float32  // Inputs for upper result
+
+		// Lower result: OpSel[0] and OpSel[1]
+		if op_sel&0b0001 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
+		if op_sel&0b0010 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+
+		// Upper result: OpSel[2] and OpSel[3]
+		if op_sel&0b0100 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
+		if op_sel&0b1000 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+
+		res_lo := a_lo * b_lo
+		res_hi := a_hi * b_hi
+
+		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
+		sp.DST[i] = dstBits
+	}
+}
+
+func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	
+	// VOP3P encoding for 2-source packed f32 operations:
+	// OpSel (bits 11-14, 4 bits total) controls ALL source selection:
+	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
+	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
+	// OpSel[2] (bit 2): src0 word select for upper result (0=lo, 1=hi)
+	// OpSel[3] (bit 3): src1 word select for upper result (0=lo, 1=hi)
+	// Note: OpSelHi is NOT used for 2-source packed ops, only for 3-source FMA
+	op_sel := inst.OpSel
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0Bits := sp.SRC0[i]
+		src1Bits := sp.SRC1[i]
+
+		src0_lo := math.Float32frombits(uint32(src0Bits))
+		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
+		src1_lo := math.Float32frombits(uint32(src1Bits))
+		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
+
+		var a_lo, a_hi float32
+		var b_lo, b_hi float32
+
+		// Lower result: OpSel[0] and OpSel[1]
+		if op_sel&0b0001 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
+		if op_sel&0b0010 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+
+		// Upper result: OpSel[2] and OpSel[3]
+		if op_sel&0b0100 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
+		if op_sel&0b1000 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+
+		res_lo := a_lo + b_lo
+		res_hi := a_hi + b_hi
+
+		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
+		sp.DST[i] = dstBits
+	}
 }

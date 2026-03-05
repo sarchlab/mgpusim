@@ -11,11 +11,11 @@ func (u *ALU) runSOPK(state emu.InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSMOVKI32(state)
-	case 2:
+	case 1:
 		u.runSCMOVKI32(state)
-	case 3:
+	case 2:
 		u.runSCMPKEQI32(state)
-	case 5:
+	case 3:
 		u.runSCMPKLGI32(state)
 	case 15:
 		u.runSMULKI32(state)

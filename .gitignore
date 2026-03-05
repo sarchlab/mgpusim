@@ -22,6 +22,7 @@ __pycache__
 *.swo
 *.o
 
+*.orig
 *.orig.bc
 .idea
 vendor
@@ -37,3 +38,17 @@ test
 **/mock_*_test.go
 
 .history
+
+fastwalshtransform
+fir
+floydwarshall
+matrixtranspose
+simpleconvolution
+
+# HIP/ROCm build artifacts
+*.hipi
+*.bc
+*.s
+*.hipfb
+conv2d
+im2col

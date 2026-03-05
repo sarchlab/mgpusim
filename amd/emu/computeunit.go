@@ -285,14 +285,22 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
+		if co.Version == insts.CodeObjectV5 {
+			// For V5 code objects (gfx942/CDNA3), pack work-item IDs into v0
+			// as: v0 = (z << 20) | (y << 10) | x
+			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
+			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(packed))
+		} else {
+			// For V2/V3 code objects (GCN3), use separate registers
+			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
-		if co.EnableVgprWorkItemID() > 0 {
-			wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
-		}
+			if co.EnableVgprWorkItemID() > 0 {
+				wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
+			}
 
-		if co.EnableVgprWorkItemID() > 1 {
-			wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
+			if co.EnableVgprWorkItemID() > 1 {
+				wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
+			}
 		}
 	}
 }
@@ -307,21 +315,28 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 }
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
+	if wf.Completed {
+		return nil
+	}
+
 	for {
 		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
 
-		inst, _ := cu.decoder.Decode(instBuf)
+		inst, err := cu.decoder.Decode(instBuf)
+		if err != nil {
+			log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", wf.PC, err, instBuf)
+		}
 		wf.inst = inst
 
 		wf.PC += uint64(inst.ByteSize)
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
+		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_BARRIER
 			wf.AtBarrier = true
 			cu.logInst(wf, inst)
 			break
 		}
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
+		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_ENDPGM
 			wf.Completed = true
 			cu.logInst(wf, inst)
 			break
@@ -440,7 +455,7 @@ func BuildComputeUnit(
 		name, engine, decoder, pageTable, log2PageSize,
 		storage, addrConverter, func(sa StorageAccessor) ALU {
 			return NewALU(sa)
-		})
+		}, false)
 }
 
 // BuildComputeUnitWithALU builds a compute unit with a custom ALU factory.
@@ -453,8 +468,9 @@ func BuildComputeUnitWithALU(
 	storage *mem.Storage,
 	addrConverter mem.AddressConverter,
 	aluFactory ALUFactory,
+	isCDNA3 bool,
 ) *ComputeUnit {
-	scratchpadPreparer := NewScratchpadPreparerImpl()
+	scratchpadPreparer := NewScratchpadPreparerImpl(isCDNA3)
 	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
 	alu := aluFactory(sAccessor)

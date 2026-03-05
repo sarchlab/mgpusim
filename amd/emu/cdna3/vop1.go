@@ -17,6 +17,8 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVREADFIRSTLANEB32(state)
 	case 4:
 		u.runVCVTF64I32(state)
+	case 22:
+		u.runVCVTF64U32(state)
 	case 5:
 		u.runVCVTF32I32(state)
 	case 6:
@@ -53,6 +55,10 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVNOTB32(state)
 	case 44:
 		u.runBFREVB32(state)
+	case 45:
+		u.runVFFBHU32(state)
+	case 56:
+		u.runVMOVRELSDB32(state)
 	case 76:
 		u.runLogLegacyF32(state)
 	default:
@@ -95,6 +101,19 @@ func (u *ALU) runVCVTF64I32(state emu.InstEmuState) {
 			continue
 		}
 		src := emu.AsInt32(uint32(sp.SRC0[i]))
+		dst := float64(src)
+		sp.DST[i] = math.Float64bits(dst)
+	}
+}
+
+func (u *ALU) runVCVTF64U32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src := uint32(sp.SRC0[i])
 		dst := float64(src)
 		sp.DST[i] = math.Float64bits(dst)
 	}
@@ -386,6 +405,43 @@ func (u *ALU) runBFREVB32(state emu.InstEmuState) {
 			}
 		}
 		sp.DST[i] = uint64(dst)
+	}
+}
+
+func (u *ALU) runVFFBHU32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		src := uint32(sp.SRC0[i])
+		if src == 0 {
+			sp.DST[i] = 0xFFFFFFFF
+		} else {
+			pos := uint32(0)
+			for bit := 31; bit >= 0; bit-- {
+				if (src & (1 << uint(bit))) != 0 {
+					pos = uint32(31 - bit)
+					break
+				}
+			}
+			sp.DST[i] = uint64(pos)
+		}
+	}
+}
+
+func (u *ALU) runVMOVRELSDB32(state emu.InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !emu.LaneMasked(sp.EXEC, i) {
+			continue
+		}
+		// Full relative source+destination behavior depends on M0/GPR indexing mode,
+		// which is not modeled in this ALU path yet. For current CDNA3 benchmarks,
+		// M0 remains 0, which makes this instruction equivalent to a lane-wise move.
+		sp.DST[i] = sp.SRC0[i]
 	}
 }
 

@@ -20,6 +20,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := kmeans.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NumPoints = *points
 	benchmark.NumClusters = *clusters
 	benchmark.NumFeatures = *features

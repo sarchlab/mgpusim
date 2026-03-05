@@ -23,6 +23,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := bfs.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Path = *path
 	benchmark.NumNode = *numNode
 	benchmark.Degree = *degree

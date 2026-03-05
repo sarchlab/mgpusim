@@ -10,13 +10,15 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs defines kernel arguments
+// GCN3 Kernel Arguments
+
+// KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
 	NumRows   uint32
 	Padding   uint32
@@ -29,6 +31,33 @@ type KernelArgs struct {
 	Y         driver.Ptr
 }
 
+// CDNA3 Kernel Arguments
+
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3KernelArgs struct {
+	NumRows             uint32
+	Padding             uint32
+	RowOffset           driver.Ptr
+	Col                 driver.Ptr
+	Val                 driver.Ptr
+	X                   driver.Ptr
+	Y                   driver.Ptr
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
@@ -37,6 +66,7 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
+	Arch           arch.Type
 	NumNodes       uint32
 	NumConnections uint32
 	MaxIterations  uint32
@@ -61,7 +91,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	return b
 }
 
@@ -76,9 +105,19 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+
 	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -87,6 +126,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -143,6 +184,100 @@ func printMatrix(matrix [][]float32, n uint32) {
 	}
 }
 
+func (b *Benchmark) launchCDNA3PageRank(
+	i uint32,
+	globalSize [3]uint32,
+	localSize [3]uint16,
+) {
+	var xPtr, yPtr driver.Ptr
+	if i%2 == 0 {
+		xPtr = b.dPageRank
+		yPtr = b.dPageRankTemp
+	} else {
+		xPtr = b.dPageRankTemp
+		yPtr = b.dPageRank
+	}
+
+	kernArg := CDNA3KernelArgs{
+		NumRows:             b.NumNodes,
+		RowOffset:           b.dRowOffsets,
+		Col:                 b.dColumnNumbers,
+		Val:                 b.dValues,
+		X:                   xPtr,
+		Y:                   yPtr,
+		HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
+		HiddenBlockCountY:   1,
+		HiddenBlockCountZ:   1,
+		HiddenGroupSizeX:    localSize[0],
+		HiddenGroupSizeY:    localSize[1],
+		HiddenGroupSizeZ:    localSize[2],
+		HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
+		HiddenRemainderY:    0,
+		HiddenRemainderZ:    0,
+		HiddenGlobalOffsetX: 0,
+		HiddenGlobalOffsetY: 0,
+		HiddenGlobalOffsetZ: 0,
+		HiddenGridDims:      1,
+	}
+
+	b.driver.LaunchKernel(
+		b.context,
+		b.kernel,
+		globalSize,
+		localSize,
+		&kernArg,
+	)
+}
+
+func (b *Benchmark) launchGCN3PageRank(
+	i uint32,
+	globalSize [3]uint32,
+	localSize [3]uint16,
+) {
+	var kernArg KernelArgs
+	if i%2 == 0 {
+		kernArg = KernelArgs{
+			NumRows:   b.NumNodes,
+			RowOffset: b.dRowOffsets,
+			Col:       b.dColumnNumbers,
+			Val:       b.dValues,
+			Vals:      b.dLocalValues,
+			X:         b.dPageRank,
+			Y:         b.dPageRankTemp,
+		}
+	} else {
+		kernArg = KernelArgs{
+			NumRows:   b.NumNodes,
+			RowOffset: b.dRowOffsets,
+			Col:       b.dColumnNumbers,
+			Val:       b.dValues,
+			Vals:      b.dLocalValues,
+			X:         b.dPageRankTemp,
+			Y:         b.dPageRank,
+		}
+	}
+
+	b.driver.LaunchKernel(
+		b.context,
+		b.kernel,
+		globalSize,
+		localSize,
+		&kernArg,
+	)
+}
+
+func (b *Benchmark) launchPageRankKernel(
+	i uint32,
+	globalSize [3]uint32,
+	localSize [3]uint16,
+) {
+	if b.Arch == arch.CDNA3 {
+		b.launchCDNA3PageRank(i, globalSize, localSize)
+	} else {
+		b.launchGCN3PageRank(i, globalSize, localSize)
+	}
+}
+
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
 	b.driver.MemCopyH2D(b.context, b.dRowOffsets,
@@ -154,40 +289,13 @@ func (b *Benchmark) exec() {
 
 	b.dLocalValues = driver.LocalPtr(256)
 
-	localWorkSize := 64
+	localWorkSize := uint16(64)
+	globalSize := [3]uint32{b.NumNodes * 64, 1, 1}
+	localSize := [3]uint16{localWorkSize, 1, 1}
 	i := uint32(0)
 
 	for i = 0; i < b.MaxIterations; i++ {
-		var kernArg KernelArgs
-		if i%2 == 0 {
-			kernArg = KernelArgs{
-				NumRows:   b.NumNodes,
-				RowOffset: b.dRowOffsets,
-				Col:       b.dColumnNumbers,
-				Val:       b.dValues,
-				Vals:      b.dLocalValues,
-				X:         b.dPageRank,
-				Y:         b.dPageRankTemp,
-			}
-		} else {
-			kernArg = KernelArgs{
-				NumRows:   b.NumNodes,
-				RowOffset: b.dRowOffsets,
-				Col:       b.dColumnNumbers,
-				Val:       b.dValues,
-				Vals:      b.dLocalValues,
-				X:         b.dPageRankTemp,
-				Y:         b.dPageRank,
-			}
-		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			[3]uint32{b.NumNodes * 64, 1, 1},
-			[3]uint16{uint16(localWorkSize), 1, 1},
-			&kernArg,
-		)
+		b.launchPageRankKernel(i, globalSize, localSize)
 	}
 
 	if i%2 != 0 {

@@ -2,19 +2,18 @@
 package nw
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs defines kernel arguments
+// KernelArgs defines kernel arguments for GCN3 architecture
 type KernelArgs struct {
 	Reference          driver.Ptr
 	InputItemSets      driver.Ptr
@@ -31,6 +30,23 @@ type KernelArgs struct {
 	OffsetC            int32
 }
 
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (gfx942)
+// No LocalInputItemSets/LocalReference - those are __shared__ inside the kernel.
+// KernargSegmentByteSize=56 (no hidden args needed - kernel uses AQL packet for dispatch dims)
+type CDNA3KernelArgs struct {
+	Reference      driver.Ptr // offset 0
+	InputItemSets  driver.Ptr // offset 8
+	OutputItemSets driver.Ptr // offset 16
+	Cols           int32      // offset 24
+	Penalty        int32      // offset 28
+	Blk            int32      // offset 32
+	BlockSize      int32      // offset 36
+	BlockWidth     int32      // offset 40
+	WorkSize       int32      // offset 44
+	OffsetR        int32      // offset 48
+	OffsetC        int32      // offset 52
+}
+
 var blosum62 = [][]int32{
 	{4, -1, -2, -2, 0, -1, -1, 0, -2, -1, -1, -1, -1, -2, -1, 1, 0, -3, -2, 0, -2, -1, 0, -4},
 	{-1, 5, 0, -2, -3, 1, 0, -2, 0, -3, -2, 2, -1, -3, -2, -1, -1, -3, -2, -3, -1, 0, -1, -4},
@@ -44,7 +60,7 @@ var blosum62 = [][]int32{
 	{-1, -3, -3, -3, -1, -3, -3, -4, -3, 4, 2, -3, 1, 0, -3, -2, -1, -3, -1, 3, -3, -3, -1, -4},
 	{-1, -2, -3, -4, -1, -2, -3, -4, -3, 2, 4, -2, 2, 0, -3, -2, -1, -2, -1, 1, -4, -3, -1, -4},
 	{-1, 2, 0, -1, -3, 1, 1, -2, -1, -3, -2, 5, -1, -3, -1, 0, -1, -3, -2, -2, 0, 1, -1, -4},
-	{-1, -1, -2, -3, -1, 0, -2, -3, -2, 1, 2, -1, 5, 0, -2, -1, -1, -1, -1, 1, -3, -1, -1, -4},
+	{-1, -1, -2, -3, -1, 0, -2, -3, -2, 1, 2, -1, 5, 0, -2, -1, -1, -1, -1, 1, -3, -1, -4},
 	{-2, -3, -3, -3, -2, -3, -3, -3, -1, 0, 0, -3, 0, 6, -4, -2, -2, 1, 3, -1, -3, -3, -1, -4},
 	{-1, -2, -2, -1, -3, -1, -1, -2, -2, -3, -3, -1, -2, -4, 7, -1, -1, -4, -3, -2, -2, -1, -2, -4},
 	{1, -1, 1, 0, -1, 0, 0, 0, -1, -2, -2, 0, -1, -2, -1, 4, 1, -3, -2, -2, 0, 0, 0, -4},
@@ -67,6 +83,8 @@ type Benchmark struct {
 	kernel1, kernel2 *insts.KernelCodeObject
 	queue            *driver.CommandQueue
 
+	Arch arch.Type
+
 	blockSize         int
 	length            int
 	penalty           int
@@ -85,7 +103,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	b.queue = driver.CreateCommandQueue(b.context)
 
 	b.blockSize = 64
@@ -96,28 +113,32 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "nw_kernel1")
-	if b.kernel1 == nil {
-		log.Panic("Failed to load kernel binary")
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
 	}
 
-	b.kernel2 = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "nw_kernel2")
+	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nw_kernel1")
+	if b.kernel1 == nil {
+		log.Panic("Failed to load kernel binary nw_kernel1")
+	}
+
+	b.kernel2 = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nw_kernel2")
 	if b.kernel2 == nil {
-		log.Panic("Failed to load kernel binary")
+		log.Panic("Failed to load kernel binary nw_kernel2")
 	}
 }
 
 // SetLength sets length
 func (b *Benchmark) SetLength(length int) {
-	// if length%16 != 0 {
-	// 	panic("NW length must be a multiple of 16")
-	// }
-
 	b.length = length
 	b.row = length + 1
 	b.col = length + 1
@@ -139,12 +160,13 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpuIDs[0])
 	b.initMem()
 	b.exec()
 }
 
-// SetUnifiedMemory Use Unified Memor
+// SetUnifiedMemory Use Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -171,7 +193,6 @@ func (b *Benchmark) initData() {
 		for j := 0; j < b.row; j++ {
 			b.reference[i*b.col+j] =
 				blosum62[b.inputItemSets[i*b.col]][b.inputItemSets[j]]
-			// b.reference[i*b.col+j] = int32(i*b.col + j)
 		}
 	}
 
@@ -228,29 +249,39 @@ func (b *Benchmark) runKernel1() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		args := KernelArgs{
-			Reference:          b.dReference,
-			InputItemSets:      b.dInputItemSets,
-			OutputItemSets:     b.dOutputItemSets,
-			LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
-			LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
-			Cols:               int32(b.col),
-			Penalty:            int32(b.penalty),
-			Blk:                int32(blk),
-			BlockSize:          int32(b.blockSize),
-			BlockWidth:         int32(blockWidth),
-			WorkSize:           int32(workSize),
-			OffsetR:            int32(offsetR),
-			OffsetC:            int32(offsetC),
+		if b.Arch == arch.CDNA3 {
+			cdna3Args := CDNA3KernelArgs{
+				Reference:      b.dReference,
+				InputItemSets:  b.dInputItemSets,
+				OutputItemSets: b.dOutputItemSets,
+				Cols:           int32(b.col),
+				Penalty:        int32(b.penalty),
+				Blk:            int32(blk),
+				BlockSize:      int32(b.blockSize),
+				BlockWidth:     int32(blockWidth),
+				WorkSize:       int32(workSize),
+				OffsetR:        int32(offsetR),
+				OffsetC:        int32(offsetC),
+			}
+			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &cdna3Args)
+		} else {
+			args := KernelArgs{
+				Reference:          b.dReference,
+				InputItemSets:      b.dInputItemSets,
+				OutputItemSets:     b.dOutputItemSets,
+				LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
+				LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
+				Cols:               int32(b.col),
+				Penalty:            int32(b.penalty),
+				Blk:                int32(blk),
+				BlockSize:          int32(b.blockSize),
+				BlockWidth:         int32(blockWidth),
+				WorkSize:           int32(workSize),
+				OffsetR:            int32(offsetR),
+				OffsetC:            int32(offsetC),
+			}
+			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &args)
 		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel1,
-			globalSize,
-			localSize,
-			&args,
-		)
 	}
 }
 
@@ -264,79 +295,56 @@ func (b *Benchmark) runKernel2() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		args := KernelArgs{
-			Reference:          b.dReference,
-			InputItemSets:      b.dInputItemSets,
-			OutputItemSets:     b.dOutputItemSets,
-			LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
-			LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
-			Cols:               int32(b.col),
-			Penalty:            int32(b.penalty),
-			Blk:                int32(blk),
-			BlockSize:          int32(b.blockSize),
-			BlockWidth:         int32(blockWidth),
-			WorkSize:           int32(workSize),
-			OffsetR:            int32(offsetR),
-			OffsetC:            int32(offsetC),
+		if b.Arch == arch.CDNA3 {
+			cdna3Args := CDNA3KernelArgs{
+				Reference:      b.dReference,
+				InputItemSets:  b.dInputItemSets,
+				OutputItemSets: b.dOutputItemSets,
+				Cols:           int32(b.col),
+				Penalty:        int32(b.penalty),
+				Blk:            int32(blk),
+				BlockSize:      int32(b.blockSize),
+				BlockWidth:     int32(blockWidth),
+				WorkSize:       int32(workSize),
+				OffsetR:        int32(offsetR),
+				OffsetC:        int32(offsetC),
+			}
+			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &cdna3Args)
+		} else {
+			args := KernelArgs{
+				Reference:          b.dReference,
+				InputItemSets:      b.dInputItemSets,
+				OutputItemSets:     b.dOutputItemSets,
+				LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
+				LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
+				Cols:               int32(b.col),
+				Penalty:            int32(b.penalty),
+				Blk:                int32(blk),
+				BlockSize:          int32(b.blockSize),
+				BlockWidth:         int32(blockWidth),
+				WorkSize:           int32(workSize),
+				OffsetR:            int32(offsetR),
+				OffsetC:            int32(offsetC),
+			}
+			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &args)
 		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel2,
-			globalSize,
-			localSize,
-			&args,
-		)
 	}
 }
 
 // Verify verifies
 func (b *Benchmark) Verify() {
-	// fmt.Printf("\nReference:\n")
-	// for i := 0; i < b.row; i++ {
-	// 	for j := 0; j < b.col; j++ {
-	// 		fmt.Printf("%5d", b.reference[i*b.col+j])
-	// 	}
-	// 	fmt.Printf("\n")
-	// }
+	b.cpuNW()
 
-	// fmt.Printf("\nGPU Output:\n")
-	// for i := 0; i < b.row; i++ {
-	// 	for j := 0; j < b.col; j++ {
-	// 		fmt.Printf("%5d", b.outputItemSets[i*b.col+j])
-	// 	}
-	// 	fmt.Printf("\n")
-	// }
-
-	// b.cpuNW()
-
-	// fmt.Printf("\nCPU Output:\n")
-	// for i := 0; i < b.row; i++ {
-	// 	for j := 0; j < b.col; j++ {
-	// 		fmt.Printf("%5d", b.inputItemSets[i*b.col+j])
-	// 	}
-	// 	fmt.Printf("\n")
-	// }
-
-	// mismatch := false
-	// for i := 0; i < b.row; i++ {
-	// 	for j := 0; j < b.col; j++ {
-	// 		if b.outputItemSets[i*b.col+j] != b.inputItemSets[i*b.col+j] {
-	// 			mismatch = true
-	// 			log.Printf("at (%d, %d), expected %d, but get %d",
-	// 				j, i,
-	// 				b.inputItemSets[i*b.col+j],
-	// 				b.outputItemSets[i*b.col+j])
-	// 		}
-	// 	}
-	// 	// fmt.Printf("\n")
-	// }
-
-	// if mismatch {
-	// 	panic("mismatch\n")
-	// }
-
-	fmt.Print("Passed!\n")
+	for i := 0; i < b.row; i++ {
+		for j := 0; j < b.col; j++ {
+			if b.outputItemSets[i*b.col+j] != b.inputItemSets[i*b.col+j] {
+				log.Panicf(
+					"mismatch at (%d,%d), expected %d, but got %d\n",
+					i, j, b.inputItemSets[i*b.col+j],
+					b.outputItemSets[i*b.col+j])
+			}
+		}
+	}
 }
 
 func (b *Benchmark) cpuNW() {

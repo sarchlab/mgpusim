@@ -16,6 +16,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := atax.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NX = *xFlag
 	benchmark.NY = *yFlag
 

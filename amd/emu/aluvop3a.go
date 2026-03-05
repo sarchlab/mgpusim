@@ -54,6 +54,10 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVMADI32I24(state)
 	case 451, 488:
 		u.runVMADU64U32(state)
+	case 456:
+		u.runVBFEU32(state)
+	case 457:
+		u.runVBFEI32(state)
 	case 460:
 		u.runVFMAF64(state)
 	case 464:
@@ -90,6 +94,10 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVLSHLREVB64(state)
 	case 657:
 		u.runVASHRREVI64(state)
+	case 511:
+		u.runVADD3U32(state)
+	case 520:
+		u.runVLSHLADDU64(state)
 	default:
 		log.Panicf("Opcode %d for VOP3a format is not implemented", inst.Opcode)
 	}
@@ -579,6 +587,109 @@ func (u *ALUImpl) runVMADU64U32(state InstEmuState) {
 		}
 
 		sp.DST[i] = sp.SRC0[i]*sp.SRC1[i] + sp.SRC2[i]
+	}
+}
+
+func (u *ALUImpl) runVBFEU32(state InstEmuState) {
+	// v_bfe_u32 vdst, src0, src1, src2
+	// Extract bit field from src0, starting at offset src1, with width src2 (unsigned)
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		offset := uint32(sp.SRC1[i]) & 0x1F // offset is 5 bits (0-31)
+		width := uint32(sp.SRC2[i]) & 0x1F  // width is 5 bits (0-31)
+
+		if width == 0 {
+			sp.DST[i] = 0
+		} else if offset+width < 32 {
+			// Extract the bit field
+			mask := uint32((1 << width) - 1)
+			sp.DST[i] = uint64((src0 >> offset) & mask)
+		} else {
+			// If offset+width >= 32, extract from offset to bit 31
+			sp.DST[i] = uint64(src0 >> offset)
+		}
+	}
+}
+
+func (u *ALUImpl) runVBFEI32(state InstEmuState) {
+	// v_bfe_i32 vdst, src0, src1, src2
+	// Extract bit field from src0, starting at offset src1, with width src2 (signed)
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		offset := uint32(sp.SRC1[i]) & 0x1F // offset is 5 bits (0-31)
+		width := uint32(sp.SRC2[i]) & 0x1F  // width is 5 bits (0-31)
+
+		if width == 0 {
+			sp.DST[i] = 0
+		} else if offset+width < 32 {
+			// Extract the bit field
+			mask := uint32((1 << width) - 1)
+			extracted := (src0 >> offset) & mask
+			// Sign extend from 'width' bits to 32 bits
+			if extracted&(1<<(width-1)) != 0 {
+				// Sign bit is set, extend with 1s
+				signExtMask := uint32(0xFFFFFFFF << width)
+				sp.DST[i] = uint64(int32(extracted | signExtMask))
+			} else {
+				sp.DST[i] = uint64(extracted)
+			}
+		} else {
+			// If offset+width >= 32, extract from offset to bit 31 and sign extend
+			extracted := src0 >> offset
+			sp.DST[i] = uint64(int32(extracted))
+		}
+	}
+}
+
+func (u *ALUImpl) runVADD3U32(state InstEmuState) {
+	// v_add3_u32 vdst, src0, src1, src2
+	// Three-operand unsigned 32-bit addition: vdst = src0 + src1 + src2
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		src2 := uint32(sp.SRC2[i])
+
+		sp.DST[i] = uint64(src0 + src1 + src2)
+	}
+}
+
+func (u *ALUImpl) runVLSHLADDU64(state InstEmuState) {
+	// v_lshl_add_u64 vdst, src0, src1, src2
+	// Left shift and add: vdst = (src0 << src1) + src2
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := uint32(sp.SRC1[i]) & 0x3F // Shift amount is 6 bits (0-63)
+		src2 := sp.SRC2[i]
+
+		sp.DST[i] = (src0 << src1) + src2
 	}
 }
 

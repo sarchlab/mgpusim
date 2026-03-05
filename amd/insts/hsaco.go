@@ -192,32 +192,43 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 			// symbol.Value is the virtual address; textSection.Addr is the section's virtual address
 			offset := symbol.Value - textSection.Addr
 			kernelData := textSectionData[offset : offset+symbol.Size]
-			co := newKernelCodeObjectFromEntireTextSection(kernelData)
 			symbolCopy := symbol
-			co.Symbol = &symbolCopy
 
-			// Try to find V5 kernel descriptor in .rodata
-			if rodataSection != nil && rodataSectionData != nil {
-				kdSymbolName := kernelName + ".kd"
-				for _, sym := range symbols {
-					if sym.Name == kdSymbolName && sym.Size == 64 {
-						if int(sym.Section) < len(executable.Sections) {
-							sec := executable.Sections[sym.Section]
-							if sec.Name == ".rodata" {
-								// Parse the 64-byte kernel descriptor
-								kdOffset := sym.Value - rodataSection.Addr
-								if kdOffset+64 <= uint64(len(rodataSectionData)) {
-									kdData := rodataSectionData[kdOffset : kdOffset+64]
-									co.KernelCodeObjectMeta = parseV5KernelDescriptor(kdData)
-									co.Version = CodeObjectV5
-								}
-							}
-						}
-						break
-					}
-				}
+			// FIX: Check for V5 kernel descriptor FIRST, before V2/V3 detection.
+			//
+			// Background: V5 (AMDHSA Code Object V4+) kernels store their
+			// metadata in a 64-byte kernel descriptor in the .rodata section,
+			// identified by a "<kernelName>.kd" symbol. The .text section
+			// contains only raw instructions with no header.
+			//
+			// V2/V3 kernels embed a 256-byte header at the start of .text
+			// data, identified by signature bytes (CodeVersionMajor=1,
+			// CodeVersionMinor<=2, MachineKind=1).
+			//
+			// The old code called isV2V3Header() first, which could produce
+			// false positives when V5 kernel instructions happened to start
+			// with bytes matching the V2/V3 signature. This caused the first
+			// 256 bytes of real instructions to be stripped, corrupting the
+			// kernel (see: stencil2d page fault bug).
+			//
+			// By checking for V5 descriptors first, we avoid the false
+			// positive entirely: if a .kd symbol exists, the kernel is
+			// definitively V5 and we use the raw .text data as-is.
+			if v5Meta := findV5KernelDescriptor(
+				kernelName, symbols, executable,
+				rodataSection, rodataSectionData,
+			); v5Meta != nil {
+				co := new(KernelCodeObject)
+				co.Data = kernelData // V5: entire kernel data is instructions
+				co.KernelCodeObjectMeta = v5Meta
+				co.Version = CodeObjectV5
+				co.Symbol = &symbolCopy
+				return co
 			}
 
+			// No V5 descriptor found — fall back to V2/V3 detection
+			co := newKernelCodeObjectFromEntireTextSection(kernelData)
+			co.Symbol = &symbolCopy
 			return co
 		}
 	}
@@ -226,26 +237,79 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 	return nil
 }
 
-// isV2V3Header checks if data looks like a V2/V3 kernel header
+// findV5KernelDescriptor looks for a V5 kernel descriptor (.kd symbol) in .rodata.
+// Returns the parsed metadata if found, or nil if this kernel has no V5 descriptor.
+func findV5KernelDescriptor(
+	kernelName string,
+	symbols []elf.Symbol,
+	executable *elf.File,
+	rodataSection *elf.Section,
+	rodataSectionData []byte,
+) *KernelCodeObjectMeta {
+	if rodataSection == nil || rodataSectionData == nil {
+		return nil
+	}
+
+	kdSymbolName := kernelName + ".kd"
+	for _, sym := range symbols {
+		if sym.Name == kdSymbolName && sym.Size == 64 {
+			if int(sym.Section) < len(executable.Sections) {
+				sec := executable.Sections[sym.Section]
+				if sec.Name == ".rodata" {
+					kdOffset := sym.Value - rodataSection.Addr
+					if kdOffset+64 <= uint64(len(rodataSectionData)) {
+						kdData := rodataSectionData[kdOffset : kdOffset+64]
+						return parseV5KernelDescriptor(kdData)
+					}
+				}
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+// isV2V3Header checks if data looks like a V2/V3 kernel header.
+//
+// This performs multi-field validation to reduce false positives.
+// A real V2/V3 header has specific structure beyond just the first 10 bytes:
+//   - CodeVersionMajor (offset 0-3) = 1
+//   - CodeVersionMinor (offset 4-7) = 0, 1, or 2
+//   - MachineKind (offset 8-9) = 1 (AMDGPU)
+//   - MachineVersionMajor (offset 10-11) = known GPU generation (7, 8, 9, etc.)
+//   - KernelCodeEntryByteOffset (offset 16-23) = 256 (instructions follow header)
 func isV2V3Header(data []byte) bool {
 	if len(data) < 256 {
 		return false
 	}
 
-	// V2/V3 header signature:
-	// - CodeVersionMajor (offset 0-3) = 1
-	// - CodeVersionMinor (offset 4-7) = 0, 1, or 2
-	// - MachineKind (offset 8-9) = 1 (AMDGPU)
 	codeVersionMajor := binary.LittleEndian.Uint32(data[0:4])
 	codeVersionMinor := binary.LittleEndian.Uint32(data[4:8])
 	machineKind := binary.LittleEndian.Uint16(data[8:10])
 
-	// Check for valid V2/V3 header values
-	if codeVersionMajor == 1 && codeVersionMinor <= 2 && machineKind == 1 {
-		return true
+	// Primary signature check
+	if codeVersionMajor != 1 || codeVersionMinor > 2 || machineKind != 1 {
+		return false
 	}
 
-	return false
+	// Secondary validation: MachineVersionMajor should be a known AMD GPU
+	// generation. Valid values: 7 (GCN3/Sea Islands), 8 (GCN4/Volcanic Islands),
+	// 9 (GCN5/Vega). Values outside this range indicate this is not a real header.
+	machineVersionMajor := binary.LittleEndian.Uint16(data[10:12])
+	if machineVersionMajor < 7 || machineVersionMajor > 9 {
+		return false
+	}
+
+	// Tertiary validation: KernelCodeEntryByteOffset must be 256 for V2/V3 headers.
+	// This is the offset from the start of the code object to the first instruction,
+	// which is always immediately after the 256-byte header.
+	kernelCodeEntryByteOffset := binary.LittleEndian.Uint64(data[16:24])
+	if kernelCodeEntryByteOffset != 256 {
+		return false
+	}
+
+	return true
 }
 
 // parseV2V3Header parses the 256-byte V2/V3 kernel header
@@ -316,42 +380,57 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[44:48])
 	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[48:52])
 
-	// Parse kernel_code_properties
-	// AMDHSA V4+ bit layout (from LLVM AMDGPU docs):
-	// Bits 0-5:  Reserved (was ENABLE_SGPR_PRIVATE_SEGMENT_BUFFER, deprecated)
-	// Bit 6:    ENABLE_SGPR_DISPATCH_PTR
-	// Bit 7:    ENABLE_SGPR_QUEUE_PTR
-	// Bit 8:    ENABLE_SGPR_KERNARG_SEGMENT_PTR
-	// Bit 9:    ENABLE_SGPR_DISPATCH_ID
-	// Bit 10:   ENABLE_SGPR_FLAT_SCRATCH_INIT
-	// Bit 11:   ENABLE_SGPR_PRIVATE_SEGMENT_SIZE
-	// Bit 12:   Reserved
-	// Bits 13-15: Reserved
-	props := binary.LittleEndian.Uint16(data[52:54])
-
-	// Parse compute_pgm_rsrc2 to get user_sgpr count
-	computePgmRsrc2 := meta.ComputePgmRsrc2
-	userSgprCount := (computePgmRsrc2 >> 1) & 0x1F
+	// For V5 (AMDHSA Code Object V4+) kernel descriptors:
+	// The kernel_code_properties field and compute_pgm_rsrc2 may not
+	// accurately reflect all SGPR setup requirements, especially for
+	// kernels compiled with extern "C". Instead of relying solely on
+	// the property flags, we use a practical approach:
+	//
+	// 1. If kernarg_size > 0, the kernel needs a kernarg segment pointer
+	// 2. Workgroup ID and work-item ID enables come from compute_pgm_rsrc2
+	// 3. We disable unused/deprecated SGPR features (dispatch ptr, queue ptr, etc.)
+	//
+	// The SGPR layout for V5 kernels is always:
+	//   s[0:1] = kernarg segment pointer (if kernel has kernargs)
+	//   s2     = workgroup ID X (if enabled in rsrc2)
+	//   s3     = workgroup ID Y (if enabled in rsrc2)
+	//   s4     = workgroup ID Z (if enabled in rsrc2)
 
 	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
-	meta.EnableSgprDispatchPtr = (props & (1 << 6)) != 0
-	meta.EnableSgprQueuePtr = (props & (1 << 7)) != 0
-	meta.EnableSgprKernargSegmentPtr = (props & (1 << 8)) != 0
-	meta.EnableSgprDispatchID = (props & (1 << 9)) != 0
-	meta.EnableSgprFlatScratchInit = (props & (1 << 10)) != 0
-	meta.EnableSgprPrivateSegmentSize = (props & (1 << 11)) != 0
 
-	// Workaround: Some kernels have incorrect flags in kernel descriptor.
-	// Use user_sgpr_count to validate: if kernarg_ptr is enabled and
-	// user_sgpr_count is 2, then only kernarg_ptr should be enabled.
-	if meta.EnableSgprKernargSegmentPtr && userSgprCount == 2 {
-		// Only kernarg pointer (2 SGPRs) - disable other flags that would use SGPRs
-		meta.EnableSgprDispatchPtr = false
-		meta.EnableSgprQueuePtr = false
-		meta.EnableSgprDispatchID = false
-		meta.EnableSgprFlatScratchInit = false
-		meta.EnableSgprPrivateSegmentSize = false
+	// For V5 code objects, always enable kernarg ptr if there are kernel arguments
+	meta.EnableSgprKernargSegmentPtr = meta.KernargSegmentByteSize > 0
+
+	// Disable features we don't support / that may have incorrect flags
+	meta.EnableSgprDispatchPtr = false
+	meta.EnableSgprQueuePtr = false
+	meta.EnableSgprDispatchID = false
+	meta.EnableSgprFlatScratchInit = false
+	meta.EnableSgprPrivateSegmentSize = false
+
+	// Fix compute_pgm_rsrc2: Some extern "C" kernels have incorrect
+	// enable_sgpr_workgroup_id and enable_vgpr_workitem_id bits.
+	// For V5 code objects, we ensure these are always enabled since
+	// all HIP kernels use workgroup and work-item IDs.
+	// Bit 1-5:  user_sgpr_count → set to 2 (for kernarg ptr s[0:1])
+	// Bit 7:    enable_sgpr_workgroup_id_x → force enable
+	// Bit 8:    enable_sgpr_workgroup_id_y → force enable
+	// Bit 9:    enable_sgpr_workgroup_id_z → leave as-is
+	// Bit 11-12: enable_vgpr_workitem_id → force to at least 1 (X+Y)
+	rsrc2 := meta.ComputePgmRsrc2
+	// Clear bit 0 (enable_sgpr_private_segment_wave_byte_offset) — deprecated in V5
+	rsrc2 &^= 1
+	if meta.EnableSgprKernargSegmentPtr {
+		// Set user_sgpr_count to 2 (kernarg ptr uses 2 SGPRs)
+		rsrc2 = (rsrc2 &^ (0x1F << 1)) | (2 << 1)
 	}
+	rsrc2 |= (1 << 7) // enable_sgpr_workgroup_id_x
+	rsrc2 |= (1 << 8) // enable_sgpr_workgroup_id_y
+	// Set enable_vgpr_workitem_id to at least 1 (enable X and Y)
+	if (rsrc2>>11)&3 == 0 {
+		rsrc2 = (rsrc2 &^ (3 << 11)) | (1 << 11)
+	}
+	meta.ComputePgmRsrc2 = rsrc2
 
 	return meta
 }

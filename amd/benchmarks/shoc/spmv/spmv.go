@@ -10,26 +10,49 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
-// KernelArgs sets up kernel arguments
+// KernelArgs sets up kernel arguments for GCN3
 type KernelArgs struct {
-	Val           driver.Ptr
-	Vec           driver.Ptr
-	Cols          driver.Ptr
-	RowDelimiters driver.Ptr
-	Dim           int32
-	// VecWidth            int32
-	// PartialSums         driver.LocalPtr
+	Val                 driver.Ptr
+	Vec                 driver.Ptr
+	Cols                driver.Ptr
+	RowDelimiters       driver.Ptr
+	Dim                 int32
 	Padding             int32
 	Out                 driver.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
+}
+
+// CDNA3KernelArgs sets up kernel arguments for CDNA3
+type CDNA3KernelArgs struct {
+	Val                 driver.Ptr
+	Vec                 driver.Ptr
+	Cols                driver.Ptr
+	RowDelimiters       driver.Ptr
+	Dim                 int32
+	Padding             int32
+	Out                 driver.Ptr
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
 }
 
 // Benchmark set up test parameters
@@ -41,6 +64,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 	spmvKernel       *insts.KernelCodeObject
 
+	Arch      arch.Type
 	Dim       int32
 	Sparsity  float64
 	dValData  driver.Ptr
@@ -60,7 +84,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	b.maxval = 10
 	return b
 }
@@ -76,9 +99,19 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 //go:embed spmv.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+
 	b.spmvKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "spmv_csr_scalar_kernel")
 	if b.spmvKernel == nil {
@@ -88,6 +121,8 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs the benchmark
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
@@ -112,28 +147,36 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.useUnifiedMemory {
-		b.dValData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.nItems*4))
-		b.dVecData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.Dim*4))
-		b.dColsData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.nItems*4))
-		b.dRowDData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64((b.Dim+1)*4))
-		b.dOutData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.Dim*4))
+		b.allocateUnifiedMemory()
 	} else {
-		b.dValData = b.driver.AllocateMemory(b.context,
-			uint64(b.nItems*4))
-		b.dVecData = b.driver.AllocateMemory(b.context,
-			uint64(b.Dim*4))
-		b.dColsData = b.driver.AllocateMemory(b.context,
-			uint64(b.nItems*4))
-		b.dRowDData = b.driver.AllocateMemory(b.context,
-			uint64((b.Dim+1)*4))
-		b.dOutData = b.driver.AllocateMemory(b.context,
-			uint64(b.Dim*4))
+		b.allocateMemory()
 	}
+}
+
+func (b *Benchmark) allocateUnifiedMemory() {
+	b.dValData = b.driver.AllocateUnifiedMemory(b.context,
+		uint64(b.nItems*4))
+	b.dVecData = b.driver.AllocateUnifiedMemory(b.context,
+		uint64(b.Dim*4))
+	b.dColsData = b.driver.AllocateUnifiedMemory(b.context,
+		uint64(b.nItems*4))
+	b.dRowDData = b.driver.AllocateUnifiedMemory(b.context,
+		uint64((b.Dim+1)*4))
+	b.dOutData = b.driver.AllocateUnifiedMemory(b.context,
+		uint64(b.Dim*4))
+}
+
+func (b *Benchmark) allocateMemory() {
+	b.dValData = b.driver.AllocateMemory(b.context,
+		uint64(b.nItems*4))
+	b.dVecData = b.driver.AllocateMemory(b.context,
+		uint64(b.Dim*4))
+	b.dColsData = b.driver.AllocateMemory(b.context,
+		uint64(b.nItems*4))
+	b.dRowDData = b.driver.AllocateMemory(b.context,
+		uint64((b.Dim+1)*4))
+	b.dOutData = b.driver.AllocateMemory(b.context,
+		uint64(b.Dim*4))
 }
 
 func (b *Benchmark) exec() {
@@ -143,45 +186,57 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dRowDData, b.matrix.RowOffsets)
 	b.driver.MemCopyH2D(b.context, b.dOutData, b.out)
 
-	//TODO: Review vecWidth, blockSize, and maxwidth
-	// vecWidth := int32(64)    // PreferredWorkGroupSizeMultiple
-	// maxLocal := int32(64)    // MaxWorkGroupSize
-	blockSize := int32(128) // BLOCK_SIZE
+	blockSize := int32(128)
 
-	// localWorkSize := vecWidth
-	// for ok := true; ok; ok = ((localWorkSize+vecWidth <= maxLocal) && localWorkSize+vecWidth <= blockSize) {
-	//	localWorkSize += vecWidth
-	// }
+	globalSize := [3]uint32{uint32(b.Dim), 1, 1}
+	localSize := [3]uint16{uint16(blockSize), 1, 1}
 
-	// vectorGlobalWSize := b.Dim * vecWidth // 1 warp per row
+	if b.Arch == arch.CDNA3 {
+		b.execCDNA3(globalSize, localSize)
+	} else {
+		b.execGCN3(globalSize, localSize)
+	}
 
+	b.driver.MemCopyD2H(b.context, b.out, b.dOutData)
+}
+
+func (b *Benchmark) execGCN3(
+	globalSize [3]uint32, localSize [3]uint16,
+) {
 	args := KernelArgs{
 		Val:           b.dValData,
 		Vec:           b.dVecData,
 		Cols:          b.dColsData,
 		RowDelimiters: b.dRowDData,
 		Dim:           b.Dim,
-		//VecWidth:            vecWidth,
-		//PartialSums:         driver.LocalPtr(blockSize*4), //hardcoded value in spmv.cl
-		Padding:             0,
-		Out:                 b.dOutData,
-		HiddenGlobalOffsetX: 0,
-		HiddenGlobalOffsetY: 0,
-		HiddenGlobalOffsetZ: 0,
+		Padding:       0,
+		Out:           b.dOutData,
 	}
-
-	globalSize := [3]uint32{uint32(b.Dim), 1, 1}
-	localSize := [3]uint16{uint16(blockSize), 1, 1}
-	//globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
-	//localSize := [3]uint16{uint16(localWorkSize), 1, 1}
 
 	b.driver.LaunchKernel(b.context,
 		b.spmvKernel,
 		globalSize, localSize,
 		&args,
 	)
+}
 
-	b.driver.MemCopyD2H(b.context, b.out, b.dOutData)
+func (b *Benchmark) execCDNA3(
+	globalSize [3]uint32, localSize [3]uint16,
+) {
+	args := CDNA3KernelArgs{
+		Val:           b.dValData,
+		Vec:           b.dVecData,
+		Cols:          b.dColsData,
+		RowDelimiters: b.dRowDData,
+		Dim:           b.Dim,
+		Out:           b.dOutData,
+	}
+
+	b.driver.LaunchKernel(b.context,
+		b.spmvKernel,
+		globalSize, localSize,
+		&args,
+	)
 }
 
 // Verify verifies results

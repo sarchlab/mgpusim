@@ -683,26 +683,16 @@ var benchmarks = []benchmark{
 			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: false},
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: false},
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: false},
-			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: true},
-			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/spmv",
+		executablePath: "../../samples/spmv",
+		executable:     "spmv",
+		sizeArgs:       []string{},
+		cases: []benchmarkCase{
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},
 	},
 	{
@@ -751,6 +741,16 @@ var benchmarks = []benchmark{
 			{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: true},
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: true},
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/fft",
+		executablePath: "../../samples/fft",
+		executable:     "fft",
+		sizeArgs:       []string{"-MB=1"},
+		cases: []benchmarkCase{
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},
 	},
 	{
@@ -868,6 +868,49 @@ var benchmarks = []benchmark{
 				gpus: []int{1, 2, 3, 4}, timing: true, parallel: true,
 				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
 			},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/stencil2d",
+		executablePath: "../../samples/stencil2d",
+		executable:     "stencil2d",
+		sizeArgs:       []string{},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			// Unified GPU MI300A tests (2-GPU)
+			{
+				gpus: []int{1, 2}, timing: false, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",
+			},
+			// Unified GPU MI300A tests (4-GPU)
+			{
+				gpus: []int{1, 2, 3, 4}, timing: false, parallel: false,
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",
+			},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/shoc/bfs",
+		executablePath: "../../samples/bfs",
+		executable:     "bfs",
+		sizeArgs:       []string{"-node=1024"},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/rodinia/nw",
+		executablePath: "../../samples/nw",
+		executable:     "nw",
+		sizeArgs:       []string{"-length=64"},
+		cases: []benchmarkCase{
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},
 	},
 }

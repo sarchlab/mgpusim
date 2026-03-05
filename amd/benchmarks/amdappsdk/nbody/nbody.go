@@ -11,7 +11,6 @@ import (
 
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 // KernelArgs defines kernel arguments
@@ -65,7 +64,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	b.groupSize = 256
 	b.delT = 0.005
 	b.espSqr = 500.0
@@ -95,7 +93,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nbody_sim")
+	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(
+		hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -103,9 +102,11 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	b.loadProgram()
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+		b.queues = append(b.queues,
+			b.driver.CreateCommandQueue(b.context))
 	}
 	b.initMem()
 	b.exec()
@@ -114,8 +115,8 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	b.initPos = make([]float32, b.numBodies*4)
 	b.initVel = make([]float32, b.numBodies*4)
-	b.pos = make([]float32, b.numBodies*4) // Should be aligned to 16
-	b.vel = make([]float32, b.numBodies*4) // Should be aligned to 16
+	b.pos = make([]float32, b.numBodies*4)
+	b.vel = make([]float32, b.numBodies*4)
 
 	b.fill()
 
@@ -165,7 +166,6 @@ func (b *Benchmark) exec() {
 			HiddenGlobalOffsetY: 0,
 			HiddenGlobalOffsetZ: 0,
 		}
-
 		b.driver.LaunchKernel(b.context,
 			b.nbodyKernel,
 			globalSize, localSize,
@@ -231,7 +231,9 @@ func (b *Benchmark) nbodyCPU() {
 		}
 
 		for k := int32(0); k < 3; k++ {
-			b.refPos[myIndex+k] += b.refVel[myIndex+k]*b.delT + 0.5*acc[k]*b.delT*b.delT
+			b.refPos[myIndex+k] +=
+				b.refVel[myIndex+k]*b.delT +
+					0.5*acc[k]*b.delT*b.delT
 			b.refVel[myIndex+k] += acc[k] * b.delT
 		}
 	}
@@ -249,10 +251,8 @@ func (b *Benchmark) fill() {
 
 		for j := int32(0); j < 3; j++ {
 			b.initPos[index+j] = random(3, 50)
-			// b.initPos[index+j] = 1.0
 		}
 		b.initPos[index+3] = random(1, 1000)
-		// b.initPos[index+3] = 1.0
 
 		for j := int32(0); j < 3; j++ {
 			b.initVel[index+j] = 0.0

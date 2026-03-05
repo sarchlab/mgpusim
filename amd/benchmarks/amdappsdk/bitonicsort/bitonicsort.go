@@ -11,14 +11,16 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	
 )
 
 var doPerPassVerify = false
 
-// BitonicKernelArgs defines kernel arguments
+// GCN3 Kernel Arguments
+
+// BitonicKernelArgs defines kernel arguments for GCN3
 type BitonicKernelArgs struct {
 	Input               driver.Ptr
 	Stage               uint32
@@ -30,6 +32,31 @@ type BitonicKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// CDNA3 Kernel Arguments
+
+// CDNA3BitonicKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3BitonicKernelArgs struct {
+	Input               driver.Ptr
+	Stage               uint32
+	PassOfStage         uint32
+	Direction           uint32
+	Padding             uint32
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	gpusToUse []int
@@ -38,6 +65,7 @@ type Benchmark struct {
 
 	hsaco *insts.KernelCodeObject
 
+	Arch           arch.Type
 	Length         int
 	OrderAscending bool
 
@@ -55,14 +83,23 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.gpusToUse = []int{1}
 	b.driver = driver
 	b.context = driver.Init()
-	b.loadProgram()
 	return b
 }
 
 //go:embed kernels.hsaco
-var hsacoBytes []byte
+var gcn3HSACOBytes []byte
+
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
+	var hsacoBytes []byte
+	if b.Arch == arch.CDNA3 {
+		hsacoBytes = cdna3HSACOBytes
+	} else {
+		hsacoBytes = gcn3HSACOBytes
+	}
+
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "BitonicSort")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
@@ -81,6 +118,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Run runs the benchmark on simulated GPU platform
 func (b *Benchmark) Run() {
+	b.loadProgram()
+
 	b.driver.SelectGPU(b.context, b.gpusToUse[0])
 	b.initMem()
 	b.exec()
@@ -138,6 +177,39 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.outputData, b.gInputData)
 }
 
+func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, offset int) CDNA3BitonicKernelArgs {
+	return CDNA3BitonicKernelArgs{
+		Input:               b.gInputData,
+		Stage:               uint32(stage),
+		PassOfStage:         uint32(passOfStage),
+		Direction:           uint32(direction),
+		HiddenBlockCountX:   uint32(numWi) / 64,
+		HiddenBlockCountY:   1,
+		HiddenBlockCountZ:   1,
+		HiddenGroupSizeX:    64,
+		HiddenGroupSizeY:    1,
+		HiddenGroupSizeZ:    1,
+		HiddenRemainderX:    uint16(uint32(numWi) % 64),
+		HiddenRemainderY:    0,
+		HiddenRemainderZ:    0,
+		HiddenGlobalOffsetX: int64(offset),
+		HiddenGlobalOffsetY: 0,
+		HiddenGlobalOffsetZ: 0,
+		HiddenGridDims:      1,
+	}
+}
+
+func (b *Benchmark) createGCN3KernelArgs(stage, passOfStage, direction, offset int) BitonicKernelArgs {
+	return BitonicKernelArgs{
+		b.gInputData,
+		uint32(stage),
+		uint32(passOfStage),
+		uint32(direction),
+		0,
+		int64(offset), 0, 0,
+	}
+}
+
 func (b *Benchmark) runPass(
 	stage, passOfStage int,
 	direction int,
@@ -154,27 +226,30 @@ func (b *Benchmark) runPass(
 	}
 
 	for i, q := range queues {
-		kernArg := BitonicKernelArgs{
-			b.gInputData,
-			uint32(stage),
-			uint32(passOfStage),
-			uint32(direction),
-			0,
-			int64(wiPerQueue * i), 0, 0,
-		}
-
 		numWi := wiPerQueue
 		if i == len(queues)-1 {
 			numWi += remainder
 		}
 
-		b.driver.EnqueueLaunchKernel(
-			q,
-			b.hsaco,
-			[3]uint32{uint32(numWi), 1, 1},
-			[3]uint16{64, 1, 1},
-			&kernArg,
-		)
+		if b.Arch == arch.CDNA3 {
+			kernArg := b.createCDNA3KernelArgs(stage, passOfStage, direction, numWi, wiPerQueue*i)
+			b.driver.EnqueueLaunchKernel(
+				q,
+				b.hsaco,
+				[3]uint32{uint32(numWi), 1, 1},
+				[3]uint16{64, 1, 1},
+				&kernArg,
+			)
+		} else {
+			kernArg := b.createGCN3KernelArgs(stage, passOfStage, direction, wiPerQueue*i)
+			b.driver.EnqueueLaunchKernel(
+				q,
+				b.hsaco,
+				[3]uint32{uint32(numWi), 1, 1},
+				[3]uint16{64, 1, 1},
+				&kernArg,
+			)
+		}
 	}
 
 	for _, q := range queues {

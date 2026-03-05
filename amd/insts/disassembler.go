@@ -42,6 +42,8 @@ func newDecodeTable() *decodeTable {
 
 // Disassembler is the unit that can decode .hsaco file
 type Disassembler struct {
+	IsCDNA3 bool
+
 	formatList []*Format
 
 	// Maps from the format to table
@@ -226,10 +228,11 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 		switch dstUnused {
 		case 0:
+			inst.DstUnused = SDWAUnusedPad
 		case 1:
-			log.Panicf("DST_UNUSED SEXT is not implemented")
+			inst.DstUnused = SDWAUnusedSEXT
 		case 2:
-			log.Panicf("DST_UNUSED PRESERVE is not implemented")
+			inst.DstUnused = SDWAUnusedPreserve
 		}
 
 		switch clamp {
@@ -328,7 +331,16 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 
 	switch inst.Opcode {
-	case 24, 37: // v_madak
+	case 23, 36: // v_madmk / v_fmamk: D = S0 * K + S1
+		inst.Imm = true
+		inst.ByteSize += 4
+		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
+
+		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
+	case 24, 37: // v_madak / v_fmaak: D = S0 * S1 + K
 		inst.Imm = true
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
@@ -346,6 +358,19 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
+	// Extract 13-bit signed offset from bits [12:0] of the first dword.
+	// In CDNA3 (GFX9+), FLAT/GLOBAL instructions support a signed 13-bit
+	// immediate offset added to the address. For example:
+	//   global_load_dword v11, v[64:65], off offset:4
+	// encodes offset=4 in bits [12:0].
+	rawOffset := extractBits(bytesLo, 0, 12)
+	// Sign-extend the 13-bit value
+	if rawOffset&(1<<12) != 0 {
+		inst.Offset0 = rawOffset | 0xFFFFE000 // sign extend to 32-bit
+	} else {
+		inst.Offset0 = rawOffset
+	}
+
 	if extractBits(bytesLo, 17, 17) != 0 {
 		inst.SystemLevelCoherent = true
 	}
@@ -359,16 +384,33 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	}
 
 	bits := int(extractBits(bytesHi, 0, 7))
-	inst.Addr = NewVRegOperand(bits, bits, 2)
+	// Decode SADDR (bits 16:22 of second dword)
+	// 0x7F = OFF (flat/global addressing with VGPR pair), otherwise scalar GPR pair
+	saddrBits := int(extractBits(bytesHi, 16, 22))
+	inst.SAddr = NewIntOperand(0, int64(saddrBits))
+
+	// SAddr handling is architecture-dependent:
+	// - CDNA3 (GFX9+): SAddr=0x7F means OFF mode, any other value (including 0
+	//   for s[0:1]) is a valid scalar base register.
+	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
+	if d.IsCDNA3 {
+		if saddrBits != 0x7F {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
+	} else {
+		if saddrBits != 0x7F && saddrBits != 0 {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
+	}
+
 	bits = int(extractBits(bytesHi, 24, 31))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytesHi, 8, 15))
 	inst.Data = NewVRegOperand(bits, bits, 0)
-
-	// Decode SADDR (bits 16:22 of second dword)
-	// 0x7F = OFF (global addressing), otherwise scalar GPR pair
-	saddrBits := int(extractBits(bytesHi, 16, 22))
-	inst.SAddr = NewIntOperand(0, int64(saddrBits))
 
 	switch inst.Opcode {
 	case 21, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
@@ -581,6 +623,12 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 	d.parseNeg(inst, inst.Neg)
+
+	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
+	if inst.Opcode >= 944 && inst.Opcode <= 946 {
+		inst.OpSel = int(extractBits(bytesLo, 11, 14))    // bits 11-14
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))  // bits 59-60 (same as OMOD position)
+	}
 
 	return nil
 }

@@ -17,6 +17,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := stencil2d.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NumIteration = *numIter
 	benchmark.NumRows = *numRow + 2
 	benchmark.NumCols = *numCol + 2

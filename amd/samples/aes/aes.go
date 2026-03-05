@@ -15,6 +15,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := aes.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Length = *lenInput
 
 	runner.AddBenchmark(benchmark)

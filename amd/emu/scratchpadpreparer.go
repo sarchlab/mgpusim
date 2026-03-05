@@ -20,12 +20,14 @@ type ScratchpadPreparer interface {
 
 // ScratchpadPreparerImpl reads and write registers for the emulator
 type ScratchpadPreparerImpl struct {
+	IsCDNA3 bool
 }
 
 // NewScratchpadPreparerImpl returns a newly created ScratchpadPreparerImpl,
 // injecting the dependency of the RegInterface.
-func NewScratchpadPreparerImpl() *ScratchpadPreparerImpl {
+func NewScratchpadPreparerImpl(isCDNA3 bool) *ScratchpadPreparerImpl {
 	p := new(ScratchpadPreparerImpl)
+	p.IsCDNA3 = isCDNA3
 	return p
 }
 
@@ -219,8 +221,53 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
 
+	// Check if this is a global instruction with scalar base address (SAddr)
+	// SAddr handling is architecture-dependent:
+	// - CDNA3: SAddr=0x7F means OFF mode, any other value (including 0) is valid.
+	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode.
+	var useSAddr bool
+	if p.IsCDNA3 {
+		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
+	} else {
+		useSAddr = inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0
+	}
+
+	var scalarBase uint64
+	if useSAddr {
+		// Read the scalar base address from SGPR pair
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		buf := wf.ReadReg(sAddrOperand.Register, sAddrOperand.RegCount, 0)
+		scalarBase = insts.BytesToUint64(buf)
+	}
+
+	// Compute signed FLAT offset from the instruction encoding (bits [12:0]).
+	// In GFX9+/CDNA3, FLAT/GLOBAL instructions support a 13-bit signed
+	// immediate offset, e.g. "global_load_dword v11, v[64:65], off offset:4".
+	var flatOffset int64
+	if inst.Offset0 != 0 {
+		flatOffset = int64(int32(inst.Offset0)) // already sign-extended in decode
+	}
+
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+		if useSAddr {
+			// For global with SAddr: addr = SAddr + zero_extend(VGPR) + offset
+			// The VGPR is a single 32-bit register (not a pair)
+			vAddrOperand := insts.NewVRegOperand(
+				inst.Addr.Register.RegIndex(),
+				inst.Addr.Register.RegIndex(), 1)
+			vBuf := wf.ReadReg(vAddrOperand.Register, 1, i)
+			vOffset := uint64(insts.BytesToUint32(vBuf))
+			addr := scalarBase + vOffset + uint64(flatOffset)
+			copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
+		} else {
+			// For flat/global with off: addr = VGPR pair (64-bit) + offset
+			p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+			if flatOffset != 0 {
+				addr := insts.BytesToUint64(sp[8+i*8:8+i*8+8]) + uint64(flatOffset)
+				copy(sp[8+i*8:8+i*8+8], insts.Uint64ToBytes(addr))
+			}
+		}
 		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
 	}
 }
@@ -367,6 +414,7 @@ func (p *ScratchpadPreparerImpl) commitSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.SCC], 1, 0, scratchpad[24:25])
 }
