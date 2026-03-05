@@ -9,28 +9,24 @@ import (
 )
 
 type mockInstState struct {
-	inst       *insts.Inst
-	scratchpad emu.Scratchpad
-	exec       uint64
-	vcc        uint64
-	scc        byte
-	pc         uint64
-	operands   map[*insts.Operand]map[int]uint64
+	inst     *insts.Inst
+	exec     uint64
+	vcc      uint64
+	scc      byte
+	pc       uint64
+	operands map[*insts.Operand]map[int]uint64
 }
 
 func newMockInstState() *mockInstState {
 	return &mockInstState{
-		inst:       insts.NewInst(),
-		scratchpad: make([]byte, 4096),
-		operands:   make(map[*insts.Operand]map[int]uint64),
+		inst:     insts.NewInst(),
+		operands: make(map[*insts.Operand]map[int]uint64),
 	}
 }
 
 func (s *mockInstState) PID() vm.PID { return 1 }
 
 func (s *mockInstState) Inst() *insts.Inst { return s.inst }
-
-func (s *mockInstState) Scratchpad() emu.Scratchpad { return s.scratchpad }
 
 func (s *mockInstState) ReadOperand(operand *insts.Operand, laneID int) uint64 {
 	if lanes, ok := s.operands[operand]; ok {

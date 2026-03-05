@@ -35,7 +35,7 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	p.clear(instEmuState.Scratchpad())
+	p.clear(wf.Scratchpad())
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
 	case insts.SOP1:
@@ -124,7 +124,7 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 	// In timing mode, the coalescer reads EXEC, ADDR, DATA from the scratchpad
 	// to generate memory transactions. Keep scratchpad preparation.
 	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
+	sp := wf.Scratchpad()
 	layout := sp.AsFlat()
 
 	layout.EXEC = wf.EXEC()
@@ -142,7 +142,7 @@ func (p *ScratchpadPreparerImpl) prepareSMEM(
 	// In timing mode, SMEM uses the scratchpad for Base/Offset to create
 	// memory read requests (not through alu.Run). Keep scratchpad preparation.
 	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
+	scratchpad := wf.Scratchpad()
 
 	if inst.Opcode >= 16 && inst.Opcode <= 26 { // Store instructions
 		p.readOperand(inst.Data, wf, 0, scratchpad[0:16])
@@ -180,7 +180,7 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	// In timing mode, DS instructions still use the scratchpad for address
 	// and data marshaling. Keep scratchpad preparation.
 	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
+	sp := wf.Scratchpad()
 	layout := sp.AsDS()
 
 	layout.EXEC = wf.EXEC()
@@ -301,7 +301,7 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	// In timing mode, memory responses write data into the scratchpad DST area.
 	// We must commit that data back to registers.
 	inst := instEmuState.Inst()
-	scratchpad := instEmuState.Scratchpad()
+	scratchpad := wf.Scratchpad()
 	exec := scratchpad.AsFlat().EXEC
 
 	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
@@ -350,7 +350,7 @@ func (p *ScratchpadPreparerImpl) commitDS(
 	// In timing mode, DS data is written to the scratchpad DST area.
 	// We must commit that data back to registers.
 	inst := instEmuState.Inst()
-	sp := instEmuState.Scratchpad()
+	sp := wf.Scratchpad()
 	exec := sp.AsDS().EXEC
 
 	if inst.Dst != nil {

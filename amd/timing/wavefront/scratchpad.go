@@ -1,4 +1,4 @@
-package emu
+package wavefront
 
 import "unsafe"
 

@@ -10,19 +10,17 @@ import (
 )
 
 type mockInstState struct {
-	inst       *insts.Inst
-	scratchpad Scratchpad
-	sRegFile   []byte // 102 scalar registers * 4 bytes each
-	vRegFile   []byte // 256 vector registers * 4 bytes * 64 lanes
-	exec       uint64
-	vcc        uint64
-	scc        byte
-	pc         uint64
+	inst     *insts.Inst
+	sRegFile []byte // 102 scalar registers * 4 bytes each
+	vRegFile []byte // 256 vector registers * 4 bytes * 64 lanes
+	exec     uint64
+	vcc      uint64
+	scc      byte
+	pc       uint64
 }
 
 func newMockInstState() *mockInstState {
 	s := new(mockInstState)
-	s.scratchpad = make([]byte, 4096)
 	s.sRegFile = make([]byte, 102*4)
 	s.vRegFile = make([]byte, 256*4*64)
 	return s
@@ -34,10 +32,6 @@ func (s *mockInstState) PID() vm.PID {
 
 func (s *mockInstState) Inst() *insts.Inst {
 	return s.inst
-}
-
-func (s *mockInstState) Scratchpad() Scratchpad {
-	return s.scratchpad
 }
 
 func (s *mockInstState) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
@@ -42,7 +41,7 @@ type Wavefront struct {
 	pid            vm.PID
 	State          WfState
 	inst           *Inst          // The instruction that is being executed
-	scratchpad     emu.Scratchpad // A temp data buf that is shared by different stages
+	scratchpad     Scratchpad // A temp data buf that is shared by different stages
 	LastFetchTime  sim.VTimeInSec // The time that the last instruction was fetched
 	CompletedLanes int            // The number of lanes that is completed in the SIMD unit
 
@@ -104,7 +103,7 @@ func (wf *Wavefront) ManagedInst() *Inst {
 }
 
 // Scratchpad returns the scratchpad of the wavefront
-func (wf *Wavefront) Scratchpad() emu.Scratchpad {
+func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
 }
 

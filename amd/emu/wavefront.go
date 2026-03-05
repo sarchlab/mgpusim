@@ -45,11 +45,6 @@ func (wf *Wavefront) Inst() *insts.Inst {
 	return wf.inst
 }
 
-// Scratchpad returns the scratchpad that is associated with the wavefront
-func (wf *Wavefront) Scratchpad() Scratchpad {
-	return nil
-}
-
 // PID returns pid
 func (wf *Wavefront) PID() vm.PID {
 	return wf.pid

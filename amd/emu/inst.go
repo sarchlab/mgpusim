@@ -10,7 +10,6 @@ import (
 type InstEmuState interface {
 	PID() vm.PID
 	Inst() *insts.Inst
-	Scratchpad() Scratchpad
 
 	ReadOperand(operand *insts.Operand, laneID int) uint64
 	WriteOperand(operand *insts.Operand, laneID int, value uint64)
