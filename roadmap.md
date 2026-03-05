@@ -54,28 +54,32 @@
 
 ---
 
-## M11: Fix CI lint failure (gocognit) — FAILED (3/3 cycles used)
-- Status: Code fix complete, but CI verification incomplete
-- Issue: `ReadOperand` cognitive complexity 52 → fixed by extracting `readRegOperand` helper
-- Code is on main and passes all CI (run 22722972753 — Lint success)
-- PR #250 CI was stale (ran on pre-fix commit e10826ba, not the fixed code)
-- Apollo flagged funlen violation but main CI passed — false positive from local check
-- Estimated cycles: 2, Actual cycles: 3 (failed due to CI retrigger issues, not code)
+## M11: Fix CI lint failure (gocognit) — COMPLETE
+- Code fix: extracted `readRegOperand` helper → lint passes
+- Cycles: 3 (code was correct but CI retrigger took extra cycles)
 
-## M11.1: Verify CI passes on PR #250 and merge — NEXT
-- Status: Planning
-- The code fix is already on main and scratchpad-removal (identical `wavefront.go`)
-- New CI run triggered (run 22733965555 on SHA 7f7d5a7b)
-- Need: Wait for CI to pass, verify all checks green, merge PR #250
-- Estimated cycles: 1
+## M11.1: Verify CI and merge PR #250 — FAILED (2/2 cycles)
+- Status: FAILED — GCN3 emulation tests crash on PR #250
+- Root cause discovered: **NOT a CI issue — real bug in ReadReg**
+  - M9's heap allocation optimization changed `make([]byte, numBytes)` to `[8]byte` stack buffer
+  - GCN3 flat_store_dwordx4 needs 16-byte reads → `buf[:16]` panics on `[8]byte`
+  - Panic: `slice bounds out of range [:16] with length 8` at wavefront.go:246
+  - Reproduced locally: AES benchmark crashes with same error
 
-### Lessons Learned (continued)
+## M11.2: Fix ReadReg buffer overflow + merge PR #250 — NEXT
+- Status: Defined (issue #226)
+- Fix: Change `var buf [8]byte` to `var buf [32]byte` in `ReadReg` (wavefront.go:245)
+- Then: push to both main and upstream/scratchpad-removal, verify CI, merge PR #250
+- Estimated cycles: 2
+
+### Lessons Learned
 - Large file rewrites must be split across multiple workers
 - GCN3 regression wasn't caught by unit tests — need integration-level testing
 - Budget honestly: most milestones took ~50% more cycles than estimated
 - Making functions no-ops first, then removing later, is a safe two-phase approach
 - Iris's performance analysis was excellent — use dedicated analysis workers early
 - Always check lint locally before pushing — the gocognit violation was introduced during optimization and not caught
-- **NEW: Don't trust local lint checks over CI results — CI on main passed, local check was wrong about funlen**
-- **NEW: GitHub Actions sometimes doesn't trigger on push — always verify CI runs were created for the right SHA**
-- **NEW: When code is on main and passing CI, the PR branch just needs a retrigger, not more code changes**
+- **Don't trust "CI passed on main" when the test matrix differs — upstream/main has different test coverage**
+- **Stack buffer optimizations must account for maximum possible read size, not just common case**
+- **Always reproduce failures locally before assigning to workers — saves cycles**
+- **Previous Athena notes were WRONG about "code is identical" — the merge with upstream introduced new code paths that exposed the bug**
