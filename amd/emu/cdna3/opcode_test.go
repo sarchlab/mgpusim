@@ -95,18 +95,20 @@ func TestSOP2Opcode33SASHRI64(t *testing.T) {
 	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 33
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
 
-	sp := state.scratchpad.AsSOP2()
-	sp.SRC0 = emu.Int64ToBits(-8)
-	sp.SRC1 = 2
+	state.operands[state.inst.Src0] = emu.Int64ToBits(-8)
+	state.operands[state.inst.Src1] = 2
 
 	alu.Run(state)
 
-	if got := int64(sp.DST); got != -2 {
+	if got := int64(state.operands[state.inst.Dst]); got != -2 {
 		t.Fatalf("expected -8 >> 2 = -2, got %d", got)
 	}
-	if sp.SCC != 1 {
-		t.Fatalf("expected SCC=1 for non-zero result, got %d", sp.SCC)
+	if state.scc != 1 {
+		t.Fatalf("expected SCC=1 for non-zero result, got %d", state.scc)
 	}
 }
 
@@ -115,15 +117,17 @@ func TestSOP2Opcode34SBFMB32(t *testing.T) {
 	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 34
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
 
-	sp := state.scratchpad.AsSOP2()
-	sp.SRC0 = 8
-	sp.SRC1 = 4
+	state.operands[state.inst.Src0] = 8
+	state.operands[state.inst.Src1] = 4
 
 	alu.Run(state)
 
-	if sp.DST != 0x00000FF0 {
-		t.Fatalf("expected bitmask 0x00000FF0, got 0x%08x", uint32(sp.DST))
+	if state.operands[state.inst.Dst] != 0x00000FF0 {
+		t.Fatalf("expected bitmask 0x00000FF0, got 0x%08x", uint32(state.operands[state.inst.Dst]))
 	}
 }
 
@@ -132,18 +136,20 @@ func TestSOP2Opcode37SBFEU32(t *testing.T) {
 	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 37
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
 
-	sp := state.scratchpad.AsSOP2()
-	sp.SRC0 = 0xF0
-	sp.SRC1 = (4 << 16) | 4 // width=4, offset=4
+	state.operands[state.inst.Src0] = 0xF0
+	state.operands[state.inst.Src1] = (4 << 16) | 4 // width=4, offset=4
 
 	alu.Run(state)
 
-	if sp.DST != 0xF {
-		t.Fatalf("expected unsigned extracted value 0xF, got 0x%x", sp.DST)
+	if state.operands[state.inst.Dst] != 0xF {
+		t.Fatalf("expected unsigned extracted value 0xF, got 0x%x", state.operands[state.inst.Dst])
 	}
-	if sp.SCC != 1 {
-		t.Fatalf("expected SCC=1 for non-zero result, got %d", sp.SCC)
+	if state.scc != 1 {
+		t.Fatalf("expected SCC=1 for non-zero result, got %d", state.scc)
 	}
 }
 
@@ -152,18 +158,20 @@ func TestSOP2Opcode38SBFEI32(t *testing.T) {
 	state := newMockInstState()
 	state.inst.FormatType = insts.SOP2
 	state.inst.Opcode = 38
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
 
-	sp := state.scratchpad.AsSOP2()
-	sp.SRC0 = 0xF0
-	sp.SRC1 = (4 << 16) | 4 // width=4, offset=4 -> 0b1111 => -1 after sign extension
+	state.operands[state.inst.Src0] = 0xF0
+	state.operands[state.inst.Src1] = (4 << 16) | 4 // width=4, offset=4 -> 0b1111 => -1 after sign extension
 
 	alu.Run(state)
 
-	if got := emu.AsInt32(uint32(sp.DST)); got != -1 {
+	if got := emu.AsInt32(uint32(state.operands[state.inst.Dst])); got != -1 {
 		t.Fatalf("expected signed extracted value -1, got %d", got)
 	}
-	if sp.SCC != 1 {
-		t.Fatalf("expected SCC=1 for non-zero result, got %d", sp.SCC)
+	if state.scc != 1 {
+		t.Fatalf("expected SCC=1 for non-zero result, got %d", state.scc)
 	}
 }
 
