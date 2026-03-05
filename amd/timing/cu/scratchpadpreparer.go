@@ -177,32 +177,8 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	// In timing mode, DS instructions still use the scratchpad for address
-	// and data marshaling. Keep scratchpad preparation.
-	inst := instEmuState.Inst()
-	sp := wf.Scratchpad()
-	layout := sp.AsDS()
-
-	layout.EXEC = wf.EXEC()
-
-	offset := 8
-	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, sp[offset+i*4:offset+i*4+4])
-	}
-
-	if inst.Data != nil {
-		offset = 8 + 64*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
-
-	if inst.Data1 != nil {
-		offset = 8 + 64*4 + 256*4
-		for i := 0; i < 64; i++ {
-			p.readOperand(inst.Data1, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now read operands directly via ReadOperand.
+	// No scratchpad preparation needed.
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -347,21 +323,8 @@ func (p *ScratchpadPreparerImpl) commitDS(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
 ) {
-	// In timing mode, DS data is written to the scratchpad DST area.
-	// We must commit that data back to registers.
-	inst := instEmuState.Inst()
-	sp := wf.Scratchpad()
-	exec := sp.AsDS().EXEC
-
-	if inst.Dst != nil {
-		offset := 8 + 64*4 + 256*4*2
-		for i := 0; i < 64; i++ {
-			if !laneMasked(exec, uint(i)) {
-				continue
-			}
-			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
-		}
-	}
+	// DS instructions now write results directly via WriteOperand/WriteOperandBytes.
+	// No scratchpad commit needed.
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(
