@@ -77,20 +77,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		for i := 0; i < 64; i++ {
-			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
-		}
 		wf.SetVCC(uint64(0xffff0000ffff0000))
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// VOP1 instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsVOP1()
-		for i := 0; i < 64; i++ {
-			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-		}
-		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.VCC).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for VOP2", func() {
@@ -101,24 +96,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(6, 6, 2)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		for i := 0; i < 64; i++ {
-			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
-			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i+1)))
-			sp.writeReg(insts.VReg(6), 2, wf, i, insts.Uint64ToBytes(uint64(i+2)))
-		}
 		wf.SetVCC(0xffff0000ffff0000)
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// VOP2 instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsVOP2()
-		for i := 0; i < 64; i++ {
-			Expect(layout.DST[i]).To(Equal(uint64(i + 2)))
-			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
-		}
-		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.VCC).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for VOP3a", func() {
@@ -129,23 +115,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src2 = insts.NewIntOperand(1, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		for i := 0; i < 64; i++ {
-			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
-			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
-		}
 		wf.SetVCC(0xffff0000ffff0000)
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// VOP3a instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsVOP3A()
-		for i := 0; i < 64; i++ {
-			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
-		}
-		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.VCC).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for VOP3b", func() {
@@ -156,23 +134,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src2 = insts.NewIntOperand(1, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		for i := 0; i < 64; i++ {
-			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
-			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
-		}
 		wf.SetVCC(0xffff0000ffff0000)
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// VOP3b instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsVOP3B()
-		for i := 0; i < 64; i++ {
-			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
-		}
-		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		Expect(layout.EXEC).To(Equal(uint64(0)))
+		Expect(layout.VCC).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for VOPC", func() {
@@ -183,21 +153,14 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-		for i := 0; i < 64; i++ {
-			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
-			sp.writeReg(insts.VReg(1), 1, wf, i, insts.Uint64ToBytes(uint64(i+1)))
-		}
 		wf.SetVCC(1)
 		wf.SetEXEC(0xff)
 
 		sp.Prepare(wf, wf)
 
+		// VOPC instructions now use ReadOperand directly; scratchpad is not used.
 		layout := wf.Scratchpad().AsVOPC()
-		Expect(layout.EXEC).To(Equal(uint64(0xff)))
-		for i := 0; i < 64; i++ {
-			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
-		}
+		Expect(layout.EXEC).To(Equal(uint64(0)))
 	})
 
 	It("should prepare for FLAT", func() {
@@ -385,6 +348,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOP1 commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOP1()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -394,10 +358,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should NOT be written to registers (no-op).
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(i), wf, 0)).To(Equal(uint32(0)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(0)))
 		}
-		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
+		// VCC should remain unchanged (initial value is 0).
+		Expect(wf.VCC()).To(Equal(uint64(0)))
 	})
 
 	It("should commit for VOP2", func() {
@@ -406,6 +372,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOP2 commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOP2()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -415,10 +382,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should NOT be written to registers (no-op).
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(i), wf, 0)).To(Equal(uint32(0)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(0)))
 		}
-		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
+		// VCC should remain unchanged (initial value is 0).
+		Expect(wf.VCC()).To(Equal(uint64(0)))
 	})
 
 	It("should commit for VOP3a", func() {
@@ -428,6 +397,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOP3a commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOP3A()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -437,10 +407,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should NOT be written to registers (no-op).
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(0)))
 		}
-		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
+		// VCC should remain unchanged (initial value is 0).
+		Expect(wf.VCC()).To(Equal(uint64(0)))
 	})
 
 	It("should commit for VOP3a CMP", func() {
@@ -450,6 +422,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOP3a CMP commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOP3A()
 		layout.EXEC = 0xfffffffffffffffe
 		for i := 0; i < 64; i++ {
@@ -458,6 +431,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should NOT be written to registers (no-op).
 		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(0)))
 	})
 
@@ -468,6 +442,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.SDst = insts.NewSRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOP3b commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOP3B()
 		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
@@ -478,12 +453,13 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp.Commit(wf, wf)
 
+		// Scratchpad values should NOT be written to registers (no-op).
 		for i := 0; i < 64; i++ {
-			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
+			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(0)))
 		}
-		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(2)))
-		Expect(sp.readRegAsUint32(insts.SReg(1), wf, 0)).To(Equal(uint32(0)))
-		Expect(wf.VCC()).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(0)))
+		// VCC should remain unchanged (initial value is 0).
+		Expect(wf.VCC()).To(Equal(uint64(0)))
 	})
 
 	It("should commit VOPC", func() {
@@ -491,14 +467,16 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.VOPC
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
+		// VOPC commit is now a no-op; instructions write directly.
 		layout := wf.Scratchpad().AsVOPC()
 		layout.VCC = uint64(0xff)
 		layout.EXEC = uint64(0x01)
 
 		sp.Commit(wf, wf)
 
-		Expect(wf.VCC()).To(Equal(uint64(0xff)))
-		Expect(wf.EXEC()).To(Equal(uint64(0x01)))
+		// Scratchpad values should NOT be written to VCC/EXEC (no-op).
+		Expect(wf.VCC()).To(Equal(uint64(0)))
+		Expect(wf.EXEC()).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
 	It("should commit for FLAT", func() {
