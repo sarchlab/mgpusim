@@ -242,7 +242,7 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	}
 
 	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
-	var buf [8]byte
+	var buf [32]byte
 	value := buf[:numBytes]
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
