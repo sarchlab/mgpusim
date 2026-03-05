@@ -9,8 +9,9 @@ Tune the MGPUSim timing simulator to accurately model AMD MI300A (gfx942/CDNA3) 
 - **Average error** across all benchmark/problem-size combinations: **< 20%**
 - **Maximum error** for any single benchmark/problem-size: **< 50%**
 - Error is measured as `|sim_time - real_time| / real_time` for each benchmark/problem-size pair
-- Reference data: `gpu_perf_scripts/mi300a.csv` (full 240 CU)
-- 120 CU data available in `gpu_perf_scripts/mi300a_120cu.csv` for additional calibration
+- Reference data: `gpu_perf_scripts/mi300a_120cu.csv` (120 CU — matches simulator's 120 CU config)
+- Skip large benchmarks that cannot complete in simulation. Focus on smaller problem sizes.
+- Small problem sizes dominated by kernel launch overhead should be handled carefully — the human is flexible on evaluation methodology.
 
 ## Constraints
 
@@ -23,14 +24,29 @@ Tune the MGPUSim timing simulator to accurately model AMD MI300A (gfx942/CDNA3) 
 
 - MI300A real GPU measurements: `gpu_perf_scripts/mi300a.csv` (240 CU, 51 iterations per benchmark)
 - MI300A 120 CU measurements: `gpu_perf_scripts/mi300a_120cu.csv` (120 CU, half CUs disabled, 5 iterations)
-- 22 benchmarks with varying problem sizes covering compute, memory, graph, signal processing, ML, and linear algebra workloads
+- 24 benchmarks with varying problem sizes
 - Existing MI300A builder: `amd/samples/runner/timingconfig/mi300a/builder.go`
 - Timing CU implementation: `amd/timing/cu/`
 - Shader array configuration: `amd/samples/runner/timingconfig/shaderarray/builder.go`
+- Comparison script: `gpu_perf_scripts/compare_sim_vs_real.py` (on branch `blake/benchmark-analysis-script`)
+- Benchmark runner script: `gpu_perf_scripts/run_sim_benchmarks.sh` (on branch `casey/sim-benchmark-script`)
+
+## Key Discrepancies Found (Research Phase)
+
+Priority-ordered list of simulator vs real MI300A differences:
+
+1. **DRAM Model**: Uses `idealmemcontroller` with fixed 100-cycle latency — no bandwidth modeling. A detailed HBM DRAM builder (`createDramControllerBuilder`) already exists in code but is unused.
+2. **Wavefront Pool Size**: Simulator uses 10/SIMD, CDNA3 should be 8/SIMD (25% occupancy overestimate)
+3. **VGPR Count**: Simulator uses 16384/SIMD, CDNA3 should be 32768/SIMD (half the real register file)
+4. **SIMD Execution Latency**: May be 4 cycles in simulator vs 1 cycle for CDNA3
+5. **L2 Cache Size**: 8 MB total vs real 24+ MB
+6. **Clock Frequency**: 1500 MHz vs ~1900 MHz boost (~21% gap)
+7. **L1V Bank Latency**: 60 cycles seems high (typical ~30-50 cycles)
 
 ## Notes
 
-- The current MI300A builder uses `idealmemcontroller` with hardcoded latency 100. There is also a `dram.Builder` function defined but unused (`createDramControllerBuilder`). Switching to realistic DRAM modeling may improve accuracy.
-- MI300A has 120 CUs (20 shader arrays × 6 CUs each) in the simulator config. The real MI300A has 228 CUs (38 XCDs × 6 CUs). The 120 CU setting may correspond to a single GCD or a test configuration.
-- The CU builder defaults to 1 GHz; MI300A builder sets 1.5 GHz.
-- Very small problem sizes (< cache size) are dominated by kernel launch overhead which the simulator may not model.
+- The simulator creates 20 shader arrays × 6 CUs = 120 CUs, matching the 120 CU test data.
+- Benchmarks are predominantly memory-bound (240 vs 120 CU scaling shows ~1.0x speedup for most).
+- Peak observed MI300A bandwidth: ~3.6 TB/s (65-70% of 5.3 TB/s HBM3 spec).
+- MMU page fault bug limits problem sizes in simulation (~16K-32K elements crash).
+- Some benchmarks are extremely slow to simulate (bitonicsort, simpleconvolution).
