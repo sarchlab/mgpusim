@@ -91,103 +91,80 @@ func (wf *Wavefront) SetVCC(v uint64) {
 	wf.vcc = v
 }
 
+// readRegOperand reads the value of a register operand with inline
+// binary.LittleEndian reads for VReg/SReg hot paths.
+func (wf *Wavefront) readRegOperand(
+	reg *insts.Reg, regCount int, laneID int,
+) uint64 {
+	if reg.IsVReg() {
+		offset := laneID*256*4 + reg.RegIndex()*4
+		numBytes := reg.ByteSize
+		if regCount >= 2 {
+			numBytes *= regCount
+		}
+		if numBytes == 4 {
+			return uint64(binary.LittleEndian.Uint32(
+				wf.VRegFile[offset : offset+4]))
+		}
+		return binary.LittleEndian.Uint64(
+			wf.VRegFile[offset : offset+8])
+	}
+
+	if reg.IsSReg() {
+		offset := reg.RegIndex() * 4
+		numBytes := reg.ByteSize
+		if regCount >= 2 {
+			numBytes *= regCount
+		}
+		if numBytes == 4 {
+			return uint64(binary.LittleEndian.Uint32(
+				wf.SRegFile[offset : offset+4]))
+		}
+		return binary.LittleEndian.Uint64(
+			wf.SRegFile[offset : offset+8])
+	}
+
+	switch reg.RegType {
+	case insts.SCC:
+		return uint64(wf.scc)
+	case insts.VCC:
+		return wf.vcc
+	case insts.VCCLO:
+		if regCount == 1 {
+			return uint64(uint32(wf.vcc))
+		}
+		return wf.vcc
+	case insts.VCCHI:
+		if regCount == 1 {
+			return uint64(uint32(wf.vcc >> 32))
+		}
+		return wf.vcc
+	case insts.EXEC:
+		return wf.exec
+	case insts.EXECLO:
+		if regCount == 2 {
+			return wf.exec
+		}
+		return uint64(uint32(wf.exec))
+	case insts.M0:
+		return uint64(wf.M0)
+	}
+
+	// Fall back to ReadReg for any unhandled register types
+	buf := wf.ReadReg(reg, regCount, laneID)
+	if len(buf) < 8 {
+		var padded [8]byte
+		copy(padded[:], buf)
+		return binary.LittleEndian.Uint64(padded[:])
+	}
+	return binary.LittleEndian.Uint64(buf)
+}
+
 // ReadOperand reads the value of an operand
-//
-//nolint:gocyclo
 func (wf *Wavefront) ReadOperand(operand *insts.Operand, laneID int) uint64 {
 	switch operand.OperandType {
 	case insts.RegOperand:
-		reg := operand.Register
-		regCount := operand.RegCount
-
-		if reg.IsVReg() {
-			offset := laneID*256*4 + reg.RegIndex()*4
-			numBytes := reg.ByteSize
-			if regCount >= 2 {
-				numBytes *= regCount
-			}
-			if numBytes == 4 {
-				return uint64(binary.LittleEndian.Uint32(
-					wf.VRegFile[offset : offset+4]))
-			}
-			return binary.LittleEndian.Uint64(
-				wf.VRegFile[offset : offset+8])
-		}
-
-		if reg.IsSReg() {
-			offset := reg.RegIndex() * 4
-			numBytes := reg.ByteSize
-			if regCount >= 2 {
-				numBytes *= regCount
-			}
-			if numBytes == 4 {
-				return uint64(binary.LittleEndian.Uint32(
-					wf.SRegFile[offset : offset+4]))
-			}
-			return binary.LittleEndian.Uint64(
-				wf.SRegFile[offset : offset+8])
-		}
-
-		if reg.RegType == insts.SCC {
-			return uint64(wf.scc)
-		}
-
-		if reg.RegType == insts.VCC {
-			return wf.vcc
-		}
-
-		if reg.RegType == insts.VCCLO {
-			if regCount == 1 {
-				return uint64(uint32(wf.vcc))
-			}
-			return wf.vcc
-		}
-
-		if reg.RegType == insts.VCCHI {
-			if regCount == 1 {
-				return uint64(uint32(wf.vcc >> 32))
-			}
-			return wf.vcc
-		}
-
-		if reg.RegType == insts.EXEC {
-			return wf.exec
-		}
-
-		if reg.RegType == insts.EXECLO {
-			if regCount == 2 {
-				return wf.exec
-			}
-			return uint64(uint32(wf.exec))
-		}
-
-		if reg.RegType == insts.M0 {
-			return uint64(wf.M0)
-		}
-
-		if reg.Name == "vcclo" {
-			if regCount == 1 {
-				return uint64(uint32(wf.vcc))
-			}
-			return wf.vcc
-		}
-
-		if reg.Name == "vcchi" {
-			if regCount == 1 {
-				return uint64(uint32(wf.vcc >> 32))
-			}
-			return wf.vcc
-		}
-
-		// Fall back to ReadReg for any unhandled register types
-		buf := wf.ReadReg(reg, regCount, laneID)
-		if len(buf) < 8 {
-			var padded [8]byte
-			copy(padded[:], buf)
-			return binary.LittleEndian.Uint64(padded[:])
-		}
-		return binary.LittleEndian.Uint64(buf)
-
+		return wf.readRegOperand(operand.Register, operand.RegCount, laneID)
 	case insts.IntOperand:
 		return uint64(operand.IntValue)
 	case insts.FloatOperand:
