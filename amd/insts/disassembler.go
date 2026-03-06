@@ -625,9 +625,16 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	d.parseNeg(inst, inst.Neg)
 
 	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
-	if inst.Opcode >= 944 && inst.Opcode <= 946 {
-		inst.OpSel = int(extractBits(bytesLo, 11, 14))    // bits 11-14
-		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))  // bits 59-60 (same as OMOD position)
+	if inst.Opcode == 944 {
+		// 3-source FMA: bits [13:11] = op_sel[2:0], bit [14] = op_sel_hi[2]
+		inst.OpSel = int(extractBits(bytesLo, 11, 13))
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28)) |
+			(int(extractBits(bytesLo, 14, 14)) << 2)
+	} else if inst.Opcode >= 945 && inst.Opcode <= 946 {
+		// 2-source MUL/ADD: bits [12:11] = op_sel[1:0],
+		// bits [14:13] = neg_hi[1:0] (ignored; neg_lo from Neg field applies to both halves)
+		inst.OpSel = int(extractBits(bytesLo, 11, 12))
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))
 	}
 
 	return nil
