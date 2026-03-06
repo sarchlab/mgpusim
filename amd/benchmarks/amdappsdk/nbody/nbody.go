@@ -69,13 +69,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.espSqr = 500.0
 	b.exchange = true
 
-	if b.NumParticles < b.groupSize {
-		b.NumParticles = b.groupSize
-	}
-
-	b.NumParticles = (b.NumParticles / b.groupSize) * b.groupSize
-	b.numBodies = b.NumParticles
-
 	return b
 }
 
@@ -102,6 +95,12 @@ func (b *Benchmark) loadProgram() {
 
 // Run runs
 func (b *Benchmark) Run() {
+	if b.NumParticles < b.groupSize {
+		b.NumParticles = b.groupSize
+	}
+	b.NumParticles = (b.NumParticles / b.groupSize) * b.groupSize
+	b.numBodies = b.NumParticles
+
 	b.loadProgram()
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)

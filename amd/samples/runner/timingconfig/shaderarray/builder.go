@@ -27,9 +27,14 @@ type Builder struct {
 	freq               sim.Freq
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
-	l1AddressMapper    mem.AddressToPortMapper
-	l1TLBAddressMapper mem.AddressToPortMapper
-	aluFactory         emu.ALUFactory
+	wfPoolSize                int
+	vgprCount                 []int
+	numSinglePrecisionUnits   int
+	vecMemInstPipelineStages  int
+	vecMemTransPipelineStages int
+	l1AddressMapper           mem.AddressToPortMapper
+	l1TLBAddressMapper        mem.AddressToPortMapper
+	aluFactory                emu.ALUFactory
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -124,10 +129,43 @@ func (b Builder) WithL1TLBAddressMapper(
 	return b
 }
 
+// WithWfPoolSize sets the wavefront pool size for the CU builder.
+func (b Builder) WithWfPoolSize(n int) Builder {
+	b.wfPoolSize = n
+	return b
+}
+
+// WithVGPRCount sets the VGPR counts for the CU builder.
+func (b Builder) WithVGPRCount(counts []int) Builder {
+	b.vgprCount = counts
+	return b
+}
+
 // WithALUFactory sets the ALU factory for creating compute unit ALUs.
 // This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
 func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	b.aluFactory = factory
+	return b
+}
+
+// WithNumSinglePrecisionUnits sets the number of single-precision units per
+// SIMD in each CU.
+func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
+	b.numSinglePrecisionUnits = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the vector memory instruction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the vector memory transaction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
 	return b
 }
 
@@ -348,6 +386,26 @@ func (b *Builder) buildCUs() {
 		cuBuilder = cuBuilder.WithALUFactory(b.aluFactory)
 	}
 
+	if b.wfPoolSize > 0 {
+		cuBuilder = cuBuilder.WithWfPoolSize(b.wfPoolSize)
+	}
+
+	if b.vgprCount != nil {
+		cuBuilder = cuBuilder.WithVGPRCount(b.vgprCount)
+	}
+
+	if b.numSinglePrecisionUnits > 0 {
+		cuBuilder = cuBuilder.WithNumSinglePrecisionUnits(b.numSinglePrecisionUnits)
+	}
+
+	if b.vecMemInstPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemInstPipelineStages(b.vecMemInstPipelineStages)
+	}
+
+	if b.vecMemTransPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
+	}
+
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
@@ -434,11 +492,11 @@ func (b *Builder) buildL1VCaches() {
 	builder := writearound.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBankLatency(60).
+		WithBankLatency(20).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
+		WithNumMSHREntry(32).
 		WithTotalByteSize(16 * mem.KB).
 		WithAddressToPortMapper(b.l1AddressMapper)
 

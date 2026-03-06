@@ -17,9 +17,14 @@ type Builder struct {
 	freq              sim.Freq
 	name              string
 	simdCount         int
+	wfPoolSize        int
 	vgprCount         []int
 	sgprCount         int
 	log2CachelineSize uint64
+
+	numSinglePrecisionUnits   int
+	vecMemInstPipelineStages  int
+	vecMemTransPipelineStages int
 
 	decoder            emu.Decoder
 	scratchpadPreparer ScratchpadPreparer
@@ -39,9 +44,13 @@ func MakeBuilder() Builder {
 	var b Builder
 	b.freq = 1000 * sim.MHz
 	b.simdCount = 4
+	b.wfPoolSize = 10
 	b.sgprCount = 3200
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
+	b.numSinglePrecisionUnits = 16
+	b.vecMemInstPipelineStages = 6
+	b.vecMemTransPipelineStages = 10
 
 	return b
 }
@@ -61,6 +70,12 @@ func (b Builder) WithFreq(f sim.Freq) Builder {
 // WithSIMDCount sets the number of SIMD unit in the ComputeUnit.
 func (b Builder) WithSIMDCount(n int) Builder {
 	b.simdCount = n
+	return b
+}
+
+// WithWfPoolSize sets the number of wavefronts in each wavefront pool.
+func (b Builder) WithWfPoolSize(n int) Builder {
+	b.wfPoolSize = n
 	return b
 }
 
@@ -115,6 +130,27 @@ func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	return b
 }
 
+// WithNumSinglePrecisionUnits sets the number of single-precision units per
+// SIMD. Default is 16 (GCN3). CDNA3 uses 32.
+func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
+	b.numSinglePrecisionUnits = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the number of stages in the vector memory
+// instruction pipeline. Default is 6.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the number of stages in the vector memory
+// transaction pipeline. Default is 10.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
@@ -133,7 +169,7 @@ func (b Builder) Build(name string) *ComputeUnit {
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
-		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
+		cu.WfPools = append(cu.WfPools, NewWavefrontPool(b.wfPoolSize))
 	}
 
 	b.equipScheduler(cu)
@@ -185,6 +221,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	for i := 0; i < b.simdCount; i++ {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
+		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnits
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -219,14 +256,14 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 8)
 	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.InstPipeline",
-		6, 1,
+		b.vecMemInstPipelineStages, 1,
 		vectorMemoryUnit.postInstructionPipelineBuffer)
 
 	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
 		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", 8)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		60, 1,
+		b.vecMemTransPipelineStages, 1,
 		vectorMemoryUnit.postTransactionPipelineBuffer)
 
 	for i := 0; i < b.simdCount; i++ {
