@@ -153,8 +153,8 @@ func (b *Builder) buildGPUDriver(
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithD2HCycles(8500).
-		WithH2DCycles(14500).
+		WithD2HCycles(300).
+		WithH2DCycles(500).
 		Build("Driver")
 
 	b.simulation.RegisterComponent(gpuDriver)

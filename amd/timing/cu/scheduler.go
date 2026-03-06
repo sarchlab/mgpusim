@@ -249,7 +249,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
 			// The program has to make progress
-			executing.State = wavefront.WfReady
+			s.cu.UpdatePCAndSetReady(executing)
 			instProgress = true
 			instCompleted = true
 		}
