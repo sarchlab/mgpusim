@@ -4,49 +4,57 @@
 Achieve <20% average error and <50% max error for MI300A timing simulation vs real hardware measurements (120 CU config).
 
 ## Status
-- Research phase complete (Alex, Blake, Casey workers gathered hardware specs, identified discrepancies, built scripts, collected initial sim data)
-- M1 (original broad baseline milestone) missed deadline — was too vague for execution team
-- Breaking down into specific, concrete milestones
+- M1.1 COMPLETE and VERIFIED — DRAM controller, WfPoolSize, VGPR fixes applied
+- PR #251 open on sarchlab/mgpusim (not merged)
+- Need to establish baseline accuracy with current fixes before next round of tuning
+- Human requested DRAM model evaluation (issue #234) — in progress
 
-## Completed Research Findings
-- **Ideal memory controller** is the #1 accuracy problem (flat 100-cycle latency, no bandwidth modeling)
-- **Wavefront pool size** wrong (10 vs 8 per SIMD)
-- **VGPR count** wrong (16384 vs 32768 per SIMD)
-- **SIMD execution latency** potentially too slow
-- Initial sim data collected for 5 benchmarks at small sizes (20 data points)
-- Comparison script and runner script created on branches
+## Completed Milestones
 
-## Milestones
+### M1: Baseline Infrastructure (cycles: 2) — FAILED
+Too broad for execution team. Lesson: give concrete code changes, not research tasks.
 
-### M1: Baseline Infrastructure (cycles: 2) — DEADLINE MISSED
-**Status: FAILED** — Too broad, team had no clear concrete tasks
-**Lesson: Need very specific code changes, not research tasks, for execution team**
+### M1.1: Fix MI300A Timing Parameters (cycles: 4) — COMPLETE ✅
+- Switched DRAM from idealmemcontroller to HBM timing model
+- Fixed WfPoolSize from 10 to 8 per SIMD (MI300A-specific)
+- Fixed VGPR count from 16384 to 32768 per SIMD (MI300A-specific)
+- Benchmark scripts cherry-picked (compare_sim_vs_real.py, run_sim_benchmarks.sh)
+- PR #251 created on sarchlab/mgpusim
+- Initial results: stencil2d improved ~20%, others ~1-2% (tiny problem sizes only)
 
-### M1.1: Fix MI300A Timing Parameters (cycles: 4)
-**Status: PENDING**
-Concrete code changes to `amd/samples/runner/timingconfig/mi300a/builder.go` and `amd/timing/cu/`:
-1. Switch from `idealmemcontroller` to the existing `createDramControllerBuilder()` DRAM model in `buildDRAMControllers()`
-2. Fix wavefront pool size from 10 to 8 per SIMD in CU builder
-3. Fix VGPR count from 16384 to 32768 per SIMD in CU builder
-4. Merge benchmark scripts (compare_sim_vs_real.py, run_sim_benchmarks.sh) from research branches to main
-5. Run a subset of benchmarks to measure before/after accuracy
-6. Create PR on upstream with all changes
+## Current Work (Planning Phase)
 
-### M1.2: Measure Accuracy & Tune Further (cycles: 4)
-**Status: PENDING**
-- Run full benchmark suite (small problem sizes) to measure accuracy
-- Tune remaining parameters: L2 cache size, clock frequency, L1V latency, SIMD latency
-- Iterate based on per-benchmark error analysis
+### Gathering Data
+- Alex: Evaluating Akita DRAM model for HBM3 accuracy (issue #238)
+- Blake: Running comprehensive benchmark accuracy comparison (issue #239)
+
+### Key Questions to Answer
+1. What is our actual accuracy now? (Only tested at tiny sizes so far)
+2. What are the maximum problem sizes the simulator can handle per benchmark?
+3. What does the Akita DRAM model get wrong for HBM3?
+4. Which parameters have the biggest impact on remaining error?
+
+## Upcoming Milestones
+
+### M1.2: Measure Accuracy & Tune Further (cycles: 4) — PENDING
+- Run full benchmark suite (small-medium problem sizes) to measure accuracy
+- Tune remaining parameters: L2 cache size (8MB→24MB+), clock frequency (1500→1900MHz), L1V latency, SIMD latency
 - Target: <30% average error
+- Dependent on accuracy baseline from Blake's analysis
 
-### M1.3: Fine-Tuning & Final Accuracy (cycles: 4)
-**Status: PENDING**
+### M1.3: Fine-Tuning & Final Accuracy (cycles: 4) — PENDING
 - Address individual benchmark outliers
 - Tune TLB, MSHR, memory interleaving parameters
-- Cross-validate with 120 CU vs 240 CU data
 - Target: <20% average, <50% max
 
+### M-DRAM: DRAM Model Evaluation Report (cycles: 2) — PENDING
+- Separate deliverable for human issue #234
+- Create test programs to evaluate HBM model
+- Document what Akita team needs to change
+- Create GitHub issue with findings for human
+
 ## Lessons Learned
-- **M1 failure**: The original M1 was a research/analysis milestone given to an execution team. Ares's team needs concrete code changes with specific files and line numbers, not open-ended investigation.
-- **Break down further**: When milestones involve "analyze and decide", do the analysis in the planning phase (Athena's workers), then give Ares specific implementation tasks.
-- **Scripts exist**: Blake and Casey already created the needed infrastructure scripts. Next milestone should build on that work.
+- **M1 failure**: Don't give research tasks to execution teams. Do analysis in planning phase, give concrete code changes.
+- **Tiny benchmarks mislead**: Testing at 64-element sizes doesn't reveal real accuracy. Need larger problem sizes.
+- **Parameter fixes are MI300A-specific**: Good design — don't change defaults for other GPU configs.
+- **DRAM model is a separate concern**: Akita's DRAM model accuracy is a dependency we can't fully fix in mgpusim alone.

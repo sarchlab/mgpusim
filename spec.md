@@ -10,8 +10,9 @@ Tune the MGPUSim timing simulator to accurately model AMD MI300A (gfx942/CDNA3) 
 - **Maximum error** for any single benchmark/problem-size: **< 50%**
 - Error is measured as `|sim_time - real_time| / real_time` for each benchmark/problem-size pair
 - Reference data: `gpu_perf_scripts/mi300a_120cu.csv` (120 CU — matches simulator's 120 CU config)
-- Skip large benchmarks that cannot complete in simulation. Focus on smaller problem sizes.
-- Small problem sizes dominated by kernel launch overhead should be handled carefully — the human is flexible on evaluation methodology.
+- **Skip large benchmarks** that cannot complete in simulation. Focus on smaller problem sizes that the simulator can handle within reasonable time.
+- **Exclude kernel-launch-overhead-dominated sizes**: Problem sizes where real hardware time < ~0.01ms are dominated by launch overhead that the simulator does not model. Exclude these from accuracy evaluation.
+- The human is flexible on evaluation methodology — we define which benchmark/size pairs to include.
 
 ## Constraints
 
@@ -19,6 +20,13 @@ Tune the MGPUSim timing simulator to accurately model AMD MI300A (gfx942/CDNA3) 
 - The human can run scripts on real MI300A hardware — create scripts and provide instructions via GitHub issue titled "HUMAN: [description]"
 - Do not break existing tests or emulation correctness
 - Timing model parameters to tune include: clock frequencies, cache sizes/associativity, DRAM latency/bandwidth parameters, pipeline widths, MSHR entries, memory bank interleaving, TLB configuration, etc.
+
+## DRAM Model Evaluation (Human Request)
+
+The Akita DRAM model (`github.com/sarchlab/akita/v4/mem/dram`) may not accurately model HBM3 memory used in MI300A. The human specifically requested:
+- Create smaller programs to evaluate the HBM model
+- Identify what the Akita team needs to change for accurate HBM modeling
+- This is a separate deliverable alongside the timing accuracy work
 
 ## Resources
 
