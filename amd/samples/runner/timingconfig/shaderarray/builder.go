@@ -27,9 +27,12 @@ type Builder struct {
 	freq               sim.Freq
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
-	l1AddressMapper    mem.AddressToPortMapper
-	l1TLBAddressMapper mem.AddressToPortMapper
-	aluFactory         emu.ALUFactory
+	l1AddressMapper           mem.AddressToPortMapper
+	l1TLBAddressMapper        mem.AddressToPortMapper
+	aluFactory                emu.ALUFactory
+	numSinglePrecisionUnit    int
+	vecMemInstPipelineStages  int
+	vecMemTransPipelineStages int
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -128,6 +131,27 @@ func (b Builder) WithL1TLBAddressMapper(
 // This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
 func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	b.aluFactory = factory
+	return b
+}
+
+// WithNumSinglePrecisionUnit sets the number of single-precision units per
+// SIMD in the compute units.
+func (b Builder) WithNumSinglePrecisionUnit(n int) Builder {
+	b.numSinglePrecisionUnit = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the number of stages in the vector memory
+// instruction pipeline of the compute units.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the number of stages in the vector memory
+// transaction pipeline of the compute units.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
 	return b
 }
 
@@ -346,6 +370,18 @@ func (b *Builder) buildCUs() {
 
 	if b.aluFactory != nil {
 		cuBuilder = cuBuilder.WithALUFactory(b.aluFactory)
+	}
+
+	if b.numSinglePrecisionUnit > 0 {
+		cuBuilder = cuBuilder.WithNumSinglePrecisionUnit(b.numSinglePrecisionUnit)
+	}
+
+	if b.vecMemInstPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemInstPipelineStages(b.vecMemInstPipelineStages)
+	}
+
+	if b.vecMemTransPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
 	}
 
 	for i := 0; i < b.numCUs; i++ {

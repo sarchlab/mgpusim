@@ -21,6 +21,10 @@ type Builder struct {
 	sgprCount         int
 	log2CachelineSize uint64
 
+	numSinglePrecisionUnit  int
+	vecMemInstPipelineStages int
+	vecMemTransPipelineStages int
+
 	decoder            emu.Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
@@ -42,6 +46,9 @@ func MakeBuilder() Builder {
 	b.sgprCount = 3200
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
+	b.numSinglePrecisionUnit = 16
+	b.vecMemInstPipelineStages = 6
+	b.vecMemTransPipelineStages = 10
 
 	return b
 }
@@ -115,6 +122,27 @@ func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	return b
 }
 
+// WithNumSinglePrecisionUnit sets the number of single-precision units per
+// SIMD. The default is 16 (GCN3). CDNA3 uses 32.
+func (b Builder) WithNumSinglePrecisionUnit(n int) Builder {
+	b.numSinglePrecisionUnit = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the number of stages in the vector memory
+// instruction pipeline. The default is 6 (GCN3).
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the number of stages in the vector memory
+// transaction pipeline. The default is 10 (GCN3).
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
@@ -185,6 +213,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	for i := 0; i < b.simdCount; i++ {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
+		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnit
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -219,14 +248,14 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 8)
 	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.InstPipeline",
-		6, 1,
+		b.vecMemInstPipelineStages, 1,
 		vectorMemoryUnit.postInstructionPipelineBuffer)
 
 	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
 		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", 8)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		60, 1,
+		b.vecMemTransPipelineStages, 1,
 		vectorMemoryUnit.postTransactionPipelineBuffer)
 
 	for i := 0; i < b.simdCount; i++ {
