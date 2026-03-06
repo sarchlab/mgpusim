@@ -37,19 +37,44 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 
 **Overall: avg 155.6%, median 66.7%**
 
+### Investigation Findings (Pre-M4)
+
+#### Stencil2D Root Cause (Emma + Harper)
+- **Per-kernel-launch code object re-allocation** in `amd/driver/kernel.go:14-37`
+- Every `LaunchKernel` allocates NEW GPU memory for kernel binary → instruction TLB + cache misses every time
+- Creates fixed ~48µs overhead (5 launches × ~9.6µs each) regardless of problem size
+- Fix: Cache `dCoData` per kernel code object — reuse address across launches
+
+#### memRangeOverlap Bug
+- `amd/driver/memorycopy.go:159-171` uses `>=` instead of `>` for adjacency check
+- Adjacent (non-overlapping) buffers falsely trigger full GPU cache flushes
+- Fix: Change to strict inequality
+
+#### MMU Page-Not-Found Panics (NOT YET INVESTIGATED)
+- Blocks testing at larger problem sizes across all benchmarks
+- Investigation still needed — root cause unknown
+
 ### Critical Blockers
-1. **MMU page-not-found panics** crash at larger problem sizes (vectoradd ≥32K, matmul ≥640, etc.)
-2. **stencil2d** has ~8× overhead — sim time constant regardless of problem size
+1. **MMU page-not-found panics** crash at larger problem sizes
+2. **stencil2d** has ~8× overhead from kernel re-allocation
+
+## Active Milestones
+
+### M4: Fix Kernel Launch Overhead + memRangeOverlap + MMU Investigation (CURRENT)
+- **Budget**: 8 cycles
+- **Tasks**:
+  1. Cache kernel code object address across launches in `amd/driver/kernel.go` (eliminates stencil2d constant overhead)
+  2. Fix `memRangeOverlap` adjacency bug in `amd/driver/memorycopy.go`
+  3. Investigate MMU page-not-found panics — find root cause, fix if feasible
+  4. Re-run all benchmarks and update results
+- **Acceptance criteria**:
+  - stencil2d error < 200% (down from 678%)
+  - memRangeOverlap bug fixed (strict inequality)
+  - MMU root cause documented; if fixable, at least one benchmark runs at previously-crashing sizes
+  - All existing benchmarks still work (no regression)
+  - Updated benchmark results committed
 
 ## Planned Milestones
-
-### M4: Investigate and Fix Stencil2D + MMU Crashes (NEXT)
-- **Budget**: 8 cycles
-- Investigate why stencil2d sim time is constant ~0.048ms (dispatch overhead?)
-- Investigate MMU page-not-found panics blocking large sizes
-- Fix stencil2d timing to match HW scaling behavior
-- If MMU fix is feasible, implement it; otherwise document root cause
-- **Acceptance**: stencil2d error < 100%, at least one benchmark runs at larger sizes
 
 ### M5: Improve Compute-Heavy Benchmarks (nbody, matmul, floydwarshall)
 - Target nbody absolute timing (currently 2.5× too fast)
@@ -68,4 +93,6 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Small problem sizes are dominated by kernel launch overhead, not compute
 - Development must stay in origin repo, not upstream
 - Page-not-found crashes severely limit the range of testable problem sizes
-- Stencil2d constant timing suggests simulator overhead (dispatch/launch) dominates at small sizes
+- Stencil2d constant timing is caused by per-launch code re-allocation, not a dispatch issue
+- Both independent investigators (Emma, Harper) converged on same root cause — high confidence
+- Harper was assigned MMU task but investigated stencil2d instead — need clearer task assignment
