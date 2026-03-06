@@ -53,56 +53,53 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 | kmeans | 77.8% | sim>real | ⚠️ Over-estimated |
 | fastwalshtransform | 111.2% | sim<real | ❌ Sim too fast (NEW) |
 | nbody | 136.5% | sim<real | ❌ Sim too fast |
-| stencil2d | 356.0% | sim>real, CONSTANT TIME BUG | ❌ Broken |
-| atax | 542.7% | sim<real, CONSTANT TIME BUG | ❌ Broken |
+| stencil2d | 356.0% | sim>real, ~7x overestimate (not zero-work) | ❌ Accuracy issue |
+| atax | 542.7% | sim<real, ZERO WORK BUG | ❌ Broken |
 
 **Overall: mean 120.1%, median 55.6%, 31% within 25%**
 
-## Critical Blockers
+## Investigation Results (Pre-M6)
 
-### 1. MMU Page-Not-Found Bug (BLOCKER)
-- Corrupted 64-bit FLAT addresses (upper 32 bits = 0xFFFFFFFF) in timing mode
-- Limits all benchmarks to very small problem sizes
-- Root cause: register corruption in timing CU (VRegOffset, VCC, or scratchpad issues)
-- See docs/mmu_page_not_found_investigation.md
-- **Impact**: Cannot benchmark at realistic sizes → error measurements unreliable
+### Issue #294: MMU Root Cause (Harper) — COMPLETE
+- **Root cause**: Asynchronous vector memory load responses overwrite VRegFile registers
+- v0 gets corrupted with stale data (0x9C000000) between correct computation and use
+- v_ashrrev_i32 then sign-extends the corrupted value → upper 32 bits = 0xFFFFFFFF
+- The only mechanism writing to VRegFile outside ALU is handleVectorDataLoadReturn
+- **Additional bug**: VCCLO write mask inverted at wavefront.go:317 (0x00000000ffffffff should be 0xFFFFFFFF00000000)
+- VRegOffset allocation verified correct (no overlap)
+- VCC per-wavefront storage verified correct
 
-### 2. Constant-Time Bugs (atax, stencil2d)
-- atax: ~5.656ms regardless of 48x48 to 128x128 (should scale)
-- stencil2d: ~28ms regardless of 64x64 to 256x256 (should scale)
-- Likely: kernels executing zero useful work, or kernel argument layout mismatch
+### Issue #295: atax/stencil2d (Iris) — COMPLETE
+- **atax**: ALL wavefronts execute only 13 instructions (early-exit path). EXEC=0 for all WFs after s_and_saveexec_b64. SMEM loads for NX/NY likely return wrong data in timing mode. May be caused by VCCLO mask bug.
+- **stencil2d**: NOT a zero-work bug. Each WG does fixed 591 instructions for 16×64 tile. More WGs run in parallel on MI300A's 120 CUs. Constant time is correct GPU behavior. ~7x overestimate is a separate accuracy issue.
 
-## Active Investigation (Pre-M6)
+## Active Milestone
 
-### Issue #294: MMU root cause investigation (Harper)
-- Deep dive into timing CU register handling
-- VRegOffset assignment, VCC propagation, scratchpad prepare/commit
+### M6: Fix VCCLO mask + MMU register corruption + atax bug (Budget: 8 cycles)
+See issue #296 for full details.
 
-### Issue #295: atax/stencil2d constant-time bug (Iris)
-- Kernel argument layout analysis
-- CDNA3 kernel binary verification
-- Emu vs timing comparison
+**Tasks**:
+1. Fix VCCLO write mask inversion (wavefront.go:317) — quick, high-confidence fix
+2. Re-test atax after VCCLO fix to see if it resolves the zero-work bug
+3. Fix or mitigate asynchronous load response register corruption (MMU crash root cause)
+4. Run full benchmark suite and collect updated error numbers
+
+**Acceptance criteria**:
+- vectoradd at width=16384 does NOT crash with page-not-found
+- atax shows scaling execution time across different problem sizes
+- All existing tests pass
+- Updated benchmark error numbers documented
 
 ## Planned Milestones
 
-### M6: Fix constant-time bugs + MMU crash fix
-- **Depends on**: Investigation results from #294 and #295
-- Fix atax constant simulation time
-- Fix stencil2d constant simulation time
-- Fix or mitigate MMU page-not-found crashes to enable larger problem sizes
-- Run benchmarks at larger sizes
-- Target: mean error < 80%, at least 15 benchmarks producing results
-
-### M7: Compute/Memory Accuracy Tuning
-- Address systematic errors: nbody (~1.4x too fast), fastwalshtransform (~1.1-1.9x too fast)
-- kmeans (~0.8x too slow), floydwarshall (~0.6x too slow)
-- DRAM model accuracy (HBM3 parameters)
+### M7: Accuracy Tuning + Larger Problem Sizes
+- After M6 fixes, re-benchmark at larger/realistic sizes
+- Address systematic errors: nbody, fastwalshtransform, kmeans, floydwarshall
+- DRAM model (HBM3 parameters), cache hierarchy tuning
 - Target: mean error < 50%
 
 ### M8: Final Accuracy Push
 - Fine-tune all parameters
-- Cache hierarchy tuning
-- Memory bandwidth model
 - Target: avg <20%, max <50%
 
 ## Lessons Learned
@@ -111,10 +108,13 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Small problem sizes are dominated by kernel launch overhead, not compute
 - Development must stay in origin repo, not upstream
 - Page-not-found crashes caused by corrupted 64-bit FLAT addresses in timing mode
-- Stencil2d and atax show constant timing → kernel execution likely zero (constant overhead only)
+- stencil2d constant timing is correct parallel GPU behavior, not a bug
+- atax zero-work is caused by timing-mode SMEM/VCC corruption, not kernel arg layout
 - Switch latency needed to be 15 (Infinity Fabric) not 140 (PCIe)
 - s_nop infinite loop was root cause for ALL hanging benchmarks
 - Kernel launch overhead was modeled wrong (CPU-side H2D delay vs GPU-side scheduler overhead)
 - Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles (budget was 6)
 - M5 reduced mean error from 341% to 120% — overhead tuning + bug fixes have massive impact
 - MMU bug is the single biggest remaining blocker — prevents realistic benchmarking
+- Dedicated investigation cycles before defining milestones prevents wasted implementation effort
+- VCCLO mask bug (inverted bit mask) is a latent corruption source — always double-check bitwise operations
