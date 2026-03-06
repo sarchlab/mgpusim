@@ -3,7 +3,7 @@
 **Date:** 2026-03-06  
 **Branch:** `ares/m3-correct-baseline`  
 **Configuration:** `-timing -arch cdna3 -gpu mi300a -disable-rtm`  
-**SIMD Width:** 64 (M3/CDNA3 correct baseline)
+**SIMD Width:** 16 (CDNA3 ISA-correct baseline, reverted from 32)
 
 ## Summary
 
