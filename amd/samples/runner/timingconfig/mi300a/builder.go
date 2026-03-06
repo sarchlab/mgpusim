@@ -468,7 +468,10 @@ func (b *Builder) buildSAs() {
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
 		WithALUFactory(aluFactory).
 		WithWfPoolSize(8).
-		WithVGPRCount([]int{32768, 32768, 32768, 32768})
+		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
+		WithNumSinglePrecisionUnits(32).
+		WithVecMemInstPipelineStages(2).
+		WithVecMemTransPipelineStages(4)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)

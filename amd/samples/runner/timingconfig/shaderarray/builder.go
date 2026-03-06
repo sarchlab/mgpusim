@@ -27,11 +27,14 @@ type Builder struct {
 	freq               sim.Freq
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
-	wfPoolSize         int
-	vgprCount          []int
-	l1AddressMapper    mem.AddressToPortMapper
-	l1TLBAddressMapper mem.AddressToPortMapper
-	aluFactory         emu.ALUFactory
+	wfPoolSize                int
+	vgprCount                 []int
+	numSinglePrecisionUnits   int
+	vecMemInstPipelineStages  int
+	vecMemTransPipelineStages int
+	l1AddressMapper           mem.AddressToPortMapper
+	l1TLBAddressMapper        mem.AddressToPortMapper
+	aluFactory                emu.ALUFactory
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -142,6 +145,27 @@ func (b Builder) WithVGPRCount(counts []int) Builder {
 // This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
 func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	b.aluFactory = factory
+	return b
+}
+
+// WithNumSinglePrecisionUnits sets the number of single-precision units per
+// SIMD in each CU.
+func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
+	b.numSinglePrecisionUnits = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the vector memory instruction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the vector memory transaction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
 	return b
 }
 
@@ -368,6 +392,18 @@ func (b *Builder) buildCUs() {
 
 	if b.vgprCount != nil {
 		cuBuilder = cuBuilder.WithVGPRCount(b.vgprCount)
+	}
+
+	if b.numSinglePrecisionUnits > 0 {
+		cuBuilder = cuBuilder.WithNumSinglePrecisionUnits(b.numSinglePrecisionUnits)
+	}
+
+	if b.vecMemInstPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemInstPipelineStages(b.vecMemInstPipelineStages)
+	}
+
+	if b.vecMemTransPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
 	}
 
 	for i := 0; i < b.numCUs; i++ {
