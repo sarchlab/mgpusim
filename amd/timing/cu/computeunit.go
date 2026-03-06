@@ -490,18 +490,23 @@ func (cu *ComputeUnit) processInputFromInstMem() bool {
 func (cu *ComputeUnit) handleFetchReturn(
 	rsp *mem.DataReadyRsp,
 ) bool {
-	if len(cu.InFlightInstFetch) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightInstFetch {
+		if info.Req.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return false
 	}
 
-	info := cu.InFlightInstFetch[0]
-	if info.Req.ID != rsp.RespondTo {
-		return false
-	}
-
+	info := cu.InFlightInstFetch[matchIdx]
 	wf := info.Wavefront
 	addr := info.Address
-	cu.InFlightInstFetch = cu.InFlightInstFetch[1:]
+	cu.InFlightInstFetch = append(
+		cu.InFlightInstFetch[:matchIdx],
+		cu.InFlightInstFetch[matchIdx+1:]...)
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
 		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)

@@ -380,6 +380,17 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[44:48])
 	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[48:52])
 
+	// Derive WIVgprCount and WFSgprCount from ComputePgmRsrc1.
+	// These are "granulated" counts in the hardware register:
+	//   bits 0-5: granulated_workitem_vgpr_count → actual = (value + 1) * 4
+	//   bits 6-9: granulated_wavefront_sgpr_count → actual = (value + 1) * 8
+	// The resource allocator uses WIVgprCount/WFSgprCount for register
+	// allocation; leaving them at 0 causes all wavefronts to share offset 0.
+	granulatedVgpr := extractBits(meta.ComputePgmRsrc1, 0, 5)
+	granulatedSgpr := extractBits(meta.ComputePgmRsrc1, 6, 9)
+	meta.WIVgprCount = uint16((granulatedVgpr + 1) * 4)
+	meta.WFSgprCount = uint16((granulatedSgpr + 1) * 8)
+
 	// For V5 (AMDHSA Code Object V4+) kernel descriptors:
 	// The kernel_code_properties field and compute_pgm_rsrc2 may not
 	// accurately reflect all SGPR setup requirements, especially for
