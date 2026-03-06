@@ -450,7 +450,7 @@ func (p *ScratchpadPreparerImpl) writeReg(
 	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		wf.SetVCC(insts.BytesToUint64(buf))
 	} else if reg.RegType == insts.VCCLO && regCount == 1 {
-		wf.SetVCC(wf.VCC() & uint64(0x00000000ffffffff))
+		wf.SetVCC(wf.VCC() & uint64(0xFFFFFFFF00000000))
 		wf.SetVCC(wf.VCC() | uint64(insts.BytesToUint32(buf)))
 	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		wf.SetVCC(wf.VCC() & uint64(0xffffffff00000000))

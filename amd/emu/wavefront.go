@@ -314,7 +314,7 @@ func (wf *Wavefront) WriteReg(
 	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		wf.vcc = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.VCCLO && regCount == 1 {
-		wf.vcc &= uint64(0x00000000ffffffff)
+		wf.vcc &= uint64(0xFFFFFFFF00000000)
 		wf.vcc |= uint64(insts.BytesToUint32(data))
 	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		wf.vcc &= uint64(0xffffffff00000000)
