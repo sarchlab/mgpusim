@@ -4,12 +4,12 @@
 Achieve <20% average error and <50% max error for MI300A timing simulation vs real hardware measurements (120 CU config).
 
 ## Status
-- M1.1 COMPLETE and VERIFIED — DRAM controller, WfPoolSize, VGPR fixes applied
-- PR #251 open on sarchlab/mgpusim (not merged)
-- Baseline accuracy measured: ~80% average error across 50 comparisons (most at tiny sizes)
-- Alex's DRAM analysis complete: Akita DRAM model has fundamental HBM3 limitations
-- Human suggested simplebankedmemory as DRAM replacement (issue #240)
-- CP still registers wrong wfPoolSizes (10 vs 8) and vRegCounts (16384 vs 32768) — scheduling mismatch
+- M1.1 COMPLETE and VERIFIED — DRAM controller, WfPoolSize, VGPR fixes applied. PR #251 merged.
+- M1.2 code changes applied on `ares/mi300a-timing-fixes` (not yet in upstream):
+  - Switched to SimpleBankedMemory, fixed CP wfPoolSizes/vRegCounts, increased L2 to 32MB, changed freq to 1800 MHz
+  - BUT SimpleBankedMemory parameters are wrong: stageLatency=100, depth=1 gives only ~164 GB/s — **22x too low** for MI300A's ~3600 GB/s observed bandwidth
+- Accuracy at small sizes: ~280% average error (5 benchmarks, tiny problem sizes)
+- Small sizes are dominated by kernel launch overhead and sim overhead — not meaningful for accuracy evaluation
 
 ## Completed Milestones
 
@@ -21,51 +21,49 @@ Too broad for execution team. Lesson: give concrete code changes, not research t
 - Fixed WfPoolSize from 10 to 8 per SIMD (MI300A-specific)
 - Fixed VGPR count from 16384 to 32768 per SIMD (MI300A-specific)
 - Benchmark scripts cherry-picked (compare_sim_vs_real.py, run_sim_benchmarks.sh)
-- PR #251 created on sarchlab/mgpusim
-- Accuracy: ~80% average error (most benchmarks at tiny sizes)
+- PR #251 created and merged on sarchlab/mgpusim
+
+### M1.2: Switch to SimpleBankedMemory + Fix CP + L2/Freq (cycles: 6) — IN VERIFICATION
+- Code changes applied on branch but memory parameters are inadequate
+- Needs parameter fix before PR creation
 
 ## Current Milestone
 
-### M1.2: Switch to SimpleBankedMemory + Fix CP Mismatch + L2/Freq Tuning (cycles: 6)
-Concrete changes needed on `ares/mi300a-timing-fixes` branch:
+### M1.3: Fix SimpleBankedMemory Parameters + Run Accuracy Benchmarks (cycles: 4)
+The SimpleBankedMemory parameters from M1.2 are critically wrong. The current config gives ~164 GB/s bandwidth when MI300A has ~3600 GB/s observed. This is the primary accuracy bottleneck.
 
-1. **Replace DRAM with SimpleBankedMemory** (in `mi300a/builder.go`):
-   - Remove `dram` import, add `simplebankedmemory` import
-   - Replace `createDramControllerBuilder()` with a function that builds `simplebankedmemory.Comp`
-   - Parameters to start with (tunable):
-     - `Freq: 1 * sim.GHz` (or match GPU freq 1.5 GHz)
-     - `NumBanks: 16` per controller (16 controllers × 16 banks = 256 total banks)
-     - `BankPipelineWidth: 1` 
-     - `BankPipelineDepth: 1`
-     - `StageLatency: 100` (100 ns at 1 GHz = 100 cycles; represents DRAM access latency)
-     - `Log2InterleaveSize: 6` (64-byte cache-line interleaving)
-   - Note: each controller already has its own storage slice; simplebankedmemory takes a Storage pointer
+**Required changes:**
+1. Fix SimpleBankedMemory parameters in `mi300a/builder.go`:
+   - `BankPipelineDepth`: 1 → 20 (models ~100ns HBM3 access latency)
+   - `StageLatency`: 100 → 5 (yields ~3277 GB/s with 256 total banks)
+   - `TopPortBufferSize`: 16 (default) → 64 (prevent port congestion)
+   - `PostPipelineBufSize`: 1 (default) → 4 (prevent pipeline stalls)
+   - Keep: Freq=1GHz, NumBanks=16, BankPipelineWidth=1, Log2InterleaveSize=6
+   - Math: 16 controllers × 16 banks × (1/5 items/cycle) × 1GHz × 64 bytes = 3277 GB/s
 
-2. **Fix CP wfPoolSizes/vRegCounts mismatch** (in `connectCPWithCUs()`):
-   - Change `wfPoolSizes: []int{10, 10, 10, 10}` → `[]int{8, 8, 8, 8}`
-   - Change `vRegCounts: []int{16384, 16384, 16384, 16384}` → `[]int{32768, 32768, 32768, 32768}`
+2. Run benchmarks at meaningful sizes (where real HW time > 0.01ms):
+   - matrixmultiplication: 256×256, 512×512
+   - stencil2d: 512×512, 1024×1024
+   - floydwarshall: 64, 128, 256 nodes
+   - vectoradd: 1M, 4M, 16M elements
+   - spmv: various larger sizes
 
-3. **Increase L2 cache size**: Change `l2CacheSize` from `8 * mem.MB` to `32 * mem.MB` (MI300A has 32 MB L2)
+3. Create PR on upstream with all M1.2+M1.3 changes
 
-4. **Adjust GPU clock frequency**: Consider changing from 1500 MHz to 1700-1900 MHz
-
-5. **Run accuracy comparison** on at least 5 benchmarks that work (matmul, spmv, floydwarshall, kmeans, stencil2d) at available sizes
+4. Create GitHub issue on sarchlab/mgpusim titled "HUMAN: Akita DRAM Model Evaluation for HBM3" with Alex's analysis findings
 
 ## Upcoming Milestones
 
-### M1.3: Fine-Tuning Memory Latency & Bandwidth (cycles: 4) — PENDING
-- Tune simplebankedmemory parameters (bank count, pipeline depth, latency) based on M1.2 results
-- Tune L1V bank latency
-- Target: <30% average error
-
-### M1.4: Final Accuracy & DRAM Report (cycles: 4) — PENDING
+### M1.4: Fine-Tuning Based on Accuracy Results (cycles: 6) — PENDING
+- Tune SimpleBankedMemory parameters (stage latency, bank count) based on M1.3 benchmark results
+- Tune L1V bank latency if needed
 - Address individual benchmark outliers
-- Create GitHub issue for human with DRAM evaluation findings (from Alex's analysis)
-- Target: <20% average, <50% max
+- Target: <20% average, <50% max error
 
 ## Lessons Learned
 - **M1 failure**: Don't give research tasks to execution teams. Do analysis in planning phase, give concrete code changes.
-- **Tiny benchmarks mislead**: Testing at 64-element sizes doesn't reveal real accuracy. Need larger problem sizes.
+- **Tiny benchmarks mislead**: Testing at 64-element sizes doesn't reveal real accuracy. Need larger problem sizes where real hardware > 0.01ms.
 - **DRAM model is broken for HBM3**: Akita's detailed DRAM model has fundamental issues. SimpleBankedMemory is a better approach per human.
-- **CP/CU parameter mismatch**: The CP's view of CU resources must match the actual CU configuration. The M1.1 fix updated SA builder but not CP registration.
-- **Budget**: M1.1 used 4 cycles (estimated 4). Being more conservative with M1.2 at 6 cycles.
+- **CP/CU parameter mismatch**: The CP's view of CU resources must match the actual CU configuration.
+- **SimpleBankedMemory math matters**: With depth=1 + stageLatency=100, each bank processes 1 req per 100 cycles. With 256 banks at 1GHz × 64B = only 164 GB/s. Need depth=20 + stageLatency=5 for correct bandwidth (~3277 GB/s) and latency (~100ns).
+- **Budget**: M1.1 used 4 cycles (estimated 4). M1.2 used 6 cycles but with wrong parameters. Being more conservative going forward.
