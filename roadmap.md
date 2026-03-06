@@ -30,73 +30,80 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Reduced MI300A switch latency from 140→15 (Infinity Fabric, not PCIe)
 - storageAccessor.Write bug fixed
 
-### Baseline After M4 (Blake's comprehensive run, 66 data points)
+**M5** (merged, verified): s_nop fix + kernel overhead tuning
+- Fixed s_nop infinite loop in scheduler.go (default case now advances PC)
+- Reduced H2D 14500→500, D2H 8500→300 for MI300A (unified memory)
+- Set constantKernelOverhead to 3600 (~2µs GPU-side dispatch)
+- Unlocked 4 new benchmarks: bitonicsort, matrixtranspose, fastwalshtransform, simpleconvolution(partial)
+- 13 benchmarks now produce results (vs 8 before)
+- Mean error: 120.1%, median: 55.6%
+
+### Baseline After M5 (42 matched data points, 13 benchmarks)
 | Benchmark | Avg |Error| | Direction | Status |
 |-----------|-------------|-----------|--------|
-| nw | 10.6% | ~neutral | ✅ Excellent |
-| matmul | 23.9% | sim>real at large sizes | ✅ Good |
-| spmv | 33.0% | sim>real | OK |
-| nbody | 152.9% (1-iter) | sim<real | ⚠️ Too fast |
-| fir | 164.2% | sim<real | ⚠️ Limited data |
-| stencil2d | 194.5% | sim>real | ⚠️ Too slow |
-| relu | 233.6% | sim<real | ⚠️ Launch overhead |
-| vectoradd | N/A | sim<real | ⚠️ Launch overhead |
-| kmeans | 337.3% | sim>real ~4x | ❌ Too slow |
-| floydwarshall | 595.8% | sim<real | ❌ Too fast |
-| atax | 2572% | constant time bug | ❌ Broken |
-| 5 benchmarks HANG | bfs,bitonicsort,simpleconv,mattrans,fwt | ❌ s_nop bug |
+| nw | 5.8% | ~neutral | ✅ Excellent |
+| spmv | 9.6% | ~neutral | ✅ Excellent |
+| matrixtranspose | 9.7% | sim<real | ✅ Excellent (NEW) |
+| matmul | 15.6% | sim>real | ✅ Good |
+| bitonicsort | 23.2% | sim<real | ✅ Good (NEW) |
+| fir | 35.9% | sim<real | ⚠️ Fair |
+| relu | 39.0% | sim<real | ⚠️ Fair |
+| vectoradd | 43.1% | sim<real | ⚠️ Fair |
+| floydwarshall | 67.2% | sim<real | ⚠️ Over-estimated |
+| kmeans | 77.8% | sim>real | ⚠️ Over-estimated |
+| fastwalshtransform | 111.2% | sim<real | ❌ Sim too fast (NEW) |
+| nbody | 136.5% | sim<real | ❌ Sim too fast |
+| stencil2d | 356.0% | sim>real, CONSTANT TIME BUG | ❌ Broken |
+| atax | 542.7% | sim<real, CONSTANT TIME BUG | ❌ Broken |
 
-**Overall: mean 341.1%, median 151.8%, 27% within 20%**
+**Overall: mean 120.1%, median 55.6%, 31% within 25%**
 
-## Active Milestones
+## Critical Blockers
 
-### M5: Fix s_nop hang + tune kernel launch overhead (IMPLEMENTING)
-- **Cycles budget:** 6
-- **Focus:**
-  1. Fix s_nop infinite loop in scheduler.go (default case doesn't advance PC) — unlocks 5+ hanging benchmarks
-  2. Reduce H2D/D2H middleware cycles for MI300A (unified memory, ~500/300 instead of 14500/8500)
-  3. Set constantKernelOverhead to ~3600 cycles (~2µs GPU-side dispatch overhead)
-  4. Run comprehensive benchmarks and document improvement
-- **Acceptance criteria:**
-  - bitonicsort and simpleconvolution complete in timing mode
-  - At least 10 benchmarks produce results (vs 8 previously)
-  - Mean error across all benchmarks < 341% (improvement over baseline)
-- **Issue:** #290
+### 1. MMU Page-Not-Found Bug (BLOCKER)
+- Corrupted 64-bit FLAT addresses (upper 32 bits = 0xFFFFFFFF) in timing mode
+- Limits all benchmarks to very small problem sizes
+- Root cause: register corruption in timing CU (VRegOffset, VCC, or scratchpad issues)
+- See docs/mmu_page_not_found_investigation.md
+- **Impact**: Cannot benchmark at realistic sizes → error measurements unreliable
+
+### 2. Constant-Time Bugs (atax, stencil2d)
+- atax: ~5.656ms regardless of 48x48 to 128x128 (should scale)
+- stencil2d: ~28ms regardless of 64x64 to 256x256 (should scale)
+- Likely: kernels executing zero useful work, or kernel argument layout mismatch
+
+## Active Investigation (Pre-M6)
+
+### Issue #294: MMU root cause investigation (Harper)
+- Deep dive into timing CU register handling
+- VRegOffset assignment, VCC propagation, scratchpad prepare/commit
+
+### Issue #295: atax/stencil2d constant-time bug (Iris)
+- Kernel argument layout analysis
+- CDNA3 kernel binary verification
+- Emu vs timing comparison
 
 ## Planned Milestones
 
-### M6: Compute/Memory Accuracy Tuning
-- Address systematic errors: nbody (~2.5x too fast), kmeans (~4x too slow), floydwarshall (~6x too fast)
-- Investigate atax constant-time bug
-- Target: mean error < 100%
+### M6: Fix constant-time bugs + MMU crash fix
+- **Depends on**: Investigation results from #294 and #295
+- Fix atax constant simulation time
+- Fix stencil2d constant simulation time
+- Fix or mitigate MMU page-not-found crashes to enable larger problem sizes
+- Run benchmarks at larger sizes
+- Target: mean error < 80%, at least 15 benchmarks producing results
 
-### M7: Memory Subsystem & Large Problem Sizes
-- Fix MMU page faults blocking larger problem sizes
+### M7: Compute/Memory Accuracy Tuning
+- Address systematic errors: nbody (~1.4x too fast), fastwalshtransform (~1.1-1.9x too fast)
+- kmeans (~0.8x too slow), floydwarshall (~0.6x too slow)
 - DRAM model accuracy (HBM3 parameters)
-- Cache hierarchy tuning
-- Target: avg <50%, max <200%
+- Target: mean error < 50%
 
 ### M8: Final Accuracy Push
 - Fine-tune all parameters
+- Cache hierarchy tuning
+- Memory bandwidth model
 - Target: avg <20%, max <50%
-
-## Key Investigation Findings (Pre-M5)
-
-### s_nop Bug (Harper, issue #289)
-- `amd/timing/cu/scheduler.go` EvaluateInternalInst default case sets WfReady but doesn't advance PC
-- s_nop loops forever → 5+ benchmarks hang
-- Fix: use `s.cu.UpdatePCAndSetReady(executing)` instead of `executing.State = wavefront.WfReady`
-
-### Kernel Launch Overhead (Emma, issue #288)
-- H2D middleware delay = 29,000 cycles per launch (2 × 14,500) — dominates overhead
-- MI300A has unified memory — H2D delay should be minimal
-- constantKernelOverhead = 0 — should be ~2000-4000 cycles for GPU scheduler/cache warmup
-- Real HW shows ~4µs minimum per kernel; sim has overhead in wrong place (CPU-side vs GPU-side)
-
-### GPU-side Queueing (Human issue #286)
-- Real HW: CPU writes AQL packet to ring buffer, GPU picks up autonomously
-- Sim: CPU sends explicit messages, waits for round-trip per command
-- Full implementation deferred; overhead tuning in M5 addresses the immediate symptom
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
@@ -104,9 +111,10 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Small problem sizes are dominated by kernel launch overhead, not compute
 - Development must stay in origin repo, not upstream
 - Page-not-found crashes caused by corrupted 64-bit FLAT addresses in timing mode
-- Stencil2d constant timing was caused by per-launch code re-allocation
+- Stencil2d and atax show constant timing → kernel execution likely zero (constant overhead only)
 - Switch latency needed to be 15 (Infinity Fabric) not 140 (PCIe)
-- M4 accuracy was measured on only 27 points; comprehensive run showed 66 points with worse mean
-- s_nop infinite loop was root cause for ALL hanging benchmarks (compiler inserts s_nop for hazard avoidance)
-- Kernel launch overhead is modeled in the wrong place (CPU-side H2D delay vs GPU-side scheduler overhead)
-- Cycle estimates: M1-M4 took ~20 cycles total; budget M5 at 6 cycles for focused bug fix + tuning
+- s_nop infinite loop was root cause for ALL hanging benchmarks
+- Kernel launch overhead was modeled wrong (CPU-side H2D delay vs GPU-side scheduler overhead)
+- Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles (budget was 6)
+- M5 reduced mean error from 341% to 120% — overhead tuning + bug fixes have massive impact
+- MMU bug is the single biggest remaining blocker — prevents realistic benchmarking
