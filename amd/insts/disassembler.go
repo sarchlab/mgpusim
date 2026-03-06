@@ -325,7 +325,28 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
-	inst.Src1 = NewVRegOperand(bits, bits, 0)
+	if inst.IsSdwa {
+		// In GFX9+ VOP_SDWA_B, bit 31 of the SDWA dword indicates whether
+		// VSRC1 is an SGPR (1) or VGPR (0). Bit 30 indicates whether SRC0
+		// is an SGPR (1) or VGPR (0).
+		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
+		src1IsSgpr := extractBits(sdwaBytes, 31, 31) != 0
+		src0IsSgpr := extractBits(sdwaBytes, 30, 30) != 0
+
+		if src1IsSgpr {
+			inst.Src1 = NewSRegOperand(bits, bits, 0)
+		} else {
+			inst.Src1 = NewVRegOperand(bits, bits, 0)
+		}
+
+		// Also fix SRC0 if it's an SGPR
+		if src0IsSgpr {
+			src0Bits := int(extractBits(sdwaBytes, 0, 7))
+			inst.Src0 = NewSRegOperand(src0Bits, src0Bits, 0)
+		}
+	} else {
+		inst.Src1 = NewVRegOperand(bits, bits, 0)
+	}
 
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
