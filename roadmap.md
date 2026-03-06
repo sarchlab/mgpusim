@@ -1,72 +1,56 @@
-# MI300A Timing Accuracy — Roadmap
+# MI300A Timing Simulation — Roadmap
 
 ## Goal
-Achieve average error <20% and max error <50% (symmetrical: `(sim-hw)/min(sim,hw)`) across MI300A benchmarks.
+Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 
-## Current State (Cycle 274)
+## Current Status (Cycle 275)
 
-### Completed Work (merged to `gfx942_emu` / main)
-- CDNA3 emulation support (gfx942 ISA, VOP3P, etc.)
-- DRAM controller switch (ideal → SimpleBankedMemory)
-- Wavefront pool size fix (10→8)
-- VGPR count fix (16384→32768)
-- L1V cache timing (bankLatency 60→20, MSHR 16→32)
-- L2 cache timing (bankLatency=50, dirLatency=4)
-- VecMem pipeline latency reduction (60→10)
+### Work Done (on upstream/gfx942_emu and related branches)
+- **M1 (merged in upstream PR #254)**: Basic MI300A timing config — frequency 1800MHz, 240 CUs, 32MB L2, SimpleBankedMemory DRAM, wfPoolSize=8, vgprCount=32768, L1V/L2 cache tuning
+- **M2 (upstream PR #256, NOT merged)**: CU pipeline changes — SIMD width 32 (WRONG), VecMem pipeline depth reduction (inst=2, trans=4)
 
-### Pending Work (PR #256 in upstream, not merged)
-- SIMD width 32 for CDNA3 (NumSinglePrecisionUnit)
-- VecMem instruction pipeline (6→2) and transaction pipeline (default 60, CDNA3 4)
-- All CI passes on PR #256
+### Critical Findings
+1. **SIMD width must be 16, not 32** — confirmed by CDNA3 ISA doc (TRAP_STS, LDS dispatch, 4-cycle forwarding). PR #256's SIMD change is incorrect.
+2. **Error formula changed** to symmetrical: `(sim-hw)/min(sim,hw)` per human directive.
+3. **All development must stay in origin** (dev repo), not upstream.
 
-### Known Benchmark Errors (from M2 CU fixes, 120CU hardware ref)
-| Benchmark | Sim (ms) | HW (ms) | Error |
-|---|---|---|---|
-| matmul 128³ | 0.0282 | 0.0243 | +16.2% |
-| matmul 256³ | 0.0772 | 0.0403 | +91.5% |
-| kmeans 1024p/32f/5c | 0.0991 | 0.0177 | +460.0% |
-| floydwarshall 64 | 0.1585 | 0.3024 | −47.6% |
-| nw 128 | 0.1183 | 0.1285 | −8.0% |
+### Current Accuracy (from iris's baseline on ares/m2-cu-pipeline-clean, WITH SIMD=32)
+- Excluding buggy benchmarks (stencil2d, nbody): avg |sym error| = ~45%, median ~26%
+- stencil2d: ~7x overestimate (simulator bug)
+- nbody: returns same time for all sizes (simulator bug)
+- floydwarshall: sim ~2x too fast
+- matmul: grows from +6% at small sizes to +119% at large sizes
+- MMU page fault crashes limit coverage to small problem sizes
 
-**Note**: These errors use the old formula `(sim-hw)/hw`. Need to recalculate with symmetrical formula `(sim-hw)/min(sim,hw)`.
-
-## Open Human Issues
-- **#262**: Human asks about source of "CDNA3 has 32 SP units per SIMD" — needs verification
-- **#264**: Use symmetrical error formula `(sim-hw)/min(sim,hw)` — need to update comparison scripts
-- **#266**: Keep development in origin, don't merge in upstream
+### When SIMD is corrected back to 16, compute times will roughly DOUBLE
+This means benchmarks currently showing good accuracy may get worse. Need new baseline.
 
 ## Milestones
 
-### M1: Infrastructure & Baseline [COMPLETED]
-- Set up benchmark scripts and comparison tools
-- DRAM, cache, wfPoolSize, VGPR fixes
-- Established baseline error measurements
+### M3: Revert SIMD to 16 + Establish Correct Baseline (NEXT)
+- **Status**: Pending
+- **Budget**: 6 cycles
+- Revert SIMD width to 16 (keep VecMem pipeline depth changes)
+- Update compare script to use symmetrical error formula  
+- Run comprehensive benchmark baseline and document errors
+- Fix nbody bug (same time for all sizes)
+- All work on origin branches only
+- **Acceptance**: Clean baseline report with correct SIMD=16 and sym error formula
 
-### M2: CU Compute Pipeline Fixes [IN PROGRESS — PR pending]
-- SIMD width 32 for CDNA3
-- VecMem pipeline depth reduction
-- **Status**: PR #256 open in upstream, CI all green. Need to merge into dev branch.
+### M4: Fix Stencil2D and Investigate Major Error Sources
+- **Status**: Future
+- Fix stencil2d ~7x overestimate
+- Investigate and fix MMU page fault crashes for larger sizes
+- Target: reduce avg error to ~30%
 
-### M3: Comprehensive Error Baseline (NEXT)
-- Update error calculation to symmetrical formula (issue #264)
-- Run ALL available benchmarks on current simulator (with M2 fixes)
-- Identify which benchmarks work and which crash/timeout
-- Establish complete error table as the baseline for further optimization
-- Verify SIMD width=32 claim against AMD ISA documentation (issue #262)
-
-### M4: Address Top Error Contributors
-- Based on M3 baseline, identify and fix highest-error benchmarks
-- Investigate kmeans extreme error (+460%)
-- Investigate floydwarshall underestimation (-47.6%)
-- Address matmul scaling issues (128³ OK at +16%, 256³ bad at +91%)
-
-### M5: Fine-Tuning and Final Verification
-- Optimize remaining parameters to bring avg <20%, max <50%
-- Full benchmark suite verification
+### M5: Fine-tune Parameters to Hit Target
+- **Status**: Future  
+- Tune DRAM, cache, pipeline parameters
+- Target: avg sym error < 20%, max < 50%
 
 ## Lessons Learned
-- Making changes architecture-specific (GCN3 vs CDNA3) is critical — global changes break GCN3
-- The VecMem transaction pipeline default must remain 60 for GCN3, only overridden for CDNA3
-- Always verify CI on both GCN3 and CDNA3 test suites
-- Small problem sizes can hide scaling errors (matmul 128³ at +16% but 256³ at +91%)
-- The symmetrical error formula `(sim-hw)/min(sim,hw)` will produce LARGER numbers than the old formula for positive errors
+- Don't trust architectural assumptions without ISA documentation verification
+- The SIMD=32 change showed "improvement" in some benchmarks but was based on wrong architecture understanding
+- Always check CI on all architectures (GCN3 was broken initially by M2 changes)
+- Development workflow: work in origin, create upstream PRs for review only
+- Error formula matters — symmetrical error penalizes both over and underestimates more equally
