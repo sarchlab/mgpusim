@@ -518,9 +518,11 @@ func (b *Builder) buildDRAMControllers() {
 			WithFreq(1 * sim.GHz).
 			WithNumBanks(16).
 			WithBankPipelineWidth(1).
-			WithBankPipelineDepth(1).
-			WithStageLatency(100).
-			WithLog2InterleaveSize(6)
+			WithBankPipelineDepth(20).
+			WithStageLatency(5).
+			WithLog2InterleaveSize(6).
+			WithTopPortBufferSize(64).
+			WithPostPipelineBufferSize(4)
 		if b.globalStorage != nil {
 			memBuilder = memBuilder.WithStorage(b.globalStorage)
 		} else {
