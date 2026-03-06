@@ -29,9 +29,18 @@ func (d *Driver) EnqueueLaunchKernel(
 			d.codeObjGPUAddrs[co] = dCoData
 		}
 
-		dKernArgData := d.AllocateMemory(queue.Context, co.KernargSegmentByteSize)
+		dKernArgData, cached2 := d.kernArgGPUAddrs[co]
+		if !cached2 {
+			dKernArgData = d.AllocateMemory(queue.Context, co.KernargSegmentByteSize)
+			d.kernArgGPUAddrs[co] = dKernArgData
+		}
+
 		packet := kernels.HsaKernelDispatchPacket{}
-		dPacket := d.AllocateMemory(queue.Context, uint64(binary.Size(packet)))
+		dPacket, cached3 := d.packetGPUAddrs[co]
+		if !cached3 {
+			dPacket = d.AllocateMemory(queue.Context, uint64(binary.Size(packet)))
+			d.packetGPUAddrs[co] = dPacket
+		}
 
 		aqlPacket := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
 		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, aqlPacket)

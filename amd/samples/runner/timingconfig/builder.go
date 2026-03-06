@@ -28,6 +28,7 @@ type Builder struct {
 	log2PageSize       uint64
 	useMagicMemoryCopy bool
 	gpuType            string
+	switchLatency      int // PCIe/interconnect switch latency in cycles
 
 	platform          *sim.Domain
 	globalStorage     *mem.Storage
@@ -45,6 +46,7 @@ func MakeBuilder() Builder {
 		log2PageSize:       12,
 		useMagicMemoryCopy: false,
 		gpuType:            "r9nano",
+		switchLatency:      140, // default PCIe Gen4
 	}
 }
 
@@ -115,6 +117,7 @@ func (b *Builder) adjustConfigForGPUType() {
 	case "mi300a":
 		b.numCUPerSA = mi300a.NumCUPerShaderArray
 		b.numSAPerGPU = mi300a.NumShaderArray
+		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
 	default:
 		// Keep defaults for r9nano
 	}
@@ -222,7 +225,7 @@ func (b *Builder) createConnection(
 	pcieConnector := pcie.NewConnector().
 		WithEngine(b.simulation.GetEngine()).
 		WithVersion(4, 16).
-		WithSwitchLatency(140)
+		WithSwitchLatency(b.switchLatency)
 
 	pcieConnector.CreateNetwork("PCIe")
 	rootComplexID := pcieConnector.AddRootComplex(
