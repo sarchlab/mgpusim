@@ -43,42 +43,57 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - vectoradd width>4096 now works, atax scaling verified
 - M6 benchmark results: 26 data points, mean error ~196%
 
-### Baseline After M6
-Error was measured at ~196% mean across 26 data points. However, M6 focused on correctness fixes rather than accuracy tuning. Many benchmarks still crash (nbody at all sizes, stencil2d at large sizes).
+**M7** (merged, verified): Add gfx942 kernel support + fix emulation bugs
+- Added gfx942 kernel support to nbody and matrixmultiplication benchmarks
+- Fixed VOP2 SDWA decoder for AES benchmark (SGPR operand handling)
+- Fixed VOP3P op_sel/op_sel_hi/neg decoding for packed instructions
+- All 21 benchmarks pass CDNA3 emulation with -verify
+- Timing benchmark results: 72.4% mean error on 9 data points
+- matrixmultiplication shows excellent accuracy (8.5-20.7% at small sizes)
+- Cycle estimate: budgeted 6, used 6
 
-**Critical Discovery**: nbody and matrixmultiplication crash in CDNA3 **EMULATION** mode too (not just timing). This means the CDNA3 instruction emulation itself is broken. The human (issue #299) correctly suggested testing emulation first.
+### Baseline After M7
+- Mean symmetrical error: **72.4%** across 9 data points (down from 196% at M6)
+- matrixmultiplication: 8.5-20.7% (small sizes) — compute pipeline well-calibrated
+- vectoradd: 167-197% over-simulation — memory subsystem issues
+- bitonicsort: 43.5% under-simulation
+- stencil2d: 124% over-simulation
+- nbody: crashes in timing mode (MMU page-not-found)
+- Many benchmarks untested in timing mode (need CDNA3 kernel support or crash)
 
-## Active Phase: M7 — Add gfx942 Kernel Support + Fix Emulation
+### Key Blocker: MMU Page-Not-Found in Timing Mode
+The **single biggest blocker** is the timing-mode register corruption that causes MMU page-not-found panics. This prevents:
+- Running nbody in timing mode at all
+- Running vectoradd/stencil2d at larger sizes
+- Getting enough data points for meaningful error metrics
+- Testing benchmarks like floydwarshall, fir, simpleconvolution, etc. in timing mode
 
-### Investigation Results (Completed)
-Harper and Iris investigated the CDNA3 emulation crashes (issue #304). Key findings:
+Root cause: Upper 32 bits of 64-bit FLAT addresses get corrupted to 0xFFFFFFFF in timing mode. The corruption originates in the scratchpad/register file management of the timing CU. See docs/mmu_page_not_found_investigation.md.
 
-1. **Root cause**: nbody and matrixmultiplication only embed GCN3 (gfx803) kernel binaries. When run with `-arch cdna3`, the CDNA3 disassembler interprets `SAddr=0x00` as "use s[0:1]" (correct for CDNA3), but the GCN3 binary means "OFF" → garbage scalar base → page fault.
-2. **Disassembler is correct**: MGPUSim's CDNA3 disassembler matches llvm-objdump for all tested gfx942 encodings (one cosmetic print issue, no functional bugs).
-3. **18/21 benchmarks pass CDNA3 emulation** with `-verify`. Only nbody and matrixmultiplication crash (missing gfx942 kernels). aes fails verification (separate bug — wrong results with gfx942 kernel).
-4. **gfx942 hsaco binaries already exist** in `native/` directories for both nbody and matrixmultiplication.
+## Planned Milestones
 
-### M7: Add gfx942 Kernel Support + Fix Emulation Bugs (Budget: 6 cycles)
-**Objective**: All benchmarks pass CDNA3 emulation with `-verify`, and timing-mode benchmarks run for nbody and matrixmultiplication.
-**Tasks**:
-1. Add gfx942 kernel support to nbody benchmark (copy hsaco, add CDNA3 kernel args struct with hidden fields, add `Arch` field, conditional loading, update sample main.go)
-2. Add gfx942 kernel support to matrixmultiplication benchmark (same pattern)
-3. Investigate and fix aes emulation bug (wrong results with gfx942 kernel, possibly related to `global_load_sbyte` with SAddr)
-4. Verify all benchmarks pass CDNA3 emulation with `-verify`
-5. Run timing benchmark suite and report updated error measurements
+### M8: Fix Timing-Mode Address Corruption (Budget: 8 cycles)
+**Objective**: Fix the MMU page-not-found bug in timing mode so benchmarks can run at realistic sizes.
+**Investigation** (Athena's team, pre-milestone):
+- Harper: Investigate scratchpadpreparer.go register corruption for FLAT instructions
+- Emma: Compare ISA debug traces between emulation and timing mode
+- Blake: Systematic benchmark crash survey to understand scope
+**Tasks** (for Ares):
+- Fix the root cause of 64-bit FLAT address corruption in timing mode
+- Verify vectoradd works at width >= 65536
+- Verify nbody runs in timing mode
+- Verify stencil2d works at larger sizes
+- Run expanded benchmark suite with many more data points
 
-### M8: Emulation vs Timing Trace Comparison (Budget: 4-6 cycles)
-- Use -debug-isa to dump instruction traces in both modes
-- Compare register values, addresses, instruction sequences
-- Find timing-specific correctness bugs
-
-### M9: Memory System Accuracy Tuning (Budget: 6-8 cycles)
-- HBM3 bandwidth modeling (current SimpleBankedMemory too slow at large sizes)
+### M9: Expand Benchmark Coverage + Memory System Tuning (Budget: 6-8 cycles)
+- Add gfx942 kernel support to remaining benchmarks (fir, floydwarshall, kmeans, etc.)
+- HBM3 bandwidth modeling improvements
 - Cache hierarchy tuning
-- Address the systematic error where sim scales linearly with size while HW is nearly flat
+- Address systematic over-simulation for memory-bound workloads
 
 ### M10: Final Accuracy Push (Budget: 4-6 cycles)
 - Fine-tune all parameters
+- GPU-side command queueing (issue #286) if kernel launch overhead remains too high
 - Target: avg <20%, max <50%
 
 ## Lessons Learned
@@ -92,8 +107,9 @@ Harper and Iris investigated the CDNA3 emulation crashes (issue #304). Key findi
 - Switch latency needed to be 15 (Infinity Fabric) not 140 (PCIe)
 - s_nop infinite loop was root cause for ALL hanging benchmarks
 - Kernel launch overhead was modeled wrong (CPU-side H2D delay vs GPU-side scheduler overhead)
-- Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles; M6 took ~8 cycles
+- Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles; M6 took ~8 cycles; M7 took ~6 cycles
 - M5 reduced mean error from 341% to 120% — overhead tuning + bug fixes have massive impact
 - **CRITICAL**: MMU crashes happen in EMULATION mode too (not just timing) — emulation bugs must be fixed FIRST
 - Human's debugging suggestion (test emulation → compare disassembly → compare traces) is the correct systematic approach
 - Always test emulation correctness before investigating timing accuracy
+- matrixmultiplication accuracy at 8.5-20.7% shows compute pipeline is well-modeled — main issues are in memory subsystem and overhead
