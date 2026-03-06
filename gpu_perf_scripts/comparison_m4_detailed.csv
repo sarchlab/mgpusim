@@ -1,0 +1,77 @@
+====================================================================================================
+SIMULATOR vs REFERENCE COMPARISON
+====================================================================================================
+
+Kernel                          Matched  Total  Avg |Err|  Max |Err| Max Err Size                  
+----------------------------------------------------------------------------------------------------
+atax                                  0     20        N/A        N/A                               
+bfs                                   0      5        N/A        N/A                               
+bicg                                  0     20        N/A        N/A                               
+bitonicsort                           0     15        N/A        N/A                               
+conv2d                                0     14        N/A        N/A                               
+fastwalshtransform                    0     20        N/A        N/A                               
+fft1D_512                             0     19        N/A        N/A                               
+fir                                   1     20     12.0%     12.0% 1024_taps16                   
+floydwarshall                         2     23    148.0%    164.5% 32_nodes                      
+im2col                                0     24        N/A        N/A                               
+kmeans                                0     20        N/A        N/A                               
+matrixmultiplication                  4     22     31.6%     40.7% 96x96x96                      
+matrixtranspose                       0     19        N/A        N/A                               
+memcopy_d2d                           0     10        N/A        N/A                               
+memcopy_d2h                           0     10        N/A        N/A                               
+memcopy_h2d                           0     10        N/A        N/A                               
+nbody                                 3     22    222.2%    225.2% 256_particles                 
+nw                                    6     24     28.1%     65.8% length=1024                   
+pagerank                              0     19        N/A        N/A                               
+relu                                  4     21     21.7%     35.9% 1024                          
+simpleconvolution                     0     24        N/A        N/A                               
+spmv_csr_scalar                       0     20        N/A        N/A                               
+stencil2d                             3     18    312.9%    325.4% 64x64                         
+vectoradd                             5     20     47.4%    133.3% 16384                         
+
+====================================================================================================
+OVERALL STATISTICS
+====================================================================================================
+  Total reference points:  439
+  Matched points:          28
+  Unmatched points:        411
+  Average |relative error|:90.4%
+  Median |relative error|: 40.0%
+  Maximum |relative error|:325.4%
+  Within 10% error:        7.1%
+  Within 25% error:        35.7%
+  Within 50% error:        64.3%
+
+==============================================================================================================
+DETAILED PER-POINT COMPARISON (matched points)
+==============================================================================================================
+Kernel                    Size                               Real(ms)      Sim(ms)      Abs Err    Rel Err  Direction
+--------------------------------------------------------------------------------------------------------------
+fir                       1024_taps16                          0.0056       0.0050       0.0006    -12.0%   too fast
+floydwarshall             32_nodes                             0.1563       0.0591       0.0972   -164.5%   too fast
+floydwarshall             64_nodes                             0.3024       0.1306       0.1718   -131.5%   too fast
+matrixmultiplication      128x128x128                          0.0243       0.0341       0.0098    +40.3%   too slow
+matrixmultiplication      32x32x32                             0.0092       0.0106       0.0014    +15.2%   too slow
+matrixmultiplication      64x64x64                             0.0132       0.0172       0.0040    +30.3%   too slow
+matrixmultiplication      96x96x96                             0.0177       0.0249       0.0072    +40.7%   too slow
+nbody                     1024_particles                       0.1803       0.5735       0.3932   +218.1%   too slow
+nbody                     256_particles                        0.0484       0.1574       0.1090   +225.2%   too slow
+nbody                     512_particles                        0.0916       0.2962       0.2046   +223.4%   too slow
+nw                        length=1024                          1.1413       1.8921       0.7508    +65.8%   too slow
+nw                        length=128                           0.1285       0.1350       0.0065     +5.1%   too slow
+nw                        length=256                           0.2860       0.2981       0.0121     +4.2%   too slow
+nw                        length=512                           0.5441       0.7124       0.1683    +30.9%   too slow
+nw                        length=64                            0.0511       0.0586       0.0075    +14.7%   too slow
+nw                        length=768                           0.8353       1.2331       0.3978    +47.6%   too slow
+relu                      1024                                 0.0053       0.0039       0.0014    -35.9%   too fast
+relu                      2048                                 0.0048       0.0039       0.0009    -23.1%   too fast
+relu                      4096                                 0.0044       0.0039       0.0005    -12.8%   too fast
+relu                      8192                                 0.0046       0.0040       0.0006    -15.0%   too fast
+stencil2d                 128x128                              0.0062       0.0260       0.0198   +319.4%   too slow
+stencil2d                 256x256                              0.0065       0.0256       0.0191   +293.8%   too slow
+stencil2d                 64x64                                0.0059       0.0251       0.0192   +325.4%   too slow
+vectoradd                 1024                                 0.0043       0.0039       0.0004    -10.3%   too fast
+vectoradd                 16384                                0.0056       0.0024       0.0032   -133.3%   too fast
+vectoradd                 2048                                 0.0050       0.0039       0.0011    -28.2%   too fast
+vectoradd                 4096                                 0.0050       0.0040       0.0010    -25.0%   too fast
+vectoradd                 8192                                 0.0056       0.0040       0.0016    -40.0%   too fast
