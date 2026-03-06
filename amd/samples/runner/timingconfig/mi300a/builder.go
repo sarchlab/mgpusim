@@ -469,7 +469,6 @@ func (b *Builder) buildSAs() {
 		WithALUFactory(aluFactory).
 		WithWfPoolSize(8).
 		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
-		WithNumSinglePrecisionUnits(32).
 		WithVecMemInstPipelineStages(2).
 		WithVecMemTransPipelineStages(4)
 

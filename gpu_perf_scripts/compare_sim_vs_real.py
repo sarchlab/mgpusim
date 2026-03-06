@@ -14,7 +14,9 @@ Simulator CSV format (expected):
 
 The script:
   1. Reads both CSVs and matches rows on (kernel_name, problem_size).
-  2. Computes per-benchmark relative error: |sim - real| / real
+  2. Computes per-benchmark signed relative error: (sim - real) / min(sim, real)
+     - Positive = simulator too slow
+     - Negative = simulator too fast
   3. Outputs per-benchmark breakdown, per-kernel summary, and overall stats.
   4. Optionally writes detailed results to a CSV.
 """
@@ -42,10 +44,10 @@ class KernelSummary:
     kernel_name: str
     num_points: int = 0
     num_matched: int = 0
-    total_rel_error: float = 0.0
-    max_rel_error: float = 0.0
-    max_rel_error_size: str = ""
-    avg_rel_error: float = 0.0
+    total_abs_rel_error: float = 0.0
+    max_abs_rel_error: float = 0.0
+    max_abs_rel_error_size: str = ""
+    avg_abs_rel_error: float = 0.0
     points: List[BenchmarkPoint] = field(default_factory=list)
 
 
@@ -119,7 +121,12 @@ def compute_errors(
     ref_data: Dict[Tuple[str, str], float],
     sim_data: Dict[Tuple[str, str], float],
 ) -> Tuple[List[BenchmarkPoint], Dict[str, KernelSummary]]:
-    """Compute per-point and per-kernel error metrics."""
+    """Compute per-point and per-kernel error metrics.
+
+    Uses symmetrical signed error: (sim - real) / min(sim, real)
+      - Positive means simulator is too slow
+      - Negative means simulator is too fast
+    """
 
     all_points = []
     kernel_summaries: Dict[str, KernelSummary] = {}
@@ -142,22 +149,26 @@ def compute_errors(
                 sim_ms = sim_data[key]
                 point.sim_ms = sim_ms
                 point.abs_error_ms = abs(sim_ms - real_ms)
-                if real_ms > 0:
-                    point.rel_error = point.abs_error_ms / real_ms
+                min_val = min(sim_ms, real_ms)
+                if min_val > 0:
+                    point.rel_error = (sim_ms - real_ms) / min_val
                 else:
                     point.rel_error = float("inf") if sim_ms > 0 else 0.0
 
                 summary.num_matched += 1
-                summary.total_rel_error += point.rel_error
-                if point.rel_error > summary.max_rel_error:
-                    summary.max_rel_error = point.rel_error
-                    summary.max_rel_error_size = size
+                abs_rel = abs(point.rel_error)
+                summary.total_abs_rel_error += abs_rel
+                if abs_rel > summary.max_abs_rel_error:
+                    summary.max_abs_rel_error = abs_rel
+                    summary.max_abs_rel_error_size = size
 
             summary.points.append(point)
             all_points.append(point)
 
         if summary.num_matched > 0:
-            summary.avg_rel_error = summary.total_rel_error / summary.num_matched
+            summary.avg_abs_rel_error = (
+                summary.total_abs_rel_error / summary.num_matched
+            )
 
         kernel_summaries[kernel] = summary
 
@@ -263,7 +274,7 @@ def print_comparison_results(
     print("=" * 100)
 
     # Per-kernel summary
-    print(f"\n{'Kernel':<30s} {'Matched':>8s} {'Total':>6s} {'Avg Err':>10s} {'Max Err':>10s} {'Max Err Size':<30s}")
+    print(f"\n{'Kernel':<30s} {'Matched':>8s} {'Total':>6s} {'Avg |Err|':>10s} {'Max |Err|':>10s} {'Max Err Size':<30s}")
     print("-" * 100)
 
     for kernel in sorted(kernel_summaries.keys()):
@@ -271,7 +282,7 @@ def print_comparison_results(
         if s.num_matched > 0:
             print(
                 f"{s.kernel_name:<30s} {s.num_matched:>8d} {s.num_points:>6d} "
-                f"{s.avg_rel_error:>9.1%} {s.max_rel_error:>9.1%} {s.max_rel_error_size:<30s}"
+                f"{s.avg_abs_rel_error:>9.1%} {s.max_abs_rel_error:>9.1%} {s.max_abs_rel_error_size:<30s}"
             )
         else:
             print(
@@ -282,12 +293,13 @@ def print_comparison_results(
     # Overall stats
     if matched_points:
         all_errors = [p.rel_error for p in matched_points if p.rel_error is not None]
-        overall_avg = sum(all_errors) / len(all_errors)
-        overall_max = max(all_errors)
-        overall_median = sorted(all_errors)[len(all_errors) // 2]
-        within_10 = sum(1 for e in all_errors if e <= 0.10) / len(all_errors)
-        within_25 = sum(1 for e in all_errors if e <= 0.25) / len(all_errors)
-        within_50 = sum(1 for e in all_errors if e <= 0.50) / len(all_errors)
+        all_abs_errors = [abs(e) for e in all_errors]
+        overall_avg = sum(all_abs_errors) / len(all_abs_errors)
+        overall_max = max(all_abs_errors)
+        overall_median = sorted(all_abs_errors)[len(all_abs_errors) // 2]
+        within_10 = sum(1 for e in all_abs_errors if e <= 0.10) / len(all_abs_errors)
+        within_25 = sum(1 for e in all_abs_errors if e <= 0.25) / len(all_abs_errors)
+        within_50 = sum(1 for e in all_abs_errors if e <= 0.50) / len(all_abs_errors)
 
         print("\n" + "=" * 100)
         print("OVERALL STATISTICS")
@@ -295,9 +307,9 @@ def print_comparison_results(
         print(f"  Total reference points:  {len(all_points)}")
         print(f"  Matched points:          {len(matched_points)}")
         print(f"  Unmatched points:        {len(unmatched_points)}")
-        print(f"  Average relative error:  {overall_avg:.1%}")
-        print(f"  Median relative error:   {overall_median:.1%}")
-        print(f"  Maximum relative error:  {overall_max:.1%}")
+        print(f"  Average |relative error|:{overall_avg:.1%}")
+        print(f"  Median |relative error|: {overall_median:.1%}")
+        print(f"  Maximum |relative error|:{overall_max:.1%}")
         print(f"  Within 10% error:        {within_10:.1%}")
         print(f"  Within 25% error:        {within_25:.1%}")
         print(f"  Within 50% error:        {within_50:.1%}")
@@ -306,18 +318,19 @@ def print_comparison_results(
 
     # Detailed per-point table for matched points
     if matched_points:
-        print("\n" + "=" * 100)
+        print("\n" + "=" * 110)
         print("DETAILED PER-POINT COMPARISON (matched points)")
-        print("=" * 100)
+        print("=" * 110)
         print(
             f"{'Kernel':<25s} {'Size':<30s} {'Real(ms)':>12s} {'Sim(ms)':>12s} "
-            f"{'Abs Err':>12s} {'Rel Err':>10s}"
+            f"{'Abs Err':>12s} {'Rel Err':>10s} {'Direction':>10s}"
         )
-        print("-" * 100)
+        print("-" * 110)
         for p in matched_points:
+            direction = "too slow" if p.rel_error >= 0 else "too fast"
             print(
                 f"{p.kernel_name:<25s} {p.problem_size:<30s} {p.real_ms:>12.4f} "
-                f"{p.sim_ms:>12.4f} {p.abs_error_ms:>12.4f} {p.rel_error:>9.1%}"
+                f"{p.sim_ms:>12.4f} {p.abs_error_ms:>12.4f} {p.rel_error:>+9.1%} {direction:>10s}"
             )
 
 
