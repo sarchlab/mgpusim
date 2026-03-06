@@ -42,6 +42,7 @@ test
 fastwalshtransform
 fir
 floydwarshall
+matmul
 matrixtranspose
 simpleconvolution
 
