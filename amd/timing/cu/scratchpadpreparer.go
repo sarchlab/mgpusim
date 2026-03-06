@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"encoding/binary"
 	"log"
 	"math"
 
@@ -129,9 +130,39 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 
 	layout.EXEC = wf.EXEC()
 
+	// Determine SAddr mode: if SAddr != 0x7F, we have scalar base + VGPR offset.
+	hasSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
+	var scalarBase uint64
+	if hasSAddr {
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		buf := make([]byte, 8)
+		p.readOperand(sAddrOperand, wf, 0, buf)
+		scalarBase = binary.LittleEndian.Uint64(buf)
+	}
+
+	// Compute signed offset
+	var signedOffset int64
+	if inst.Offset0 != 0 {
+		signedOffset = int64(int32(inst.Offset0))
+	}
+
 	for i := 0; i < 64; i++ {
 		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
 		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
+
+		if hasSAddr || signedOffset != 0 {
+			vgprAddr := binary.LittleEndian.Uint64(sp[8+i*8 : 8+i*8+8])
+			var finalAddr uint64
+			if hasSAddr {
+				// SAddr mode: addr = scalar_base + zero_extend(VGPR_32) + offset
+				finalAddr = scalarBase + (vgprAddr & 0xFFFFFFFF)
+			} else {
+				finalAddr = vgprAddr
+			}
+			finalAddr = uint64(int64(finalAddr) + signedOffset)
+			binary.LittleEndian.PutUint64(sp[8+i*8:8+i*8+8], finalAddr)
+		}
 	}
 }
 
