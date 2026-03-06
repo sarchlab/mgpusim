@@ -1,0 +1,123 @@
+# MI300A Timing Parameter Fixes — Benchmark Results
+
+## Overview
+
+This document records before/after benchmark results for the MI300A timing
+parameter fixes applied in commit `95e54914` on branch `ares/mi300a-timing-fixes`.
+
+### Changes Under Test
+
+The timing fixes (authored by Finn) include:
+
+1. **DRAM Controller**: Switched from `idealmemcontroller` (fixed 100-cycle latency)
+   to the realistic `dram` controller with proper DRAM timing model.
+2. **Wavefront Pool Size**: Changed from 10 → **8** wavefronts per pool (matches
+   MI300A hardware specification).
+3. **VGPR Count**: Changed from 16384 → **32768** per SIMD unit (matches MI300A
+   hardware specification).
+
+### Methodology
+
+- All benchmarks run with `-timing -gpu mi300a -arch cdna3 -report-all -disable-rtm`
+- **Before**: Built from `main` branch (commit `e771eba6`)
+- **After**: Built from `ares/mi300a-timing-fixes` branch (commit `95e54914`)
+- Problem sizes kept small to avoid known MMU panics at larger sizes
+- Simulator is deterministic; single run per configuration is sufficient
+
+---
+
+## Results: Kernel Execution Time
+
+| Benchmark            | Problem Size  | Before (s)       | After (s)        | Δ (%)    |
+|----------------------|---------------|------------------|------------------|----------|
+| vectoradd            | 64×1          | 3.834e-06        | 3.786e-06        | −1.25%   |
+| relu                 | length=64     | 3.813e-06        | 3.766e-06        | −1.23%   |
+| stencil2d            | 32×32         | 3.421e-05        | 2.722e-05        | −20.4%   |
+| matrixmultiplication | 32×32×32      | 1.025e-05        | 1.007e-05        | −1.80%   |
+| vectoradd            | 256×1         | 3.836e-06        | 3.788e-06        | −1.25%   |
+
+## Results: Cycles Per Instruction (CU-level)
+
+| Benchmark            | Problem Size  | CPI Before | CPI After  | Δ (%)    |
+|----------------------|---------------|------------|------------|----------|
+| vectoradd            | 64×1          | 191.70     | 189.30     | −1.25%   |
+| relu                 | length=64     | 272.36     | 269.00     | −1.23%   |
+| stencil2d            | 32×32         | 86.83      | 69.10      | −20.4%   |
+| matrixmultiplication | 32×32×32      | 12.33      | 12.11      | −1.80%   |
+
+## Results: SIMD CPI
+
+| Benchmark            | Problem Size  | SIMD CPI Before | SIMD CPI After | Δ (%)    |
+|----------------------|---------------|-----------------|----------------|----------|
+| vectoradd            | 64×1          | 479.25          | 473.25         | −1.25%   |
+| relu                 | length=64     | 714.94          | 706.13         | −1.24%   |
+| stencil2d            | 32×32         | 140.98          | 114.39         | −18.9%   |
+| matrixmultiplication | 32×32×32      | 14.90           | 14.64          | −1.78%   |
+
+## Analysis
+
+### Key Observations
+
+1. **All benchmarks show improvement** (lower kernel time and CPI) after the
+   timing parameter fixes.
+
+2. **stencil2d sees the largest improvement (~20%)**: This benchmark is the most
+   memory-intensive of the four, with many global memory accesses for the stencil
+   pattern. The switch from the ideal memory controller (flat 100-cycle latency)
+   to the realistic DRAM controller benefits this workload because the realistic
+   controller can pipeline and overlap memory requests more effectively at these
+   small sizes.
+
+3. **vectoradd and relu show modest ~1.25% improvement**: These are simple,
+   memory-bound kernels with very few instructions. The reduced wavefront pool
+   size (10→8) slightly reduces scheduling overhead, and the larger VGPR file
+   (16K→32K) has minimal effect since these kernels use few registers.
+
+4. **matrixmultiplication shows ~1.8% improvement**: This compute-bound kernel
+   benefits slightly from the parameter tuning. The already-low CPI (~12) indicates
+   good compute utilization; the DRAM controller change has less impact since most
+   data is reused from cache.
+
+5. **Instruction counts are identical** before and after (as expected — the fixes
+   change timing parameters, not functional behavior).
+
+### Accuracy Implications
+
+These fixes bring the simulator closer to real MI300A hardware behavior by:
+- Using realistic DRAM timing instead of a flat-latency ideal controller
+- Matching the actual wavefront pool capacity (8 per SIMD, not 10)
+- Matching the actual VGPR file size (32K per SIMD, not 16K)
+
+Further validation against real MI300A hardware measurements is needed to assess
+absolute accuracy. The `compare_sim_vs_real.py` script (cherry-picked from
+`blake/benchmark-analysis-script`) can be used for this comparison.
+
+---
+
+## Verification Benchmarks (Issue #243)
+
+Larger-scale verification benchmarks run with `-timing -arch cdna3 -gpu mi300a -disable-rtm`.
+
+| Benchmark            | Problem Size                   | Driver kernel_time (s) | GPU kernel_time (s)    |
+|----------------------|--------------------------------|------------------------|------------------------|
+| matrixmultiplication | 128×128×128                    | 4.5086e-05             | 4.4498e-05             |
+| spmv                 | dim=1024, sparsity=0.015625    | 1.4829e-05             | 1.4242e-05             |
+| floydwarshall        | node=32                        | 8.2563e-05             | 6.3748e-05             |
+| kmeans               | pts=1024, feat=16, clusters=5  | 7.6823e-05             | 7.3297e-05             |
+| stencil2d            | row=128, col=128               | 4.4465e-05             | 4.1523e-05             |
+
+### Notes
+
+- All 5 benchmarks completed successfully with no errors.
+- `go test` passes for core packages (`amd/emu/...`, `amd/timing/cu`,
+  `amd/timing/cp/internal/resource`).
+- Some test packages (`amd/timing/rob`, `amd/timing/rdma`,
+  `amd/timing/pagemigrationcontroller`, `amd/timing/cp`,
+  `amd/timing/cp/internal/dispatching`) have pre-existing build failures
+  due to missing mock definitions (not related to timing changes).
+
+---
+
+*Generated by Niko on branch `ares/mi300a-timing-fixes`.*
+*Benchmark scripts cherry-picked from `blake/benchmark-analysis-script` (4acfd1af)
+and `casey/sim-benchmark-script` (70af20ea).*

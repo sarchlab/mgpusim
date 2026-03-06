@@ -25,43 +25,45 @@ func (u *ALU) runSOPK(state emu.InstEmuState) {
 }
 
 func (u *ALU) runSMOVKI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	sp.DST = uint64(emu.Int16ToBits(emu.AsInt16(uint16(sp.IMM))))
+	inst := state.Inst()
+	imm := emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+	state.WriteOperand(inst.Dst, 0, uint64(emu.Int16ToBits(imm)))
 }
 
 func (u *ALU) runSCMOVKI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	if sp.SCC == 1 {
-		sp.DST = uint64(emu.Int16ToBits(emu.AsInt16(uint16(sp.IMM))))
+	inst := state.Inst()
+	if state.SCC() == 1 {
+		imm := emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+		state.WriteOperand(inst.Dst, 0, uint64(emu.Int16ToBits(imm)))
 	}
 }
 
 func (u *ALU) runSCMPKEQI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := int32(emu.AsInt16(uint16(sp.IMM)))
-	src := emu.AsInt32(uint32(sp.DST))
+	inst := state.Inst()
+	imm := int32(emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff)))
+	src := emu.AsInt32(uint32(state.ReadOperand(inst.Dst, 0)))
 	if src == imm {
-		sp.SCC = 1
+		state.SetSCC(1)
 	} else {
-		sp.SCC = 0
+		state.SetSCC(0)
 	}
 }
 
 func (u *ALU) runSCMPKLGI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := int32(emu.AsInt16(uint16(sp.IMM)))
-	src := emu.AsInt32(uint32(sp.DST))
+	inst := state.Inst()
+	imm := int32(emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff)))
+	src := emu.AsInt32(uint32(state.ReadOperand(inst.Dst, 0)))
 	if src != imm {
-		sp.SCC = 1
+		state.SetSCC(1)
 	} else {
-		sp.SCC = 0
+		state.SetSCC(0)
 	}
 }
 
 func (u *ALU) runSMULKI32(state emu.InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := int32(emu.AsInt16(uint16(sp.IMM)))
-	src := emu.AsInt32(uint32(sp.DST))
+	inst := state.Inst()
+	imm := int32(emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff)))
+	src := emu.AsInt32(uint32(state.ReadOperand(inst.Dst, 0)))
 	result := src * imm
-	sp.DST = uint64(emu.Int32ToBits(result))
+	state.WriteOperand(inst.Dst, 0, uint64(emu.Int32ToBits(result)))
 }

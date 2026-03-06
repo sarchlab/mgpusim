@@ -6,6 +6,57 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
+// flatPrecomputeScalarBase reads the scalar base register once (lane-invariant).
+// Returns (hasSAddr, scalarBase). If hasSAddr is false, scalarBase is unused.
+// GCN3 rules: SAddr is OFF when value is 0x7F or 0.
+func (u *ALUImpl) flatPrecomputeScalarBase(
+	state InstEmuState,
+) (bool, uint64) {
+	inst := state.Inst()
+	if inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0 {
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		scalarBase := state.ReadOperand(sAddrOperand, 0)
+		return true, scalarBase
+	}
+	return false, 0
+}
+
+// flatAddr computes the effective address for a flat/global instruction
+// for a given lane. It handles:
+//   - SAddr mode (scalar base + VGPR offset) vs OFF mode (VGPR pair as 64-bit addr)
+//   - Signed 13-bit immediate offset (Offset0)
+//
+// GCN3 rules: SAddr is OFF when value is 0x7F or 0.
+func (u *ALUImpl) flatAddr(state InstEmuState, laneID int) uint64 {
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	return u.flatAddrWithScalar(state, laneID, hasSAddr, scalarBase)
+}
+
+// flatAddrWithScalar computes the effective address using a precomputed
+// scalar base, avoiding redundant scalar register reads across lanes.
+func (u *ALUImpl) flatAddrWithScalar(
+	state InstEmuState, laneID int,
+	hasSAddr bool, scalarBase uint64,
+) uint64 {
+	inst := state.Inst()
+
+	// Read the VGPR address component
+	addr := state.ReadOperand(inst.Addr, laneID)
+
+	if hasSAddr {
+		// SAddr mode: addr = scalar_base + zero_extend(VGPR_32) + offset
+		addr = scalarBase + (addr & 0xFFFFFFFF)
+	}
+
+	// Add signed immediate offset
+	if inst.Offset0 != 0 {
+		addr += uint64(int64(int32(inst.Offset0)))
+	}
+
+	return addr
+}
+
 //nolint:gocyclo
 //nolint:funlen
 func (u *ALUImpl) runFlat(state InstEmuState) {
@@ -37,159 +88,172 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 }
 
 func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 4)
 		buf[1] = 0
 		buf[2] = 0
 		buf[3] = 0
 
-		sp.DST[i*4] = insts.BytesToUint32(buf)
+		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadSByte(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
+
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 4)
 		signedByte := int8(buf[0])
 		extendedValue := int32(signedByte)
-		sp.DST[i*4] = uint32(extendedValue)
+		result := insts.Uint32ToBytes(uint32(extendedValue))
+		state.WriteOperandBytes(inst.Dst, i, result)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
-
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 4)
 		buf[2] = 0
 		buf[3] = 0
 
-		sp.DST[i*4] = insts.BytesToUint32(buf)
+		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
-		sp.DST[i*4] = insts.BytesToUint32(buf)
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 4)
+		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadDWordX2(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(8))
-
-		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
-		sp.DST[i*4+1] = insts.BytesToUint32(buf[4:8])
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 8)
+		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(16))
-
-		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
-		sp.DST[i*4+1] = insts.BytesToUint32(buf[4:8])
-		sp.DST[i*4+2] = insts.BytesToUint32(buf[8:12])
-		sp.DST[i*4+3] = insts.BytesToUint32(buf[12:16])
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		buf := u.storageAccessor.Read(pid, addr, 16)
+		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
 
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		u.storageAccessor.Write(
-			pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		data := state.ReadOperandBytes(inst.Data, i, 4)
+		u.storageAccessor.Write(pid, addr, data)
 	}
 }
 
 func (u *ALUImpl) runFlatStoreDWordX2(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := make([]byte, 8)
-		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
-		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
-
-		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		data := state.ReadOperandBytes(inst.Data, i, 8)
+		u.storageAccessor.Write(pid, addr, data)
 	}
 }
 
 func (u *ALUImpl) runFlatStoreDWordX3(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := make([]byte, 12)
-		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
-		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
-		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
-
-		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		data := state.ReadOperandBytes(inst.Data, i, 12)
+		u.storageAccessor.Write(pid, addr, data)
 	}
 }
 
 func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
-	sp := state.Scratchpad().AsFlat()
+	inst := state.Inst()
 	pid := state.PID()
-	for i := uint(0); i < 64; i++ {
-		if !laneMasked(sp.EXEC, i) {
+	exec := state.EXEC()
+	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
 
-		buf := make([]byte, 16)
-		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
-		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
-		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
-		copy(buf[12:16], insts.Uint32ToBytes(sp.DATA[(i*4)+3]))
-
-		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
+		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
+		data := state.ReadOperandBytes(inst.Data, i, 16)
+		u.storageAccessor.Write(pid, addr, data)
 	}
 }
