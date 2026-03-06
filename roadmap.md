@@ -1,71 +1,52 @@
-# Roadmap
+# Roadmap: MI300A Timing Simulation Accuracy
 
-## M1: Compile first batch of benchmarks to gfx942 HSACO ✅
-- Status: Complete
-- Cycles: 3 estimated, 3 actual
+## Goal
+Achieve <20% average error and <50% max error for MI300A timing simulation vs real hardware measurements (120 CU config).
 
-## M2: Migrate scalar instructions from scratchpad to ReadOperand/WriteOperand ✅
-- Status: Complete (PR #21 merged)
-- Cycles: 8 estimated, ~12 actual (needed sub-milestones M2.1, M2.2)
+## Status
+- Research phase complete (Alex, Blake, Casey workers gathered hardware specs, identified discrepancies, built scripts, collected initial sim data)
+- M1 (original broad baseline milestone) missed deadline — was too vague for execution team
+- Breaking down into specific, concrete milestones
 
-## M3: Migrate vector instructions from scratchpad to ReadOperand/WriteOperand ✅
-- Status: Complete (merged to gfx942_emu)
-- Cycles: 8 estimated + 4 for M3.1 = ~12 actual
+## Completed Research Findings
+- **Ideal memory controller** is the #1 accuracy problem (flat 100-cycle latency, no bandwidth modeling)
+- **Wavefront pool size** wrong (10 vs 8 per SIMD)
+- **VGPR count** wrong (16384 vs 32768 per SIMD)
+- **SIMD execution latency** potentially too slow
+- Initial sim data collected for 5 benchmarks at small sizes (20 data points)
+- Comparison script and runner script created on branches
 
-## M4: Migrate flat and DS instructions from scratchpad ✅
-- Status: Complete (merged to gfx942_emu)
-- Cycles: 6 estimated, ~6 actual
+## Milestones
 
-## M5: Fix GCN3 gputensor regression from M3 ✅
-- Status: Complete
-- Fix: Made all VOP Prepare/Commit functions no-ops in emu scratchpadpreparer
+### M1: Baseline Infrastructure (cycles: 2) — DEADLINE MISSED
+**Status: FAILED** — Too broad, team had no clear concrete tasks
+**Lesson: Need very specific code changes, not research tasks, for execution team**
 
-## M6: Performance benchmarking ✅
-- Status: Complete
-- Results: 2x speedup for vector Prepare/Commit, 13.5% end-to-end
+### M1.1: Fix MI300A Timing Parameters (cycles: 4)
+**Status: PENDING**
+Concrete code changes to `amd/samples/runner/timingconfig/mi300a/builder.go` and `amd/timing/cu/`:
+1. Switch from `idealmemcontroller` to the existing `createDramControllerBuilder()` DRAM model in `buildDRAMControllers()`
+2. Fix wavefront pool size from 10 to 8 per SIMD in CU builder
+3. Fix VGPR count from 16384 to 32768 per SIMD in CU builder
+4. Merge benchmark scripts (compare_sim_vs_real.py, run_sim_benchmarks.sh) from research branches to main
+5. Run a subset of benchmarks to measure before/after accuracy
+6. Create PR on upstream with all changes
 
-## M7: Remove emu scratchpadpreparer.go ✅
-- Status: Complete (scratchpadpreparer.go deleted, Prepare/Commit calls removed)
+### M1.2: Measure Accuracy & Tune Further (cycles: 4)
+**Status: PENDING**
+- Run full benchmark suite (small problem sizes) to measure accuracy
+- Tune remaining parameters: L2 cache size, clock frequency, L1V latency, SIMD latency
+- Iterate based on per-benchmark error analysis
+- Target: <30% average error
 
-## M8: Delete scratchpad.go from emu + add instruction decode cache ✅
-- Status: Complete and verified by Apollo
-- Scratchpad type moved to timing/wavefront, emu/scratchpad.go deleted
-- instCache map[uint64]*insts.Inst added to emu ComputeUnit
+### M1.3: Fine-Tuning & Final Accuracy (cycles: 4)
+**Status: PENDING**
+- Address individual benchmark outliers
+- Tune TLB, MSHR, memory interleaving parameters
+- Cross-validate with 120 CU vs 240 CU data
+- Target: <20% average, <50% max
 
-## M9: Eliminate heap allocations in emulation hot path ✅
-- Status: Complete (verified by Apollo, merged to main)
-- Scope completed:
-  1. ✅ ReadReg: Stack buffer `[8]byte` replaces `make([]byte, numBytes)`
-  2. ✅ ReadOperand: Inlined register reads (VReg/SReg/SCC/VCC/EXEC/M0) return uint64 directly via binary.LittleEndian
-  3. ✅ DS reads: Stack-allocated buffers outside lane loops
-  4. ✅ flatAddr: Scalar base hoisted outside lane loop via flatPrecomputeScalarBase
-- Estimated cycles: 6
-
-## M10: Final evaluation and project completion ✅
-- Status: Complete
-- Final benchmarks: **2.07× end-to-end speedup** (gputensor: 2.86s → 1.38s)
-- 0 heap allocations in all ReadOperand/WriteOperand hot paths
-- Independent evaluator (Alex) confirmed project completeness
-- Remaining optimizations (StorageAccessor.Read, logInst) deferred as diminishing returns
-
-## PROJECT COMPLETE (Scratchpad Removal) ✅
-- All 10 milestones achieved across ~222 cycles
-- Human's request (issue #156) fully satisfied: scratchpad evaluated, removed, benchmarked
-
----
-
-## M11: Fix CI lint failure (gocognit) — IN PROGRESS
-- Status: Planning
-- Issue: `ReadOperand` in `amd/emu/wavefront.go` has cognitive complexity 52 (max 30)
-- Root cause: The function grew during heap allocation optimization (M9) with many inline register-type checks
-- Fix approach: Refactor `ReadOperand` by extracting register-type handling into a helper function `readRegOperand`
-- Acceptance: CI passes on scratchpad-removal branch (Lint + all downstream jobs)
-- Estimated cycles: 2
-
-### Lessons Learned (continued)
-- Large file rewrites must be split across multiple workers
-- GCN3 regression wasn't caught by unit tests — need integration-level testing
-- Budget honestly: most milestones took ~50% more cycles than estimated
-- Making functions no-ops first, then removing later, is a safe two-phase approach
-- Iris's performance analysis was excellent — use dedicated analysis workers early
-- Always check lint locally before pushing — the gocognit violation was introduced during optimization and not caught
+## Lessons Learned
+- **M1 failure**: The original M1 was a research/analysis milestone given to an execution team. Ares's team needs concrete code changes with specific files and line numbers, not open-ended investigation.
+- **Break down further**: When milestones involve "analyze and decide", do the analysis in the planning phase (Athena's workers), then give Ares specific implementation tasks.
+- **Scripts exist**: Blake and Casey already created the needed infrastructure scripts. Next milestone should build on that work.

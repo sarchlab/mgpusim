@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
 	"github.com/sarchlab/akita/v4/mem/dram"
-	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
@@ -467,7 +466,9 @@ func (b *Builder) buildSAs() {
 		WithLog2PageSize(b.log2PageSize).
 		WithL1AddressMapper(b.l1AddressMapper).
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
-		WithALUFactory(aluFactory)
+		WithALUFactory(aluFactory).
+		WithWfPoolSize(8).
+		WithVGPRCount([]int{32768, 32768, 32768, 32768})
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
@@ -509,14 +510,10 @@ func (b *Builder) buildL2Caches() {
 }
 
 func (b *Builder) buildDRAMControllers() {
+	dramBuilder := b.createDramControllerBuilder()
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
-		dram := idealmemcontroller.MakeBuilder().
-			WithEngine(b.simulation.GetEngine()).
-			WithFreq(b.freq).
-			WithLatency(100).
-			WithStorage(b.globalStorage).
-			Build(dramName)
+		dram := dramBuilder.Build(dramName)
 		b.simulation.RegisterComponent(dram)
 		b.drams = append(b.drams, dram)
 	}

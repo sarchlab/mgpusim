@@ -52,3 +52,4 @@ simpleconvolution
 *.hipfb
 conv2d
 im2col
+_sim_benchmarks/

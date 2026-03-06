@@ -17,6 +17,7 @@ type Builder struct {
 	freq              sim.Freq
 	name              string
 	simdCount         int
+	wfPoolSize        int
 	vgprCount         []int
 	sgprCount         int
 	log2CachelineSize uint64
@@ -39,6 +40,7 @@ func MakeBuilder() Builder {
 	var b Builder
 	b.freq = 1000 * sim.MHz
 	b.simdCount = 4
+	b.wfPoolSize = 10
 	b.sgprCount = 3200
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
@@ -61,6 +63,12 @@ func (b Builder) WithFreq(f sim.Freq) Builder {
 // WithSIMDCount sets the number of SIMD unit in the ComputeUnit.
 func (b Builder) WithSIMDCount(n int) Builder {
 	b.simdCount = n
+	return b
+}
+
+// WithWfPoolSize sets the number of wavefronts in each wavefront pool.
+func (b Builder) WithWfPoolSize(n int) Builder {
+	b.wfPoolSize = n
 	return b
 }
 
@@ -133,7 +141,7 @@ func (b Builder) Build(name string) *ComputeUnit {
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
-		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
+		cu.WfPools = append(cu.WfPools, NewWavefrontPool(b.wfPoolSize))
 	}
 
 	b.equipScheduler(cu)

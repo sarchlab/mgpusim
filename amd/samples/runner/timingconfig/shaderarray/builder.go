@@ -27,6 +27,8 @@ type Builder struct {
 	freq               sim.Freq
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
+	wfPoolSize         int
+	vgprCount          []int
 	l1AddressMapper    mem.AddressToPortMapper
 	l1TLBAddressMapper mem.AddressToPortMapper
 	aluFactory         emu.ALUFactory
@@ -121,6 +123,18 @@ func (b Builder) WithL1TLBAddressMapper(
 	l1TLBAddressMapper mem.AddressToPortMapper,
 ) Builder {
 	b.l1TLBAddressMapper = l1TLBAddressMapper
+	return b
+}
+
+// WithWfPoolSize sets the wavefront pool size for the CU builder.
+func (b Builder) WithWfPoolSize(n int) Builder {
+	b.wfPoolSize = n
+	return b
+}
+
+// WithVGPRCount sets the VGPR counts for the CU builder.
+func (b Builder) WithVGPRCount(counts []int) Builder {
+	b.vgprCount = counts
 	return b
 }
 
@@ -346,6 +360,14 @@ func (b *Builder) buildCUs() {
 
 	if b.aluFactory != nil {
 		cuBuilder = cuBuilder.WithALUFactory(b.aluFactory)
+	}
+
+	if b.wfPoolSize > 0 {
+		cuBuilder = cuBuilder.WithWfPoolSize(b.wfPoolSize)
+	}
+
+	if b.vgprCount != nil {
+		cuBuilder = cuBuilder.WithVGPRCount(b.vgprCount)
 	}
 
 	for i := 0; i < b.numCUs; i++ {
