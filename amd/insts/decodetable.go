@@ -822,7 +822,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pk_u8_f32", 477, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fixup_f32", 478, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fixup_f64", 479, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 64, 0})
-	d.addInstType(&InstType{"v_div_scale_f32", 480, FormatTable[VOP3b], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_div_scale_f32", 480, FormatTable[VOP3b], 0, ExeUnitVALU, 32, 32, 32, 32, 64})
 	d.addInstType(&InstType{"v_div_scale_f64", 481, FormatTable[VOP3b], 0, ExeUnitVALU, 64, 64, 64, 64, 64})
 	d.addInstType(&InstType{"v_div_fmas_f32", 482, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fmas_f64", 483, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 64, 0})

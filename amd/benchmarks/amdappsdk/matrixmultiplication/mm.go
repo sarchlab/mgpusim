@@ -26,6 +26,7 @@ type GPUMatrixMultiplier struct {
 	kernel           *insts.KernelCodeObject
 	Arch             arch.Type
 	useUnifiedMemory bool
+	blockABuf        driver.Ptr
 }
 
 // NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
@@ -64,7 +65,8 @@ type CDNA3KernelArgs struct {
 	MatrixB             driver.Ptr
 	MatrixC             driver.Ptr
 	WidthA              uint32
-	BlockA              driver.LocalPtr
+	Padding1            uint32
+	BlockA              driver.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -118,12 +120,16 @@ func (m *GPUMatrixMultiplier) launchKernel(
 		localSizeY := uint16(8)
 
 		if m.Arch == arch.CDNA3 {
+			if m.blockABuf == 0 {
+				m.blockABuf = m.driver.AllocateMemory(m.context,
+					uint64(32*32*4))
+			}
 			kernArgs := &CDNA3KernelArgs{
 				MatrixA:             gA,
 				MatrixB:             gB,
 				MatrixC:             gC,
 				WidthA:              mA.Width,
-				BlockA:              32 * 32 * 4,
+				BlockA:              m.blockABuf,
 				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
 				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
 				HiddenBlockCountZ:   1,

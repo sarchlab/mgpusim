@@ -36,7 +36,8 @@ type CDNA3KernelArgs struct {
 	NumBodies           int32
 	DeltaTime           float32
 	EpsSqr              float32
-	LocalPos            driver.LocalPtr
+	Padding1            uint32
+	LocalPos            driver.Ptr
 	NewPosition         driver.Ptr
 	NewVelocity         driver.Ptr
 	HiddenBlockCountX   uint32
@@ -86,6 +87,7 @@ type Benchmark struct {
 	dVel             *driver.Ptr
 	dNewPos          *driver.Ptr
 	dNewVel          *driver.Ptr
+	localPosBuf      driver.Ptr
 }
 
 // NewBenchmark returns a benchmark
@@ -184,6 +186,12 @@ func (b *Benchmark) initMem() {
 	b.dVel = &b.currVel
 	b.dNewPos = &b.newPos
 	b.dNewVel = &b.newVel
+
+	if b.Arch == arch.CDNA3 {
+		// CDNA3 HIP kernel uses global memory for localPos instead of LDS
+		b.localPosBuf = b.driver.AllocateMemory(b.context,
+			uint64(b.groupSize*4*4))
+	}
 }
 
 func (b *Benchmark) exec() {
@@ -198,7 +206,7 @@ func (b *Benchmark) exec() {
 				NumBodies:         b.numBodies,
 				DeltaTime:         b.delT,
 				EpsSqr:            b.espSqr,
-				LocalPos:          driver.LocalPtr(b.groupSize * 4 * 4),
+				LocalPos:          b.localPosBuf,
 				NewPosition:       *b.dNewPos,
 				NewVelocity:       *b.dNewVel,
 				HiddenBlockCountX: globalSize[0] / uint32(localSize[0]),
