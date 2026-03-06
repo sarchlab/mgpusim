@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
-	"github.com/sarchlab/akita/v4/mem/dram"
+	"github.com/sarchlab/akita/v4/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
@@ -69,10 +69,10 @@ type Builder struct {
 // MakeBuilder creates a new builder with MI300A default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1500 * sim.MHz,    // 1.5 GHz
+		freq:                           1800 * sim.MHz,    // 1.8 GHz
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
-		l2CacheSize:                    8 * mem.MB,     // 8 MB L2 cache
+		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -371,8 +371,8 @@ func (b *Builder) connectCPWithCUs() {
 			cu := cuInterfaceForCP{
 				ctrlPort:        cuCtrlPort.AsRemote(),
 				dispatchingPort: cuDispatchingPort.AsRemote(),
-				wfPoolSizes:     []int{10, 10, 10, 10},
-				vRegCounts:      []int{16384, 16384, 16384, 16384},
+				wfPoolSizes:     []int{8, 8, 8, 8},
+				vRegCounts:      []int{32768, 32768, 32768, 32768},
 				sRegCount:       3200,
 				ldsBytes:        64 * 1024,
 			}
@@ -510,70 +510,26 @@ func (b *Builder) buildL2Caches() {
 }
 
 func (b *Builder) buildDRAMControllers() {
-	dramBuilder := b.createDramControllerBuilder()
+	memBankSize := b.dramSize / uint64(b.numMemoryBank)
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
-		dram := dramBuilder.Build(dramName)
+		memBuilder := simplebankedmemory.MakeBuilder().
+			WithEngine(b.simulation.GetEngine()).
+			WithFreq(1 * sim.GHz).
+			WithNumBanks(16).
+			WithBankPipelineWidth(1).
+			WithBankPipelineDepth(1).
+			WithStageLatency(100).
+			WithLog2InterleaveSize(6)
+		if b.globalStorage != nil {
+			memBuilder = memBuilder.WithStorage(b.globalStorage)
+		} else {
+			memBuilder = memBuilder.WithNewStorage(memBankSize)
+		}
+		dram := memBuilder.Build(dramName)
 		b.simulation.RegisterComponent(dram)
 		b.drams = append(b.drams, dram)
 	}
-}
-
-func (b *Builder) createDramControllerBuilder() dram.Builder {
-	memBankSize := b.dramSize / uint64(b.numMemoryBank)
-	if b.dramSize%uint64(b.numMemoryBank) != 0 {
-		panic("GPU memory size is not a multiple of the number of memory banks")
-	}
-
-	dramCol := 64
-	dramRow := 16384
-	dramDeviceWidth := 128
-	dramBankSize := dramCol * dramRow * dramDeviceWidth
-	dramBank := 4
-	dramBankGroup := 4
-	dramBusWidth := 256
-	dramDevicePerRank := dramBusWidth / dramDeviceWidth
-	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
-	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
-
-	memCtrlBuilder := dram.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(500 * sim.MHz).
-		WithProtocol(dram.HBM).
-		WithBurstLength(4).
-		WithDeviceWidth(dramDeviceWidth).
-		WithBusWidth(dramBusWidth).
-		WithNumChannel(1).
-		WithNumRank(dramRank).
-		WithNumBankGroup(dramBankGroup).
-		WithNumBank(dramBank).
-		WithNumCol(dramCol).
-		WithNumRow(dramRow).
-		WithCommandQueueSize(8).
-		WithTransactionQueueSize(32).
-		WithTCL(7).
-		WithTCWL(2).
-		WithTRCDRD(7).
-		WithTRCDWR(7).
-		WithTRP(7).
-		WithTRAS(17).
-		WithTREFI(1950).
-		WithTRRDS(2).
-		WithTRRDL(3).
-		WithTWTRS(3).
-		WithTWTRL(4).
-		WithTWR(8).
-		WithTCCDS(1).
-		WithTCCDL(1).
-		WithTRTRS(0).
-		WithTRTP(3).
-		WithTPPD(2)
-
-	if b.globalStorage != nil {
-		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
-	}
-
-	return memCtrlBuilder
 }
 
 func (b *Builder) buildRDMAEngine() {
