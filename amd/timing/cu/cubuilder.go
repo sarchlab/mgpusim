@@ -48,7 +48,7 @@ func MakeBuilder() Builder {
 	b.log2CachelineSize = 6
 	b.numSinglePrecisionUnit = 16
 	b.vecMemInstPipelineStages = 6
-	b.vecMemTransPipelineStages = 10
+	b.vecMemTransPipelineStages = 60
 
 	return b
 }
@@ -137,7 +137,7 @@ func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
 }
 
 // WithVecMemTransPipelineStages sets the number of stages in the vector memory
-// transaction pipeline. The default is 10 (GCN3).
+// transaction pipeline. The default is 60 (GCN3).
 func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
 	b.vecMemTransPipelineStages = n
 	return b
