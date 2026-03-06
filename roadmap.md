@@ -35,70 +35,54 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Reduced H2D 14500→500, D2H 8500→300 for MI300A (unified memory)
 - Set constantKernelOverhead to 3600 (~2µs GPU-side dispatch)
 - Unlocked 4 new benchmarks: bitonicsort, matrixtranspose, fastwalshtransform, simpleconvolution(partial)
-- 13 benchmarks now produce results (vs 8 before)
-- Mean error: 120.1%, median: 55.6%
 
-### Baseline After M5 (42 matched data points, 13 benchmarks)
-| Benchmark | Avg |Error| | Direction | Status |
-|-----------|-------------|-----------|--------|
-| nw | 5.8% | ~neutral | ✅ Excellent |
-| spmv | 9.6% | ~neutral | ✅ Excellent |
-| matrixtranspose | 9.7% | sim<real | ✅ Excellent (NEW) |
-| matmul | 15.6% | sim>real | ✅ Good |
-| bitonicsort | 23.2% | sim<real | ✅ Good (NEW) |
-| fir | 35.9% | sim<real | ⚠️ Fair |
-| relu | 39.0% | sim<real | ⚠️ Fair |
-| vectoradd | 43.1% | sim<real | ⚠️ Fair |
-| floydwarshall | 67.2% | sim<real | ⚠️ Over-estimated |
-| kmeans | 77.8% | sim>real | ⚠️ Over-estimated |
-| fastwalshtransform | 111.2% | sim<real | ❌ Sim too fast (NEW) |
-| nbody | 136.5% | sim<real | ❌ Sim too fast |
-| stencil2d | 356.0% | sim>real, ~7x overestimate (not zero-work) | ❌ Accuracy issue |
-| atax | 542.7% | sim<real, ZERO WORK BUG | ❌ Broken |
+**M6** (merged, verified): VCCLO mask + MMU register corruption + FLAT SAddr fix
+- Fixed VCCLO write mask inversion (wavefront.go:317)
+- Fixed out-of-order memory response handling in computeunit.go
+- Fixed FLAT SAddr mode in timing: add scalar base + signed offset
+- vectoradd width>4096 now works, atax scaling verified
+- M6 benchmark results: 26 data points, mean error ~196%
 
-**Overall: mean 120.1%, median 55.6%, 31% within 25%**
+### Baseline After M6
+Error was measured at ~196% mean across 26 data points. However, M6 focused on correctness fixes rather than accuracy tuning. Many benchmarks still crash (nbody at all sizes, stencil2d at large sizes).
 
-## Investigation Results (Pre-M6)
+**Critical Discovery**: nbody and matrixmultiplication crash in CDNA3 **EMULATION** mode too (not just timing). This means the CDNA3 instruction emulation itself is broken. The human (issue #299) correctly suggested testing emulation first.
 
-### Issue #294: MMU Root Cause (Harper) — COMPLETE
-- **Root cause**: Asynchronous vector memory load responses overwrite VRegFile registers
-- v0 gets corrupted with stale data (0x9C000000) between correct computation and use
-- v_ashrrev_i32 then sign-extends the corrupted value → upper 32 bits = 0xFFFFFFFF
-- The only mechanism writing to VRegFile outside ALU is handleVectorDataLoadReturn
-- **Additional bug**: VCCLO write mask inverted at wavefront.go:317 (0x00000000ffffffff should be 0xFFFFFFFF00000000)
-- VRegOffset allocation verified correct (no overlap)
-- VCC per-wavefront storage verified correct
+## Active Phase: M7 Investigation
 
-### Issue #295: atax/stencil2d (Iris) — COMPLETE
-- **atax**: ALL wavefronts execute only 13 instructions (early-exit path). EXEC=0 for all WFs after s_and_saveexec_b64. SMEM loads for NX/NY likely return wrong data in timing mode. May be caused by VCCLO mask bug.
-- **stencil2d**: NOT a zero-work bug. Each WG does fixed 591 instructions for 16×64 tile. More WGs run in parallel on MI300A's 120 CUs. Constant time is correct GPU behavior. ~7x overestimate is a separate accuracy issue.
+### Problem Assessment
+The human's debugging suggestion (issue #299) revealed that:
+1. nbody crashes in CDNA3 emulation with 'page not found' at vAddr=0x11100
+2. matrixmultiplication crashes in CDNA3 emulation with 'page not found' at vAddr=0xc00c  
+3. Both work in GCN3 emulation
+4. The crashes are in FLAT instruction emulation (flatLoadDWordX4, flatLoadUShort)
 
-## Active Milestone
-
-### M6: Fix VCCLO mask + MMU register corruption + atax bug (Budget: 8 cycles)
-See issue #296 for full details.
-
-**Tasks**:
-1. Fix VCCLO write mask inversion (wavefront.go:317) — quick, high-confidence fix
-2. Re-test atax after VCCLO fix to see if it resolves the zero-work bug
-3. Fix or mitigate asynchronous load response register corruption (MMU crash root cause)
-4. Run full benchmark suite and collect updated error numbers
-
-**Acceptance criteria**:
-- vectoradd at width=16384 does NOT crash with page-not-found
-- atax shows scaling execution time across different problem sizes
-- All existing tests pass
-- Updated benchmark error numbers documented
+Before we can tune timing parameters, we MUST:
+1. Verify our disassembler matches llvm-objdump
+2. Fix CDNA3 emulation to produce correct results for ALL benchmarks
+3. Then compare emulation vs timing traces to find timing-specific issues
 
 ## Planned Milestones
 
-### M7: Accuracy Tuning + Larger Problem Sizes
-- After M6 fixes, re-benchmark at larger/realistic sizes
-- Address systematic errors: nbody, fastwalshtransform, kmeans, floydwarshall
-- DRAM model (HBM3 parameters), cache hierarchy tuning
-- Target: mean error < 50%
+### M7: Fix CDNA3 Emulation Correctness (Budget: 6-8 cycles)
+**Objective**: All benchmarks pass CDNA3 emulation with -verify
+**Tasks**:
+1. Compare disassembler output vs llvm-objdump for crashing benchmarks
+2. Fix FLAT address computation bugs in CDNA3 emulation
+3. Verify all benchmarks pass in CDNA3 emulation mode
+4. Document which benchmarks now work
 
-### M8: Final Accuracy Push
+### M8: Emulation vs Timing Trace Comparison (Budget: 4-6 cycles)
+- Use -debug-isa to dump instruction traces in both modes
+- Compare register values, addresses, instruction sequences
+- Find timing-specific correctness bugs
+
+### M9: Memory System Accuracy Tuning (Budget: 6-8 cycles)
+- HBM3 bandwidth modeling (current SimpleBankedMemory too slow at large sizes)
+- Cache hierarchy tuning
+- Address the systematic error where sim scales linearly with size while HW is nearly flat
+
+### M10: Final Accuracy Push (Budget: 4-6 cycles)
 - Fine-tune all parameters
 - Target: avg <20%, max <50%
 
@@ -109,12 +93,12 @@ See issue #296 for full details.
 - Development must stay in origin repo, not upstream
 - Page-not-found crashes caused by corrupted 64-bit FLAT addresses in timing mode
 - stencil2d constant timing is correct parallel GPU behavior, not a bug
-- atax zero-work is caused by timing-mode SMEM/VCC corruption, not kernel arg layout
+- atax zero-work was caused by timing-mode SMEM/VCC corruption, not kernel arg layout
 - Switch latency needed to be 15 (Infinity Fabric) not 140 (PCIe)
 - s_nop infinite loop was root cause for ALL hanging benchmarks
 - Kernel launch overhead was modeled wrong (CPU-side H2D delay vs GPU-side scheduler overhead)
-- Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles (budget was 6)
+- Cycle estimates: M1-M4 took ~20 cycles; M5 took ~5 cycles; M6 took ~8 cycles
 - M5 reduced mean error from 341% to 120% — overhead tuning + bug fixes have massive impact
-- MMU bug is the single biggest remaining blocker — prevents realistic benchmarking
-- Dedicated investigation cycles before defining milestones prevents wasted implementation effort
-- VCCLO mask bug (inverted bit mask) is a latent corruption source — always double-check bitwise operations
+- **CRITICAL**: MMU crashes happen in EMULATION mode too (not just timing) — emulation bugs must be fixed FIRST
+- Human's debugging suggestion (test emulation → compare disassembly → compare traces) is the correct systematic approach
+- Always test emulation correctness before investigating timing accuracy
