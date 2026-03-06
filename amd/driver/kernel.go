@@ -23,16 +23,26 @@ func (d *Driver) EnqueueLaunchKernel(
 	if dev.Type == internal.DeviceTypeUnifiedGPU {
 		d.enqueueLaunchUnifiedKernel(queue, co, gridSize, wgSize, kernelArgs)
 	} else {
-		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
+		dCoData, cached := d.codeObjGPUAddrs[co]
+		if !cached {
+			dCoData = d.AllocateMemory(queue.Context, uint64(len(co.Data)))
+			d.codeObjGPUAddrs[co] = dCoData
+		}
 
-		packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, packet)
+		dKernArgData := d.AllocateMemory(queue.Context, co.KernargSegmentByteSize)
+		packet := kernels.HsaKernelDispatchPacket{}
+		dPacket := d.AllocateMemory(queue.Context, uint64(binary.Size(packet)))
 
-		d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+		aqlPacket := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
+		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, aqlPacket)
+
+		if !cached {
+			d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+		}
 		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
-		d.EnqueueMemCopyH2D(queue, dPacket, packet)
+		d.EnqueueMemCopyH2D(queue, dPacket, aqlPacket)
 
-		d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
+		d.enqueueLaunchKernelCommand(queue, co, aqlPacket, dPacket)
 	}
 }
 

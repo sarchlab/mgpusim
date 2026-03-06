@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/tebeka/atexit"
@@ -59,6 +60,8 @@ type Driver struct {
 	isCurrentlyMigratingOnePage     bool
 
 	RemotePMCPorts []sim.Port
+
+	codeObjGPUAddrs map[*insts.KernelCodeObject]Ptr
 }
 
 // Run starts a new threads that handles all commands in the command queues
