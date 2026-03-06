@@ -48,29 +48,24 @@ Error was measured at ~196% mean across 26 data points. However, M6 focused on c
 
 **Critical Discovery**: nbody and matrixmultiplication crash in CDNA3 **EMULATION** mode too (not just timing). This means the CDNA3 instruction emulation itself is broken. The human (issue #299) correctly suggested testing emulation first.
 
-## Active Phase: M7 Investigation
+## Active Phase: M7 — Add gfx942 Kernel Support + Fix Emulation
 
-### Problem Assessment
-The human's debugging suggestion (issue #299) revealed that:
-1. nbody crashes in CDNA3 emulation with 'page not found' at vAddr=0x11100
-2. matrixmultiplication crashes in CDNA3 emulation with 'page not found' at vAddr=0xc00c  
-3. Both work in GCN3 emulation
-4. The crashes are in FLAT instruction emulation (flatLoadDWordX4, flatLoadUShort)
+### Investigation Results (Completed)
+Harper and Iris investigated the CDNA3 emulation crashes (issue #304). Key findings:
 
-Before we can tune timing parameters, we MUST:
-1. Verify our disassembler matches llvm-objdump
-2. Fix CDNA3 emulation to produce correct results for ALL benchmarks
-3. Then compare emulation vs timing traces to find timing-specific issues
+1. **Root cause**: nbody and matrixmultiplication only embed GCN3 (gfx803) kernel binaries. When run with `-arch cdna3`, the CDNA3 disassembler interprets `SAddr=0x00` as "use s[0:1]" (correct for CDNA3), but the GCN3 binary means "OFF" → garbage scalar base → page fault.
+2. **Disassembler is correct**: MGPUSim's CDNA3 disassembler matches llvm-objdump for all tested gfx942 encodings (one cosmetic print issue, no functional bugs).
+3. **18/21 benchmarks pass CDNA3 emulation** with `-verify`. Only nbody and matrixmultiplication crash (missing gfx942 kernels). aes fails verification (separate bug — wrong results with gfx942 kernel).
+4. **gfx942 hsaco binaries already exist** in `native/` directories for both nbody and matrixmultiplication.
 
-## Planned Milestones
-
-### M7: Fix CDNA3 Emulation Correctness (Budget: 6-8 cycles)
-**Objective**: All benchmarks pass CDNA3 emulation with -verify
+### M7: Add gfx942 Kernel Support + Fix Emulation Bugs (Budget: 6 cycles)
+**Objective**: All benchmarks pass CDNA3 emulation with `-verify`, and timing-mode benchmarks run for nbody and matrixmultiplication.
 **Tasks**:
-1. Compare disassembler output vs llvm-objdump for crashing benchmarks
-2. Fix FLAT address computation bugs in CDNA3 emulation
-3. Verify all benchmarks pass in CDNA3 emulation mode
-4. Document which benchmarks now work
+1. Add gfx942 kernel support to nbody benchmark (copy hsaco, add CDNA3 kernel args struct with hidden fields, add `Arch` field, conditional loading, update sample main.go)
+2. Add gfx942 kernel support to matrixmultiplication benchmark (same pattern)
+3. Investigate and fix aes emulation bug (wrong results with gfx942 kernel, possibly related to `global_load_sbyte` with SAddr)
+4. Verify all benchmarks pass CDNA3 emulation with `-verify`
+5. Run timing benchmark suite and report updated error measurements
 
 ### M8: Emulation vs Timing Trace Comparison (Budget: 4-6 cycles)
 - Use -debug-isa to dump instruction traces in both modes
