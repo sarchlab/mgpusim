@@ -534,15 +534,19 @@ func (cu *ComputeUnit) processInputFromScalarMem() bool {
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.InFlightScalarMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightScalarMemAccess {
+		if info.Req != nil && info.Req.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightScalarMemAccess[0]
+	info := cu.InFlightScalarMemAccess[matchIdx]
 	req := info.Req
-	if req.ID != rsp.RespondTo {
-		return
-	}
 
 	wf := info.Wavefront
 	access := RegisterAccess{
@@ -553,7 +557,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	}
 	cu.SRegFile.Write(access)
 
-	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
+	cu.InFlightScalarMemAccess = append(
+		cu.InFlightScalarMemAccess[:matchIdx],
+		cu.InFlightScalarMemAccess[matchIdx+1:]...)
 
 	tracing.TraceReqFinalize(req, cu)
 
@@ -590,21 +596,21 @@ func (cu *ComputeUnit) processInputFromVectorMem() bool {
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.InFlightVectorMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightVectorMemAccess {
+		if info.Read != nil && info.Read.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[0]
-
-	if info.Read == nil {
-		return
-	}
-
-	if info.Read.ID != rsp.RespondTo {
-		return
-	}
-
-	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	info := cu.InFlightVectorMemAccess[matchIdx]
+	cu.InFlightVectorMemAccess = append(
+		cu.InFlightVectorMemAccess[:matchIdx],
+		cu.InFlightVectorMemAccess[matchIdx+1:]...)
 	tracing.TraceReqFinalize(info.Read, cu)
 
 	wf := info.Wavefront
@@ -640,21 +646,21 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	rsp *mem.WriteDoneRsp,
 ) {
-	if len(cu.InFlightVectorMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightVectorMemAccess {
+		if info.Write != nil && info.Write.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[0]
-
-	if info.Write == nil {
-		return
-	}
-
-	if info.Write.ID != rsp.RespondTo {
-		return
-	}
-
-	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	info := cu.InFlightVectorMemAccess[matchIdx]
+	cu.InFlightVectorMemAccess = append(
+		cu.InFlightVectorMemAccess[:matchIdx],
+		cu.InFlightVectorMemAccess[matchIdx+1:]...)
 	tracing.TraceReqFinalize(info.Write, cu)
 
 	wf := info.Wavefront
