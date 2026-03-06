@@ -30,6 +30,11 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 - **Memory**: HBM3, modeled as SimpleBankedMemory with 16 banks
 - **VecMem pipeline**: inst=2, trans=4 stages (MI300A specific)
 
+## Notes
+
+- **GPU-side command queueing** (human issue #286): Real MI300A stores commands in a GPU-side stream so the GPU picks up tasks without CPU↔GPU round-trip communication. Consider implementing GPU-side queueing if kernel launch overhead is too high. Also, check and tune the fixed overhead values for kernel launching and memory copy operations.
+- **Fixed overhead tuning**: The driver currently uses hardcoded `cyclesPerH2D=14500` and `cyclesPerD2H=8500` for memory copy middleware. These should be validated against real hardware behavior and tuned if necessary. Kernel launch dispatch also has overhead from the CPU→GPU→CPU message round-trip that should be examined.
+
 ## Resources
 
 - CDNA3 ISA documentation: `docs/amd-instruct-mi300-cdna3-instruction-set-architecture.pdf`
@@ -38,3 +43,5 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 - Benchmark comparison tool: `gpu_perf_scripts/compare_sim_vs_real.py`
 - Simulation runner: `gpu_perf_scripts/run_sim_benchmarks.sh`
 - M3 benchmark results: `docs/mi300a_m3_benchmark_results.md`
+- M4 benchmark results: `docs/mi300a_m4_benchmark_results.md`
+- MMU investigation: `docs/mmu_page_not_found_investigation.md`

@@ -23,76 +23,68 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Updated compare script to symmetrical error formula
 - 33 benchmark data points across 8 benchmarks documented
 
-### M3 Baseline Results (Current Accuracy)
+**M4** (merged, verified): Kernel launch + interconnect fixes
+- Cached kernel code object GPU addresses across launches
+- Fixed memRangeOverlap adjacency bug (> instead of >=)
+- Investigated MMU page-not-found panics (corrupted 64-bit FLAT addresses in timing mode)
+- Reduced MI300A switch latency from 140→15 (Infinity Fabric, not PCIe)
+- storageAccessor.Write bug fixed
+
+### M4 Results (Current Accuracy — 27 data points, 8 benchmarks)
 | Benchmark | Avg |Error| | Direction | Key Issue |
 |-----------|-------------|-----------|-----------|
-| fir | 11.7% | too fast | Only 1 data point |
-| relu | 21.9% | too fast | Small sizes only |
-| nw | 27.2% | too slow | Error grows with size (4%→67%) |
-| vectoradd | 46.2% | too fast | Sim misses HW overhead floor |
-| matmul | 66.2% | too slow | Error grows with size (17%→119%) |
-| floydwarshall | 75.4% | too fast | |
-| nbody | 138.8% | too fast | Scaling correct, absolute ~2.5× off |
-| stencil2d | 678.4% | too slow | Sim time constant ~0.048ms regardless of size |
+| matmul | 5.6% | ~neutral | ✅ Excellent |
+| nw | 5.8% | ~neutral | ✅ Excellent |
+| fir | 166.7% | too fast | Limited data (1 point) |
+| stencil2d | 194.7% | too slow | Launch overhead |
+| nbody | 210.0% | too slow | Overestimated |
+| relu | 235.6% | too fast | Launch overhead dominated |
+| vectoradd | 242.7% | too fast | Launch overhead dominated |
+| floydwarshall | 442.4% | too fast | Small absolute times |
 
-**Overall: avg 155.6%, median 66.7%**
+**Overall: avg 156.9% error, median 205.4%**
 
-### Investigation Findings (Pre-M4)
+### Blake's Broader Baseline (51 data points, upstream/gfx942_emu branch)
+- Mean absolute error: 75.7%, median: 71.5%
+- Best: matmul/nw/vectoradd. Worst: kmeans, nbody, matmul at large sizes
+- 7 benchmarks timeout (bfs, bitonicsort, conv2d, fft, fwt, im2col, matrixtranspose, simpleconvolution)
+- bicg page fault, atax constant time
 
-#### Stencil2D Root Cause (Emma + Harper)
-- **Per-kernel-launch code object re-allocation** in `amd/driver/kernel.go:14-37`
-- Every `LaunchKernel` allocates NEW GPU memory for kernel binary → instruction TLB + cache misses every time
-- Creates fixed ~48µs overhead (5 launches × ~9.6µs each) regardless of problem size
-- Fix: Cache `dCoData` per kernel code object — reuse address across launches
-
-#### memRangeOverlap Bug
-- `amd/driver/memorycopy.go:159-171` uses `>=` instead of `>` for adjacency check
-- Adjacent (non-overlapping) buffers falsely trigger full GPU cache flushes
-- Fix: Change to strict inequality
-
-#### MMU Page-Not-Found Panics (NOT YET INVESTIGATED)
-- Blocks testing at larger problem sizes across all benchmarks
-- Investigation still needed — root cause unknown
-
-### Critical Blockers
-1. **MMU page-not-found panics** crash at larger problem sizes
-2. **stencil2d** has ~8× overhead from kernel re-allocation
+### Key Problems
+1. **Fixed overhead mismatch**: relu/vectoradd/fir show sim too fast — sim doesn't model real kernel dispatch overhead floor (~4µs on real HW)
+2. **Compute overestimate**: nbody/stencil2d show sim too slow — memory/compute timing too pessimistic
+3. **Many benchmarks broken**: timeouts (7 benchmarks), page faults (bicg, pagerank), constant time (atax)
+4. **MMU page faults** limit testable sizes for working benchmarks
+5. **CPU-side queueing architecture** (human issue #286): sim uses CPU↔GPU round-trip per command; real HW uses GPU-side streams
 
 ## Active Milestones
 
-### M4: Fix Kernel Launch Overhead + memRangeOverlap + MMU Investigation (CURRENT)
-- **Budget**: 8 cycles
-- **Tasks**:
-  1. Cache kernel code object address across launches in `amd/driver/kernel.go` (eliminates stencil2d constant overhead)
-  2. Fix `memRangeOverlap` adjacency bug in `amd/driver/memorycopy.go`
-  3. Investigate MMU page-not-found panics — find root cause, fix if feasible
-  4. Re-run all benchmarks and update results
-- **Acceptance criteria**:
-  - stencil2d error < 200% (down from 678%)
-  - memRangeOverlap bug fixed (strict inequality)
-  - MMU root cause documented; if fixable, at least one benchmark runs at previously-crashing sizes
-  - All existing benchmarks still work (no regression)
-  - Updated benchmark results committed
+### M5: Kernel Launch Overhead & Broader Benchmark Coverage (PLANNING)
+- **Focus areas**:
+  1. Investigate and tune kernel launch overhead (fixed overhead floor mismatch)
+  2. Investigate GPU-side queueing vs CPU-side queueing (human issue #286)
+  3. Investigate why 7+ benchmarks timeout/hang
+  4. Run comprehensive benchmark suite on current main to establish accurate baseline
+- **Status**: Under investigation — need data before defining concrete acceptance criteria
 
 ## Planned Milestones
 
-### M5: Improve Compute-Heavy Benchmarks (nbody, matmul, floydwarshall)
-- Target nbody absolute timing (currently 2.5× too fast)
-- Target matmul scaling issue (error grows with size)
-- Investigate memory bandwidth modeling for compute-heavy workloads
-- **Budget**: 8 cycles
+### M6: Compute Accuracy (nbody, stencil2d, kmeans)
+- Address overestimation in compute-heavy benchmarks
+- Target nbody/stencil2d from ~200% to <50%
 
-### M6: Parameter Tuning and Final Optimization
-- Fine-tune DRAM, cache, pipeline parameters
-- Target: avg sym error < 20%, max < 50%
-- **Budget**: 8 cycles
+### M7: Memory Subsystem Tuning
+- DRAM model accuracy (HBM3 parameters)
+- Cache hierarchy tuning
+- Target: avg <20%, max <50%
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
 - Symmetrical error penalizes both over and underestimates more equally
 - Small problem sizes are dominated by kernel launch overhead, not compute
 - Development must stay in origin repo, not upstream
-- Page-not-found crashes severely limit the range of testable problem sizes
-- Stencil2d constant timing is caused by per-launch code re-allocation, not a dispatch issue
-- Both independent investigators (Emma, Harper) converged on same root cause — high confidence
-- Harper was assigned MMU task but investigated stencil2d instead — need clearer task assignment
+- Page-not-found crashes caused by corrupted 64-bit FLAT addresses in timing mode
+- Stencil2d constant timing was caused by per-launch code re-allocation
+- Switch latency needed to be 15 (Infinity Fabric) not 140 (PCIe)
+- M4 accuracy was measured on only 27 points across limited size ranges — need broader coverage
+- Many benchmarks that worked in emu mode timeout in timing mode — likely instruction dispatch issues
