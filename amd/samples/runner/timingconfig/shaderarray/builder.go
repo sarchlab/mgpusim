@@ -456,11 +456,11 @@ func (b *Builder) buildL1VCaches() {
 	builder := writearound.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBankLatency(60).
+		WithBankLatency(20).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
+		WithNumMSHREntry(32).
 		WithTotalByteSize(16 * mem.KB).
 		WithAddressToPortMapper(b.l1AddressMapper)
 

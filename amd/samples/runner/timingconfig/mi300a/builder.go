@@ -487,7 +487,9 @@ func (b *Builder) buildL2Caches() {
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
 		WithNumMSHREntry(64).
-		WithNumReqPerCycle(16)
+		WithNumReqPerCycle(16).
+		WithBankLatency(50).
+		WithDirectoryLatency(4)
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)

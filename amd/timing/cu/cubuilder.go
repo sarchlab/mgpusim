@@ -234,7 +234,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", 8)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		60, 1,
+		10, 1,
 		vectorMemoryUnit.postTransactionPipelineBuffer)
 
 	for i := 0; i < b.simdCount; i++ {
