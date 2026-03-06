@@ -62,8 +62,6 @@ type Driver struct {
 	RemotePMCPorts []sim.Port
 
 	codeObjGPUAddrs map[*insts.KernelCodeObject]Ptr
-	kernArgGPUAddrs map[*insts.KernelCodeObject]Ptr
-	packetGPUAddrs  map[*insts.KernelCodeObject]Ptr
 }
 
 // Run starts a new threads that handles all commands in the command queues

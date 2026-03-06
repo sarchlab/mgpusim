@@ -115,8 +115,6 @@ func (b Builder) Build(name string) *Driver {
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
 	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
-	driver.kernArgGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
-	driver.packetGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 
 	b.createCPU(driver)
 
