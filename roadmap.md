@@ -72,29 +72,50 @@ Root cause: Upper 32 bits of 64-bit FLAT addresses get corrupted to 0xFFFFFFFF i
 
 ## Planned Milestones
 
-### M8: Fix Timing-Mode Address Corruption (Budget: 8 cycles)
-**Objective**: Fix the MMU page-not-found bug in timing mode so benchmarks can run at realistic sizes.
-**Investigation** (Athena's team, pre-milestone):
-- Harper: Investigate scratchpadpreparer.go register corruption for FLAT instructions
-- Emma: Compare ISA debug traces between emulation and timing mode
-- Blake: Systematic benchmark crash survey to understand scope
-**Tasks** (for Ares):
-- Fix the root cause of 64-bit FLAT address corruption in timing mode
-- Verify vectoradd works at width >= 65536
-- Verify nbody runs in timing mode
-- Verify stencil2d works at larger sizes
-- Run expanded benchmark suite with many more data points
+### M8: Remove Timing-Side Scratchpad Preparer (Budget: 8 cycles)
+**Objective**: Per human directive (issue #317), remove ALL scratchpad-related code from the timing side. The scratchpad mechanism is a legacy data-copying layer that is now redundant (ALU reads/writes directly via InstEmuState) and is the suspected root cause of timing-mode register corruption bugs.
 
-### M9: Expand Benchmark Coverage + Memory System Tuning (Budget: 6-8 cycles)
-- Add gfx942 kernel support to remaining benchmarks (fir, floydwarshall, kmeans, etc.)
-- HBM3 bandwidth modeling improvements
-- Cache hierarchy tuning
+**What to remove/change**:
+1. **Delete `amd/timing/cu/scratchpadpreparer.go`** — the ScratchpadPreparer interface and implementation
+2. **Delete `amd/timing/wavefront/scratchpad.go`** — the Scratchpad type and all layout structs
+3. **Update all CU units** to remove scratchpadPreparer dependency:
+   - `simdunit.go`: Remove Prepare/Commit calls around alu.Run()
+   - `branchunit.go`: Remove Prepare/Commit calls 
+   - `scalarunit.go`: Remove Prepare call in read stage, Commit call in write stage
+   - `ldsunit.go`: Remove Prepare/Commit calls
+   - `vectormemoryunit.go`: Remove Prepare calls before coalescer
+4. **Fix `defaultcoalescer.go`** — currently reads EXEC/ADDR/DATA from scratchpad. Must read directly from wavefront's register file using ReadOperand
+5. **Fix `computeunit.go` handleVectorDataLoadReturn** — currently writes to scratchpad DST. Must write directly to register file
+6. **Remove scratchpad field from wavefront.go** and the Scratchpad() method
+7. **Update cubuilder.go** — remove scratchpadPreparer creation and passing
+
+**Why this matters**: The scratchpad is the suspected cause of register corruption bugs (upper 32 bits of 64-bit FLAT addresses corrupted to 0xFFFFFFFF). Removing it eliminates an entire class of bugs and simplifies the codebase.
+
+**Acceptance criteria**:
+- No references to ScratchpadPreparer, Scratchpad(), or scratchpad layouts remain in timing code
+- `go build ./...` passes
+- `go test ./amd/...` passes
+- vectoradd works in timing mode at various sizes with -verify
+- matrixmultiplication works in timing mode with -verify
+
+### M9: Run Full Benchmark Suite + Fix Timing Crashes (Budget: 6-8 cycles)
+- Run all 19 benchmarks in timing mode at multiple sizes
+- Fix remaining crashes/hangs (vectoradd hang >=4032, nbody crash, stencil2d wrong results)
+- Collect comprehensive timing accuracy data
 - Address systematic over-simulation for memory-bound workloads
 
-### M10: Final Accuracy Push (Budget: 4-6 cycles)
-- Fine-tune all parameters
+### M10: Memory System Tuning + Final Accuracy Push (Budget: 4-6 cycles)
+- HBM3 bandwidth modeling improvements
+- Cache hierarchy tuning
 - GPU-side command queueing (issue #286) if kernel launch overhead remains too high
+- Fine-tune all parameters
 - Target: avg <20%, max <50%
+
+### M8 Investigation Results (Athena's team, cycle 312-313)
+- **Emma** (trace comparison): Emu vs timing traces match at width=1024. Reported the MMU page-not-found bug may be fixed for vectoradd at previously-failing sizes.
+- **Harper** (scratchpad analysis): Found 2 confirmed bugs — SAddr=0 mishandling in prepareFlat, and VCCHI mask inversion. Neither triggers for vectoradd specifically, but the scratchpad is a complex data-copying layer that introduces risk.
+- **Blake** (crash survey): vectoradd works up to 3968, hangs >=4032. nbody gfx942 crashes immediately. stencil2d has wrong results at 512. Three distinct failure modes: MMU panic, hang/timeout, wrong results.
+- **Human directive** (issue #317): Remove ALL scratchpad-related code from timing side — this supersedes the previous M8 plan of just fixing specific corruption bugs.
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
@@ -113,3 +134,5 @@ Root cause: Upper 32 bits of 64-bit FLAT addresses get corrupted to 0xFFFFFFFF i
 - Human's debugging suggestion (test emulation → compare disassembly → compare traces) is the correct systematic approach
 - Always test emulation correctness before investigating timing accuracy
 - matrixmultiplication accuracy at 8.5-20.7% shows compute pipeline is well-modeled — main issues are in memory subsystem and overhead
+- **Scratchpad removal is both cleanup AND bug fix** — the scratchpad was a data-copying indirection layer. Since the ALU now reads/writes directly through InstEmuState (ReadOperand/WriteOperand), the scratchpad layer is redundant and introduced corruption bugs. Human confirmed it should be removed entirely.
+- The human watches the codebase closely — architectural decisions should be clean and principled, not band-aid fixes
