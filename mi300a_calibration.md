@@ -117,7 +117,12 @@ This controls the buffer size on connections between CU, ROB, Address Translator
 | fft1D_512 | 3 | 218.2% | Poor — sim 3x too slow, likely multi-kernel overhead |
 | stencil2d | 7 | 439.3% | Very poor — 5x too slow, multi-kernel + LDS overhead |
 
-**Overall (65 points):** avg |error| = 104.3%, median = 35.3%
+**v1 (65 points):** avg |error| = 104.3%, median = 35.3%, within 50% = 64.6%
+**v2 (65 points, corrected stencil2d/fft):** avg |error| = **58.2%**, median = **35.3%**, within 50% = **69.2%**
+
+v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1` (was 2).
+- stencil2d avg error: 439% → 62%
+- fft avg error: 218% → 102%
 
 ---
 
@@ -128,10 +133,9 @@ This controls the buffer size on connections between CU, ROB, Address Translator
 - **Why:** Even with memPipelineBufferSize=32, the CU vector memory pipeline can only issue 1 memory instruction per 2 cycles per SIMD. For streaming workloads with pure memory operations, this is the bottleneck.
 - **Fix needed:** Model wider memory instruction issue or investigate CU pipeline occupancy
 
-### 2. Multi-Kernel Overhead (stencil2d, fft)
-- **Root cause:** constantKernelOverhead (3600) + constantKernelLaunchOverhead accumulate across multiple kernel launches
-- **Why:** Stencil2d runs 5 kernel iterations. Total overhead = 34200 cycles = 19 μs, but real hardware does the entire benchmark in ~6 μs.
-- **Fix needed:** Reduce post-kernel overhead or model overlapped kernel dispatch
+### 2. FFT Still ~2x Too Slow
+- **Root cause:** Even with -passes 1, fft1D_512 shows ~102% avg error. The butterfly memory pattern and multiple-workgroup dispatch overhead are overestimated.
+- **Fix needed:** Profile FFT kernel execution to identify if it's memory latency or dispatch overhead
 
 ### 3. DRAM Bandwidth Gap
 - **Root cause:** Simulated DRAM bandwidth (~65 GB/s) vs real MI300A HBM3 (5.3 TB/s)
