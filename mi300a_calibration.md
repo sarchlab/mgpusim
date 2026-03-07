@@ -113,11 +113,16 @@ The previous config provided essentially unlimited DRAM bandwidth (65 TB/s), mea
 
 **Rationale:** Real GPU kernel launches involve driver overhead, command processor setup, CU initialization, and cache/TLB warmup. The first kernel pays the full cost; subsequent kernels benefit from warmed caches and pre-configured state.
 
-### constantKernelOverhead = 3600 cycles (post-kernel completion)
+### constantKernelOverhead = 1800 cycles (MI300A), default 3600 cycles
 
-**Source:** Default value, models kernel completion and cleanup overhead.
+**Source:** Calibrated against real MI300A hardware measurements.
 
-**Known issue:** For multi-kernel benchmarks like stencil2d (5 iterations), this adds significant overhead that may not reflect real hardware behavior. Total overhead per stencil2d run: 34200 cycles = 19 μs, whereas real hardware completes in ~6 μs total.
+- Default (dispatching builder): 3600 cycles (2.0 μs at 1.8 GHz)
+- MI300A override: 1800 cycles (~1.0 μs at 1.8 GHz)
+
+**Rationale:** Real MI300A post-completion overhead is ~1 μs based on HW measurement analysis. The default of 3600 cycles was too conservative, adding excessive overhead especially for multi-kernel benchmarks. The MI300A builder now explicitly sets this to 1800 via `WithConstantKernelOverhead(1800)` on the CP builder, which passes it through to the dispatching builder.
+
+**Known issue:** For multi-kernel benchmarks like stencil2d (5 iterations), kernel overhead adds up and may not reflect real hardware behavior. Reducing from 3600 to 1800 cycles helps but total overhead per stencil2d run may still be significant.
 
 ---
 
