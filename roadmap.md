@@ -83,25 +83,33 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 
 ## Planned Milestones
 
-### M10: Merge M9.1 + CI Infrastructure + Memory Bandwidth Fix (Budget: 8 cycles)
-**Goal**: Merge M9.1 to main. Create GitHub Actions benchmark workflow. Fix the DRAM bandwidth modeling gap for streaming workloads.
+### M10: COMPLETE ✅ (budgeted 8, used 2)
+- Merged M9.1 to main
+- Created GitHub Actions benchmark workflow (.github/workflows/benchmark.yml) with 11 parallel jobs
+- Fixed DRAM bandwidth: BPW=1, depth=10, SL=3 → 5.46 TB/s (matches MI300A HBM3 5.3 TB/s)
+- Updated mi300a_calibration.md with evidence
+- **CI Results (run 22804545319)**: 26/453 matched points, avg error 31.7%, max 80.3%
+- Per-kernel: matmul 4.8%, vectoradd 24.5%, relu 27.4%, matrixtranspose 35.3%, FWT 39.5%, stencil2d 59.6%
+- **Critical finding**: Most benchmarks (atax, bicg, fft, fir) crash with exit code 2 due to wrong CLI flags in benchmark.yml. nbody crashes with MMU panic.
+
+### M11: Fix CI Benchmark Workflow + Expand Coverage (Budget: 6 cycles)
+**Goal**: Fix the broken benchmark flags, add missing benchmarks to CI, achieve >60 matched data points.
 
 **Deliverables**:
-1. **Merge M9.1** to main via PR
-2. **GitHub Actions benchmark workflow** — a workflow that runs all benchmarks in parallel jobs, collects CSVs, runs comparison script, and posts accuracy summary. Workers will trigger this workflow and check results later.
-3. **Fix DRAM bandwidth** — Per Alex's analysis, change SimpleBankedMemory params: BankPipelineWidth 4→1, StageLatency 1→3. This reduces per-controller throughput to ~341 GB/s × 16 = ~5.5 TB/s (matching real MI300A 5.3 TB/s). Currently the DRAM model has unlimited bandwidth, but the real bottleneck is per-CU pipeline; with the DRAM fix, large streaming workloads should see improvement.
-4. **Update mi300a_calibration.md** with evidence for DRAM parameter changes
+1. Fix benchmark.yml flag errors (atax: -x/-y, bicg: -x/-y, fft: -MB, fir: remove -taps)
+2. Add new benchmarks: bitonicsort, floydwarshall, nw, simpleconvolution, pagerank, kmeans
+3. Document nbody MMU crash (try small sizes)
+4. Trigger CI run and report comprehensive accuracy results
 
-**Expected impact**: vectoradd/relu large sizes should improve significantly. Target: avg <45%.
+**Expected impact**: 60+ matched data points, true accuracy picture. No parameter changes.
 
-### M11: Targeted Accuracy Push (Budget: 8 cycles)
-- Based on M10 results, target remaining high-error benchmarks
+### M12: Targeted Accuracy Push (Budget: 8 cycles)
+- Based on M11 comprehensive results, target remaining high-error benchmarks
 - Consider log2PageSize=21 (huge pages) for TLB-heavy workloads (FFT, stencil2d)
-- Consider per-CU memory pipeline improvements
 - Evidence-based tuning with microbenchmarks per human issue #343
 - Target: avg <30%
 
-### M12: MFMA Support + Final Accuracy (Budget: 10 cycles)
+### M13: MFMA Support + Final Accuracy (Budget: 10 cycles)
 - Implement MFMA (matrix fused multiply-add) instructions for matrixmultiplication accuracy
 - GPU-side command queueing if kernel launch overhead still dominant
 - Final parameter tuning
@@ -132,4 +140,6 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **M9.1 lesson**: stencil2d and fft defaults (iter=5, passes=2) didn't match real HW measurement methodology. Always verify benchmark settings match the reference data.
 - **Operational lesson**: Human explicitly demands we stop running simulations on the host (OOM, issue #346) and use GitHub Actions instead. Must create CI workflows for benchmark evaluation.
 - **Operational lesson**: Parameter tuning must be evidence-based (issue #343). Create microbenchmarks, cite documentation, document decisions in mi300a_calibration.md.
-- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6
+- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2
+- **M10 lesson**: Always verify CI workflow output. The workflow was created but 4/11 benchmarks had wrong CLI flags (atax used -row/-col instead of -x/-y, fft used -length instead of -MB, fir used nonexistent -taps flag). This wasted the entire CI run for those benchmarks.
+- **M10 lesson**: Coverage matters more than accuracy at this stage. With only 26/453 matched points (5.7%), we don't have enough data to make good accuracy decisions. Expanding coverage first gives us a true picture.
