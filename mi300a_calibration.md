@@ -5,8 +5,8 @@
 This document records the calibration decisions for the MI300A timing model in MGPUSim.
 Each parameter is documented with its source, rationale, and impact on accuracy.
 
-**Branch:** `ares/m9.1-spu16-membuf32`  
-**Date:** 2026-03-07  
+**Branch:** `ares/m10-dram-fix-and-ci` (builds on M9.1)  
+**Date:** 2026-03-07 (M9.1), 2026-03-08 (M10 DRAM fix)  
 
 ---
 
@@ -69,16 +69,35 @@ This controls the buffer size on connections between CU, ROB, Address Translator
 
 ## DRAM Configuration
 
-### BankPipelineWidth = 4, StageLatency = 1
+### M10 Fix: BankPipelineWidth = 1, BankPipelineDepth = 10, StageLatency = 3
 
-**Source:** Calibrated based on MI300A HBM3 specifications.
+**Source:** Calibrated to match MI300A HBM3 specifications. Verified by source code analysis of SimpleBankedMemory (issue #352, Iris's analysis).
 
-- MI300A uses HBM3 memory with ~5.3 TB/s aggregate bandwidth
-- 16 DRAM controllers, each with 16 internal banks
-- Pipeline width=4 with stage latency=1 provides reasonable throughput per bank
-- Combined with 1 GHz DRAM frequency
+**Previous values (M9.1):** BPW=4, depth=20, SL=1 → 65.5 TB/s simulated (12× too fast)
 
-**Known limitation:** The effective simulated DRAM bandwidth (~65 GB/s) is much lower than MI300A's 5.3 TB/s. This causes significant error for streaming workloads that miss L2 cache (vectoradd/relu at large sizes). Improving DRAM bandwidth modeling is a priority for future milestones.
+**New values (M10):** BPW=1, depth=10, SL=3 → 5.46 TB/s simulated (matches 5.3 TB/s real)
+
+#### Pipeline Throughput Analysis (SimpleBankedMemory source code)
+
+The `Pipeline` in `pipelining/pipeline.go` has `[width][numStage]` slots. Steady-state throughput per lane is `1/cyclePerStage` requests/cycle. Per-bank throughput is `width/cyclePerStage`.
+
+| Metric | M9.1 (old) | M10 (new) | Real MI300A |
+|--------|------------|-----------|-------------|
+| Per-bank throughput | 4/1 = 4 req/cycle | 1/3 = 0.333 req/cycle | — |
+| Per-controller BW (16 banks × 64B) | 4,096 GB/s | 341 GB/s | ~331 GB/s |
+| Total system BW (16 controllers) | 65.5 TB/s | 5.46 TB/s | 5.3 TB/s |
+| Access latency (depth × SL) | 20 ns | 30 ns | 30–40 ns |
+
+#### Evidence
+
+1. **AMD MI300A HBM3 bandwidth:** 5.3 TB/s aggregate (8 stacks × 8-Hi HBM3, per AMD Instinct MI300 Series datasheet)
+2. **HBM3 access latency:** ~30-40 ns (per JEDEC HBM3 specification and published measurements)
+3. **Source code verification:** `SimpleBankedMemory.finalizeBanks()` drains `postPipelineBuf` entries, each producing a 64-byte response. Pipeline accept rate = `width` items per `cyclePerStage` cycles (confirmed by `Pipeline.CanAccept()` and `Pipeline.Accept()` in `pipelining/pipeline.go`)
+4. **Per-controller calculation:** 16 banks × (1/3 req/cycle) × 64 bytes/req × 1 GHz = 341 GB/s. 16 controllers × 341 GB/s = 5,461 GB/s ≈ 5.46 TB/s
+
+#### Impact
+
+The previous config provided essentially unlimited DRAM bandwidth (65 TB/s), meaning memory-bound workloads were bottlenecked only by CU-side pipeline limits. This was incorrect for streaming workloads (vectoradd, relu) where DRAM bandwidth should be the limiting factor at high occupancy. The fix correctly introduces DRAM as a bandwidth constraint matching real hardware.
 
 ---
 
@@ -137,16 +156,17 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 - **Root cause:** Even with -passes 1, fft1D_512 shows ~102% avg error. The butterfly memory pattern and multiple-workgroup dispatch overhead are overestimated.
 - **Fix needed:** Profile FFT kernel execution to identify if it's memory latency or dispatch overhead
 
-### 3. DRAM Bandwidth Gap
-- **Root cause:** Simulated DRAM bandwidth (~65 GB/s) vs real MI300A HBM3 (5.3 TB/s)
-- **Why:** The simple banked memory model cannot represent HBM3's stacked architecture
-- **Fix needed:** Higher-fidelity HBM3 model or calibrated bandwidth scaling
+### 3. DRAM Bandwidth Gap — FIXED in M10
+- **Root cause:** Simulated DRAM bandwidth was 65.5 TB/s (12× too fast)
+- **Fix (M10):** Changed BPW=4→1, depth=20→10, SL=1→3. Now 5.46 TB/s (matches 5.3 TB/s real)
+- **Status:** Fixed. See DRAM Configuration section above for full analysis.
 
 ---
 
 ## Future Work
 
 1. **Microbenchmark validation:** Create targeted microbenchmarks to measure specific parameters (L1/L2 latency, DRAM bandwidth, kernel launch overhead) on real MI300A hardware
-2. **DRAM bandwidth model:** Replace simple banked memory with HBM3-aware model
+2. ~~**DRAM bandwidth model:** Replace simple banked memory with HBM3-aware model~~ — **DONE in M10** (calibrated existing model to 5.46 TB/s)
 3. **CU memory throughput:** Investigate why CU memory instruction issue rate is the bottleneck
 4. **Multi-kernel overhead:** Profile real hardware kernel launch sequences to calibrate overlap model
+5. **CI-based benchmarking:** Use `.github/workflows/benchmark.yml` for all future benchmark runs (added in M10)

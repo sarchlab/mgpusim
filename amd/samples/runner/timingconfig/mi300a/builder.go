@@ -533,9 +533,9 @@ func (b *Builder) buildDRAMControllers() {
 			WithEngine(b.simulation.GetEngine()).
 			WithFreq(1 * sim.GHz).
 			WithNumBanks(16).
-			WithBankPipelineWidth(4).
-			WithBankPipelineDepth(20).
-			WithStageLatency(1).
+			WithBankPipelineWidth(1).
+			WithBankPipelineDepth(10).
+			WithStageLatency(3).
 			WithLog2InterleaveSize(6).
 			WithTopPortBufferSize(64).
 			WithPostPipelineBufferSize(4)
