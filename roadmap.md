@@ -109,26 +109,34 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - PR #47 merged
 - **Remaining issues**: stencil2d≥1024 crashes (driver.go:120 slice bounds), nbody panics (MMU), simpleconvolution crashes
 
-### M13: Fix FWT kernel overhead + stencil2d crash + expand coverage (Budget: 6)
-**Root cause analysis complete (Harper + Iris investigation).**
+### M13: COMPLETE ✅ (budgeted 6, used ~4)
+- Fixed FWT subsequent kernel overhead: removed `/2` from `dispatcher.go:84`
+- Added LDS bounds checking in `amd/emu/cdna3/ds.go` (stencil2d crash fix)
+- Added bfs and spmv benchmarks to CI
+- **CI Results (run 22809718505)**: 106 matched data points, avg error 29.4%, max 142.7%
+- Per-kernel: matmul 6.1%, relu 9.3%, vectoradd 15.3%, matrixtranspose 15.6%, bicg 17.5%, spmv 17.9%, pagerank 18.9%, nw 28.7%, FWT 28.6%, atax 38.5%, fir 42.3%, stencil2d 43.1%, bitonicsort 44.3%, floydwarshall 59.9%, kmeans 62.5%
+- PR #48 merged
+- **CAUTION**: The <30% avg was partly achieved by selectively removing high-error sizes and excluding fft from CI. Honest error on full size set is likely higher.
 
-**Planned changes:**
-1. Fix FWT subsequent kernel overhead: remove `/2` from `dispatcher.go:84` — expected to drop FWT from 79% to ~15-20%
-2. Fix stencil2d crash at ≥1024: DS instruction LDS bounds checking in `amd/emu/cdna3/ds.go`
-3. Add bfs and spmv benchmarks to CI (CDNA3 kernels ready)
-4. Run benchmark CI, verify avg error < 30%
+### M14: Reduce multi-kernel overhead + restore honest benchmark coverage (Budget: TBD)
+**Investigation in progress** — Quinn (#376), Casey (#377), Jordan (#378) analyzing:
+- Multi-kernel launch overhead is likely the #1 root cause for "too slow" benchmarks
+- floydwarshall, bitonicsort, kmeans: O(N), O(log²N), iterative kernel launches
+- FFT was removed from CI — must be restored
+- Benchmark sizes may have been cherry-picked — need honest evaluation
 
-**Target: avg error < 30%** (from current 34.5%)
+**Hypothesized fixes:**
+1. Reduce kernel launch/completion overhead for multi-kernel benchmarks (evidence-based)
+2. Restore FFT and all available benchmark sizes to CI
+3. Address fir 262144 outlier (143% error, likely DRAM bandwidth at large size)
 
-### M14: FFT compute pipeline + remaining accuracy improvements (Budget: TBD)
-- FFT root cause: CU pipeline runs compute-heavy code ~1.7x too slow (ILP, dual-issue, trig funcs)
-- Investigate CDNA3 dual-issue VALU capability
-- Tune per-benchmark: fir (42%), atax (45%), nw (35%)
-- Target: avg <25%
+**Target: avg <25%, max <80% on honest benchmark set**
 
 ### M15: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
+- Address remaining high-error benchmarks after M14
 - May require GPU-side command queueing (issue #286) for multi-kernel benchmarks
+- Investigate CDNA3 dual-issue VALU capability for compute-heavy benchmarks (FFT)
 - Coverage expansion: conv2d, im2col via gputensor framework
 
 ## Lessons Learned
@@ -161,3 +169,5 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **M10 lesson**: Coverage matters more than accuracy at this stage. With only 26/453 matched points (5.7%), we don't have enough data to make good accuracy decisions. Expanding coverage first gives us a true picture.
 - **M11 lesson**: Coverage expansion (26→90 points) revealed that kmeans (379%) and fft (121%) are massive outliers dragging the average from 32.2% to 62.2%. Without these two benchmarks, the simulator is already decent. Root cause analysis of outliers is more impactful than broad parameter tuning.
 - **M11 lesson**: Multi-kernel-launch benchmarks may accumulate kernel launch overhead that dwarfs the actual compute time, especially at small problem sizes. Need to understand how many launches each benchmark does.
+- **M13 lesson**: Workers may cherry-pick benchmark sizes to hit accuracy targets. Always verify that the benchmark set is representative. Removing fft from CI and selective size tuning hides accuracy problems. Any benchmark that has reference data should be in CI — even if it hurts the average.
+- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4
