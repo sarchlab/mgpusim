@@ -32,6 +32,9 @@ type Builder struct {
 	numSinglePrecisionUnits   int
 	vecMemInstPipelineStages  int
 	vecMemTransPipelineStages int
+	l1vCacheSize              uint64
+	l1vBankLatency            int
+	memPipelineBufferSize     int
 	l1AddressMapper           mem.AddressToPortMapper
 	l1TLBAddressMapper        mem.AddressToPortMapper
 	aluFactory                emu.ALUFactory
@@ -169,6 +172,26 @@ func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
 	return b
 }
 
+// WithL1VCacheSize sets the L1V cache size per CU in bytes.
+func (b Builder) WithL1VCacheSize(size uint64) Builder {
+	b.l1vCacheSize = size
+	return b
+}
+
+// WithL1VBankLatency sets the L1V cache bank latency in cycles.
+func (b Builder) WithL1VBankLatency(latency int) Builder {
+	b.l1vBankLatency = latency
+	return b
+}
+
+// WithMemPipelineBufferSize sets the buffer size for memory pipeline
+// connections (CU→ROB→AT→L1V). Larger values allow more concurrent
+// memory transactions, improving throughput for bandwidth-limited workloads.
+func (b Builder) WithMemPipelineBufferSize(size int) Builder {
+	b.memPipelineBufferSize = size
+	return b
+}
+
 // Build builds the shader array.
 func (b Builder) Build(name string) *sim.Domain {
 	b.name = name
@@ -245,6 +268,11 @@ func (b *Builder) connectComponents() {
 }
 
 func (b *Builder) connectVectorMem() {
+	bufSize := 8
+	if b.memPipelineBufferSize > 0 {
+		bufSize = b.memPipelineBufferSize
+	}
+
 	for i := range b.numCUs {
 		cu := b.cus[i]
 		rob := b.l1vROBs[i]
@@ -264,19 +292,19 @@ func (b *Builder) connectVectorMem() {
 			Port: rob.GetPortByName("Top").AsRemote(),
 		}
 		b.connectWithDirectConnection(cu.ToVectorMem,
-			rob.GetPortByName("Top"), 8)
+			rob.GetPortByName("Top"), bufSize)
 
 		atTopPort := at.GetPortByName("Top")
 		rob.BottomUnit = atTopPort.AsRemote()
 		b.connectWithDirectConnection(
-			rob.GetPortByName("Bottom"), atTopPort, 8)
+			rob.GetPortByName("Bottom"), atTopPort, bufSize)
 
 		tlbTopPort := tlb.GetPortByName("Top")
 		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, 8)
+			at.GetPortByName("Translation"), tlbTopPort, bufSize)
 
 		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-			at.GetPortByName("Bottom"), 8)
+			at.GetPortByName("Bottom"), bufSize)
 	}
 }
 
@@ -489,15 +517,25 @@ func (b *Builder) buildL1VTLBs() {
 }
 
 func (b *Builder) buildL1VCaches() {
+	l1vSize := uint64(16 * mem.KB)
+	if b.l1vCacheSize > 0 {
+		l1vSize = b.l1vCacheSize
+	}
+
+	l1vBankLatency := 20
+	if b.l1vBankLatency > 0 {
+		l1vBankLatency = b.l1vBankLatency
+	}
+
 	builder := writearound.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBankLatency(20).
+		WithBankLatency(l1vBankLatency).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
 		WithNumMSHREntry(32).
-		WithTotalByteSize(16 * mem.KB).
+		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {

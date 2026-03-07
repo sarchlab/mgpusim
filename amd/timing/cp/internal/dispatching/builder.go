@@ -11,18 +11,21 @@ import (
 
 // A Builder can build dispatchers
 type Builder struct {
-	cp              tracing.NamedHookable
-	cuResourcePool  resource.CUResourcePool
-	alg             string
-	respondingPort  sim.Port
-	dispatchingPort sim.Port
-	monitor         *monitoring.Monitor
+	cp                           tracing.NamedHookable
+	cuResourcePool               resource.CUResourcePool
+	alg                          string
+	respondingPort               sim.Port
+	dispatchingPort              sim.Port
+	monitor                      *monitoring.Monitor
+	constantKernelOverhead       int
+	constantKernelLaunchOverhead int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg: "partition",
+		alg:                    "partition",
+		constantKernelOverhead: 3600,
 	}
 	return b
 }
@@ -71,6 +74,19 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
+// WithConstantKernelOverhead sets the overhead cycles after all WGs complete.
+func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
+	b.constantKernelOverhead = overhead
+	return b
+}
+
+// WithConstantKernelLaunchOverhead sets the overhead cycles before first WG
+// dispatch. This models the kernel launch latency on real hardware.
+func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
+	b.constantKernelLaunchOverhead = overhead
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
@@ -87,8 +103,9 @@ func (b Builder) Build(name string) Dispatcher {
 			9, 10, 11, 12,
 			13, 14, 15, 16,
 		},
-		constantKernelOverhead: 3600,
-		monitor:                b.monitor,
+		constantKernelOverhead:       b.constantKernelOverhead,
+		constantKernelLaunchOverhead: b.constantKernelLaunchOverhead,
+		monitor:                      b.monitor,
 	}
 
 	switch b.alg {

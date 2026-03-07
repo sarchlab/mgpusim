@@ -8,7 +8,7 @@ import (
 )
 
 var mb = flag.Int("MB", 8, "data size (in megabytes)")
-var passes = flag.Int("passes", 2, "number of passes")
+var passes = flag.Int("passes", 1, "number of passes")
 
 func main() {
 	flag.Parse()
