@@ -59,16 +59,16 @@ jobs:
             flag_template: "-row {size} -col {size}"
             size_label_template: "{size}x{size}"
 
-          # atax: -row N -col N
+          # atax: -x N -y N
           - benchmark: atax
             sizes: "48 64 96 128 192 256 384 512 768"
-            flag_template: "-row {size} -col {size}"
+            flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
-          # bicg: -row N -col N
+          # bicg: -x N -y N
           - benchmark: bicg
             sizes: "48 64 96 128 192 256 384 512 768"
-            flag_template: "-row {size} -col {size}"
+            flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
           # fastwalshtransform: -length N
@@ -83,23 +83,60 @@ jobs:
             flag_template: "-width {size}"
             size_label_template: "{size}x{size}"
 
-          # fft: -length N -passes 1
+          # fft: -MB N -passes 1 (colon format: MB_value:element_count)
           - benchmark: fft
-            sizes: "131072 262144 524288"
-            flag_template: "-length {size} -passes 1"
+            sizes: "1:131072 2:262144 4:524288"
+            flag_template: "-MB {size} -passes 1"
             size_label_template: "{size}_elements"
 
-          # fir: -length N -taps 16
+          # fir: -length N
           - benchmark: fir
             sizes: "1024 4096 16384 65536 262144"
-            flag_template: "-length {size} -taps 16"
+            flag_template: "-length {size}"
             size_label_template: "{size}_taps16"
 
           # nbody: -particles N
           - benchmark: nbody
-            sizes: "256 512 1024"
+            sizes: "64 128"
             flag_template: "-particles {size}"
             size_label_template: "{size}_particles"
+
+          # bitonicsort: -length N
+          - benchmark: bitonicsort
+            sizes: "1024 2048 4096 8192 16384 32768 65536"
+            flag_template: "-length {size}"
+            size_label_template: "{size}"
+
+          # floydwarshall: -node N
+          - benchmark: floydwarshall
+            sizes: "8 16 24 32 48 64 96 128"
+            flag_template: "-node {size}"
+            size_label_template: "{size}_nodes"
+            timeout_sec: 120
+
+          # nw: -length N
+          - benchmark: nw
+            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024"
+            flag_template: "-length {size}"
+            size_label_template: "length={size}"
+
+          # simpleconvolution: -width P1 -height P1 -mask-size P2 (compound)
+          - benchmark: simpleconvolution
+            sizes: "128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7"
+            flag_template: "-width {p1} -height {p1} -mask-size {p2}"
+            size_label_template: "{p1}x{p1}_mask{p2}"
+
+          # pagerank: -node N -sparsity 0.5 -iterations 2
+          - benchmark: pagerank
+            sizes: "64 128 192 256 384 512 768 1024"
+            flag_template: "-node {size} -sparsity 0.5 -iterations 2"
+            size_label_template: "nodes{size}_sparsity0.5_priters2"
+
+          # kmeans: -points P1 -features P2 -clusters 5 -max-iter 5 (compound)
+          - benchmark: kmeans
+            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64"
+            flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 5"
+            size_label_template: "pts{p1}_feat{p2}_clus5"
 
     steps:
       - name: Checkout
@@ -139,7 +176,7 @@ jobs:
           LABEL_TEMPLATE='${{ matrix.size_label_template }}'
           COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
           BINARY="./_bench_${BENCHMARK}"
-          TIMEOUT_SEC=60
+          TIMEOUT_SEC=${{ matrix.timeout_sec || 60 }}
           OUTPUT="results_${BENCHMARK}.csv"
 
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"
@@ -148,9 +185,24 @@ jobs:
           FAIL=0
 
           for size in ${SIZES}; do
-            # Build flags by replacing {size} placeholder
-            FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${size}/g")
-            LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${size}/g")
+            # Handle compound sizes (p1_p2 format for multi-param benchmarks)
+            if echo "${FLAG_TEMPLATE}" | grep -q '{p1}'; then
+              p1=$(echo "${size}" | cut -d_ -f1)
+              p2=$(echo "${size}" | cut -d_ -f2)
+              p3=$(echo "${size}" | cut -d_ -f3)
+              FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{p1}/${p1}/g; s/{p2}/${p2}/g; s/{p3}/${p3}/g")
+              LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{p1}/${p1}/g; s/{p2}/${p2}/g; s/{p3}/${p3}/g")
+            elif echo "${size}" | grep -q ':'; then
+              # Handle colon-separated format: actual_value:label_value (used by FFT)
+              actual_size=$(echo "${size}" | cut -d: -f1)
+              label_size=$(echo "${size}" | cut -d: -f2)
+              FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${actual_size}/g")
+              LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${label_size}/g")
+            else
+              # Standard single-parameter format
+              FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${size}/g")
+              LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${size}/g")
+            fi
 
             echo "::group::${BENCHMARK} ${LABEL}"
             echo "[RUN] ${BENCHMARK} ${LABEL} with flags: ${COMMON_FLAGS} ${FLAGS}"
