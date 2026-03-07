@@ -92,27 +92,42 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Per-kernel: matmul 4.8%, vectoradd 24.5%, relu 27.4%, matrixtranspose 35.3%, FWT 39.5%, stencil2d 59.6%
 - **Critical finding**: Most benchmarks (atax, bicg, fft, fir) crash with exit code 2 due to wrong CLI flags in benchmark.yml. nbody crashes with MMU panic.
 
-### M11: Fix CI Benchmark Workflow + Expand Coverage (Budget: 6 cycles)
-**Goal**: Fix the broken benchmark flags, add missing benchmarks to CI, achieve >60 matched data points.
+### M11: COMPLETE ✅ (budgeted 6, used ~2)
+- Fixed benchmark.yml CLI flag errors (atax, bicg, fft, fir)
+- Added 6 new benchmarks: bitonicsort, floydwarshall, nw, simpleconvolution, pagerank, kmeans
+- **CI Run Results (22805338040)**: 90 matched data points (up from 26), avg error 62.2%
+- Per-kernel: matmul 4.8%, bicg 16.2%, pagerank 16.9%, vectoradd 24.5%, relu 27.4%, nw 30.1%, bitonicsort 33.8%, matrixtranspose 35.3%, atax 36.5%, FWT 39.5%, floydwarshall 46.7%, fir 59.5%, stencil2d 59.6%, fft 121%, kmeans 379%
+- simpleconvolution crashes (exit 1), nbody still panics (MMU bug)
+- PR #46 merged
+
+### M12: Root Cause Analysis + High-Error Benchmark Fixes (Budget: 8 cycles)
+**Goal**: Reduce avg error from 62.2% to <35% by fixing the highest-error benchmarks.
+
+**Analysis** (from M11 data):
+- Without kmeans (379%) and fft (121%), the avg drops to 32.2% — these two are the biggest drags
+- kmeans: real HW times are 0.007-0.09ms. If kmeans does multiple kernel launches, overhead (3µs each) could explain 379% error
+- fft: real HW times are 0.007-0.7ms. Multiple passes may multiply kernel launch overhead
+- stencil2d/fir at ~60% — need analysis of whether this is compute or memory modeling
 
 **Deliverables**:
-1. Fix benchmark.yml flag errors (atax: -x/-y, bicg: -x/-y, fft: -MB, fir: remove -taps)
-2. Add new benchmarks: bitonicsort, floydwarshall, nw, simpleconvolution, pagerank, kmeans
-3. Document nbody MMU crash (try small sizes)
-4. Trigger CI run and report comprehensive accuracy results
+1. Identify and fix root cause of kmeans 379% error (likely multi-launch overhead)
+2. Identify and fix root cause of fft 121% error (likely multi-launch overhead)
+3. Fix simpleconvolution crash if possible
+4. Evidence-based parameter tuning for remaining >50% error benchmarks
+5. Document all changes in mi300a_calibration.md
+6. CI run showing avg <35%
 
-**Expected impact**: 60+ matched data points, true accuracy picture. No parameter changes.
+**What NOT to do**: Blind parameter sweeps. Every change must have a documented hypothesis.
 
-### M12: Targeted Accuracy Push (Budget: 8 cycles)
-- Based on M11 comprehensive results, target remaining high-error benchmarks
-- Consider log2PageSize=21 (huge pages) for TLB-heavy workloads (FFT, stencil2d)
-- Evidence-based tuning with microbenchmarks per human issue #343
-- Target: avg <30%
+### M13: Accuracy Refinement (Budget: 8 cycles)
+- Target remaining >30% error benchmarks (stencil2d, fir, floydwarshall, FWT, etc.)
+- Consider: huge pages (log2PageSize=21), GPU-side command queueing (#286), memory model refinements
+- MFMA instructions for matrixmultiplication if needed
+- Target: avg <25%
 
-### M13: MFMA Support + Final Accuracy (Budget: 10 cycles)
-- Implement MFMA (matrix fused multiply-add) instructions for matrixmultiplication accuracy
-- GPU-side command queueing if kernel launch overhead still dominant
-- Final parameter tuning
+### M14: Final Polish (Budget: 6 cycles)
+- Final parameter tuning with full evidence documentation
+- Fix remaining crash bugs (nbody MMU, simpleconvolution)
 - Target: avg <20%, max <50%
 
 ## Lessons Learned
@@ -143,3 +158,5 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2
 - **M10 lesson**: Always verify CI workflow output. The workflow was created but 4/11 benchmarks had wrong CLI flags (atax used -row/-col instead of -x/-y, fft used -length instead of -MB, fir used nonexistent -taps flag). This wasted the entire CI run for those benchmarks.
 - **M10 lesson**: Coverage matters more than accuracy at this stage. With only 26/453 matched points (5.7%), we don't have enough data to make good accuracy decisions. Expanding coverage first gives us a true picture.
+- **M11 lesson**: Coverage expansion (26→90 points) revealed that kmeans (379%) and fft (121%) are massive outliers dragging the average from 32.2% to 62.2%. Without these two benchmarks, the simulator is already decent. Root cause analysis of outliers is more impactful than broad parameter tuning.
+- **M11 lesson**: Multi-kernel-launch benchmarks may accumulate kernel launch overhead that dwarfs the actual compute time, especially at small problem sizes. Need to understand how many launches each benchmark does.
