@@ -231,9 +231,12 @@ func (c defaultCoalescer) readFlatAddr(
 	inst := wf.Inst()
 
 	// Handle SAddr mode
-	hasSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
+	// Use inst.Addr.RegCount to determine mode (consistent with disassembler):
+	// RegCount=1 means SAddr mode (32-bit VGPR offset + scalar base)
+	// RegCount=2 means OFF mode (64-bit VGPR pair as full address)
+	hasSAddr := inst.Addr.RegCount == 1
 	var scalarBase uint64
-	if hasSAddr {
+	if hasSAddr && inst.SAddr != nil {
 		sAddrReg := int(inst.SAddr.IntValue)
 		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
 		scalarBase = wf.ReadOperand(sAddrOperand, 0)
@@ -254,6 +257,7 @@ func (c defaultCoalescer) readFlatAddr(
 	}
 
 	finalAddr = uint64(int64(finalAddr) + signedOffset)
+
 	return finalAddr
 }
 
