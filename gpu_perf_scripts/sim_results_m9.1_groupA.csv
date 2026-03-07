@@ -18,11 +18,11 @@ relu,65536,0.008432
 relu,131072,0.011277
 relu,262144,0.016963
 relu,524288,0.028341
-matrixtranspose,64,0.006401
-matrixtranspose,128,0.006437
-matrixtranspose,256,0.006537
-matrixtranspose,512,0.006744
-matrixtranspose,1024,0.008263
+matrixtranspose,64x64,0.006401
+matrixtranspose,128x128,0.006437
+matrixtranspose,256x256,0.006537
+matrixtranspose,512x512,0.006744
+matrixtranspose,1024x1024,0.008263
 fir,1024_taps16,0.006995
 fir,4096_taps16,0.007000
 fir,16384_taps16,0.007049
