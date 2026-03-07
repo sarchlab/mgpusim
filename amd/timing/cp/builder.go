@@ -23,6 +23,7 @@ type Builder struct {
 	driver                       sim.Port
 	cus                          []CUInterfaceForCP
 	constantKernelLaunchOverhead int
+	constantKernelOverhead       int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -84,6 +85,13 @@ func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
 // for dispatchers. This models the fixed per-kernel launch latency.
 func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
 	b.constantKernelLaunchOverhead = overhead
+	return b
+}
+
+// WithConstantKernelOverhead sets the post-completion kernel overhead cycles
+// for dispatchers. This models the fixed overhead after all WGs complete.
+func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
+	b.constantKernelOverhead = overhead
 	return b
 }
 
@@ -150,6 +158,10 @@ func (b Builder) buildDispatchers(cp *CommandProcessor) {
 		WithRespondingPort(cp.ToDriver).
 		WithMonitor(b.monitor).
 		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead)
+
+	if b.constantKernelOverhead > 0 {
+		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
+	}
 
 	for i := 0; i < b.numDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", cp.Name(), i))

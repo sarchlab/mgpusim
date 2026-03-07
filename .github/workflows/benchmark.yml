@@ -37,7 +37,7 @@ jobs:
         include:
           # vectoradd: -width N -height 1
           - benchmark: vectoradd
-            sizes: "1024 2048 4096 8192 16384"
+            sizes: "1024 2048 4096 8192 16384 32768 65536"
             flag_template: "-width {size} -height 1"
             size_label_template: "{size}"
 
@@ -55,7 +55,7 @@ jobs:
 
           # stencil2d: -row N -col N
           - benchmark: stencil2d
-            sizes: "64 128 256 512"
+            sizes: "64 128 256 512 1024 2048"
             flag_template: "-row {size} -col {size}"
             size_label_template: "{size}x{size}"
 
@@ -85,7 +85,7 @@ jobs:
 
           # fft: -MB N -passes 1 (colon format: MB_value:element_count)
           - benchmark: fft
-            sizes: "1:131072 2:262144 4:524288"
+            sizes: "1:131072 2:262144 4:524288 8:1048576"
             flag_template: "-MB {size} -passes 1"
             size_label_template: "{size}_elements"
 
@@ -135,7 +135,7 @@ jobs:
           # kmeans: -points P1 -features P2 -clusters 5 -max-iter 5 (compound)
           - benchmark: kmeans
             sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64"
-            flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 5"
+            flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 1"
             size_label_template: "pts{p1}_feat{p2}_clus5"
 
     steps:
