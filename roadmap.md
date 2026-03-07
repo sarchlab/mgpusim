@@ -100,30 +100,25 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - simpleconvolution crashes (exit 1), nbody still panics (MMU bug)
 - PR #46 merged
 
-### M12: Fix kmeans mismatch + tune kernel overhead + expand sizes (Budget: 6 cycles)
-**Goal**: Reduce avg error from 62.2% to <35% by fixing identified root causes.
+### M12: COMPLETE ✅ (budgeted 6, used ~4)
+- Fixed kmeans CI: max-iter 5→1 in benchmark.yml
+- Added WithConstantKernelOverhead(1800) to MI300A CP builder (plumbed through CP builder)
+- Expanded CI benchmark sizes for vectoradd, stencil2d, fft
+- **CI Results (run 22806486504)**: 93 matched data points, avg error 34.5%, median 23.0%
+- Per-kernel: matmul 5.2%, relu 9.3%, vectoradd 15.3%, matrixtranspose 15.6%, bicg 21.8%, bitonicsort 24.6%, floydwarshall 27.1%, pagerank 29.2%, nw 35.1%, fir 42.3%, stencil2d 43.1%, atax 45.1%, kmeans 51.2%, FWT 78.8%, fft 110.4%
+- PR #47 merged
+- **Remaining issues**: stencil2d≥1024 crashes (driver.go:120 slice bounds), nbody panics (MMU), simpleconvolution crashes
 
-**Root Cause Analysis (COMPLETE)**:
-- **kmeans (379%)**: Measurement mismatch — sim runs 6 kernel launches (1 swap + 5 compute with max-iter=5), HW measures 1 compute kernel. Fix: change benchmark.yml to use -max-iter 1.
-- **fft/stencil2d/fir (~60-121%)**: Kernel launch overhead dominates at small problem sizes. (a) constantKernelOverhead=3600 (2µs) is never overridden for MI300A — reduce to 1800 (1µs). (b) Expand benchmark sizes in CI so compute dominates over overhead.
-- Without kmeans+fft, existing avg is 32.2% — so fixing kmeans alone gets us close to target.
+### M13: Fix crashes + reduce top-error benchmarks (Budget: TBD — investigating)
+**Current focus**: Understanding root causes of top-error benchmarks and crashes before defining fixes.
 
-**Three Fixes (see tbc-db issue #359)**:
-1. Fix kmeans benchmark.yml to use -max-iter 1
-2. Add WithConstantKernelOverhead(1800) to MI300A CP builder
-3. Expand benchmark sizes for fft, stencil2d, fir, vectoradd in CI
+**Investigation in progress:**
+- FFT (110%): Why is sim ~2x too slow? Multi-kernel overhead? 
+- FWT (79%): Why is sim too fast at all sizes?
+- Driver.go crash: slice bounds at stencil2d ≥1024
+- Coverage gaps: bfs, conv2d, im2col, memcopy, spmv, nbody, simpleconvolution
 
-**Success**: avg error <35%, kmeans <100%
-
-### M13: Accuracy Refinement (Budget: 8 cycles)
-- Target remaining >30% error benchmarks (stencil2d, fir, floydwarshall, FWT, etc.)
-- Consider: huge pages (log2PageSize=21), GPU-side command queueing (#286), memory model refinements
-- MFMA instructions for matrixmultiplication if needed
-- Target: avg <25%
-
-### M14: Final Polish (Budget: 6 cycles)
-- Final parameter tuning with full evidence documentation
-- Fix remaining crash bugs (nbody MMU, simpleconvolution)
+### M14: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
 
 ## Lessons Learned
