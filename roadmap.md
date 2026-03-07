@@ -61,61 +61,46 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - nbody: crashes in timing mode (MMU page-not-found)
 - Many benchmarks untested in timing mode (need CDNA3 kernel support or crash)
 
-### Key Blocker: MMU Page-Not-Found in Timing Mode
-The **single biggest blocker** is the timing-mode register corruption that causes MMU page-not-found panics. This prevents:
-- Running nbody in timing mode at all
-- Running vectoradd/stencil2d at larger sizes
-- Getting enough data points for meaningful error metrics
-- Testing benchmarks like floydwarshall, fir, simpleconvolution, etc. in timing mode
+**M8** (merged, verified): Remove timing-side scratchpad
+- Deleted scratchpadpreparer.go, scratchpad.go from timing
+- Rewrote defaultcoalescer.go to read from registers directly via wf.ReadOperand
+- Rewrote scalarunit.go SMEM load to use ReadOperand for Base/Offset
+- Removed scratchpadPreparer from all CU units (SIMD, Branch, Scalar, LDS, VecMem)
+- All 84 CU tests pass; `go build ./...` clean
+- vectoradd works to ~5000 width (previously hung at 4032)
+- Cycle estimate: budgeted 8, used 2
 
-Root cause: Upper 32 bits of 64-bit FLAT addresses get corrupted to 0xFFFFFFFF in timing mode. The corruption originates in the scratchpad/register file management of the timing CU. See docs/mmu_page_not_found_investigation.md.
+### Baseline After M8
+- Scratchpad removed — one class of corruption bugs eliminated
+- vectoradd working range expanded (4032 → ~5000+) 
+- nbody 256 particles still crashes with page-not-found in timing mode
+- stencil2d 512x512 still crashes with page-not-found
+- vectoradd hangs at width >= ~8192 (different from crash — possibly resource exhaustion)
+- Still 0xFFFFFFFF corruption in upper 32 bits of FLAT addresses — source is NOT scratchpad
+- Mean error still ~72.4% (need more data points)
+- Key remaining suspects: VCC carry propagation bugs, register file access bugs, or instruction decoding issues
 
 ## Planned Milestones
 
-### M8: Remove Timing-Side Scratchpad Preparer (Budget: 8 cycles)
-**Objective**: Per human directive (issue #317), remove ALL scratchpad-related code from the timing side. The scratchpad mechanism is a legacy data-copying layer that is now redundant (ALU reads/writes directly via InstEmuState) and is the suspected root cause of timing-mode register corruption bugs.
+### M9: Fix Remaining Timing-Mode Crashes (Budget: 6-8 cycles)
+- Fix MMU page-not-found crashes (nbody, stencil2d) — root cause is still address corruption (0xFFFFFFFF upper 32 bits)
+- Fix vectoradd hang at larger sizes (>=8192)
+- Must fix at least: nbody, stencil2d, vectoradd at larger sizes
+- Collect comprehensive timing accuracy data after fixes
 
-**What to remove/change**:
-1. **Delete `amd/timing/cu/scratchpadpreparer.go`** — the ScratchpadPreparer interface and implementation
-2. **Delete `amd/timing/wavefront/scratchpad.go`** — the Scratchpad type and all layout structs
-3. **Update all CU units** to remove scratchpadPreparer dependency:
-   - `simdunit.go`: Remove Prepare/Commit calls around alu.Run()
-   - `branchunit.go`: Remove Prepare/Commit calls 
-   - `scalarunit.go`: Remove Prepare call in read stage, Commit call in write stage
-   - `ldsunit.go`: Remove Prepare/Commit calls
-   - `vectormemoryunit.go`: Remove Prepare calls before coalescer
-4. **Fix `defaultcoalescer.go`** — currently reads EXEC/ADDR/DATA from scratchpad. Must read directly from wavefront's register file using ReadOperand
-5. **Fix `computeunit.go` handleVectorDataLoadReturn** — currently writes to scratchpad DST. Must write directly to register file
-6. **Remove scratchpad field from wavefront.go** and the Scratchpad() method
-7. **Update cubuilder.go** — remove scratchpadPreparer creation and passing
-
-**Why this matters**: The scratchpad is the suspected cause of register corruption bugs (upper 32 bits of 64-bit FLAT addresses corrupted to 0xFFFFFFFF). Removing it eliminates an entire class of bugs and simplifies the codebase.
-
-**Acceptance criteria**:
-- No references to ScratchpadPreparer, Scratchpad(), or scratchpad layouts remain in timing code
-- `go build ./...` passes
-- `go test ./amd/...` passes
-- vectoradd works in timing mode at various sizes with -verify
-- matrixmultiplication works in timing mode with -verify
-
-### M9: Run Full Benchmark Suite + Fix Timing Crashes (Budget: 6-8 cycles)
-- Run all 19 benchmarks in timing mode at multiple sizes
-- Fix remaining crashes/hangs (vectoradd hang >=4032, nbody crash, stencil2d wrong results)
-- Collect comprehensive timing accuracy data
-- Address systematic over-simulation for memory-bound workloads
-
-### M10: Memory System Tuning + Final Accuracy Push (Budget: 4-6 cycles)
+### M10: Memory System Tuning + Final Accuracy Push (Budget: 6-8 cycles)
 - HBM3 bandwidth modeling improvements
 - Cache hierarchy tuning
 - GPU-side command queueing (issue #286) if kernel launch overhead remains too high
 - Fine-tune all parameters
 - Target: avg <20%, max <50%
 
-### M8 Investigation Results (Athena's team, cycle 312-313)
-- **Emma** (trace comparison): Emu vs timing traces match at width=1024. Reported the MMU page-not-found bug may be fixed for vectoradd at previously-failing sizes.
-- **Harper** (scratchpad analysis): Found 2 confirmed bugs — SAddr=0 mishandling in prepareFlat, and VCCHI mask inversion. Neither triggers for vectoradd specifically, but the scratchpad is a complex data-copying layer that introduces risk.
-- **Blake** (crash survey): vectoradd works up to 3968, hangs >=4032. nbody gfx942 crashes immediately. stencil2d has wrong results at 512. Three distinct failure modes: MMU panic, hang/timeout, wrong results.
-- **Human directive** (issue #317): Remove ALL scratchpad-related code from timing side — this supersedes the previous M8 plan of just fixing specific corruption bugs.
+### M8 Investigation Results (Athena's team, cycle 312-314)
+- **Emma** (trace comparison): Emu vs timing traces match at width=1024.
+- **Harper** (scratchpad analysis): Found 2 bugs in scratchpad code (SAddr=0, VCCHI mask). Scratchpad then removed entirely per human directive.
+- **Blake** (crash survey): vectoradd works to 3968 (hangs >=4032); nbody gfx942 crashes; stencil2d wrong results at 512.
+- **Human directive** (issue #317): Remove ALL scratchpad-related code — done in M8.
+- **Post-M8**: vectoradd boundary improved (4032→~5000), but page-not-found and hangs persist at larger sizes.
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
