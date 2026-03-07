@@ -15,7 +15,6 @@ var _ = Describe("Vector Memory Unit", func() {
 	var (
 		mockCtrl            *gomock.Controller
 		cu                  *ComputeUnit
-		sp                  *mockScratchpadPreparer
 		coalescer           *Mockcoalescer
 		vecMemUnit          *VectorMemoryUnit
 		vectorMem           *MockPort
@@ -29,9 +28,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("CU", nil)
-		sp = new(mockScratchpadPreparer)
 		coalescer = NewMockcoalescer(mockCtrl)
-		vecMemUnit = NewVectorMemoryUnit(cu, sp, coalescer)
+		vecMemUnit = NewVectorMemoryUnit(cu, coalescer)
 		toVectorMem = NewMockPort(mockCtrl)
 		instPipeline = NewMockPipeline(mockCtrl)
 		instBuffer = NewMockBuffer(mockCtrl)

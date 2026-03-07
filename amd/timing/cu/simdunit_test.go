@@ -12,17 +12,15 @@ var _ = Describe("SIMD Unit", func() {
 	var (
 		cu   *ComputeUnit
 		bu   *SIMDUnit
-		sp   *mockScratchpadPreparer
 		alu  *mockALU
 		name string
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("CU", nil)
-		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		name = "simd"
-		bu = NewSIMDUnit(cu, name, sp, alu)
+		bu = NewSIMDUnit(cu, name, alu)
 
 	})
 
@@ -72,9 +70,7 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(bu.toExec).To(BeNil())
 		Expect(bu.cycleLeft).To(Equal(0))
 
-		Expect(sp.wfPrepared).To(BeIdenticalTo(wave))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave))
-		Expect(sp.wfCommitted).To(BeIdenticalTo(wave))
 
 		Expect(wave.InstBuffer).To(HaveLen(192))
 
@@ -100,24 +96,4 @@ var _ = Describe("SIMD Unit", func() {
 
 		Expect(bu.toExec).To(BeNil())
 	})
-
-	//It("should spend 4 cycles in execution", func() {
-	//	wave1 := new(Wavefront)
-	//	wave2 := new(Wavefront)
-	//	wave3 := new(Wavefront)
-	//	wave3.State = WfRunning
-	//
-	//	bu.toRead = wave1
-	//	bu.toExec = wave2
-	//	bu.toWrite = wave3
-	//	bu.cycleLeft = 4
-	//
-	//	bu.Run(10)
-	//
-	//	Expect(wave3.State).To(Equal(WfReady))
-	//	Expect(bu.toWrite).To(BeNil())
-	//	Expect(bu.toExec).To(BeIdenticalTo(wave2))
-	//	Expect(bu.cycleLeft).To(Equal(3))
-	//	Expect(bu.toRead).To(BeIdenticalTo(wave1))
-	//})
 })

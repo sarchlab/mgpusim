@@ -9,8 +9,7 @@ import (
 type LDSUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
+	alu emu.ALU
 
 	toRead  *wavefront.Wavefront
 	toExec  *wavefront.Wavefront
@@ -23,12 +22,10 @@ type LDSUnit struct {
 // the compute unit.
 func NewLDSUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *LDSUnit {
 	u := new(LDSUnit)
 	u.cu = cu
-	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 	return u
 }
@@ -64,8 +61,6 @@ func (u *LDSUnit) runReadStage() bool {
 	}
 
 	if u.toExec == nil {
-		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 		return true
@@ -93,8 +88,6 @@ func (u *LDSUnit) runWriteStage() bool {
 	if u.toWrite == nil {
 		return false
 	}
-
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
 	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 

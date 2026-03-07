@@ -23,8 +23,7 @@ func (i vectorMemInst) TaskID() string {
 type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	coalescer          coalescer
+	coalescer coalescer
 
 	numInstInFlight         uint64
 	numTransactionInFlight  uint64
@@ -42,13 +41,10 @@ type VectorMemoryUnit struct {
 // NewVectorMemoryUnit creates a new Vector Memory Unit.
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	coalescer coalescer,
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
-
-	u.scratchpadPreparer = scratchpadPreparer
 	u.coalescer = coalescer
 
 	return u
@@ -148,7 +144,6 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 func (u *VectorMemoryUnit) executeFlatLoad(
 	wave *wavefront.Wavefront,
 ) bool {
-	u.scratchpadPreparer.Prepare(wave, wave)
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
@@ -187,7 +182,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 func (u *VectorMemoryUnit) executeFlatStore(
 	wave *wavefront.Wavefront,
 ) bool {
-	u.scratchpadPreparer.Prepare(wave, wave)
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {

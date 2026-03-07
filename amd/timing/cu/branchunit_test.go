@@ -12,15 +12,13 @@ var _ = Describe("Branch Unit", func() {
 	var (
 		cu  *ComputeUnit
 		bu  *BranchUnit
-		sp  *mockScratchpadPreparer
 		alu *mockALU
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("CU", nil)
-		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
-		bu = NewBranchUnit(cu, sp, alu)
+		bu = NewBranchUnit(cu, alu)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -67,9 +65,7 @@ var _ = Describe("Branch Unit", func() {
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
 
-		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
-		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 		Expect(wave3.InstBuffer).To(HaveLen(0))
 	})
 

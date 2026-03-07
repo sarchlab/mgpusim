@@ -41,7 +41,6 @@ type Wavefront struct {
 	pid            vm.PID
 	State          WfState
 	inst           *Inst          // The instruction that is being executed
-	scratchpad     Scratchpad // A temp data buf that is shared by different stages
 	LastFetchTime  sim.VTimeInSec // The time that the last instruction was fetched
 	CompletedLanes int            // The number of lanes that is completed in the SIMD unit
 
@@ -73,7 +72,6 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 	wf := new(Wavefront)
 	wf.Wavefront = raw
 
-	wf.scratchpad = make([]byte, 4096)
 	wf.InstBuffer = make([]byte, 0, 256)
 
 	return wf
@@ -100,11 +98,6 @@ func (wf *Wavefront) SetDynamicInst(i *Inst) {
 // ManagedInst returns the wrapped Inst
 func (wf *Wavefront) ManagedInst() *Inst {
 	return wf.inst
-}
-
-// Scratchpad returns the scratchpad of the wavefront
-func (wf *Wavefront) Scratchpad() Scratchpad {
-	return wf.scratchpad
 }
 
 // PID returns pid

@@ -26,10 +26,9 @@ type Builder struct {
 	vecMemInstPipelineStages  int
 	vecMemTransPipelineStages int
 
-	decoder            emu.Decoder
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
-	aluFactory         emu.ALUFactory
+	decoder    emu.Decoder
+	alu        emu.ALU
+	aluFactory emu.ALUFactory
 
 	visTracer        tracing.Tracer
 	enableVisTracing bool
@@ -166,8 +165,6 @@ func (b Builder) Build(name string) *ComputeUnit {
 	} else {
 		b.alu = emu.NewALU(nil)
 	}
-	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
-
 	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(b.wfPoolSize))
 	}
@@ -203,11 +200,11 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu, b.scratchpadPreparer, b.alu)
+	cu.BranchUnit = NewBranchUnit(cu, b.alu)
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu, b.scratchpadPreparer, b.alu)
+	scalarUnit := NewScalarUnit(cu, b.alu)
 	scalarUnit.log2CachelineSize = b.log2CachelineSize
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.simdCount; i++ {
@@ -220,7 +217,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.simdCount; i++ {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
-		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
+		simdUnit := NewSIMDUnit(cu, name, b.alu)
 		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnits
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
@@ -234,7 +231,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.scratchpadPreparer, b.alu)
+	ldsUnit := NewLDSUnit(cu, b.alu)
 	cu.LDSUnit = ldsUnit
 
 	for i := 0; i < b.simdCount; i++ {
@@ -249,7 +246,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	coalescer := &defaultCoalescer{
 		log2CacheLineSize: b.log2CachelineSize,
 	}
-	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.scratchpadPreparer, coalescer)
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(
