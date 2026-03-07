@@ -1,0 +1,347 @@
+# =============================================================================
+# benchmark.yml — MI300A Simulation Benchmark Workflow
+# =============================================================================
+#
+# Runs MGPUSim benchmarks in parallel using matrix strategy, extracts kernel
+# timing from SQLite metrics, and compares against MI300A hardware reference.
+#
+# Trigger: Manual (workflow_dispatch) with optional branch input.
+# Runner: Github-Large-1 (self-hosted)
+#
+# Each benchmark runs as a separate parallel job. A final "compare" job
+# collects all results and runs compare_sim_vs_real.py.
+# =============================================================================
+
+name: MI300A Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch/tag/SHA) to benchmark'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  # ===========================================================================
+  # Parallel benchmark jobs via matrix strategy
+  # ===========================================================================
+  benchmark:
+    name: "Bench: ${{ matrix.benchmark }}"
+    runs-on: Github-Large-1
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # vectoradd: -width N -height 1
+          - benchmark: vectoradd
+            sizes: "1024 2048 4096 8192 16384"
+            flag_template: "-width {size} -height 1"
+            size_label_template: "{size}"
+
+          # relu: -length N
+          - benchmark: relu
+            sizes: "1024 2048 4096 8192"
+            flag_template: "-length {size}"
+            size_label_template: "{size}"
+
+          # matrixmultiplication: -x N -y N -z N
+          - benchmark: matrixmultiplication
+            sizes: "32 64 96 128"
+            flag_template: "-x {size} -y {size} -z {size}"
+            size_label_template: "{size}x{size}x{size}"
+
+          # stencil2d: -row N -col N
+          - benchmark: stencil2d
+            sizes: "64 128 256 512"
+            flag_template: "-row {size} -col {size}"
+            size_label_template: "{size}x{size}"
+
+          # atax: -row N -col N
+          - benchmark: atax
+            sizes: "48 64 96 128 192 256 384 512 768"
+            flag_template: "-row {size} -col {size}"
+            size_label_template: "{size}x{size}"
+
+          # bicg: -row N -col N
+          - benchmark: bicg
+            sizes: "48 64 96 128 192 256 384 512 768"
+            flag_template: "-row {size} -col {size}"
+            size_label_template: "{size}x{size}"
+
+          # fastwalshtransform: -length N
+          - benchmark: fastwalshtransform
+            sizes: "1024 4096 16384 65536"
+            flag_template: "-length {size}"
+            size_label_template: "{size}"
+
+          # matrixtranspose: -width N
+          - benchmark: matrixtranspose
+            sizes: "64 128 256 512 1024"
+            flag_template: "-width {size}"
+            size_label_template: "{size}x{size}"
+
+          # fft: -length N -passes 1
+          - benchmark: fft
+            sizes: "131072 262144 524288"
+            flag_template: "-length {size} -passes 1"
+            size_label_template: "{size}_elements"
+
+          # fir: -length N -taps 16
+          - benchmark: fir
+            sizes: "1024 4096 16384 65536 262144"
+            flag_template: "-length {size} -taps 16"
+            size_label_template: "{size}_taps16"
+
+          # nbody: -particles N
+          - benchmark: nbody
+            sizes: "256 512 1024"
+            flag_template: "-particles {size}"
+            size_label_template: "{size}_particles"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install sqlite3
+        run: |
+          if ! command -v sqlite3 &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+          fi
+          sqlite3 --version
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build benchmark
+        run: |
+          go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
+
+      - name: Run benchmark sizes
+        id: run
+        run: |
+          set -uo pipefail
+
+          BENCHMARK="${{ matrix.benchmark }}"
+          SIZES="${{ matrix.sizes }}"
+          FLAG_TEMPLATE='${{ matrix.flag_template }}'
+          LABEL_TEMPLATE='${{ matrix.size_label_template }}'
+          COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
+          BINARY="./_bench_${BENCHMARK}"
+          TIMEOUT_SEC=60
+          OUTPUT="results_${BENCHMARK}.csv"
+
+          echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"
+
+          PASS=0
+          FAIL=0
+
+          for size in ${SIZES}; do
+            # Build flags by replacing {size} placeholder
+            FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${size}/g")
+            LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${size}/g")
+
+            echo "::group::${BENCHMARK} ${LABEL}"
+            echo "[RUN] ${BENCHMARK} ${LABEL} with flags: ${COMMON_FLAGS} ${FLAGS}"
+
+            # Create a clean working directory for each run
+            WORK_DIR=$(mktemp -d)
+            EXIT_CODE=0
+
+            # Run with timeout; binary writes SQLite to cwd
+            cd "${WORK_DIR}"
+            timeout ${TIMEOUT_SEC} "${OLDPWD}/${BINARY}" ${COMMON_FLAGS} ${FLAGS} 2>&1 \
+              | tee stdout.log || EXIT_CODE=$?
+            cd "${OLDPWD}"
+
+            if [ ${EXIT_CODE} -eq 124 ]; then
+              echo "::warning::TIMEOUT: ${BENCHMARK} ${LABEL} (>${TIMEOUT_SEC}s)"
+              FAIL=$((FAIL + 1))
+              rm -rf "${WORK_DIR}"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if [ ${EXIT_CODE} -ne 0 ]; then
+              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (exit ${EXIT_CODE})"
+              FAIL=$((FAIL + 1))
+              rm -rf "${WORK_DIR}"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Find SQLite database
+            DB_FILE=$(ls "${WORK_DIR}"/akita_sim_*.sqlite3 2>/dev/null | head -1)
+            if [ -z "${DB_FILE}" ]; then
+              DB_FILE=$(ls "${WORK_DIR}"/akita_data_recording_*.sqlite3 2>/dev/null | head -1)
+            fi
+
+            if [ -z "${DB_FILE}" ] || [ ! -f "${DB_FILE}" ]; then
+              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no SQLite output)"
+              FAIL=$((FAIL + 1))
+              rm -rf "${WORK_DIR}"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Extract kernel time from Driver entry
+            KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
+              "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1;" 2>/dev/null)
+
+            if [ -z "${KERNEL_TIME_SEC}" ]; then
+              KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
+                "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1;" 2>/dev/null)
+            fi
+
+            if [ -z "${KERNEL_TIME_SEC}" ]; then
+              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no kernel_time in DB)"
+              FAIL=$((FAIL + 1))
+              rm -rf "${WORK_DIR}"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Convert seconds to milliseconds
+            KERNEL_TIME_MS=$(python3 -c "print(f'{${KERNEL_TIME_SEC} * 1000:.6f}')")
+
+            # For fft benchmark, use fft1D_512 as the kernel_name to match reference
+            CSV_NAME="${BENCHMARK}"
+            if [ "${BENCHMARK}" = "fft" ]; then
+              CSV_NAME="fft1D_512"
+            fi
+
+            # Simulator is deterministic: avg = min = max
+            echo "${CSV_NAME},${LABEL},1,${KERNEL_TIME_MS},${KERNEL_TIME_MS},${KERNEL_TIME_MS}" >> "${OUTPUT}"
+            echo "[OK] ${BENCHMARK} ${LABEL} -> ${KERNEL_TIME_MS} ms"
+            PASS=$((PASS + 1))
+
+            # Cleanup
+            rm -rf "${WORK_DIR}"
+            echo "::endgroup::"
+          done
+
+          echo "=== Summary: ${BENCHMARK} ==="
+          echo "  Passed: ${PASS}"
+          echo "  Failed: ${FAIL}"
+
+          echo "pass_count=${PASS}" >> $GITHUB_OUTPUT
+          echo "fail_count=${FAIL}" >> $GITHUB_OUTPUT
+
+          # Print results
+          echo ""
+          echo "Results:"
+          cat "${OUTPUT}"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ matrix.benchmark }}
+          path: results_${{ matrix.benchmark }}.csv
+          retention-days: 30
+
+  # ===========================================================================
+  # Comparison job: collect all results and compare against reference
+  # ===========================================================================
+  compare:
+    name: Compare vs MI300A Reference
+    runs-on: Github-Large-1
+    timeout-minutes: 10
+    needs: [benchmark]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: benchmark-artifacts/
+          pattern: benchmark-results-*
+
+      - name: Merge results into single CSV
+        run: |
+          echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > sim_results_ci.csv
+
+          TOTAL_LINES=0
+          for f in benchmark-artifacts/benchmark-results-*/results_*.csv; do
+            if [ -f "$f" ]; then
+              # Skip header line, append data
+              LINES=$(tail -n +2 "$f" | wc -l)
+              TOTAL_LINES=$((TOTAL_LINES + LINES))
+              tail -n +2 "$f" >> sim_results_ci.csv
+            fi
+          done
+
+          echo "=== Merged ${TOTAL_LINES} result lines ==="
+          echo ""
+          cat sim_results_ci.csv
+
+      - name: Run comparison against MI300A reference
+        run: |
+          python3 gpu_perf_scripts/compare_sim_vs_real.py \
+            --ref gpu_perf_scripts/mi300a.csv \
+            --sim sim_results_ci.csv \
+            --output comparison_ci.csv
+
+      - name: Generate summary
+        run: |
+          echo "## MI300A Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.event.inputs.ref || github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count matched data points
+          DATA_LINES=$(tail -n +2 sim_results_ci.csv | wc -l)
+          echo "**Total benchmark data points:** ${DATA_LINES}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Extract key metrics from comparison output if available
+          if [ -f comparison_ci.csv ]; then
+            echo "### Detailed Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Kernel | Size | Real (ms) | Sim (ms) | Rel Error |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|------|-----------|----------|-----------|" >> $GITHUB_STEP_SUMMARY
+            tail -n +2 comparison_ci.csv | while IFS=',' read -r kernel size real sim abs_err rel_err; do
+              if [ -n "${sim}" ] && [ "${sim}" != "" ]; then
+                REL_PCT=$(python3 -c "print(f'{float(\"${rel_err}\") * 100:+.1f}%')" 2>/dev/null || echo "N/A")
+                echo "| ${kernel} | ${size} | ${real} | ${sim} | ${REL_PCT} |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-comparison
+          path: |
+            sim_results_ci.csv
+            comparison_ci.csv
+          retention-days: 90
+
+      - name: Upload comparison CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-detailed
+          path: comparison_ci.csv
+          retention-days: 90
