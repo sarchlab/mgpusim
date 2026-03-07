@@ -65,57 +65,46 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **Achieved**: Merged Harper's FLAT SAddr fix. Collected 65 data points across 10 benchmarks. Avg |error| = 79.6%, median = 31.6%, 66.2% within 50%.
 - **Not achieved**: Target was avg < 50%, actual is 79.6%
 - **What went wrong**: The team focused on parameter tuning (cache latencies, DRAM width/latency) but missed the fundamental architectural bottleneck: per-CU memory pipeline buffer size limits effective memory bandwidth to ~250 GB/s vs real MI300A's 1+ TB/s. Also introduced SPU=32 which is architecturally incorrect per CDNA3 ISA.
-- **Key M9 changes on branch `ares/m9-accuracy-tuning`** (not yet merged to main):
-  - SPU set to 32 (WRONG — must revert to 16)
-  - L1V cache 32KB, bankLatency=5
-  - L2 bankLatency=20 (was 50)
-  - DRAM BankPipelineWidth=4, StageLatency=1
-  - constantKernelLaunchOverhead=5400 with first/subsequent model (/4 divisor)
-  - VecMem pipeline stages: inst=2, trans=4
 
-### Root Cause Analysis (Quinn, issue #336)
-Three root causes explain all high-error benchmarks:
-1. **Memory bandwidth gap**: Sim saturates at ~250 GB/s, real MI300A achieves 1+ TB/s. Bottleneck is per-CU memory pipeline buffers (default 8), NOT the DRAM model.
-2. **SPU=32 is incorrect**: Makes FWT compute 2x too fast. Must revert to 16.
-3. **Kernel overhead /4 too aggressive**: FWT too fast, stencil2d dominated by per-kernel dispatch cost.
+### M9.1: COMPLETE ✅ (budgeted 6, used 6) — PENDING MERGE
+- **Branch**: `ares/m9.1-spu16-membuf32` — verified by Apollo, needs merge to main
+- SPU=16 (reverted from 32), memPipelineBufferSize=32 (from 8)
+- L1V=32KB/5cyc, L2=20cyc, DRAM BPW=4/SL=1, kernel overhead=5400(/2)
+- stencil2d default iter=1, fft default passes=1 (matching HW measurement)
+- **Results**: 65 data points, avg |error| = 58.2%, median 35.3%, 69.2% within 50%
+- Per-kernel: matmul 4.8%, bicg 20.2%, matrixtranspose 34.5%, atax 40.4%, FWT 45.5%, fir 58.1%, stencil2d 61.8%, vectoradd 87.7%, fft 102%, relu 106.8%
 
-### DRAM Model Analysis (Alex, issue #335)
-- `simplebankedmemory` is a latency model, NOT a bandwidth model — provides essentially unlimited bandwidth.
-- The `directconnection` between L2 and DRAM has no bandwidth limit.
-- Real bottleneck is CU-side: memPipelineBufferSize=8 limits concurrent outstanding requests per CU.
-- DRAM parameters (width, stageLatency) barely affect results because CU can't feed enough requests.
+## Active Human Issues & Priorities
+
+1. **#344 — Simulation performance too slow**: Create GitHub Actions CI for parallel benchmarks. Simplify sim if needed. Workers should fire-and-check, not block.
+2. **#346 — Host OOM**: Never run simulations on host machine. Use GitHub Actions.
+3. **#343 — Evidence-based tuning**: Create microbenchmarks. Use documentation citations. Maintain mi300a_calibration.md.
+4. **#286 — GPU-side command queueing**: Deferred, revisit when kernel launch overhead is dominant.
 
 ## Planned Milestones
 
-### M9.1: Fix SPU + Increase Memory Pipeline Throughput + Re-baseline (Budget: 6 cycles)
-**Goal**: Apply the 3 critical corrections identified by root cause analysis and measure the impact.
+### M10: Merge M9.1 + CI Infrastructure + Memory Bandwidth Fix (Budget: 8 cycles)
+**Goal**: Merge M9.1 to main. Create GitHub Actions benchmark workflow. Fix the DRAM bandwidth modeling gap for streaming workloads.
 
-**Code changes** (on a new branch from main, cherry-picking good M9 changes):
-1. **Revert SPU to 16** (correctness — CDNA3 ISA mandates 16 FP32 ALUs per SIMD)
-2. **Set memPipelineBufferSize to 32** for MI300A (increase per-CU memory throughput, currently defaults to 8)
-3. **Keep kernel overhead /2** (not /4 — compromise between FWT and stencil2d)
-4. **Keep good M9 parameter changes**: L1V=32KB bankLatency=5, L2 bankLatency=20, DRAM width=4 stageLatency=1, constantKernelLaunchOverhead=5400
-5. Re-run all benchmarks and produce comparison report
+**Deliverables**:
+1. **Merge M9.1** to main via PR
+2. **GitHub Actions benchmark workflow** — a workflow that runs all benchmarks in parallel jobs, collects CSVs, runs comparison script, and posts accuracy summary. Workers will trigger this workflow and check results later.
+3. **Fix DRAM bandwidth** — Per Alex's analysis, change SimpleBankedMemory params: BankPipelineWidth 4→1, StageLatency 1→3. This reduces per-controller throughput to ~341 GB/s × 16 = ~5.5 TB/s (matching real MI300A 5.3 TB/s). Currently the DRAM model has unlimited bandwidth, but the real bottleneck is per-CU pipeline; with the DRAM fix, large streaming workloads should see improvement.
+4. **Update mi300a_calibration.md** with evidence for DRAM parameter changes
 
-**Expected impact**:
-- FWT error: ~273% → ~50% (SPU revert + /2 overhead)
-- vectoradd/relu at large sizes: significant improvement (more memory bandwidth)
-- stencil2d: slight improvement (/2 vs /4 overhead)
-- matrixmultiplication: may regress from 18% to ~35% (SPU revert) — acceptable, will need MFMA instructions later
+**Expected impact**: vectoradd/relu large sizes should improve significantly. Target: avg <45%.
 
-**Acceptance criteria**: Produce comparison report with all 65+ data points. Average |error| should improve below 60%.
-
-### M9.2: Targeted Kernel-Specific Tuning (Budget: 6 cycles)
-- Based on M9.1 results, tune remaining high-error benchmarks
+### M11: Targeted Accuracy Push (Budget: 8 cycles)
+- Based on M10 results, target remaining high-error benchmarks
 - Consider log2PageSize=21 (huge pages) for TLB-heavy workloads (FFT, stencil2d)
-- Consider DRAM frequency tuning if memory bandwidth is still low
-- Target: avg <40%
+- Consider per-CU memory pipeline improvements
+- Evidence-based tuning with microbenchmarks per human issue #343
+- Target: avg <30%
 
-### M10: Memory System Modeling + Final Accuracy Push (Budget: 8 cycles)
-- HBM3 bandwidth modeling improvements if needed
-- GPU-side command queueing (issue #286) if kernel launch overhead is still dominant
-- MFMA instruction support for matrixmultiplication accuracy
-- Fine-tune all parameters toward target
+### M12: MFMA Support + Final Accuracy (Budget: 10 cycles)
+- Implement MFMA (matrix fused multiply-add) instructions for matrixmultiplication accuracy
+- GPU-side command queueing if kernel launch overhead still dominant
+- Final parameter tuning
 - Target: avg <20%, max <50%
 
 ## Lessons Learned
@@ -135,10 +124,12 @@ Three root causes explain all high-error benchmarks:
 - Always test emulation correctness before investigating timing accuracy
 - matrixmultiplication accuracy at 8.5-20.7% shows compute pipeline is well-modeled — main issues are in memory subsystem and overhead
 - **Scratchpad removal is both cleanup AND bug fix** — the scratchpad was a data-copying indirection layer
-- **FLAT SAddr mode detection**: Must use inst.Addr.RegCount (1=SAddr, 2=OFF) not SAddr.IntValue != 0x7F. GCN3 FLAT instructions have SAddr bits = 0 (reserved).
+- **FLAT SAddr mode detection**: Must use inst.Addr.RegCount (1=SAddr, 2=OFF) not SAddr.IntValue != 0x7F
 - The human watches the codebase closely — architectural decisions should be clean and principled
-- "Hang" reports should be tested with much longer timeouts before being declared bugs — vectoradd was just slow, not stuck
-- Cycle estimates: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed)
-- **M9 lesson**: Pure parameter tuning hits diminishing returns. Root cause analysis BEFORE tuning is essential — identify architectural bottlenecks first, then tune parameters. M9 wasted cycles tuning DRAM parameters while the real bottleneck was per-CU memory pipeline buffers.
-- **M9 lesson**: SPU=32 was re-introduced despite being reverted in M2/M3. Must enforce architectural constraints — never deviate from ISA-documented values for correctness parameters.
-- **M9 lesson**: The DRAM model (`simplebankedmemory`) is a latency model, not a bandwidth model. The bandwidth bottleneck is in the per-CU memory pipeline (bufferSize=8). Increasing memPipelineBufferSize is the correct fix for memory bandwidth, not DRAM parameter tuning.
+- **M9 lesson**: Pure parameter tuning hits diminishing returns. Root cause analysis BEFORE tuning is essential
+- **M9 lesson**: SPU=32 was re-introduced despite being reverted in M2/M3. Must enforce architectural constraints
+- **M9 lesson**: The DRAM model (`simplebankedmemory`) is a latency model, not a bandwidth model. The bandwidth bottleneck is in the per-CU memory pipeline (bufferSize=8)
+- **M9.1 lesson**: stencil2d and fft defaults (iter=5, passes=2) didn't match real HW measurement methodology. Always verify benchmark settings match the reference data.
+- **Operational lesson**: Human explicitly demands we stop running simulations on the host (OOM, issue #346) and use GitHub Actions instead. Must create CI workflows for benchmark evaluation.
+- **Operational lesson**: Parameter tuning must be evidence-based (issue #343). Create microbenchmarks, cite documentation, document decisions in mi300a_calibration.md.
+- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6

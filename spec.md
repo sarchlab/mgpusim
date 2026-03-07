@@ -19,6 +19,9 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 3. **Error calculation uses symmetrical formula**: `(sim - hw) / min(sim, hw)`
 4. If human help is needed to run something on real MI300A, create a script and instructions. Human will run and commit results.
 5. The 120 CU data can be used for CU scaling analysis.
+6. **Do NOT run simulations on the host machine** (human issue #346). Use GitHub Actions for all benchmark simulations. The host runs out of memory with large simulations.
+7. **Evidence-based parameter tuning** (human issue #343): When a benchmark has large error, hypothesize a reason, then validate the hypothesis with a microbenchmark or published documentation BEFORE tuning. Document decisions in `mi300a_calibration.md`.
+8. **Simulation performance matters** (human issue #344): The simulator is too slow for large problem sizes. Consider: (a) simplifying the simulation even at cost of detail, (b) running simulations in parallel (host has multiple cores, sim is deterministic), (c) using GitHub Actions workflows with parallel jobs for benchmark evaluation.
 
 ## Architecture Notes (CDNA3 / MI300A)
 
@@ -32,9 +35,11 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 
 ## Notes
 
-- **Remove scratchpad preparer from timing side** (human issue #317): The scratchpad mechanism (prepare/commit) has been removed from emulation but still exists in timing mode. The human has directed that ALL scratchpad-related code should be removed, including from the timing side. The timing CU units (SIMDUnit, BranchUnit, ScalarUnit, VectorMemoryUnit, LDSUnit) currently use `ScratchpadPreparer.Prepare()` and `ScratchpadPreparer.Commit()` to copy data between register files and a scratchpad buffer before/after ALU execution. Since the ALU now reads/writes directly via `InstEmuState.ReadOperand()`/`WriteOperand()` (which the timing Wavefront implements with direct register file access), the scratchpad layer is redundant and a source of bugs (register corruption). The coalescer also reads addresses from the scratchpad for FLAT instructions — it must be updated to read directly from the wavefront's register file.
+- **Remove scratchpad preparer from timing side** (human issue #317): DONE (M8). All scratchpad-related code removed from timing side. Coalescer reads directly from wavefront register file.
 - **GPU-side command queueing** (human issue #286): Real MI300A stores commands in a GPU-side stream so the GPU picks up tasks without CPU↔GPU round-trip communication. Consider implementing GPU-side queueing if kernel launch overhead is too high. Also, check and tune the fixed overhead values for kernel launching and memory copy operations.
 - **Fixed overhead tuning**: The driver currently uses hardcoded `cyclesPerH2D=14500` and `cyclesPerD2H=8500` for memory copy middleware. These should be validated against real hardware behavior and tuned if necessary. Kernel launch dispatch also has overhead from the CPU→GPU→CPU message round-trip that should be examined.
+- **Benchmark CI workflow** (human issue #344): Create GitHub Actions workflows for running benchmarks in parallel. Workers should start a workflow and check results later, not run simulations directly. Gather workloads in a top-level `workloads/` folder with a Go CLI for running and measuring them.
+- **Microbenchmark infrastructure** (human issue #343): Create microbenchmarks for validating specific parameters (cache latency, memory bandwidth, kernel launch overhead). Scripts should be runnable on real MI300A by the human. Results should be committed to the repository.
 
 ## Resources
 
