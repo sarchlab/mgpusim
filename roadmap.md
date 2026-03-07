@@ -109,17 +109,27 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - PR #47 merged
 - **Remaining issues**: stencil2d≥1024 crashes (driver.go:120 slice bounds), nbody panics (MMU), simpleconvolution crashes
 
-### M13: Fix crashes + reduce top-error benchmarks (Budget: TBD — investigating)
-**Current focus**: Understanding root causes of top-error benchmarks and crashes before defining fixes.
+### M13: Fix FWT kernel overhead + stencil2d crash + expand coverage (Budget: 6)
+**Root cause analysis complete (Harper + Iris investigation).**
 
-**Investigation in progress:**
-- FFT (110%): Why is sim ~2x too slow? Multi-kernel overhead? 
-- FWT (79%): Why is sim too fast at all sizes?
-- Driver.go crash: slice bounds at stencil2d ≥1024
-- Coverage gaps: bfs, conv2d, im2col, memcopy, spmv, nbody, simpleconvolution
+**Planned changes:**
+1. Fix FWT subsequent kernel overhead: remove `/2` from `dispatcher.go:84` — expected to drop FWT from 79% to ~15-20%
+2. Fix stencil2d crash at ≥1024: DS instruction LDS bounds checking in `amd/emu/cdna3/ds.go`
+3. Add bfs and spmv benchmarks to CI (CDNA3 kernels ready)
+4. Run benchmark CI, verify avg error < 30%
 
-### M14: Final accuracy push (Budget: TBD)
+**Target: avg error < 30%** (from current 34.5%)
+
+### M14: FFT compute pipeline + remaining accuracy improvements (Budget: TBD)
+- FFT root cause: CU pipeline runs compute-heavy code ~1.7x too slow (ILP, dual-issue, trig funcs)
+- Investigate CDNA3 dual-issue VALU capability
+- Tune per-benchmark: fir (42%), atax (45%), nw (35%)
+- Target: avg <25%
+
+### M15: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
+- May require GPU-side command queueing (issue #286) for multi-kernel benchmarks
+- Coverage expansion: conv2d, im2col via gputensor framework
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
