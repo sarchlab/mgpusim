@@ -103,15 +103,16 @@ The previous config provided essentially unlimited DRAM bandwidth (65 TB/s), mea
 
 ## Kernel Launch Overhead
 
-### constantKernelLaunchOverhead = 5400 cycles (first kernel), /2 for subsequent
+### constantKernelLaunchOverhead = 5400 cycles (all kernels, no /2 for subsequent)
 
-**Source:** Calibrated against real hardware measurements.
+**Source:** Calibrated against real hardware measurements (Harper's FWT analysis, M13).
 
-- First kernel launch: 5400 cycles at 1.8 GHz = 3.0 μs
-- Subsequent kernels: 2700 cycles = 1.5 μs (GPU is already warmed up)
+- All kernel launches: 5400 cycles at 1.8 GHz = 3.0 μs
 - Real MI300A kernel launch overhead is estimated at 2-5 μs
 
-**Rationale:** Real GPU kernel launches involve driver overhead, command processor setup, CU initialization, and cache/TLB warmup. The first kernel pays the full cost; subsequent kernels benefit from warmed caches and pre-configured state.
+**Rationale:** FWT requires ~5 μs per kernel launch on real MI300A hardware, but was only getting ~2.6 μs due to the `/2` halving applied to subsequent kernels. Harper's analysis shows that subsequent kernels need the same overhead as the first kernel launch on MI300A — the `/2` was an assumption that subsequent launches are cheaper, which doesn't match real hardware data. The halving has been removed so all kernels (first and subsequent) use the full 5400-cycle overhead.
+
+**History:** Previously, subsequent kernels used `constantKernelLaunchOverhead / 2` (2700 cycles = 1.5 μs). This was removed in M13 based on FWT calibration data.
 
 ### constantKernelOverhead = 1800 cycles (MI300A), default 3600 cycles
 

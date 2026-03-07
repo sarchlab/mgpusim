@@ -49,7 +49,7 @@ jobs:
 
           # matrixmultiplication: -x N -y N -z N
           - benchmark: matrixmultiplication
-            sizes: "32 64 96 128"
+            sizes: "32 64 96 128 160 192 256 320"
             flag_template: "-x {size} -y {size} -z {size}"
             size_label_template: "{size}x{size}x{size}"
 
@@ -79,15 +79,9 @@ jobs:
 
           # matrixtranspose: -width N
           - benchmark: matrixtranspose
-            sizes: "64 128 256 512 1024"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
             flag_template: "-width {size}"
             size_label_template: "{size}x{size}"
-
-          # fft: -MB N -passes 1 (colon format: MB_value:element_count)
-          - benchmark: fft
-            sizes: "1:131072 2:262144 4:524288 8:1048576"
-            flag_template: "-MB {size} -passes 1"
-            size_label_template: "{size}_elements"
 
           # fir: -length N
           - benchmark: fir
@@ -128,7 +122,7 @@ jobs:
 
           # pagerank: -node N -sparsity 0.5 -iterations 2
           - benchmark: pagerank
-            sizes: "64 128 192 256 384 512 768 1024"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
             flag_template: "-node {size} -sparsity 0.5 -iterations 2"
             size_label_template: "nodes{size}_sparsity0.5_priters2"
 
@@ -137,6 +131,18 @@ jobs:
             sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64"
             flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 1"
             size_label_template: "pts{p1}_feat{p2}_clus5"
+
+          # bfs: -node N -degree 3
+          - benchmark: bfs
+            sizes: "128"
+            flag_template: "-node {size} -degree 3"
+            size_label_template: "nodes{size}"
+
+          # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
+          - benchmark: spmv
+            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.000976563_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072"
+            flag_template: "-dim {p1} -sparsity {p2}"
+            size_label_template: "{p1}x{p1}_nnz{p3}"
 
     steps:
       - name: Checkout
@@ -271,6 +277,9 @@ jobs:
             CSV_NAME="${BENCHMARK}"
             if [ "${BENCHMARK}" = "fft" ]; then
               CSV_NAME="fft1D_512"
+            fi
+            if [ "${BENCHMARK}" = "spmv" ]; then
+              CSV_NAME="spmv_csr_scalar"
             fi
 
             # Simulator is deterministic: avg = min = max

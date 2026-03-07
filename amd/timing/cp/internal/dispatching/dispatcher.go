@@ -81,7 +81,7 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 		d.cycleLeft = d.constantKernelLaunchOverhead
 		d.firstKernelLaunched = true
 	} else {
-		d.cycleLeft = d.constantKernelLaunchOverhead / 2
+		d.cycleLeft = d.constantKernelLaunchOverhead
 	}
 
 	d.initializeProgressBar(req.ID)
