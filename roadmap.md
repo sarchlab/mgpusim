@@ -100,24 +100,20 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - simpleconvolution crashes (exit 1), nbody still panics (MMU bug)
 - PR #46 merged
 
-### M12: Root Cause Analysis + High-Error Benchmark Fixes (Budget: 8 cycles)
-**Goal**: Reduce avg error from 62.2% to <35% by fixing the highest-error benchmarks.
+### M12: Fix kmeans mismatch + tune kernel overhead + expand sizes (Budget: 6 cycles)
+**Goal**: Reduce avg error from 62.2% to <35% by fixing identified root causes.
 
-**Analysis** (from M11 data):
-- Without kmeans (379%) and fft (121%), the avg drops to 32.2% — these two are the biggest drags
-- kmeans: real HW times are 0.007-0.09ms. If kmeans does multiple kernel launches, overhead (3µs each) could explain 379% error
-- fft: real HW times are 0.007-0.7ms. Multiple passes may multiply kernel launch overhead
-- stencil2d/fir at ~60% — need analysis of whether this is compute or memory modeling
+**Root Cause Analysis (COMPLETE)**:
+- **kmeans (379%)**: Measurement mismatch — sim runs 6 kernel launches (1 swap + 5 compute with max-iter=5), HW measures 1 compute kernel. Fix: change benchmark.yml to use -max-iter 1.
+- **fft/stencil2d/fir (~60-121%)**: Kernel launch overhead dominates at small problem sizes. (a) constantKernelOverhead=3600 (2µs) is never overridden for MI300A — reduce to 1800 (1µs). (b) Expand benchmark sizes in CI so compute dominates over overhead.
+- Without kmeans+fft, existing avg is 32.2% — so fixing kmeans alone gets us close to target.
 
-**Deliverables**:
-1. Identify and fix root cause of kmeans 379% error (likely multi-launch overhead)
-2. Identify and fix root cause of fft 121% error (likely multi-launch overhead)
-3. Fix simpleconvolution crash if possible
-4. Evidence-based parameter tuning for remaining >50% error benchmarks
-5. Document all changes in mi300a_calibration.md
-6. CI run showing avg <35%
+**Three Fixes (see tbc-db issue #359)**:
+1. Fix kmeans benchmark.yml to use -max-iter 1
+2. Add WithConstantKernelOverhead(1800) to MI300A CP builder
+3. Expand benchmark sizes for fft, stencil2d, fir, vectoradd in CI
 
-**What NOT to do**: Blind parameter sweeps. Every change must have a documented hypothesis.
+**Success**: avg error <35%, kmeans <100%
 
 ### M13: Accuracy Refinement (Budget: 8 cycles)
 - Target remaining >30% error benchmarks (stencil2d, fir, floydwarshall, FWT, etc.)
