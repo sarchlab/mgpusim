@@ -39,8 +39,10 @@ type DispatcherImpl struct {
 	numCompletedWGs        int
 	inflightWGs            map[string]dispatchLocation
 	originalReqs           map[string]*protocol.MapWGReq
-	latencyTable           []int
-	constantKernelOverhead int
+	latencyTable                 []int
+	constantKernelOverhead       int
+	constantKernelLaunchOverhead int
+	firstKernelLaunched          bool
 
 	monitor     *monitoring.Monitor
 	progressBar *monitoring.ProgressBar
@@ -75,6 +77,12 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 
 	d.numDispatchedWGs = 0
 	d.numCompletedWGs = 0
+	if !d.firstKernelLaunched {
+		d.cycleLeft = d.constantKernelLaunchOverhead
+		d.firstKernelLaunched = true
+	} else {
+		d.cycleLeft = d.constantKernelLaunchOverhead / 2
+	}
 
 	d.initializeProgressBar(req.ID)
 }
