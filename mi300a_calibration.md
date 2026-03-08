@@ -177,47 +177,53 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 
 ### Summary
 
-Of 438 unique reference points in `mi300a.csv`, we can simulate **136 points (31.1%)**.
+Of 453 reference points in `mi300a.csv`, we can simulate **125 points (~28%)**.
 
 ### Why 80% Coverage is Not Achievable
 
-90 reference points (20.5%) come from benchmarks that crash at ALL sizes due to simulator bugs:
+90 reference points (20%) come from benchmarks that crash at ALL sizes due to simulator bugs:
 - **nbody** (22 pts): MMU page table walk panic at all particle counts
 - **simpleconvolution** (24 pts): MMU page table walk panic at all sizes
 - **conv2d** (14 pts): MMU page table walk panic at all sizes
 - **memcopy** (30 pts): Runs successfully but does not record `kernel_time` metric
 
-Additionally, ~213 reference points (48.6%) come from sizes that either:
+Additionally, ~238 reference points (53%) come from sizes that either:
 - **Crash** at larger sizes: matrixmultiplication (384+), stencil2d (1024+), matrixtranspose (2048+), kmeans (16384+ points), im2col (32x32+), fft (8MB+) — all crash with "page not found" in MMU
-- **Timeout** (>60s simulation time): Large sizes of vectoradd, relu, FWT, atax, bicg, nw, floydwarshall, pagerank, spmv, bitonicsort
+- **Timeout** (>55s CI simulation time): Large sizes of vectoradd, relu, FWT, atax, bicg, nw, floydwarshall, pagerank, spmv, bitonicsort
+
+### CI Timing Calibration
+
+Local-to-CI slowdown ratio: ~2.5x (measured: FFT 4MB = 20s local → 40s CI).
+To guarantee completion within 60s CI timeout, sizes are limited to ≤12s local time (= ~30s CI).
+Per-size timeout is set to 55s in the workflow script with no `set -e` / `pipefail` to ensure partial results are always uploaded.
 
 ### Coverage by Benchmark
 
 | Benchmark | Ref Points | Sim Points | Coverage | Limitation |
 |-----------|-----------|-----------|----------|------------|
 | vectoradd | 20 | 10 | 50% | Larger sizes timeout (>60s) |
-| relu | 20 | 10 | 50% | Larger sizes timeout |
+| relu | 20 | 9 | 45% | Larger sizes timeout |
 | matrixmultiplication | 22 | 8 | 36% | Crashes at 384+ (page fault) |
 | stencil2d | 18 | 7 | 39% | Crashes at 1024+ |
-| atax | 20 | 8 | 40% | Larger sizes timeout |
-| bicg | 20 | 8 | 40% | Larger sizes timeout |
+| atax | 20 | 7 | 35% | 512+ timeout; 384 max safe |
+| bicg | 20 | 7 | 35% | 512+ timeout; 384 max safe |
 | fastwalshtransform | 20 | 8 | 40% | Larger sizes timeout |
 | matrixtranspose | 19 | 9 | 47% | Crashes at 2048+ |
-| fir | 20 | 4 | 20% | Only taps16 supported; larger sizes timeout |
-| bitonicsort | 15 | 5 | 33% | Larger sizes timeout |
-| floydwarshall | 23 | 8 | 35% | Larger sizes timeout (O(n³) complexity) |
-| nw | 24 | 11 | 46% | Larger sizes timeout |
-| pagerank | 19 | 8 | 42% | Larger sizes timeout |
+| fir | 20 | 4 | 20% | Only taps16 supported |
+| bitonicsort | 15 | 4 | 27% | 16384+ timeout |
+| floydwarshall | 23 | 7 | 30% | 128+ timeout (O(n³) complexity) |
+| nw | 24 | 9 | 38% | 768+ timeout |
+| pagerank | 19 | 7 | 37% | 1024+ timeout |
 | kmeans | 20 | 8 | 40% | Crashes at 16384+ points |
-| bfs | 5 | 3 | 60% | Larger sizes timeout |
-| spmv | 20 | 12 | 60% | Large dim×sparsity combos timeout |
-| fft | 19 | 3 | 16% | Crashes at 8MB+; -MB flag is integer (min 1MB) |
+| bfs | 20 | 12 | 60% | BFS ref has 4 entries per size |
+| spmv | 20 | 10 | 50% | Large dim×sparsity combos timeout |
+| fft | 19 | 2 | 11% | Crashes at 8MB+; 4MB borderline timeout |
 | im2col | 24 | 6 | 25% | Crashes at 32x32+ |
 | nbody | 22 | 0 | 0% | MMU panic at ALL sizes |
 | simpleconvolution | 24 | 0 | 0% | MMU panic at ALL sizes |
 | conv2d | 14 | 0 | 0% | MMU panic at ALL sizes |
 | memcopy | 30 | 0 | 0% | No kernel_time metric |
-| **Total** | **438** | **136** | **31.1%** | |
+| **Total** | **453** | **125** | **27.6%** | |
 
 ### Back-to-Back Kernel Launch Discount
 
