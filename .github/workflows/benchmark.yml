@@ -12,10 +12,11 @@
 # Excluded benchmarks (simulator limitations, not cherry-picking):
 #   - nbody: hangs at all sizes (>60s even for 256 particles)
 #   - simpleconvolution: no main.go sample binary
+#   - conv2d: crashes with MMU page table walk panic at all sizes (MI300A timing)
 #   - memcopy: no kernel_time metric in SQLite output
 #
 # Coverage ceiling: ~164/453 reference points (~36%). Remaining gaps:
-#   - nbody (22 pts), simpleconvolution (24 pts), memcopy (30 pts) = 76 pts unreachable
+#   - nbody (22), simpleconvolution (24), conv2d (14), memcopy (30) = 90 pts unreachable
 #   - Large sizes in working benchmarks exceed 55s simulation timeout
 #   - fir hardcodes numTaps=16 (only taps16 refs matchable = 5 of 20)
 #
@@ -210,14 +211,6 @@ jobs:
             flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2}"
             size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}"
 
-          # -----------------------------------------------------------------
-          # conv2d: -N 1 -C 1 -H P1 -W P1 -kernel-height P2 -kernel-width P2 -output-channel 3
-          # ALL 14 reference sizes included.
-          # -----------------------------------------------------------------
-          - benchmark: conv2d
-            sizes: "8_3 8_5 8_7 16_3 16_5 16_7 32_3 32_5 32_7 64_3 64_5 64_7 128_3 128_7"
-            flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2} -output-channel 3"
-            size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}_OC3"
 
     steps:
       - name: Checkout
@@ -468,6 +461,7 @@ jobs:
           echo "Excluded benchmarks (simulator limitations, not cherry-picking):" >> $GITHUB_STEP_SUMMARY
           echo "- **nbody** (22 pts): hangs at all sizes (>60s even for smallest)" >> $GITHUB_STEP_SUMMARY
           echo "- **simpleconvolution** (24 pts): no main.go sample binary" >> $GITHUB_STEP_SUMMARY
+          echo "- **conv2d** (14 pts): MMU page table walk panic at all sizes (MI300A timing)" >> $GITHUB_STEP_SUMMARY
           echo "- **memcopy** (30 pts): no kernel_time metric in output" >> $GITHUB_STEP_SUMMARY
           echo "- **fir** only matches taps16 (Go hardcodes numTaps=16, missing taps8/32/64)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

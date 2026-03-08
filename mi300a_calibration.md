@@ -177,22 +177,23 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 
 ### Summary
 
-Of 453 reference points in `mi300a.csv` (438 unique after dedup), we attempt **331 unique points (75.6%)** by including ALL reference sizes for every working benchmark. Sizes that exceed the 55s per-size CI timeout are skipped gracefully without failing the job. Actual matched points depend on CI runner speed.
+Of 453 reference points in `mi300a.csv` (438 unique after dedup), we attempt **317 unique points (72.4%)** by including ALL reference sizes for every working benchmark. Sizes that exceed the 55s per-size CI timeout are skipped gracefully without failing the job. Actual matched points depend on CI runner speed.
 
 ### Coverage Approach: Honest and Comprehensive
 
 Instead of cherry-picking only sizes known to be fast, we include ALL reference sizes for every benchmark where the simulator binary works. This is the most honest approach:
 
-- **19 benchmarks** included (out of 24 unique benchmark types in reference)
-- **331 simulation points** attempted, matching 331/438 unique reference labels
+- **18 benchmarks** included (out of 24 unique benchmark types in reference)
+- **317 simulation points** attempted, matching 317/438 unique reference labels
 - Each size gets a 55s timeout; slow sizes are skipped gracefully
 - No `set -e` or `pipefail` — partial results are always uploaded
 
 ### Excluded Benchmarks (Simulator Limitations)
 
-107 reference points (24.4%) cannot be attempted due to simulator limitations:
+121 reference points (27.6%) cannot be attempted due to simulator limitations:
 - **nbody** (22 pts): Hangs at all sizes (>60s even for 256 particles)
 - **simpleconvolution** (24 pts): No main.go sample binary exists
+- **conv2d** (14 pts): MMU page table walk panic at all sizes with MI300A timing
 - **memcopy** (30 pts): Runs but does not record `kernel_time` metric in SQLite
 - **fft** (16 of 19 pts): Only 3 MB-aligned sizes map to element counts (512..65536 elements have no MB flag)
 - **fir** (15 of 20 pts): Go code hardcodes `numTaps=16`; only `taps16` entries match
@@ -219,11 +220,12 @@ Instead of cherry-picking only sizes known to be fast, we include ALL reference 
 | spmv | 20 | 20 | 100% | Large sizes may timeout |
 | fft | 19 | 3 | 16% | Only 1/2/4 MB map to element counts |
 | im2col | 24 | 24 | 100% | Large sizes may timeout |
-| conv2d | 14 | 14 | 100% | Large sizes may timeout |
+| conv2d | 14 | 0 | 0% | MMU page table walk panic (MI300A timing) |
 | nbody | 22 | 0 | 0% | Hangs at all sizes |
 | simpleconvolution | 24 | 0 | 0% | No main.go binary |
+| conv2d | 14 | 0 | 0% | MMU page table walk panic |
 | memcopy | 30 | 0 | 0% | No kernel_time metric |
-| **Total** | **453** | **331** | **75.6%** | |
+| **Total** | **453** | **317** | **72.4%** | |
 
 ### Back-to-Back Kernel Launch Discount
 
