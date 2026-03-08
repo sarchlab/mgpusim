@@ -26,8 +26,8 @@ type Builder struct {
 func MakeBuilder() Builder {
 	b := Builder{
 		alg:                           "partition",
-		constantKernelOverhead:         3600,
-		subsequentKernelLaunchOverhead: 1800,
+		constantKernelOverhead:         1800,
+		subsequentKernelLaunchOverhead: 9000,
 	}
 	return b
 }
