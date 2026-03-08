@@ -37,49 +37,49 @@ jobs:
         include:
           # vectoradd: -width N -height 1
           - benchmark: vectoradd
-            sizes: "1024 2048 4096 8192 16384 32768 65536"
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912"
             flag_template: "-width {size} -height 1"
             size_label_template: "{size}"
 
           # relu: -length N
           - benchmark: relu
-            sizes: "1024 2048 4096 8192"
+            sizes: "1024 2048 4096 8192 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912 1073741824"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
           # matrixmultiplication: -x N -y N -z N
           - benchmark: matrixmultiplication
-            sizes: "32 64 96 128 160 192 256 320"
+            sizes: "32 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048"
             flag_template: "-x {size} -y {size} -z {size}"
             size_label_template: "{size}x{size}x{size}"
 
           # stencil2d: -row N -col N
           - benchmark: stencil2d
-            sizes: "64 128 256 512 1024 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-row {size} -col {size}"
             size_label_template: "{size}x{size}"
 
           # atax: -x N -y N
           - benchmark: atax
-            sizes: "48 64 96 128 192 256 384 512 768"
+            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
           # bicg: -x N -y N
           - benchmark: bicg
-            sizes: "48 64 96 128 192 256 384 512 768"
+            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
           # fastwalshtransform: -length N
           - benchmark: fastwalshtransform
-            sizes: "1024 4096 16384 65536"
+            sizes: "512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
           # matrixtranspose: -width N
           - benchmark: matrixtranspose
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
             flag_template: "-width {size}"
             size_label_template: "{size}x{size}"
 
@@ -91,58 +91,76 @@ jobs:
 
           # nbody: -particles N
           - benchmark: nbody
-            sizes: "64 128"
+            sizes: "256 512 768 1024 1280 1536 2048 2560 3072 4096 5120 6144 8192 10240 12288 16384 24576 32768 49152 65536 98304 131072"
             flag_template: "-particles {size}"
             size_label_template: "{size}_particles"
 
           # bitonicsort: -length N
           - benchmark: bitonicsort
-            sizes: "1024 2048 4096 8192 16384 32768 65536"
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
           # floydwarshall: -node N
           - benchmark: floydwarshall
-            sizes: "8 16 24 32 48 64 96 128"
+            sizes: "8 16 24 32 48 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048 2560 3072 4096"
             flag_template: "-node {size}"
             size_label_template: "{size}_nodes"
-            timeout_sec: 120
+            timeout_sec: 300
 
           # nw: -length N
           - benchmark: nw
-            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024"
+            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024 1280 1536 1792 2048 2560 3072 3584 4096 5120 6144 7168 8192"
             flag_template: "-length {size}"
             size_label_template: "length={size}"
 
           # simpleconvolution: -width P1 -height P1 -mask-size P2 (compound)
           - benchmark: simpleconvolution
-            sizes: "128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7"
+            sizes: "128_3 128_5 128_7 128_9 256_3 256_5 256_7 256_9 512_3 512_5 512_7 512_9 1024_3 1024_5 1024_7 1024_9 2048_3 2048_5 2048_7 2048_9 4096_3 4096_5 4096_7 4096_9"
             flag_template: "-width {p1} -height {p1} -mask-size {p2}"
             size_label_template: "{p1}x{p1}_mask{p2}"
 
           # pagerank: -node N -sparsity 0.5 -iterations 2
           - benchmark: pagerank
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
             flag_template: "-node {size} -sparsity 0.5 -iterations 2"
             size_label_template: "nodes{size}_sparsity0.5_priters2"
 
           # kmeans: -points P1 -features P2 -clusters 5 -max-iter 5 (compound)
           - benchmark: kmeans
-            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64"
+            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64 65536_8 65536_16 65536_32 65536_64 262144_8 262144_16 262144_32 262144_64"
             flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 1"
             size_label_template: "pts{p1}_feat{p2}_clus5"
 
           # bfs: -node N -degree 3
           - benchmark: bfs
-            sizes: "128"
+            sizes: "1024 4096 16384 65536 262144"
             flag_template: "-node {size} -degree 3"
             size_label_template: "nodes{size}"
 
           # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
           - benchmark: spmv
-            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.000976563_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072"
+            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.000976563_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072 16384_0.000244141_65536 16384_0.000488281_131072 16384_0.000976563_262144 16384_0.001953125_524288 65536_0.0000610352_262144 65536_0.000122070_524288 65536_0.000244141_1048576 65536_0.000488281_2097152 262144_0.0000152588_1048576 262144_0.0000305176_2097152 262144_0.0000610352_4194304 262144_0.000122070_8388608"
             flag_template: "-dim {p1} -sparsity {p2}"
             size_label_template: "{p1}x{p1}_nnz{p3}"
+
+          # fft: -MB N -passes 1 (colon format: actual_MB:label_elements)
+          - benchmark: fft
+            sizes: "1:131072 2:262144 4:524288 8:1048576 16:2097152 32:4194304 64:8388608 128:16777216 256:33554432 512:67108864 1024:134217728"
+            flag_template: "-MB {size} -passes 1"
+            size_label_template: "{size}_elements"
+
+          # conv2d: -N 1 -C 1 -H P1 -W P1 -kernel-height P2 -kernel-width P2 -output-channel 3
+          - benchmark: conv2d
+            sizes: "8_3 8_5 8_7 16_3 16_5 16_7 32_3 32_5 32_7 64_3 64_5 64_7 128_3 128_7"
+            flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2} -output-channel 3"
+            size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}_OC3"
+
+          # im2col: -N 1 -C 1 -H P1 -W P1 -kernel-height P2 -kernel-width P2
+          - benchmark: im2col
+            sizes: "8_3 8_5 8_7 16_3 16_5 16_7 32_3 32_5 32_7 64_3 64_5 64_7 128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7 1024_3 1024_5 1024_7"
+            flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2}"
+            size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}"
 
     steps:
       - name: Checkout
