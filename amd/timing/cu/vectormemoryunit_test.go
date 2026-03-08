@@ -91,8 +91,11 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Read = read
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
-		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
+		gomock.InOrder(
+			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Peek().Return(nil),
+		)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
@@ -123,8 +126,11 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Write = write
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
-		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
+		gomock.InOrder(
+			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Peek().Return(nil),
+		)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
@@ -157,6 +163,7 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactionPipeline.EXPECT().Accept(gomock.Any()),
 			transactionPipeline.EXPECT().CanAccept().Return(false),
 		)
+		instBuffer.EXPECT().Peek().Return(nil)
 
 		madeProgress := vecMemUnit.instToTransaction()
 

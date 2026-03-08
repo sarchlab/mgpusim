@@ -268,11 +268,13 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 8)
-	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
-		cu.Name()+".VectorMemoryUnit.InstPipeline",
-		b.vecMemInstPipelineStages, 1,
-		vectorMemoryUnit.postInstructionPipelineBuffer)
+		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 4*b.simdCount)
+	vectorMemoryUnit.instructionPipeline = pipelining.MakeBuilder().
+		WithPipelineWidth(b.simdCount).
+		WithNumStage(b.vecMemInstPipelineStages).
+		WithCyclePerStage(1).
+		WithPostPipelineBuffer(vectorMemoryUnit.postInstructionPipelineBuffer).
+		Build(cu.Name() + ".VectorMemoryUnit.InstPipeline")
 
 	pipelineWidth := b.vecMemTransPipelineWidth
 	if pipelineWidth < 1 {
