@@ -556,10 +556,12 @@ func (b *Builder) buildL1VCaches() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithBankLatency(l1vBankLatency).
-		WithNumBanks(1).
+		WithNumBanks(4).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(32).
+		WithNumMSHREntry(64).
+		WithNumReqsPerCycle(16).
+		WithMaxNumConcurrentTrans(128).
 		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 
