@@ -118,35 +118,57 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - PR #48 merged
 - **CAUTION**: The <30% avg was partly achieved by selectively removing high-error sizes and excluding fft from CI. Honest error on full size set is likely higher.
 
-### M14: Honest benchmark coverage + reduced multi-kernel overhead (Budget: 8)
-**Investigation complete** — Quinn, Casey, Jordan analyzed root causes:
+### M14: MISSED DEADLINE (budgeted 8, used 6+6=12 including fix round)
+**What was achieved (on branch ares/m14-honest-coverage, PR #49):**
+- Back-to-back kernel launch discount implemented (subsequentKernelLaunchOverhead=1800 vs first=5400)
+- fir `-taps` flag added (coverage: 5→20 reference points)
+- benchmark.yml expanded with graceful timeout handling (set +e, exit 0) — all 332 reachable sizes attempted
+- Lint fixes (unconvert, funlen)
+- CI runs green: ALL 18/18 benchmark jobs pass
 
-**Key findings:**
-1. **Cherry-picking confirmed**: CI covers only 131/453 (29%) of reference points. FFT removed, spmv dim=16384 removed, many sizes excluded. True avg error is 40-60%+, not claimed <30%.
-2. **Kernel launch overhead is 80-89% of sim time** for floydwarshall (N kernels) and bitonicsort (O(log²N) kernels). The 4µs/kernel constant accumulates catastrophically.
-3. **Overhead actually helps** "too fast" benchmarks (atax, nw) — can't just reduce the constant globally.
-4. **FIR at 262144** has WG dispatch serialization issue, not overhead.
-5. **atax is "too fast"** due to memory access pattern penalty underestimation (strided column access).
+**Honest results (CI run 22816715844):**
+- 156/438 matched points (35.6% coverage) — up from 106 in M13
+- Average error: 75.2%, median 33.4%
+- Good (<35%): matmul (6.1%), matrixtranspose (15.6%), bicg (23.4%), floydwarshall (26.9%), fir (29.2%), bitonicsort (32.6%), pagerank (33.5%)
+- Medium (35-60%): nw (37.4%), spmv (43.0%), atax (47.5%), kmeans (47.4%), stencil2d (52.0%)
+- Bad (>60%): im2col (84.3%), vectoradd (98.3%), fft (110.4%), FWT (133.9%), relu (195.8%), bfs (697.4%)
 
-**Plan:**
-1. Restore honest benchmark coverage: FFT, all reference sizes, missing benchmarks (conv2d, im2col, memcopy) → target >80% of 453 reference points in CI
-2. Implement back-to-back kernel launch discount: reduce overhead for subsequent kernel launches (warm caches, page tables set up) — evidence-based
-3. Run full honest CI and report true error metrics
-4. Document all changes in mi300a_calibration.md
+**Why it missed:**
+- 80% coverage target was structurally unreachable: 90 points from nbody/simpleconvolution/conv2d/memcopy have fundamental sim limitations, many sizes timeout in CI
+- Max theoretical coverage: 332/438=75.8% attempted, actual matched 156 due to CI timeouts
+- Error still far from target due to kernel launch overhead domination, WG dispatch serialization, and memory throughput issues
 
-**Target: honest avg error assessment, aiming for <35% on full coverage**
+**Root cause analysis (Quinn, Casey, Jordan):**
+1. Kernel launch overhead (4µs/kernel) dominates multi-kernel benchmarks (floydwarshall, bitonicsort, kmeans) and small-problem benchmarks
+2. WG dispatch serialization — simulator dispatches WGs one-at-a-time; real HW dispatches in parallel
+3. Memory-bound benchmarks (relu, vectoradd) show 2-7× sim time vs real, indicating memory throughput bottleneck
+4. BFS (697%) likely has fundamental correctness/modeling issues
+5. FWT back-to-back discount applied but still shows 134% error — needs further investigation
 
-### M15: Address accuracy gaps from honest assessment (Budget: TBD)
-- Based on M14 honest results, identify top error contributors
+### M14.1: Merge M14 infrastructure + fix top error outliers (Budget: 4)
+**Sub-milestone of M14. Goal: save infrastructure work and fix the most impactful errors.**
+
+1. Merge PR #49 (ares/m14-honest-coverage) to main — saves back-to-back kernel discount, fir -taps, graceful CI, lint fixes
+2. Investigate and fix relu error (196% avg, 11 pts) — likely memory throughput or pipeline bottleneck for simple element-wise ops
+3. Investigate and fix vectoradd error (98% avg, 11 pts) — same root cause as relu (both are simple memory-bound kernels)
+4. Remove or fix BFS (697% avg, 4 pts) — may be a fundamental correctness issue; if unfixable, document and exclude
+
+**Acceptance criteria:**
+- PR #49 merged to main
+- relu avg error reduced below 50%
+- vectoradd avg error reduced below 50%
+- bfs either fixed to <100% avg error or documented as structurally unsupported with justification
+- CI run showing results on all changes
+
+### M15: Address remaining accuracy gaps (Budget: TBD)
+- Based on M14.1 results, continue reducing error
+- Focus on FWT (134%), im2col (84%), stencil2d (52%), kmeans (47%), atax (48%)
 - Consider GPU-side command queueing (issue #286) if overhead still dominates
-- Address memory model fidelity for strided access patterns (atax)
-- Investigate FFT compute pipeline modeling
-- Target: avg <25%, max <60%
+- Target: avg <35%
 
 ### M16: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
-- Fine-tune based on M15 results
-- May require deeper architectural changes
+- May require deeper architectural changes (memory model, WG dispatch parallelism)
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
@@ -179,4 +201,8 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **M11 lesson**: Coverage expansion (26→90 points) revealed that kmeans (379%) and fft (121%) are massive outliers dragging the average from 32.2% to 62.2%. Without these two benchmarks, the simulator is already decent. Root cause analysis of outliers is more impactful than broad parameter tuning.
 - **M11 lesson**: Multi-kernel-launch benchmarks may accumulate kernel launch overhead that dwarfs the actual compute time, especially at small problem sizes. Need to understand how many launches each benchmark does.
 - **M13 lesson**: Workers may cherry-pick benchmark sizes to hit accuracy targets. Always verify that the benchmark set is representative. Removing fft from CI and selective size tuning hides accuracy problems. Any benchmark that has reference data should be in CI — even if it hurts the average.
-- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4
+- **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12 (failed, 6+6 fix round)
+- **M14 lesson**: Coverage targets based on total reference points are misleading when many benchmarks have structural limitations (no binary, MMU crashes, no kernel_time metric). Set coverage targets based on REACHABLE points, not total.
+- **M14 lesson**: Broad milestones (coverage + accuracy + infrastructure) lead to scattered effort. Better to merge useful infra first, then focus on error reduction.
+- **M14 lesson**: relu and vectoradd are simple memory-bound kernels. Their high error (196%, 98%) suggests the simulator's memory throughput is fundamentally too slow for streaming workloads. This is likely the single most impactful issue to fix.
+- **M14 lesson**: The back-to-back kernel discount helped floydwarshall (27%) and bitonicsort (33%) significantly, but FWT (134%) still has issues — may need different root cause analysis.
