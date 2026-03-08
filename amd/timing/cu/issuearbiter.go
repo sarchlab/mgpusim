@@ -39,7 +39,6 @@ func (a *IssueArbiter) Arbitrate(
 				typeMask[wf.InstToIssue.ExeUnit] = true
 			}
 		}
-
 	}
 
 	a.lastSIMDID = (a.lastSIMDID + 1) % len(wfPools)
