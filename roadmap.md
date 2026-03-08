@@ -145,20 +145,30 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 4. BFS (697%) likely has fundamental correctness/modeling issues
 5. FWT back-to-back discount applied but still shows 134% error — needs further investigation
 
-### M14.1: Merge M14 infrastructure + fix top error outliers (Budget: 4)
-**Sub-milestone of M14. Goal: save infrastructure work and fix the most impactful errors.**
+### M14.1: Merge PR#49 + fix BFS correctness bug + improve CU memory throughput (Budget: 6)
+**Sub-milestone of M14. Focused on the three highest-impact fixes identified by root cause analysis.**
 
-1. Merge PR #49 (ares/m14-honest-coverage) to main — saves back-to-back kernel discount, fir -taps, graceful CI, lint fixes
-2. Investigate and fix relu error (196% avg, 11 pts) — likely memory throughput or pipeline bottleneck for simple element-wise ops
-3. Investigate and fix vectoradd error (98% avg, 11 pts) — same root cause as relu (both are simple memory-bound kernels)
-4. Remove or fix BFS (697% avg, 4 pts) — may be a fundamental correctness issue; if unfixable, document and exclude
+**Root cause analysis findings (Quinn #393, Blake #394):**
+- **relu/vectoradd (22 pts, ~150% avg)**: CU memory pipeline has systemic serialization bottleneck. The VecMem transaction pipeline (width=1) caps at 64 B/cycle/CU. L1V TLB MSHR=4 stalls on cold start. Real MI300A has much wider memory issue capability.
+- **BFS (4 pts, 697% avg)**: `graph.go generate()` creates a degenerate 3-edge linear chain instead of a proper random connected graph. Also degree mismatch (sim uses 3, reference uses 4/8/16/32).
+
+**What must be done:**
+1. **Merge PR #49** (ares/m14-honest-coverage) to main — back-to-back kernel discount, fir -taps, graceful CI, lint fixes
+2. **Fix BFS graph.go** — Replace degenerate graph generator with a proper random connected graph (spanning tree + random edges), matching `gpu_perf_scripts/bfs.cpp`. Update CI to use degrees 4,8,16,32.
+3. **Widen CU memory throughput** — Two specific changes:
+   - (a) Allow `sendRequest()` in VectorMemoryUnit to send multiple transactions per cycle (e.g., 4 per tick) instead of just 1
+   - (b) Increase L1V TLB MSHR from 4 to 16 (in `shaderarray/builder.go:505`)
+   Both changes are evidence-based: real CDNA3 has deeper memory issue queues and TLB buffering.
+4. **Run CI** and report results on the updated branch
 
 **Acceptance criteria:**
 - PR #49 merged to main
-- relu avg error reduced below 50%
-- vectoradd avg error reduced below 50%
-- bfs either fixed to <100% avg error or documented as structurally unsupported with justification
-- CI run showing results on all changes
+- BFS graph.go generates a proper connected graph; CI runs BFS with degrees matching reference data
+- VecMem unit sends ≥4 transactions/cycle; L1V TLB MSHR ≥ 16
+- relu avg error < 60% (down from 196%)
+- vectoradd avg error < 40% (down from 98%)
+- bfs avg error < 200% (down from 697%)
+- CI run with all benchmarks passing, results documented
 
 ### M15: Address remaining accuracy gaps (Budget: TBD)
 - Based on M14.1 results, continue reducing error
