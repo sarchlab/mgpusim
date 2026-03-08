@@ -218,6 +218,16 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 				kernelName, symbols, executable,
 				rodataSection, rodataSectionData,
 			); v5Meta != nil {
+				// Override WFSgprCount/WIVgprCount from ELF metadata
+				// symbols if available. The compute_pgm_rsrc1 field
+				// may have incorrect granulated counts for V5 (AMDHSA
+				// Code Object V4+) kernels. The authoritative register
+				// counts come from the assembler-generated metadata
+				// symbols: <kernel>.numbered_sgpr and <kernel>.num_vgpr.
+				overrideRegisterCountsFromSymbols(
+					v5Meta, kernelName, symbols,
+				)
+
 				co := new(KernelCodeObject)
 				co.Data = kernelData // V5: entire kernel data is instructions
 				co.KernelCodeObjectMeta = v5Meta
@@ -235,6 +245,47 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 
 	log.Fatalf("kernel '%s' not found in ELF file", kernelName)
 	return nil
+}
+
+// overrideRegisterCountsFromSymbols uses ELF metadata symbols to set
+// accurate SGPR/VGPR counts, overriding the (potentially incorrect)
+// values from compute_pgm_rsrc1.
+//
+// For AMDHSA Code Object V4+ (V5), the LLVM assembler emits symbols:
+//   - <kernel>.numbered_sgpr  → number of SGPRs actually used
+//   - <kernel>.num_vgpr       → number of VGPRs actually used
+//
+// The compute_pgm_rsrc1 granulated counts may be zero or inaccurate
+// for extern "C" HIP kernels, causing wavefronts to overlap their
+// SGPR allocations.
+func overrideRegisterCountsFromSymbols(
+	meta *KernelCodeObjectMeta,
+	kernelName string,
+	symbols []elf.Symbol,
+) {
+	sgprSymName := kernelName + ".numbered_sgpr"
+	vgprSymName := kernelName + ".num_vgpr"
+
+	for _, sym := range symbols {
+		switch sym.Name {
+		case sgprSymName:
+			// sym.Value = number of SGPRs used. Add 2 for VCC which
+			// is always implicitly allocated on top of numbered SGPRs.
+			sgprCount := uint16(sym.Value) + 2
+			// Round up to multiple of 8 (allocation granularity)
+			sgprCount = ((sgprCount + 7) / 8) * 8
+			if sgprCount > meta.WFSgprCount {
+				meta.WFSgprCount = sgprCount
+			}
+		case vgprSymName:
+			vgprCount := uint16(sym.Value)
+			// Round up to multiple of 4 (allocation granularity)
+			vgprCount = ((vgprCount + 3) / 4) * 4
+			if vgprCount > meta.WIVgprCount {
+				meta.WIVgprCount = vgprCount
+			}
+		}
+	}
 }
 
 // findV5KernelDescriptor looks for a V5 kernel descriptor (.kd symbol) in .rodata.
