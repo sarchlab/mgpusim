@@ -20,7 +20,7 @@
 # (>55s) or crash are skipped gracefully — only successful results are reported.
 #
 # Trigger: Manual (workflow_dispatch) with optional branch input.
-# Runner: Github-Large-1 (self-hosted)
+# Runner: ubuntu-latest (GitHub-hosted)
 # =============================================================================
 
 name: MI300A Benchmark
@@ -40,7 +40,7 @@ jobs:
   # ===========================================================================
   benchmark:
     name: "Bench: ${{ matrix.benchmark }}"
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -392,7 +392,7 @@ jobs:
   # ===========================================================================
   compare:
     name: Compare vs MI300A Reference
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [benchmark]
     if: always()
