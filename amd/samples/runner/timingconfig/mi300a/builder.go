@@ -74,7 +74,7 @@ func MakeBuilder() Builder {
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  20,            // L2 bank latency in cycles
+		l2BankLatency:                  10,            // L2 bank latency in cycles
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,

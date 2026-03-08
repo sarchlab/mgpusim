@@ -178,7 +178,7 @@ jobs:
           # -----------------------------------------------------------------
           - benchmark: bfs
             sizes: "1024_4 1024_8 1024_16 1024_32 4096_4 4096_8 4096_16 4096_32"
-            flag_template: "-node {p1} -degree {p2} -magic-memory-copy"
+            flag_template: "-node {p1} -degree {p2} -depth 100"
             size_label_template: "nodes{p1}"
 
           # -----------------------------------------------------------------
