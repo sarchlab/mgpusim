@@ -217,30 +217,32 @@ func (u *VectorMemoryUnit) executeFlatStore(
 }
 
 func (u *VectorMemoryUnit) sendRequest() bool {
-	item := u.postTransactionPipelineBuffer.Peek()
-	if item == nil {
-		return false
+	madeProgress := false
+	for i := 0; i < 4; i++ {
+		item := u.postTransactionPipelineBuffer.Peek()
+		if item == nil {
+			break
+		}
+
+		var req sim.Msg
+		info := item.(VectorMemAccessInfo)
+		if info.Read != nil {
+			req = info.Read
+		} else {
+			req = info.Write
+		}
+
+		err := u.cu.ToVectorMem.Send(req)
+		if err == nil {
+			u.postTransactionPipelineBuffer.Pop()
+			u.numTransactionInFlight--
+			tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
+			madeProgress = true
+		} else {
+			break
+		}
 	}
-
-	var req sim.Msg
-	info := item.(VectorMemAccessInfo)
-	if info.Read != nil {
-		req = info.Read
-	} else {
-		req = info.Write
-	}
-
-	err := u.cu.ToVectorMem.Send(req)
-	if err == nil {
-		u.postTransactionPipelineBuffer.Pop()
-		u.numTransactionInFlight--
-
-		tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
-
-		return true
-	}
-
-	return false
+	return madeProgress
 }
 
 // Flush flushes

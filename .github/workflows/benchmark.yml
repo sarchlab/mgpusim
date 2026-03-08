@@ -177,9 +177,9 @@ jobs:
           # ALL 5 unique reference sizes (reference has 4 seeds each = 20 rows)
           # -----------------------------------------------------------------
           - benchmark: bfs
-            sizes: "1024 4096 16384 65536 262144"
-            flag_template: "-node {size} -degree 3"
-            size_label_template: "nodes{size}"
+            sizes: "1024_4 1024_8 1024_16 1024_32 4096_4 4096_8 4096_16 4096_32"
+            flag_template: "-node {p1} -degree {p2}"
+            size_label_template: "nodes{p1}_deg{p2}"
 
           # -----------------------------------------------------------------
           # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
