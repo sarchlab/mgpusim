@@ -590,9 +590,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz (MI300A kernel launch latency)
-		WithSubsequentKernelLaunchOverhead(3600).        // ~2μs at 1.8GHz
-		WithConstantKernelOverhead(1800).                // ~1μs at 1.8GHz
+		WithConstantKernelLaunchOverhead(3600).          // ~2μs at 1.8GHz
+		WithSubsequentKernelLaunchOverhead(1800).        // ~1μs at 1.8GHz
+		WithConstantKernelOverhead(900).                 // ~0.5μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)

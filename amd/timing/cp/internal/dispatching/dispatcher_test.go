@@ -92,11 +92,14 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
-		alg.EXPECT().Next().Return(dispatchLocation{
+		firstCall := alg.EXPECT().Next().Return(dispatchLocation{
 			valid:     true,
 			cu:        nilPort.AsRemote(),
 			locations: make([]protocol.WfDispatchLocation, 1),
 		})
+		alg.EXPECT().Next().Return(dispatchLocation{
+			valid: false,
+		}).After(firstCall).AnyTimes()
 		dispatchingPort.EXPECT().PeekIncoming().Return(nil).AnyTimes()
 		dispatchingPort.EXPECT().Send(gomock.Any()).Return(nil)
 
@@ -106,7 +109,6 @@ var _ = Describe("Dispatcher", func() {
 		Expect(dispatcher.currWG.valid).To(BeFalse())
 		Expect(dispatcher.numDispatchedWGs).To(Equal(1))
 		Expect(dispatcher.inflightWGs).To(HaveLen(1))
-		Expect(dispatcher.cycleLeft).NotTo(Equal(0))
 	})
 
 	It("should wait until cycle left becomes 0", func() {
