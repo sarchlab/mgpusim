@@ -206,22 +206,26 @@ BFS crashes because `-depth 100` apparently doesn't prevent the crash — the cr
 - That run showed: 149 matched points, avg 62.4%, max 647.4%
 - All subsequent runs stuck in queue — cancelled by Athena
 
-### M15: Fix CI infrastructure + validate accuracy (Budget: 4)
-- Switch all workflows from `Github-Large-1` to `ubuntu-latest` (shared runners)
-- Remove multi-GPU tests from push/PR CI per human request #422
-- Trigger benchmark run and document results
-- Compare accuracy with pre-IssueArbiter baseline (62.4% avg)
-- Details in tbc-db issue #427
+### M15: COMPLETE ✅ (Budget: 4, Used: ~2)
+- Switched all workflows from `Github-Large-1` to `ubuntu-latest` (shared runners)
+- Removed multi-GPU tests from push/PR CI per human request #422
+- PR #58 and PR #59 merged
+- CI run 22830877331: all 9/9 jobs pass
+- Benchmark run 22829647159: 164/438 matched, avg |error| = 68.1%, median 37.4%
+- **Key finding**: Single-kernel benchmarks avg 27.3% (near target), multi-kernel avg 105.9% (far from target)
+- All high-error benchmarks are "too fast" (sim underestimates time) and involve multiple kernel launches
 
-### M16: Address remaining accuracy gaps (Budget: TBD)
-- Based on M15 CI results, identify top error sources
-- Focus on highest-error benchmarks
-- Consider GPU-side command queueing (issue #286) if overhead still dominates
-- Target: avg <35%
+### M16: Fix multi-kernel overhead to reduce avg error from 68% to <35% (Budget: 8)
+- Root cause: kernel launch overhead model is too low for multi-kernel benchmarks
+- Current: first=5400cy (3μs), subsequent=2700cy (1.5μs), completion=1080cy (0.6μs)
+- Strategy: increase kernel launch overhead, investigate inter-kernel cache flush costs
+- Target: overall avg <45%, multi-kernel avg <60%, single-kernel must not regress >5pp
+- Details in tbc-db issue #431
 
 ### M17: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
-- May require deeper architectural changes (memory model, WG dispatch parallelism)
+- May require: per-benchmark kernel count analysis, inter-kernel cache flush model, GPU-side command queueing (issue #286)
+- Coverage expansion: larger sizes, fix nbody/conv2d/simpleconvolution crashes
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
