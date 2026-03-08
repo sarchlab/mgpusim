@@ -479,7 +479,7 @@ func (b *Builder) buildSAs() {
 		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
 		WithNumSinglePrecisionUnits(16).
 		WithVecMemInstPipelineStages(1).
-		WithVecMemTransPipelineStages(2).
+		WithVecMemTransPipelineStages(1).
 		WithVecMemTransPipelineWidth(8).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
@@ -590,9 +590,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(3600).          // ~2μs at 1.8GHz
-		WithSubsequentKernelLaunchOverhead(1800).        // ~1μs at 1.8GHz
-		WithConstantKernelOverhead(900).                 // ~0.5μs at 1.8GHz
+		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz
+		WithSubsequentKernelLaunchOverhead(2700).        // ~1.5μs at 1.8GHz
+		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)
