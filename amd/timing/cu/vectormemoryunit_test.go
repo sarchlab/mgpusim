@@ -174,6 +174,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		transactionBuffer.EXPECT().Peek().Return(trans)
 		transactionBuffer.EXPECT().Pop()
 		toVectorMem.EXPECT().Send(loadReq)
+		transactionBuffer.EXPECT().Peek().Return(nil)
 
 		vecMemUnit.sendRequest()
 

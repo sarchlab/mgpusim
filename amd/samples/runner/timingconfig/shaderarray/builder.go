@@ -502,7 +502,7 @@ func (b *Builder) buildL1VTLBs() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
+		WithNumMSHREntry(16).
 		WithNumSets(1).
 		WithNumWays(64).
 		WithNumReqPerCycle(4).
@@ -517,7 +517,7 @@ func (b *Builder) buildL1VTLBs() {
 }
 
 func (b *Builder) buildL1VCaches() {
-	l1vSize := uint64(16 * mem.KB)
+	l1vSize := 16 * mem.KB
 	if b.l1vCacheSize > 0 {
 		l1vSize = b.l1vCacheSize
 	}

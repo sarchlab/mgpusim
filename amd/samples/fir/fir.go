@@ -8,6 +8,7 @@ import (
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
+var numTaps = flag.Int("taps", 16, "The number of filter taps.")
 
 func main() {
 	flag.Parse()
@@ -16,6 +17,7 @@ func main() {
 
 	benchmark := fir.NewBenchmark(runner.Driver())
 	benchmark.Length = *numData
+	benchmark.NumTapsParam = *numTaps
 	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
