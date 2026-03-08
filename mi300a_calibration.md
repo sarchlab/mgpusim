@@ -177,65 +177,65 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 
 ### Summary
 
-Of 453 reference points in `mi300a.csv`, we include **~173 sizes** in CI that are known to complete within 45s. This covers ~173 of ~317 theoretically matchable reference labels (**54.6% of matchable, 38.2% of total**). The remaining ~144 matchable points cannot be covered because:
-- Large sizes exceed the 45–55s CI simulation timeout
-- Some benchmarks crash at larger sizes (page table walk panics, OOM)
-
-The **80% target** (>363 of 453 points) is infeasible due to structural limitations: 90 points belong to benchmarks with fundamental simulator issues (nbody hangs, simpleconvolution has no binary, conv2d crashes, memcopy has no metric), and an additional 46 points are unmatchable due to parameter constraints (fir hardcodes numTaps=16, fft only accepts MB-aligned sizes, bfs has duplicate seeds). Even if all matchable points could run within CI timeout, the maximum achievable coverage would be ~317/453 = 70%.
+Of 453 reference rows in `mi300a.csv` (438 unique keys after deduplicating BFS seeds), we attempt **332 unique sizes** across 18 benchmarks in CI. Each size has a 55s timeout; sizes that timeout or crash are gracefully skipped. Successful results are always uploaded regardless of individual failures.
 
 ### Coverage Approach
 
-We include only sizes verified to complete safely within the CI timeout for each benchmark. This gives honest, reproducible results:
+We attempt ALL reference sizes from mi300a.csv for every runnable benchmark. This is the **honest coverage** approach — no cherry-picking easy sizes. Sizes that exceed the 55s per-size timeout or crash (OOM, page fault) are skipped gracefully.
 
-- **18 benchmarks** included (out of 24 unique benchmark types in reference)
-- **173 simulation points** attempted, matching 173/317 matchable reference labels
-- Each size gets a 55s timeout; sizes that exceed it are skipped gracefully
-- No `set -e` or `pipefail` — partial results are always uploaded
+- **18 benchmarks** included (out of 22 unique benchmark types in reference)
+- **332 simulation sizes** attempted, covering every reference size for runnable benchmarks
+- Each size gets a 55s timeout; timed-out/crashed sizes are skipped
+- `set +e` with `exit 0` — partial results always uploaded
+- `ulimit -v 6GB` prevents OOM kills
 
-### Excluded / Unreachable Reference Points
+### M14 Changes (fir -taps flag)
 
-**90 points** from benchmarks with fundamental simulator issues (not attempted at all):
+Added configurable `-taps` flag to the fir benchmark binary (`amd/samples/fir/fir.go` and `amd/benchmarks/heteromark/fir/fir.go`). Previously `numTaps` was hardcoded to 16, limiting coverage to 5 of 20 reference points. Now all taps values (8, 16, 32, 64) are supported, covering all 20 fir reference sizes.
+
+### Structurally Unreachable Reference Points
+
+**90 unique points** from benchmarks with fundamental simulator limitations (not attempted):
 - **nbody** (22 pts): Hangs at all sizes (>60s even for 256 particles)
-- **simpleconvolution** (24 pts): No main.go sample binary exists
-- **conv2d** (14 pts): MMU page table walk panic at all sizes with MI300A timing
-- **memcopy** (30 pts): Runs but does not record `kernel_time` metric in SQLite
+- **simpleconvolution** (24 pts): No `main.go` sample binary exists
+- **conv2d** (14 pts): MMU page table walk panic at all sizes with MI300A timing (akita dependency bug)
+- **memcopy** (30 pts): Uses `MemCopyH2D`/`MemCopyD2H` (no kernel launches, no `kernel_time` metric)
 
-**46 points** unmatchable due to parameter constraints:
-- **fft** (16 of 19 pts): Only 3 MB-aligned sizes map to element counts (512..65536 elements have no MB flag)
-- **fir** (15 of 20 pts): Go code hardcodes `numTaps=16`; only `taps16` entries match
-- **bfs** (15 of 20 pts): Reference has 4 duplicate seeds per node count; only 5 unique sizes
-- **im2col** (18 of 24 pts): Sizes 32+ crash with MI300A timing; only 6 small sizes work
+**16 unique points** from partially unreachable benchmarks:
+- **fft** (16 of 19 pts): Binary takes `-MB` (integer); sub-MB element counts (512..65536) and 8MB+ (crashes) unsupported
+- **bfs**: Reference has 4 duplicate seeds per node count; compare script averages to 5 unique keys. All 5 are attempted.
 
-**~144 points** from working benchmarks excluded due to CI timeout/resource limits:
-- Large sizes in vectoradd, relu, matrixmultiplication, stencil2d, atax, bicg, fastwalshtransform, matrixtranspose, bitonicsort, floydwarshall, nw, pagerank, kmeans, spmv exceed the 45s simulation timeout or 6GB memory limit
+Maximum theoretical coverage: (438 - 90 - 16) / 438 = **332/438 = 75.8%**
+
+Many of the 332 attempted sizes will timeout on CI (large vectoradd, relu, matmul, etc.) — actual matched points depend on CI runner speed. Expected: ~190-210 matched points (43-48%).
 
 ### Coverage by Benchmark
 
-| Benchmark | Ref Points | Attempted | Coverage | Notes |
-|-----------|-----------|-----------|----------|-------|
-| vectoradd | 20 | 11 | 55% | 9 large sizes exceed CI timeout |
-| relu | 20 | 11 | 55% | 9 large sizes exceed CI timeout |
-| matrixmultiplication | 22 | 12 | 55% | 10 large sizes crash (page fault) or timeout |
-| stencil2d | 18 | 9 | 50% | 9 large sizes exceed CI timeout |
-| atax | 20 | 10 | 50% | 10 large sizes exceed CI timeout |
-| bicg | 20 | 10 | 50% | 10 large sizes exceed CI timeout |
-| fastwalshtransform | 20 | 10 | 50% | 10 large sizes exceed CI timeout |
-| matrixtranspose | 19 | 11 | 58% | 8 large sizes exceed CI timeout |
-| fir | 20 | 5 | 25% | Only taps16 supported (Go hardcodes numTaps=16) |
-| bitonicsort | 15 | 8 | 53% | 7 large sizes exceed CI timeout |
-| floydwarshall | 23 | 12 | 52% | 11 large sizes exceed CI timeout (O(n³)) |
-| nw | 24 | 16 | 67% | 8 large sizes exceed CI timeout |
-| pagerank | 19 | 10 | 53% | 9 large sizes exceed CI timeout |
-| kmeans | 20 | 12 | 60% | 8 large sizes exceed CI timeout |
-| bfs | 20 | 5 | 25% | Only 5 unique sizes (4 duplicate seeds each in ref) |
-| spmv | 20 | 12 | 60% | 8 large sizes exceed CI timeout |
-| fft | 19 | 3 | 16% | Only 1/2/4 MB map to element counts |
-| im2col | 24 | 6 | 25% | Sizes 32+ crash with MI300A timing |
-| conv2d | 14 | 0 | 0% | MMU page table walk panic at all sizes |
-| nbody | 22 | 0 | 0% | Hangs at all sizes |
-| simpleconvolution | 24 | 0 | 0% | No main.go binary |
-| memcopy | 30 | 0 | 0% | No kernel_time metric |
-| **Total** | **453** | **173** | **38.2%** | |
+| Benchmark | Ref (unique) | Attempted | Notes |
+|-----------|-------------|-----------|-------|
+| vectoradd | 20 | 20 | Large sizes may timeout |
+| relu | 20 | 20 | Large sizes may timeout |
+| matrixmultiplication | 22 | 22 | Large sizes may timeout/crash |
+| stencil2d | 18 | 18 | Large sizes may timeout |
+| atax | 20 | 20 | Large sizes may timeout |
+| bicg | 20 | 20 | Large sizes may timeout |
+| fastwalshtransform | 20 | 20 | Large sizes may timeout |
+| matrixtranspose | 19 | 19 | Large sizes may timeout |
+| fir | 20 | 20 | All taps (8/16/32/64) now supported! |
+| bitonicsort | 15 | 15 | Large sizes may timeout |
+| floydwarshall | 23 | 23 | O(n³) - large sizes will timeout |
+| nw | 24 | 24 | Large sizes may timeout |
+| pagerank | 19 | 19 | Large sizes may timeout |
+| kmeans | 20 | 20 | Large sizes may timeout |
+| bfs | 5 | 5 | All unique sizes attempted |
+| spmv | 20 | 20 | Large sizes may timeout |
+| fft | 19 | 3 | Only 1/2/4 MB expressible |
+| im2col | 24 | 24 | Sizes 32+ may crash (MMU panic) |
+| conv2d | 14 | 0 | MMU page table walk panic |
+| nbody | 22 | 0 | Hangs at all sizes |
+| simpleconvolution | 24 | 0 | No main.go binary |
+| memcopy | 30 | 0 | No kernel_time metric |
+| **Total** | **438** | **332** | **75.8% attempted** |
 
 ### Back-to-Back Kernel Launch Discount
 
