@@ -118,26 +118,35 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - PR #48 merged
 - **CAUTION**: The <30% avg was partly achieved by selectively removing high-error sizes and excluding fft from CI. Honest error on full size set is likely higher.
 
-### M14: Reduce multi-kernel overhead + restore honest benchmark coverage (Budget: TBD)
-**Investigation in progress** — Quinn (#376), Casey (#377), Jordan (#378) analyzing:
-- Multi-kernel launch overhead is likely the #1 root cause for "too slow" benchmarks
-- floydwarshall, bitonicsort, kmeans: O(N), O(log²N), iterative kernel launches
-- FFT was removed from CI — must be restored
-- Benchmark sizes may have been cherry-picked — need honest evaluation
+### M14: Honest benchmark coverage + reduced multi-kernel overhead (Budget: 8)
+**Investigation complete** — Quinn, Casey, Jordan analyzed root causes:
 
-**Hypothesized fixes:**
-1. Reduce kernel launch/completion overhead for multi-kernel benchmarks (evidence-based)
-2. Restore FFT and all available benchmark sizes to CI
-3. Address fir 262144 outlier (143% error, likely DRAM bandwidth at large size)
+**Key findings:**
+1. **Cherry-picking confirmed**: CI covers only 131/453 (29%) of reference points. FFT removed, spmv dim=16384 removed, many sizes excluded. True avg error is 40-60%+, not claimed <30%.
+2. **Kernel launch overhead is 80-89% of sim time** for floydwarshall (N kernels) and bitonicsort (O(log²N) kernels). The 4µs/kernel constant accumulates catastrophically.
+3. **Overhead actually helps** "too fast" benchmarks (atax, nw) — can't just reduce the constant globally.
+4. **FIR at 262144** has WG dispatch serialization issue, not overhead.
+5. **atax is "too fast"** due to memory access pattern penalty underestimation (strided column access).
 
-**Target: avg <25%, max <80% on honest benchmark set**
+**Plan:**
+1. Restore honest benchmark coverage: FFT, all reference sizes, missing benchmarks (conv2d, im2col, memcopy) → target >80% of 453 reference points in CI
+2. Implement back-to-back kernel launch discount: reduce overhead for subsequent kernel launches (warm caches, page tables set up) — evidence-based
+3. Run full honest CI and report true error metrics
+4. Document all changes in mi300a_calibration.md
 
-### M15: Final accuracy push (Budget: TBD)
+**Target: honest avg error assessment, aiming for <35% on full coverage**
+
+### M15: Address accuracy gaps from honest assessment (Budget: TBD)
+- Based on M14 honest results, identify top error contributors
+- Consider GPU-side command queueing (issue #286) if overhead still dominates
+- Address memory model fidelity for strided access patterns (atax)
+- Investigate FFT compute pipeline modeling
+- Target: avg <25%, max <60%
+
+### M16: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
-- Address remaining high-error benchmarks after M14
-- May require GPU-side command queueing (issue #286) for multi-kernel benchmarks
-- Investigate CDNA3 dual-issue VALU capability for compute-heavy benchmarks (FFT)
-- Coverage expansion: conv2d, im2col via gputensor framework
+- Fine-tune based on M15 results
+- May require deeper architectural changes
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
