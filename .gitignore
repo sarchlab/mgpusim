@@ -18,6 +18,7 @@ debug
 .ropeproject
 __pycache__
 *.html
+_bench_*
 *.atp
 *.swo
 *.o
