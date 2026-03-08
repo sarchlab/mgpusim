@@ -480,6 +480,8 @@ func (b *Builder) buildSAs() {
 		WithNumSinglePrecisionUnits(16).
 		WithVecMemInstPipelineStages(2).
 		WithVecMemTransPipelineStages(4).
+		WithVecMemTransPipelineWidth(4).
+		WithCUMemPipelineBufferSize(32).
 		WithL1VCacheSize(32 * mem.KB).
 		WithL1VBankLatency(5).
 		WithMemPipelineBufferSize(32)
@@ -500,8 +502,8 @@ func (b *Builder) buildL2Caches() {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(16).
+		WithNumMSHREntry(256).
+		WithNumReqPerCycle(64).
 		WithBankLatency(b.l2BankLatency).
 		WithDirectoryLatency(4)
 
@@ -533,12 +535,12 @@ func (b *Builder) buildDRAMControllers() {
 			WithEngine(b.simulation.GetEngine()).
 			WithFreq(1 * sim.GHz).
 			WithNumBanks(16).
-			WithBankPipelineWidth(1).
+			WithBankPipelineWidth(4).
 			WithBankPipelineDepth(10).
-			WithStageLatency(3).
+			WithStageLatency(1).
 			WithLog2InterleaveSize(6).
-			WithTopPortBufferSize(64).
-			WithPostPipelineBufferSize(4)
+			WithTopPortBufferSize(128).
+			WithPostPipelineBufferSize(16)
 		if b.globalStorage != nil {
 			memBuilder = memBuilder.WithStorage(b.globalStorage)
 		} else {

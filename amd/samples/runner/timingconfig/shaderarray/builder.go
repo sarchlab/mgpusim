@@ -30,9 +30,11 @@ type Builder struct {
 	wfPoolSize                int
 	vgprCount                 []int
 	numSinglePrecisionUnits   int
-	vecMemInstPipelineStages  int
-	vecMemTransPipelineStages int
-	l1vCacheSize              uint64
+	vecMemInstPipelineStages   int
+	vecMemTransPipelineStages  int
+	vecMemTransPipelineWidth   int
+	cuMemPipelineBufferSize    int
+	l1vCacheSize               uint64
 	l1vBankLatency            int
 	memPipelineBufferSize     int
 	l1AddressMapper           mem.AddressToPortMapper
@@ -169,6 +171,20 @@ func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
 // depth for each CU.
 func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
 	b.vecMemTransPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineWidth sets the width (items per cycle) of the
+// vector memory transaction pipeline for each CU. Default is 1.
+func (b Builder) WithVecMemTransPipelineWidth(n int) Builder {
+	b.vecMemTransPipelineWidth = n
+	return b
+}
+
+// WithCUMemPipelineBufferSize sets the CU-internal post-pipeline buffer
+// size for vector memory transactions. Default is 8.
+func (b Builder) WithCUMemPipelineBufferSize(n int) Builder {
+	b.cuMemPipelineBufferSize = n
 	return b
 }
 
@@ -434,6 +450,14 @@ func (b *Builder) buildCUs() {
 		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
 	}
 
+	if b.vecMemTransPipelineWidth > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineWidth(b.vecMemTransPipelineWidth)
+	}
+
+	if b.cuMemPipelineBufferSize > 0 {
+		cuBuilder = cuBuilder.WithMemPipelineBufferSize(b.cuMemPipelineBufferSize)
+	}
+
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
@@ -458,8 +482,8 @@ func (b *Builder) buildL1VReorderBuffers() {
 	builder := rob.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBufferSize(128).
-		WithNumReqPerCycle(4)
+		WithBufferSize(256).
+		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
@@ -505,7 +529,7 @@ func (b *Builder) buildL1VTLBs() {
 		WithNumMSHREntry(16).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4).
+		WithNumReqPerCycle(16).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {

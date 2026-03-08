@@ -148,13 +148,20 @@ var _ = Describe("Vector Memory Unit", func() {
 		}
 		vecMemUnit.transactionsWaiting = transactions
 
-		transactionPipeline.EXPECT().CanAccept().Return(true)
-		transactionPipeline.EXPECT().Accept(gomock.Any())
+		// The loop inserts as many as the pipeline can accept.
+		// After 2 accepts, pipeline reports full.
+		gomock.InOrder(
+			transactionPipeline.EXPECT().CanAccept().Return(true),
+			transactionPipeline.EXPECT().Accept(gomock.Any()),
+			transactionPipeline.EXPECT().CanAccept().Return(true),
+			transactionPipeline.EXPECT().Accept(gomock.Any()),
+			transactionPipeline.EXPECT().CanAccept().Return(false),
+		)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(3))
+		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(2))
 	})
 
 	It("should send memory access requests", func() {
