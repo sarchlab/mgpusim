@@ -482,8 +482,8 @@ func (b *Builder) buildL1VReorderBuffers() {
 	builder := rob.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBufferSize(128).
-		WithNumReqPerCycle(4)
+		WithBufferSize(256).
+		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
@@ -529,7 +529,7 @@ func (b *Builder) buildL1VTLBs() {
 		WithNumMSHREntry(16).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4).
+		WithNumReqPerCycle(16).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {

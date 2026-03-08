@@ -503,7 +503,7 @@ func (b *Builder) buildL2Caches() {
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
 		WithNumMSHREntry(256).
-		WithNumReqPerCycle(16).
+		WithNumReqPerCycle(64).
 		WithBankLatency(b.l2BankLatency).
 		WithDirectoryLatency(4)
 
