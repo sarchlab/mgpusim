@@ -176,17 +176,50 @@ The L1V cache and pipeline width changes had ZERO effect on relu/vectoradd becau
 
 BFS crashes because `-depth 100` apparently doesn't prevent the crash — the crash is likely in the benchmark binary itself or a different code path.
 
-### M14.1.1: Fix IssueArbiter to issue from multiple SIMDs (Budget: TBD)
-**Root cause fix for relu/vectoradd.** The IssueArbiter must issue instructions from ALL SIMDs each cycle, not just one. This is the single highest-impact change remaining.
+### M14.2: Fix IssueArbiter multi-SIMD + BFS crash + streaming throughput (Budget: 6, Used: 6) — MISSED DEADLINE (CI blocked)
 
-### M15: Address remaining accuracy gaps (Budget: TBD)
-- Based on M14.1.1 results, continue reducing error
-- Focus on FWT (134%), im2col (84%), stencil2d (52%), kmeans (47%), atax (48%)
+**What was achieved (merged to main, commit 36ef31e2):**
+- IssueArbiter multi-SIMD fix: issues from ALL SIMDs per cycle (not just one)
+- DecodeUnit multi-wave support: accepts up to 4 waves per cycle
+- Zero-cost WG dispatch latency (latencyTable all zeros)
+- Multi-fetch: 4 WFs/cycle in DoFetch
+- Kernel overhead tuning: 5400/2700/1080 (first/subsequent/completion)
+- VMem trans pipeline stages: 2→1
+- L1V MSHR: 64→256, reduced latencies
+- BFS SGPR fix + v_sub_u32/v_subrev_u32 opcodes implemented
+
+**Local test results (Finn, on current main 36ef31e2):**
+- vectoradd avg: ~34.5% (target <40%) ✅
+- relu avg: ~30.8% (target <60%) ✅
+- matmul 256: 18.8% ✅
+- BFS 1024: no crash ✅
+
+**Why deadline "missed":**
+- All code changes were merged and local tests pass
+- BUT CI runners died (0 self-hosted runners available, `Github-Large-1` offline)
+- 7 CI runs were queued indefinitely, none completed
+- No full benchmark validation possible
+- Human issue #422 asked to reduce CI cost and switch to shared runners
+
+**CI situation:**
+- Last completed benchmark CI: run 22823931487 on commit a42eb78d (BEFORE IssueArbiter fix)
+- That run showed: 149 matched points, avg 62.4%, max 647.4%
+- All subsequent runs stuck in queue — cancelled by Athena
+
+### M15: Fix CI infrastructure + validate accuracy (Budget: 4)
+- Switch all workflows from `Github-Large-1` to `ubuntu-latest` (shared runners)
+- Remove multi-GPU tests from push/PR CI per human request #422
+- Trigger benchmark run and document results
+- Compare accuracy with pre-IssueArbiter baseline (62.4% avg)
+- Details in tbc-db issue #427
+
+### M16: Address remaining accuracy gaps (Budget: TBD)
+- Based on M15 CI results, identify top error sources
+- Focus on highest-error benchmarks
 - Consider GPU-side command queueing (issue #286) if overhead still dominates
-- Fix BFS crashes
 - Target: avg <35%
 
-### M16: Final accuracy push (Budget: TBD)
+### M17: Final accuracy push (Budget: TBD)
 - Target: avg <20%, max <50%
 - May require deeper architectural changes (memory model, WG dispatch parallelism)
 
@@ -229,4 +262,7 @@ BFS crashes because `-depth 100` apparently doesn't prevent the crash — the cr
 - **M14.1 lesson**: Widening downstream pipelines (L1V cache banks/MSHR, transaction pipeline width, send rate) has ZERO effect if the INPUT rate is bottlenecked upstream. The IssueArbiter was the true bottleneck — it only issues 1 VMem instruction per cycle regardless of downstream capacity.
 - **M14.1 lesson**: 6 cycles of parameter tuning on the wrong bottleneck is wasted. Always trace the FULL path from instruction issue to memory response before tuning parameters.
 - **M14.1 lesson**: The arbiter design (break after first non-empty SIMD) is an architectural decision, not a parameter. Fixing it requires code changes, not config tuning.
-- **Cycle estimates**: M1-M4 ~20; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8(F); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12(F); M14.1 ~6(F)
+- **M14.2 lesson**: CI infrastructure is a single point of failure. Self-hosted runners going offline blocks ALL validation. Always have a fallback (shared runners).
+- **M14.2 lesson**: Local test results can show targets are met, but without CI, we can't validate at scale. The IssueArbiter fix was the right change, but 6 cycles were consumed without proof.
+- **Operational lesson**: Human request #422 — reduce CI cost. Switch to shared runners, remove parallel GPU tests from push CI.
+- **Cycle estimates**: M1-M4 ~20; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8(F); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12(F); M14.1 ~6(F); M14.2 ~6(blocked by CI)
