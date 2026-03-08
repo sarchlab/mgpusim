@@ -103,16 +103,20 @@ The previous config provided essentially unlimited DRAM bandwidth (65 TB/s), mea
 
 ## Kernel Launch Overhead
 
-### constantKernelLaunchOverhead = 5400 cycles (all kernels, no /2 for subsequent)
+### constantKernelLaunchOverhead = 5400 cycles (first kernel), subsequentKernelLaunchOverhead = 1800 cycles (back-to-back)
 
-**Source:** Calibrated against real hardware measurements (Harper's FWT analysis, M13).
+**Source:** Calibrated against real hardware measurements (Harper's FWT analysis, M13; back-to-back discount added in M14).
 
-- All kernel launches: 5400 cycles at 1.8 GHz = 3.0 μs
-- Real MI300A kernel launch overhead is estimated at 2-5 μs
+- First kernel launch: 5400 cycles at 1.8 GHz = 3.0 μs
+- Subsequent kernel launches: 1800 cycles at 1.8 GHz = 1.0 μs
+- Real MI300A kernel launch overhead is estimated at 2-5 μs (cold) and ~1 μs (warm/back-to-back)
 
-**Rationale:** FWT requires ~5 μs per kernel launch on real MI300A hardware, but was only getting ~2.6 μs due to the `/2` halving applied to subsequent kernels. Harper's analysis shows that subsequent kernels need the same overhead as the first kernel launch on MI300A — the `/2` was an assumption that subsequent launches are cheaper, which doesn't match real hardware data. The halving has been removed so all kernels (first and subsequent) use the full 5400-cycle overhead.
+**Rationale:** Real hardware pipelines kernel dispatches — when a kernel launches immediately after another kernel completes on the same dispatcher, instruction caches are warm, page tables are already set up, and CU state is preserved. This results in significantly reduced launch overhead for back-to-back kernels. The first kernel pays the full 5400-cycle cold-start cost, while subsequent kernels benefit from the warm state and use only 1800 cycles.
 
-**History:** Previously, subsequent kernels used `constantKernelLaunchOverhead / 2` (2700 cycles = 1.5 μs). This was removed in M13 based on FWT calibration data.
+**History:**
+- M9: Subsequent kernels used `constantKernelLaunchOverhead / 2` (2700 cycles = 1.5 μs)
+- M13: Halving removed — all kernels used full 5400 cycles based on FWT analysis
+- M14: Back-to-back discount reintroduced with explicit `subsequentKernelLaunchOverhead` field (1800 cycles), providing finer-grained control than the previous `/2` approach
 
 ### constantKernelOverhead = 1800 cycles (MI300A), default 3600 cycles
 

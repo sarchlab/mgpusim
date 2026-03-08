@@ -22,8 +22,9 @@ type Builder struct {
 	numDispatchers               int
 	driver                       sim.Port
 	cus                          []CUInterfaceForCP
-	constantKernelLaunchOverhead int
-	constantKernelOverhead       int
+	constantKernelLaunchOverhead   int
+	constantKernelOverhead         int
+	subsequentKernelLaunchOverhead int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -95,6 +96,14 @@ func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
 	return b
 }
 
+// WithSubsequentKernelLaunchOverhead sets the overhead cycles for kernel
+// launches after the first one. This models the reduced launch latency
+// when launching back-to-back kernels on real hardware.
+func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
+	b.subsequentKernelLaunchOverhead = overhead
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -157,7 +166,8 @@ func (b Builder) buildDispatchers(cp *CommandProcessor) {
 		WithDispatchingPort(cp.ToCUs).
 		WithRespondingPort(cp.ToDriver).
 		WithMonitor(b.monitor).
-		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead)
+		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead).
+		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead)
 
 	if b.constantKernelOverhead > 0 {
 		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
