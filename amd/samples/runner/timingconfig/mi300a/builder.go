@@ -74,7 +74,7 @@ func MakeBuilder() Builder {
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  3,             // L2 bank latency in cycles (reduced for MI300A HBM3 performance)
+		l2BankLatency:                  5,             // L2 bank latency in cycles (balanced for MI300A accuracy)
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -590,9 +590,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz (reverted)
-		WithSubsequentKernelLaunchOverhead(5400).        // ~3μs at 1.8GHz (doubled from 1.5μs baseline for multi-kernel accuracy)
-		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz (reverted)
+		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz
+		WithSubsequentKernelLaunchOverhead(32000).       // ~17.8μs at 1.8GHz (increased for multi-kernel accuracy)
+		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)
