@@ -590,9 +590,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(14400).         // ~8μs at 1.8GHz
-		WithSubsequentKernelLaunchOverhead(9000).        // ~5μs at 1.8GHz
-		WithConstantKernelOverhead(1800).                // ~1μs at 1.8GHz
+		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz (reverted)
+		WithSubsequentKernelLaunchOverhead(5400).        // ~3μs at 1.8GHz (doubled from 1.5μs baseline for multi-kernel accuracy)
+		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz (reverted)
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)
