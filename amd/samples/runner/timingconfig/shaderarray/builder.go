@@ -482,8 +482,8 @@ func (b *Builder) buildL1VReorderBuffers() {
 	builder := rob.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBufferSize(256).
-		WithNumReqPerCycle(16)
+		WithBufferSize(512).
+		WithNumReqPerCycle(32)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
@@ -503,7 +503,7 @@ func (b *Builder) buildL1VAddressTranslators() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
-		WithNumReqPerCycle(16)
+		WithNumReqPerCycle(32)
 
 	b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
 	b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
@@ -527,10 +527,10 @@ func (b *Builder) buildL1VTLBs() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithNumMSHREntry(16).
-		WithNumSets(1).
+		WithNumMSHREntry(64).
+		WithNumSets(4).
 		WithNumWays(64).
-		WithNumReqPerCycle(16).
+		WithNumReqPerCycle(32).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
@@ -559,9 +559,9 @@ func (b *Builder) buildL1VCaches() {
 		WithNumBanks(4).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(64).
-		WithNumReqsPerCycle(16).
-		WithMaxNumConcurrentTrans(128).
+		WithNumMSHREntry(256).
+		WithNumReqsPerCycle(32).
+		WithMaxNumConcurrentTrans(512).
 		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 

@@ -85,8 +85,8 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 
 	madeProgress = u.insertTransactionToPipeline() || madeProgress
 
-	// Process up to 4 instructions per cycle from the post-instruction buffer
-	for i := 0; i < 4; i++ {
+	// Process up to 8 instructions per cycle from the post-instruction buffer
+	for i := 0; i < 8; i++ {
 		progress := u.execute()
 		madeProgress = progress || madeProgress
 		if !progress {
@@ -232,7 +232,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 
 func (u *VectorMemoryUnit) sendRequest() bool {
 	madeProgress := false
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 16; i++ {
 		item := u.postTransactionPipelineBuffer.Peek()
 		if item == nil {
 			break

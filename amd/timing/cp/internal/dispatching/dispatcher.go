@@ -114,8 +114,8 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 		if d.kernelCompleted() {
 			madeProgress = d.completeKernel() || madeProgress
 		} else {
-			// Dispatch up to 4 WGs per cycle
-			for i := 0; i < 4; i++ {
+			// Dispatch up to 8 WGs per cycle
+			for i := 0; i < 8; i++ {
 				progress := d.dispatchNextWG()
 				madeProgress = progress || madeProgress
 				if !progress || d.cycleLeft > 0 {

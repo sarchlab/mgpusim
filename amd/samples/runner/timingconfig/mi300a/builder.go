@@ -74,7 +74,7 @@ func MakeBuilder() Builder {
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  10,            // L2 bank latency in cycles
+		l2BankLatency:                  3,             // L2 bank latency in cycles (reduced for MI300A HBM3 performance)
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -478,13 +478,13 @@ func (b *Builder) buildSAs() {
 		WithWfPoolSize(8).
 		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
 		WithNumSinglePrecisionUnits(16).
-		WithVecMemInstPipelineStages(2).
-		WithVecMemTransPipelineStages(4).
-		WithVecMemTransPipelineWidth(4).
-		WithCUMemPipelineBufferSize(32).
+		WithVecMemInstPipelineStages(1).
+		WithVecMemTransPipelineStages(2).
+		WithVecMemTransPipelineWidth(8).
+		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
-		WithL1VBankLatency(5).
-		WithMemPipelineBufferSize(32)
+		WithL1VBankLatency(3).
+		WithMemPipelineBufferSize(64)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
@@ -502,10 +502,10 @@ func (b *Builder) buildL2Caches() {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
-		WithNumMSHREntry(256).
-		WithNumReqPerCycle(64).
+		WithNumMSHREntry(512).
+		WithNumReqPerCycle(128).
 		WithBankLatency(b.l2BankLatency).
-		WithDirectoryLatency(4)
+		WithDirectoryLatency(2)
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
@@ -533,14 +533,14 @@ func (b *Builder) buildDRAMControllers() {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 		memBuilder := simplebankedmemory.MakeBuilder().
 			WithEngine(b.simulation.GetEngine()).
-			WithFreq(1 * sim.GHz).
+			WithFreq(2 * sim.GHz).
 			WithNumBanks(16).
-			WithBankPipelineWidth(4).
-			WithBankPipelineDepth(10).
+			WithBankPipelineWidth(8).
+			WithBankPipelineDepth(5).
 			WithStageLatency(1).
 			WithLog2InterleaveSize(6).
-			WithTopPortBufferSize(128).
-			WithPostPipelineBufferSize(16)
+			WithTopPortBufferSize(256).
+			WithPostPipelineBufferSize(32)
 		if b.globalStorage != nil {
 			memBuilder = memBuilder.WithStorage(b.globalStorage)
 		} else {
@@ -590,9 +590,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(1800).          // ~1μs at 1.8GHz
-		WithSubsequentKernelLaunchOverhead(900).         // ~0.5μs at 1.8GHz
-		WithConstantKernelOverhead(900).                 // ~0.5μs at 1.8GHz
+		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz (MI300A kernel launch latency)
+		WithSubsequentKernelLaunchOverhead(3600).        // ~2μs at 1.8GHz
+		WithConstantKernelOverhead(1800).                // ~1μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)

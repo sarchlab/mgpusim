@@ -580,7 +580,7 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
 	madeProgress := false
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 16; i++ {
 		rsp := cu.ToVectorMem.RetrieveIncoming()
 		if rsp == nil {
 			break
@@ -899,7 +899,7 @@ func NewComputeUnit(
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewPort(cu, 16, 16, name+".ToVectorMem")
+	cu.ToVectorMem = sim.NewPort(cu, 32, 32, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	cu.AddPort("Top", cu.ToACE)
