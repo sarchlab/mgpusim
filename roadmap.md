@@ -145,35 +145,45 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 4. BFS (697%) likely has fundamental correctness/modeling issues
 5. FWT back-to-back discount applied but still shows 134% error — needs further investigation
 
-### M14.1: Merge PR#49 + fix BFS correctness bug + improve CU memory throughput (Budget: 6)
-**Sub-milestone of M14. Focused on the three highest-impact fixes identified by root cause analysis.**
+### M14.1: MISSED DEADLINE (budgeted 6, used 6)
+**Sub-milestone of M14. Focused on: merge PR#49, fix BFS, widen CU memory throughput.**
 
-**Root cause analysis findings (Quinn #393, Blake #394):**
-- **relu/vectoradd (22 pts, ~150% avg)**: CU memory pipeline has systemic serialization bottleneck. The VecMem transaction pipeline (width=1) caps at 64 B/cycle/CU. L1V TLB MSHR=4 stalls on cold start. Real MI300A has much wider memory issue capability.
-- **BFS (4 pts, 697% avg)**: `graph.go generate()` creates a degenerate 3-edge linear chain instead of a proper random connected graph. Also degree mismatch (sim uses 3, reference uses 4/8/16/32).
+**What was achieved (PRs #50-#53 merged to main):**
+- PR #49 infrastructure merged (back-to-back kernel discount, fir -taps, graceful CI, lint fixes)
+- BFS graph.go fixed (proper spanning tree + random edges generator)
+- VecMem sendRequest() sends up to 4 transactions/cycle
+- L1V TLB MSHR increased to 16
+- VecMem transaction pipeline width = 4
+- CU memory pipeline buffer size = 32
+- L1V cache: 4 banks, 64 MSHR, 16 req/cycle, 128 concurrent transactions
+- L2 bank latency reduced 20→10 cycles
+- BFS CI changed to `-depth 100` (removed -magic-memory-copy)
 
-**What must be done:**
-1. **Merge PR #49** (ares/m14-honest-coverage) to main — back-to-back kernel discount, fir -taps, graceful CI, lint fixes
-2. **Fix BFS graph.go** — Replace degenerate graph generator with a proper random connected graph (spanning tree + random edges), matching `gpu_perf_scripts/bfs.cpp`. Update CI to use degrees 4,8,16,32.
-3. **Widen CU memory throughput** — Two specific changes:
-   - (a) Allow `sendRequest()` in VectorMemoryUnit to send multiple transactions per cycle (e.g., 4 per tick) instead of just 1
-   - (b) Increase L1V TLB MSHR from 4 to 16 (in `shaderarray/builder.go:505`)
-   Both changes are evidence-based: real CDNA3 has deeper memory issue queues and TLB buffering.
-4. **Run CI** and report results on the updated branch
+**CI Results (run 22821562600, commit bf79c9db on main):**
+- 150/438 matched points (34.2% coverage) — comparable to M14
+- Overall avg |error|: 65.5%, median 38.5%
+- **relu: 145.1% — FAIL (target <60%), UNCHANGED despite all cache/pipeline changes**
+- **vectoradd: 97.7% — FAIL (target <40%), UNCHANGED**
+- **bfs: 0/5 matched, all crashed (exit 1) — REGRESSED**
 
-**Acceptance criteria:**
-- PR #49 merged to main
-- BFS graph.go generates a proper connected graph; CI runs BFS with degrees matching reference data
-- VecMem unit sends ≥4 transactions/cycle; L1V TLB MSHR ≥ 16
-- relu avg error < 60% (down from 196%)
-- vectoradd avg error < 40% (down from 98%)
-- bfs avg error < 200% (down from 697%)
-- CI run with all benchmarks passing, results documented
+**Why it failed — deeper root cause found by Athena:**
+The L1V cache and pipeline width changes had ZERO effect on relu/vectoradd because the REAL bottleneck is in the **IssueArbiter** (`amd/timing/cu/issuearbiter.go`):
+- The arbiter iterates SIMDs round-robin and **breaks after the first non-empty SIMD**
+- It issues at most 1 instruction per execution unit type from that single SIMD
+- For memory-bound kernels (all VMem), this means **only 1 VMem instruction issued per cycle per CU**
+- Even with 4× wider pipelines downstream, the input rate is capped at 1 instruction/cycle
+- Real CDNA3 can issue from multiple SIMDs per cycle
+
+BFS crashes because `-depth 100` apparently doesn't prevent the crash — the crash is likely in the benchmark binary itself or a different code path.
+
+### M14.1.1: Fix IssueArbiter to issue from multiple SIMDs (Budget: TBD)
+**Root cause fix for relu/vectoradd.** The IssueArbiter must issue instructions from ALL SIMDs each cycle, not just one. This is the single highest-impact change remaining.
 
 ### M15: Address remaining accuracy gaps (Budget: TBD)
-- Based on M14.1 results, continue reducing error
+- Based on M14.1.1 results, continue reducing error
 - Focus on FWT (134%), im2col (84%), stencil2d (52%), kmeans (47%), atax (48%)
 - Consider GPU-side command queueing (issue #286) if overhead still dominates
+- Fix BFS crashes
 - Target: avg <35%
 
 ### M16: Final accuracy push (Budget: TBD)
@@ -216,3 +226,7 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - **M14 lesson**: Broad milestones (coverage + accuracy + infrastructure) lead to scattered effort. Better to merge useful infra first, then focus on error reduction.
 - **M14 lesson**: relu and vectoradd are simple memory-bound kernels. Their high error (196%, 98%) suggests the simulator's memory throughput is fundamentally too slow for streaming workloads. This is likely the single most impactful issue to fix.
 - **M14 lesson**: The back-to-back kernel discount helped floydwarshall (27%) and bitonicsort (33%) significantly, but FWT (134%) still has issues — may need different root cause analysis.
+- **M14.1 lesson**: Widening downstream pipelines (L1V cache banks/MSHR, transaction pipeline width, send rate) has ZERO effect if the INPUT rate is bottlenecked upstream. The IssueArbiter was the true bottleneck — it only issues 1 VMem instruction per cycle regardless of downstream capacity.
+- **M14.1 lesson**: 6 cycles of parameter tuning on the wrong bottleneck is wasted. Always trace the FULL path from instruction issue to memory response before tuning parameters.
+- **M14.1 lesson**: The arbiter design (break after first non-empty SIMD) is an architectural decision, not a parameter. Fixing it requires code changes, not config tuning.
+- **Cycle estimates**: M1-M4 ~20; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8(F); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12(F); M14.1 ~6(F)
