@@ -81,11 +81,20 @@ func (u *VectorMemoryUnit) Run() bool {
 }
 
 func (u *VectorMemoryUnit) instToTransaction() bool {
-	if len(u.transactionsWaiting) > 0 {
-		return u.insertTransactionToPipeline()
+	madeProgress := false
+
+	madeProgress = u.insertTransactionToPipeline() || madeProgress
+
+	// Process up to 4 instructions per cycle from the post-instruction buffer
+	for i := 0; i < 4; i++ {
+		progress := u.execute()
+		madeProgress = progress || madeProgress
+		if !progress {
+			break
+		}
 	}
 
-	return u.execute()
+	return madeProgress
 }
 
 func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {

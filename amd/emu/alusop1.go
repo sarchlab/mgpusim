@@ -32,6 +32,8 @@ func (u *ALUImpl) runSOP1(state InstEmuState) {
 		u.runSNORSAVEEXECB64(state)
 	case 39:
 		u.runSNXORSAVEEXECB64(state)
+	case 48:
+		u.runSABSI32(state)
 	default:
 		log.Panicf("Opcode %d for SOP1 format is not implemented", inst.Opcode)
 	}
@@ -185,6 +187,23 @@ func (u *ALUImpl) runSNXORSAVEEXECB64(state InstEmuState) {
 	exec = ^(src0 ^ exec)
 	state.SetEXEC(exec)
 	if exec != 0 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALUImpl) runSABSI32(state InstEmuState) {
+	inst := state.Inst()
+	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
+	var result int32
+	if src0 < 0 {
+		result = -src0
+	} else {
+		result = src0
+	}
+	state.WriteOperand(inst.Dst, 0, uint64(uint32(result)))
+	if result != 0 {
 		state.SetSCC(1)
 	} else {
 		state.SetSCC(0)
