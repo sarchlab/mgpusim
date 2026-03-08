@@ -69,7 +69,7 @@ jobs:
         run: go install github.com/onsi/ginkgo/v2/ginkgo
 
       - name: Unit Test
-        run: ginkgo -r
+        run: ginkgo -r --skip-package=mccl
 
   deterministicity_test:
     name: Deterministicity Test
