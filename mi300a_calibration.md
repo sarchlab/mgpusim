@@ -177,7 +177,7 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 
 ### Summary
 
-Of 438 unique reference points in `mi300a.csv`, we can simulate **135 points (30.8%)**.
+Of 438 unique reference points in `mi300a.csv`, we can simulate **136 points (31.1%)**.
 
 ### Why 80% Coverage is Not Achievable
 
@@ -211,13 +211,13 @@ Additionally, ~213 reference points (48.6%) come from sizes that either:
 | kmeans | 20 | 8 | 40% | Crashes at 16384+ points |
 | bfs | 5 | 3 | 60% | Larger sizes timeout |
 | spmv | 20 | 12 | 60% | Large dim×sparsity combos timeout |
-| fft | 19 | 2 | 11% | Crashes at 8MB+; -MB flag is integer (min 1MB) |
+| fft | 19 | 3 | 16% | Crashes at 8MB+; -MB flag is integer (min 1MB) |
 | im2col | 24 | 6 | 25% | Crashes at 32x32+ |
 | nbody | 22 | 0 | 0% | MMU panic at ALL sizes |
 | simpleconvolution | 24 | 0 | 0% | MMU panic at ALL sizes |
 | conv2d | 14 | 0 | 0% | MMU panic at ALL sizes |
 | memcopy | 30 | 0 | 0% | No kernel_time metric |
-| **Total** | **438** | **135** | **30.8%** | |
+| **Total** | **438** | **136** | **31.1%** | |
 
 ### Back-to-Back Kernel Launch Discount
 

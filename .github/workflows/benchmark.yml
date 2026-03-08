@@ -155,9 +155,9 @@ jobs:
             size_label_template: "{p1}x{p1}_nnz{p3}"
 
           # fft: -MB N -passes 1 (colon format: actual_MB:label_elements)
-          # Local timing: 1MB=9s, 2MB=17s; CRASHES at 8MB+
+          # CI timing: 1MB=10s, 2MB=19s, 4MB=40s; CRASHES at 8MB+
           - benchmark: fft
-            sizes: "1:131072 2:262144"
+            sizes: "1:131072 2:262144 4:524288"
             flag_template: "-MB {size} -passes 1"
             size_label_template: "{size}_elements"
 
@@ -212,7 +212,7 @@ jobs:
           LABEL_TEMPLATE='${{ matrix.size_label_template }}'
           COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
           BINARY="./_bench_${BENCHMARK}"
-          TIMEOUT_SEC=${{ matrix.timeout_sec || 55 }}
+          TIMEOUT_SEC=${{ matrix.timeout_sec || 60 }}
           OUTPUT="results_${BENCHMARK}.csv"
 
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"
