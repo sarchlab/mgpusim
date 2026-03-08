@@ -40,11 +40,9 @@ func (a *IssueArbiter) Arbitrate(
 			}
 		}
 
-		if len(wfToIssue) != 0 {
-			a.lastSIMDID = simdID
-			break
-		}
 	}
+
+	a.lastSIMDID = (a.lastSIMDID + 1) % len(wfPools)
 
 	return wfToIssue
 }
