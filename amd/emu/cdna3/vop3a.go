@@ -1172,7 +1172,7 @@ func (u *ALU) isDIVFIXUPF64Overflow(
 		exponentSrc1 == 2047
 }
 
-func (u *ALU) runVPKFMAF32(state emu.InstEmuState) {
+func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 	inst := state.Inst()
 	exec := state.EXEC()
 

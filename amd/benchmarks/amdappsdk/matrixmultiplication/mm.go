@@ -98,7 +98,7 @@ func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 	return mC
 }
 
-func (m *GPUMatrixMultiplier) launchKernel(
+func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 	gA, gB, gC driver.Ptr,
 	mA *Matrix,
 	mC *Matrix,
