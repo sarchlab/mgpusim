@@ -579,22 +579,25 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
-	rsp := cu.ToVectorMem.RetrieveIncoming()
-	if rsp == nil {
-		return false
-	}
+	madeProgress := false
+	for i := 0; i < 4; i++ {
+		rsp := cu.ToVectorMem.RetrieveIncoming()
+		if rsp == nil {
+			break
+		}
 
-	switch rsp := rsp.(type) {
-	case *mem.DataReadyRsp:
-		cu.handleVectorDataLoadReturn(rsp)
-	case *mem.WriteDoneRsp:
-		cu.handleVectorDataStoreRsp(rsp)
-	default:
-		log.Panicf("cannot handle request of type %s from ToInstMem port",
-			reflect.TypeOf(rsp))
+		switch rsp := rsp.(type) {
+		case *mem.DataReadyRsp:
+			cu.handleVectorDataLoadReturn(rsp)
+		case *mem.WriteDoneRsp:
+			cu.handleVectorDataStoreRsp(rsp)
+		default:
+			log.Panicf("cannot handle rsp of type %s from vector mem port",
+				reflect.TypeOf(rsp))
+		}
+		madeProgress = true
 	}
-
-	return true
+	return madeProgress
 }
 
 //nolint:gocyclo
@@ -633,7 +636,14 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
-			access.Data = rsp.Data[offset : offset+uint64(4*laneInfo.regCount)]
+			end := offset + uint64(4*laneInfo.regCount)
+			if end > uint64(len(rsp.Data)) {
+				end = uint64(len(rsp.Data))
+				if offset >= end {
+					continue
+				}
+			}
+			access.Data = rsp.Data[offset:end]
 		}
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
@@ -889,7 +899,7 @@ func NewComputeUnit(
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
+	cu.ToVectorMem = sim.NewPort(cu, 16, 16, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	cu.AddPort("Top", cu.ToACE)

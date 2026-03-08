@@ -502,7 +502,8 @@ func (b *Builder) buildL1VAddressTranslators() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(16)
 
 	b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
 	b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
@@ -600,6 +601,7 @@ func (b *Builder) buildL1SAddressTranslator() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(16).
 		WithMemoryProviderMapper(b.l1sMemMapper).
 		WithTranslationProviderMapper(b.l1sTransMapper)
 
@@ -669,6 +671,7 @@ func (b *Builder) buildL1IAddressTranslator() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(16).
 		WithMemoryProviderMapper(b.l1AddressMapper).
 		WithTranslationProviderMapper(b.l1iTransMapper)
 

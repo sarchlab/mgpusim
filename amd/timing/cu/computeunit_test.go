@@ -355,6 +355,7 @@ var _ = Describe("ComputeUnit", func() {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
 			toVectorMem.EXPECT().RetrieveIncoming().Return(dataReady)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
 		})
 
 		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
@@ -432,6 +433,7 @@ var _ = Describe("ComputeUnit", func() {
 				WithRspTo(writeReq.ID).
 				Build()
 			toVectorMem.EXPECT().RetrieveIncoming().Return(doneRsp)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
 		})
 
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {
