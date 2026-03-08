@@ -61,6 +61,7 @@ type Benchmark struct {
 
 	Arch         arch.Type
 	Length       int
+	NumTapsParam int
 	numTaps      int
 	inputData    []float32
 	filterData   []float32
@@ -122,7 +123,11 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.numTaps = 16
+	if b.NumTapsParam > 0 {
+		b.numTaps = b.NumTapsParam
+	} else if b.numTaps == 0 {
+		b.numTaps = 16
+	}
 
 	b.filterData = make([]float32, b.numTaps)
 	for i := 0; i < b.numTaps; i++ {

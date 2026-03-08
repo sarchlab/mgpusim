@@ -75,8 +75,8 @@ func (c defaultCoalescer) generateWriteReqs(
 		regCount := uint(c.instRegCount(inst))
 		for j := uint(0); j < regCount; j++ {
 			dataReg := insts.NewVRegOperand(
-				int(inst.Data.Register.RegIndex()+int(j)),
-				int(inst.Data.Register.RegIndex()+int(j)),
+				inst.Data.Register.RegIndex()+int(j),
+				inst.Data.Register.RegIndex()+int(j),
 				1,
 			)
 			dataVal := uint32(wf.ReadOperand(dataReg, int(i)))

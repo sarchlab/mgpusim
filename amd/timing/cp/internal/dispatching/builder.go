@@ -17,15 +17,17 @@ type Builder struct {
 	respondingPort               sim.Port
 	dispatchingPort              sim.Port
 	monitor                      *monitoring.Monitor
-	constantKernelOverhead       int
-	constantKernelLaunchOverhead int
+	constantKernelOverhead         int
+	constantKernelLaunchOverhead   int
+	subsequentKernelLaunchOverhead int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg:                    "partition",
-		constantKernelOverhead: 3600,
+		alg:                           "partition",
+		constantKernelOverhead:         3600,
+		subsequentKernelLaunchOverhead: 1800,
 	}
 	return b
 }
@@ -87,6 +89,15 @@ func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
 	return b
 }
 
+// WithSubsequentKernelLaunchOverhead sets the overhead cycles for kernel
+// launches after the first one. Back-to-back kernel launches benefit from
+// warm instruction caches, pre-set page tables, and preserved CU state,
+// so they can use a reduced overhead compared to the initial launch.
+func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
+	b.subsequentKernelLaunchOverhead = overhead
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
@@ -103,9 +114,10 @@ func (b Builder) Build(name string) Dispatcher {
 			9, 10, 11, 12,
 			13, 14, 15, 16,
 		},
-		constantKernelOverhead:       b.constantKernelOverhead,
-		constantKernelLaunchOverhead: b.constantKernelLaunchOverhead,
-		monitor:                      b.monitor,
+		constantKernelOverhead:         b.constantKernelOverhead,
+		constantKernelLaunchOverhead:   b.constantKernelLaunchOverhead,
+		subsequentKernelLaunchOverhead: b.subsequentKernelLaunchOverhead,
+		monitor:                        b.monitor,
 	}
 
 	switch b.alg {

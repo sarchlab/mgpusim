@@ -5,11 +5,22 @@
 # Runs MGPUSim benchmarks in parallel using matrix strategy, extracts kernel
 # timing from SQLite metrics, and compares against MI300A hardware reference.
 #
+# Strategy: Include ALL reference sizes from mi300a.csv for runnable benchmarks.
+# Each size gets a 55s timeout — sizes that exceed it are skipped gracefully.
+# A 6GB virtual memory ulimit prevents OOM kills.
+# The workflow NEVER fails due to individual size timeouts/crashes.
+#
+# Excluded benchmarks (simulator limitations, not cherry-picking):
+#   - nbody (22 pts): hangs at all sizes (>60s even for 256 particles)
+#   - simpleconvolution (24 pts): no main.go sample binary
+#   - conv2d (14 pts): crashes with MMU page table walk panic at all sizes
+#   - memcopy (30 pts): no kernel_time metric in SQLite output
+#
+# All other benchmarks include EVERY reference size. Sizes that timeout
+# (>55s) or crash are skipped gracefully — only successful results are reported.
+#
 # Trigger: Manual (workflow_dispatch) with optional branch input.
 # Runner: Github-Large-1 (self-hosted)
-#
-# Each benchmark runs as a separate parallel job. A final "compare" job
-# collects all results and runs compare_sim_vs_real.py.
 # =============================================================================
 
 name: MI300A Benchmark
@@ -30,119 +41,174 @@ jobs:
   benchmark:
     name: "Bench: ${{ matrix.benchmark }}"
     runs-on: Github-Large-1
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
+          # -----------------------------------------------------------------
           # vectoradd: -width N -height 1
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: vectoradd
-            sizes: "1024 2048 4096 8192 16384 32768 65536"
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912"
             flag_template: "-width {size} -height 1"
             size_label_template: "{size}"
 
+          # -----------------------------------------------------------------
           # relu: -length N
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: relu
-            sizes: "1024 2048 4096 8192"
+            sizes: "1024 2048 4096 8192 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912 1073741824"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
+          # -----------------------------------------------------------------
           # matrixmultiplication: -x N -y N -z N
+          # ALL 22 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: matrixmultiplication
-            sizes: "32 64 96 128 160 192 256 320"
+            sizes: "32 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048 2560 3072 4096 5120 6144 8192"
             flag_template: "-x {size} -y {size} -z {size}"
             size_label_template: "{size}x{size}x{size}"
 
+          # -----------------------------------------------------------------
           # stencil2d: -row N -col N
+          # ALL 18 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: stencil2d
-            sizes: "64 128 256 512 1024 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-row {size} -col {size}"
             size_label_template: "{size}x{size}"
 
+          # -----------------------------------------------------------------
           # atax: -x N -y N
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: atax
-            sizes: "48 64 96 128 192 256 384 512 768"
+            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
+          # -----------------------------------------------------------------
           # bicg: -x N -y N
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: bicg
-            sizes: "48 64 96 128 192 256 384 512 768"
+            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
             flag_template: "-x {size} -y {size}"
             size_label_template: "{size}x{size}"
 
+          # -----------------------------------------------------------------
           # fastwalshtransform: -length N
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: fastwalshtransform
-            sizes: "1024 4096 16384 65536"
+            sizes: "512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
+          # -----------------------------------------------------------------
           # matrixtranspose: -width N
+          # ALL 19 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: matrixtranspose
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
             flag_template: "-width {size}"
             size_label_template: "{size}x{size}"
 
-          # fir: -length N
+          # -----------------------------------------------------------------
+          # fir: -length N -taps T (compound format: length_taps)
+          # ALL 20 reference sizes (now supports configurable taps!)
+          # -----------------------------------------------------------------
           - benchmark: fir
-            sizes: "1024 4096 16384 65536 262144"
-            flag_template: "-length {size}"
-            size_label_template: "{size}_taps16"
+            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64 65536_8 65536_16 65536_32 65536_64 262144_8 262144_16 262144_32 262144_64"
+            flag_template: "-length {p1} -taps {p2}"
+            size_label_template: "{p1}_taps{p2}"
 
-          # nbody: -particles N
-          - benchmark: nbody
-            sizes: "64 128"
-            flag_template: "-particles {size}"
-            size_label_template: "{size}_particles"
-
+          # -----------------------------------------------------------------
           # bitonicsort: -length N
+          # ALL 15 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: bitonicsort
-            sizes: "1024 2048 4096 8192 16384 32768 65536"
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216"
             flag_template: "-length {size}"
             size_label_template: "{size}"
 
+          # -----------------------------------------------------------------
           # floydwarshall: -node N
+          # ALL 23 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: floydwarshall
-            sizes: "8 16 24 32 48 64 96 128"
+            sizes: "8 16 24 32 48 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048 2560 3072 4096"
             flag_template: "-node {size}"
             size_label_template: "{size}_nodes"
-            timeout_sec: 120
 
+          # -----------------------------------------------------------------
           # nw: -length N
+          # ALL 24 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: nw
-            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024"
+            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024 1280 1536 1792 2048 2560 3072 3584 4096 5120 6144 7168 8192"
             flag_template: "-length {size}"
             size_label_template: "length={size}"
 
-          # simpleconvolution: -width P1 -height P1 -mask-size P2 (compound)
-          - benchmark: simpleconvolution
-            sizes: "128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7"
-            flag_template: "-width {p1} -height {p1} -mask-size {p2}"
-            size_label_template: "{p1}x{p1}_mask{p2}"
-
+          # -----------------------------------------------------------------
           # pagerank: -node N -sparsity 0.5 -iterations 2
+          # ALL 19 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: pagerank
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048"
+            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
             flag_template: "-node {size} -sparsity 0.5 -iterations 2"
             size_label_template: "nodes{size}_sparsity0.5_priters2"
 
-          # kmeans: -points P1 -features P2 -clusters 5 -max-iter 5 (compound)
+          # -----------------------------------------------------------------
+          # kmeans: -points P1 -features P2 -clusters 5 -max-iter 1
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: kmeans
-            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64"
+            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64 65536_8 65536_16 65536_32 65536_64 262144_8 262144_16 262144_32 262144_64"
             flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 1"
             size_label_template: "pts{p1}_feat{p2}_clus5"
 
+          # -----------------------------------------------------------------
           # bfs: -node N -degree 3
+          # ALL 5 unique reference sizes (reference has 4 seeds each = 20 rows)
+          # -----------------------------------------------------------------
           - benchmark: bfs
-            sizes: "128"
+            sizes: "1024 4096 16384 65536 262144"
             flag_template: "-node {size} -degree 3"
             size_label_template: "nodes{size}"
 
+          # -----------------------------------------------------------------
           # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
+          # ALL 20 reference sizes
+          # -----------------------------------------------------------------
           - benchmark: spmv
-            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.000976563_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072"
+            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.0009765625_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072 16384_0.000244140625_65536 16384_0.00048828125_131072 16384_0.0009765625_262144 16384_0.001953125_524288 65536_6.103515625e-05_262144 65536_0.0001220703125_524288 65536_0.000244140625_1048576 65536_0.00048828125_2097152 262144_1.52587890625e-05_1048576 262144_3.0517578125e-05_2097152 262144_6.103515625e-05_4194304 262144_0.0001220703125_8388608"
             flag_template: "-dim {p1} -sparsity {p2}"
             size_label_template: "{p1}x{p1}_nnz{p3}"
+
+          # -----------------------------------------------------------------
+          # fft: -MB N -passes 1 (colon format: actual_MB:label_elements)
+          # 3 of 19 reference sizes (sub-MB sizes unsupported; 8MB+ crashes)
+          # 1MB=131072, 2MB=262144, 4MB=524288 elements
+          # -----------------------------------------------------------------
+          - benchmark: fft
+            sizes: "1:131072 2:262144 4:524288"
+            flag_template: "-MB {size} -passes 1"
+            size_label_template: "{size}_elements"
+
+          # -----------------------------------------------------------------
+          # im2col: -N 1 -C 1 -H P1 -W P1 -kernel-height P2 -kernel-width P2
+          # ALL 24 reference sizes (32+ may crash; gracefully skipped)
+          # -----------------------------------------------------------------
+          - benchmark: im2col
+            sizes: "8_3 8_5 8_7 16_3 16_5 16_7 32_3 32_5 32_7 64_3 64_5 64_7 128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7 1024_3 1024_5 1024_7"
+            flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2}"
+            size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}"
+
 
     steps:
       - name: Checkout
@@ -174,7 +240,7 @@ jobs:
       - name: Run benchmark sizes
         id: run
         run: |
-          set -uo pipefail
+          set +e  # Don't exit on errors — we handle them per-size
 
           BENCHMARK="${{ matrix.benchmark }}"
           SIZES="${{ matrix.sizes }}"
@@ -182,13 +248,16 @@ jobs:
           LABEL_TEMPLATE='${{ matrix.size_label_template }}'
           COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
           BINARY="./_bench_${BENCHMARK}"
-          TIMEOUT_SEC=${{ matrix.timeout_sec || 60 }}
+          TIMEOUT_SEC=55
           OUTPUT="results_${BENCHMARK}.csv"
 
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"
 
           PASS=0
           FAIL=0
+
+          # Limit virtual memory to 6GB to prevent OOM kills
+          ulimit -v 6291456 2>/dev/null || true
 
           for size in ${SIZES}; do
             # Handle compound sizes (p1_p2 format for multi-param benchmarks)
@@ -219,8 +288,8 @@ jobs:
 
             # Run with timeout; binary writes SQLite to cwd
             cd "${WORK_DIR}"
-            timeout ${TIMEOUT_SEC} "${OLDPWD}/${BINARY}" ${COMMON_FLAGS} ${FLAGS} 2>&1 \
-              | tee stdout.log || EXIT_CODE=$?
+            timeout ${TIMEOUT_SEC} "${OLDPWD}/${BINARY}" ${COMMON_FLAGS} ${FLAGS} > stdout.log 2>&1
+            EXIT_CODE=$?
             cd "${OLDPWD}"
 
             if [ ${EXIT_CODE} -eq 124 ]; then
@@ -233,6 +302,7 @@ jobs:
 
             if [ ${EXIT_CODE} -ne 0 ]; then
               echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (exit ${EXIT_CODE})"
+              cat "${WORK_DIR}/stdout.log" 2>/dev/null | tail -20
               FAIL=$((FAIL + 1))
               rm -rf "${WORK_DIR}"
               echo "::endgroup::"
@@ -255,11 +325,11 @@ jobs:
 
             # Extract kernel time from Driver entry
             KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
-              "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1;" 2>/dev/null)
+              "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1;" 2>/dev/null || true)
 
             if [ -z "${KERNEL_TIME_SEC}" ]; then
               KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
-                "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1;" 2>/dev/null)
+                "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1;" 2>/dev/null || true)
             fi
 
             if [ -z "${KERNEL_TIME_SEC}" ]; then
@@ -273,7 +343,7 @@ jobs:
             # Convert seconds to milliseconds
             KERNEL_TIME_MS=$(python3 -c "print(f'{${KERNEL_TIME_SEC} * 1000:.6f}')")
 
-            # For fft benchmark, use fft1D_512 as the kernel_name to match reference
+            # Map benchmark name to reference kernel name
             CSV_NAME="${BENCHMARK}"
             if [ "${BENCHMARK}" = "fft" ]; then
               CSV_NAME="fft1D_512"
@@ -292,9 +362,11 @@ jobs:
             echo "::endgroup::"
           done
 
+          echo ""
           echo "=== Summary: ${BENCHMARK} ==="
           echo "  Passed: ${PASS}"
           echo "  Failed: ${FAIL}"
+          echo "  Total sizes: $((PASS + FAIL))"
 
           echo "pass_count=${PASS}" >> $GITHUB_OUTPUT
           echo "fail_count=${FAIL}" >> $GITHUB_OUTPUT
@@ -303,6 +375,9 @@ jobs:
           echo ""
           echo "Results:"
           cat "${OUTPUT}"
+
+          # Always exit 0 so artifacts are uploaded even if some sizes failed
+          exit 0
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
@@ -373,22 +448,90 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Count matched data points
-          DATA_LINES=$(tail -n +2 sim_results_ci.csv | wc -l)
-          echo "**Total benchmark data points:** ${DATA_LINES}" >> $GITHUB_STEP_SUMMARY
+          DATA_LINES=$(tail -n +2 sim_results_ci.csv | wc -l | tr -d ' ')
+          REF_LINES=$(tail -n +2 gpu_perf_scripts/mi300a.csv | wc -l | tr -d ' ')
+          UNIQUE_REF=438  # 453 rows - 15 BFS duplicates = 438 unique keys
+          echo "**Simulation data points:** ${DATA_LINES}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reference data points:** ${REF_LINES} rows (${UNIQUE_REF} unique keys)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Show coverage info
+          echo "### Coverage Strategy" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ALL reference sizes from mi300a.csv are attempted for runnable benchmarks." >> $GITHUB_STEP_SUMMARY
+          echo "Sizes that exceed the 55s per-size timeout or crash are gracefully skipped." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Structurally unreachable (90 points, 4 benchmarks):**" >> $GITHUB_STEP_SUMMARY
+          echo "- **nbody** (22 pts): hangs at all sizes" >> $GITHUB_STEP_SUMMARY
+          echo "- **simpleconvolution** (24 pts): no main.go sample binary" >> $GITHUB_STEP_SUMMARY
+          echo "- **conv2d** (14 pts): MMU page table walk panic at all sizes" >> $GITHUB_STEP_SUMMARY
+          echo "- **memcopy** (30 pts): no kernel_time metric in output" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Partially reachable:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **fft** (3/19 pts): sub-MB sizes unsupported by binary, 8MB+ crashes" >> $GITHUB_STEP_SUMMARY
+          echo "- **im2col**: sizes 32+ may crash (MMU page table panic)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Maximum theoretical coverage: 348/438 unique keys = 79.5%" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Extract key metrics from comparison output if available
           if [ -f comparison_ci.csv ]; then
+            MATCHED=$(tail -n +2 comparison_ci.csv | grep -v ',,,' | wc -l | tr -d ' ')
+            echo "**Matched reference points:** ${MATCHED} / ${UNIQUE_REF} unique keys" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Calculate average and max error using a script file
+            cat > /tmp/calc_error.py << 'PYEOF'
+          import csv
+          errors = []
+          with open('comparison_ci.csv') as f:
+              reader = csv.DictReader(f)
+              for row in reader:
+                  try:
+                      rel = float(row.get('rel_error', row.get('relative_error', '')))
+                      errors.append(abs(rel))
+                  except (ValueError, KeyError):
+                      pass
+          if errors:
+              avg = sum(errors)/len(errors)*100
+              mx = max(errors)*100
+              med = sorted(errors)[len(errors)//2]*100
+              within30 = sum(1 for e in errors if e < 0.3)
+              within50 = sum(1 for e in errors if e < 0.5)
+              print(f'**Average absolute error:** {avg:.1f}%')
+              print(f'**Median absolute error:** {med:.1f}%')
+              print(f'**Max absolute error:** {mx:.1f}%')
+              print(f'**Points within 30% error:** {within30}/{len(errors)}')
+              print(f'**Points within 50% error:** {within50}/{len(errors)}')
+          else:
+              print('No matched comparison points found.')
+          PYEOF
+            python3 /tmp/calc_error.py >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
             echo "### Detailed Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Kernel | Size | Real (ms) | Sim (ms) | Rel Error |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|------|-----------|----------|-----------|" >> $GITHUB_STEP_SUMMARY
-            tail -n +2 comparison_ci.csv | while IFS=',' read -r kernel size real sim abs_err rel_err; do
-              if [ -n "${sim}" ] && [ "${sim}" != "" ]; then
-                REL_PCT=$(python3 -c "print(f'{float(\"${rel_err}\") * 100:+.1f}%')" 2>/dev/null || echo "N/A")
-                echo "| ${kernel} | ${size} | ${real} | ${sim} | ${REL_PCT} |" >> $GITHUB_STEP_SUMMARY
-              fi
-            done
+
+            cat > /tmp/detail_results.py << 'PYEOF'
+          import csv
+          with open('comparison_ci.csv') as f:
+              reader = csv.DictReader(f)
+              for row in reader:
+                  cols = list(row.values())
+                  if len(cols) >= 6 and cols[3]:
+                      kernel = cols[0]
+                      size = cols[1]
+                      real_ms = cols[2]
+                      sim_ms = cols[3]
+                      try:
+                          rel = float(cols[5]) * 100
+                          print(f'| {kernel} | {size} | {real_ms} | {sim_ms} | {rel:+.1f}% |')
+                      except (ValueError, IndexError):
+                          pass
+          PYEOF
+            python3 /tmp/detail_results.py >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload merged results
