@@ -22,9 +22,11 @@ type Builder struct {
 	sgprCount         int
 	log2CachelineSize uint64
 
-	numSinglePrecisionUnits   int
-	vecMemInstPipelineStages  int
-	vecMemTransPipelineStages int
+	numSinglePrecisionUnits    int
+	vecMemInstPipelineStages   int
+	vecMemTransPipelineStages  int
+	vecMemTransPipelineWidth   int
+	memPipelineBufferSize      int
 
 	decoder    emu.Decoder
 	alu        emu.ALU
@@ -50,6 +52,8 @@ func MakeBuilder() Builder {
 	b.numSinglePrecisionUnits = 16
 	b.vecMemInstPipelineStages = 6
 	b.vecMemTransPipelineStages = 10
+	b.vecMemTransPipelineWidth = 1
+	b.memPipelineBufferSize = 8
 
 	return b
 }
@@ -147,6 +151,20 @@ func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
 // transaction pipeline. Default is 10.
 func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
 	b.vecMemTransPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineWidth sets the width (items per cycle) of the vector
+// memory transaction pipeline. Default is 1.
+func (b Builder) WithVecMemTransPipelineWidth(n int) Builder {
+	b.vecMemTransPipelineWidth = n
+	return b
+}
+
+// WithMemPipelineBufferSize sets the post-pipeline buffer size for vector
+// memory transactions. Default is 8.
+func (b Builder) WithMemPipelineBufferSize(n int) Builder {
+	b.memPipelineBufferSize = n
 	return b
 }
 
@@ -256,11 +274,19 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		b.vecMemInstPipelineStages, 1,
 		vectorMemoryUnit.postInstructionPipelineBuffer)
 
+	pipelineWidth := b.vecMemTransPipelineWidth
+	if pipelineWidth < 1 {
+		pipelineWidth = 1
+	}
+	bufSize := b.memPipelineBufferSize
+	if bufSize < 8 {
+		bufSize = 8
+	}
 	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", 8)
+		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", bufSize)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		b.vecMemTransPipelineStages, 1,
+		b.vecMemTransPipelineStages, pipelineWidth,
 		vectorMemoryUnit.postTransactionPipelineBuffer)
 
 	for i := 0; i < b.simdCount; i++ {

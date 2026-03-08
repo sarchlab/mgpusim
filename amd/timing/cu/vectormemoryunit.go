@@ -89,14 +89,19 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 }
 
 func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
-	if !u.transactionPipeline.CanAccept() {
-		return false
+	madeProgress := false
+
+	for len(u.transactionsWaiting) > 0 {
+		if !u.transactionPipeline.CanAccept() {
+			break
+		}
+
+		u.transactionPipeline.Accept(u.transactionsWaiting[0])
+		u.transactionsWaiting = u.transactionsWaiting[1:]
+		madeProgress = true
 	}
 
-	u.transactionPipeline.Accept(u.transactionsWaiting[0])
-	u.transactionsWaiting = u.transactionsWaiting[1:]
-
-	return true
+	return madeProgress
 }
 
 func (u *VectorMemoryUnit) execute() (madeProgress bool) {
