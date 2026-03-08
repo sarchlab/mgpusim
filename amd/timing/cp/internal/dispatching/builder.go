@@ -108,11 +108,11 @@ func (b Builder) Build(name string) Dispatcher {
 		inflightWGs:     make(map[string]dispatchLocation),
 		originalReqs:    make(map[string]*protocol.MapWGReq),
 		latencyTable: []int{
-			1,
-			4, 4, 4, 4,
-			5, 6, 7, 8,
-			9, 10, 11, 12,
-			13, 14, 15, 16,
+			0,            // 0 WFs (shouldn't happen)
+			1, 1, 1, 1,  // 1-4 WFs: 1 cycle each
+			1, 1, 1, 1,  // 5-8 WFs
+			2, 2, 2, 2,  // 9-12 WFs
+			2, 2, 2, 2,  // 13-16 WFs
 		},
 		constantKernelOverhead:         b.constantKernelOverhead,
 		constantKernelLaunchOverhead:   b.constantKernelLaunchOverhead,

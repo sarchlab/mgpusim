@@ -93,10 +93,11 @@ var _ = Describe("Dispatcher", func() {
 
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
-			valid: true,
-			cu:    nilPort.AsRemote(),
+			valid:     true,
+			cu:        nilPort.AsRemote(),
+			locations: make([]protocol.WfDispatchLocation, 1),
 		})
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(nil).AnyTimes()
 		dispatchingPort.EXPECT().Send(gomock.Any()).Return(nil)
 
 		madeProgress := dispatcher.Tick()
@@ -205,9 +206,15 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		alg.EXPECT().NumWG().Return(64)
 		alg.EXPECT().FreeResources(location)
-		dispatchingPort.EXPECT().
+
+		firstPeek := dispatchingPort.EXPECT().
 			PeekIncoming().
 			Return(wgCompletionMsg)
+		dispatchingPort.EXPECT().
+			PeekIncoming().
+			Return(nil).
+			After(firstPeek).
+			AnyTimes()
 		dispatchingPort.EXPECT().
 			RetrieveIncoming()
 
@@ -238,9 +245,15 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		alg.EXPECT().NumWG().Return(64)
 		alg.EXPECT().FreeResources(location)
-		dispatchingPort.EXPECT().
+
+		firstPeek := dispatchingPort.EXPECT().
 			PeekIncoming().
 			Return(wgCompletionMsg)
+		dispatchingPort.EXPECT().
+			PeekIncoming().
+			Return(nil).
+			After(firstPeek).
+			AnyTimes()
 		dispatchingPort.EXPECT().
 			RetrieveIncoming()
 
@@ -271,7 +284,8 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(wgCompletionMsg)
+			Return(wgCompletionMsg).
+			AnyTimes()
 
 		madeProgress := dispatcher.Tick()
 

@@ -114,7 +114,14 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 		if d.kernelCompleted() {
 			madeProgress = d.completeKernel() || madeProgress
 		} else {
-			madeProgress = d.dispatchNextWG() || madeProgress
+			// Dispatch up to 4 WGs per cycle
+			for i := 0; i < 4; i++ {
+				progress := d.dispatchNextWG()
+				madeProgress = progress || madeProgress
+				if !progress || d.cycleLeft > 0 {
+					break
+				}
+			}
 		}
 	}
 
@@ -134,52 +141,59 @@ func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLoca
 }
 
 func (d *DispatcherImpl) processMessagesFromCU() bool {
-	msg := d.dispatchingPort.PeekIncoming()
-	if msg == nil {
-		return false
+	madeProgress := false
+
+	for i := 0; i < 8; i++ {
+		msg := d.dispatchingPort.PeekIncoming()
+		if msg == nil {
+			break
+		}
+
+		switch msg := msg.(type) {
+		case *protocol.WGCompletionMsg:
+			count := 0
+			for _, rspToID := range msg.RspTo {
+				location, ok := d.inflightWGs[rspToID]
+				if ok {
+					count += 1
+					///sampling
+					d.collectSamplingData(location.locations)
+				}
+			}
+
+			if count == 0 {
+				return madeProgress
+			} else if count < len(msg.RspTo) {
+				log.Panic("In emulation all finished WGs from more than one dispatcher")
+			}
+
+			for _, rspToID := range msg.RspTo {
+				location := d.inflightWGs[rspToID]
+				d.alg.FreeResources(location)
+				delete(d.inflightWGs, rspToID)
+				d.numCompletedWGs++
+				if d.numCompletedWGs == d.alg.NumWG() {
+					d.cycleLeft = d.constantKernelOverhead
+				}
+
+				originalReq := d.originalReqs[rspToID]
+				delete(d.originalReqs, rspToID)
+				tracing.TraceReqFinalize(originalReq, d)
+
+				if d.progressBar != nil {
+					d.progressBar.MoveInProgressToFinished(1)
+				}
+			}
+
+			d.dispatchingPort.RetrieveIncoming()
+			madeProgress = true
+		default:
+			// Unknown message type, stop processing
+			return madeProgress
+		}
 	}
 
-	switch msg := msg.(type) {
-	case *protocol.WGCompletionMsg:
-		count := 0
-		for _, rspToID := range msg.RspTo {
-			location, ok := d.inflightWGs[rspToID]
-			if ok {
-				count += 1
-				///sampling
-				d.collectSamplingData(location.locations)
-			}
-		}
-
-		if count == 0 {
-			return false
-		} else if count < len(msg.RspTo) {
-			log.Panic("In emulation all finished WGs from more than one dispatcher")
-		}
-
-		for _, rspToID := range msg.RspTo {
-			location := d.inflightWGs[rspToID]
-			d.alg.FreeResources(location)
-			delete(d.inflightWGs, rspToID)
-			d.numCompletedWGs++
-			if d.numCompletedWGs == d.alg.NumWG() {
-				d.cycleLeft = d.constantKernelOverhead
-			}
-
-			originalReq := d.originalReqs[rspToID]
-			delete(d.originalReqs, rspToID)
-			tracing.TraceReqFinalize(originalReq, d)
-
-			if d.progressBar != nil {
-				d.progressBar.MoveInProgressToFinished(1)
-			}
-		}
-
-		d.dispatchingPort.RetrieveIncoming()
-		return true
-	}
-
-	return false
+	return madeProgress
 }
 
 func (d *DispatcherImpl) kernelCompleted() bool {
