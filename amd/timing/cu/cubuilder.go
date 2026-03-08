@@ -284,10 +284,12 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	}
 	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
 		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", bufSize)
-	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
-		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		b.vecMemTransPipelineStages, pipelineWidth,
-		vectorMemoryUnit.postTransactionPipelineBuffer)
+	vectorMemoryUnit.transactionPipeline = pipelining.MakeBuilder().
+		WithPipelineWidth(pipelineWidth).
+		WithNumStage(b.vecMemTransPipelineStages).
+		WithCyclePerStage(1).
+		WithPostPipelineBuffer(vectorMemoryUnit.postTransactionPipelineBuffer).
+		Build(cu.Name() + ".VectorMemoryUnit.TransactionPipeline")
 
 	for i := 0; i < b.simdCount; i++ {
 		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)
