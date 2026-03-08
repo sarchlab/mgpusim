@@ -173,6 +173,64 @@ v2 changes: stencil2d re-run with `-iter 1` (was 5), fft re-run with `-passes 1`
 
 ---
 
+## Benchmark Coverage (M14)
+
+### Summary
+
+Of 438 unique reference points in `mi300a.csv`, we can simulate **135 points (30.8%)**.
+
+### Why 80% Coverage is Not Achievable
+
+90 reference points (20.5%) come from benchmarks that crash at ALL sizes due to simulator bugs:
+- **nbody** (22 pts): MMU page table walk panic at all particle counts
+- **simpleconvolution** (24 pts): MMU page table walk panic at all sizes
+- **conv2d** (14 pts): MMU page table walk panic at all sizes
+- **memcopy** (30 pts): Runs successfully but does not record `kernel_time` metric
+
+Additionally, ~213 reference points (48.6%) come from sizes that either:
+- **Crash** at larger sizes: matrixmultiplication (384+), stencil2d (1024+), matrixtranspose (2048+), kmeans (16384+ points), im2col (32x32+), fft (8MB+) — all crash with "page not found" in MMU
+- **Timeout** (>60s simulation time): Large sizes of vectoradd, relu, FWT, atax, bicg, nw, floydwarshall, pagerank, spmv, bitonicsort
+
+### Coverage by Benchmark
+
+| Benchmark | Ref Points | Sim Points | Coverage | Limitation |
+|-----------|-----------|-----------|----------|------------|
+| vectoradd | 20 | 10 | 50% | Larger sizes timeout (>60s) |
+| relu | 20 | 10 | 50% | Larger sizes timeout |
+| matrixmultiplication | 22 | 8 | 36% | Crashes at 384+ (page fault) |
+| stencil2d | 18 | 7 | 39% | Crashes at 1024+ |
+| atax | 20 | 8 | 40% | Larger sizes timeout |
+| bicg | 20 | 8 | 40% | Larger sizes timeout |
+| fastwalshtransform | 20 | 8 | 40% | Larger sizes timeout |
+| matrixtranspose | 19 | 9 | 47% | Crashes at 2048+ |
+| fir | 20 | 4 | 20% | Only taps16 supported; larger sizes timeout |
+| bitonicsort | 15 | 5 | 33% | Larger sizes timeout |
+| floydwarshall | 23 | 8 | 35% | Larger sizes timeout (O(n³) complexity) |
+| nw | 24 | 11 | 46% | Larger sizes timeout |
+| pagerank | 19 | 8 | 42% | Larger sizes timeout |
+| kmeans | 20 | 8 | 40% | Crashes at 16384+ points |
+| bfs | 5 | 3 | 60% | Larger sizes timeout |
+| spmv | 20 | 12 | 60% | Large dim×sparsity combos timeout |
+| fft | 19 | 2 | 11% | Crashes at 8MB+; -MB flag is integer (min 1MB) |
+| im2col | 24 | 6 | 25% | Crashes at 32x32+ |
+| nbody | 22 | 0 | 0% | MMU panic at ALL sizes |
+| simpleconvolution | 24 | 0 | 0% | MMU panic at ALL sizes |
+| conv2d | 14 | 0 | 0% | MMU panic at ALL sizes |
+| memcopy | 30 | 0 | 0% | No kernel_time metric |
+| **Total** | **438** | **135** | **30.8%** | |
+
+### Back-to-Back Kernel Launch Discount
+
+Multi-kernel benchmarks (floydwarshall, bitonicsort, nw, stencil2d, fft) benefit from the back-to-back kernel launch discount. When a kernel launches immediately after another kernel completes:
+- **First kernel:** Full cold-start overhead of 5400 cycles (3.0 μs at 1.8 GHz)
+- **Subsequent kernels:** Reduced warm-start overhead of 1800 cycles (1.0 μs at 1.8 GHz)
+
+This 3× reduction in launch overhead for subsequent kernels reflects real hardware behavior where instruction caches are warm, page tables are pre-configured, and CU state is preserved between consecutive kernel dispatches.
+
+**Impact:** For floydwarshall (N³ kernel launches) and bitonicsort (N·log²N kernel launches), launch overhead dominated simulation time (80-89%). The back-to-back discount reduces this overhead by ~67% for all kernels after the first.
+
+---
+
 ## Future Work
 
 1. **Microbenchmark validation:** Create targeted microbenchmarks to measure specific parameters (L1/L2 latency, DRAM bandwidth, kernel launch overhead) on real MI300A hardware
