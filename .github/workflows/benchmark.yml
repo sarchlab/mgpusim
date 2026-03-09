@@ -40,7 +40,7 @@ jobs:
   # ===========================================================================
   benchmark:
     name: "Bench: ${{ matrix.benchmark }}"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -392,7 +392,7 @@ jobs:
   # ===========================================================================
   compare:
     name: Compare vs MI300A Reference
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     needs: [benchmark]
     if: always()

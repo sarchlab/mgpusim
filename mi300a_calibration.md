@@ -32,19 +32,11 @@ The vector memory instruction pipeline processes memory load/store instructions.
 
 **Source:** Estimated. The transaction pipeline handles address generation and memory request formation.
 
-### VecMemTransPipelineWidth = 4
+### VecMemTransPipelineWidth = 8
 
-**Source:** Calibrated to selectively slow strided/random memory access patterns (M16).
+**Source:** AMD CDNA3 architecture — matches maximum cache line transactions possible per memory instruction.
 
-**Previous value:** 8 (matched maximum cache line transactions possible per memory instruction)
-
-**New value:** 4 (halves throughput for high-transaction instructions while preserving contiguous access speed)
-
-**Rationale:** The VecMemTransPipelineWidth controls how many cache line transactions per cycle the vector memory transaction pipeline can process. Different access patterns generate different numbers of cache line transactions per instruction:
-- **Contiguous access** (vectoradd, relu): generates ~4 cache line transactions per instruction (64 threads × 4 bytes / 64 bytes per cache line). Width=4 is sufficient — NO slowdown.
-- **Strided/random access** (atax, bicg, FWT): generates up to 64 cache line transactions per instruction (worst case: every thread hits a different cache line). Width=4 halves throughput vs width=8, causing ~2× slowdown.
-
-This targeted effect is exactly what's needed: memory-bound benchmarks with strided access patterns (atax, bicg, FWT) were running "too fast" in simulation compared to real hardware, while contiguous-access benchmarks (vectoradd, relu) were already well-calibrated. Reducing the width from 8 to 4 selectively penalizes strided access without affecting contiguous access.
+**History:** Temporarily reduced to 4 in PR#66 (M16) to slow strided access, but analysis showed zero measurable effect on benchmark accuracy. Reverted to 8 in M16 L1V concurrency change since the L1V cache concurrency reduction (below) provides the intended throttling effect.
 
 ---
 
@@ -56,6 +48,27 @@ This targeted effect is exactly what's needed: memory-bound benchmarks with stri
 
 - L1 vector cache per CU: 32 KB (confirmed by AMD documentation)
 - Bank latency of 5 cycles at 1.8 GHz ≈ 2.8 ns access time, consistent with published L1 cache latencies for CDNA3
+
+### L1V Cache Concurrency: numMSHREntry=16, numReqsPerCycle=4, maxNumConcurrentTrans=64
+
+**Source:** Calibrated to selectively throttle strided/random memory access patterns (M16).
+
+**Previous values:** numMSHREntry=256, numReqsPerCycle=32, maxNumConcurrentTrans=512
+**New values:** numMSHREntry=16, numReqsPerCycle=4, maxNumConcurrentTrans=64
+
+**Rationale:** The previous L1V cache concurrency parameters allowed hundreds of outstanding miss requests simultaneously, making strided/random access patterns unrealistically fast. Real GPU L1 caches have much more limited concurrency. The key insight is that different access patterns are affected differently:
+
+- **Contiguous access** (vectoradd, relu): A wavefront generates ~4 unique cache line requests → fits easily within 16 MSHR entries and 64 concurrent transactions → NO slowdown.
+- **Strided access** (atax column-major, bicg): A wavefront generates up to 64 unique cache line requests → throttled by the 16-entry MSHR and 4 req/cycle limit → significant slowdown.
+- **Random access** (bfs): Similar to strided — many unique cache line requests per wavefront are throttled.
+
+This selective throttling penalizes strided/random access patterns (which dominate "too fast" benchmarks) without affecting well-matched contiguous-access benchmarks.
+
+**Expected impact:**
+- atax: ~178% → ~80-120% error (strided access throttled)
+- bicg: ~139% → ~60-100% error (similar pattern)
+- bfs: ~431% → ~200-300% error (random access throttled)
+- vectoradd/relu: unchanged (contiguous access fits within limits)
 
 ### L2 Cache: 32 MB total, Bank Latency = 20 cycles
 
