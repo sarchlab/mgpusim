@@ -221,19 +221,13 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Install gcc (Fedora self-hosted runners)
-        run: |
-          if command -v dnf &>/dev/null; then
-            sudo dnf install -y gcc
-          fi
-
       - name: Check Python
         run: python3 --version
 
       - name: Build benchmark
         run: |
-          # CGO_ENABLED=1 required for mattn/go-sqlite3. Needs gcc on PATH.
-          CGO_ENABLED=1 go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
+          # CGO_ENABLED=0: pure-Go sqlite via glebarez/go-sqlite (no gcc needed)
+          CGO_ENABLED=0 go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
 
       - name: Run benchmark sizes
         id: run
