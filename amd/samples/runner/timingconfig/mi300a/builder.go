@@ -74,7 +74,7 @@ func MakeBuilder() Builder {
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  3,             // L2 bank latency in cycles (reduced for MI300A HBM3 performance)
+		l2BankLatency:                  4,             // L2 bank latency in cycles (MI300A L2 access ~3ns)
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -533,11 +533,11 @@ func (b *Builder) buildDRAMControllers() {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 		memBuilder := simplebankedmemory.MakeBuilder().
 			WithEngine(b.simulation.GetEngine()).
-			WithFreq(2 * sim.GHz).
+			WithFreq(1 * sim.GHz).
 			WithNumBanks(16).
-			WithBankPipelineWidth(8).
-			WithBankPipelineDepth(5).
-			WithStageLatency(1).
+			WithBankPipelineWidth(1).
+			WithBankPipelineDepth(10).
+			WithStageLatency(3).
 			WithLog2InterleaveSize(6).
 			WithTopPortBufferSize(256).
 			WithPostPipelineBufferSize(32)
@@ -591,7 +591,7 @@ func (b *Builder) buildCP() {
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
 		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz
-		WithSubsequentKernelLaunchOverhead(5400).         // ~3μs at 1.8GHz (matched to first kernel for consistent overhead)
+		WithSubsequentKernelLaunchOverhead(2700).         // ~1.5μs at 1.8GHz (reduced for many-kernel benchmarks)
 		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
