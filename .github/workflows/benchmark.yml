@@ -221,20 +221,6 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Install sqlite3
-        run: |
-          if ! command -v sqlite3 &> /dev/null; then
-            if command -v dnf &> /dev/null; then
-              sudo dnf install -y sqlite
-            elif command -v apt-get &> /dev/null; then
-              sudo apt-get update && sudo apt-get install -y sqlite3
-            else
-              echo "No known package manager found"
-              exit 1
-            fi
-          fi
-          sqlite3 --version
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -330,14 +316,23 @@ jobs:
               continue
             fi
 
-            # Extract kernel time from Driver entry
-            KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
-              "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1;" 2>/dev/null || true)
-
-            if [ -z "${KERNEL_TIME_SEC}" ]; then
-              KERNEL_TIME_SEC=$(sqlite3 "${DB_FILE}" \
-                "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1;" 2>/dev/null || true)
-            fi
+            # Extract kernel time from Driver entry (using Python sqlite3 - no CLI needed)
+            KERNEL_TIME_SEC=$(python3 -c "
+import sqlite3, sys
+try:
+    conn = sqlite3.connect('${DB_FILE}')
+    c = conn.cursor()
+    c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1\")
+    row = c.fetchone()
+    if row is None:
+        c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1\")
+        row = c.fetchone()
+    if row:
+        print(row[0])
+    conn.close()
+except Exception as e:
+    print('', file=sys.stderr)
+" 2>/dev/null || true)
 
             if [ -z "${KERNEL_TIME_SEC}" ]; then
               echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no kernel_time in DB)"
