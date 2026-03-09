@@ -429,6 +429,13 @@ jobs:
             --sim sim_results_ci.csv \
             --output comparison_ci.csv
 
+      - name: Run regression-based comparison
+        run: |
+          python3 gpu_perf_scripts/compare_regression.py \
+            --ref gpu_perf_scripts/mi300a.csv \
+            --sim sim_results_ci.csv \
+            --output regression_ci.csv
+
       - name: Generate summary
         run: |
           echo "## MI300A Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
@@ -525,6 +532,71 @@ jobs:
             python3 /tmp/detail_results.py >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Regression analysis summary
+          if [ -f regression_ci.csv ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Regression Analysis (Slope Comparison)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Compares how simulator and hardware scale with problem size." >> $GITHUB_STEP_SUMMARY
+            echo "A slope ratio of 1.0 means identical scaling behavior." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Benchmark | Slope Ratio | Sim Slope | HW Slope | R² Sim | R² HW | Points |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------|-------------|-----------|----------|--------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+            cat > /tmp/regression_summary.py << 'PYEOF'
+          import csv, sys
+          # Re-run the regression script to capture structured output
+          # Instead, parse the output CSV and compute slopes from it
+          from collections import defaultdict
+
+          points = defaultdict(list)
+          with open('regression_ci.csv') as f:
+              reader = csv.DictReader(f)
+              for row in reader:
+                  k = row['kernel']
+                  points[k].append(row)
+
+          ratios = []
+          for kernel in sorted(points.keys()):
+              pts = points[kernel]
+              n = len(pts)
+              if n < 3:
+                  continue
+              x = [float(p['numeric_size']) for p in pts]
+              hw = [float(p['hw_ms']) for p in pts]
+              sim = [float(p['sim_ms']) for p in pts]
+
+              def linreg(xv, yv):
+                  nn = len(xv)
+                  sx = sum(xv); sy = sum(yv)
+                  sxy = sum(a*b for a,b in zip(xv,yv))
+                  sx2 = sum(a*a for a in xv)
+                  my = sy/nn
+                  d = nn*sx2 - sx*sx
+                  if abs(d) < 1e-30: return 0,my,0
+                  sl = (nn*sxy - sx*sy)/d
+                  ic = (sy - sl*sx)/nn
+                  ssr = sum((y-(sl*xi+ic))**2 for xi,y in zip(xv,yv))
+                  sst = sum((y-my)**2 for y in yv)
+                  r2 = 1 - ssr/sst if sst > 1e-30 else 0
+                  return sl, ic, r2
+
+              hs, _, hr2 = linreg(x, hw)
+              ss, _, sr2 = linreg(x, sim)
+              ratio = ss/hs if abs(hs) > 1e-30 else float('inf')
+              ratios.append(ratio)
+              print(f'| {kernel} | {ratio:.4f} | {ss:.6e} | {hs:.6e} | {sr2:.4f} | {hr2:.4f} | {n} |')
+
+          if ratios:
+              mean_r = sum(ratios)/len(ratios)
+              sr = sorted(ratios)
+              med_r = sr[len(sr)//2]
+              print(f'')
+              print(f'**Mean slope ratio:** {mean_r:.4f} | **Median slope ratio:** {med_r:.4f}')
+          PYEOF
+            python3 /tmp/regression_summary.py >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Upload merged results
         uses: actions/upload-artifact@v4
         with:
@@ -532,6 +604,7 @@ jobs:
           path: |
             sim_results_ci.csv
             comparison_ci.csv
+            regression_ci.csv
           retention-days: 90
 
       - name: Upload comparison CSV
