@@ -226,6 +226,7 @@ jobs:
 
       - name: Build benchmark
         run: |
+          # CGO_ENABLED=1 required for mattn/go-sqlite3. Needs gcc on PATH.
           CGO_ENABLED=1 go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
 
       - name: Run benchmark sizes
