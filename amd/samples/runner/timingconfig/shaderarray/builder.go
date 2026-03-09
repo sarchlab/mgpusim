@@ -559,9 +559,9 @@ func (b *Builder) buildL1VCaches() {
 		WithNumBanks(4).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(256).
-		WithNumReqsPerCycle(32).
-		WithMaxNumConcurrentTrans(512).
+		WithNumMSHREntry(16).
+		WithNumReqsPerCycle(4).
+		WithMaxNumConcurrentTrans(64).
 		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 
