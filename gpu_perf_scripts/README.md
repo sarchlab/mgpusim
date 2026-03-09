@@ -124,3 +124,78 @@ int main(int argc, char** argv) {
 | `printCSVHeader()` | Print CSV column header to stdout |
 | `printCSVRow(r)` | Print one `BenchResult` as a CSV row |
 | `runBenchmark(name, size, iters, func)` | Template — warmup + timed iterations, returns `BenchResult` |
+
+## HIP Microbenchmarks
+
+Two standalone microbenchmarks for measuring low-level GPU performance
+characteristics on MI300A. These are **not** application benchmarks — they
+target raw hardware capabilities to help validate simulator parameters.
+
+> **⚠️ These must be run on real MI300A hardware by a human.**
+> They cannot be run in CI or on machines without a gfx942 GPU.
+
+### Microbenchmark 1: Memory Bandwidth (`micro_membw.cpp`)
+
+Measures effective global memory bandwidth via three streaming patterns:
+
+| Pattern | What it measures |
+|---------|-----------------|
+| Stream Read | Sum all elements — forces DRAM reads |
+| Stream Write | Fill all elements — pure write bandwidth |
+| Stream Copy | Copy A→B — combined read+write bandwidth |
+
+Tests array sizes: 256 MB, 512 MB, 1 GB. Reports GB/s for each.
+
+#### Build & Run
+
+```bash
+hipcc -O2 micro_membw.cpp -o micro_membw
+./micro_membw                    # default: 10 iterations
+./micro_membw --iterations 20   # custom iteration count
+```
+
+#### Expected Output
+
+```
+# Memory Bandwidth Microbenchmark (MI300A)
+# Iterations per test: 10
+#
+operation,array_size,iterations,avg_ms,min_ms,max_ms,avg_gbps
+stream_read,256MB,10,0.1234,0.1100,0.1400,2068.41
+stream_write,256MB,10,0.0987,0.0900,0.1100,2593.72
+stream_copy,256MB,10,0.1456,0.1300,0.1600,3516.48
+...
+```
+
+### Microbenchmark 2: Kernel Launch Overhead (`micro_launch.cpp`)
+
+Measures per-kernel-launch overhead in three modes:
+
+| Mode | Description |
+|------|-------------|
+| `batch_async` | Launch N empty kernels, sync once at end |
+| `sync_per_launch` | Empty kernel + `hipDeviceSynchronize` each time |
+| `small_kernel_sync` | 1-thread kernel with minimal work + sync each time |
+
+Default: 10 000 launches per measurement.
+
+#### Build & Run
+
+```bash
+hipcc -O2 micro_launch.cpp -o micro_launch
+./micro_launch                              # default: 10000 launches, 10 iters
+./micro_launch --iterations 20 --launches 5000
+```
+
+#### Expected Output
+
+```
+# Kernel Launch Overhead Microbenchmark (MI300A)
+# Launches per measurement: 10000
+# Measurement iterations: 10
+#
+test,launches,iterations,total_avg_ms,per_launch_avg_us
+batch_async,10000,10,45.1234,4.5123
+sync_per_launch,10000,10,123.4567,12.3457
+small_kernel_sync,10000,10,125.6789,12.5679
+```
