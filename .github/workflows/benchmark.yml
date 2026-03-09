@@ -317,22 +317,8 @@ jobs:
             fi
 
             # Extract kernel time from Driver entry (using Python sqlite3 - no CLI needed)
-            KERNEL_TIME_SEC=$(python3 -c "
-import sqlite3, sys
-try:
-    conn = sqlite3.connect('${DB_FILE}')
-    c = conn.cursor()
-    c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1\")
-    row = c.fetchone()
-    if row is None:
-        c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1\")
-        row = c.fetchone()
-    if row:
-        print(row[0])
-    conn.close()
-except Exception as e:
-    print('', file=sys.stderr)
-" 2>/dev/null || true)
+            export _BENCH_DB="${DB_FILE}"
+            KERNEL_TIME_SEC=$(python3 -c "import sqlite3,os; db=os.environ['_BENCH_DB']; conn=sqlite3.connect(db); c=conn.cursor(); c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1\"); r=c.fetchone(); r=r or (c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1\"),c.fetchone())[1]; print(r[0]) if r else None; conn.close()" 2>/dev/null || true)
 
             if [ -z "${KERNEL_TIME_SEC}" ]; then
               echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no kernel_time in DB)"
