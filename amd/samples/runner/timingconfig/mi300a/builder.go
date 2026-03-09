@@ -480,7 +480,7 @@ func (b *Builder) buildSAs() {
 		WithNumSinglePrecisionUnits(16).
 		WithVecMemInstPipelineStages(1).
 		WithVecMemTransPipelineStages(1).
-		WithVecMemTransPipelineWidth(8).
+		WithVecMemTransPipelineWidth(4).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
 		WithL1VBankLatency(3).
