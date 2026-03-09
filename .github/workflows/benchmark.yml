@@ -221,10 +221,8 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Check Python
+        run: python3 --version
 
       - name: Build benchmark
         run: |
@@ -390,10 +388,8 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Check Python
+        run: python3 --version
 
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
