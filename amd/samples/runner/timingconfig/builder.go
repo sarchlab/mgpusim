@@ -29,6 +29,8 @@ type Builder struct {
 	useMagicMemoryCopy bool
 	gpuType            string
 	switchLatency      int // PCIe/interconnect switch latency in cycles
+	d2hCycles          int
+	h2dCycles          int
 
 	platform          *sim.Domain
 	globalStorage     *mem.Storage
@@ -47,6 +49,8 @@ func MakeBuilder() Builder {
 		useMagicMemoryCopy: false,
 		gpuType:            "r9nano",
 		switchLatency:      140, // default PCIe Gen4
+		d2hCycles:          300,
+		h2dCycles:          500,
 	}
 }
 
@@ -118,6 +122,8 @@ func (b *Builder) adjustConfigForGPUType() {
 		b.numCUPerSA = mi300a.NumCUPerShaderArray
 		b.numSAPerGPU = mi300a.NumShaderArray
 		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
+		b.d2hCycles = 5000   // ~5μs at 1GHz driver freq (MI300A unified memory coherence)
+		b.h2dCycles = 13000  // ~13μs at 1GHz driver freq (MI300A unified memory + cache invalidation)
 	default:
 		// Keep defaults for r9nano
 	}
@@ -153,8 +159,8 @@ func (b *Builder) buildGPUDriver(
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithD2HCycles(300).
-		WithH2DCycles(500).
+		WithD2HCycles(b.d2hCycles).
+		WithH2DCycles(b.h2dCycles).
 		Build("Driver")
 
 	b.simulation.RegisterComponent(gpuDriver)

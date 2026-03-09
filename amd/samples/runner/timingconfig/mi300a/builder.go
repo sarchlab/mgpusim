@@ -591,7 +591,7 @@ func (b *Builder) buildCP() {
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
 		WithConstantKernelLaunchOverhead(5400).          // ~3μs at 1.8GHz
-		WithSubsequentKernelLaunchOverhead(18000).       // ~10μs at 1.8GHz (tuned for multi-kernel accuracy)
+		WithSubsequentKernelLaunchOverhead(5400).         // ~3μs at 1.8GHz (matched to first kernel for consistent overhead)
 		WithConstantKernelOverhead(1080).                // ~0.6μs at 1.8GHz
 		Build(b.name + ".CommandProcessor")
 
