@@ -226,7 +226,7 @@ jobs:
 
       - name: Build benchmark
         run: |
-          go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
+          CGO_ENABLED=1 go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
 
       - name: Run benchmark sizes
         id: run
