@@ -221,6 +221,12 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install gcc (Fedora self-hosted runners)
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc
+          fi
+
       - name: Check Python
         run: python3 --version
 
@@ -379,7 +385,7 @@ jobs:
   # ===========================================================================
   compare:
     name: Compare vs MI300A Reference
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [benchmark]
     if: always()
