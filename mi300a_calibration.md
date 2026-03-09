@@ -32,6 +32,20 @@ The vector memory instruction pipeline processes memory load/store instructions.
 
 **Source:** Estimated. The transaction pipeline handles address generation and memory request formation.
 
+### VecMemTransPipelineWidth = 4
+
+**Source:** Calibrated to selectively slow strided/random memory access patterns (M16).
+
+**Previous value:** 8 (matched maximum cache line transactions possible per memory instruction)
+
+**New value:** 4 (halves throughput for high-transaction instructions while preserving contiguous access speed)
+
+**Rationale:** The VecMemTransPipelineWidth controls how many cache line transactions per cycle the vector memory transaction pipeline can process. Different access patterns generate different numbers of cache line transactions per instruction:
+- **Contiguous access** (vectoradd, relu): generates ~4 cache line transactions per instruction (64 threads × 4 bytes / 64 bytes per cache line). Width=4 is sufficient — NO slowdown.
+- **Strided/random access** (atax, bicg, FWT): generates up to 64 cache line transactions per instruction (worst case: every thread hits a different cache line). Width=4 halves throughput vs width=8, causing ~2× slowdown.
+
+This targeted effect is exactly what's needed: memory-bound benchmarks with strided access patterns (atax, bicg, FWT) were running "too fast" in simulation compared to real hardware, while contiguous-access benchmarks (vectoradd, relu) were already well-calibrated. Reducing the width from 8 to 4 selectively penalizes strided access without affecting contiguous access.
+
 ---
 
 ## Cache Parameters
