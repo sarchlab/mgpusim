@@ -27,11 +27,19 @@ type Builder struct {
 	freq               sim.Freq
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
-	wfPoolSize         int
-	vgprCount          []int
-	l1AddressMapper    mem.AddressToPortMapper
-	l1TLBAddressMapper mem.AddressToPortMapper
-	aluFactory         emu.ALUFactory
+	wfPoolSize                int
+	vgprCount                 []int
+	numSinglePrecisionUnits   int
+	vecMemInstPipelineStages   int
+	vecMemTransPipelineStages  int
+	vecMemTransPipelineWidth   int
+	cuMemPipelineBufferSize    int
+	l1vCacheSize               uint64
+	l1vBankLatency            int
+	memPipelineBufferSize     int
+	l1AddressMapper           mem.AddressToPortMapper
+	l1TLBAddressMapper        mem.AddressToPortMapper
+	aluFactory                emu.ALUFactory
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -145,6 +153,61 @@ func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	return b
 }
 
+// WithNumSinglePrecisionUnits sets the number of single-precision units per
+// SIMD in each CU.
+func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
+	b.numSinglePrecisionUnits = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the vector memory instruction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the vector memory transaction pipeline
+// depth for each CU.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineWidth sets the width (items per cycle) of the
+// vector memory transaction pipeline for each CU. Default is 1.
+func (b Builder) WithVecMemTransPipelineWidth(n int) Builder {
+	b.vecMemTransPipelineWidth = n
+	return b
+}
+
+// WithCUMemPipelineBufferSize sets the CU-internal post-pipeline buffer
+// size for vector memory transactions. Default is 8.
+func (b Builder) WithCUMemPipelineBufferSize(n int) Builder {
+	b.cuMemPipelineBufferSize = n
+	return b
+}
+
+// WithL1VCacheSize sets the L1V cache size per CU in bytes.
+func (b Builder) WithL1VCacheSize(size uint64) Builder {
+	b.l1vCacheSize = size
+	return b
+}
+
+// WithL1VBankLatency sets the L1V cache bank latency in cycles.
+func (b Builder) WithL1VBankLatency(latency int) Builder {
+	b.l1vBankLatency = latency
+	return b
+}
+
+// WithMemPipelineBufferSize sets the buffer size for memory pipeline
+// connections (CU→ROB→AT→L1V). Larger values allow more concurrent
+// memory transactions, improving throughput for bandwidth-limited workloads.
+func (b Builder) WithMemPipelineBufferSize(size int) Builder {
+	b.memPipelineBufferSize = size
+	return b
+}
+
 // Build builds the shader array.
 func (b Builder) Build(name string) *sim.Domain {
 	b.name = name
@@ -221,6 +284,11 @@ func (b *Builder) connectComponents() {
 }
 
 func (b *Builder) connectVectorMem() {
+	bufSize := 8
+	if b.memPipelineBufferSize > 0 {
+		bufSize = b.memPipelineBufferSize
+	}
+
 	for i := range b.numCUs {
 		cu := b.cus[i]
 		rob := b.l1vROBs[i]
@@ -240,19 +308,19 @@ func (b *Builder) connectVectorMem() {
 			Port: rob.GetPortByName("Top").AsRemote(),
 		}
 		b.connectWithDirectConnection(cu.ToVectorMem,
-			rob.GetPortByName("Top"), 8)
+			rob.GetPortByName("Top"), bufSize)
 
 		atTopPort := at.GetPortByName("Top")
 		rob.BottomUnit = atTopPort.AsRemote()
 		b.connectWithDirectConnection(
-			rob.GetPortByName("Bottom"), atTopPort, 8)
+			rob.GetPortByName("Bottom"), atTopPort, bufSize)
 
 		tlbTopPort := tlb.GetPortByName("Top")
 		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, 8)
+			at.GetPortByName("Translation"), tlbTopPort, bufSize)
 
 		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-			at.GetPortByName("Bottom"), 8)
+			at.GetPortByName("Bottom"), bufSize)
 	}
 }
 
@@ -370,6 +438,26 @@ func (b *Builder) buildCUs() {
 		cuBuilder = cuBuilder.WithVGPRCount(b.vgprCount)
 	}
 
+	if b.numSinglePrecisionUnits > 0 {
+		cuBuilder = cuBuilder.WithNumSinglePrecisionUnits(b.numSinglePrecisionUnits)
+	}
+
+	if b.vecMemInstPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemInstPipelineStages(b.vecMemInstPipelineStages)
+	}
+
+	if b.vecMemTransPipelineStages > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
+	}
+
+	if b.vecMemTransPipelineWidth > 0 {
+		cuBuilder = cuBuilder.WithVecMemTransPipelineWidth(b.vecMemTransPipelineWidth)
+	}
+
+	if b.cuMemPipelineBufferSize > 0 {
+		cuBuilder = cuBuilder.WithMemPipelineBufferSize(b.cuMemPipelineBufferSize)
+	}
+
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
@@ -394,8 +482,8 @@ func (b *Builder) buildL1VReorderBuffers() {
 	builder := rob.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBufferSize(128).
-		WithNumReqPerCycle(4)
+		WithBufferSize(512).
+		WithNumReqPerCycle(32)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
@@ -414,7 +502,8 @@ func (b *Builder) buildL1VAddressTranslators() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(32)
 
 	b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
 	b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
@@ -438,10 +527,10 @@ func (b *Builder) buildL1VTLBs() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
-		WithNumSets(1).
+		WithNumMSHREntry(64).
+		WithNumSets(4).
 		WithNumWays(64).
-		WithNumReqPerCycle(4).
+		WithNumReqPerCycle(32).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
@@ -453,15 +542,27 @@ func (b *Builder) buildL1VTLBs() {
 }
 
 func (b *Builder) buildL1VCaches() {
+	l1vSize := 16 * mem.KB
+	if b.l1vCacheSize > 0 {
+		l1vSize = b.l1vCacheSize
+	}
+
+	l1vBankLatency := 20
+	if b.l1vBankLatency > 0 {
+		l1vBankLatency = b.l1vBankLatency
+	}
+
 	builder := writearound.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBankLatency(60).
-		WithNumBanks(1).
+		WithBankLatency(l1vBankLatency).
+		WithNumBanks(4).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
-		WithTotalByteSize(16 * mem.KB).
+		WithNumMSHREntry(256).
+		WithNumReqsPerCycle(32).
+		WithMaxNumConcurrentTrans(512).
+		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
@@ -502,6 +603,7 @@ func (b *Builder) buildL1SAddressTranslator() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(16).
 		WithMemoryProviderMapper(b.l1sMemMapper).
 		WithTranslationProviderMapper(b.l1sTransMapper)
 
@@ -571,6 +673,7 @@ func (b *Builder) buildL1IAddressTranslator() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
+		WithNumReqPerCycle(16).
 		WithMemoryProviderMapper(b.l1AddressMapper).
 		WithTranslationProviderMapper(b.l1iTransMapper)
 

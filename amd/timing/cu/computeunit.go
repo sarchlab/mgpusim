@@ -490,18 +490,23 @@ func (cu *ComputeUnit) processInputFromInstMem() bool {
 func (cu *ComputeUnit) handleFetchReturn(
 	rsp *mem.DataReadyRsp,
 ) bool {
-	if len(cu.InFlightInstFetch) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightInstFetch {
+		if info.Req.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return false
 	}
 
-	info := cu.InFlightInstFetch[0]
-	if info.Req.ID != rsp.RespondTo {
-		return false
-	}
-
+	info := cu.InFlightInstFetch[matchIdx]
 	wf := info.Wavefront
 	addr := info.Address
-	cu.InFlightInstFetch = cu.InFlightInstFetch[1:]
+	cu.InFlightInstFetch = append(
+		cu.InFlightInstFetch[:matchIdx],
+		cu.InFlightInstFetch[matchIdx+1:]...)
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
 		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
@@ -534,15 +539,19 @@ func (cu *ComputeUnit) processInputFromScalarMem() bool {
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.InFlightScalarMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightScalarMemAccess {
+		if info.Req != nil && info.Req.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightScalarMemAccess[0]
+	info := cu.InFlightScalarMemAccess[matchIdx]
 	req := info.Req
-	if req.ID != rsp.RespondTo {
-		return
-	}
 
 	wf := info.Wavefront
 	access := RegisterAccess{
@@ -553,7 +562,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	}
 	cu.SRegFile.Write(access)
 
-	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
+	cu.InFlightScalarMemAccess = append(
+		cu.InFlightScalarMemAccess[:matchIdx],
+		cu.InFlightScalarMemAccess[matchIdx+1:]...)
 
 	tracing.TraceReqFinalize(req, cu)
 
@@ -568,43 +579,46 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
-	rsp := cu.ToVectorMem.RetrieveIncoming()
-	if rsp == nil {
-		return false
-	}
+	madeProgress := false
+	for i := 0; i < 16; i++ {
+		rsp := cu.ToVectorMem.RetrieveIncoming()
+		if rsp == nil {
+			break
+		}
 
-	switch rsp := rsp.(type) {
-	case *mem.DataReadyRsp:
-		cu.handleVectorDataLoadReturn(rsp)
-	case *mem.WriteDoneRsp:
-		cu.handleVectorDataStoreRsp(rsp)
-	default:
-		log.Panicf("cannot handle request of type %s from ToInstMem port",
-			reflect.TypeOf(rsp))
+		switch rsp := rsp.(type) {
+		case *mem.DataReadyRsp:
+			cu.handleVectorDataLoadReturn(rsp)
+		case *mem.WriteDoneRsp:
+			cu.handleVectorDataStoreRsp(rsp)
+		default:
+			log.Panicf("cannot handle rsp of type %s from vector mem port",
+				reflect.TypeOf(rsp))
+		}
+		madeProgress = true
 	}
-
-	return true
+	return madeProgress
 }
 
 //nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.InFlightVectorMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightVectorMemAccess {
+		if info.Read != nil && info.Read.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[0]
-
-	if info.Read == nil {
-		return
-	}
-
-	if info.Read.ID != rsp.RespondTo {
-		return
-	}
-
-	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	info := cu.InFlightVectorMemAccess[matchIdx]
+	cu.InFlightVectorMemAccess = append(
+		cu.InFlightVectorMemAccess[:matchIdx],
+		cu.InFlightVectorMemAccess[matchIdx+1:]...)
 	tracing.TraceReqFinalize(info.Read, cu)
 
 	wf := info.Wavefront
@@ -622,7 +636,14 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
-			access.Data = rsp.Data[offset : offset+uint64(4*laneInfo.regCount)]
+			end := offset + uint64(4*laneInfo.regCount)
+			if end > uint64(len(rsp.Data)) {
+				end = uint64(len(rsp.Data))
+				if offset >= end {
+					continue
+				}
+			}
+			access.Data = rsp.Data[offset:end]
 		}
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
@@ -640,21 +661,21 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	rsp *mem.WriteDoneRsp,
 ) {
-	if len(cu.InFlightVectorMemAccess) == 0 {
+	matchIdx := -1
+	for i, info := range cu.InFlightVectorMemAccess {
+		if info.Write != nil && info.Write.ID == rsp.RespondTo {
+			matchIdx = i
+			break
+		}
+	}
+	if matchIdx < 0 {
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[0]
-
-	if info.Write == nil {
-		return
-	}
-
-	if info.Write.ID != rsp.RespondTo {
-		return
-	}
-
-	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	info := cu.InFlightVectorMemAccess[matchIdx]
+	cu.InFlightVectorMemAccess = append(
+		cu.InFlightVectorMemAccess[:matchIdx],
+		cu.InFlightVectorMemAccess[matchIdx+1:]...)
 	tracing.TraceReqFinalize(info.Write, cu)
 
 	wf := info.Wavefront
@@ -878,7 +899,7 @@ func NewComputeUnit(
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
+	cu.ToVectorMem = sim.NewPort(cu, 32, 32, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	cu.AddPort("Top", cu.ToACE)

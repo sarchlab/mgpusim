@@ -15,7 +15,6 @@ var _ = Describe("Vector Memory Unit", func() {
 	var (
 		mockCtrl            *gomock.Controller
 		cu                  *ComputeUnit
-		sp                  *mockScratchpadPreparer
 		coalescer           *Mockcoalescer
 		vecMemUnit          *VectorMemoryUnit
 		vectorMem           *MockPort
@@ -29,9 +28,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("CU", nil)
-		sp = new(mockScratchpadPreparer)
 		coalescer = NewMockcoalescer(mockCtrl)
-		vecMemUnit = NewVectorMemoryUnit(cu, sp, coalescer)
+		vecMemUnit = NewVectorMemoryUnit(cu, coalescer)
 		toVectorMem = NewMockPort(mockCtrl)
 		instPipeline = NewMockPipeline(mockCtrl)
 		instBuffer = NewMockBuffer(mockCtrl)
@@ -93,8 +91,11 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Read = read
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
-		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
+		gomock.InOrder(
+			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Peek().Return(nil),
+		)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
@@ -125,8 +126,11 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Write = write
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
-		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
+		gomock.InOrder(
+			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
+			instBuffer.EXPECT().Peek().Return(nil),
+		)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
@@ -150,13 +154,21 @@ var _ = Describe("Vector Memory Unit", func() {
 		}
 		vecMemUnit.transactionsWaiting = transactions
 
-		transactionPipeline.EXPECT().CanAccept().Return(true)
-		transactionPipeline.EXPECT().Accept(gomock.Any())
+		// The loop inserts as many as the pipeline can accept.
+		// After 2 accepts, pipeline reports full.
+		gomock.InOrder(
+			transactionPipeline.EXPECT().CanAccept().Return(true),
+			transactionPipeline.EXPECT().Accept(gomock.Any()),
+			transactionPipeline.EXPECT().CanAccept().Return(true),
+			transactionPipeline.EXPECT().Accept(gomock.Any()),
+			transactionPipeline.EXPECT().CanAccept().Return(false),
+		)
+		instBuffer.EXPECT().Peek().Return(nil)
 
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(3))
+		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(2))
 	})
 
 	It("should send memory access requests", func() {
@@ -176,6 +188,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		transactionBuffer.EXPECT().Peek().Return(trans)
 		transactionBuffer.EXPECT().Pop()
 		toVectorMem.EXPECT().Send(loadReq)
+		transactionBuffer.EXPECT().Peek().Return(nil)
 
 		vecMemUnit.sendRequest()
 

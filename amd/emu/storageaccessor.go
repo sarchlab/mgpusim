@@ -77,7 +77,7 @@ func (a *storageAccessorImpl) Write(pid vm.PID, vAddr uint64, data []byte) {
 			sizeToWrite = sizeLeft
 		}
 
-		page, found := a.pageTable.Find(pid, vAddr)
+		page, found := a.pageTable.Find(pid, currVAddr)
 		if !found {
 			panic("page not found in page table")
 		}

@@ -15,8 +15,7 @@ type SIMDUnit struct {
 
 	name string
 
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
+	alu emu.ALU
 
 	toExec    *wavefront.Wavefront
 	cycleLeft int
@@ -31,13 +30,11 @@ type SIMDUnit struct {
 func NewSIMDUnit(
 	cu *ComputeUnit,
 	name string,
-	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *SIMDUnit {
 	u := new(SIMDUnit)
 	u.name = name
 	u.cu = cu
-	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 
 	u.NumSinglePrecisionUnit = 16
@@ -80,9 +77,7 @@ func (u *SIMDUnit) runExecStage() bool {
 		return true
 	}
 
-	u.scratchpadPreparer.Prepare(u.toExec, u.toExec)
 	u.alu.Run(u.toExec)
-	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
 
 	u.logPipelineTask(u.toExec.DynamicInst(), true)

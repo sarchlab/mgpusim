@@ -1172,11 +1172,14 @@ func (u *ALU) isDIVFIXUPF64Overflow(
 		exponentSrc1 == 2047
 }
 
-func (u *ALU) runVPKFMAF32(state emu.InstEmuState) {
+func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 	inst := state.Inst()
 	exec := state.EXEC()
 
-	// VOP3P encoding: OpSel (bits 11-14) and OpSelHi (bits 59-60)
+	// VOP3P encoding for 3-source FMA:
+	// OpSel[0:2]: src0/src1/src2 word select for lower result
+	// OpSelHi[0:2]: src0/src1/src2 word select for upper result
+	// Neg field applies to both lo and hi halves.
 	op_sel := inst.OpSel
 	op_sel_hi := inst.OpSelHi
 
@@ -1208,6 +1211,11 @@ func (u *ALU) runVPKFMAF32(state emu.InstEmuState) {
 		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
 		if op_sel_hi&4 != 0 { c_hi = src2_hi } else { c_hi = src2_lo }
 
+		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
+		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
+		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
+		if inst.Src2Neg { c_lo = -c_lo; c_hi = -c_hi }
+
 		res_lo := a_lo * b_lo + c_lo
 		res_hi := a_hi * b_hi + c_hi
 
@@ -1221,13 +1229,13 @@ func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
 	exec := state.EXEC()
 
 	// VOP3P encoding for 2-source packed f32 operations:
-	// OpSel (bits 11-14, 4 bits total) controls ALL source selection:
 	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
 	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
-	// OpSel[2] (bit 2): src0 word select for upper result (0=lo, 1=hi)
-	// OpSel[3] (bit 3): src1 word select for upper result (0=lo, 1=hi)
-	// Note: OpSelHi is NOT used for 2-source packed ops, only for 3-source FMA
+	// OpSelHi[0] (bit 0): src0 word select for upper result (0=lo, 1=hi)
+	// OpSelHi[1] (bit 1): src1 word select for upper result (0=lo, 1=hi)
+	// Neg field (neg_lo) applies negation to both lo and hi halves.
 	op_sel := inst.OpSel
+	op_sel_hi := inst.OpSelHi
 
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
@@ -1242,16 +1250,20 @@ func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
 		src1_lo := math.Float32frombits(uint32(src1Bits))
 		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
 
-		var a_lo, b_lo float32  // Inputs for lower result
-		var a_hi, b_hi float32  // Inputs for upper result
+		var a_lo, b_lo float32
+		var a_hi, b_hi float32
 
-		// Lower result: OpSel[0] and OpSel[1]
-		if op_sel&0b0001 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
-		if op_sel&0b0010 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+		// Lower result word select
+		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
+		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
 
-		// Upper result: OpSel[2] and OpSel[3]
-		if op_sel&0b0100 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
-		if op_sel&0b1000 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+		// Upper result word select
+		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
+		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+
+		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
+		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
+		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
 
 		res_lo := a_lo * b_lo
 		res_hi := a_hi * b_hi
@@ -1266,13 +1278,13 @@ func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 	exec := state.EXEC()
 
 	// VOP3P encoding for 2-source packed f32 operations:
-	// OpSel (bits 11-14, 4 bits total) controls ALL source selection:
 	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
 	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
-	// OpSel[2] (bit 2): src0 word select for upper result (0=lo, 1=hi)
-	// OpSel[3] (bit 3): src1 word select for upper result (0=lo, 1=hi)
-	// Note: OpSelHi is NOT used for 2-source packed ops, only for 3-source FMA
+	// OpSelHi[0] (bit 0): src0 word select for upper result (0=lo, 1=hi)
+	// OpSelHi[1] (bit 1): src1 word select for upper result (0=lo, 1=hi)
+	// Neg field (neg_lo) applies negation to both lo and hi halves.
 	op_sel := inst.OpSel
+	op_sel_hi := inst.OpSelHi
 
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
@@ -1290,13 +1302,17 @@ func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 		var a_lo, a_hi float32
 		var b_lo, b_hi float32
 
-		// Lower result: OpSel[0] and OpSel[1]
-		if op_sel&0b0001 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
-		if op_sel&0b0010 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+		// Lower result word select
+		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
+		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
 
-		// Upper result: OpSel[2] and OpSel[3]
-		if op_sel&0b0100 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
-		if op_sel&0b1000 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+		// Upper result word select
+		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
+		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+
+		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
+		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
+		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
 
 		res_lo := a_lo + b_lo
 		res_hi := a_hi + b_hi

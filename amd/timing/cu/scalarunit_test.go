@@ -11,25 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-type mockScratchpadPreparer struct {
-	wfPrepared  *wavefront.Wavefront
-	wfCommitted *wavefront.Wavefront
-}
-
-func (sp *mockScratchpadPreparer) Prepare(
-	instEmuState emu.InstEmuState,
-	wf *wavefront.Wavefront,
-) {
-	sp.wfPrepared = wf
-}
-
-func (sp *mockScratchpadPreparer) Commit(
-	instEmuState emu.InstEmuState,
-	wf *wavefront.Wavefront,
-) {
-	sp.wfCommitted = wf
-}
-
 type mockALU struct {
 	wfExecuted emu.InstEmuState
 }
@@ -49,12 +30,56 @@ func (alu *mockALU) ArchName() string {
 	return "Mock"
 }
 
+// mockRegFileAccessor implements wavefront.RegFileAccessor for tests
+type mockRegFileAccessor struct {
+	storage map[string][]byte
+}
+
+func newMockRegFileAccessor() *mockRegFileAccessor {
+	return &mockRegFileAccessor{
+		storage: make(map[string][]byte),
+	}
+}
+
+func regKey(reg *insts.Reg, regCount int, laneID int, waveOffset int) string {
+	return reg.Name + ":" + string(rune(regCount)) + ":" + string(rune(laneID)) + ":" + string(rune(waveOffset))
+}
+
+func (m *mockRegFileAccessor) ReadReg(
+	reg *insts.Reg, regCount int, laneID int, waveOffset int,
+) []byte {
+	key := regKey(reg, regCount, laneID, waveOffset)
+	if data, ok := m.storage[key]; ok {
+		result := make([]byte, len(data))
+		copy(result, data)
+		return result
+	}
+	return make([]byte, reg.ByteSize*regCount)
+}
+
+func (m *mockRegFileAccessor) WriteReg(
+	reg *insts.Reg, regCount int, laneID int, waveOffset int, data []byte,
+) {
+	key := regKey(reg, regCount, laneID, waveOffset)
+	stored := make([]byte, len(data))
+	copy(stored, data)
+	m.storage[key] = stored
+}
+
+func (m *mockRegFileAccessor) setRegValue(
+	reg *insts.Reg, regCount int, laneID int, waveOffset int, data []byte,
+) {
+	key := regKey(reg, regCount, laneID, waveOffset)
+	stored := make([]byte, len(data))
+	copy(stored, data)
+	m.storage[key] = stored
+}
+
 var _ = Describe("Scalar Unit", func() {
 
 	var (
 		mockCtrl    *gomock.Controller
 		cu          *ComputeUnit
-		sp          *mockScratchpadPreparer
 		bu          *ScalarUnit
 		alu         *mockALU
 		scalarMem   *MockPort
@@ -64,9 +89,8 @@ var _ = Describe("Scalar Unit", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("CU", nil)
-		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
-		bu = NewScalarUnit(cu, sp, alu)
+		bu = NewScalarUnit(cu, alu)
 		bu.log2CachelineSize = 6
 
 		scalarMem = NewMockPort(mockCtrl)
@@ -121,77 +145,88 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
 
-		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
-		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 	})
 
 	It("should run s_load_dword", func() {
 		wave := wavefront.NewWavefront(nil)
-		bu.toExec = wave
+
+		regAccessor := newMockRegFileAccessor()
+		wave.RegAccessor = regAccessor
 
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 0
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		inst.Base = insts.NewSRegOperand(2, 2, 2)
+		inst.Offset = insts.NewIntOperand(0, 0x24)
 		wave.SetDynamicInst(inst)
 
-		sp := wave.Scratchpad().AsSMEM()
-		sp.Base = 0x1000
-		sp.Offset = 0x24
+		// Set base register value = 0x1000
+		baseReg := insts.SReg(2)
+		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+			insts.Uint64ToBytes(0x1000)[:8])
 
-		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
-		//conn.ExpectSend(expectedReq, nil)
+		bu.toExec = wave
 
 		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(len(cu.InFlightScalarMemAccess)).To(Equal(1))
-		//Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(bu.readBuf).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx2", func() {
 		wave := wavefront.NewWavefront(nil)
-		bu.toExec = wave
+
+		regAccessor := newMockRegFileAccessor()
+		wave.RegAccessor = regAccessor
 
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		inst.Base = insts.NewSRegOperand(2, 2, 2)
+		inst.Offset = insts.NewIntOperand(0, 0x24)
 		wave.SetDynamicInst(inst)
 
-		sp := wave.Scratchpad().AsSMEM()
-		sp.Base = 0x1000
-		sp.Offset = 0x24
+		// Set base register value = 0x1000
+		baseReg := insts.SReg(2)
+		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+			insts.Uint64ToBytes(0x1000)[:8])
 
-		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
-		//conn.ExpectSend(expectedReq, nil)
+		bu.toExec = wave
 
 		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		//Expect(len(cu.inFlightMemAccess)).To(Equal(1))
-		//Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(bu.readBuf).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx4, access cross cacheline", func() {
 		wave := wavefront.NewWavefront(nil)
-		bu.toExec = wave
+
+		regAccessor := newMockRegFileAccessor()
+		wave.RegAccessor = regAccessor
 
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 2
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		inst.Base = insts.NewSRegOperand(2, 2, 2)
+		inst.Offset = insts.NewIntOperand(0, 56)
 		wave.SetDynamicInst(inst)
 
-		sp := wave.Scratchpad().AsSMEM()
-		sp.Base = 0x1000
-		sp.Offset = 56
-		start := sp.Base + sp.Offset
+		// Set base register value = 0x1000
+		baseReg := insts.SReg(2)
+		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+			insts.Uint64ToBytes(0x1000)[:8])
+
+		bu.toExec = wave
+
+		start := uint64(0x1000 + 56)
 		bu.Run()
 		Expect(bu.numCacheline(start, uint64(16))).To(Equal(2))
 		Expect(wave.State).To(Equal(wavefront.WfReady))

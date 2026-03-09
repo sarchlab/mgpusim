@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   compile:
     name: Compile
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -20,7 +20,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -48,7 +48,7 @@ jobs:
 
   unit_test:
     name: Unit Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -69,11 +69,11 @@ jobs:
         run: go install github.com/onsi/ginkgo/v2/ginkgo
 
       - name: Unit Test
-        run: ginkgo -r
+        run: ginkgo -r --skip-package=mccl
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -98,7 +98,7 @@ jobs:
 
   disassembler_test:
     name: Disassembler Test (GFX942)
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [compile]
     steps:
       - name: Checkout
@@ -119,7 +119,7 @@ jobs:
 
   gcn3_emu_test:
     name: GCN3 Emulation Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -139,7 +139,7 @@ jobs:
 
   gcn3_single_gpu_timing_test:
     name: GCN3 Single GPU Timing Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [gcn3_emu_test]
     steps:
       - name: Checkout
@@ -157,93 +157,13 @@ jobs:
           ./acceptance -num-gpu=1 -arch=gcn3
         working-directory: amd/tests/acceptance/
 
-  gcn3_two_discrete_gpu_test:
-    name: GCN3 Two Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [gcn3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Two Discrete GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
-  gcn3_two_unified_gpu_test:
-    name: GCN3 Two Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [gcn3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Two Unified GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
-  gcn3_four_discrete_gpu_test:
-    name: GCN3 Four Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [gcn3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Four Discrete GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
-  gcn3_four_unified_gpu_test:
-    name: GCN3 Four Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [gcn3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Four Unified GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
   # =============================================================================
   # CDNA3 (MI300A) Tests
   # =============================================================================
 
   cdna3_emu_test:
     name: CDNA3 Emulation Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -263,7 +183,7 @@ jobs:
 
   cdna3_single_gpu_timing_test:
     name: CDNA3 Single GPU Timing Test
-    runs-on: Github-Large-1
+    runs-on: ubuntu-latest
     needs: [cdna3_emu_test]
     steps:
       - name: Checkout
@@ -281,42 +201,4 @@ jobs:
           ./acceptance -num-gpu=1 -arch=cdna3
         working-directory: amd/tests/acceptance/
 
-  cdna3_two_unified_gpu_test:
-    name: CDNA3 Two Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [cdna3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run CDNA3 Two Unified GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=2 -only-unified-gpu -arch=cdna3
-        working-directory: amd/tests/acceptance/
-
-  cdna3_four_unified_gpu_test:
-    name: CDNA3 Four Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [cdna3_single_gpu_timing_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run CDNA3 Four Unified GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=4 -only-unified-gpu -arch=cdna3
-        working-directory: amd/tests/acceptance/

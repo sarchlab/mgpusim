@@ -16,6 +16,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := nbody.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NumIterations = int32(*numIter)
 	benchmark.NumParticles = int32(*particles)
 

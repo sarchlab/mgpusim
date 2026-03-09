@@ -19,6 +19,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := matrixmultiplication.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.X = uint32(*xFlag)
 	benchmark.Y = uint32(*yFlag)
 	benchmark.Z = uint32(*zFlag)

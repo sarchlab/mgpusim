@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 )
 
@@ -16,6 +17,7 @@ type Benchmark struct {
 	context *driver.Context
 	gpus    []int
 
+	Arch                       arch.Type
 	X, Y, Z                   uint32
 	MatrixA, MatrixB, MatrixC *Matrix
 	useUnifiedMemory          bool
@@ -69,6 +71,7 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) exec() {
 	m := NewGPUMatrixMultiplier(b.driver, b.context)
 	m.SelectGPU(b.gpus)
+	m.Arch = b.Arch
 	m.useUnifiedMemory = b.useUnifiedMemory
 	b.MatrixC = m.Multiply(b.MatrixA, b.MatrixB)
 }

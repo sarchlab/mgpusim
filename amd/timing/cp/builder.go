@@ -14,14 +14,17 @@ import (
 
 // Builder can build Command Processors
 type Builder struct {
-	freq           sim.Freq
-	engine         sim.Engine
-	visTracer      tracing.Tracer
-	monitor        *monitoring.Monitor
-	perfAnalyzer   *analysis.PerfAnalyzer
-	numDispatchers int
-	driver         sim.Port
-	cus            []CUInterfaceForCP
+	freq                         sim.Freq
+	engine                       sim.Engine
+	visTracer                    tracing.Tracer
+	monitor                      *monitoring.Monitor
+	perfAnalyzer                 *analysis.PerfAnalyzer
+	numDispatchers               int
+	driver                       sim.Port
+	cus                          []CUInterfaceForCP
+	constantKernelLaunchOverhead   int
+	constantKernelOverhead         int
+	subsequentKernelLaunchOverhead int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -76,6 +79,28 @@ func (b Builder) WithDriver(driver sim.Port) Builder {
 // WithCU adds a compute unit to the command processor.
 func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
 	b.cus = append(b.cus, cu)
+	return b
+}
+
+// WithConstantKernelLaunchOverhead sets the kernel launch overhead cycles
+// for dispatchers. This models the fixed per-kernel launch latency.
+func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
+	b.constantKernelLaunchOverhead = overhead
+	return b
+}
+
+// WithConstantKernelOverhead sets the post-completion kernel overhead cycles
+// for dispatchers. This models the fixed overhead after all WGs complete.
+func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
+	b.constantKernelOverhead = overhead
+	return b
+}
+
+// WithSubsequentKernelLaunchOverhead sets the overhead cycles for kernel
+// launches after the first one. This models the reduced launch latency
+// when launching back-to-back kernels on real hardware.
+func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
+	b.subsequentKernelLaunchOverhead = overhead
 	return b
 }
 
@@ -140,7 +165,13 @@ func (b Builder) buildDispatchers(cp *CommandProcessor) {
 		WithCUResourcePool(cuResourcePool).
 		WithDispatchingPort(cp.ToCUs).
 		WithRespondingPort(cp.ToDriver).
-		WithMonitor(b.monitor)
+		WithMonitor(b.monitor).
+		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead).
+		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead)
+
+	if b.constantKernelOverhead > 0 {
+		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
+	}
 
 	for i := 0; i < b.numDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", cp.Name(), i))

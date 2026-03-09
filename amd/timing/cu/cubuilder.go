@@ -22,10 +22,15 @@ type Builder struct {
 	sgprCount         int
 	log2CachelineSize uint64
 
-	decoder            emu.Decoder
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
-	aluFactory         emu.ALUFactory
+	numSinglePrecisionUnits    int
+	vecMemInstPipelineStages   int
+	vecMemTransPipelineStages  int
+	vecMemTransPipelineWidth   int
+	memPipelineBufferSize      int
+
+	decoder    emu.Decoder
+	alu        emu.ALU
+	aluFactory emu.ALUFactory
 
 	visTracer        tracing.Tracer
 	enableVisTracing bool
@@ -44,6 +49,11 @@ func MakeBuilder() Builder {
 	b.sgprCount = 3200
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
+	b.numSinglePrecisionUnits = 16
+	b.vecMemInstPipelineStages = 6
+	b.vecMemTransPipelineStages = 10
+	b.vecMemTransPipelineWidth = 1
+	b.memPipelineBufferSize = 8
 
 	return b
 }
@@ -123,6 +133,41 @@ func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	return b
 }
 
+// WithNumSinglePrecisionUnits sets the number of single-precision units per
+// SIMD. Default is 16 (GCN3). CDNA3 uses 32.
+func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
+	b.numSinglePrecisionUnits = n
+	return b
+}
+
+// WithVecMemInstPipelineStages sets the number of stages in the vector memory
+// instruction pipeline. Default is 6.
+func (b Builder) WithVecMemInstPipelineStages(n int) Builder {
+	b.vecMemInstPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineStages sets the number of stages in the vector memory
+// transaction pipeline. Default is 10.
+func (b Builder) WithVecMemTransPipelineStages(n int) Builder {
+	b.vecMemTransPipelineStages = n
+	return b
+}
+
+// WithVecMemTransPipelineWidth sets the width (items per cycle) of the vector
+// memory transaction pipeline. Default is 1.
+func (b Builder) WithVecMemTransPipelineWidth(n int) Builder {
+	b.vecMemTransPipelineWidth = n
+	return b
+}
+
+// WithMemPipelineBufferSize sets the post-pipeline buffer size for vector
+// memory transactions. Default is 8.
+func (b Builder) WithMemPipelineBufferSize(n int) Builder {
+	b.memPipelineBufferSize = n
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
@@ -138,8 +183,6 @@ func (b Builder) Build(name string) *ComputeUnit {
 	} else {
 		b.alu = emu.NewALU(nil)
 	}
-	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
-
 	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(b.wfPoolSize))
 	}
@@ -175,11 +218,11 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu, b.scratchpadPreparer, b.alu)
+	cu.BranchUnit = NewBranchUnit(cu, b.alu)
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu, b.scratchpadPreparer, b.alu)
+	scalarUnit := NewScalarUnit(cu, b.alu)
 	scalarUnit.log2CachelineSize = b.log2CachelineSize
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.simdCount; i++ {
@@ -192,7 +235,8 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.simdCount; i++ {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
-		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
+		simdUnit := NewSIMDUnit(cu, name, b.alu)
+		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnits
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -205,7 +249,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.scratchpadPreparer, b.alu)
+	ldsUnit := NewLDSUnit(cu, b.alu)
 	cu.LDSUnit = ldsUnit
 
 	for i := 0; i < b.simdCount; i++ {
@@ -220,22 +264,34 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	coalescer := &defaultCoalescer{
 		log2CacheLineSize: b.log2CachelineSize,
 	}
-	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.scratchpadPreparer, coalescer)
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 8)
-	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
-		cu.Name()+".VectorMemoryUnit.InstPipeline",
-		6, 1,
-		vectorMemoryUnit.postInstructionPipelineBuffer)
+		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 4*b.simdCount)
+	vectorMemoryUnit.instructionPipeline = pipelining.MakeBuilder().
+		WithPipelineWidth(b.simdCount).
+		WithNumStage(b.vecMemInstPipelineStages).
+		WithCyclePerStage(1).
+		WithPostPipelineBuffer(vectorMemoryUnit.postInstructionPipelineBuffer).
+		Build(cu.Name() + ".VectorMemoryUnit.InstPipeline")
 
+	pipelineWidth := b.vecMemTransPipelineWidth
+	if pipelineWidth < 1 {
+		pipelineWidth = 1
+	}
+	bufSize := b.memPipelineBufferSize
+	if bufSize < 8 {
+		bufSize = 8
+	}
 	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", 8)
-	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
-		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
-		60, 1,
-		vectorMemoryUnit.postTransactionPipelineBuffer)
+		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", bufSize)
+	vectorMemoryUnit.transactionPipeline = pipelining.MakeBuilder().
+		WithPipelineWidth(pipelineWidth).
+		WithNumStage(b.vecMemTransPipelineStages).
+		WithCyclePerStage(1).
+		WithPostPipelineBuffer(vectorMemoryUnit.postTransactionPipelineBuffer).
+		Build(cu.Name() + ".VectorMemoryUnit.TransactionPipeline")
 
 	for i := 0; i < b.simdCount; i++ {
 		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)

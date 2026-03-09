@@ -18,6 +18,7 @@ debug
 .ropeproject
 __pycache__
 *.html
+_bench_*
 *.atp
 *.swo
 *.o
@@ -42,6 +43,7 @@ test
 fastwalshtransform
 fir
 floydwarshall
+matmul
 matrixtranspose
 simpleconvolution
 
@@ -53,3 +55,5 @@ simpleconvolution
 conv2d
 im2col
 _sim_benchmarks/
+stencil2d_bench
+_akita_local/

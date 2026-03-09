@@ -11,18 +11,23 @@ import (
 
 // A Builder can build dispatchers
 type Builder struct {
-	cp              tracing.NamedHookable
-	cuResourcePool  resource.CUResourcePool
-	alg             string
-	respondingPort  sim.Port
-	dispatchingPort sim.Port
-	monitor         *monitoring.Monitor
+	cp                           tracing.NamedHookable
+	cuResourcePool               resource.CUResourcePool
+	alg                          string
+	respondingPort               sim.Port
+	dispatchingPort              sim.Port
+	monitor                      *monitoring.Monitor
+	constantKernelOverhead         int
+	constantKernelLaunchOverhead   int
+	subsequentKernelLaunchOverhead int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg: "partition",
+		alg:                           "partition",
+		constantKernelOverhead:         3600,
+		subsequentKernelLaunchOverhead: 1800,
 	}
 	return b
 }
@@ -71,6 +76,28 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
+// WithConstantKernelOverhead sets the overhead cycles after all WGs complete.
+func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
+	b.constantKernelOverhead = overhead
+	return b
+}
+
+// WithConstantKernelLaunchOverhead sets the overhead cycles before first WG
+// dispatch. This models the kernel launch latency on real hardware.
+func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
+	b.constantKernelLaunchOverhead = overhead
+	return b
+}
+
+// WithSubsequentKernelLaunchOverhead sets the overhead cycles for kernel
+// launches after the first one. Back-to-back kernel launches benefit from
+// warm instruction caches, pre-set page tables, and preserved CU state,
+// so they can use a reduced overhead compared to the initial launch.
+func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
+	b.subsequentKernelLaunchOverhead = overhead
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
@@ -81,14 +108,16 @@ func (b Builder) Build(name string) Dispatcher {
 		inflightWGs:     make(map[string]dispatchLocation),
 		originalReqs:    make(map[string]*protocol.MapWGReq),
 		latencyTable: []int{
-			1,
-			4, 4, 4, 4,
-			5, 6, 7, 8,
-			9, 10, 11, 12,
-			13, 14, 15, 16,
+			0,           // 0 WFs
+			0, 0, 0, 0, // 1-4 WFs
+			0, 0, 0, 0, // 5-8 WFs
+			0, 0, 0, 0, // 9-12 WFs
+			0, 0, 0, 0, // 13-16 WFs
 		},
-		constantKernelOverhead: 0,
-		monitor:                b.monitor,
+		constantKernelOverhead:         b.constantKernelOverhead,
+		constantKernelLaunchOverhead:   b.constantKernelLaunchOverhead,
+		subsequentKernelLaunchOverhead: b.subsequentKernelLaunchOverhead,
+		monitor:                        b.monitor,
 	}
 
 	switch b.alg {

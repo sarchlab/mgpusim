@@ -39,12 +39,9 @@ func (a *IssueArbiter) Arbitrate(
 				typeMask[wf.InstToIssue.ExeUnit] = true
 			}
 		}
-
-		if len(wfToIssue) != 0 {
-			a.lastSIMDID = simdID
-			break
-		}
 	}
+
+	a.lastSIMDID = (a.lastSIMDID + 1) % len(wfPools)
 
 	return wfToIssue
 }

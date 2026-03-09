@@ -9,7 +9,7 @@ import (
 
 var numRow = flag.Int("row", 64, "The number of rows in the input matrix.")
 var numCol = flag.Int("col", 64, "The number of columns in the input matrix.")
-var numIter = flag.Int("iter", 5, "The number of iterations to run.")
+var numIter = flag.Int("iter", 1, "The number of iterations to run.")
 
 func main() {
 	flag.Parse()

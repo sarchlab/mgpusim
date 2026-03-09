@@ -117,13 +117,15 @@ func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) 
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
-// instruction memory
+// instruction memory. It fetches for up to 4 wavefronts per cycle to
+// reduce startup latency for streaming workloads.
 func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
-	if len(wfs) > 0 {
-		wf := wfs[0]
+	fetchLimit := min(4, len(wfs))
+	for idx := 0; idx < fetchLimit; idx++ {
+		wf := wfs[idx]
 
 		if len(wf.InstBuffer) == 0 {
 			wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
@@ -249,7 +251,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
 			// The program has to make progress
-			executing.State = wavefront.WfReady
+			s.cu.UpdatePCAndSetReady(executing)
 			instProgress = true
 			instCompleted = true
 		}
