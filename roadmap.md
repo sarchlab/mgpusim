@@ -215,17 +215,28 @@ BFS crashes because `-depth 100` apparently doesn't prevent the crash — the cr
 - **Key finding**: Single-kernel benchmarks avg 27.3% (near target), multi-kernel avg 105.9% (far from target)
 - All high-error benchmarks are "too fast" (sim underestimates time) and involve multiple kernel launches
 
-### M16: Fix multi-kernel overhead to reduce avg error from 68% to <35% (Budget: 8)
-- Root cause: kernel launch overhead model is too low for multi-kernel benchmarks
-- Current: first=5400cy (3μs), subsequent=2700cy (1.5μs), completion=1080cy (0.6μs)
-- Strategy: increase kernel launch overhead, investigate inter-kernel cache flush costs
-- Target: overall avg <45%, multi-kernel avg <60%, single-kernel must not regress >5pp
-- Details in tbc-db issue #431
+### M16: Fix multi-kernel overhead to reduce avg error from 68% to <35% (Budget: 8, Used: 11) — MISSED DEADLINE
+- Exhaustive parameter tuning across 5+ CI runs could NOT meet all 3 criteria simultaneously
+- Best config: sub=5400, l2BankLatency=4, DRAM restored → Overall 59.4%, Multi-K 116.7%, Single-K 26.5%
+- Root cause: "too fast" benchmarks (atax, bicg, bfs) conflict with "too slow" benchmarks (bitonicsort, floydwarshall) — no single overhead value satisfies both
+- MemCopy H2D/D2H overhead had ZERO effect on kernel_time metric
+- VecMemTransPipelineWidth changes had ZERO effect
+- CI blocked at end: Marin runners lack gcc for CGO
+- **Key lesson**: Fixed overhead tuning is fundamentally limited. Human issue #434 confirms: remove all fixed latency.
 
-### M17: Final accuracy push (Budget: TBD)
-- Target: avg <20%, max <50%
-- May require: per-benchmark kernel count analysis, inter-kernel cache flush model, GPU-side command queueing (issue #286)
-- Coverage expansion: larger sizes, fix nbody/conv2d/simpleconvolution crashes
+### M17: Remove fixed latency + linear regression evaluation + CI fix (Budget: 6)
+**Direction change per human issues #434, #435, #444:**
+1. Remove all fixed kernel launch overhead and memory copy overhead from the simulator
+2. Implement linear regression-based accuracy evaluation (slope comparison at large sizes)
+3. Fix CI infrastructure: either install gcc on Marin runners or switch to pure-Go SQLite
+4. Write microbenchmarks for key parameters (memory bandwidth, cache latency)
+5. Focus accuracy evaluation on large problem sizes where GPU is filled 2-3×
+
+### M18: Targeted accuracy improvements with microbenchmark validation (Budget: TBD)
+- Use microbenchmark results from human to validate/tune parameters
+- Fix memory access pattern modeling for strided/random access (atax, bicg, bfs)
+- GPU-side command queueing (issue #286) if multi-kernel overhead is still dominant
+- Target: regression slope within 20% of 1.0 for all benchmarks
 
 ## Lessons Learned
 - SIMD=32 was incorrect — always verify against ISA documentation
@@ -269,4 +280,9 @@ BFS crashes because `-depth 100` apparently doesn't prevent the crash — the cr
 - **M14.2 lesson**: CI infrastructure is a single point of failure. Self-hosted runners going offline blocks ALL validation. Always have a fallback (shared runners).
 - **M14.2 lesson**: Local test results can show targets are met, but without CI, we can't validate at scale. The IssueArbiter fix was the right change, but 6 cycles were consumed without proof.
 - **Operational lesson**: Human request #422 — reduce CI cost. Switch to shared runners, remove parallel GPU tests from push CI.
-- **Cycle estimates**: M1-M4 ~20; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8(F); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12(F); M14.1 ~6(F); M14.2 ~6(blocked by CI)
+- **Cycle estimates**: M1-M4 ~20; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8(F); M9.1 ~6; M10 ~2; M11 ~2; M12 ~4; M13 ~4; M14 ~12(F); M14.1 ~6(F); M14.2 ~6(blocked by CI); M16 ~11(F)
+- **M16 lesson**: Fixed overhead parameter tuning has fundamental limits. When "too fast" and "too slow" benchmarks have inversely correlated sensitivity to the same parameter, no single value works. The human recognized this and asked to remove all fixed latency entirely (issue #434).
+- **M16 lesson**: MemCopy H2D/D2H overhead does NOT affect kernel_time metric at all. The changes had zero measurable impact. This means the overhead parameters may not be wired into the benchmark measurement path.
+- **M16 lesson**: Local macOS benchmark results are 5x different from Linux CI. NEVER trust local results — always validate on CI.
+- **M16 lesson**: The analytical model for predicting error was wrong because it misclassified multi-kernel benchmarks (bitonicsort, floydwarshall, kmeans) as single-kernel. Always verify benchmark characteristics from actual code, not assumptions.
+- **CI lesson**: Self-hosted Marin runners (arm64 Fedora) need gcc for CGO builds. Either install gcc or switch to a pure-Go SQLite library (modernc.org/sqlite).

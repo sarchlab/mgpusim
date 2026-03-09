@@ -8,9 +8,15 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 
 ## How do you consider the project a success
 
-- **Average symmetrical error < 20%** across all benchmarks
-- **Maximum symmetrical error < 50%** for any single benchmark
+- **Primary metric: Linear regression slope accuracy** — For each benchmark, fit a linear regression of sim_time vs hw_time over large problem sizes (where compute dominates, GPU filled 2-3×). The slope should be close to 1.0 (±20%). Ignore small sizes where fixed overhead dominates.
+- **Secondary metric: Average symmetrical error < 20%** across all benchmarks at large sizes
+- **Maximum symmetrical error < 50%** for any single benchmark at large sizes
 - Error formula: `err = (sim - hw) / min(sim, hw)` (symmetrical, signed)
+
+### Accuracy Evaluation Method (human issue #434)
+- **Remove all fixed latency parameters** (kernel launch overhead, memory copy overhead). These mask real modeling issues and don't improve simulation fidelity.
+- **Use linear regression** to evaluate accuracy: for each benchmark, plot sim_time vs problem_size and hw_time vs problem_size. Compare the slopes at large sizes. The slopes represent the true computational throughput of the simulator vs hardware.
+- **Ignore the starting region** where problem sizes are small and overhead dominates. Focus on cases where the kernel fills the GPU at least 2-3 times.
 
 ## Constraints
 
@@ -22,6 +28,8 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 6. **Do NOT run simulations on the host machine** (human issue #346). Use GitHub Actions for all benchmark simulations. The host runs out of memory with large simulations.
 7. **Evidence-based parameter tuning** (human issue #343): When a benchmark has large error, hypothesize a reason, then validate the hypothesis with a microbenchmark or published documentation BEFORE tuning. Document decisions in `mi300a_calibration.md`.
 8. **Simulation performance matters** (human issue #344): The simulator is too slow for large problem sizes. Consider: (a) simplifying the simulation even at cost of detail, (b) running simulations in parallel (host has multiple cores, sim is deterministic), (c) using GitHub Actions workflows with parallel jobs for benchmark evaluation.
+9. **CI runners** (human issue #444): Use shared runners (ubuntu-latest) for trivial jobs (compilation, lint). Use Marin group (self-hosted) for non-trivial benchmark jobs. The Marin runners are arm64 Fedora and currently need gcc installed for CGO.
+10. **Remove all fixed latency** (human issue #434): Remove fixed kernel launch overhead and memory copy overhead. Use linear regression-based accuracy evaluation that ignores small sizes where overhead dominates.
 
 ## Architecture Notes (CDNA3 / MI300A)
 
@@ -36,8 +44,9 @@ Real hardware measurements are available in `gpu_perf_scripts/mi300a.csv` (240 C
 ## Notes
 
 - **Remove scratchpad preparer from timing side** (human issue #317): DONE (M8). All scratchpad-related code removed from timing side. Coalescer reads directly from wavefront register file.
-- **GPU-side command queueing** (human issue #286): Real MI300A stores commands in a GPU-side stream so the GPU picks up tasks without CPU↔GPU round-trip communication. Consider implementing GPU-side queueing if kernel launch overhead is too high. Also, check and tune the fixed overhead values for kernel launching and memory copy operations.
-- **Fixed overhead tuning**: The driver currently uses hardcoded `cyclesPerH2D=14500` and `cyclesPerD2H=8500` for memory copy middleware. These should be validated against real hardware behavior and tuned if necessary. Kernel launch dispatch also has overhead from the CPU→GPU→CPU message round-trip that should be examined.
+- **GPU-side command queueing** (human issue #286): Real MI300A stores commands in a GPU-side stream so the GPU picks up tasks without CPU↔GPU round-trip communication. Consider implementing this for accurate multi-kernel behavior.
+- **Remove fixed latency** (human issue #434): All fixed overheads (kernel launch, memory copy) should be removed. They are not useful for simulation fidelity. Use linear regression-based evaluation instead.
+- **Microbenchmarks for parameter tuning** (human issue #435): When tuning a parameter, write a microbenchmark in `gpu_perf_scripts/`. Create a script for the human to execute on real MI300A. If unable to progress, claim project failure so human can run microbenchmarks and restart.
 - **Benchmark CI workflow** (human issue #344): Create GitHub Actions workflows for running benchmarks in parallel. Workers should start a workflow and check results later, not run simulations directly. Gather workloads in a top-level `workloads/` folder with a Go CLI for running and measuring them.
 - **Microbenchmark infrastructure** (human issue #343): Create microbenchmarks for validating specific parameters (cache latency, memory bandwidth, kernel launch overhead). Scripts should be runnable on real MI300A by the human. Results should be committed to the repository.
 
