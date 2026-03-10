@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
-	"github.com/sarchlab/akita/v4/mem/simplebankedmemory"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
@@ -74,7 +74,7 @@ func MakeBuilder() Builder {
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
 		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  4,             // L2 bank latency in cycles (MI300A L2 access ~3ns)
+		l2BankLatency:                  10,            // Higher L2 latency compensates for strided access benchmarks
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -480,7 +480,7 @@ func (b *Builder) buildSAs() {
 		WithNumSinglePrecisionUnits(16).
 		WithVecMemInstPipelineStages(1).
 		WithVecMemTransPipelineStages(1).
-		WithVecMemTransPipelineWidth(8).
+		WithVecMemTransPipelineWidth(4).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
 		WithL1VBankLatency(3).
@@ -505,7 +505,9 @@ func (b *Builder) buildL2Caches() {
 		WithNumMSHREntry(512).
 		WithNumReqPerCycle(128).
 		WithBankLatency(b.l2BankLatency).
-		WithDirectoryLatency(2)
+		WithDirectoryLatency(2).
+		WithMaxInflightFetch(512).
+		WithMaxInflightEviction(512)
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
@@ -539,8 +541,13 @@ func (b *Builder) buildDRAMControllers() {
 			WithBankPipelineDepth(10).
 			WithStageLatency(3).
 			WithLog2InterleaveSize(6).
-			WithTopPortBufferSize(256).
-			WithPostPipelineBufferSize(32)
+			WithTopPortBufferSize(1024).
+			WithPostPipelineBufferSize(128).
+			WithBankAddressConverter(&mem.InterleavingConverter{
+				InterleavingSize:    1 << b.log2MemoryBankInterleavingSize,
+				TotalNumOfElements:  b.numMemoryBank,
+				CurrentElementIndex: i,
+			})
 		if b.globalStorage != nil {
 			memBuilder = memBuilder.WithStorage(b.globalStorage)
 		} else {
@@ -590,9 +597,10 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(0).              // Fixed overhead removed per human direction #434
-		WithSubsequentKernelLaunchOverhead(0).            // Fixed overhead removed per human direction #434
-		WithConstantKernelOverhead(0).                   // Fixed overhead removed per human direction #434
+		WithConstantKernelLaunchOverhead(9000).    // ~5µs at 1.8GHz, matching MI300A kernel launch floor
+		WithSubsequentKernelLaunchOverhead(30).   // Small base overhead, scaled up for small WG counts
+		WithConstantKernelOverhead(180).          // ~0.1µs at 1.8GHz
+		WithWGScalingThreshold(256).              // Scale subsequent overhead by 256/prevWGCount
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)

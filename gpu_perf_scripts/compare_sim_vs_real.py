@@ -14,7 +14,7 @@ Simulator CSV format (expected):
 
 The script:
   1. Reads both CSVs and matches rows on (kernel_name, problem_size).
-  2. Computes per-benchmark signed relative error: (sim - real) / min(sim, real)
+  2. Computes per-benchmark signed relative error: (sim - real) / real
      - Positive = simulator too slow
      - Negative = simulator too fast
   3. Outputs per-benchmark breakdown, per-kernel summary, and overall stats.
@@ -23,6 +23,7 @@ The script:
 
 import argparse
 import csv
+import math
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -123,7 +124,7 @@ def compute_errors(
 ) -> Tuple[List[BenchmarkPoint], Dict[str, KernelSummary]]:
     """Compute per-point and per-kernel error metrics.
 
-    Uses symmetrical signed error: (sim - real) / min(sim, real)
+    Uses standard signed relative error: (sim - real) / real
       - Positive means simulator is too slow
       - Negative means simulator is too fast
     """
@@ -149,9 +150,8 @@ def compute_errors(
                 sim_ms = sim_data[key]
                 point.sim_ms = sim_ms
                 point.abs_error_ms = abs(sim_ms - real_ms)
-                min_val = min(sim_ms, real_ms)
-                if min_val > 0:
-                    point.rel_error = (sim_ms - real_ms) / min_val
+                if real_ms > 0:
+                    point.rel_error = (sim_ms - real_ms) / real_ms
                 else:
                     point.rel_error = float("inf") if sim_ms > 0 else 0.0
 
@@ -173,6 +173,133 @@ def compute_errors(
         kernel_summaries[kernel] = summary
 
     return all_points, kernel_summaries
+
+
+def _linear_regression(xs: List[float], ys: List[float]) -> Tuple[float, float, float]:
+    """Compute linear regression y = slope*x + intercept and R².
+
+    Returns (slope, intercept, r_squared).
+    Requires len(xs) >= 2.
+    """
+    n = len(xs)
+    sum_x = sum(xs)
+    sum_y = sum(ys)
+    sum_xy = sum(x * y for x, y in zip(xs, ys))
+    sum_x2 = sum(x * x for x in xs)
+
+    denom = n * sum_x2 - sum_x * sum_x
+    if denom == 0:
+        return 0.0, 0.0, 0.0
+
+    slope = (n * sum_xy - sum_x * sum_y) / denom
+    intercept = (sum_y - slope * sum_x) / n
+
+    # R²
+    mean_y = sum_y / n
+    ss_tot = sum((y - mean_y) ** 2 for y in ys)
+    ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(xs, ys))
+
+    if ss_tot == 0:
+        r_squared = 1.0 if ss_res == 0 else 0.0
+    else:
+        r_squared = 1.0 - ss_res / ss_tot
+
+    return slope, intercept, r_squared
+
+
+def _compute_kernel_log_log_r2(
+    kernel_summaries: Dict[str, KernelSummary],
+) -> Optional[float]:
+    """Compute average per-kernel log-log R².
+
+    For each kernel with ≥3 matched points (both sim and real > 0),
+    fit log(sim) vs log(real) and compute R². Return the average across kernels.
+    """
+    r2_values = []
+    for summary in kernel_summaries.values():
+        matched = [
+            p for p in summary.points
+            if p.sim_ms is not None and p.sim_ms > 0 and p.real_ms > 0
+        ]
+        if len(matched) < 3:
+            continue
+        log_real = [math.log(p.real_ms) for p in matched]
+        log_sim = [math.log(p.sim_ms) for p in matched]
+        _, _, r2 = _linear_regression(log_real, log_sim)
+        r2_values.append(r2)
+
+    if not r2_values:
+        return None
+    return sum(r2_values) / len(r2_values)
+
+
+def _compute_kernel_mape_and_r2(
+    kernel_summaries: Dict[str, KernelSummary],
+) -> Dict[str, Tuple[Optional[float], Optional[float]]]:
+    """Compute per-kernel MAPE and log-log R² for grading.
+
+    Returns dict of kernel_name -> (mape, r2). mape/r2 can be None if not enough data.
+    """
+    result = {}
+    for kernel, summary in kernel_summaries.items():
+        matched = [
+            p for p in summary.points
+            if p.sim_ms is not None and p.rel_error is not None
+        ]
+        # MAPE
+        if matched:
+            mape = sum(abs(p.rel_error) for p in matched) / len(matched)
+        else:
+            mape = None
+
+        # Log-log R²
+        valid_for_r2 = [
+            p for p in matched if p.sim_ms > 0 and p.real_ms > 0
+        ]
+        if len(valid_for_r2) >= 3:
+            log_real = [math.log(p.real_ms) for p in valid_for_r2]
+            log_sim = [math.log(p.sim_ms) for p in valid_for_r2]
+            _, _, r2 = _linear_regression(log_real, log_sim)
+        else:
+            r2 = None
+
+        result[kernel] = (mape, r2)
+    return result
+
+
+def _assign_grade(
+    mape: Optional[float], r2: Optional[float], num_matched: int
+) -> str:
+    """Assign a letter grade based on MAPE and R².
+
+    Grading rules:
+      A: R² > 0.95 AND MAPE < 25%
+      B: R² > 0.90 AND MAPE < 50%
+      C: R² > 0.80 OR MAPE < 50%
+      D: R² > 0.60 AND MAPE < 100%
+      F: otherwise
+
+    For kernels with < 3 points (R² unavailable), treat R² condition as met.
+    """
+    if mape is None:
+        return "N/A"
+
+    # If fewer than 3 points, can't compute R², treat R² condition as met
+    r2_met = num_matched < 3
+
+    # A: R² > 0.95 AND MAPE < 25%
+    if mape < 0.25 and (r2_met or (r2 is not None and r2 > 0.95)):
+        return "A"
+    # B: R² > 0.90 AND MAPE < 50%
+    if mape < 0.50 and (r2_met or (r2 is not None and r2 > 0.90)):
+        return "B"
+    # C: R² > 0.80 OR MAPE < 50%
+    if mape < 0.50 or (r2 is not None and r2 > 0.80):
+        return "C"
+    # D: R² > 0.60 AND MAPE < 100%
+    if mape < 1.00 and (r2_met or (r2 is not None and r2 > 0.60)):
+        return "D"
+    return "F"
 
 
 def analyze_reference_only(
@@ -269,25 +396,34 @@ def print_comparison_results(
     matched_points = [p for p in all_points if p.sim_ms is not None]
     unmatched_points = [p for p in all_points if p.sim_ms is None]
 
-    print("=" * 100)
-    print("SIMULATOR vs REFERENCE COMPARISON")
-    print("=" * 100)
+    # Compute per-kernel MAPE and R² for grading
+    kernel_metrics = _compute_kernel_mape_and_r2(kernel_summaries)
 
-    # Per-kernel summary
-    print(f"\n{'Kernel':<30s} {'Matched':>8s} {'Total':>6s} {'Avg |Err|':>10s} {'Max |Err|':>10s} {'Max Err Size':<30s}")
-    print("-" * 100)
+    print("=" * 110)
+    print("SIMULATOR vs REFERENCE COMPARISON")
+    print("=" * 110)
+
+    # Per-kernel summary with Grade column
+    print(
+        f"\n{'Kernel':<30s} {'Matched':>8s} {'Total':>6s} {'Avg |Err|':>10s} "
+        f"{'Max |Err|':>10s} {'Max Err Size':<30s} {'Grade':>6s}"
+    )
+    print("-" * 110)
 
     for kernel in sorted(kernel_summaries.keys()):
         s = kernel_summaries[kernel]
+        mape, r2 = kernel_metrics.get(kernel, (None, None))
+        grade = _assign_grade(mape, r2, s.num_matched)
         if s.num_matched > 0:
             print(
                 f"{s.kernel_name:<30s} {s.num_matched:>8d} {s.num_points:>6d} "
-                f"{s.avg_abs_rel_error:>9.1%} {s.max_abs_rel_error:>9.1%} {s.max_abs_rel_error_size:<30s}"
+                f"{s.avg_abs_rel_error:>9.1%} {s.max_abs_rel_error:>9.1%} "
+                f"{s.max_abs_rel_error_size:<30s} {grade:>6s}"
             )
         else:
             print(
                 f"{s.kernel_name:<30s} {s.num_matched:>8d} {s.num_points:>6d} "
-                f"{'N/A':>10s} {'N/A':>10s} {'':30s}"
+                f"{'N/A':>10s} {'N/A':>10s} {'':30s} {grade:>6s}"
             )
 
     # Overall stats
@@ -301,9 +437,9 @@ def print_comparison_results(
         within_25 = sum(1 for e in all_abs_errors if e <= 0.25) / len(all_abs_errors)
         within_50 = sum(1 for e in all_abs_errors if e <= 0.50) / len(all_abs_errors)
 
-        print("\n" + "=" * 100)
+        print("\n" + "=" * 110)
         print("OVERALL STATISTICS")
-        print("=" * 100)
+        print("=" * 110)
         print(f"  Total reference points:  {len(all_points)}")
         print(f"  Matched points:          {len(matched_points)}")
         print(f"  Unmatched points:        {len(unmatched_points)}")
@@ -313,24 +449,76 @@ def print_comparison_results(
         print(f"  Within 10% error:        {within_10:.1%}")
         print(f"  Within 25% error:        {within_25:.1%}")
         print(f"  Within 50% error:        {within_50:.1%}")
+
+        # --- New summary metrics ---
+
+        # (a) Weighted MAPE: sum|sim-real| / sum(real), excluding real < 0.01ms
+        non_noise = [
+            p for p in matched_points
+            if p.real_ms >= 0.01 and p.sim_ms is not None
+        ]
+        if non_noise:
+            wmape_num = sum(abs(p.sim_ms - p.real_ms) for p in non_noise)
+            wmape_den = sum(p.real_ms for p in non_noise)
+            weighted_mape = wmape_num / wmape_den if wmape_den > 0 else 0.0
+        else:
+            weighted_mape = 0.0
+        print(f"  Weighted MAPE:           {weighted_mape:.1%}")
+
+        # (b) Average per-kernel log-log R²
+        avg_log_log_r2 = _compute_kernel_log_log_r2(kernel_summaries)
+        if avg_log_log_r2 is not None:
+            print(f"  Avg log-log R²:          {avg_log_log_r2:.4f}")
+        else:
+            print(f"  Avg log-log R²:          N/A")
+
+        # (c) Overall regression slope (sim = slope*real + intercept)
+        reg_points = [
+            p for p in matched_points if p.sim_ms is not None
+        ]
+        if len(reg_points) >= 2:
+            xs = [p.real_ms for p in reg_points]
+            ys = [p.sim_ms for p in reg_points]
+            slope, intercept, r2 = _linear_regression(xs, ys)
+            print(f"  Overall regr. slope:     {slope:.4f}")
+        else:
+            print(f"  Overall regr. slope:     N/A")
+
+        # (d) 2× coverage: percentage where 0.5 <= sim/real <= 2.0
+        coverage_eligible = [
+            p for p in matched_points
+            if p.sim_ms is not None and p.real_ms > 0
+        ]
+        if coverage_eligible:
+            in_2x = sum(
+                1 for p in coverage_eligible
+                if 0.5 <= p.sim_ms / p.real_ms <= 2.0
+            )
+            two_x_coverage = in_2x / len(coverage_eligible)
+        else:
+            two_x_coverage = 0.0
+        print(f"  2x coverage:             {two_x_coverage:.1%}")
+
     else:
         print("\nNo matching data points found between reference and simulator.")
 
-    # Detailed per-point table for matched points
+    # Detailed per-point table for matched points (with Note column)
     if matched_points:
-        print("\n" + "=" * 110)
+        print("\n" + "=" * 125)
         print("DETAILED PER-POINT COMPARISON (matched points)")
-        print("=" * 110)
+        print("=" * 125)
         print(
             f"{'Kernel':<25s} {'Size':<30s} {'Real(ms)':>12s} {'Sim(ms)':>12s} "
-            f"{'Abs Err':>12s} {'Rel Err':>10s} {'Direction':>10s}"
+            f"{'Abs Err':>12s} {'Rel Err':>10s} {'Direction':>10s} {'Note':>15s}"
         )
-        print("-" * 110)
+        print("-" * 125)
         for p in matched_points:
             direction = "too slow" if p.rel_error >= 0 else "too fast"
+            note = "noise-dominated" if p.real_ms < 0.01 else ""
             print(
                 f"{p.kernel_name:<25s} {p.problem_size:<30s} {p.real_ms:>12.4f} "
-                f"{p.sim_ms:>12.4f} {p.abs_error_ms:>12.4f} {p.rel_error:>+9.1%} {direction:>10s}"
+                f"{p.sim_ms:>12.4f} {p.abs_error_ms:>12.4f} {p.rel_error:>+9.1%} "
+                f"{direction:>10s} {note:>15s}"
             )
 
 

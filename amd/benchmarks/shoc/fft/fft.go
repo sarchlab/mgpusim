@@ -74,11 +74,12 @@ type Benchmark struct {
 	fftKernel        *insts.KernelCodeObject
 
 	Arch       arch.Type
-	Bytes      int32
+	Bytes      int64
+	BytesMode  bool
 	Passes     int32
-	halfNFfts  int32
-	nFfts      int32
-	halfNCmplx int32
+	halfNFfts  int64
+	nFfts      int64
+	halfNCmplx int64
 	usedBytes  uint64
 	dSource    driver.Ptr
 	source     []Float2
@@ -139,7 +140,9 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.Bytes = b.Bytes * 1024 * 1024
+	if !b.BytesMode {
+		b.Bytes = b.Bytes * 1024 * 1024
+	}
 	b.halfNFfts = b.Bytes / (512 * 4 * 2 * 2)
 	b.nFfts = b.halfNFfts * 2
 	b.halfNCmplx = b.halfNFfts * 512
@@ -160,7 +163,7 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	localWorkSize := int32(64)
+	localWorkSize := int64(64)
 	vectorGlobalWSize := localWorkSize * b.nFfts
 
 	globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
@@ -229,15 +232,15 @@ func (b *Benchmark) fftCPU() int32 {
 	fail := int32(0)
 	fst := make([]Float2, b.nFfts<<6)
 	snd := make([]Float2, b.nFfts<<6)
-	for i := int32(0); i < (b.nFfts << 6); i++ {
+	for i := int64(0); i < (b.nFfts << 6); i++ {
 		fst[i] = b.source[i]
 	}
 
-	for i := int32(0); i < (b.nFfts << 6); i++ {
+	for i := int64(0); i < (b.nFfts << 6); i++ {
 		snd[i] = b.source[b.halfNCmplx+i]
 	}
 
-	for i := int32(0); i < (b.nFfts << 6); i++ {
+	for i := int64(0); i < (b.nFfts << 6); i++ {
 		if fst[i].X != snd[i].X || fst[i].Y != snd[i].Y {
 			fail = 1
 		}
@@ -248,7 +251,7 @@ func (b *Benchmark) fftCPU() int32 {
 func (b *Benchmark) fill() {
 	rand.Seed(1)
 
-	for i := int32(0); i < b.halfNCmplx; i++ {
+	for i := int64(0); i < b.halfNCmplx; i++ {
 		b.source[i].X = (rand.Float32())*2 - 1
 		b.source[i].Y = (rand.Float32())*2 - 1
 		b.source[i+b.halfNCmplx].X = b.source[i].X

@@ -54,5 +54,11 @@ linters:
     - usestdlibvars
     - predeclared
     - unused
+    - embeddedstructfieldcheck
+    - godoclint
+    - modernize
+    - noinlineerr
+    - prealloc
+    - wsl_v5
 
 

@@ -122,8 +122,8 @@ func (b *Builder) adjustConfigForGPUType() {
 		b.numCUPerSA = mi300a.NumCUPerShaderArray
 		b.numSAPerGPU = mi300a.NumShaderArray
 		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
-		b.d2hCycles = 0   // Fixed overhead removed per human direction #434
-		b.h2dCycles = 0   // Fixed overhead removed per human direction #434
+		b.d2hCycles = 150  // MI300A Infinity Fabric latency (~83ns)
+		b.h2dCycles = 250  // MI300A command processing (~139ns)
 	default:
 		// Keep defaults for r9nano
 	}

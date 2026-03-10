@@ -25,6 +25,7 @@ type Builder struct {
 	constantKernelLaunchOverhead   int
 	constantKernelOverhead         int
 	subsequentKernelLaunchOverhead int
+	wgScalingThreshold             int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -104,6 +105,14 @@ func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
 	return b
 }
 
+// WithWGScalingThreshold sets the threshold for WG-count-based scaling of
+// subsequent kernel launch overhead. Kernels with more WGs than this threshold
+// will have proportionally reduced launch overhead.
+func (b Builder) WithWGScalingThreshold(n int) Builder {
+	b.wgScalingThreshold = n
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -167,7 +176,8 @@ func (b Builder) buildDispatchers(cp *CommandProcessor) {
 		WithRespondingPort(cp.ToDriver).
 		WithMonitor(b.monitor).
 		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead).
-		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead)
+		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead).
+		WithWGScalingThreshold(b.wgScalingThreshold)
 
 	if b.constantKernelOverhead > 0 {
 		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)

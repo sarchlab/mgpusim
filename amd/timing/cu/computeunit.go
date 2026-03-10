@@ -898,8 +898,8 @@ func NewComputeUnit(
 
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
-	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewPort(cu, 32, 32, name+".ToVectorMem")
+	cu.ToScalarMem = sim.NewPort(cu, 32, 32, name+".ToScalarMem")
+	cu.ToVectorMem = sim.NewPort(cu, 64, 64, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	cu.AddPort("Top", cu.ToACE)

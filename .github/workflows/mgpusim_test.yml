@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   compile:
     name: Compile
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -14,13 +14,19 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Build
         run: go build ./...
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -29,6 +35,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Install mockgen
         run: go install go.uber.org/mock/mockgen@v0.6.0
@@ -39,16 +51,16 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: "v2.1.5"
+          version: "v2.11.2"
           # Build golangci-lint with the configured Go toolchain to avoid
           # Go version mismatch (linter built with older Go than target).
-          install-mode: goinstall
+          install-mode: binary
           args: --timeout=10m
           skip-cache: true
 
   unit_test:
     name: Unit Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -58,6 +70,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Install mockgen
         run: go install go.uber.org/mock/mockgen@v0.6.0
@@ -73,7 +91,7 @@ jobs:
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -87,10 +105,14 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Check Python
+        run: python3 --version
 
       - name: Run Deterministicity Test
         run: python test.py
@@ -98,7 +120,7 @@ jobs:
 
   disassembler_test:
     name: Disassembler Test (GFX942)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [compile]
     steps:
       - name: Checkout
@@ -108,6 +130,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Run Disassembler Test
         run: ./test-disasm.sh --check
@@ -119,7 +147,7 @@ jobs:
 
   gcn3_emu_test:
     name: GCN3 Emulation Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -130,6 +158,12 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
       - name: Run GCN3 Emulation Test
         timeout-minutes: 60
         run: |
@@ -139,7 +173,7 @@ jobs:
 
   gcn3_single_gpu_timing_test:
     name: GCN3 Single GPU Timing Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [gcn3_emu_test]
     steps:
       - name: Checkout
@@ -149,6 +183,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Run GCN3 Single GPU Timing Test
         timeout-minutes: 60
@@ -163,7 +203,7 @@ jobs:
 
   cdna3_emu_test:
     name: CDNA3 Emulation Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -174,6 +214,12 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
       - name: Run CDNA3 Emulation Test
         timeout-minutes: 60
         run: |
@@ -183,7 +229,7 @@ jobs:
 
   cdna3_single_gpu_timing_test:
     name: CDNA3 Single GPU Timing Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [cdna3_emu_test]
     steps:
       - name: Checkout
@@ -194,11 +240,15 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
       - name: Run CDNA3 Single GPU Timing Test
         timeout-minutes: 60
         run: |
           go build
           ./acceptance -num-gpu=1 -arch=cdna3
         working-directory: amd/tests/acceptance/
-
-
