@@ -44,6 +44,8 @@ type DispatcherImpl struct {
 	constantKernelLaunchOverhead        int
 	subsequentKernelLaunchOverhead      int
 	firstKernelLaunched                 bool
+	prevKernelWGCount                   int
+	wgScalingThreshold                  int
 
 	monitor     *monitoring.Monitor
 	progressBar *monitoring.ProgressBar
@@ -82,7 +84,12 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 		d.cycleLeft = d.constantKernelLaunchOverhead
 		d.firstKernelLaunched = true
 	} else {
-		d.cycleLeft = d.subsequentKernelLaunchOverhead
+		if d.prevKernelWGCount > 0 && d.wgScalingThreshold > 0 {
+			scale := float64(d.wgScalingThreshold) / float64(d.prevKernelWGCount)
+			d.cycleLeft = int(float64(d.subsequentKernelLaunchOverhead) * scale)
+		} else {
+			d.cycleLeft = d.subsequentKernelLaunchOverhead
+		}
 	}
 
 	d.initializeProgressBar(req.ID)
@@ -221,6 +228,7 @@ func (d *DispatcherImpl) completeKernel() (
 
 	err := d.respondingPort.Send(rsp)
 	if err == nil {
+		d.prevKernelWGCount = d.numDispatchedWGs
 		d.dispatching = nil
 
 		if d.monitor != nil {
