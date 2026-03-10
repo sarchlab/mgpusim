@@ -6,6 +6,10 @@ For each benchmark, fits linear regressions to both simulator and hardware
 timing data (time vs problem_size), then compares the slopes. A slope ratio
 close to 1.0 means the simulator scales at the same rate as real hardware.
 
+For multi-parameter benchmarks (fir, kmeans, pagerank, spmv, conv2d), data is
+grouped by non-scaling parameters and regression is performed only on the
+scaling parameter within each group. Each group is reported as a separate line.
+
 Only LARGE problem sizes are used (where the GPU is fully utilized), avoiding
 noise from launch overhead at small sizes.
 
@@ -42,23 +46,90 @@ SIZE_THRESHOLDS = {
     "bfs": 131072,
 }
 
+# =============================================================================
+# Multi-parameter benchmark definitions
+# =============================================================================
+# For each multi-param benchmark, define how to extract:
+#   - scaling_value: the numeric value to regress on (X axis)
+#   - group_key: string identifying the non-scaling parameter group
+#
+# Benchmarks not listed here use the original single-parameter behavior.
+# =============================================================================
+
+MULTI_PARAM_BENCHMARKS = {"fir", "kmeans", "pagerank", "spmv_csr_scalar", "conv2d"}
+
+
+def parse_scaling_and_group(
+    kernel_name: str, size_str: str
+) -> Optional[Tuple[float, str]]:
+    """For multi-parameter benchmarks, extract (scaling_value, group_key).
+
+    Returns None if the size string cannot be parsed.
+    """
+    s = size_str.strip()
+
+    if kernel_name == "fir":
+        # Format: '1024_taps16' → scaling=1024, group='taps=16'
+        m = re.match(r"^(\d+)_taps(\d+)$", s)
+        if m:
+            return (float(m.group(1)), f"taps={m.group(2)}")
+        return None
+
+    if kernel_name == "kmeans":
+        # Format: 'pts1024_feat8_clus5' → scaling=1024, group='feat=8,clus=5'
+        m = re.match(r"^pts(\d+)_feat(\d+)_clus(\d+)$", s)
+        if m:
+            return (float(m.group(1)), f"feat={m.group(2)},clus={m.group(3)}")
+        return None
+
+    if kernel_name == "pagerank":
+        # Format: 'nodes4096_sparsity0.5_priters2' → scaling=4096, group='sparsity=0.5,iters=2'
+        m = re.match(
+            r"^nodes(\d+)_sparsity([0-9.]+)_priters(\d+)$", s
+        )
+        if m:
+            return (
+                float(m.group(1)),
+                f"sparsity={m.group(2)},iters={m.group(3)}",
+            )
+        return None
+
+    if kernel_name in ("spmv_csr_scalar", "spmv"):
+        # Format: '1024x1024_nnz4096' → scaling=4096, group='dims=1024x1024'
+        m = re.match(r"^(\d+x\d+)_nnz(\d+)$", s)
+        if m:
+            return (float(m.group(2)), f"dims={m.group(1)}")
+        return None
+
+    if kernel_name == "conv2d":
+        # Format: 'N1_C1_128x128_k3x3_OC3' → scaling=128*128=16384, group='N=1,C=1,k=3x3,OC=3'
+        m = re.match(
+            r"^N(\d+)_C(\d+)_(\d+)x(\d+)_k(\d+x\d+)_OC(\d+)$", s
+        )
+        if m:
+            h, w = float(m.group(3)), float(m.group(4))
+            return (
+                h * w,
+                f"N={m.group(1)},C={m.group(2)},k={m.group(5)},OC={m.group(6)}",
+            )
+        return None
+
+    return None
+
 
 def parse_problem_size(kernel_name: str, size_str: str) -> Optional[float]:
     """Convert a problem_size string to a single numeric value for regression.
+
+    Used for single-parameter benchmarks (those not in MULTI_PARAM_BENCHMARKS).
 
     Handles formats like:
       '536870912'                    -> 536870912
       '2048x2048'                    -> product (4194304) for 2D benchmarks
       '2048x2048x2048'               -> first dim (2048) for matmul
-      '1024_taps16'                  -> 1024 (length part)
-      'pts1024_feat8_clus5'          -> 1024*8 = 8192
-      'nodes4096_sparsity0.5_priters2' -> 4096
       'nodes1024'                    -> 1024
       '8_nodes'                      -> 8
-      '1024x1024_nnz4096'            -> 4096 (nnz)
       '131072_elements'              -> 131072
       'length=64'                    -> 64
-      'N1_C1_128x128_k3x3_OC3'      -> 128*128 = 16384
     """
     s = size_str.strip()
 
@@ -68,33 +139,9 @@ def parse_problem_size(kernel_name: str, size_str: str) -> Optional[float]:
         if m:
             return float(m.group(1))
 
-    # spmv: DIMxDIM_nnzNNZ -> nnz value is the work
-    if kernel_name in ("spmv_csr_scalar", "spmv"):
-        m = re.search(r"nnz(\d+)", s)
-        if m:
-            return float(m.group(1))
-
     # fft: N_elements
     if kernel_name in ("fft1D_512", "fft"):
         m = re.match(r"^(\d+)_elements$", s)
-        if m:
-            return float(m.group(1))
-
-    # kmeans: ptsN_featM_clusK -> N*M
-    if kernel_name == "kmeans":
-        m = re.match(r"^pts(\d+)_feat(\d+)", s)
-        if m:
-            return float(m.group(1)) * float(m.group(2))
-
-    # fir: N_tapsM -> N (length)
-    if kernel_name == "fir":
-        m = re.match(r"^(\d+)_taps(\d+)$", s)
-        if m:
-            return float(m.group(1))
-
-    # pagerank: nodesN_sparsity..._priters...
-    if kernel_name == "pagerank":
-        m = re.match(r"^nodes(\d+)", s)
         if m:
             return float(m.group(1))
 
@@ -122,8 +169,7 @@ def parse_problem_size(kernel_name: str, size_str: str) -> Optional[float]:
         if m:
             return float(m.group(1)) * float(m.group(2))
 
-    # 2D benchmarks (stencil2d, atax, bicg, matrixtranspose, simpleconvolution):
-    # NxN -> product for area-based, or NxN -> N for transpose
+    # 2D benchmarks: matrixtranspose uses width; others use area
     if kernel_name in ("matrixtranspose",):
         m = re.match(r"^(\d+)x(\d+)$", s)
         if m:
@@ -131,12 +177,6 @@ def parse_problem_size(kernel_name: str, size_str: str) -> Optional[float]:
 
     if kernel_name in ("stencil2d", "atax", "bicg", "simpleconvolution"):
         m = re.match(r"^(\d+)x(\d+)$", s)
-        if m:
-            return float(m.group(1)) * float(m.group(2))
-
-    # conv2d: N1_C1_HxW_kKxK_OC3
-    if kernel_name == "conv2d":
-        m = re.search(r"_(\d+)x(\d+)_k(\d+)x(\d+)", s)
         if m:
             return float(m.group(1)) * float(m.group(2))
 
@@ -207,7 +247,7 @@ def read_csv_data(filepath: str) -> Dict[Tuple[str, str], float]:
 
 
 def linear_regression(x: List[float], y: List[float]) -> Tuple[float, float, float]:
-    """Fit y = slope * x + intercept using numpy.polyfit equivalent (manual).
+    """Fit y = slope * x + intercept using least squares.
 
     Returns (slope, intercept, r_squared).
     """
@@ -236,24 +276,112 @@ def linear_regression(x: List[float], y: List[float]) -> Tuple[float, float, flo
     return (slope, intercept, r_squared)
 
 
+def _do_regression_on_group(
+    kernel: str,
+    label: str,
+    group_key: str,
+    ref_data: Dict[Tuple[str, str], float],
+    sim_data: Dict[Tuple[str, str], float],
+    threshold: float,
+    is_multi: bool,
+):
+    """Run regression for a single (kernel, group) combination.
+
+    For multi-param benchmarks, *group_key* selects data and
+    ``parse_scaling_and_group`` extracts the X value.
+    For single-param benchmarks, ``parse_problem_size`` is used.
+
+    Returns (result_tuple, detail_rows) or (None, []) if insufficient data.
+    """
+    ref_sizes = {s: ms for (k, s), ms in ref_data.items() if k == kernel}
+    sim_sizes = {s: ms for (k, s), ms in sim_data.items() if k == kernel}
+    common_sizes = sorted(set(ref_sizes.keys()) & set(sim_sizes.keys()))
+    if not common_sizes:
+        return None, []
+
+    filtered = []
+    for size_str in common_sizes:
+        if is_multi:
+            parsed = parse_scaling_and_group(kernel, size_str)
+            if parsed is None:
+                continue
+            scaling_val, gk = parsed
+            if gk != group_key:
+                continue
+            numeric_size = scaling_val
+        else:
+            numeric_size = parse_problem_size(kernel, size_str)
+            if numeric_size is None:
+                continue
+
+        if numeric_size < threshold:
+            continue
+        filtered.append(
+            (size_str, numeric_size, ref_sizes[size_str], sim_sizes[size_str])
+        )
+
+    if len(filtered) < 3:
+        return None, []
+
+    filtered.sort(key=lambda t: t[1])
+    x_vals = [t[1] for t in filtered]
+    hw_vals = [t[2] for t in filtered]
+    sim_vals = [t[3] for t in filtered]
+
+    hw_slope, hw_intercept, hw_r2 = linear_regression(x_vals, hw_vals)
+    sim_slope, sim_intercept, sim_r2 = linear_regression(x_vals, sim_vals)
+
+    if abs(hw_slope) > 1e-30:
+        slope_ratio = sim_slope / hw_slope
+    else:
+        slope_ratio = float("inf") if abs(sim_slope) > 1e-30 else 1.0
+
+    result = (label, slope_ratio, sim_slope, hw_slope, sim_r2, hw_r2, len(filtered))
+
+    detail_rows = []
+    for size_str, numeric_size, hw_ms, sim_ms in filtered:
+        hw_pred = hw_slope * numeric_size + hw_intercept
+        sim_pred = sim_slope * numeric_size + sim_intercept
+        detail_rows.append(
+            {
+                "kernel": kernel,
+                "group": group_key,
+                "label": label,
+                "problem_size": size_str,
+                "numeric_size": numeric_size,
+                "hw_ms": hw_ms,
+                "sim_ms": sim_ms,
+                "hw_pred_ms": hw_pred,
+                "sim_pred_ms": sim_pred,
+            }
+        )
+
+    return result, detail_rows
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Linear-regression-based accuracy evaluation of simulator vs hardware."
     )
     parser.add_argument(
-        "--ref", required=True,
+        "--ref",
+        required=True,
         help="Path to hardware reference CSV (e.g., mi300a.csv)",
     )
     parser.add_argument(
-        "--sim", required=True,
+        "--sim",
+        required=True,
         help="Path to simulator results CSV",
     )
     parser.add_argument(
-        "--output", default=None,
+        "--output",
+        default=None,
         help="Optional output CSV for per-point details",
     )
     parser.add_argument(
-        "--min-fill", type=float, default=None,
+        "--min-fill",
+        type=float,
+        default=None,
         help="Override minimum problem size threshold (applied to all benchmarks)",
     )
     args = parser.parse_args()
@@ -261,87 +389,63 @@ def main():
     ref_data = read_csv_data(args.ref)
     sim_data = read_csv_data(args.sim)
 
-    # Group by kernel
+    # Collect all kernels
     all_kernels = set()
     for (k, _) in ref_data:
         all_kernels.add(k)
     for (k, _) in sim_data:
         all_kernels.add(k)
 
-    results = []        # (kernel, slope_ratio, sim_slope, hw_slope, r2_sim, r2_hw, n_points)
-    detail_rows = []    # per-point details for --output
+    results = []  # (label, slope_ratio, sim_slope, hw_slope, r2_sim, r2_hw, n_points)
+    detail_rows = []  # per-point details for --output
 
     for kernel in sorted(all_kernels):
-        # Collect matched data points
-        ref_sizes = {s: ms for (k, s), ms in ref_data.items() if k == kernel}
-        sim_sizes = {s: ms for (k, s), ms in sim_data.items() if k == kernel}
+        threshold = (
+            args.min_fill if args.min_fill is not None else get_threshold(kernel)
+        )
 
-        # Find common sizes
-        common_sizes = sorted(set(ref_sizes.keys()) & set(sim_sizes.keys()))
-        if not common_sizes:
-            continue
+        if kernel in MULTI_PARAM_BENCHMARKS:
+            # Discover all groups present in the data
+            groups = set()
+            for (k, size_str) in list(ref_data.keys()) + list(sim_data.keys()):
+                if k != kernel:
+                    continue
+                parsed = parse_scaling_and_group(kernel, size_str)
+                if parsed is not None:
+                    groups.add(parsed[1])
 
-        # Parse and filter by threshold
-        threshold = args.min_fill if args.min_fill is not None else get_threshold(kernel)
-
-        filtered = []
-        for size_str in common_sizes:
-            numeric_size = parse_problem_size(kernel, size_str)
-            if numeric_size is None:
-                continue
-            if numeric_size < threshold:
-                continue
-            filtered.append((size_str, numeric_size, ref_sizes[size_str], sim_sizes[size_str]))
-
-        if len(filtered) < 3:
-            continue
-
-        # Sort by numeric size
-        filtered.sort(key=lambda t: t[1])
-
-        x_vals = [t[1] for t in filtered]
-        hw_vals = [t[2] for t in filtered]
-        sim_vals = [t[3] for t in filtered]
-
-        hw_slope, hw_intercept, hw_r2 = linear_regression(x_vals, hw_vals)
-        sim_slope, sim_intercept, sim_r2 = linear_regression(x_vals, sim_vals)
-
-        # Slope ratio
-        if abs(hw_slope) > 1e-30:
-            slope_ratio = sim_slope / hw_slope
+            for group_key in sorted(groups):
+                label = f"{kernel}[{group_key}]"
+                res, details = _do_regression_on_group(
+                    kernel, label, group_key, ref_data, sim_data, threshold, True
+                )
+                if res is not None:
+                    results.append(res)
+                    detail_rows.extend(details)
         else:
-            slope_ratio = float("inf") if abs(sim_slope) > 1e-30 else 1.0
-
-        results.append((kernel, slope_ratio, sim_slope, hw_slope, sim_r2, hw_r2, len(filtered)))
-
-        # Collect detail rows
-        for size_str, numeric_size, hw_ms, sim_ms in filtered:
-            hw_pred = hw_slope * numeric_size + hw_intercept
-            sim_pred = sim_slope * numeric_size + sim_intercept
-            detail_rows.append({
-                "kernel": kernel,
-                "problem_size": size_str,
-                "numeric_size": numeric_size,
-                "hw_ms": hw_ms,
-                "sim_ms": sim_ms,
-                "hw_pred_ms": hw_pred,
-                "sim_pred_ms": sim_pred,
-            })
+            # Single-parameter benchmark — original behavior
+            label = kernel
+            res, details = _do_regression_on_group(
+                kernel, label, "", ref_data, sim_data, threshold, False
+            )
+            if res is not None:
+                results.append(res)
+                detail_rows.extend(details)
 
     # Print results table
-    print("=" * 110)
+    print("=" * 120)
     print("LINEAR REGRESSION COMPARISON: Simulator vs Hardware")
-    print("=" * 110)
+    print("=" * 120)
     print(
-        f"{'Benchmark':<30s} {'Slope Ratio':>12s} {'Sim Slope':>14s} "
+        f"{'Benchmark':<45s} {'Slope Ratio':>12s} {'Sim Slope':>14s} "
         f"{'HW Slope':>14s} {'R² Sim':>8s} {'R² HW':>8s} {'Points':>8s}"
     )
-    print("-" * 110)
+    print("-" * 120)
 
-    for kernel, slope_ratio, sim_slope, hw_slope, sim_r2, hw_r2, n_points in results:
+    for label, slope_ratio, sim_slope, hw_slope, sim_r2, hw_r2, n_points in results:
         sr_str = f"{slope_ratio:.4f}" if not math.isinf(slope_ratio) else "inf"
         print(
-            f"{kernel:<30s} {sr_str:>12s} {sim_slope:>14.6e} "
+            f"{label:<45s} {sr_str:>12s} {sim_slope:>14.6e} "
             f"{hw_slope:>14.6e} {sim_r2:>8.4f} {hw_r2:>8.4f} {n_points:>8d}"
         )
 
@@ -353,44 +457,68 @@ def main():
             sorted_ratios = sorted(ratios)
             n = len(sorted_ratios)
             if n % 2 == 0:
-                median_ratio = (sorted_ratios[n // 2 - 1] + sorted_ratios[n // 2]) / 2
+                median_ratio = (
+                    sorted_ratios[n // 2 - 1] + sorted_ratios[n // 2]
+                ) / 2
             else:
                 median_ratio = sorted_ratios[n // 2]
 
             print()
-            print("=" * 110)
+            print("=" * 120)
             print("SUMMARY")
-            print("=" * 110)
+            print("=" * 120)
             print(f"  Benchmarks analyzed:    {len(results)}")
             print(f"  Mean slope ratio:       {mean_ratio:.4f}")
             print(f"  Median slope ratio:     {median_ratio:.4f}")
-            print(f"  Ideal slope ratio:      1.0000 (simulator scales identically to hardware)")
+            print(
+                f"  Ideal slope ratio:      1.0000 (simulator scales identically to hardware)"
+            )
             print()
             print("  Interpretation:")
-            print("    slope_ratio > 1  =>  simulator time grows FASTER than hardware (sim too slow at large sizes)")
-            print("    slope_ratio < 1  =>  simulator time grows SLOWER than hardware (sim too fast at large sizes)")
-            print("    slope_ratio ~ 1  =>  simulator scaling matches hardware well")
+            print(
+                "    slope_ratio > 1  =>  simulator time grows FASTER than hardware (sim too slow at large sizes)"
+            )
+            print(
+                "    slope_ratio < 1  =>  simulator time grows SLOWER than hardware (sim too fast at large sizes)"
+            )
+            print(
+                "    slope_ratio ~ 1  =>  simulator scaling matches hardware well"
+            )
     else:
         print("\nNo benchmarks had enough data points for regression analysis.")
 
     # Write output CSV
     if args.output and detail_rows:
         with open(args.output, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "kernel", "problem_size", "numeric_size",
-                "hw_ms", "sim_ms", "hw_pred_ms", "sim_pred_ms",
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "kernel",
+                    "group",
+                    "label",
+                    "problem_size",
+                    "numeric_size",
+                    "hw_ms",
+                    "sim_ms",
+                    "hw_pred_ms",
+                    "sim_pred_ms",
+                ],
+            )
             writer.writeheader()
             for row in detail_rows:
-                writer.writerow({
-                    "kernel": row["kernel"],
-                    "problem_size": row["problem_size"],
-                    "numeric_size": f"{row['numeric_size']:.0f}",
-                    "hw_ms": f"{row['hw_ms']:.6f}",
-                    "sim_ms": f"{row['sim_ms']:.6f}",
-                    "hw_pred_ms": f"{row['hw_pred_ms']:.6f}",
-                    "sim_pred_ms": f"{row['sim_pred_ms']:.6f}",
-                })
+                writer.writerow(
+                    {
+                        "kernel": row["kernel"],
+                        "group": row["group"],
+                        "label": row["label"],
+                        "problem_size": row["problem_size"],
+                        "numeric_size": f"{row['numeric_size']:.0f}",
+                        "hw_ms": f"{row['hw_ms']:.6f}",
+                        "sim_ms": f"{row['sim_ms']:.6f}",
+                        "hw_pred_ms": f"{row['hw_pred_ms']:.6f}",
+                        "sim_pred_ms": f"{row['sim_pred_ms']:.6f}",
+                    }
+                )
         print(f"\nDetailed results written to: {args.output}")
 
 
