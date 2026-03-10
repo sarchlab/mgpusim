@@ -340,13 +340,13 @@ func (b *Builder) connectScalarMem() {
 
 	atTopPort := at.GetPortByName("Top")
 	rob.BottomUnit = atTopPort.AsRemote()
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 32)
 
 	tlbTopPort := tlb.GetPortByName("Top")
 	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		at.GetPortByName("Translation"), tlbTopPort, 32)
 	b.connectWithDirectConnection(
-		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
+		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 32)
 
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
@@ -531,6 +531,7 @@ func (b *Builder) buildL1VTLBs() {
 		WithNumSets(4).
 		WithNumWays(64).
 		WithNumReqPerCycle(32).
+		WithLatency(1).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
@@ -581,8 +582,8 @@ func (b *Builder) buildL1SReorderBuffer() {
 	builder := rob.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithBufferSize(128).
-		WithNumReqPerCycle(4)
+		WithBufferSize(512).
+		WithNumReqPerCycle(32)
 
 	name := fmt.Sprintf("%s.L1SROB", b.name)
 	rob := builder.Build(name)
@@ -603,7 +604,7 @@ func (b *Builder) buildL1SAddressTranslator() {
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
-		WithNumReqPerCycle(16).
+		WithNumReqPerCycle(32).
 		WithMemoryProviderMapper(b.l1sMemMapper).
 		WithTranslationProviderMapper(b.l1sTransMapper)
 
@@ -617,10 +618,10 @@ func (b *Builder) buildL1STLB() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
+		WithNumMSHREntry(64).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4).
+		WithNumReqPerCycle(32).
 		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1STLB", b.name)
@@ -637,7 +638,8 @@ func (b *Builder) buildL1SCache() {
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
+		WithNumMSHREntry(128).
+		WithNumReqsPerCycle(32).
 		WithTotalByteSize(16 * mem.KB).
 		WithAddressToPortMapper(b.l1AddressMapper)
 
