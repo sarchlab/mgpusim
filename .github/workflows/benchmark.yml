@@ -40,7 +40,7 @@ jobs:
   benchmark:
     name: "Bench: ${{ matrix.benchmark }}"
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
