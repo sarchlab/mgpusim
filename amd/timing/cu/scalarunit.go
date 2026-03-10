@@ -219,15 +219,18 @@ func (u *ScalarUnit) runWriteStage() bool {
 }
 
 func (u *ScalarUnit) sendRequest() bool {
-	if len(u.readBuf) > 0 {
+	madeProgress := false
+	for i := 0; i < 4 && len(u.readBuf) > 0; i++ {
 		req := u.readBuf[0]
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
-			return true
+			madeProgress = true
+		} else {
+			break
 		}
 	}
-	return false
+	return madeProgress
 }
 
 // Flush clears the unit
