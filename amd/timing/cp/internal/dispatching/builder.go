@@ -20,6 +20,7 @@ type Builder struct {
 	constantKernelOverhead         int
 	constantKernelLaunchOverhead   int
 	subsequentKernelLaunchOverhead int
+	wgScalingThreshold             int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
@@ -28,6 +29,7 @@ func MakeBuilder() Builder {
 		alg:                           "partition",
 		constantKernelOverhead:         3600,
 		subsequentKernelLaunchOverhead: 1800,
+		wgScalingThreshold:             128,
 	}
 	return b
 }
@@ -98,6 +100,14 @@ func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
 	return b
 }
 
+// WithWGScalingThreshold sets the threshold for WG-count-based scaling of
+// subsequent kernel launch overhead. When the previous kernel had more WGs
+// than this threshold, the overhead is scaled down proportionally.
+func (b Builder) WithWGScalingThreshold(n int) Builder {
+	b.wgScalingThreshold = n
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
@@ -117,6 +127,7 @@ func (b Builder) Build(name string) Dispatcher {
 		constantKernelOverhead:         b.constantKernelOverhead,
 		constantKernelLaunchOverhead:   b.constantKernelLaunchOverhead,
 		subsequentKernelLaunchOverhead: b.subsequentKernelLaunchOverhead,
+		wgScalingThreshold:             b.wgScalingThreshold,
 		monitor:                        b.monitor,
 	}
 
