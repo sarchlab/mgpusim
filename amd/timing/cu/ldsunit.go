@@ -11,9 +11,10 @@ type LDSUnit struct {
 
 	alu emu.ALU
 
-	toRead  *wavefront.Wavefront
-	toExec  *wavefront.Wavefront
-	toWrite *wavefront.Wavefront
+	toRead    *wavefront.Wavefront
+	toExec    *wavefront.Wavefront
+	toWrite   *wavefront.Wavefront
+	cycleLeft int
 
 	isIdle bool
 }
@@ -73,15 +74,23 @@ func (u *LDSUnit) runExecStage() bool {
 		return false
 	}
 
-	if u.toWrite == nil {
+	if u.toWrite != nil {
+		return false
+	}
+
+	if u.cycleLeft == 0 {
 		u.alu.SetLDS(u.toExec.WG.LDS)
 		u.alu.Run(u.toExec)
-
-		u.toWrite = u.toExec
-		u.toExec = nil
+		u.cycleLeft = 14
 		return true
 	}
-	return false
+
+	u.cycleLeft--
+	if u.cycleLeft == 0 {
+		u.toWrite = u.toExec
+		u.toExec = nil
+	}
+	return true
 }
 
 func (u *LDSUnit) runWriteStage() bool {
@@ -102,4 +111,5 @@ func (u *LDSUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil
 	u.toWrite = nil
+	u.cycleLeft = 0
 }

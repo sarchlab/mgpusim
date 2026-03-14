@@ -40,7 +40,7 @@ jobs:
   benchmark:
     name: "Bench: ${{ matrix.benchmark }}"
     runs-on: self-hosted
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -179,6 +179,7 @@ jobs:
             sizes: "1024_4 1024_8 1024_16 1024_32 4096_4 4096_8 4096_16 4096_32 16384_4 16384_8 16384_16 16384_32 65536_4 65536_8 65536_16 65536_32 262144_4 262144_8 262144_16 262144_32"
             flag_template: "-node {p1} -degree {p2} -depth 100"
             size_label_template: "nodes{p1}"
+            timeout_sec: 300
 
           # -----------------------------------------------------------------
           # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
@@ -215,6 +216,7 @@ jobs:
             sizes: "128_3 128_5 128_7 128_9 256_3 256_5 256_7 256_9 512_3 512_5 512_7 512_9 1024_3 1024_5 1024_7 1024_9 2048_3 2048_5 2048_7 2048_9 4096_3 4096_5 4096_7 4096_9"
             flag_template: "-width {p1} -height {p1} -mask-size {p2}"
             size_label_template: "{p1}x{p1}_mask{p2}"
+            timeout_sec: 150
 
 
     steps:
@@ -257,7 +259,7 @@ jobs:
           LABEL_TEMPLATE='${{ matrix.size_label_template }}'
           COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
           BINARY="./_bench_${BENCHMARK}"
-          TIMEOUT_SEC=150
+          TIMEOUT_SEC=${{ matrix.timeout_sec || '150' }}
           OUTPUT="results_${BENCHMARK}.csv"
 
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"

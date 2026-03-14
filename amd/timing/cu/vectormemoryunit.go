@@ -29,6 +29,9 @@ type VectorMemoryUnit struct {
 	numTransactionInFlight  uint64
 	maxInstructionsInFlight uint64
 
+	maxCoalescingPenalty    int
+	coalescingStallRemaining int
+
 	instructionPipeline           pipelining.Pipeline
 	postInstructionPipelineBuffer sim.Buffer
 	transactionsWaiting           []VectorMemAccessInfo
@@ -85,8 +88,8 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 
 	madeProgress = u.insertTransactionToPipeline() || madeProgress
 
-	// Process up to 8 instructions per cycle from the post-instruction buffer
-	for i := 0; i < 8; i++ {
+	// Process up to 4 instructions per cycle (matching simdCount / inst pipeline width)
+	for i := 0; i < 4; i++ {
 		progress := u.execute()
 		madeProgress = progress || madeProgress
 		if !progress {
@@ -100,17 +103,47 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 	madeProgress := false
 
+	if u.coalescingStallRemaining > 0 {
+		u.coalescingStallRemaining--
+		return false
+	}
+
 	for len(u.transactionsWaiting) > 0 {
 		if !u.transactionPipeline.CanAccept() {
 			break
 		}
 
-		u.transactionPipeline.Accept(u.transactionsWaiting[0])
+		txn := u.transactionsWaiting[0]
+		u.transactionPipeline.Accept(txn)
 		u.transactionsWaiting = u.transactionsWaiting[1:]
 		madeProgress = true
+
+		penalty := u.computeCoalescingPenalty(txn)
+		if penalty > 0 {
+			u.coalescingStallRemaining = penalty
+			break
+		}
 	}
 
 	return madeProgress
+}
+
+func (u *VectorMemoryUnit) computeCoalescingPenalty(txn VectorMemAccessInfo) int {
+	if txn.Read == nil {
+		return 0
+	}
+
+	maxLanes := 64 / 4 // 64B cacheline / 4B elements = 16
+	usedLanes := len(txn.laneInfo)
+
+	if usedLanes >= maxLanes {
+		return 0
+	}
+
+	wastedFraction := float64(maxLanes-usedLanes) / float64(maxLanes)
+	penalty := int(wastedFraction * float64(u.maxCoalescingPenalty))
+
+	return penalty
 }
 
 func (u *VectorMemoryUnit) execute() (madeProgress bool) {
@@ -268,4 +301,5 @@ func (u *VectorMemoryUnit) Flush() {
 	u.transactionsWaiting = nil
 	u.numInstInFlight = 0
 	u.numTransactionInFlight = 0
+	u.coalescingStallRemaining = 0
 }

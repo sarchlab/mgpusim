@@ -28,6 +28,9 @@ type Builder struct {
 	vecMemTransPipelineWidth   int
 	memPipelineBufferSize      int
 
+	maxCoalescingPenalty int
+	registerScoreboard   bool
+
 	decoder    emu.Decoder
 	alu        emu.ALU
 	aluFactory emu.ALUFactory
@@ -168,6 +171,22 @@ func (b Builder) WithMemPipelineBufferSize(n int) Builder {
 	return b
 }
 
+// WithMaxCoalescingPenalty sets the maximum coalescing penalty in cycles
+// for poorly-coalesced read transactions. Default is 0 (disabled).
+func (b Builder) WithMaxCoalescingPenalty(n int) Builder {
+	b.maxCoalescingPenalty = n
+	return b
+}
+
+// WithRegisterScoreboard enables or disables the register scoreboard and
+// SIMD pipelining feature. When enabled, the CU tracks per-wavefront
+// register availability to detect RAW hazards and allows multiple
+// wavefronts to be in-flight in SIMD units simultaneously.
+func (b Builder) WithRegisterScoreboard(enabled bool) Builder {
+	b.registerScoreboard = enabled
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
@@ -175,7 +194,9 @@ func (b Builder) Build(name string) *ComputeUnit {
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
 	cu.Decoder = insts.NewDisassembler()
-	cu.WfDispatcher = NewWfDispatcher(cu)
+	wfDispatcher := NewWfDispatcher(cu)
+	wfDispatcher.scoreboardEnabled = b.registerScoreboard
+	cu.WfDispatcher = wfDispatcher
 	cu.InFlightVectorMemAccessLimit = 512
 
 	if b.aluFactory != nil {
@@ -213,7 +234,9 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
+	issueArbitor.scoreboardEnabled = b.registerScoreboard
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
+	scheduler.scoreboardEnabled = b.registerScoreboard
 	cu.Scheduler = scheduler
 }
 
@@ -237,6 +260,11 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, name, b.alu)
 		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnits
+		simdUnit.scoreboardEnabled = b.registerScoreboard
+		if b.registerScoreboard {
+			simdUnit.pipelineCapacity = 1
+			simdUnit.pipelineSlots = make([]*simdPipelineSlot, 0, 1)
+		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -265,6 +293,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		log2CacheLineSize: b.log2CachelineSize,
 	}
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
+	vectorMemoryUnit.maxCoalescingPenalty = b.maxCoalescingPenalty
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(
