@@ -67,6 +67,12 @@ func (r *Runner) initSimulation() {
 		builder = builder.WithParallelEngine()
 	}
 
+	if *disableAkitaRTM {
+		builder = builder.WithoutMonitoring()
+	} else if *customPortForAkitaRTM > 0 {
+		builder = builder.WithMonitorPort(*customPortForAkitaRTM)
+	}
+
 	if *visTracing {
 		builder = builder.WithVisTracingOnStart()
 	}
@@ -159,6 +165,7 @@ func (r *Runner) Run() {
 
 	if r.reporter != nil {
 		r.reporter.report()
+		r.reporter.dataRecorder.Flush()
 	}
 
 	r.Driver().Terminate()

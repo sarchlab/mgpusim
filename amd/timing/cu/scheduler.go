@@ -34,6 +34,8 @@ type SchedulerImpl struct {
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
 
+	scoreboardEnabled bool
+
 	isPaused bool
 }
 
@@ -61,6 +63,9 @@ func NewScheduler(
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
+		if s.scoreboardEnabled {
+			madeProgress = s.tickScoreboards() || madeProgress
+		}
 		madeProgress = s.EvaluateInternalInst() || madeProgress
 		madeProgress = s.DecodeNextInst() || madeProgress
 		madeProgress = s.DoIssue() || madeProgress
@@ -76,6 +81,22 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
+}
+
+func (s *SchedulerImpl) tickScoreboards() bool {
+	ticked := false
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.ScoreboardData != nil {
+				sb := wf.ScoreboardData.(*Scoreboard)
+				if sb.AnyBusy() {
+					sb.Tick()
+					ticked = true
+				}
+			}
+		}
+	}
+	return ticked
 }
 
 // DecodeNextInst checks
@@ -180,6 +201,14 @@ func (s *SchedulerImpl) DoIssue() bool {
 				wf.InstToIssue = nil
 
 				s.cu.logInstTask(wf, wf.DynamicInst(), false)
+
+				if s.scoreboardEnabled && wf.ScoreboardData != nil {
+					latency := GetScoreboardLatency(wf.DynamicInst().Inst)
+					if latency > 0 {
+						wf.ScoreboardData.(*Scoreboard).MarkBusy(
+							wf.DynamicInst().Inst, latency)
+					}
+				}
 
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning

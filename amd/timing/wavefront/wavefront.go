@@ -64,6 +64,11 @@ type Wavefront struct {
 
 	OutstandingScalarMemAccess int
 	OutstandingVectorMemAccess int
+
+	// ScoreboardData holds per-wavefront register scoreboard state.
+	// When register scoreboard is enabled, this contains a *cu.Scoreboard
+	// (stored as interface{} to avoid circular imports).
+	ScoreboardData interface{}
 }
 
 // NewWavefront creates a new Wavefront of the timing package, wrapping the

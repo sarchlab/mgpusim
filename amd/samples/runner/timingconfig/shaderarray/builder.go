@@ -37,6 +37,8 @@ type Builder struct {
 	l1vCacheSize               uint64
 	l1vBankLatency            int
 	memPipelineBufferSize     int
+	maxCoalescingPenalty      int
+	registerScoreboard        bool
 	l1AddressMapper           mem.AddressToPortMapper
 	l1TLBAddressMapper        mem.AddressToPortMapper
 	aluFactory                emu.ALUFactory
@@ -205,6 +207,20 @@ func (b Builder) WithL1VBankLatency(latency int) Builder {
 // memory transactions, improving throughput for bandwidth-limited workloads.
 func (b Builder) WithMemPipelineBufferSize(size int) Builder {
 	b.memPipelineBufferSize = size
+	return b
+}
+
+// WithMaxCoalescingPenalty sets the maximum coalescing penalty in cycles
+// for poorly-coalesced read transactions in each CU.
+func (b Builder) WithMaxCoalescingPenalty(n int) Builder {
+	b.maxCoalescingPenalty = n
+	return b
+}
+
+// WithRegisterScoreboard enables or disables the register scoreboard and
+// SIMD pipelining feature in each CU.
+func (b Builder) WithRegisterScoreboard(enabled bool) Builder {
+	b.registerScoreboard = enabled
 	return b
 }
 
@@ -458,23 +474,19 @@ func (b *Builder) buildCUs() {
 		cuBuilder = cuBuilder.WithMemPipelineBufferSize(b.cuMemPipelineBufferSize)
 	}
 
+	if b.maxCoalescingPenalty > 0 {
+		cuBuilder = cuBuilder.WithMaxCoalescingPenalty(b.maxCoalescingPenalty)
+	}
+
+	if b.registerScoreboard {
+		cuBuilder = cuBuilder.WithRegisterScoreboard(true)
+	}
+
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
 		b.cus = append(b.cus, computeUnit)
 		b.simulation.RegisterComponent(computeUnit)
-
-		// if b.isaDebugging {
-		// 	isaDebug, err := os.Create(
-		// 		fmt.Sprintf("isa_%s.debug", cuName))
-		// 	if err != nil {
-		// 		log.Fatal(err.Error())
-		// 	}
-		// 	isaDebugger := cu.NewISADebugger(
-		// 		log.New(isaDebug, "", 0), computeUnit)
-
-		// 	tracing.CollectTrace(computeUnit, isaDebugger)
-		// }
 	}
 }
 
@@ -560,9 +572,9 @@ func (b *Builder) buildL1VCaches() {
 		WithNumBanks(4).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
-		WithNumMSHREntry(256).
-		WithNumReqsPerCycle(32).
-		WithMaxNumConcurrentTrans(512).
+		WithNumMSHREntry(128).
+		WithNumReqsPerCycle(8).
+		WithMaxNumConcurrentTrans(128).
 		WithTotalByteSize(l1vSize).
 		WithAddressToPortMapper(b.l1AddressMapper)
 

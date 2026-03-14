@@ -12,6 +12,14 @@ import (
 type bank struct {
 	pipeline        pipelining.Pipeline
 	postPipelineBuf sim.Buffer
+	lastRowAddr     uint64
+	rowValid        bool
+	delayQueue      []delayedItem
+}
+
+type delayedItem struct {
+	item       *bankPipelineItem
+	cyclesLeft int
 }
 
 type bankPipelineItem struct {
@@ -37,6 +45,11 @@ type Comp struct {
 
 	banks        []bank
 	bankSelector bankSelector
+
+	rowBufferSizeLog2  uint64
+	rowMissDelay       int
+	log2InterleaveSize uint64
+	numBanks           int
 }
 
 // Tick updates the component state cycle by cycle.
@@ -52,6 +65,7 @@ type middleware struct {
 func (m *middleware) Tick() (madeProgress bool) {
 	madeProgress = m.finalizeBanks() || madeProgress
 	madeProgress = m.tickPipelines() || madeProgress
+	madeProgress = m.tickDelayQueues() || madeProgress
 	madeProgress = m.dispatchPending() || madeProgress
 	madeProgress = m.drainTopPort() || madeProgress
 	return madeProgress
@@ -94,13 +108,42 @@ func (m *middleware) dispatchPending() bool {
 		bankID := m.bankSelector.Select(addr, len(m.banks))
 		b := &m.banks[bankID]
 
-		if !b.pipeline.CanAccept() {
-			remaining = append(remaining, req)
-			continue // Skip this request, try the next one
+		item := &bankPipelineItem{req: req}
+
+		if m.rowBufferSizeLog2 > 0 && m.rowMissDelay > 0 {
+			interleaveSize := uint64(1) << m.log2InterleaveSize
+			bankBlockIndex := addr / interleaveSize
+			bankLocalBlock := bankBlockIndex / uint64(len(m.banks))
+			offset := addr & (interleaveSize - 1)
+			bankLocalAddr := bankLocalBlock*interleaveSize + offset
+			rowAddr := bankLocalAddr >> m.rowBufferSizeLog2
+
+			if b.rowValid && b.lastRowAddr == rowAddr {
+				// ROW HIT — accept into pipeline directly
+				if !b.pipeline.CanAccept() {
+					remaining = append(remaining, req)
+					continue
+				}
+				b.pipeline.Accept(item)
+			} else {
+				// ROW MISS — add to delay queue
+				b.delayQueue = append(b.delayQueue, delayedItem{
+					item:       item,
+					cyclesLeft: m.rowMissDelay,
+				})
+			}
+
+			b.lastRowAddr = rowAddr
+			b.rowValid = true
+		} else {
+			// No row buffer tracking — old behavior
+			if !b.pipeline.CanAccept() {
+				remaining = append(remaining, req)
+				continue
+			}
+			b.pipeline.Accept(item)
 		}
 
-		item := &bankPipelineItem{req: req}
-		b.pipeline.Accept(item)
 		madeProgress = true
 	}
 
@@ -251,5 +294,34 @@ func (m *middleware) tickPipelines() bool {
 		madeProgress = p.Tick() || madeProgress
 	}
 
+	return madeProgress
+}
+
+func (m *middleware) tickDelayQueues() bool {
+	madeProgress := false
+	for i := range m.banks {
+		b := &m.banks[i]
+		if len(b.delayQueue) == 0 {
+			continue
+		}
+		remaining := make([]delayedItem, 0, len(b.delayQueue))
+		for _, di := range b.delayQueue {
+			di.cyclesLeft--
+			if di.cyclesLeft <= 0 {
+				if b.pipeline.CanAccept() {
+					b.pipeline.Accept(di.item)
+				} else {
+					remaining = append(remaining, di)
+				}
+			} else {
+				remaining = append(remaining, di)
+			}
+		}
+		b.delayQueue = remaining
+		// Report progress whenever items are in the delay queue, even if
+		// just counting down. This keeps the TickingComponent scheduled so
+		// the delay countdown continues each cycle.
+		madeProgress = true
+	}
 	return madeProgress
 }

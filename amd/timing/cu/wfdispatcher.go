@@ -21,7 +21,8 @@ type WfDispatcher interface {
 type WfDispatcherImpl struct {
 	cu *ComputeUnit
 
-	Latency int
+	Latency            int
+	scoreboardEnabled  bool
 }
 
 // NewWfDispatcher creates a default WfDispatcher
@@ -39,6 +40,10 @@ func (d *WfDispatcherImpl) DispatchWf(
 ) {
 	d.setWfInfo(wf, location)
 	d.initRegisters(wf)
+
+	if d.scoreboardEnabled {
+		wf.ScoreboardData = NewScoreboard()
+	}
 }
 
 func (d *WfDispatcherImpl) setWfInfo(

@@ -29,6 +29,9 @@ type Builder struct {
 	storage              *mem.Storage
 	addressConverter     mem.AddressConverter
 	bankAddrConverter    mem.AddressConverter
+
+	rowBufferSizeLog2  uint64 // log2 of row size in bytes (0 = disabled)
+	rowMissDelay       int    // extra cycles for row miss (0 = disabled)
 }
 
 // MakeBuilder creates a builder with reasonable defaults.
@@ -135,6 +138,20 @@ func (b Builder) WithAddressConverter(
 	return b
 }
 
+// WithRowBufferSizeLog2 sets the log2 of the row buffer size in bytes.
+// When set to 0 (default), row buffer tracking is disabled.
+func (b Builder) WithRowBufferSizeLog2(log2Size uint64) Builder {
+	b.rowBufferSizeLog2 = log2Size
+	return b
+}
+
+// WithRowMissDelay sets the extra delay in cycles for a row buffer miss.
+// When set to 0 (default), row buffer tracking is disabled.
+func (b Builder) WithRowMissDelay(cycles int) Builder {
+	b.rowMissDelay = cycles
+	return b
+}
+
 // WithBankAddressConverter sets a separate address converter used ONLY for
 // bank selection in dispatchPending. When set, this converter is used instead
 // of AddressConverter for choosing which bank to route a request to, while
@@ -162,6 +179,10 @@ func (b Builder) Build(name string) *Comp {
 		AddressConverter:     b.addressConverter,
 		BankAddressConverter: b.bankAddrConverter,
 		bankSelector:         b.determineBankSelector(),
+		rowBufferSizeLog2:    b.rowBufferSizeLog2,
+		rowMissDelay:         b.rowMissDelay,
+		log2InterleaveSize:   b.log2InterleaveSize,
+		numBanks:             b.numBanks,
 	}
 
 	c.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, c)
