@@ -17,8 +17,6 @@ func (s *Scoreboard) Reset() {
 	s.regReadBusy = make(map[string]int)
 }
 
-// Write
-
 func (s *Scoreboard) GetWriteBusy(reg string) bool {
 	return s.regWriteBusy[reg] > 0
 }
@@ -32,8 +30,6 @@ func (s *Scoreboard) SetWriteBusy(reg string, busy bool) {
 		delete(s.regWriteBusy, reg)
 	}
 }
-
-// Read
 
 func (s *Scoreboard) GetReadBusy(reg string) bool {
 	return s.regReadBusy[reg] > 0
@@ -49,28 +45,24 @@ func (s *Scoreboard) SetReadBusy(reg string, busy bool) {
 	}
 }
 
-// Clear all state for one register
 func (s *Scoreboard) ClearReg(reg string) {
 	delete(s.regWriteBusy, reg)
 	delete(s.regReadBusy, reg)
 }
 
 func (s *Scoreboard) HasConflict(srcRegs []string, dstRegs []string) bool {
-	// RAW: current instruction reads a register that is still being written.
 	for _, r := range srcRegs {
 		if s.regWriteBusy[r] > 0 {
 			return true
 		}
 	}
 
-	// WAW: current instruction writes a register that is still being written.
 	for _, r := range dstRegs {
 		if s.regWriteBusy[r] > 0 {
 			return true
 		}
 	}
 
-	// WAR: current instruction writes a register that is still being read.
 	for _, r := range dstRegs {
 		if s.regReadBusy[r] > 0 {
 			return true
@@ -80,7 +72,6 @@ func (s *Scoreboard) HasConflict(srcRegs []string, dstRegs []string) bool {
 	return false
 }
 
-// Backward-compatible wrappers.
 func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
 	return s.HasConflict(srcRegs, dstRegs)
 }
@@ -98,7 +89,7 @@ func (s *Scoreboard) MarkIssued(srcRegs []string, dstRegs []string) {
 	}
 }
 
-func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
+func (s *Scoreboard) MarkSrcRegsConsumed(srcRegs []string) {
 	for _, r := range srcRegs {
 		if s.regReadBusy[r] <= 1 {
 			delete(s.regReadBusy, r)
@@ -106,6 +97,9 @@ func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
 			s.regReadBusy[r]--
 		}
 	}
+}
+
+func (s *Scoreboard) MarkDstRegsCompleted(dstRegs []string) {
 	for _, r := range dstRegs {
 		if s.regWriteBusy[r] <= 1 {
 			delete(s.regWriteBusy, r)
@@ -113,6 +107,11 @@ func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
 			s.regWriteBusy[r]--
 		}
 	}
+}
+
+func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
+	s.MarkSrcRegsConsumed(srcRegs)
+	s.MarkDstRegsCompleted(dstRegs)
 }
 
 func (s *Scoreboard) HasAnyBusy() bool {

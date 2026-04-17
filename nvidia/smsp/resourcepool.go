@@ -1,48 +1,46 @@
 package smsp
 
 import (
+	"fmt"
 	"log"
 )
 
-// type ResourcePool struct {
-// 	IntUnits     int
-// 	FP32Units    int
-// 	FP64Units    int
-// 	TensorUnits  int
-// 	LdStUnits    int
-// 	SpecialUnits int
-// }
-
 type ResourcePool struct {
-	IntUnitPool     bool
-	FP32UnitPool    bool
-	FP64UnitPool    bool
-	TensorUnitPool  bool
-	LdStUnitPool    bool
-	SpecialUnitPool bool
+	IntUnitCapacity     int
+	FP32UnitCapacity    int
+	FP64UnitCapacity    int
+	TensorUnitCapacity  int
+	LdStUnitCapacity    int
+	SpecialUnitCapacity int
+
+	IntUnitsAvailable     int
+	FP32UnitsAvailable    int
+	FP64UnitsAvailable    int
+	TensorUnitsAvailable  int
+	LdStUnitsAvailable    int
+	SpecialUnitsAvailable int
 }
 
-// Create H100 SMSP resource model
-// func NewH100SMSPResourcePool() *ResourcePool {
-// 	return &ResourcePool{
-// 		IntUnits:     16,
-// 		FP32Units:    32,
-// 		FP64Units:    16,
-// 		TensorUnits:  8,
-// 		LdStUnits:    4,
-// 		SpecialUnits: 4,
-// 	}
-// }
-
 func NewH100SMSPResourcePool() *ResourcePool {
-	return &ResourcePool{
-		IntUnitPool:     true,
-		FP32UnitPool:    true,
-		FP64UnitPool:    true,
-		TensorUnitPool:  true,
-		LdStUnitPool:    true,
-		SpecialUnitPool: true,
+	rp := &ResourcePool{
+		IntUnitCapacity:     16,
+		FP32UnitCapacity:    32,
+		FP64UnitCapacity:    16,
+		TensorUnitCapacity:  8,
+		LdStUnitCapacity:    4,
+		SpecialUnitCapacity: 4,
 	}
+	rp.Reset()
+	return rp
+}
+
+func (rp *ResourcePool) Reset() {
+	rp.IntUnitsAvailable = rp.IntUnitCapacity
+	rp.FP32UnitsAvailable = rp.FP32UnitCapacity
+	rp.FP64UnitsAvailable = rp.FP64UnitCapacity
+	rp.TensorUnitsAvailable = rp.TensorUnitCapacity
+	rp.LdStUnitsAvailable = rp.LdStUnitCapacity
+	rp.SpecialUnitsAvailable = rp.SpecialUnitCapacity
 }
 
 func (rp *ResourcePool) Reserve(unit ExecUnitKind) bool {
@@ -50,35 +48,35 @@ func (rp *ResourcePool) Reserve(unit ExecUnitKind) bool {
 	case UnitNone:
 		return true
 	case UnitInt:
-		if !rp.IntUnitPool {
+		if rp.IntUnitsAvailable <= 0 {
 			return false
 		}
-		rp.IntUnitPool = false
+		rp.IntUnitsAvailable--
 	case UnitFP32:
-		if !rp.FP32UnitPool {
+		if rp.FP32UnitsAvailable <= 0 {
 			return false
 		}
-		rp.FP32UnitPool = false
+		rp.FP32UnitsAvailable--
 	case UnitFP64:
-		if !rp.FP64UnitPool {
+		if rp.FP64UnitsAvailable <= 0 {
 			return false
 		}
-		rp.FP64UnitPool = false
+		rp.FP64UnitsAvailable--
 	case UnitTensor:
-		if !rp.TensorUnitPool {
+		if rp.TensorUnitsAvailable <= 0 {
 			return false
 		}
-		rp.TensorUnitPool = false
+		rp.TensorUnitsAvailable--
 	case UnitLdSt:
-		if !rp.LdStUnitPool {
+		if rp.LdStUnitsAvailable <= 0 {
 			return false
 		}
-		rp.LdStUnitPool = false
+		rp.LdStUnitsAvailable--
 	case UnitSpecial:
-		if !rp.SpecialUnitPool {
+		if rp.SpecialUnitsAvailable <= 0 {
 			return false
 		}
-		rp.SpecialUnitPool = false
+		rp.SpecialUnitsAvailable--
 	default:
 		log.Panic("Reserve: Unknown execution unit type:", unit)
 	}
@@ -90,89 +88,42 @@ func (rp *ResourcePool) Release(unit ExecUnitKind) {
 	case UnitNone:
 		return
 	case UnitInt:
-		rp.IntUnitPool = true
+		if rp.IntUnitsAvailable < rp.IntUnitCapacity {
+			rp.IntUnitsAvailable++
+		}
 	case UnitFP32:
-		rp.FP32UnitPool = true
+		if rp.FP32UnitsAvailable < rp.FP32UnitCapacity {
+			rp.FP32UnitsAvailable++
+		}
 	case UnitFP64:
-		rp.FP64UnitPool = true
+		if rp.FP64UnitsAvailable < rp.FP64UnitCapacity {
+			rp.FP64UnitsAvailable++
+		}
 	case UnitTensor:
-		rp.TensorUnitPool = true
+		if rp.TensorUnitsAvailable < rp.TensorUnitCapacity {
+			rp.TensorUnitsAvailable++
+		}
 	case UnitLdSt:
-		rp.LdStUnitPool = true
+		if rp.LdStUnitsAvailable < rp.LdStUnitCapacity {
+			rp.LdStUnitsAvailable++
+		}
 	case UnitSpecial:
-		rp.SpecialUnitPool = true
+		if rp.SpecialUnitsAvailable < rp.SpecialUnitCapacity {
+			rp.SpecialUnitsAvailable++
+		}
 	default:
 		log.Panic("Release: Unknown execution unit type:", unit)
 	}
 }
 
-// Try to reserve units; return success
-// func (rp *ResourcePool) Reserve(unit ExecUnitKind, count int) bool {
-// 	// fmt.Printf("Trying to reserve %d units of type %d: (%d, %d, %d, %d, %d, %d)\n",
-// 	// 	count, unit,
-// 	// 	rp.IntUnits, rp.FP32Units, rp.FP64Units, rp.TensorUnits, rp.LdStUnits, rp.SpecialUnits)
-// 	// before := fmt.Sprintf("(%d, %d, %d, %d, %d, %d)", rp.IntUnits, rp.FP32Units, rp.FP64Units, rp.TensorUnits, rp.LdStUnits, rp.SpecialUnits)
-// 	switch unit {
-// 	case UnitInt:
-// 		if rp.IntUnits < count {
-// 			return false
-// 		}
-// 		rp.IntUnits -= count
-// 	case UnitFP32:
-// 		if rp.FP32Units < count {
-// 			return false
-// 		}
-// 		rp.FP32Units -= count
-// 	case UnitFP64:
-// 		if rp.FP64Units < count {
-// 			return false
-// 		}
-// 		rp.FP64Units -= count
-// 	case UnitTensor:
-// 		if rp.TensorUnits < count {
-// 			return false
-// 		}
-// 		rp.TensorUnits -= count
-// 	case UnitLdSt:
-// 		if rp.LdStUnits < count {
-// 			return false
-// 		}
-// 		rp.LdStUnits -= count
-// 	case UnitSpecial:
-// 		if rp.SpecialUnits < count {
-// 			return false
-// 		}
-// 		rp.SpecialUnits -= count
-// 	default:
-// 		log.Panic("Reserve: Unknown execution unit type")
-// 	}
-// 	// fmt.Printf("Reserved %d units of type %d: %s -> (%d, %d, %d, %d, %d, %d)\n",
-// 	// 	count, unit,
-// 	// 	before,
-// 	// 	rp.IntUnits, rp.FP32Units, rp.FP64Units, rp.TensorUnits, rp.LdStUnits, rp.SpecialUnits)
-// 	return true
-// }
-
-// func (rp *ResourcePool) Release(unit ExecUnitKind, count int) {
-// 	// before := fmt.Sprintf("(%d, %d, %d, %d, %d, %d)", rp.IntUnits, rp.FP32Units, rp.FP64Units, rp.TensorUnits, rp.LdStUnits, rp.SpecialUnits)
-// 	switch unit {
-// 	case UnitInt:
-// 		rp.IntUnits += count
-// 	case UnitFP32:
-// 		rp.FP32Units += count
-// 	case UnitFP64:
-// 		rp.FP64Units += count
-// 	case UnitTensor:
-// 		rp.TensorUnits += count
-// 	case UnitLdSt:
-// 		rp.LdStUnits += count
-// 	case UnitSpecial:
-// 		rp.SpecialUnits += count
-// 	default:
-// 		log.Panic("Release: Unknown execution unit type")
-// 	}
-// 	// fmt.Printf("Released %d units of type %d: %s -> (%d, %d, %d, %d, %d, %d)\n",
-// 	// 	count, unit,
-// 	// 	before,
-// 	// 	rp.IntUnits, rp.FP32Units, rp.FP64Units, rp.TensorUnits, rp.LdStUnits, rp.SpecialUnits)
-// }
+func (rp *ResourcePool) String() string {
+	return fmt.Sprintf(
+		"Int %d/%d, FP32 %d/%d, FP64 %d/%d, Tensor %d/%d, LdSt %d/%d, Special %d/%d",
+		rp.IntUnitsAvailable, rp.IntUnitCapacity,
+		rp.FP32UnitsAvailable, rp.FP32UnitCapacity,
+		rp.FP64UnitsAvailable, rp.FP64UnitCapacity,
+		rp.TensorUnitsAvailable, rp.TensorUnitCapacity,
+		rp.LdStUnitsAvailable, rp.LdStUnitCapacity,
+		rp.SpecialUnitsAvailable, rp.SpecialUnitCapacity,
+	)
+}

@@ -2,7 +2,6 @@ package smsp
 
 import (
 	"encoding/binary"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -19,7 +18,6 @@ type SMSPController struct {
 	ID         string
 	instsCount uint64
 
-	// meta
 	toSM       sim.Port
 	toSMRemote sim.Port
 
@@ -55,7 +53,7 @@ func (s *SMSPController) SetVectorMemRemote(remote sim.Port) {
 func (s *SMSPController) Tick() bool {
 	madeProgress := false
 
-	s.ResourcePool = NewH100SMSPResourcePool()
+	s.ResourcePool.Reset()
 	madeProgress = s.reportFinishedWarps() || madeProgress
 	madeProgress = s.processSMInput() || madeProgress
 	madeProgress = s.run() || madeProgress
@@ -77,6 +75,24 @@ func (s *SMSPController) processSMInput() bool {
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 	}
 
+	return true
+}
+
+func (s *SMSPController) releasePipelineSrcRegs(pipe *PipelineInstance) bool {
+	if pipe == nil || pipe.SrcRegsReleased {
+		return false
+	}
+	pipe.Warp.Scoreboard.MarkSrcRegsConsumed(pipe.SrcRegs)
+	pipe.MarkSrcRegsReleased()
+	return true
+}
+
+func (s *SMSPController) releasePipelineDstRegs(pipe *PipelineInstance) bool {
+	if pipe == nil || pipe.DstRegsReleased {
+		return false
+	}
+	pipe.Warp.Scoreboard.MarkDstRegsCompleted(pipe.DstRegs)
+	pipe.MarkDstRegsReleased()
 	return true
 }
 
@@ -103,10 +119,8 @@ func (s *SMSPController) processMemRsp() bool {
 		delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
 		delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
 
-		if !pipeline.DependenciesReleased {
-			pipeline.Warp.Scoreboard.MarkCompleted(pipeline.SrcRegs, pipeline.DstRegs)
-			pipeline.DependenciesReleased = true
-		}
+		s.releasePipelineSrcRegs(pipeline)
+		s.releasePipelineDstRegs(pipeline)
 		pipeline.MarkMemoryResponseReady()
 		pipeline.Warp.updateStatus()
 
@@ -126,10 +140,8 @@ func (s *SMSPController) processMemRsp() bool {
 		delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
 		delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
 
-		if !pipeline.DependenciesReleased {
-			pipeline.Warp.Scoreboard.MarkCompleted(pipeline.SrcRegs, pipeline.DstRegs)
-			pipeline.DependenciesReleased = true
-		}
+		s.releasePipelineSrcRegs(pipeline)
+		s.releasePipelineDstRegs(pipeline)
 		pipeline.MarkMemoryResponseReady()
 		pipeline.Warp.updateStatus()
 
@@ -211,6 +223,7 @@ func (s *SMSPController) launchIssuedPipelines(issued []*IssueDecision) bool {
 			default:
 				log.Panicf("unknown memory pipe stage name: %s", stage.Def.Name)
 			}
+			s.releasePipelineSrcRegs(pipe)
 		}
 
 		decision.WarpUnit.updateStatus()
@@ -227,9 +240,11 @@ func (s *SMSPController) tickInFlightPipelines() bool {
 		remaining := make([]*PipelineInstance, 0, len(wu.InFlightPipelines))
 		for _, pipe := range wu.InFlightPipelines {
 			if pipe.Done {
-				if !pipe.DependenciesReleased {
-					wu.Scoreboard.MarkCompleted(pipe.SrcRegs, pipe.DstRegs)
-					pipe.DependenciesReleased = true
+				if s.releasePipelineSrcRegs(pipe) {
+					madeProgress = true
+				}
+				if s.releasePipelineDstRegs(pipe) {
+					madeProgress = true
 				}
 				wu.unfinishedInstsCount--
 				madeProgress = true
@@ -245,10 +260,15 @@ func (s *SMSPController) tickInFlightPipelines() bool {
 				madeProgress = true
 			}
 
+			if pipe.ReadyToReleaseSrcRegs() {
+				if s.releasePipelineSrcRegs(pipe) {
+					madeProgress = true
+				}
+			}
+
 			if pipe.Done {
-				if !pipe.DependenciesReleased {
-					wu.Scoreboard.MarkCompleted(pipe.SrcRegs, pipe.DstRegs)
-					pipe.DependenciesReleased = true
+				if s.releasePipelineDstRegs(pipe) {
+					madeProgress = true
 				}
 				wu.unfinishedInstsCount--
 				continue
@@ -296,9 +316,9 @@ func (s *SMSPController) run() bool {
 	madeProgress = s.skipMaskedControlOps() || madeProgress
 
 	issued := s.scheduler.issueWarps(s.ResourcePool)
-	if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
-		s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
-	}
+	// if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
+	// 	s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
+	// }
 	if len(issued) > 0 {
 		madeProgress = true
 	}

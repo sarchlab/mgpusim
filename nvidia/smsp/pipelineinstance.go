@@ -11,18 +11,19 @@ type Stage struct {
 	Left int
 }
 
-// Running pipeline instance
 // One PipelineInstance represents one issued instruction.
 type PipelineInstance struct {
-	Warp                 *SMSPWarpUnit
-	Inst                 *trace.InstructionTrace
-	Stages               []Stage
-	InstructionOpcode    string
-	SrcRegs              []string
-	DstRegs              []string
-	PC                   int // current active stage index
-	Done                 bool
-	DependenciesReleased bool
+	Warp                  *SMSPWarpUnit
+	Inst                  *trace.InstructionTrace
+	Stages                []Stage
+	InstructionOpcode     string
+	SrcRegs               []string
+	DstRegs               []string
+	PC                    int // current active stage index
+	OperandReadStageIndex int
+	Done                  bool
+	SrcRegsReleased       bool
+	DstRegsReleased       bool
 }
 
 func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *PipelineInstance {
@@ -45,6 +46,7 @@ func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *Pipe
 		Done:              false,
 	}
 	p.advanceToNextActiveStage()
+	p.OperandReadStageIndex = p.PC
 	return p
 }
 
@@ -67,6 +69,27 @@ func (p *PipelineInstance) CurrentStage() *Stage {
 func (p *PipelineInstance) IsMemoryPipeline() bool {
 	stage := p.CurrentStage()
 	return stage != nil && isMemoryPipeStage(stage.Def.Name)
+}
+
+func (p *PipelineInstance) ReadyToReleaseSrcRegs() bool {
+	if p.SrcRegsReleased {
+		return false
+	}
+	if p.Done {
+		return true
+	}
+	if p.IsMemoryPipeline() {
+		return false
+	}
+	return p.PC != p.OperandReadStageIndex
+}
+
+func (p *PipelineInstance) MarkSrcRegsReleased() {
+	p.SrcRegsReleased = true
+}
+
+func (p *PipelineInstance) MarkDstRegsReleased() {
+	p.DstRegsReleased = true
 }
 
 func (p *PipelineInstance) MarkMemoryRequestSent() {
@@ -95,7 +118,6 @@ func (p *PipelineInstance) MarkMemoryResponseReady() {
 	p.advanceToNextActiveStage()
 }
 
-// Progress pipeline by one cycle.
 // Memory instructions are progressed by explicit request/response handling.
 func (p *PipelineInstance) Tick() bool {
 	if p.Done {
