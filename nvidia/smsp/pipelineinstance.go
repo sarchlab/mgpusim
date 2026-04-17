@@ -1,7 +1,7 @@
 package smsp
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
@@ -12,107 +12,115 @@ type Stage struct {
 }
 
 // Running pipeline instance
+// One PipelineInstance represents one issued instruction.
 type PipelineInstance struct {
-	Warp              *SMSPWarpUnit
-	Stages            []Stage
-	InstructionOpcode string
-	PC                int // current stage index
-	Done              bool
+	Warp                 *SMSPWarpUnit
+	Inst                 *trace.InstructionTrace
+	Stages               []Stage
+	InstructionOpcode    string
+	SrcRegs              []string
+	DstRegs              []string
+	PC                   int // current active stage index
+	Done                 bool
+	DependenciesReleased bool
 }
 
 func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *PipelineInstance {
 	tpl := getPipelineStages(inst.OpCode.String())
-	// tpl, ok := PipelineTable[inst.OpCode.String()]
-	// if !ok {
-	// 	tpl = defaultStages(inst.OpCode.String())
-	// }
 
 	stages := make([]Stage, len(tpl.Stages))
 	for i, s := range tpl.Stages {
 		stages[i] = Stage{Def: s, Left: s.Cycles}
 	}
-	return &PipelineInstance{Warp: warp, Stages: stages, InstructionOpcode: tpl.Opcode, PC: 0, Done: false}
+
+	srcRegs, dstRegs := regsToNames(inst)
+	p := &PipelineInstance{
+		Warp:              warp,
+		Inst:              inst,
+		Stages:            stages,
+		InstructionOpcode: tpl.Opcode,
+		SrcRegs:           srcRegs,
+		DstRegs:           dstRegs,
+		PC:                0,
+		Done:              false,
+	}
+	p.advanceToNextActiveStage()
+	return p
 }
 
-// Progress pipeline by one cycle
+func (p *PipelineInstance) advanceToNextActiveStage() {
+	for p.PC < len(p.Stages) && p.Stages[p.PC].Left == 0 {
+		p.PC++
+	}
+	if p.PC >= len(p.Stages) {
+		p.Done = true
+	}
+}
+
+func (p *PipelineInstance) CurrentStage() *Stage {
+	if p.Done || p.PC < 0 || p.PC >= len(p.Stages) {
+		return nil
+	}
+	return &p.Stages[p.PC]
+}
+
+func (p *PipelineInstance) IsMemoryPipeline() bool {
+	stage := p.CurrentStage()
+	return stage != nil && isMemoryPipeStage(stage.Def.Name)
+}
+
+func (p *PipelineInstance) MarkMemoryRequestSent() {
+	stage := p.CurrentStage()
+	if stage == nil || !isMemoryPipeStage(stage.Def.Name) {
+		log.Panic("MarkMemoryRequestSent called for non-memory pipeline")
+	}
+	if stage.Left != 2 {
+		log.Panic("memory pipeline should have Left == 2 before request is sent")
+	}
+	stage.Left = 1
+}
+
+func (p *PipelineInstance) MarkMemoryResponseReady() {
+	stage := p.CurrentStage()
+	if stage == nil || !isMemoryPipeStage(stage.Def.Name) {
+		log.Panic("MarkMemoryResponseReady called for non-memory pipeline")
+	}
+	if stage.Left == 0 {
+		return
+	}
+	if stage.Left != 1 {
+		log.Panic("memory pipeline should have Left == 1 when response returns")
+	}
+	stage.Left = 0
+	p.advanceToNextActiveStage()
+}
+
+// Progress pipeline by one cycle.
+// Memory instructions are progressed by explicit request/response handling.
 func (p *PipelineInstance) Tick() bool {
 	if p.Done {
 		return true
 	}
 
-	// guard against empty stage list
-	if p.PC < 0 || p.PC >= len(p.Stages) {
+	stage := p.CurrentStage()
+	if stage == nil {
 		p.Done = true
 		return true
 	}
 
-	stage := &p.Stages[p.PC]
-
 	if isMemoryPipeStage(stage.Def.Name) {
-		log.Panic("Pipeline Tick should not be called for MemoryPipe stage")
+		return false
 	}
 
-	for stage.Left == 0 {
-		// release resources
-		// if stage.Def.Unit != UnitNone {
-		// 	rsrc.Release(stage.Def.Unit) // stage.Def.UnitsUsed
-		// }
-
-		p.PC++
-		if p.PC >= len(p.Stages) {
-			p.Done = true
-			return true
-		}
-		stage = &p.Stages[p.PC]
-	}
-
-	// Try reserve on first cycle of stage
-	// if stage.Left == stage.Def.Latency && stage.Def.Unit != UnitNone {
-	// 	if !rsrc.Reserve(stage.Def.Unit, stage.Def.UnitsUsed) {
-	// 		return false // stall due to resource conflict
-	// 	}
-	// }
-	// fmt.Printf("Pipeline (warp %d) at stage %s, left cycles: %d->%d\n",
-	// p.Warp.warp.ID, stage.Def.Name, stage.Left, stage.Left-1)
-	if isMemoryPipeStage(stage.Def.Name) {
-		return true
-	}
 	stage.Left--
-
-	// take a peek to see if all following stages are zero-cycle, including the current one
-	// if so, skip them
-	// if stage.Left == 0 {
-	// 	tmpPC := p.PC
-	// 	for i := p.PC + 1; i < len(p.Stages); i++ {
-	// 		if p.Stages[i].Left != 0 {
-	// 			break
-	// 		}
-	// 		tmpPC++
-	// 	}
-	// 	if tmpPC >= len(p.Stages) {
-	// 		// fmt.Printf("end detected\n")
-	// 		p.Done = true
-	// 		return true
-	// 	}
-	// 	p.PC = tmpPC
-	// 	stage = &p.Stages[p.PC]
-	// }
-	// Stage finished
-	if stage.Def.Name == "Issue" {
-		return true
+	if stage.Left < 0 {
+		log.Panic("pipeline stage left cycles went negative")
 	}
-	for stage.Left == 0 {
-		// release resources
-		// if stage.Def.Unit != UnitNone {
-		// 	rsrc.Release(stage.Def.Unit) // stage.Def.UnitsUsed
-		// }
 
+	if stage.Left == 0 {
 		p.PC++
-		if p.PC >= len(p.Stages) {
-			p.Done = true
-			return true
-		}
-		stage = &p.Stages[p.PC]
+		p.advanceToNextActiveStage()
 	}
+
 	return true
 }

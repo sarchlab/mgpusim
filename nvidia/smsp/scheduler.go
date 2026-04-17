@@ -1,8 +1,6 @@
 package smsp
 
 import (
-	// "fmt"
-
 	"fmt"
 
 	"github.com/sarchlab/akita/v4/sim"
@@ -21,29 +19,20 @@ const (
 	WarpStatusReady WarpStatus = iota
 	WarpStatusWaiting
 	WarpStatusRunning
-	// WarpStatusDefault WarpStatus = iota
-	// WarpStatusWait
-	// WarpStatusStallNoInstruction
-	// WarpStatusStallAllocationStall
-	// WarpStatusSelected
-	// WarpStatusNotSelected
 )
 
 type SMSPWarpUnit struct {
-	/*
-		"Wait" means "waiting on a fixed-latency execution dependency";
-		"Stall No Instruction" means "warp hasn't fetched an instruction yet";
-		"Stall Allocation Stall" means "the scheduler can't allocate the warp yet: e.g., pending memory ops must retire"
-		"Selected" means "the warp issued an instruction this cycle";
-		"Not Selected" means "warp was eligible, but another warp was chosen to issue this cycle";
-	*/
 	warp                 *trace.WarpTrace
 	status               WarpStatus
 	unfinishedInstsCount uint64
-	Pipeline             *PipelineInstance
+	nextIssueInstIndex   uint64
+	InFlightPipelines    []*PipelineInstance
 	Scoreboard           *Scoreboard
-	// currentInstructionRemainingCycles uint64
+}
 
+type IssueDecision struct {
+	WarpUnit *SMSPWarpUnit
+	Pipeline *PipelineInstance
 }
 
 type SMSPSWarpScheduler struct {
@@ -58,62 +47,88 @@ func NewSMSPScheduler() *SMSPSWarpScheduler {
 	}
 }
 
-// func (s *SMSPSWarpScheduler) issueWarp(startIndex int) (warpUnitIndex int, warpUnit *SMSPWarpUnit) {
-// 	if startIndex >= len(s.warpUnitList) {
-// 		return -1, nil
-// 	}
-// 	for i := startIndex; i < len(s.warpUnitList); i++ {
-// 		warpUnit := s.warpUnitList[i]
-// 		if warpUnit.status == WarpStatusReady { // || warpUnit.status == WarpStatusRunning
-// 			warpUnit.status = WarpStatusRunning
-// 			return i, warpUnit
-// 		}
-// 	}
-// 	return -1, nil
-// }
-
 func isIssueStage(stageName string) bool {
-	// fmt.Printf("Checking if stage %s is an execute stage\n", stageName)
 	return stageName == "Issue"
 }
 
 func isMemoryPipeStage(stageName string) bool {
-	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
 	return stageName == "MemoryPipeRead" || stageName == "MemoryPipeWrite"
 }
 
 func isMemoryPipeReadStage(stageName string) bool {
-	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
 	return stageName == "MemoryPipeRead"
 }
 
 func isMemoryPipeWriteStage(stageName string) bool {
-	// fmt.Printf("Checking if stage %s is a memory pipe stage\n", stageName)
 	return stageName == "MemoryPipeWrite"
+}
+
+func regsToNames(inst *trace.InstructionTrace) (srcRegs []string, dstRegs []string) {
+	srcRegs = make([]string, 0, len(inst.SrcRegs))
+	dstRegs = make([]string, 0, len(inst.DestRegs))
+
+	for _, r := range inst.SrcRegs {
+		srcRegs = append(srcRegs, r.Name)
+	}
+	for _, r := range inst.DestRegs {
+		dstRegs = append(dstRegs, r.Name)
+	}
+
+	return srcRegs, dstRegs
+}
+
+func (wu *SMSPWarpUnit) HasMoreToIssue() bool {
+	return wu.nextIssueInstIndex < wu.warp.InstructionsCount()
+}
+
+func (wu *SMSPWarpUnit) NextInstruction() *trace.InstructionTrace {
+	if !wu.HasMoreToIssue() {
+		return nil
+	}
+	return wu.warp.Instructions[wu.nextIssueInstIndex]
+}
+
+func (wu *SMSPWarpUnit) updateStatus() {
+	switch {
+	case wu.HasMoreToIssue():
+		wu.status = WarpStatusReady
+	case len(wu.InFlightPipelines) > 0:
+		wu.status = WarpStatusRunning
+	default:
+		wu.status = WarpStatusRunning
+	}
 }
 
 func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
 	fmt.Printf("%.10f, %s's Scheduler has %d Warps:", engineCurrentTime, smspName, len(s.warpUnitList))
 	for i, wu := range s.warpUnitList {
-		fmt.Printf(" [wu %d/%d (status: %v): inst %d/%d '%s' @ '%s' stage (%d/%d)] [scoreboard: read #: %d, write #: %d]",
+		nextOpcode := "<none>"
+		nextStage := "<done>"
+		if wu.HasMoreToIssue() {
+			inst := wu.NextInstruction()
+			nextOpcode = inst.OpCode.String()
+			pipe := NewPipelineInstance(inst, wu)
+			if stage := pipe.CurrentStage(); stage != nil {
+				nextStage = stage.Def.Name
+			}
+		}
+		fmt.Printf(" [wu %d/%d (status: %v): next issue %d/%d '%s' @ '%s', inflight=%d] [scoreboard: read #: %d, write #: %d]",
 			i+1,
 			len(s.warpUnitList),
 			wu.status,
-			wu.warp.InstructionsCount()-wu.unfinishedInstsCount+1,
+			wu.nextIssueInstIndex+1,
 			wu.warp.InstructionsCount(),
-			wu.Pipeline.InstructionOpcode,
-			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name,
-			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
-			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles,
+			nextOpcode,
+			nextStage,
+			len(wu.InFlightPipelines),
 			wu.Scoreboard.getNumOfRegReadBusy(),
 			wu.Scoreboard.getNumOfRegWriteBusy())
 	}
 	fmt.Println()
 }
 
-func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpUnit { // debugName string
-
-	issued := []*SMSPWarpUnit{}
+func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDecision {
+	issued := []*IssueDecision{}
 	startIndex := s.nextIssueIndex
 	totalWarps := len(s.warpUnitList)
 	checked := 0
@@ -121,62 +136,46 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 	for len(issued) < SMSPSchedulerIssueSpeed && checked < totalWarps {
 		idx := (startIndex + checked) % totalWarps
 		wu := s.warpUnitList[idx]
-		// fmt.Printf("wu.Pipeline.InstructionOpcode = %s\n", wu.Pipeline.InstructionOpcode)
 
-		if (wu.status == WarpStatusReady || wu.status == WarpStatusRunning) && wu.unfinishedInstsCount > 0 {
-			// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
-			stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
-			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
-			// 	fmt.Printf("debug: stageName = %s\n", stageName)
-			// }
-			if isIssueStage(stageName) {
-				// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
-				// 	fmt.Printf("debug: isExecuteIssueOrMemoryPipeStage")
-				// }
-				unitType := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit
-				if !resourcePool.Reserve(unitType) {
-					checked++
-					// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
-					// 	fmt.Printf("debug: conflict")
-					// }
-					continue // resource conflict → skip
-				}
-				// fmt.Printf("cp2: To WarpStatusRunning: wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name = %s\n", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name)
-				wu.status = WarpStatusRunning
-			} else if isMemoryPipeStage(stageName) {
-				// fmt.Printf("Checking MemoryPipe stage for warp %d of SM's Scheduler\n", wu.warp.ID)
-				if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 2 {
-					// proceed; do it in Tick() later
-					// wu.status = WarpStatusWaiting
-					// checked++
-					// continue // memory pipe stage not yet launched
-				} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 1 {
-					// log.Panic("MemoryPipe stage should not be in 'Waiting' status here")
-				} else if wu.Pipeline.Stages[wu.Pipeline.PC].Left == 0 {
-					// proceed
-				}
-
-				// only when a MemoryPipe stage has been launched and its status has turned from "Waiting" to "Running" can it proceed
-			} else {
-				// fmt.Printf("cp1 To WarpStatusRunning: wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name = %s\n", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name)
-				wu.status = WarpStatusRunning
-			}
-			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
-			// 	fmt.Printf("Issuing warp %d of SM's Scheduler: inst %d/%d '%s' @ '%s' stage (%d/%d)\n",
-			// 		wu.warp.ID,
-			// 		wu.warp.InstructionsCount()-wu.unfinishedInstsCount+1,
-			// 		wu.warp.InstructionsCount(),
-			// 		wu.Pipeline.InstructionOpcode,
-			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name,
-			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
-			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles)
-			// }
-
-			issued = append(issued, wu)
+		if wu.unfinishedInstsCount == 0 || !wu.HasMoreToIssue() {
+			checked++
+			continue
 		}
 
+		inst := wu.NextInstruction()
+		pipe := NewPipelineInstance(inst, wu)
+		stage := pipe.CurrentStage()
+		if stage == nil {
+			checked++
+			continue
+		}
+
+		if wu.Scoreboard.HasConflict(pipe.SrcRegs, pipe.DstRegs) {
+			checked++
+			continue
+		}
+
+		if !resourcePool.Reserve(stage.Def.Unit) {
+			checked++
+			continue
+		}
+
+		wu.Scoreboard.MarkIssued(pipe.SrcRegs, pipe.DstRegs)
+		wu.InFlightPipelines = append(wu.InFlightPipelines, pipe)
+		wu.nextIssueInstIndex++
+		wu.updateStatus()
+
+		issued = append(issued, &IssueDecision{
+			WarpUnit: wu,
+			Pipeline: pipe,
+		})
 		checked++
 	}
+
+	if totalWarps == 0 {
+		return issued
+	}
+
 	if SMSPSchedulerIssuepolicy == "ROUND_ROBIN" {
 		s.nextIssueIndex = (startIndex + checked) % totalWarps
 	} else if SMSPSchedulerIssuepolicy == "FCFS" {
@@ -185,21 +184,6 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 		log.Panic("unsupported issue policy")
 	}
 	return issued
-
-	// issuedWarps := []*SMSPWarpUnit{}
-	// startIndex := 0
-	// for i := 0; i < SMSPSchedulerIssueSpeed; i++ {
-	// 	var warpUnit *SMSPWarpUnit
-	// 	startIndex, warpUnit = s.issueWarp(startIndex)
-	// 	if warpUnit != nil {
-	// 		issuedWarps = append(issuedWarps, warpUnit)
-	// 		startIndex++ // Move to the next warp
-	// 	} else {
-	// 		break
-	// 	}
-	// }
-
-	// return issuedWarps
 }
 
 func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
@@ -207,18 +191,13 @@ func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 		warp:                 warp,
 		status:               WarpStatusReady,
 		unfinishedInstsCount: warp.InstructionsCount(),
-		Pipeline:             nil,
+		nextIssueInstIndex:   0,
+		InFlightPipelines:    []*PipelineInstance{},
 		Scoreboard:           NewScoreboard(),
 	}
-	// fmt.Printf("warp.InstructionsCount() = %d\n", warp.InstructionsCount())
 	if len(warp.Instructions) == 0 {
-		// log.WithField("warpID", warp.ID).Warn("warp has no instructions")
-		// return false
 		log.Panic(fmt.Sprintf("warp (ID: %d) has no instructions", warp.ID))
 	}
-	inst := warp.Instructions[0]
-
-	newWarpUnit.Pipeline = NewPipelineInstance(inst, newWarpUnit)
 
 	s.warpUnitList = append(s.warpUnitList, newWarpUnit)
 	return true

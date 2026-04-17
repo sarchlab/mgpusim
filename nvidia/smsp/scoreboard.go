@@ -1,31 +1,33 @@
 package smsp
 
 type Scoreboard struct {
-	regWriteBusy map[string]bool
-	regReadBusy  map[string]bool
+	regWriteBusy map[string]int
+	regReadBusy  map[string]int
 }
 
 func NewScoreboard() *Scoreboard {
 	return &Scoreboard{
-		regWriteBusy: make(map[string]bool),
-		regReadBusy:  make(map[string]bool),
+		regWriteBusy: make(map[string]int),
+		regReadBusy:  make(map[string]int),
 	}
 }
 
 func (s *Scoreboard) Reset() {
-	s.regWriteBusy = make(map[string]bool)
-	s.regReadBusy = make(map[string]bool)
+	s.regWriteBusy = make(map[string]int)
+	s.regReadBusy = make(map[string]int)
 }
 
 // Write
 
 func (s *Scoreboard) GetWriteBusy(reg string) bool {
-	return s.regWriteBusy[reg]
+	return s.regWriteBusy[reg] > 0
 }
 
 func (s *Scoreboard) SetWriteBusy(reg string, busy bool) {
 	if busy {
-		s.regWriteBusy[reg] = true
+		if s.regWriteBusy[reg] == 0 {
+			s.regWriteBusy[reg] = 1
+		}
 	} else {
 		delete(s.regWriteBusy, reg)
 	}
@@ -34,12 +36,14 @@ func (s *Scoreboard) SetWriteBusy(reg string, busy bool) {
 // Read
 
 func (s *Scoreboard) GetReadBusy(reg string) bool {
-	return s.regReadBusy[reg]
+	return s.regReadBusy[reg] > 0
 }
 
 func (s *Scoreboard) SetReadBusy(reg string, busy bool) {
 	if busy {
-		s.regReadBusy[reg] = true
+		if s.regReadBusy[reg] == 0 {
+			s.regReadBusy[reg] = 1
+		}
 	} else {
 		delete(s.regReadBusy, reg)
 	}
@@ -51,22 +55,24 @@ func (s *Scoreboard) ClearReg(reg string) {
 	delete(s.regReadBusy, reg)
 }
 
-// Check RAW or WAW hazard
-// srcRegs = registers the inst reads
-// dstRegs = registers the inst writes
-
-func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
-	// return false
-	// RAW: read-after-write
+func (s *Scoreboard) HasConflict(srcRegs []string, dstRegs []string) bool {
+	// RAW: current instruction reads a register that is still being written.
 	for _, r := range srcRegs {
-		if s.regWriteBusy[r] {
+		if s.regWriteBusy[r] > 0 {
 			return true
 		}
 	}
 
-	// WAW: write-after-write
+	// WAW: current instruction writes a register that is still being written.
 	for _, r := range dstRegs {
-		if s.regWriteBusy[r] {
+		if s.regWriteBusy[r] > 0 {
+			return true
+		}
+	}
+
+	// WAR: current instruction writes a register that is still being read.
+	for _, r := range dstRegs {
+		if s.regReadBusy[r] > 0 {
 			return true
 		}
 	}
@@ -74,45 +80,49 @@ func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
 	return false
 }
 
-func (s *Scoreboard) HasReadConflict(srcRegs []string, dstRegs []string) bool {
-	// return false
-	// WAR: write-after-read
-	for _, r := range dstRegs {
-		if s.regReadBusy[r] {
-			return true
-		}
-	}
+// Backward-compatible wrappers.
+func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
+	return s.HasConflict(srcRegs, dstRegs)
+}
 
-	return false
+func (s *Scoreboard) HasReadConflict(srcRegs []string, dstRegs []string) bool {
+	return s.HasConflict(srcRegs, dstRegs)
 }
 
 func (s *Scoreboard) MarkIssued(srcRegs []string, dstRegs []string) {
 	for _, r := range srcRegs {
-		s.SetReadBusy(r, true)
+		s.regReadBusy[r]++
 	}
 	for _, r := range dstRegs {
-		s.SetWriteBusy(r, true)
+		s.regWriteBusy[r]++
 	}
 }
 
 func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
 	for _, r := range srcRegs {
-		s.SetReadBusy(r, false)
+		if s.regReadBusy[r] <= 1 {
+			delete(s.regReadBusy, r)
+		} else {
+			s.regReadBusy[r]--
+		}
 	}
 	for _, r := range dstRegs {
-		s.SetWriteBusy(r, false)
+		if s.regWriteBusy[r] <= 1 {
+			delete(s.regWriteBusy, r)
+		} else {
+			s.regWriteBusy[r]--
+		}
 	}
-	// fmt.Printf("MarkCompleted called for srcRegs: %v, dstRegs: %v. Current write busy: %v, read busy: %v\n", srcRegs, dstRegs, s.regWriteBusy, s.regReadBusy)
 }
 
 func (s *Scoreboard) HasAnyBusy() bool {
 	for _, v := range s.regWriteBusy {
-		if v {
+		if v > 0 {
 			return true
 		}
 	}
 	for _, v := range s.regReadBusy {
-		if v {
+		if v > 0 {
 			return true
 		}
 	}
@@ -122,7 +132,7 @@ func (s *Scoreboard) HasAnyBusy() bool {
 func (s *Scoreboard) getNumOfRegReadBusy() uint64 {
 	count := uint64(0)
 	for _, v := range s.regReadBusy {
-		if v {
+		if v > 0 {
 			count++
 		}
 	}
@@ -132,7 +142,7 @@ func (s *Scoreboard) getNumOfRegReadBusy() uint64 {
 func (s *Scoreboard) getNumOfRegWriteBusy() uint64 {
 	count := uint64(0)
 	for _, v := range s.regWriteBusy {
-		if v {
+		if v > 0 {
 			count++
 		}
 	}

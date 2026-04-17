@@ -49,22 +49,14 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.toSM = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToSM", name))
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
 
-	// cache updates
-	// s.ToMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToMem", name))
-	// s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
-
 	s.ToVectorMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToVectorMem", name))
 	s.AddPort(fmt.Sprintf("%s.ToVectorMem", name), s.ToVectorMem)
-
-	// s.waitingCycle = 0
 
 	s.ResourcePool = NewH100SMSPResourcePool()
 
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
 	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
-	s.PendingSMSPMemMsgID2Warp = make(map[string]*SMSPWarpUnit)
-	s.PendingSMSPMemMsgID2DstRegs = make(map[string][]string)
-	s.PendingSMSPMemMsgID2SrcRegs = make(map[string][]string)
+	s.PendingSMSPMemMsgID2Pipeline = make(map[string]*PipelineInstance)
 
 	atexit.Register(s.LogStatus)
 
