@@ -5,7 +5,6 @@ type Scoreboard struct {
 	regReadBusy  map[string]bool
 }
 
-// Constructor
 func NewScoreboard() *Scoreboard {
 	return &Scoreboard{
 		regWriteBusy: make(map[string]bool),
@@ -13,13 +12,12 @@ func NewScoreboard() *Scoreboard {
 	}
 }
 
-// Reset / clean all register states
 func (s *Scoreboard) Reset() {
 	s.regWriteBusy = make(map[string]bool)
 	s.regReadBusy = make(map[string]bool)
 }
 
-/* ---------------- Write Busy ---------------- */
+// Write
 
 func (s *Scoreboard) GetWriteBusy(reg string) bool {
 	return s.regWriteBusy[reg]
@@ -33,7 +31,7 @@ func (s *Scoreboard) SetWriteBusy(reg string, busy bool) {
 	}
 }
 
-/* ---------------- Read Busy ---------------- */
+// Read
 
 func (s *Scoreboard) GetReadBusy(reg string) bool {
 	return s.regReadBusy[reg]
@@ -47,8 +45,6 @@ func (s *Scoreboard) SetReadBusy(reg string, busy bool) {
 	}
 }
 
-/* ---------------- Utilities ---------------- */
-
 // Clear all state for one register
 func (s *Scoreboard) ClearReg(reg string) {
 	delete(s.regWriteBusy, reg)
@@ -58,8 +54,9 @@ func (s *Scoreboard) ClearReg(reg string) {
 // Check RAW or WAW hazard
 // srcRegs = registers the inst reads
 // dstRegs = registers the inst writes
+
 func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
-	return false
+	// return false
 	// RAW: read-after-write
 	for _, r := range srcRegs {
 		if s.regWriteBusy[r] {
@@ -78,7 +75,7 @@ func (s *Scoreboard) HasWriteConflict(srcRegs []string, dstRegs []string) bool {
 }
 
 func (s *Scoreboard) HasReadConflict(srcRegs []string, dstRegs []string) bool {
-	return false
+	// return false
 	// WAR: write-after-read
 	for _, r := range dstRegs {
 		if s.regReadBusy[r] {
@@ -89,7 +86,6 @@ func (s *Scoreboard) HasReadConflict(srcRegs []string, dstRegs []string) bool {
 	return false
 }
 
-// Mark registers busy for an issued instruction
 func (s *Scoreboard) MarkIssued(srcRegs []string, dstRegs []string) {
 	for _, r := range srcRegs {
 		s.SetReadBusy(r, true)
@@ -99,7 +95,6 @@ func (s *Scoreboard) MarkIssued(srcRegs []string, dstRegs []string) {
 	}
 }
 
-// Clear registers when instruction completes
 func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
 	for _, r := range srcRegs {
 		s.SetReadBusy(r, false)
