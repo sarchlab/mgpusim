@@ -83,6 +83,7 @@ type GPUController struct {
 
 	CWDIssueWidth         uint64
 	SMResponseHandleWidth uint64
+	MaxCTAPerSM           uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -224,21 +225,44 @@ func (g *GPUController) reportFinishedKernels() bool {
 	return true
 }
 
-func (g *GPUController) issueSMIndexBestOneStrategy(nThreadToBeAssigned uint64, nCTAToBeAssigned uint64) int {
+func (g *GPUController) issueSMIndexBestOneStrategy(nThreadToBeAssigned uint64) int {
+	if g.MaxCTAPerSM == 0 {
+		g.MaxCTAPerSM = 1
+	}
+
+	bestIndex := -1
+	bestCTAs := ^uint64(0)
+	bestThreads := ^uint64(0)
+
 	for i := 0; i < int(g.smsCount); i++ {
 		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
 		sm := g.SMList[index]
-		if g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity && g.SMAssignedCTACountTable[sm.ID]+nCTAToBeAssigned <= 4 {
-			g.SMAssignedThreadTable[sm.ID] += nThreadToBeAssigned
-			g.SMAssignedCTACountTable[sm.ID] += nCTAToBeAssigned
-			// fmt.Printf("g.SMAssignedThreadTable[%s] = %d, nThreadToBeAssigned = %d, g.SMAssignedThreadTable[%s]+=nThreadToBeAssigned=%d\n", sm.ID, g.SMAssignedThreadTable[sm.ID], nThreadToBeAssigned, sm.ID, g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned)
-			g.SMIssueIndex = uint64((index) % int(g.smsCount))
-			return index
+		assignedThreads := g.SMAssignedThreadTable[sm.ID]
+		assignedCTAs := g.SMAssignedCTACountTable[sm.ID]
+
+		if assignedThreads+nThreadToBeAssigned > g.SMThreadCapacity {
+			continue
 		}
-		// fmt.Printf("sm %s cannot take %d threads now, current assigned threads = %d, current assigned CTAs = %d\n", sm.ID, nThreadToBeAssigned, g.SMAssignedThreadTable[sm.ID], g.SMAssignedCTACountTable[sm.ID])
+		if assignedCTAs >= g.MaxCTAPerSM {
+			continue
+		}
+
+		if bestIndex == -1 || assignedCTAs < bestCTAs || (assignedCTAs == bestCTAs && assignedThreads < bestThreads) {
+			bestIndex = index
+			bestCTAs = assignedCTAs
+			bestThreads = assignedThreads
+		}
 	}
-	// fmt.Printf("All sms already has full threadblocks to do\n")
-	return -1
+
+	if bestIndex == -1 {
+		return -1
+	}
+
+	sm := g.SMList[bestIndex]
+	g.SMAssignedThreadTable[sm.ID] += nThreadToBeAssigned
+	g.SMAssignedCTACountTable[sm.ID] += 1
+	g.SMIssueIndex = uint64(bestIndex % int(g.smsCount))
+	return bestIndex
 }
 
 // func (g *GPUController) getAverageAssignedThread(SMAssignedThreadTable map[string]uint64) float64 {
@@ -301,7 +325,7 @@ func (g *GPUController) issueSMIndexDictAverageStrategy(nCTACandidates int) (uin
 				assignedCTAs := g.SMAssignedCTACountTable[sm.ID]
 
 				// capacity and CTA slot check
-				if assignedThreads+ctaThreads > g.SMThreadCapacity || assignedCTAs >= 4 {
+				if assignedThreads+ctaThreads > g.SMThreadCapacity || assignedCTAs >= g.MaxCTAPerSM {
 					continue
 				}
 
@@ -340,44 +364,32 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	if g.smsCount == 0 {
 		log.Panic("SM count is 0")
 	}
-	// fmt.Printf("g.GPU2SMThreadBlockAllocationLatencyRemaining = %d\n", g.GPU2SMThreadBlockAllocationLatencyRemaining)
 	if g.GPU2SMThreadBlockAllocationLatencyRemaining > 0 {
 		g.GPU2SMThreadBlockAllocationLatencyRemaining--
 		return true
 	}
+	if g.CWDIssueWidth == 0 {
+		g.CWDIssueWidth = 1
+	}
+	if g.MaxCTAPerSM == 0 {
+		g.MaxCTAPerSM = 1
+	}
 
-	// for i := uint64(0); i < g.CWDIssueWidth; i++ {
-	// if len(g.undispatchedThreadblocks) == 0 {
-	// 	break
-	// }
-	var threadblockList []*trace.ThreadblockTrace
-	warpCount := uint64(0)
 	if DispatchThreadblocksToSMsStrategy == "BestOne" {
-		for i := uint64(0); i < g.CWDIssueWidth; i++ {
-			if i >= uint64(len(g.undispatchedThreadblocks)) || (warpCount+g.undispatchedThreadblocks[i].WarpsCount())*32 > g.SMThreadCapacity {
-				break
+		dispatched := uint64(0)
+		for dispatched < g.CWDIssueWidth && len(g.undispatchedThreadblocks) > 0 {
+			threadblock := g.undispatchedThreadblocks[0]
+			nThreadToBeAssigned := uint64(threadblock.WarpsCount()) * 32
+			smIndex := g.issueSMIndexBestOneStrategy(nThreadToBeAssigned)
+			if smIndex == -1 {
+				if dispatched > 0 {
+					g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
+					return true
+				}
+				return true
 			}
-			warpCount += g.undispatchedThreadblocks[i].WarpsCount()
-			threadblockList = append(threadblockList, g.undispatchedThreadblocks[i])
-		}
 
-		// threadblock_0 := g.undispatchedThreadblocks[0]
-		nThreadToBeAssigned := warpCount * 32
-
-		smIndex := g.issueSMIndexBestOneStrategy(nThreadToBeAssigned, uint64(len(threadblockList)))
-		// fmt.Printf("smIndex: %d\n", smIndex)
-		if smIndex == -1 {
-			// All sms already has a threadblock to do
-			return true
-		}
-
-		for i := 0; i < len(threadblockList); i++ {
-			threadblock := threadblockList[i]
-			if len(g.undispatchedThreadblocks) == 0 {
-				break
-			}
 			sm := g.SMList[smIndex]
-
 			msg := &message.DeviceToSMMsg{
 				Threadblock: *threadblock,
 			}
@@ -388,31 +400,22 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 			if err != nil {
 				return false
 			}
+
+			g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+			dispatched++
 		}
-
-		// g.freeSMs = g.freeSMs[1:]
-		// fmt.Printf("Issued %d threadblocks\n", len(threadblockList))
-		g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
-
-		g.undispatchedThreadblocks = g.undispatchedThreadblocks[len(threadblockList):]
 	} else if DispatchThreadblocksToSMsStrategy == "Average" {
-		// collect up to CWDIssueWidth CTAs as candidates
-		maxCandidates := 40 // int(g.CWDIssueWidth)
+		maxCandidates := int(g.CWDIssueWidth)
 		availableCTAs := len(g.undispatchedThreadblocks)
 		if maxCandidates > availableCTAs {
 			maxCandidates = availableCTAs
 		}
-		if maxCandidates == 0 {
-			// nothing to do
-		} else {
+		if maxCandidates > 0 {
 			_, nCTAToBeAssigned, assignMap := g.issueSMIndexDictAverageStrategy(maxCandidates)
-			// fmt.Printf("%.10f, AverageThread: %.2f, nCTAToBeAssigned: %d/%d, assignMap: %v\n", g.CurrentTime(), g.getAverageAssignedThread(g.SMAssignedThreadTable), nCTAToBeAssigned, maxCandidates, assignMap)
 			if nCTAToBeAssigned == 0 {
-				// couldn't assign any CTA now
 				return true
 			}
 
-			// send assigned CTAs
 			for tIdx := 0; tIdx < nCTAToBeAssigned; tIdx++ {
 				if len(g.undispatchedThreadblocks) == 0 {
 					break
@@ -431,18 +434,15 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 				if err != nil {
 					return false
 				}
-				// remove the head CTA (we always take from front)
 				g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
 			}
 
-			// advance issue index a bit to rotate start point
-			g.SMIssueIndex = (g.SMIssueIndex + uint64(nCTAToBeAssigned)) % g.smsCount // g.SMIssueIndex = (g.SMIssueIndex + uint64(nCTAToBeAssigned)) % g.smsCount
+			g.SMIssueIndex = (g.SMIssueIndex + uint64(nCTAToBeAssigned)) % g.smsCount
 		}
 	}
 
 	g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
-	// }
-	return false
+	return true
 }
 
 func (g *GPUController) LogStatus() {

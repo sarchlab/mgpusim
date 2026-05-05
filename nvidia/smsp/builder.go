@@ -10,10 +10,11 @@ import (
 )
 
 type SMSPBuilder struct {
-	simulation *simulation.Simulation
-	engine     sim.Engine
-	freq       sim.Freq
-	VisTracing bool
+	simulation             *simulation.Simulation
+	engine                 sim.Engine
+	freq                   sim.Freq
+	VisTracing             bool
+	MemResponseHandleWidth uint64
 }
 
 func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
@@ -36,12 +37,18 @@ func (b *SMSPBuilder) WithVisTracing(vt bool) *SMSPBuilder {
 	return b
 }
 
+func (b *SMSPBuilder) WithMemResponseHandleWidth(w uint64) *SMSPBuilder {
+	b.MemResponseHandleWidth = w
+	return b
+}
+
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
 		ID:                            sim.GetIDGenerator().Generate(),
 		SMSPReceiveSMLatency:          10000,
 		SMSPReceiveSMLatencyRemaining: 10000,
 		VisTracing:                    b.VisTracing,
+		MemResponseHandleWidth:        b.MemResponseHandleWidth,
 		scheduler:                     NewSMSPScheduler(),
 	}
 

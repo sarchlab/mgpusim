@@ -35,6 +35,8 @@ type SMBuilder struct {
 
 	SM2SMSPWarpIssueLatency uint64
 	SMReceiveGPULatency     uint64
+	SMSPResponseHandleWidth uint64
+	MemResponseHandleWidth  uint64
 
 	VisTracing bool
 }
@@ -88,6 +90,16 @@ func (b SMBuilder) WithSMReceiveGPULatency(l uint64) SMBuilder {
 	return b
 }
 
+func (b SMBuilder) WithSMSPResponseHandleWidth(w uint64) SMBuilder {
+	b.SMSPResponseHandleWidth = w
+	return b
+}
+
+func (b SMBuilder) WithMemResponseHandleWidth(w uint64) SMBuilder {
+	b.MemResponseHandleWidth = w
+	return b
+}
+
 func (b SMBuilder) WithVisTracing(vt bool) SMBuilder {
 	b.VisTracing = vt
 	return b
@@ -106,6 +118,7 @@ func (b SMBuilder) Build(name string) *SMController {
 		threadblockWarpCountTableOrigin:      make(map[trace.Dim3]uint64),
 		SMReceiveGPULatency:                  b.SMReceiveGPULatency,
 		SMReceiveGPULatencyRemaining:         b.SMReceiveGPULatency,
+		SMSPResponseHandleWidth:              b.SMSPResponseHandleWidth,
 		CWDAdmissionPathCostLatencyRemaining: 0,
 		VisTracing:                           b.VisTracing,
 	}
@@ -178,7 +191,8 @@ func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 			WithEngine(b.engine).
 			WithFreq(b.freq).
 			WithSimulation(b.simulation).
-			WithVisTracing(b.VisTracing)
+			WithVisTracing(b.VisTracing).
+			WithMemResponseHandleWidth(b.MemResponseHandleWidth)
 
 		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", smName, i))
 		b.simulation.RegisterComponent(smsp)
@@ -222,7 +236,7 @@ func (b *SMBuilder) buildL1VCaches() {
 		builder := writearound.MakeBuilder().
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithBankLatency(27). // cycle was 20 40
+			WithBankLatency(1). // WithBankLatency(27). // cycle was 20 40
 			WithNumBanks(1).
 			WithLog2BlockSize(b.log2CacheLineSize).
 			WithWayAssociativity(4).

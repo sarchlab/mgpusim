@@ -47,6 +47,11 @@ type GPUBuilder struct {
 	SMReceiveGPULatency                uint64
 	GPUReceiveSMLatency                uint64
 	GPUReceiveCTALatencyUnit           float64
+	CWDIssueWidth                      uint64
+	SMResponseHandleWidth              uint64
+	MaxCTAPerSM                        uint64
+	SMSPResponseHandleWidth            uint64
+	MemResponseHandleWidth             uint64
 
 	VisTracing bool
 }
@@ -128,6 +133,31 @@ func (b GPUBuilder) WithGPUReceiveCTALatencyUnit(l float64) GPUBuilder {
 	return b
 }
 
+func (b GPUBuilder) WithCWDIssueWidth(w uint64) GPUBuilder {
+	b.CWDIssueWidth = w
+	return b
+}
+
+func (b GPUBuilder) WithSMResponseHandleWidth(w uint64) GPUBuilder {
+	b.SMResponseHandleWidth = w
+	return b
+}
+
+func (b GPUBuilder) WithMaxCTAPerSM(w uint64) GPUBuilder {
+	b.MaxCTAPerSM = w
+	return b
+}
+
+func (b GPUBuilder) WithSMSPResponseHandleWidth(w uint64) GPUBuilder {
+	b.SMSPResponseHandleWidth = w
+	return b
+}
+
+func (b GPUBuilder) WithMemResponseHandleWidth(w uint64) GPUBuilder {
+	b.MemResponseHandleWidth = w
+	return b
+}
+
 func (b GPUBuilder) WithVisTracing(vt bool) GPUBuilder {
 	b.VisTracing = vt
 	return b
@@ -203,8 +233,9 @@ func (b *GPUBuilder) createGPU(name string) {
 		GPUReceiveSMLatencyRemaining:                b.GPUReceiveSMLatency,
 		GPUReceiveCTALatencyUnit:                    b.GPUReceiveCTALatencyUnit,
 		GPUReceiveCTALatencyRemaining:               0,
-		CWDIssueWidth:                               4,
-		SMResponseHandleWidth:                       1,
+		CWDIssueWidth:                               b.CWDIssueWidth,
+		SMResponseHandleWidth:                       b.SMResponseHandleWidth,
+		MaxCTAPerSM:                                 b.MaxCTAPerSM,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
@@ -236,6 +267,8 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithL1AddressMapper(b.l1AddressMapper).
 		WithSM2SMSPWarpIssueLatency(b.SM2SMSPWarpIssueLatency).
 		WithSMReceiveGPULatency(b.SMReceiveGPULatency).
+		WithSMSPResponseHandleWidth(b.SMSPResponseHandleWidth).
+		WithMemResponseHandleWidth(b.MemResponseHandleWidth).
 		WithVisTracing(b.VisTracing)
 
 	sms := []*sm.SMController{}
@@ -392,7 +425,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 		dram := idealmemcontroller.MakeBuilder().
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithLatency(490). // was 400 810
+			WithLatency(1). // WithLatency(490). // was 400 810
 			WithStorage(mem.NewStorage(b.DramSize / uint64(b.numMemoryBank))).
 			Build(dramName)
 		b.simulation.RegisterComponent(dram)
@@ -405,7 +438,7 @@ func (b *GPUBuilder) buildL2Caches() {
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithBankLatency(305). // was 100 325
+		WithBankLatency(1). // WithBankLatency(305). // was 100 325
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).

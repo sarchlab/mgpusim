@@ -63,6 +63,12 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithSM2SMSPWarpIssueLatency(0).
 		WithGPUReceiveSMLatency(0).
 		WithGPUReceiveCTALatencyUnit(0.10). // 0.10
+		// added width for response handle
+		WithCWDIssueWidth(8).
+		WithSMResponseHandleWidth(8).
+		WithMaxCTAPerSM(16).
+		WithSMSPResponseHandleWidth(8).
+		WithMemResponseHandleWidth(8).
 		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {

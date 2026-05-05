@@ -59,6 +59,7 @@ type SMController struct {
 	SMReceiveGPULatency          uint64
 	SMReceiveGPULatencyRemaining uint64
 
+	SMSPResponseHandleWidth              uint64
 	CWDAdmissionPathCostLatencyRemaining uint64
 
 	VisTracing bool
@@ -132,19 +133,27 @@ func (s *SMController) processGPUInput() bool {
 }
 
 func (s *SMController) processSMSPsInput() bool {
-	msg := s.toSMSPs.PeekIncoming()
-	if msg == nil {
-		return false
+	if s.SMSPResponseHandleWidth == 0 {
+		s.SMSPResponseHandleWidth = 1
 	}
 
-	switch msg := msg.(type) {
-	case *message.SMSPToSMMsg:
-		s.processSMSPSMsg(msg)
-	default:
-		log.WithField("function", "processSMSPsInput").Panic("Unhandled message type")
+	madeProgress := false
+	for i := uint64(0); i < s.SMSPResponseHandleWidth; i++ {
+		msg := s.toSMSPs.PeekIncoming()
+		if msg == nil {
+			break
+		}
+
+		switch msg := msg.(type) {
+		case *message.SMSPToSMMsg:
+			s.processSMSPSMsg(msg)
+		default:
+			log.WithField("function", "processSMSPsInput").Panic("Unhandled message type")
+		}
+		madeProgress = true
 	}
 
-	return true
+	return madeProgress
 }
 
 // func (s *SMController) processSMSPsInputMem() bool {

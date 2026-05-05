@@ -37,7 +37,8 @@ type SMSPController struct {
 	SMSPReceiveSMLatency          uint64
 	SMSPReceiveSMLatencyRemaining uint64
 
-	ResourcePool *ResourcePool
+	ResourcePool           *ResourcePool
+	MemResponseHandleWidth uint64
 
 	VisTracing bool
 }
@@ -97,61 +98,70 @@ func (s *SMSPController) releasePipelineDstRegs(pipe *PipelineInstance) bool {
 }
 
 func (s *SMSPController) processMemRsp() bool {
-	msg := s.ToVectorMem.PeekIncoming()
-	if msg == nil {
-		return false
+	if s.MemResponseHandleWidth == 0 {
+		s.MemResponseHandleWidth = 1
 	}
 
-	switch msg := msg.(type) {
-	case *mem.DataReadyRsp:
-		originalReqMsg := s.PendingSMSPtoMemReadReq[msg.RespondTo]
-		if originalReqMsg == nil {
-			log.Panic("read response has no matching pending request")
-		}
-		if s.VisTracing {
-			tracing.TraceReqFinalize(originalReqMsg, s)
+	madeProgress := false
+	for i := uint64(0); i < s.MemResponseHandleWidth; i++ {
+		msg := s.ToVectorMem.PeekIncoming()
+		if msg == nil {
+			break
 		}
 
-		pipeline := s.PendingSMSPMemMsgID2Pipeline[originalReqMsg.ID]
-		if pipeline == nil {
-			log.Panic("pipeline not found for read response")
+		switch msg := msg.(type) {
+		case *mem.DataReadyRsp:
+			originalReqMsg := s.PendingSMSPtoMemReadReq[msg.RespondTo]
+			if originalReqMsg == nil {
+				log.Panic("read response has no matching pending request")
+			}
+			if s.VisTracing {
+				tracing.TraceReqFinalize(originalReqMsg, s)
+			}
+
+			pipeline := s.PendingSMSPMemMsgID2Pipeline[originalReqMsg.ID]
+			if pipeline == nil {
+				log.Panic("pipeline not found for read response")
+			}
+			delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
+			delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
+
+			s.releasePipelineSrcRegs(pipeline)
+			s.releasePipelineDstRegs(pipeline)
+			pipeline.MarkMemoryResponseReady()
+			pipeline.Warp.updateStatus()
+
+		case *mem.WriteDoneRsp:
+			originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
+			if originalReqMsg == nil {
+				log.Panic("write response has no matching pending request")
+			}
+			if s.VisTracing {
+				tracing.TraceReqFinalize(originalReqMsg, s)
+			}
+
+			pipeline := s.PendingSMSPMemMsgID2Pipeline[originalReqMsg.ID]
+			if pipeline == nil {
+				log.Panic("pipeline not found for write response")
+			}
+			delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
+			delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
+
+			s.releasePipelineSrcRegs(pipeline)
+			s.releasePipelineDstRegs(pipeline)
+			pipeline.MarkMemoryResponseReady()
+			pipeline.Warp.updateStatus()
+
+		default:
+			log.WithField("function", "processSMInput").Panic("Unhandled message type")
+			s.ToVectorMem.RetrieveIncoming()
+			return madeProgress
 		}
-		delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
-		delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
-
-		s.releasePipelineSrcRegs(pipeline)
-		s.releasePipelineDstRegs(pipeline)
-		pipeline.MarkMemoryResponseReady()
-		pipeline.Warp.updateStatus()
-
-	case *mem.WriteDoneRsp:
-		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
-		if originalReqMsg == nil {
-			log.Panic("write response has no matching pending request")
-		}
-		if s.VisTracing {
-			tracing.TraceReqFinalize(originalReqMsg, s)
-		}
-
-		pipeline := s.PendingSMSPMemMsgID2Pipeline[originalReqMsg.ID]
-		if pipeline == nil {
-			log.Panic("pipeline not found for write response")
-		}
-		delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
-		delete(s.PendingSMSPMemMsgID2Pipeline, originalReqMsg.ID)
-
-		s.releasePipelineSrcRegs(pipeline)
-		s.releasePipelineDstRegs(pipeline)
-		pipeline.MarkMemoryResponseReady()
-		pipeline.Warp.updateStatus()
-
-	default:
-		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 		s.ToVectorMem.RetrieveIncoming()
-		return false
+		madeProgress = true
 	}
-	s.ToVectorMem.RetrieveIncoming()
-	return true
+
+	return madeProgress
 }
 
 func (s *SMSPController) processSMMsg(msg *message.SMToSMSPMsg) {
@@ -210,6 +220,7 @@ func (s *SMSPController) launchIssuedPipelines(issued []*IssueDecision) bool {
 
 		if isMemoryPipeStage(stage.Def.Name) {
 			pipe.MarkMemoryRequestSent()
+			// fmt.Printf("pipe.Inst.MemAddress = %x\n", pipe.Inst.MemAddress)
 			switch stage.Def.Name {
 			case "MemoryPipeRead":
 				if !s.doRead(pipe, pipe.Inst.InstructionsFullID(), pipe.Inst.MemAddress, uint64(pipe.Inst.MemAddressSuffix1)) {
@@ -319,6 +330,7 @@ func (s *SMSPController) run() bool {
 	// if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
 	// 	s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	// }
+	// s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	if len(issued) > 0 {
 		madeProgress = true
 	}
