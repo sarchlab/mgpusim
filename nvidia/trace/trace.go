@@ -151,5 +151,6 @@ func (i *InstructionTrace) InstructionsParentID() string {
 }
 
 func (i *InstructionTrace) InstructionsFullID() string {
-	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp, i.OpCode.rawText)
+	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp)
+	// return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp, i.OpCode.rawText)
 }

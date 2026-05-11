@@ -239,10 +239,10 @@ func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
 		} else {
 			inst.MemAddress = memAddress
 		}
-		if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
-			// fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
-			// fmt.Printf("MemAddress: %x\n", inst.MemAddress)
-		}
+		// if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
+		// 	// fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
+		// 	// fmt.Printf("MemAddress: %x\n", inst.MemAddress)
+		// }
 
 		if inst.AddressCompress == 1 {
 			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)

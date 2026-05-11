@@ -425,7 +425,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 		dram := idealmemcontroller.MakeBuilder().
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithLatency(1). // WithLatency(490). // was 400 810
+			WithLatency(490). // WithLatency(490). // was 400 810
 			WithStorage(mem.NewStorage(b.DramSize / uint64(b.numMemoryBank))).
 			Build(dramName)
 		b.simulation.RegisterComponent(dram)
@@ -438,7 +438,7 @@ func (b *GPUBuilder) buildL2Caches() {
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithBankLatency(1). // WithBankLatency(305). // was 100 325
+		WithBankLatency(305). // WithBankLatency(305). // was 100 325
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
