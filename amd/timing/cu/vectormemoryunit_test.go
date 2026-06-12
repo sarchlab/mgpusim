@@ -4,9 +4,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 	"go.uber.org/mock/gomock"
 )
 

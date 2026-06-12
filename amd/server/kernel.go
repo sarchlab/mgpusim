@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 type dim3 struct {

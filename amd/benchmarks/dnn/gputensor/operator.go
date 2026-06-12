@@ -10,10 +10,10 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 var sizeOfFloat32 = 4

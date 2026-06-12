@@ -3,11 +3,11 @@ package main
 import (
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 )
 
 func main() {

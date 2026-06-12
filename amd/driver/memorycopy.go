@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // defaultMemoryCopyMiddleware handles memory copy commands and related

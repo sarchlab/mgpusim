@@ -6,8 +6,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 var _ = Describe("Operator", func() {

@@ -7,8 +7,8 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // RegFileAccessor provides access to register files for a wavefront.

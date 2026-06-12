@@ -4,8 +4,8 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // A Builder can build a driver.

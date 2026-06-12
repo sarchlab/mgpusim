@@ -1,6 +1,6 @@
 package gputensor
 
-import "github.com/sarchlab/mgpusim/v4/amd/driver"
+import "github.com/sarchlab/mgpusim/v5/amd/driver"
 
 // CDNA3HiddenArgs contains the hidden kernel arguments required by CDNA3
 // (gfx942) HSACOs. These must follow the explicit kernel arguments.

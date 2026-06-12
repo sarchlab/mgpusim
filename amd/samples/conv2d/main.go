@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layer_benchmarks/conv2d"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layer_benchmarks/conv2d"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var n = flag.Int("N", 1, "batch size")

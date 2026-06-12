@@ -1,8 +1,8 @@
 package gputensor
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 func (o *GPUOperator) launchRepeatCDNA3(

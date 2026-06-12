@@ -10,10 +10,10 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/matrix/csr"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // GCN3 Kernel Arguments

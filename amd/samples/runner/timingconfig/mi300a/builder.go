@@ -6,20 +6,20 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/mem/simplebankedmemory"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/emu/cdna3"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
 // MI300A hardware configuration constants.

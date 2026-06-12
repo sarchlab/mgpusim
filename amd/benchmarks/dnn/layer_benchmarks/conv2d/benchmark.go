@@ -2,11 +2,11 @@
 package conv2d
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
 // A Benchmark is a benchmark for the Convolutional Layer.

@@ -2,7 +2,7 @@ package kernels
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // A Grid is a running instance of a kernel.

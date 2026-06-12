@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/sarchlab/mgpusim/v4/amd/bitops"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // applyF32Modifier applies abs and neg modifiers for a float32 source operand.

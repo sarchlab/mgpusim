@@ -2,7 +2,7 @@ package cu
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A WavefrontPool holds the wavefronts that will be scheduled in one SIMD

@@ -3,7 +3,7 @@ package emu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // flatPrecomputeScalarBase reads the scalar base register once (lane-invariant).

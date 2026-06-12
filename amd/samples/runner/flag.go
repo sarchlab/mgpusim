@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")

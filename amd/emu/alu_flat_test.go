@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"go.uber.org/mock/gomock"
 )
 

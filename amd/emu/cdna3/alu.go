@@ -4,8 +4,8 @@ package cdna3
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // ALU is the CDNA3 (gfx942) ALU implementation.

@@ -10,10 +10,10 @@ import (
 	"github.com/sarchlab/akita/v4/noc/networking/pcie"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/mi300a"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300a"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
 )
 
 // Builder builds a hardware platform for timing simulation.

@@ -1,8 +1,8 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // A WorkGroup is a wrapper for the kernels.WorkGroup

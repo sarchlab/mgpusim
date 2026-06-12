@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/polybench/atax"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/polybench/atax"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var xFlag = flag.Int("x", 4096, "The width of the matrix.")

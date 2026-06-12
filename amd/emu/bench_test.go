@@ -3,7 +3,7 @@ package emu
 import (
 	"testing"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // BenchmarkNewWavefront measures the time to allocate a new Wavefront.

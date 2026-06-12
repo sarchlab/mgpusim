@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/heteromark/pagerank"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/pagerank"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var numNode = flag.Int("node", 16, "The number of nodes")

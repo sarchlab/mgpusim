@@ -6,8 +6,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	"go.uber.org/mock/gomock"
 )
 

@@ -12,12 +12,12 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/emu/cdna3"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 )
 
 // Builder builds a GPU for emulation.

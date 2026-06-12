@@ -4,8 +4,8 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/mgpusim/v4/amd/bitops"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 //nolint:gocyclo,funlen

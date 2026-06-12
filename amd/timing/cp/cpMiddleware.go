@@ -4,9 +4,9 @@ import (
 	"github.com/sarchlab/akita/v4/mem/cache"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 )
 
 type cpMiddleware struct {

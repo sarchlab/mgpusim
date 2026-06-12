@@ -3,9 +3,9 @@ package cp
 import (
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving

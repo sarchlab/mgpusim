@@ -3,8 +3,8 @@ package main_test
 import (
 	"testing"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/heteromark/fir"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 func BenchmarkFIR(t *testing.B) {

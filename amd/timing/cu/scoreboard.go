@@ -3,7 +3,7 @@ package cu
 import (
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // Scoreboard tracks per-wavefront register availability for hazard detection.

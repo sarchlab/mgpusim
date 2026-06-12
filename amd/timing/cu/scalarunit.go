@@ -5,9 +5,9 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A ScalarUnit performs Scalar operations

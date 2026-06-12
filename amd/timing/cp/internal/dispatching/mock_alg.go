@@ -12,8 +12,8 @@ package dispatching
 import (
 	reflect "reflect"
 
-	kernels "github.com/sarchlab/mgpusim/v4/amd/kernels"
-	resource "github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
+	kernels "github.com/sarchlab/mgpusim/v5/amd/kernels"
+	resource "github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 

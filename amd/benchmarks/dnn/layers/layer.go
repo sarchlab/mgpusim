@@ -1,6 +1,6 @@
 package layers
 
-import "github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 
 // A Layer can do both forward and backward propagation.
 type Layer interface {

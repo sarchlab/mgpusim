@@ -1,6 +1,6 @@
 package kernels
 
-import "github.com/sarchlab/mgpusim/v4/amd/insts"
+import "github.com/sarchlab/mgpusim/v5/amd/insts"
 
 // WGFilterFunc is a filter
 type WGFilterFunc func(

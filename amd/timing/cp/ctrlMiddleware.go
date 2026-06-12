@@ -6,9 +6,9 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
 type ctrlMiddleware struct {

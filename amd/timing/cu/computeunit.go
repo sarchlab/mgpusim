@@ -8,12 +8,12 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate

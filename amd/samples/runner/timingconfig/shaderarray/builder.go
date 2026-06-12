@@ -12,9 +12,9 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rob"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rob"
 )
 
 // Builder builds a shader array.

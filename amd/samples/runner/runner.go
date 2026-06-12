@@ -10,12 +10,12 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 type verificationPreEnablingBenchmark interface {

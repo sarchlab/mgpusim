@@ -3,9 +3,9 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts

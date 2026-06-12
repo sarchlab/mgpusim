@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 func (u *ALU) runVOP3B(state emu.InstEmuState) {

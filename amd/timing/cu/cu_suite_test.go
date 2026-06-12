@@ -6,8 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 //go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go github.com/sarchlab/akita/v4/sim Port,Engine,Buffer

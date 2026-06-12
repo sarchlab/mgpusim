@@ -14,11 +14,11 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
 // Builder builds a hardware platform for timing simulation.

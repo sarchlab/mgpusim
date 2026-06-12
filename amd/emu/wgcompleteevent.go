@@ -2,7 +2,7 @@ package emu
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // WGCompleteEvent is an event that marks the completion of a work-group
