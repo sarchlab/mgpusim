@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -34,8 +33,6 @@ func (m *ctrlMiddleware) Handle() bool {
 		return m.processShootdownCommand(req)
 	case *protocol.GPURestartReq:
 		return m.processGPURestartReq(req)
-	case *protocol.PageMigrationReqToCP:
-		return m.processPageMigrationReq(req)
 	}
 	return false
 }
@@ -47,7 +44,6 @@ func (m *ctrlMiddleware) HandleInternal() bool {
 	madeProgress = m.processRspFromATs() || madeProgress
 	madeProgress = m.processRspFromCaches() || madeProgress
 	madeProgress = m.processRspFromTLBs() || madeProgress
-	madeProgress = m.processRspFromPMC() || madeProgress
 	return madeProgress
 }
 
@@ -127,20 +123,6 @@ func (m *ctrlMiddleware) processRspFromTLBs() bool {
 		return m.processTLBFlushRsp(req)
 	case *tlb.RestartRsp:
 		return m.processTLBRestartRsp(req)
-	}
-
-	panic("never")
-}
-
-func (m *ctrlMiddleware) processRspFromPMC() bool {
-	msg := m.ToPMC.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *pagemigrationcontroller.PageMigrationRspFromPMC:
-		return m.processPageMigrationRsp(req)
 	}
 
 	panic("never")
@@ -401,21 +383,6 @@ func (m *ctrlMiddleware) processCUPipelineRestartRsp(
 	return true
 }
 
-func (m *ctrlMiddleware) processPageMigrationRsp(
-	rsp *pagemigrationcontroller.PageMigrationRspFromPMC,
-) bool {
-	req := protocol.NewPageMigrationRspToDriver(m.ToDriver, m.Driver)
-
-	err := m.ToDriver.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	m.ToPMC.RetrieveIncoming()
-
-	return true
-}
-
 func (m *ctrlMiddleware) processRDMADrainCmd(
 	cmd *protocol.RDMADrainCmdFromDriver,
 ) bool {
@@ -488,28 +455,6 @@ func (m *ctrlMiddleware) processGPURestartReq(
 
 	for _, port := range m.L1VCaches {
 		m.restartCache(port)
-	}
-
-	m.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (m *ctrlMiddleware) processPageMigrationReq(
-	cmd *protocol.PageMigrationReqToCP,
-) bool {
-	req := pagemigrationcontroller.PageMigrationReqToPMCBuilder{}.
-		WithSrc(m.ToPMC.AsRemote()).
-		WithDst(m.PMC.AsRemote()).
-		WithPageSize(cmd.PageSize).
-		WithPMCPortOfRemoteGPU(cmd.DestinationPMCPort.AsRemote()).
-		WithReadFrom(cmd.ToReadFromPhysicalAddress).
-		WithWriteTo(cmd.ToWriteToPhysicalAddress).
-		Build()
-
-	err := m.ToPMC.Send(req)
-	if err != nil {
-		panic(err)
 	}
 
 	m.ToDriver.RetrieveIncoming()

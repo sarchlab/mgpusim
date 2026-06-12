@@ -21,7 +21,6 @@ type CommandProcessor struct {
 	CUs                []sim.RemotePort
 	AddressTranslators []sim.Port
 	RDMA               sim.Port
-	PMC                sim.Port
 	L1VCaches          []sim.Port
 	L1SCaches          []sim.Port
 	L1ICaches          []sim.Port
@@ -35,7 +34,6 @@ type CommandProcessor struct {
 	ToAddressTranslators sim.Port
 	ToCaches             sim.Port
 	ToRDMA               sim.Port
-	ToPMC                sim.Port
 
 	currShootdownRequest *protocol.ShootDownCommand
 	currFlushRequest     *protocol.FlushReq

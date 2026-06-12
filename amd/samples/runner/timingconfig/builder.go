@@ -95,15 +95,11 @@ func (b Builder) Build() *sim.Domain {
 	pcieConnector, rootComplexID :=
 		b.createConnection(gpuDriver, mmuComp)
 
-	mmuComp.MigrationServiceProvider = gpuDriver.GetPortByName("MMU").AsRemote()
-
 	b.createRDMAAddrTable()
-	pmcAddressTable := b.createPMCPageTable()
 
 	b.createGPUs(
 		rootComplexID, pcieConnector,
-		gpuBuilder, gpuDriver,
-		pmcAddressTable)
+		gpuBuilder, gpuDriver)
 
 	pcieConnector.EstablishRoute()
 
@@ -194,7 +190,6 @@ func (b *Builder) createGPUs(
 	pcieConnector *pcie.Connector,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	pmcAddressTable *mem.BankedAddressPortMapper,
 ) {
 	lastSwitchID := rootComplexID
 	for i := 1; i < b.numGPUs+1; i++ {
@@ -202,16 +197,9 @@ func (b *Builder) createGPUs(
 			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
 		}
 
-		b.createGPU(i, gpuBuilder, gpuDriver, pmcAddressTable,
+		b.createGPU(i, gpuBuilder, gpuDriver,
 			pcieConnector, lastSwitchID)
 	}
-}
-
-func (b *Builder) createPMCPageTable() *mem.BankedAddressPortMapper {
-	pmcAddressTable := new(mem.BankedAddressPortMapper)
-	pmcAddressTable.BankSize = b.gpuMemSize
-	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, "")
-	return pmcAddressTable
 }
 
 func (b *Builder) createRDMAAddrTable() *mem.BankedAddressPortMapper {
@@ -237,8 +225,6 @@ func (b *Builder) createConnection(
 	rootComplexID := pcieConnector.AddRootComplex(
 		[]sim.Port{
 			gpuDriver.GetPortByName("GPU"),
-			gpuDriver.GetPortByName("MMU"),
-			mmuComponent.GetPortByName("Migration"),
 			mmuComponent.GetPortByName("Top"),
 		})
 
@@ -256,7 +242,6 @@ func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	pmcAddressTable *mem.BankedAddressPortMapper,
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
 ) *sim.Domain {
@@ -278,7 +263,6 @@ func (b *Builder) createGPU(
 	// gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu)
-	// b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
 	pcieConnector.PlugInDevice(pcieSwitchID, gpu.Ports())
 
@@ -294,16 +278,3 @@ func (b *Builder) configRDMAEngine(
 		b.rdmaAddressMapper.LowModules,
 		gpu.GetPortByName("RDMAData").AsRemote())
 }
-
-// func (b *Builder) configPMC(
-// 	gpu *GPU,
-// 	gpuDriver *driver.Driver,
-// 	addrTable *mem.BankedAddressPortMapper,
-// ) {
-// 	gpu.PMC.RemotePMCAddressTable = addrTable
-// 	addrTable.LowModules = append(
-// 		addrTable.LowModules,
-// 		gpu.PMC.GetPortByName("Remote").AsRemote())
-// 	gpuDriver.RemotePMCPorts = append(
-// 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
-// }

@@ -11,7 +11,6 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 	"go.uber.org/mock/gomock"
 )
@@ -29,7 +28,6 @@ var _ = Describe("CommandProcessor", func() {
 		tlbs               []*MockPort
 		addressTranslators []*MockPort
 		rdmaPort           *MockPort
-		pmc                *MockPort
 		l1VCaches          []*MockPort
 		l1SCaches          []*MockPort
 		l1ICaches          []*MockPort
@@ -41,7 +39,6 @@ var _ = Describe("CommandProcessor", func() {
 		toTLB               *MockPort
 		toRDMA              *MockPort
 		toAddressTranslator *MockPort
-		toPMC               *MockPort
 	)
 
 	BeforeEach(func() {
@@ -69,20 +66,17 @@ var _ = Describe("CommandProcessor", func() {
 
 		toCU = NewMockPort(mockCtrl)
 		toTLB = NewMockPort(mockCtrl)
-		toPMC = NewMockPort(mockCtrl)
 		toRDMA = NewMockPort(mockCtrl)
 		toAddressTranslator = NewMockPort(mockCtrl)
 		toCaches = NewMockPort(mockCtrl)
 
 		toCU.EXPECT().AsRemote().AnyTimes()
 		toTLB.EXPECT().AsRemote().AnyTimes()
-		toPMC.EXPECT().AsRemote().AnyTimes()
 		toRDMA.EXPECT().AsRemote().AnyTimes()
 		toAddressTranslator.EXPECT().AsRemote().AnyTimes()
 		toCaches.EXPECT().AsRemote().AnyTimes()
 
 		commandProcessor.ToCUs = toCU
-		commandProcessor.ToPMC = toPMC
 		commandProcessor.ToAddressTranslators = toAddressTranslator
 		commandProcessor.ToTLBs = toTLB
 		commandProcessor.ToRDMA = toRDMA
@@ -152,11 +146,7 @@ var _ = Describe("CommandProcessor", func() {
 		rdmaPort = NewMockPort(mockCtrl)
 		commandProcessor.RDMA = rdmaPort
 
-		pmc = NewMockPort(mockCtrl)
-		commandProcessor.PMC = pmc
-
 		rdmaPort.EXPECT().AsRemote().AnyTimes()
-		pmc.EXPECT().AsRemote().AnyTimes()
 	})
 
 	AfterEach(func() {
@@ -475,50 +465,6 @@ var _ = Describe("CommandProcessor", func() {
 		toCU.EXPECT().RetrieveIncoming()
 
 		madeProgress := commandProcessor.ctrlMiddleware.processCUPipelineRestartRsp(req)
-
-		Expect(madeProgress).To(BeTrue())
-	})
-
-	It("should handle a page migration req", func() {
-		nilPort := NewMockPort(mockCtrl)
-		nilPort.EXPECT().AsRemote().AnyTimes()
-		req := protocol.NewPageMigrationReqToCP(
-			nilPort, commandProcessor.ToDriver)
-		req.ToWriteToPhysicalAddress = 0x100
-		req.ToReadFromPhysicalAddress = 0x20
-		remotePMC := NewMockPort(mockCtrl)
-		remotePMC.EXPECT().AsRemote().AnyTimes()
-		req.DestinationPMCPort = remotePMC
-		req.PageSize = 4 * mem.KB
-
-		reqToPMC := pagemigrationcontroller.PageMigrationReqToPMCBuilder{}.
-			Build()
-		reqToPMC.PageSize = req.PageSize
-		reqToPMC.ToReadFromPhysicalAddress = req.ToReadFromPhysicalAddress
-		reqToPMC.ToWriteToPhysicalAddress = req.ToWriteToPhysicalAddress
-		reqToPMC.PMCPortOfRemoteGPU = req.DestinationPMCPort.AsRemote()
-
-		toPMC.EXPECT().Send(gomock.AssignableToTypeOf(reqToPMC))
-		toDriver.EXPECT().RetrieveIncoming()
-
-		madeProgress :=
-			commandProcessor.ctrlMiddleware.processPageMigrationReq(req)
-
-		Expect(madeProgress).To(BeTrue())
-
-	})
-
-	It("should handle a page migration rsp", func() {
-		req := pagemigrationcontroller.PageMigrationRspFromPMCBuilder{}.Build()
-		req.Dst = commandProcessor.ToPMC.AsRemote()
-
-		rsp := protocol.NewPageMigrationRspToDriver(
-			commandProcessor.ToDriver, commandProcessor.Driver)
-
-		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(rsp))
-		toPMC.EXPECT().RetrieveIncoming()
-
-		madeProgress := commandProcessor.ctrlMiddleware.processPageMigrationRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 	})

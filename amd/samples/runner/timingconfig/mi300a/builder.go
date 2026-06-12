@@ -18,7 +18,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -54,7 +53,6 @@ type Builder struct {
 	gpu                *sim.Domain
 	cp                 *cp.CommandProcessor
 	rdmaEngine         *rdma.Comp
-	pmc                *pagemigrationcontroller.PageMigrationController
 	dmaEngine          *cp.DMAEngine
 	sas                []*sim.Domain
 	l2Caches           []*writeback.Comp
@@ -64,7 +62,6 @@ type Builder struct {
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
 	l1TLBAddressMapper *mem.SinglePortMapper
-	pmcAddressMapper   mem.AddressToPortMapper
 }
 
 // MakeBuilder creates a new builder with MI300A default configuration.
@@ -220,9 +217,6 @@ func (b *Builder) populateExternalPorts() {
 	b.gpu.AddPort("RDMARequest", b.rdmaEngine.RDMARequestOutside)
 	b.gpu.AddPort("RDMAData", b.rdmaEngine.RDMADataOutside)
 
-	b.gpu.AddPort("PageMigrationController",
-		b.pmc.GetPortByName("Remote"))
-
 	for i, l2TLB := range b.l2TLBs {
 		name := fmt.Sprintf("Translation_%02d", i)
 		b.gpu.AddPort(name, l2TLB.GetPortByName("Bottom"))
@@ -242,17 +236,12 @@ func (b *Builder) connectCP() {
 	b.internalConn.PlugIn(b.cp.ToTLBs)
 	b.internalConn.PlugIn(b.cp.ToAddressTranslators)
 	b.internalConn.PlugIn(b.cp.ToRDMA)
-	b.internalConn.PlugIn(b.cp.ToPMC)
 
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
 	b.internalConn.PlugIn(b.cp.RDMA)
 
 	b.cp.DMAEngine = b.dmaEngine.ToCP
 	b.internalConn.PlugIn(b.dmaEngine.ToCP)
-
-	pmcControlPort := b.pmc.GetPortByName("Control")
-	b.cp.PMC = pmcControlPort
-	b.internalConn.PlugIn(pmcControlPort)
 
 	b.connectCPWithCUs()
 	b.connectCPWithAddressTranslators()
@@ -312,9 +301,6 @@ func (b *Builder) connectL2AndDRAM() {
 	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
 	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem)
 
-	b.pmc.MemCtrlFinder = lowModuleFinder
-	b.l2ToDramConnection.PlugIn(
-		b.pmc.GetPortByName("LocalMem"))
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -576,16 +562,6 @@ func (b *Builder) buildRDMAEngine() {
 	b.simulation.RegisterComponent(b.rdmaEngine)
 }
 
-func (b *Builder) buildPageMigrationController() {
-	b.pmc = pagemigrationcontroller.NewPageMigrationController(
-		fmt.Sprintf("%s.PMC", b.name),
-		b.simulation.GetEngine(),
-		b.pmcAddressMapper,
-		nil)
-
-	b.simulation.RegisterComponent(b.pmc)
-}
-
 func (b *Builder) buildDMAEngine() {
 	b.dmaEngine = cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.name),
@@ -610,7 +586,6 @@ func (b *Builder) buildCP() {
 
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
-	b.buildPageMigrationController()
 }
 
 func (b *Builder) buildL2TLB() {

@@ -151,7 +151,6 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	cp.ToCUs = sim.NewPort(cp, 4096, 4096, name+".ToCUs")
 	cp.ToTLBs = sim.NewPort(cp, 4096, 4096, name+".ToTLBs")
 	cp.ToRDMA = sim.NewPort(cp, 4096, 4096, name+".ToRDMA")
-	cp.ToPMC = sim.NewPort(cp, 4096, 4096, name+".ToPMC")
 	cp.ToAddressTranslators = sim.NewPort(cp, 4096, 4096,
 		name+".ToAddressTranslators")
 	cp.ToCaches = sim.NewPort(cp, 4096, 4096, name+".ToCaches")
@@ -161,7 +160,6 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	cp.AddPort("ToCUs", cp.ToCUs)
 	cp.AddPort("ToTLBs", cp.ToTLBs)
 	cp.AddPort("ToRDMA", cp.ToRDMA)
-	cp.AddPort("ToPMC", cp.ToPMC)
 	cp.AddPort("ToAddressTranslators", cp.ToAddressTranslators)
 	cp.AddPort("ToCaches", cp.ToCaches)
 }
