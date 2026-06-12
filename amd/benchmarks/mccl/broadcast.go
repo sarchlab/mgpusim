@@ -1,7 +1,7 @@
 package mccl
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 

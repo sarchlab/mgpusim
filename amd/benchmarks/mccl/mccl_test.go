@@ -5,10 +5,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/simulation"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 var _ = Describe("MCCL", func() {
@@ -22,16 +22,16 @@ var _ = Describe("MCCL", func() {
 
 	BeforeEach(func() {
 		s = simulation.MakeBuilder().WithoutMonitoring().Build()
-		timingconfig.MakeBuilder().
+		gpuDriver = emusystem.MakeBuilder().
 			WithSimulation(s).
 			WithNumGPUs(4).
 			Build()
-		gpuDriver = s.GetComponentByName("Driver").(*driver.Driver)
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 	})
 
 	AfterEach(func() {
+		gpuDriver.Terminate()
 		s.Terminate()
 	})
 

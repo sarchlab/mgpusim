@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/simulation"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
@@ -21,12 +21,11 @@ var _ = Describe("Operator", func() {
 	BeforeEach(func() {
 		s = simulation.MakeBuilder().WithoutMonitoring().Build()
 
-		emusystem.MakeBuilder().
+		gpuDriver = emusystem.MakeBuilder().
 			WithSimulation(s).
 			// WithDebugISA().
 			Build()
 
-		gpuDriver = s.GetComponentByName("Driver").(*driver.Driver)
 		gpuDriver.Run()
 
 		ctx = gpuDriver.Init()
