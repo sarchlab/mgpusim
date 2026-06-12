@@ -4,260 +4,171 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/pipelining"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/queueing"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
-// Builder constructs SimpleBankedMemory components.
+// defaultSpec provides default configuration for the simple banked memory.
+var defaultSpec = Spec{
+	Freq:                           1 * timing.GHz,
+	NumBanks:                       4,
+	BankPipelineWidth:              1,
+	BankPipelineDepth:              1,
+	StageLatency:                   10,
+	PostPipelineBufSize:            1,
+	Capacity:                       4 * mem.GB,
+	BankSelectorKind:               "interleaved",
+	BankSelectorLog2InterleaveSize: 6,
+}
+
+// DefaultSpec returns a copy of the default configuration. Callers typically
+// obtain it, tweak the fields they care about, and pass it to WithSpec.
+func DefaultSpec() Spec {
+	return defaultSpec
+}
+
+// Builder constructs SimpleBankedMemory components. Configuration is supplied
+// as a whole through WithSpec; wiring is supplied through WithRegistrar and
+// WithResources. The component declares its "Top" and "Control" ports; the
+// port instances are supplied externally after Build with AssignPort (the
+// caller chooses the buffer sizes).
 type Builder struct {
-	engine sim.Engine
-	freq   sim.Freq
-
-	numBanks            int
-	bankPipelineWidth   int
-	bankPipelineDepth   int
-	stageLatency        int
-	topPortBufferSize   int
-	postPipelineBufSize int
-
-	bankSelectorType   string
-	log2InterleaveSize uint64
-	customBankSelector bankSelector
-
-	capacity             uint64
-	storage              *mem.Storage
-	addressConverter     mem.AddressConverter
-	bankAddrConverter    mem.AddressConverter
-
-	rowBufferSizeLog2  uint64 // log2 of row size in bytes (0 = disabled)
-	rowMissDelay       int    // extra cycles for row miss (0 = disabled)
+	spec      Spec
+	registrar modeling.Registrar
+	resources Resources
 }
 
-// MakeBuilder creates a builder with reasonable defaults.
+// MakeBuilder creates a builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{
-		freq:                1 * sim.GHz,
-		numBanks:            4,
-		bankPipelineWidth:   1,
-		bankPipelineDepth:   1,
-		stageLatency:        10,
-		topPortBufferSize:   16,
-		postPipelineBufSize: 1,
-		bankSelectorType:    "interleaved",
-		log2InterleaveSize:  6,
-		capacity:            4 * mem.GB,
-	}
+	return Builder{spec: defaultSpec}
 }
 
-// WithEngine sets the simulation engine.
-func (b Builder) WithEngine(engine sim.Engine) Builder {
-	b.engine = engine
+// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests). The
+// registrar provides the engine and registers the built component.
+func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+	b.registrar = reg
 	return b
 }
 
-// WithFreq sets the component frequency.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
-	b.freq = freq
+// WithSpec sets the entire configuration. Start from DefaultSpec() and tweak.
+func (b Builder) WithSpec(spec Spec) Builder {
+	b.spec = spec
 	return b
 }
 
-// WithNumBanks sets the number of banks.
-func (b Builder) WithNumBanks(numBanks int) Builder {
-	b.numBanks = numBanks
+// WithResources injects the component's shared resources (e.g. a storage
+// shared with other components). If not set, the component builds its own,
+// sized by Spec.Capacity.
+func (b Builder) WithResources(r Resources) Builder {
+	b.resources = r
 	return b
 }
 
-// WithBankPipelineWidth sets the pipeline width inside each bank.
-func (b Builder) WithBankPipelineWidth(width int) Builder {
-	b.bankPipelineWidth = width
-	return b
-}
-
-// WithBankPipelineDepth sets the pipeline depth inside each bank.
-func (b Builder) WithBankPipelineDepth(depth int) Builder {
-	b.bankPipelineDepth = depth
-	return b
-}
-
-// WithStageLatency sets the latency of each pipeline stage in cycles.
-func (b Builder) WithStageLatency(latency int) Builder {
-	b.stageLatency = latency
-	return b
-}
-
-// WithTopPortBufferSize sets the buffer size of the top port.
-func (b Builder) WithTopPortBufferSize(size int) Builder {
-	b.topPortBufferSize = size
-	return b
-}
-
-// WithPostPipelineBufferSize sets the post-pipeline buffer capacity per bank.
-func (b Builder) WithPostPipelineBufferSize(size int) Builder {
-	b.postPipelineBufSize = size
-	return b
-}
-
-// WithBankSelectorType selects the bank selector implementation by name.
-// Supported selectors:
-//   - "interleaved": addresses are interleaved across banks using log2InterleaveSize.
-func (b Builder) WithBankSelectorType(selectorType string) Builder {
-	b.bankSelectorType = selectorType
-	return b
-}
-
-// WithLog2InterleaveSize sets the log2 interleave size used by the default selector.
-func (b Builder) WithLog2InterleaveSize(log2Size uint64) Builder {
-	b.log2InterleaveSize = log2Size
-	return b
-}
-
-// WithBankSelector overrides the bank selector with a custom implementation.
-func (b Builder) WithBankSelector(selector bankSelector) Builder {
-	b.customBankSelector = selector
-	return b
-}
-
-// WithStorage reuses an existing storage object.
-func (b Builder) WithStorage(storage *mem.Storage) Builder {
-	b.storage = storage
-	return b
-}
-
-// WithNewStorage creates a new storage with the given capacity.
-func (b Builder) WithNewStorage(capacity uint64) Builder {
-	b.capacity = capacity
-	return b
-}
-
-// WithAddressConverter sets the address converter used for storage read/write.
-func (b Builder) WithAddressConverter(
-	addressConverter mem.AddressConverter,
-) Builder {
-	b.addressConverter = addressConverter
-	return b
-}
-
-// WithRowBufferSizeLog2 sets the log2 of the row buffer size in bytes.
-// When set to 0 (default), row buffer tracking is disabled.
-func (b Builder) WithRowBufferSizeLog2(log2Size uint64) Builder {
-	b.rowBufferSizeLog2 = log2Size
-	return b
-}
-
-// WithRowMissDelay sets the extra delay in cycles for a row buffer miss.
-// When set to 0 (default), row buffer tracking is disabled.
-func (b Builder) WithRowMissDelay(cycles int) Builder {
-	b.rowMissDelay = cycles
-	return b
-}
-
-// WithBankAddressConverter sets a separate address converter used ONLY for
-// bank selection in dispatchPending. When set, this converter is used instead
-// of AddressConverter for choosing which bank to route a request to, while
-// storage read/write continues to use AddressConverter (or no conversion).
-func (b Builder) WithBankAddressConverter(
-	converter mem.AddressConverter,
-) Builder {
-	b.bankAddrConverter = converter
-	return b
-}
-
-// Build creates a SimpleBankedMemory component.
+// Build creates a SimpleBankedMemory component. It declares the component's
+// "Top" and "Control" ports; assign the port instances after Build with
+// AssignPort.
 func (b Builder) Build(name string) *Comp {
-	b.configurationMustBeValid()
-
-	var storage *mem.Storage
-	if b.storage != nil {
-		storage = b.storage
-	} else {
-		storage = mem.NewStorage(b.capacity)
+	if b.registrar == nil {
+		panic("simplebankedmemory: WithRegistrar is required")
 	}
 
-	c := &Comp{
-		Storage:              storage,
-		AddressConverter:     b.addressConverter,
-		BankAddressConverter: b.bankAddrConverter,
-		bankSelector:         b.determineBankSelector(),
-		rowBufferSizeLog2:    b.rowBufferSizeLog2,
-		rowMissDelay:         b.rowMissDelay,
-		log2InterleaveSize:   b.log2InterleaveSize,
-		numBanks:             b.numBanks,
-	}
+	spec := b.spec
+	spec.StorageRef = name + ".Storage"
+	specMustBeValid(spec)
 
-	c.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, c)
+	storage := b.resolveStorage(name, spec)
+	initialState := buildInitialState(spec)
 
-	c.topPort = sim.NewPort(c, b.topPortBufferSize, b.topPortBufferSize, name+".TopPort")
-	c.AddPort("Top", c.topPort)
+	modelComp := modeling.NewBuilder[Spec, State, Resources]().
+		WithEngine(b.registrar.GetEngine()).
+		WithFreq(spec.Freq).
+		WithSpec(spec).
+		WithResources(Resources{Storage: storage}).
+		Build(name)
+	modelComp.State = initialState
 
-	c.banks = make([]bank, b.numBanks)
+	cMW := &ctrlMiddleware{comp: modelComp}
+	modelComp.AddMiddleware(cMW)
+	tfMW := &tickFinalizeMW{comp: modelComp}
+	modelComp.AddMiddleware(tfMW)
+	dMW := &dispatchMW{comp: modelComp}
+	modelComp.AddMiddleware(dMW)
 
-	for i := range c.banks {
-		postPipelineBuf := sim.NewBuffer(
-			fmt.Sprintf("%s.Bank[%d].PostPipelineBuffer", name, i),
-			b.postPipelineBufSize,
-		)
+	modelComp.DeclarePort("Top", memprotocol.Responder)
+	modelComp.DeclarePort("Control", memcontrolprotocol.Responder)
 
-		pipeline := pipelining.MakeBuilder().
-			WithPipelineWidth(b.bankPipelineWidth).
-			WithNumStage(b.bankPipelineDepth).
-			WithCyclePerStage(b.stageLatency).
-			WithPostPipelineBuffer(postPipelineBuf).
-			Build(fmt.Sprintf("%s.Bank[%d].Pipeline", name, i))
+	b.registrar.RegisterComponent(modelComp)
 
-		c.banks[i] = bank{
-			pipeline:        pipeline,
-			postPipelineBuf: postPipelineBuf,
-		}
-	}
-
-	c.AddMiddleware(&middleware{Comp: c})
-
-	return c
+	return modelComp
 }
 
-func (b Builder) configurationMustBeValid() {
-	if b.engine == nil {
-		panic("simplebankedmemory.Builder: engine is nil; call WithEngine")
+func specMustBeValid(spec Spec) {
+	if spec.NumBanks <= 0 {
+		panic("simplebankedmemory: NumBanks must be > 0")
 	}
 
-	if b.numBanks <= 0 {
-		panic("simplebankedmemory.Builder: numBanks must be > 0")
+	if spec.BankPipelineWidth <= 0 {
+		panic("simplebankedmemory: BankPipelineWidth must be > 0")
 	}
 
-	if b.bankPipelineWidth <= 0 {
-		panic("simplebankedmemory.Builder: bankPipelineWidth must be > 0")
+	if spec.BankPipelineDepth < 0 {
+		panic("simplebankedmemory: BankPipelineDepth must be >= 0")
 	}
 
-	if b.bankPipelineDepth <= 0 {
-		panic("simplebankedmemory.Builder: bankPipelineDepth must be > 0")
+	if spec.BankPipelineDepth > 0 && spec.StageLatency <= 0 {
+		panic("simplebankedmemory: StageLatency must be > 0")
 	}
 
-	if b.stageLatency <= 0 {
-		panic("simplebankedmemory.Builder: stageLatency must be > 0")
+	if spec.PostPipelineBufSize <= 0 {
+		panic("simplebankedmemory: PostPipelineBufSize must be > 0")
 	}
 
-	if b.topPortBufferSize <= 0 {
-		panic("simplebankedmemory.Builder: topPortBufferSize must be > 0")
-	}
-
-	if b.postPipelineBufSize <= 0 {
-		panic("simplebankedmemory.Builder: postPipelineBufSize must be > 0")
-	}
-}
-
-func (b Builder) determineBankSelector() bankSelector {
-	if b.customBankSelector != nil {
-		return b.customBankSelector
-	}
-
-	selectorType := strings.ToLower(b.bankSelectorType)
-	switch selectorType {
+	switch strings.ToLower(spec.BankSelectorKind) {
 	case "", "interleaved":
-		return interleavedBankSelector{
-			Log2InterleaveSize: b.log2InterleaveSize,
-		}
 	default:
-		panic(fmt.Sprintf("simplebankedmemory.Builder: unsupported bank selector %q", b.bankSelectorType))
+		panic(fmt.Sprintf(
+			"simplebankedmemory: unsupported bank selector %q",
+			spec.BankSelectorKind))
 	}
+}
+
+// resolveStorage returns the injected storage, or builds a default one sized by
+// Spec.Capacity that self-registers with the registrar.
+func (b Builder) resolveStorage(name string, spec Spec) *mem.Storage {
+	if b.resources.Storage != nil {
+		return b.resources.Storage
+	}
+
+	return mem.MakeStorageBuilder().
+		WithCapacity(spec.Capacity).
+		WithSimulation(b.registrar).
+		Build(name + ".Storage")
+}
+
+func buildInitialState(spec Spec) State {
+	return State{
+		Banks: buildInitialBanks(spec),
+	}
+}
+
+func buildInitialBanks(spec Spec) []bankState {
+	banks := make([]bankState, spec.NumBanks)
+	for i := range banks {
+		banks[i] = bankState{
+			Pipeline: queueing.NewPipeline[bankPipelineItemState](
+				spec.BankPipelineWidth,
+				spec.BankPipelineDepth*spec.StageLatency,
+			),
+			PostPipelineBuf: queueing.NewBuffer[bankPipelineItemState](
+				spec.StorageRef+".PostPipelineBuf",
+				spec.PostPipelineBufSize,
+			),
+		}
+	}
+	return banks
 }
