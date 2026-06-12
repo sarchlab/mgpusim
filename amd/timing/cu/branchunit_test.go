@@ -16,7 +16,7 @@ var _ = Describe("Branch Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		alu = new(mockALU)
 		bu = NewBranchUnit(cu, alu)
 	})

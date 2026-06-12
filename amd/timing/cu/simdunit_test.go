@@ -17,7 +17,7 @@ var _ = Describe("SIMD Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		alu = new(mockALU)
 		name = "simd"
 		bu = NewSIMDUnit(cu, name, alu)

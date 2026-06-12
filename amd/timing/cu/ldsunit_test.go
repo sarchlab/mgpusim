@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -16,7 +17,7 @@ var _ = Describe("LDS Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		alu = new(mockALU)
 		bu = NewLDSUnit(cu, alu)
 	})
@@ -41,7 +42,7 @@ var _ = Describe("LDS Unit", func() {
 	It("should run", func() {
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)
-		wave2.WG = wavefront.NewWorkGroup(nil, nil)
+		wave2.WG = wavefront.NewWorkGroup(nil, protocol.MapWGReq{})
 		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(wavefront.Wavefront)
 		inst := wavefront.NewInst(insts.NewInst())
@@ -97,7 +98,7 @@ var _ = Describe("LDS Unit", func() {
 
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)
-		wave2.WG = wavefront.NewWorkGroup(nil, nil)
+		wave2.WG = wavefront.NewWorkGroup(nil, protocol.MapWGReq{})
 		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(wavefront.Wavefront)
 		inst := wavefront.NewInst(insts.NewInst())

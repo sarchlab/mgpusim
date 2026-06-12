@@ -3,8 +3,10 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
@@ -125,7 +127,6 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
-				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
 				madeProgress = true
 			}
 		}
@@ -133,7 +134,9 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
+func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(
+	wf *wavefront.Wavefront,
+) bool {
 	return len(wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]) >= 4
 }
 
@@ -153,29 +156,40 @@ func (s *SchedulerImpl) DoFetch() bool {
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
-		req := mem.ReadReqBuilder{}.
-			WithSrc(s.cu.ToInstMem.AsRemote()).
-			WithDst(s.cu.InstMem.AsRemote()).
-			WithAddress(addr).
-			WithPID(wf.PID()).
-			WithByteSize(64).
-			Build()
-
-		err := s.cu.ToInstMem.Send(req)
-		if err == nil {
-			info := new(InstFetchReqInfo)
-			info.Wavefront = wf
-			info.Req = req
-			info.Address = addr
-			s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
-			wf.IsFetching = true
-
-			madeProgress = true
-
-			tracing.StartTask(req.ID+"_fetch", wf.UID,
-				s.cu, "fetch", "fetch", nil)
-			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: s.cu.instMemPort().AsRemote(),
+				Dst: s.cu.comp.State.InstMem,
+			},
+			Address:        addr,
+			AccessByteSize: 64,
+			PID:            wf.PID(),
 		}
+
+		if !s.cu.instMemPort().CanSend() {
+			continue
+		}
+
+		s.cu.instMemPort().Send(req)
+
+		info := new(InstFetchReqInfo)
+		info.Wavefront = wf
+		info.Req = req
+		info.Address = addr
+		info.FetchTaskID = timing.GetIDGenerator().Generate()
+		s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
+		wf.IsFetching = true
+
+		madeProgress = true
+
+		tracing.StartTask(s.cu.comp, tracing.TaskStart{
+			ID:       info.FetchTaskID,
+			ParentID: wf.UID,
+			Kind:     "fetch",
+			What:     "fetch",
+		})
+		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}
 
 	return madeProgress
@@ -212,7 +226,6 @@ func (s *SchedulerImpl) DoIssue() bool {
 
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
-				//s.removeStaleInstBuffer(wf)
 
 				madeProgress = true
 			}
@@ -226,7 +239,6 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront) bool {
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
 	wf.State = wavefront.WfRunning
-	//s.removeStaleInstBuffer(wf)
 
 	s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
@@ -274,7 +286,8 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 
 			if passBarrier {
 				s.removeAllWfFromInternalExecuting(executing.WG, &newExecuting)
-				s.removeAllWfFromInternalExecuting(executing.WG, &s.internalExecuting)
+				s.removeAllWfFromInternalExecuting(
+					executing.WG, &s.internalExecuting)
 			}
 		case 12: // S_WAITCNT
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
@@ -306,7 +319,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
-	////sampling
+	// sampling
 	now := s.cu.CurrentTime()
 	if *sampling.SampledRunnerFlag {
 		issuetime, found := s.cu.wftime[wf.UID]
@@ -328,8 +341,8 @@ func (s *SchedulerImpl) evalSEndPgm(
 		s.resetRegisterValue(wf)
 		s.cu.clearWGResource(wf.WG)
 
-		tracing.EndTask(wf.UID, s.cu)
-		tracing.TraceReqComplete(wf.WG.MapReq, s.cu)
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+		tracing.TraceReqComplete(s.cu.comp, wf.WG.MapReq)
 
 		return true, true
 	}
@@ -340,7 +353,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 		wf.State = wavefront.WfCompleted
 
-		tracing.EndTask(wf.UID, s.cu)
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
 
 		return true, true
 	}
@@ -351,7 +364,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 		wf.State = wavefront.WfCompleted
 
 		s.cu.logInstTask(wf, wf.DynamicInst(), true)
-		tracing.EndTask(wf.UID, s.cu)
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
 
 		return true, true
 	}
@@ -394,15 +407,22 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Src
 
-	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(s.cu.ToACE.AsRemote()).
-		WithDst(dispatcher).
-		WithRspTo([]string{mapReq.ID}).
-		Build()
+	msg := protocol.WGCompletionMsg{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: s.cu.acePort().AsRemote(),
+			Dst: dispatcher,
+		},
+		RspToIDs: []uint64{mapReq.ID},
+	}
 
-	err := s.cu.ToACE.Send(msg)
+	if !s.cu.acePort().CanSend() {
+		return false
+	}
 
-	return err == nil
+	s.cu.acePort().Send(msg)
+
+	return true
 }
 
 func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(

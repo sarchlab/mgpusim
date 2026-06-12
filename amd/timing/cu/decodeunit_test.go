@@ -14,7 +14,7 @@ var _ = Describe("DecodeUnit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		du = NewDecodeUnit(cu)
 		execUnits = make([]*mockCUComponent, 4)
 		for i := 0; i < 4; i++ {

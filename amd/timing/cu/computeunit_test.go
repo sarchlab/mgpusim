@@ -3,13 +3,13 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
-	"go.uber.org/mock/gomock"
 )
 
 type mockScheduler struct {
@@ -36,10 +36,23 @@ func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return d.Inst, nil
 }
 
+type fakeWfDispatcher struct {
+	dispatched []protocol.WfDispatchLocation
+}
+
+func (d *fakeWfDispatcher) DispatchWf(
+	wf *wavefront.Wavefront,
+	location protocol.WfDispatchLocation,
+) {
+	d.dispatched = append(d.dispatched, location)
+}
+
 func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
 
-	grid.CodeObject = &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
+	grid.CodeObject = &insts.KernelCodeObject{
+		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+	}
 
 	packet := new(kernels.HsaKernelDispatchPacket)
 	grid.Packet = packet
@@ -58,27 +71,24 @@ func exampleGrid() *kernels.Grid {
 
 var _ = Describe("ComputeUnit", func() {
 	var (
-		mockCtrl         *gomock.Controller
 		cu               *ComputeUnit
-		engine           *MockEngine
-		wfDispatcher     *MockWfDispatcher
+		engine           *fakeEngine
+		wfDispatcher     *fakeWfDispatcher
 		decoder          *mockDecoder
-		toInstMem        *MockPort
-		toScalarMem      *MockPort
-		toVectorMem      *MockPort
-		toACE            *MockPort
-		toCP             *MockPort
-		branchUnit       *MockSubComponent
-		vectorMemDecoder *MockSubComponent
-		vectorMemUnit    *MockSubComponent
-		scalarDecoder    *MockSubComponent
-		vectorDecoder    *MockSubComponent
-		ldsDecoder       *MockSubComponent
-		scalarUnit       *MockSubComponent
-		simdUnit         *MockSubComponent
-		ldsUnit          *MockSubComponent
-
-		instMem *MockPort
+		toInstMem        *fakePort
+		toScalarMem      *fakePort
+		toVectorMem      *fakePort
+		toACE            *fakePort
+		toCP             *fakePort
+		branchUnit       *mockCUComponent
+		vectorMemDecoder *mockCUComponent
+		vectorMemUnit    *mockCUComponent
+		scalarDecoder    *mockCUComponent
+		vectorDecoder    *mockCUComponent
+		ldsDecoder       *mockCUComponent
+		scalarUnit       *mockCUComponent
+		simdUnit         *mockCUComponent
+		ldsUnit          *mockCUComponent
 
 		grid *kernels.Grid
 
@@ -86,25 +96,23 @@ var _ = Describe("ComputeUnit", func() {
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		engine = NewMockEngine(mockCtrl)
-		wfDispatcher = NewMockWfDispatcher(mockCtrl)
+		engine = newFakeEngine()
+		wfDispatcher = new(fakeWfDispatcher)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
-		branchUnit = NewMockSubComponent(mockCtrl)
-		vectorMemDecoder = NewMockSubComponent(mockCtrl)
-		vectorMemUnit = NewMockSubComponent(mockCtrl)
-		scalarDecoder = NewMockSubComponent(mockCtrl)
-		vectorDecoder = NewMockSubComponent(mockCtrl)
-		ldsDecoder = NewMockSubComponent(mockCtrl)
-		scalarUnit = NewMockSubComponent(mockCtrl)
-		simdUnit = NewMockSubComponent(mockCtrl)
-		ldsUnit = NewMockSubComponent(mockCtrl)
+		branchUnit = new(mockCUComponent)
+		vectorMemDecoder = new(mockCUComponent)
+		vectorMemUnit = new(mockCUComponent)
+		scalarDecoder = new(mockCUComponent)
+		vectorDecoder = new(mockCUComponent)
+		ldsDecoder = new(mockCUComponent)
+		scalarUnit = new(mockCUComponent)
+		simdUnit = new(mockCUComponent)
+		ldsUnit = new(mockCUComponent)
 
-		cu = NewComputeUnit("CU", engine)
+		cu = newTestComputeUnit("CU", engine)
 		cu.WfDispatcher = wfDispatcher
 		cu.Decoder = decoder
-		cu.Freq = 1
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
 		cu.Scheduler = scheduler
@@ -124,39 +132,26 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 		}
 
-		toInstMem = NewMockPort(mockCtrl)
-		toACE = NewMockPort(mockCtrl)
-		toScalarMem = NewMockPort(mockCtrl)
-		toVectorMem = NewMockPort(mockCtrl)
+		toInstMem = newFakePort("CU.InstMem")
+		toACE = newFakePort("CU.Top")
+		toScalarMem = newFakePort("CU.ScalarMem")
+		toVectorMem = newFakePort("CU.VectorMem")
+		toCP = newFakePort("CU.Ctrl")
 		cu.ToInstMem = toInstMem
 		cu.ToACE = toACE
 		cu.ToScalarMem = toScalarMem
 		cu.ToVectorMem = toVectorMem
-
-		instMem = NewMockPort(mockCtrl)
-		cu.InstMem = instMem
-
-		toCP = NewMockPort(mockCtrl)
-
 		cu.ToCP = toCP
 
+		cu.comp.State.InstMem = "InstMem"
+		cu.comp.State.ScalarMem = "ScalarMem"
+
 		grid = exampleGrid()
-
-		toInstMem.EXPECT().AsRemote().AnyTimes()
-		toACE.EXPECT().AsRemote().AnyTimes()
-		toScalarMem.EXPECT().AsRemote().AnyTimes()
-		toVectorMem.EXPECT().AsRemote().AnyTimes()
-		instMem.EXPECT().AsRemote().AnyTimes()
-		toCP.EXPECT().AsRemote().AnyTimes()
-	})
-
-	AfterEach(func() {
-		mockCtrl.Finish()
 	})
 
 	Context("when processing MapWGReq", func() {
 		var (
-			req *protocol.MapWGReq
+			req protocol.MapWGReq
 		)
 
 		BeforeEach(func() {
@@ -179,27 +174,28 @@ var _ = Describe("ComputeUnit", func() {
 				LDSOffset:  200,
 			}
 
-			builder := protocol.MapWGReqBuilder{}.
-				WithSrc("").
-				WithDst(cu.ToACE.AsRemote()).
-				WithWG(wg).
-				AddWf(location1).
-				AddWf(location2)
-			req = builder.Build()
+			req = protocol.MapWGReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Dst: cu.ToACE.AsRemote(),
+				},
+				WorkGroup: wg,
+				Wavefronts: []protocol.WfDispatchLocation{
+					location1, location2,
+				},
+			}
 
-			toACE.EXPECT().RetrieveIncoming().Return(req)
+			toACE.incoming = append(toACE.incoming, req)
 		})
 
 		It("should dispatch wavefront", func() {
-			wfDispatcher.EXPECT().
-				DispatchWf(gomock.Any(), req.Wavefronts[0])
-			wfDispatcher.EXPECT().
-				DispatchWf(gomock.Any(), req.Wavefronts[1])
-			engine.EXPECT().Schedule(gomock.Any())
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11)).AnyTimes()
+			engine.now = 11
 
 			cu.processInputFromACE()
 
+			Expect(wfDispatcher.dispatched).To(HaveLen(2))
+			Expect(wfDispatcher.dispatched[0]).To(Equal(req.Wavefronts[0]))
+			Expect(wfDispatcher.dispatched[1]).To(Equal(req.Wavefronts[1]))
 			Expect(cu.WfPools[1].wfs).To(HaveLen(1))
 			Expect(cu.WfPools[2].wfs).To(HaveLen(1))
 		})
@@ -207,8 +203,7 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when handling DataReady from ToInstMem Port", func() {
 		var (
-			wf        *wavefront.Wavefront
-			dataReady *mem.DataReadyRsp
+			wf *wavefront.Wavefront
 		)
 		BeforeEach(func() {
 			wf = new(wavefront.Wavefront)
@@ -216,18 +211,24 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SetDynamicInst(inst)
 			wf.SetPC(0x1000)
 
-			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem.AsRemote()).
-				WithDst(instMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			req := memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cu.ToInstMem.AsRemote(),
+					Dst: cu.comp.State.InstMem,
+				},
+				Address:        0x100,
+				AccessByteSize: 64,
+			}
 
-			dataReady = mem.DataReadyRspBuilder{}.
-				WithSrc(instMem.AsRemote()).
-				WithDst(cu.ToInstMem.AsRemote()).
-				WithRspTo(req.ID).
-				WithData([]byte{
+			dataReady := memprotocol.DataReadyRsp{
+				MsgMeta: messaging.MsgMeta{
+					ID:    timing.GetIDGenerator().Generate(),
+					Src:   cu.comp.State.InstMem,
+					Dst:   cu.ToInstMem.AsRemote(),
+					RspTo: req.ID,
+				},
+				Data: []byte{
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
@@ -236,10 +237,10 @@ var _ = Describe("ComputeUnit", func() {
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
-				}).
-				Build()
+				},
+			}
 
-			toInstMem.EXPECT().RetrieveIncoming().Return(dataReady)
+			toInstMem.incoming = append(toInstMem.incoming, dataReady)
 
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
@@ -248,12 +249,11 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle fetch return", func() {
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(10))
+			engine.now = 10
 
 			madeProgress := cu.processInputFromInstMem()
 
-			//Expect(wf.State).To(Equal(WfFetched))
-			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
+			Expect(wf.LastFetchTime).To(Equal(timing.VTimeInPicoSec(10)))
 			Expect(wf.PC()).To(Equal(uint64(0x1000)))
 			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
@@ -274,24 +274,31 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle scalar data load return", func() {
-			read := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToScalarMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			read := memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cu.ToScalarMem.AsRemote(),
+				},
+				Address:        0x100,
+				AccessByteSize: 64,
+			}
 
 			info := new(ScalarMemAccessInfo)
 			info.Inst = wavefront.NewInst(insts.NewInst())
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
-			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
+			cu.InFlightScalarMemAccess = append(
+				cu.InFlightScalarMemAccess, info)
 
-			rsp := mem.DataReadyRspBuilder{}.
-				WithRspTo(read.ID).
-				WithData(insts.Uint32ToBytes(32)).
-				Build()
-			toScalarMem.EXPECT().RetrieveIncoming().Return(rsp)
+			rsp := memprotocol.DataReadyRsp{
+				MsgMeta: messaging.MsgMeta{
+					ID:    timing.GetIDGenerator().Generate(),
+					RspTo: read.ID,
+				},
+				Data: insts.Uint32ToBytes(32),
+			}
+			toScalarMem.incoming = append(toScalarMem.incoming, rsp)
 
 			cu.processInputFromScalarMem()
 
@@ -313,7 +320,7 @@ var _ = Describe("ComputeUnit", func() {
 			rawWf *kernels.Wavefront
 			wf    *wavefront.Wavefront
 			inst  *wavefront.Inst
-			read  *mem.ReadReq
+			read  *memprotocol.ReadReq
 			info  VectorMemAccessInfo
 		)
 
@@ -328,11 +335,14 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			read = mem.ReadReqBuilder{}.
-				WithAddress(0x100).
-				WithByteSize(16).
-				CanWaitForCoalesce().
-				Build()
+			read = &memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				Address:            0x100,
+				AccessByteSize:     16,
+				CanWaitForCoalesce: true,
+			}
 
 			info = VectorMemAccessInfo{}
 			info.Read = read
@@ -347,18 +357,22 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
-			dataReady := mem.DataReadyRspBuilder{}.
-				WithRspTo(read.ID).
-				WithData(make([]byte, 16)).
-				Build()
-			for i := 0; i < 4; i++ {
-				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
+			dataReady := memprotocol.DataReadyRsp{
+				MsgMeta: messaging.MsgMeta{
+					ID:    timing.GetIDGenerator().Generate(),
+					RspTo: read.ID,
+				},
+				Data: make([]byte, 16),
 			}
-			toVectorMem.EXPECT().RetrieveIncoming().Return(dataReady)
-			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
+			for i := 0; i < 4; i++ {
+				copy(dataReady.Data[i*4:i*4+4],
+					insts.Uint32ToBytes(uint32(i)))
+			}
+			toVectorMem.incoming = append(toVectorMem.incoming, dataReady)
 		})
 
-		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
+		It("should handle vector data load return, and the return is not "+
+			"the last one for an instruction", func() {
 			cu.processInputFromVectorMem()
 
 			for i := 0; i < 4; i++ {
@@ -377,7 +391,8 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 
-		It("should handle vector data load return, and the return is the last one for an instruction", func() {
+		It("should handle vector data load return, and the return is the "+
+			"last one for an instruction", func() {
 			read.CanWaitForCoalesce = false
 
 			cu.processInputFromVectorMem()
@@ -403,8 +418,7 @@ var _ = Describe("ComputeUnit", func() {
 			inst     *wavefront.Inst
 			wf       *wavefront.Wavefront
 			info     VectorMemAccessInfo
-			writeReq *mem.WriteReq
-			doneRsp  *mem.WriteDoneRsp
+			writeReq *memprotocol.WriteReq
 		)
 
 		BeforeEach(func() {
@@ -418,32 +432,40 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			writeReq = mem.WriteReqBuilder{}.
-				WithAddress(0x100).
-				CanWaitForCoalesce().
-				Build()
+			writeReq = &memprotocol.WriteReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				Address:            0x100,
+				CanWaitForCoalesce: true,
+			}
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
 			info.Inst = inst
 			info.Write = writeReq
-			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, info)
 
-			doneRsp = mem.WriteDoneRspBuilder{}.
-				WithRspTo(writeReq.ID).
-				Build()
-			toVectorMem.EXPECT().RetrieveIncoming().Return(doneRsp)
-			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
+			doneRsp := memprotocol.WriteDoneRsp{
+				MsgMeta: messaging.MsgMeta{
+					ID:    timing.GetIDGenerator().Generate(),
+					RspTo: writeReq.ID,
+				},
+			}
+			toVectorMem.incoming = append(toVectorMem.incoming, doneRsp)
 		})
 
-		It("should handle vector data store return and the return is not the last one from an instruction", func() {
+		It("should handle vector data store return and the return is not "+
+			"the last one from an instruction", func() {
 			madeProgress := cu.processInputFromVectorMem()
 
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 			Expect(madeProgress).To(BeTrue())
 		})
 
-		It("should handle vector data store return and the return is the last one from an instruction", func() {
+		It("should handle vector data store return and the return is the "+
+			"last one from an instruction", func() {
 			writeReq.CanWaitForCoalesce = false
 
 			cu.processInputFromVectorMem()
@@ -456,18 +478,23 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("should handle flush request", func() {
 		It("should handle a pipeline flush request from CU", func() {
-			req := protocol.CUPipelineFlushReqBuilder{}.
-				WithSrc("").
-				WithDst(cu.ToCP.AsRemote()).
-				Build()
+			req := protocol.CUPipelineFlushReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: "CP",
+					Dst: cu.ToCP.AsRemote(),
+				},
+			}
 
-			toCP.EXPECT().RetrieveIncoming().Return(req)
+			toCP.incoming = append(toCP.incoming, req)
 
 			cu.processInputFromCP()
 
-			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
-			Expect(cu.isFlushing).To(BeTrue())
-			Expect(cu.currentFlushReq).To(BeIdenticalTo(req))
+			Expect(cu.comp.State.IsFlushing).To(BeTrue())
+			Expect(cu.comp.State.HasFlushReq).To(BeTrue())
+			Expect(cu.comp.State.FlushReqID).To(Equal(req.ID))
+			Expect(cu.comp.State.FlushReqSrc).To(Equal(req.Src))
+			Expect(toCP.incoming).To(HaveLen(0))
 		})
 
 		It("should flush internal CU buffers", func() {
@@ -475,10 +502,12 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 
 			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+			cu.InFlightScalarMemAccess = append(
+				cu.InFlightScalarMemAccess, scalarMemInfo)
 
 			vectorMemInfo := VectorMemAccessInfo{}
-			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, vectorMemInfo)
 
 			cu.flushCUBuffers()
 
@@ -488,47 +517,50 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle a restart request", func() {
-			cu.isPaused = true
+			cu.comp.State.IsPaused = true
 
-			req := protocol.CUPipelineRestartReqBuilder{}.
-				WithSrc("").
-				WithDst(cu.ToCP.AsRemote()).
-				Build()
+			req := protocol.CUPipelineRestartReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: "CP",
+					Dst: cu.ToCP.AsRemote(),
+				},
+			}
 
-			toCP.EXPECT().RetrieveIncoming().Return(req)
-			toCP.EXPECT().Send(gomock.Any())
+			toCP.incoming = append(toCP.incoming, req)
 
 			cu.processInputFromCP()
-			Expect(cu.isPaused).To(BeTrue())
-			Expect(cu.isSendingOutShadowBufferReqs).To(BeTrue())
+
+			Expect(toCP.sent).To(HaveLen(1))
+			Expect(toCP.sent[0]).To(
+				BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
+			Expect(cu.comp.State.IsPaused).To(BeTrue())
+			Expect(cu.comp.State.IsSendingOutShadowBufferReqs).To(BeTrue())
 		})
 
 		It("should flush the full CU", func() {
-			req := protocol.CUPipelineFlushReqBuilder{}.
-				WithSrc("").
-				WithDst(cu.ToCP.AsRemote()).
-				Build()
+			req := protocol.CUPipelineFlushReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: "CP",
+					Dst: cu.ToCP.AsRemote(),
+				},
+			}
 
-			cu.currentFlushReq = req
+			cu.comp.State.HasFlushReq = true
+			cu.comp.State.FlushReqID = req.ID
+			cu.comp.State.FlushReqSrc = req.Src
 
 			info := new(InstFetchReqInfo)
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 
 			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+			cu.InFlightScalarMemAccess = append(
+				cu.InFlightScalarMemAccess, scalarMemInfo)
 
 			vectorMemInfo := VectorMemAccessInfo{}
-			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
-
-			branchUnit.EXPECT().Flush()
-			scalarUnit.EXPECT().Flush()
-			scalarDecoder.EXPECT().Flush()
-			simdUnit.EXPECT().Flush()
-			vectorDecoder.EXPECT().Flush()
-			ldsUnit.EXPECT().Flush()
-			ldsDecoder.EXPECT().Flush()
-			vectorMemDecoder.EXPECT().Flush()
-			vectorMemUnit.EXPECT().Flush()
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, vectorMemInfo)
 
 			cu.flushPipeline()
 
@@ -540,46 +572,65 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.shadowInFlightVectorMemAccess).To(Not(BeNil()))
 			Expect(cu.shadowInFlightScalarMemAccess).To(Not(BeNil()))
 
-			Expect(cu.toSendToCP).NotTo(BeNil())
-			Expect(cu.isFlushing).To(BeFalse())
-			Expect(cu.isPaused).To(BeTrue())
+			Expect(branchUnit.flushed).To(BeTrue())
+			Expect(scalarUnit.flushed).To(BeTrue())
+			Expect(scalarDecoder.flushed).To(BeTrue())
+			Expect(simdUnit.flushed).To(BeTrue())
+			Expect(vectorDecoder.flushed).To(BeTrue())
+			Expect(ldsUnit.flushed).To(BeTrue())
+			Expect(ldsDecoder.flushed).To(BeTrue())
+			Expect(vectorMemDecoder.flushed).To(BeTrue())
+			Expect(vectorMemUnit.flushed).To(BeTrue())
+
+			Expect(cu.comp.State.HasPendingCPRsp).To(BeTrue())
+			Expect(cu.comp.State.IsFlushing).To(BeFalse())
+			Expect(cu.comp.State.IsPaused).To(BeTrue())
 		})
 
-		It("should not restart a CU where there are shadow buffer reqs pending", func() {
-			info := new(InstFetchReqInfo)
-			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem.AsRemote()).
-				WithDst(instMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			info.Req = req
+		It("should not restart a CU where there are shadow buffer reqs "+
+			"pending", func() {
+			req := memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cu.ToInstMem.AsRemote(),
+					Dst: cu.comp.State.InstMem,
+				},
+				Address:        0x100,
+				AccessByteSize: 64,
+			}
 
-			cu.shadowInFlightInstFetch = append(cu.InFlightInstFetch, info)
+			info := new(InstFetchReqInfo)
+			info.Req = req
+			cu.shadowInFlightInstFetch = append(
+				cu.shadowInFlightInstFetch, info)
 
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			scalarMemInfo.Req = req
-			cu.shadowInFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+			cu.shadowInFlightScalarMemAccess = append(
+				cu.shadowInFlightScalarMemAccess, scalarMemInfo)
 
 			vectorMemInfo := VectorMemAccessInfo{}
-			vectorMemInfo.Read = req
-			cu.shadowInFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
-
-			toInstMem.EXPECT().Send(gomock.Any())
-			toVectorMem.EXPECT().Send(gomock.Any())
-			toScalarMem.EXPECT().Send(gomock.Any())
+			readCopy := req
+			vectorMemInfo.Read = &readCopy
+			cu.shadowInFlightVectorMemAccess = append(
+				cu.shadowInFlightVectorMemAccess, vectorMemInfo)
 
 			cu.checkShadowBuffers()
+
+			Expect(toInstMem.sent).To(HaveLen(1))
+			Expect(toScalarMem.sent).To(HaveLen(1))
+			Expect(toVectorMem.sent).To(HaveLen(1))
 		})
 
-		It("should restart a CU where there are  no shadow buffer reqs pending", func() {
+		It("should restart a CU where there are no shadow buffer reqs "+
+			"pending", func() {
 			cu.shadowInFlightInstFetch = nil
 			cu.shadowInFlightScalarMemAccess = nil
 			cu.shadowInFlightVectorMemAccess = nil
 
 			cu.checkShadowBuffers()
 
-			Expect(cu.isPaused).To(BeFalse())
+			Expect(cu.comp.State.IsPaused).To(BeFalse())
 		})
 	})
 })

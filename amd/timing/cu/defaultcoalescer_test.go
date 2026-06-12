@@ -57,7 +57,7 @@ var _ = Describe("Default Coalescer", func() {
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(2)
 			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
-				insts.Uint64ToBytes(uint64(0x1000+i*4))[:8])
+				insts.Uint64ToBytes(uint64(0x1000 + i*4))[:8])
 		}
 
 		memTransactions := c.generateMemTransactions(wf)
@@ -81,7 +81,7 @@ var _ = Describe("Default Coalescer", func() {
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(4)
 			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
-				insts.Uint64ToBytes(uint64(0x1004+i*4))[:8])
+				insts.Uint64ToBytes(uint64(0x1004 + i*4))[:8])
 		}
 
 		memTransactions := c.generateMemTransactions(wf)
@@ -106,7 +106,7 @@ var _ = Describe("Default Coalescer", func() {
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(2)
 			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
-				insts.Uint64ToBytes(uint64(0x1000+i*4))[:8])
+				insts.Uint64ToBytes(uint64(0x1000 + i*4))[:8])
 
 			dataReg := insts.VReg(4)
 			regAccessor.setRegValue(dataReg, 1, i, wf.VRegOffset,

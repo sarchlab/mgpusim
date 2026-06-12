@@ -3,13 +3,13 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // A RegisterAccess is an incidence of reading or writing the register
 type RegisterAccess struct {
-	Time       sim.VTimeInSec
+	Time       timing.VTimeInPicoSec
 	Reg        *insts.Reg
 	RegCount   int
 	LaneID     int

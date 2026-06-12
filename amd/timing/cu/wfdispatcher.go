@@ -21,8 +21,8 @@ type WfDispatcher interface {
 type WfDispatcherImpl struct {
 	cu *ComputeUnit
 
-	Latency            int
-	scoreboardEnabled  bool
+	Latency           int
+	scoreboardEnabled bool
 }
 
 // NewWfDispatcher creates a default WfDispatcher

@@ -1,7 +1,6 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -10,7 +9,6 @@ import (
 type WavefrontPool struct {
 	Capacity int
 	wfs      []*wavefront.Wavefront
-	VRegFile sim.Component
 }
 
 // NewWavefrontPool creates and returns a new WavefrontPool

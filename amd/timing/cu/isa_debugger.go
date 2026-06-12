@@ -5,30 +5,32 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 	"github.com/tebeka/atexit"
 )
 
-// ISADebugger is a hook that hooks to a emulator computeunit for each intruction
+// ISADebugger is a tracer that logs the wavefront state after each
+// instruction completes. Attach it to a timing compute-unit component with
+// tracing.CollectTrace; obtain the ComputeUnit middleware with
+// MiddlewareOf(comp).
 type ISADebugger struct {
-	sim.LogHookBase
+	Logger *log.Logger
 
 	isFirstEntry  bool
 	cu            *ComputeUnit
-	executingInst map[string]tracing.Task
-	// prevWf *Wavefront
+	executingInst map[uint64]tracing.TaskStart
 }
 
-// NewISADebugger returns a new ISADebugger that keeps instruction log in logger
+// NewISADebugger returns a new ISADebugger that keeps instruction log in
+// logger
 func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h := new(ISADebugger)
 	h.Logger = logger
 	h.isFirstEntry = true
 	h.cu = cu
-	h.executingInst = make(map[string]tracing.Task)
+	h.executingInst = make(map[uint64]tracing.TaskStart)
 
 	h.Logger.Print("[")
 	atexit.Register(func() { h.Logger.Print("\n]") })
@@ -37,7 +39,7 @@ func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 }
 
 // StartTask marks the start of an instruction.
-func (h *ISADebugger) StartTask(task tracing.Task) {
+func (h *ISADebugger) StartTask(task tracing.TaskStart) {
 	if task.Kind != "inst" {
 		return
 	}
@@ -52,8 +54,8 @@ func (h *ISADebugger) StartTask(task tracing.Task) {
 	h.executingInst[task.ID] = task
 }
 
-// StepTask does nothing as of now.
-func (h *ISADebugger) StepTask(task tracing.Task) {
+// AddTaskTag does nothing as of now.
+func (h *ISADebugger) AddTaskTag(tag tracing.TaskTag) {
 	// Do nothing.
 }
 
@@ -63,7 +65,7 @@ func (h *ISADebugger) AddMilestone(milestone tracing.Milestone) {
 }
 
 // EndTask marks the end of an instruction.
-func (h *ISADebugger) EndTask(task tracing.Task) {
+func (h *ISADebugger) EndTask(task tracing.TaskEnd) {
 	originalTask, found := h.executingInst[task.ID]
 
 	if !found {
@@ -92,7 +94,7 @@ func (h *ISADebugger) logWholeWf(
 		output += ","
 	}
 
-	output += fmt.Sprintf("{")
+	output += "{"
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(inst))
@@ -104,7 +106,7 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC()>>32)
 	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
-	output += fmt.Sprintf(`"SGPRs":[`)
+	output += `"SGPRs":[`
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
 		if i > 0 {
 			output += ","
@@ -137,9 +139,7 @@ func (h *ISADebugger) logWholeWf(
 
 	output += `,"LDS":""`
 
-	// output += fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString())
-
-	output += fmt.Sprintf("}")
+	output += "}"
 
 	h.Logger.Print(output)
 }

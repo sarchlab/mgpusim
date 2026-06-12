@@ -3,7 +3,7 @@ package cu
 import (
 	"math"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -19,11 +19,10 @@ func (a *FetchArbiter) Arbitrate(
 ) []*wavefront.Wavefront {
 	list := make([]*wavefront.Wavefront, 0, 1)
 
-	oldestTime := sim.VTimeInSec(math.MaxFloat64)
+	oldestTime := timing.VTimeInPicoSec(math.MaxUint64)
 	var toFetch *wavefront.Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {
-			wf.RLock()
 			if !a.canFetchFromWF(wf) {
 				continue
 			}
@@ -32,7 +31,6 @@ func (a *FetchArbiter) Arbitrate(
 				toFetch = wf
 				oldestTime = wf.LastFetchTime
 			}
-			wf.RUnlock()
 		}
 	}
 
@@ -62,8 +60,6 @@ func (a *FetchArbiter) canFetchFromWF(wf *wavefront.Wavefront) bool {
 		lastPCInInstBuffer := wf.InstBufferStartPC +
 			uint64(len(wf.InstBuffer))
 		if lastPCInInstBuffer >= lastPCInBinary {
-			// fmt.Printf("lastInstPCInBinary: %016X, lastPCInInstBuffer: %016X, PC: %016X\n",
-			// 	lastPCInBinary, lastPCInInstBuffer, wf.PC)
 			return false
 		}
 	}

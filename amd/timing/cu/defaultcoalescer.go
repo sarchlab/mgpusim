@@ -1,7 +1,9 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
@@ -39,10 +41,10 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 
 func (c defaultCoalescer) generateReadReqs(
 	wf *wavefront.Wavefront,
-) []*mem.ReadReq {
+) []*memprotocol.ReadReq {
 	exec := wf.EXEC()
 	inst := wf.Inst()
-	reqs := []*mem.ReadReq{}
+	reqs := []*memprotocol.ReadReq{}
 	regCount := c.instRegCount(inst)
 
 	for i := uint(0); i < 64; i++ {
@@ -61,10 +63,10 @@ func (c defaultCoalescer) generateReadReqs(
 
 func (c defaultCoalescer) generateWriteReqs(
 	wf *wavefront.Wavefront,
-) []*mem.WriteReq {
+) []*memprotocol.WriteReq {
 	exec := wf.EXEC()
 	inst := wf.Inst()
-	reqs := []*mem.WriteReq{}
+	reqs := []*memprotocol.WriteReq{}
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
@@ -90,7 +92,7 @@ func (c defaultCoalescer) generateWriteReqs(
 
 func (c defaultCoalescer) generateReadTransactions(
 	wf *wavefront.Wavefront,
-	reqs []*mem.ReadReq,
+	reqs []*memprotocol.ReadReq,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
@@ -109,7 +111,7 @@ func (c defaultCoalescer) generateReadTransactions(
 
 func (c defaultCoalescer) generateWriteTransactions(
 	wf *wavefront.Wavefront,
-	reqs []*mem.WriteReq,
+	reqs []*memprotocol.WriteReq,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
@@ -125,28 +127,31 @@ func (c defaultCoalescer) generateWriteTransactions(
 }
 
 func (c defaultCoalescer) findOrCreateReadReq(
-	reqs *[]*mem.ReadReq,
+	reqs *[]*memprotocol.ReadReq,
 	addr uint64,
-) *mem.ReadReq {
+) *memprotocol.ReadReq {
 	for _, req := range *reqs {
 		if c.isInSameCacheLine(addr, req.Address) {
 			return req
 		}
 	}
 
-	req := mem.ReadReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithByteSize(1 << c.log2CacheLineSize).
-		Build()
+	req := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:        c.cacheLineID(addr),
+		AccessByteSize: 1 << c.log2CacheLineSize,
+	}
 	*reqs = append(*reqs, req)
 	return req
 }
 
 func (c defaultCoalescer) findOrCreateWriteReq(
-	reqs *[]*mem.WriteReq,
+	reqs *[]*memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
-) *mem.WriteReq {
+) *memprotocol.WriteReq {
 	for _, req := range *reqs {
 		if c.isInSameCacheLine(addr, req.Address) {
 			c.mergeDataWithReq(req, addr, data)
@@ -154,18 +159,21 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 		}
 	}
 
-	req := mem.WriteReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithData(make([]byte, 1<<c.log2CacheLineSize)).
-		WithDirtyMask(make([]bool, 1<<c.log2CacheLineSize)).
-		Build()
+	req := &memprotocol.WriteReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:   c.cacheLineID(addr),
+		Data:      make([]byte, 1<<c.log2CacheLineSize),
+		DirtyMask: make([]bool, 1<<c.log2CacheLineSize),
+	}
 	c.mergeDataWithReq(req, addr, data)
 	*reqs = append(*reqs, req)
 	return req
 }
 
 func (c defaultCoalescer) mergeDataWithReq(
-	req *mem.WriteReq,
+	req *memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
 ) {
@@ -180,7 +188,7 @@ func (c defaultCoalescer) mergeDataWithReq(
 }
 
 func (c defaultCoalescer) addressRangeMustFallInReq(
-	req *mem.WriteReq,
+	req *memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
 ) {
