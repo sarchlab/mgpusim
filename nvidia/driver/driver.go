@@ -5,8 +5,8 @@ import (
 
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
@@ -21,7 +21,7 @@ type Driver struct {
 	connectionWithDevices sim.Connection
 
 	// gpu
-	devices     map[string]*gpu.GPU
+	devices     map[uint64]*gpu.GPU
 	freeDevices []*gpu.GPU
 
 	// trace kernel

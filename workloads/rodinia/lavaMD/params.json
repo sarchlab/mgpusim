@@ -1,0 +1,23 @@
+{
+  "benchmark": "lavaMD",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "num_boxes",
+    "description": "Number of boxes per dimension (total boxes = N^3)",
+    "values": [2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 34, 38]
+  },
+  "non_scaling_parameters": {
+    "particles_per_box": {
+      "description": "Number of particles per box",
+      "values": [50, 100, 200]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "cutoff_radius": {
+      "description": "Cutoff radius for particle interactions",
+      "values": [3.0, 5.0, 10.0]
+    }
+  }
+}

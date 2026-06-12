@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
@@ -24,6 +24,9 @@ func (alu *mockALU) LDS() []byte {
 
 func (alu *mockALU) Run(wf emu.InstEmuState) {
 	alu.wfExecuted = wf
+}
+
+func (alu *mockALU) SetScratch(scratch []byte, perLaneSize uint32) {
 }
 
 func (alu *mockALU) ArchName() string {
@@ -241,12 +244,10 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should send request out", func() {
-		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem.AsRemote()).
-			WithDst(scalarMem.AsRemote()).
-			WithAddress(1024).
-			WithByteSize(4).
-			Build()
+		req := &mem.ReadReq{Address: 1024, AccessByteSize: 4}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Src = cu.ToScalarMem.AsRemote()
+		req.Dst = scalarMem.AsRemote()
 		bu.readBuf = append(bu.readBuf, req)
 
 		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
@@ -263,12 +264,10 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should retry if send request failed", func() {
-		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem.AsRemote()).
-			WithDst(scalarMem.AsRemote()).
-			WithAddress(1024).
-			WithByteSize(4).
-			Build()
+		req := &mem.ReadReq{Address: 1024, AccessByteSize: 4}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Src = cu.ToScalarMem.AsRemote()
+		req.Dst = scalarMem.AsRemote()
 		bu.readBuf = append(bu.readBuf, req)
 
 		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {

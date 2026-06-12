@@ -432,7 +432,7 @@
             "program": "${workspaceFolder}/samples/minerva",
             "args": [
                 // "-timing",
-                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/"
+                "-mnist-data-folder=${env:MNIST_DATA_DIR}"
             ]
         },
         {
@@ -443,7 +443,7 @@
             "program": "${workspaceFolder}/samples/minervamultigpu",
             "args": [
                 // "-timing",
-                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/",
+                "-mnist-data-folder=${env:MNIST_DATA_DIR}",
                 "--gpus=1,2"
             ]
         },
@@ -455,7 +455,7 @@
             "program": "${workspaceFolder}/samples/lenet",
             "args": [
                 "-timing",
-                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/"
+                "-mnist-data-folder=${env:MNIST_DATA_DIR}"
             ]
         },
         {

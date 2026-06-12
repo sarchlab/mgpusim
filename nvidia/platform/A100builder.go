@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 )

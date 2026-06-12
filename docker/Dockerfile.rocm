@@ -1,0 +1,65 @@
+# docker/Dockerfile.rocm
+#
+# ROCm compilation environment for MGPUSim HSACO kernel compilation.
+#
+# This image provides a stable, pinned ROCm 6.2 toolchain to compile
+# HIP kernel source files (.hip) to HSACO format targeting gfx942
+# (AMD Instinct MI300X/MI300A).
+#
+# Base image: rocm/dev-ubuntu-22.04:6.2-complete
+#   - Ubuntu 22.04 LTS
+#   - ROCm 6.2 (includes hipcc, clang with AMDGPU backend, llvm-tools)
+#   - Stable tag; won't change once published
+#
+# Build:
+#   docker build -f docker/Dockerfile.rocm -t sarchlab/mgpusim-rocm:6.2 .
+#
+# Run (interactive shell):
+#   docker run --rm -it sarchlab/mgpusim-rocm:6.2 bash
+#
+# Compile a single kernel.hip (example):
+#   docker run --rm \
+#     -v "$(pwd)/amd/benchmarks/rodinia/bfs:/work" \
+#     sarchlab/mgpusim-rocm:6.2 \
+#     clang -target amdgcn-amd-amdhsa -mcpu=gfx942 -x c++ \
+#       /work/kernel.hip -o /work/kernel.hsaco
+#
+# Publish to Docker Hub:
+#   docker push sarchlab/mgpusim-rocm:6.2
+#
+# See docker/README.md for full Docker Hub publishing instructions.
+
+FROM rocm/dev-ubuntu-24.04:7.1.1
+
+LABEL maintainer="sarchlab"
+LABEL description="ROCm 6.2 environment for compiling HIP kernels to HSACO (gfx942)"
+LABEL rocm.version="7.1.1"
+LABEL target.gpu="gfx942"
+
+# Install additional build utilities.
+# rocm/dev-ubuntu-22.04:6.2-complete already ships:
+#   - /opt/rocm/llvm/bin/clang  (LLVM/Clang with AMDGPU backend)
+#   - hipcc
+#   - llvm-dis, llvm-objdump, etc.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        file \
+        binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Make the ROCm clang the default clang on PATH.
+# /opt/rocm/llvm/bin takes precedence over /usr/bin.
+ENV PATH="/opt/rocm/llvm/bin:/opt/rocm/bin:${PATH}"
+
+# Verify toolchain at build time.
+RUN echo "=== ROCm clang version ===" && clang --version && \
+    echo "=== AMDGPU target check ===" && \
+    clang --print-targets 2>/dev/null | grep -i amdgcn && \
+    echo "=== hipcc version ===" && hipcc --version | head -3
+
+# Default working directory inside the container.
+WORKDIR /work
+
+# Default command: print clang version to confirm the image works.
+CMD ["clang", "--version"]

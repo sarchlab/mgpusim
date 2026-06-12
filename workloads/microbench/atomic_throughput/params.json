@@ -1,0 +1,23 @@
+{
+  "benchmark": "atomic_throughput",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "num_threads",
+    "description": "Total number of threads launched (each performs num_atomics_per_thread atomic adds)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512, 1024]
+    },
+    "num_atomics_per_thread": {
+      "description": "Number of atomicAdd operations each thread performs",
+      "values": [128, 512, 1024, 4096, 16384]
+    },
+    "num_counters": {
+      "description": "Number of counters in the global array (1=high contention, 32=medium, 1024=low)",
+      "values": [1, 32, 1024]
+    }
+  }
+}

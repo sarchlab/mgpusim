@@ -8,7 +8,7 @@ import (
 
 // flatPrecomputeScalarBase reads the scalar base register once (lane-invariant).
 // Returns (hasSAddr, scalarBase). If hasSAddr is false, scalarBase is unused.
-// GCN3 rules: SAddr is OFF when value is 0x7F or 0.
+// SAddr is OFF when value is 0x7F or 0.
 func (u *ALUImpl) flatPrecomputeScalarBase(
 	state InstEmuState,
 ) (bool, uint64) {
@@ -27,7 +27,7 @@ func (u *ALUImpl) flatPrecomputeScalarBase(
 //   - SAddr mode (scalar base + VGPR offset) vs OFF mode (VGPR pair as 64-bit addr)
 //   - Signed 13-bit immediate offset (Offset0)
 //
-// GCN3 rules: SAddr is OFF when value is 0x7F or 0.
+// SAddr is OFF when value is 0x7F or 0.
 func (u *ALUImpl) flatAddr(state InstEmuState, laneID int) uint64 {
 	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
 	return u.flatAddrWithScalar(state, laneID, hasSAddr, scalarBase)

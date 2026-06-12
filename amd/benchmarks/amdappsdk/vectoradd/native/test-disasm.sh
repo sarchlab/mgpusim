@@ -13,7 +13,7 @@ MGPUSIM_ROOT="$SCRIPT_DIR/../../../../.."
 HSACO="$SCRIPT_DIR/vectoradd.hsaco"
 LLVM_DISASM="$SCRIPT_DIR/vectoradd.disasm"
 MGPUSIM_DISASM="$SCRIPT_DIR/vectoradd.mgpusim.disasm"
-DISASSEMBLER="$MGPUSIM_ROOT/amd/insts/gcn3disassembler/gcn3disassembler"
+DISASSEMBLER="$MGPUSIM_ROOT/amd/insts/disassembler_cmd/disassembler_cmd"
 
 # Check required files exist
 if [ ! -f "$HSACO" ]; then
@@ -30,7 +30,7 @@ fi
 # Build disassembler if needed
 if [ ! -f "$DISASSEMBLER" ]; then
     echo "Building MGPUSim disassembler..."
-    (cd "$MGPUSIM_ROOT/amd/insts/gcn3disassembler" && go build -o gcn3disassembler .)
+    (cd "$MGPUSIM_ROOT/amd/insts/disassembler_cmd" && go build -o disassembler_cmd .)
 fi
 
 # Run MGPUSim disassembler

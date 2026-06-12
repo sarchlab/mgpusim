@@ -6,11 +6,10 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
@@ -44,7 +43,7 @@ type Driver struct {
 	engineMutex        sync.Mutex
 	engineRunning      bool
 	engineRunningMutex sync.Mutex
-	simulationID       string
+	simulationID       uint64
 
 	Log2PageSize uint64
 
@@ -77,10 +76,10 @@ func (d *Driver) Terminate() {
 }
 
 func (d *Driver) logSimulationStart() {
-	d.simulationID = xid.New().String()
+	d.simulationID = sim.GetIDGenerator().Generate()
 	tracing.StartTask(
 		d.simulationID,
-		"",
+		0,
 		d,
 		"Simulation", "Simulation",
 		nil,
@@ -97,19 +96,19 @@ func (d *Driver) runAsync() {
 		case <-d.driverStopped:
 			return
 		case <-d.enqueueSignal:
-			d.Engine.Pause()
-			d.TickLater()
-			d.Engine.Continue()
-
 			d.engineRunningMutex.Lock()
 			if d.engineRunning {
 				d.engineRunningMutex.Unlock()
 				continue
 			}
-
 			d.engineRunning = true
-			go d.runEngine()
 			d.engineRunningMutex.Unlock()
+
+			d.Engine.(sim.Engine).Pause()
+			d.TickLater()
+			d.Engine.(sim.Engine).Continue()
+
+			go d.runEngine()
 		}
 	}
 }
@@ -125,14 +124,50 @@ func (d *Driver) runEngine() {
 
 	d.engineMutex.Lock()
 	defer d.engineMutex.Unlock()
-	err := d.Engine.Run()
-	if err != nil {
-		panic(err)
+
+	for {
+		err := d.Engine.(sim.Engine).Run()
+		if err != nil {
+			panic(err)
+		}
+
+		if !d.hasPendingCommands() {
+			break
+		}
+
+		d.TickLater()
 	}
 
 	d.engineRunningMutex.Lock()
 	d.engineRunning = false
 	d.engineRunningMutex.Unlock()
+
+	// Close race: a command may have been enqueued between the
+	// hasPendingCommands check and clearing engineRunning. If
+	// runAsync consumed that signal while engineRunning was true,
+	// nobody would restart the engine.
+	if d.hasPendingCommands() {
+		select {
+		case d.enqueueSignal <- true:
+		default:
+		}
+	}
+}
+
+func (d *Driver) hasPendingCommands() bool {
+	d.contextMutex.Lock()
+	defer d.contextMutex.Unlock()
+	for _, ctx := range d.contexts {
+		ctx.queueMutex.Lock()
+		for _, q := range ctx.queues {
+			if q.NumCommand() > 0 {
+				ctx.queueMutex.Unlock()
+				return true
+			}
+		}
+		ctx.queueMutex.Unlock()
+	}
+	return false
 }
 
 // DeviceProperties defines the properties of a device
@@ -495,7 +530,7 @@ func (d *Driver) findCommandByReq(req sim.Msg) (Command, *CommandQueue) {
 	panic("cannot find command")
 }
 
-func (d *Driver) findCommandByReqID(reqID string) (
+func (d *Driver) findCommandByReqID(reqID uint64) (
 	sim.Msg,
 	Command,
 	*CommandQueue,
@@ -763,7 +798,7 @@ func (d *Driver) preparePageMigrationRspToMMU() {
 	}
 
 	req := vm.NewPageMigrationRspFromDriver(d.mmuPort.AsRemote(),
-		d.currentPageMigrationReq.Src, d.currentPageMigrationReq)
+		d.currentPageMigrationReq.Src, d.currentPageMigrationReq.ID)
 
 	for _, vAddrs := range pageVaddrs {
 		for j := 0; j < len(vAddrs); j++ {

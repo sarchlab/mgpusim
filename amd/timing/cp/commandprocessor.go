@@ -1,8 +1,8 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
@@ -46,11 +46,22 @@ type CommandProcessor struct {
 	numTLBAck                    uint64
 	numCacheACK                  uint64
 
+	// flushPhase tracks the two-phase cache flush progress:
+	// 0 = idle, 1 = flushing L1 caches, 2 = flushing L2 caches.
+	// L1V caches are write-through to L2, so L1 must complete flushing
+	// before L2 flush begins, ensuring all write-through data reaches L2.
+	flushPhase int
+
+	// pendingFlushRsp is true when a cache flush completed but the
+	// response to the driver could not be sent (port busy). The
+	// ctrlMiddleware retries sending on subsequent ticks.
+	pendingFlushRsp bool
+
 	shootDownInProcess bool
 
-	bottomKernelLaunchReqIDToTopReqMap map[string]*protocol.LaunchKernelReq
-	bottomMemCopyH2DReqIDToTopReqMap   map[string]*protocol.MemCopyH2DReq
-	bottomMemCopyD2HReqIDToTopReqMap   map[string]*protocol.MemCopyD2HReq
+	bottomKernelLaunchReqIDToTopReqMap map[uint64]*protocol.LaunchKernelReq
+	bottomMemCopyH2DReqIDToTopReqMap   map[uint64]*protocol.MemCopyH2DReq
+	bottomMemCopyD2HReqIDToTopReqMap   map[uint64]*protocol.MemCopyD2HReq
 
 	middleware     *cpMiddleware
 	ctrlMiddleware *ctrlMiddleware

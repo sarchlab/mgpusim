@@ -4,10 +4,10 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
@@ -17,7 +17,7 @@ import (
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
-// simulation of a GCN3 ComputeUnit
+// simulation of a GPU ComputeUnit
 type ComputeUnit struct {
 	*sim.TickingComponent
 
@@ -49,6 +49,11 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
+	// scratchALU is used to emulate SCRATCH-segment FLAT instructions
+	// (FlatSeg=1) directly, bypassing the cache/TLB hierarchy. These
+	// access per-wave private memory (scratch space).
+	scratchALU emu.ALU
+
 	InstMem          sim.Port
 	ScalarMem        sim.Port
 	VectorMemModules mem.AddressToPortMapper
@@ -73,7 +78,7 @@ type ComputeUnit struct {
 	currentFlushReq   *protocol.CUPipelineFlushReq
 	currentRestartReq *protocol.CUPipelineRestartReq
 	//for sampling
-	wftime map[string]sim.VTimeInSec
+	wftime map[uint64]sim.VTimeInSec
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -314,7 +319,7 @@ func (cu *ComputeUnit) processInputFromACE() bool {
 
 // Handle the wavefront completion events
 func (cu *ComputeUnit) Handle(evt sim.Event) error {
-	ctx := sim.HookCtx{
+	ctx := hooking.HookCtx{
 		Domain: cu,
 		Pos:    sim.HookPosBeforeEvent,
 		Item:   evt,
@@ -326,6 +331,10 @@ func (cu *ComputeUnit) Handle(evt sim.Event) error {
 	defer cu.Unlock()
 
 	switch evt := evt.(type) {
+	case sim.TickEvent:
+		cu.Unlock()
+		cu.TickingComponent.Handle(evt)
+		cu.Lock()
 	case *wavefront.WfCompletionEvent:
 		cu.handleWfCompletionEvent(evt)
 	default:
@@ -350,7 +359,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 
 		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {
-			newEvent := wavefront.NewWfCompletionEvent(cu.Freq.NextTick(now), cu, wf)
+			newEvent := wavefront.NewWfCompletionEvent(cu.Freq.NextTick(now), cu.Name(), wf)
 			cu.Engine.Schedule(newEvent)
 			return nil
 		}
@@ -364,42 +373,44 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 	}
 	return nil
 }
+func (cu *ComputeUnit) handleSampledWFs(
+	wg *wavefront.WorkGroup, req *protocol.MapWGReq, now sim.VTimeInSec,
+) {
+	for _, wf := range wg.Wfs {
+		cu.wftime[wf.UID] = now
+	}
+
+	wfpredicttime, wfsampled := sampling.SampledEngineInstance.Predict()
+	if !wfsampled {
+		return
+	}
+
+	for _, wf := range wg.Wfs {
+		predictedTime := wfpredicttime + now
+		wf.State = wavefront.WfSampledCompleted
+		newEvent := wavefront.NewWfCompletionEvent(predictedTime, cu.Name(), wf)
+		cu.Engine.Schedule(newEvent)
+		tracing.StartTask(wf.UID,
+			tracing.MsgIDAtReceiver(req, cu),
+			cu,
+			"wavefront",
+			"wavefront",
+			nil,
+		)
+	}
+}
+
 func (cu *ComputeUnit) handleMapWGReq(
 	req *protocol.MapWGReq,
 ) bool {
 	now := cu.CurrentTime()
-
 	wg := cu.wrapWG(req.WorkGroup, req)
-
 	tracing.TraceReqReceive(req, cu)
 
-	//sampling
 	skipSimulate := false
 	if *sampling.SampledRunnerFlag {
-		for _, wf := range wg.Wfs {
-			cu.wftime[wf.UID] = now
-		}
-
-		wfpredicttime, wfsampled := sampling.SampledEngineInstance.Predict()
-		predtime := wfpredicttime
-		skipSimulate = wfsampled
-
-		for _, wf := range wg.Wfs {
-			if skipSimulate {
-				predictedTime := predtime + now
-				wf.State = wavefront.WfSampledCompleted
-				newEvent := wavefront.NewWfCompletionEvent(
-					predictedTime, cu, wf)
-				cu.Engine.Schedule(newEvent)
-				tracing.StartTask(wf.UID,
-					tracing.MsgIDAtReceiver(req, cu),
-					cu,
-					"wavefront",
-					"wavefront",
-					nil,
-				)
-			}
-		}
+		cu.handleSampledWFs(wg, req, now)
+		_, skipSimulate = sampling.SampledEngineInstance.Predict()
 	}
 
 	if !skipSimulate {
@@ -407,7 +418,14 @@ func (cu *ComputeUnit) handleMapWGReq(
 			location := req.Wavefronts[i]
 			cu.WfPools[location.SIMDID].AddWf(wf)
 			cu.WfDispatcher.DispatchWf(wf, req.Wavefronts[i])
-			wf.State = wavefront.WfReady
+			if impl, ok := cu.WfDispatcher.(*WfDispatcherImpl); ok {
+				wf.SetupCyclesLeft = impl.Latency
+			}
+			if wf.SetupCyclesLeft > 0 {
+				wf.State = wavefront.WfDispatching
+			} else {
+				wf.State = wavefront.WfReady
+			}
 
 			tracing.StartTaskWithSpecificLocation(wf.UID,
 				tracing.MsgIDAtReceiver(req, cu),
@@ -460,9 +478,20 @@ func (cu *ComputeUnit) wrapWG(
 	lds := make([]byte, req.WorkGroup.Packet.GroupSegmentSize)
 	wg.LDS = lds
 
+	// Compute per-wave scratch size from the code object.
+	scratchPerLane := uint32(0)
+	if raw.CodeObject != nil {
+		scratchPerLane = raw.CodeObject.PrivateSegmentByteSize
+	}
+	scratchPerWave := uint64(scratchPerLane) * 64
+
 	for _, rawWf := range req.WorkGroup.Wavefronts {
 		wf := wavefront.NewWavefront(rawWf)
 		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
+		if scratchPerWave > 0 {
+			wf.Scratch = make([]byte, scratchPerWave)
+			wf.ScratchPerLane = scratchPerLane
+		}
 		wg.Wfs = append(wg.Wfs, wf)
 		wf.WG = wg
 		wf.SetPID(req.PID)
@@ -492,7 +521,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 ) bool {
 	matchIdx := -1
 	for i, info := range cu.InFlightInstFetch {
-		if info.Req.ID == rsp.RespondTo {
+		if info.Req.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -516,7 +545,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	wf.LastFetchTime = cu.TickingComponent.TickScheduler.CurrentTime()
 
 	tracing.TraceReqFinalize(info.Req, cu)
-	tracing.EndTask(info.Req.ID+"_fetch", cu)
+	tracing.EndTask(info.Req.ID, cu)
 	return true
 }
 
@@ -541,7 +570,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightScalarMemAccess {
-		if info.Req != nil && info.Req.ID == rsp.RespondTo {
+		if info.Req != nil && info.Req.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -580,7 +609,7 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
 	madeProgress := false
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 64; i++ {
 		rsp := cu.ToVectorMem.RetrieveIncoming()
 		if rsp == nil {
 			break
@@ -600,13 +629,12 @@ func (cu *ComputeUnit) processInputFromVectorMem() bool {
 	return madeProgress
 }
 
-//nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	rsp *mem.DataReadyRsp,
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightVectorMemAccess {
-		if info.Read != nil && info.Read.ID == rsp.RespondTo {
+		if info.Read != nil && info.Read.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -626,25 +654,17 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 
 	for _, laneInfo := range info.laneInfo {
 		offset := laneInfo.addrOffsetInCacheLine
+		data, ok := cu.extractLaneLoadData(
+			rsp.Data, offset, laneInfo.regCount, inst)
+		if !ok {
+			continue
+		}
 		access := RegisterAccess{}
 		access.WaveOffset = wf.VRegOffset
 		access.Reg = laneInfo.reg
 		access.RegCount = laneInfo.regCount
 		access.LaneID = laneInfo.laneID
-		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
-			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
-		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
-			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
-		} else {
-			end := offset + uint64(4*laneInfo.regCount)
-			if end > uint64(len(rsp.Data)) {
-				end = uint64(len(rsp.Data))
-				if offset >= end {
-					continue
-				}
-			}
-			access.Data = rsp.Data[offset:end]
-		}
+		access.Data = data
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
@@ -658,12 +678,66 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	}
 }
 
+// extractLaneLoadData extracts the loaded data for a single lane from the
+// response buffer. Returns (data, true) on success or (nil, false) if the
+// offset is out of bounds.
+func (cu *ComputeUnit) extractLaneLoadData(
+	rspData []byte,
+	offset uint64,
+	regCount int,
+	inst *wavefront.Inst,
+) ([]byte, bool) {
+	dataLen := uint64(len(rspData))
+	if inst.FormatType == insts.FLAT {
+		switch inst.Opcode {
+		case 16: // FLAT_LOAD_UBYTE
+			if offset >= dataLen {
+				return nil, false
+			}
+			return insts.Uint32ToBytes(uint32(rspData[offset])), true
+		case 17: // FLAT_LOAD_SBYTE
+			if offset >= dataLen {
+				return nil, false
+			}
+			signedByte := int8(rspData[offset])
+			return insts.Uint32ToBytes(uint32(int32(signedByte))), true
+		case 18: // FLAT_LOAD_USHORT
+			if offset+1 >= dataLen {
+				return nil, false
+			}
+			val := uint32(rspData[offset]) | (uint32(rspData[offset+1]) << 8)
+			return insts.Uint32ToBytes(val), true
+		case 19: // FLAT_LOAD_SSHORT
+			if offset+1 >= dataLen {
+				return nil, false
+			}
+			val := int16(uint16(rspData[offset]) |
+				(uint16(rspData[offset+1]) << 8))
+			return insts.Uint32ToBytes(uint32(int32(val))), true
+		}
+	}
+
+	needBytes := uint64(4 * regCount)
+	end := offset + needBytes
+	if offset >= dataLen {
+		return nil, false
+	}
+	if end > dataLen {
+		// Data crosses cache line boundary. Pad with zeros so the
+		// register write has the expected byte count.
+		padded := make([]byte, needBytes)
+		copy(padded, rspData[offset:])
+		return padded, true
+	}
+	return rspData[offset:end], true
+}
+
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	rsp *mem.WriteDoneRsp,
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightVectorMemAccess {
-		if info.Write != nil && info.Write.ID == rsp.RespondTo {
+		if info.Write != nil && info.Write.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -698,6 +772,16 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
 	if len(wf.InstBuffer) != 0 {
 		for wf.PC() >= wf.InstBufferStartPC+64 {
+			if len(wf.InstBuffer) < 64 {
+				// Buffer has fewer than 64 bytes remaining but PC has
+				// advanced past the next 64-byte boundary. Clear the
+				// buffer entirely and align InstBufferStartPC to the
+				// current PC's 64-byte boundary so the next fetch
+				// starts from the right place.
+				wf.InstBuffer = wf.InstBuffer[:0]
+				wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
+				return
+			}
 			wf.InstBuffer = wf.InstBuffer[64:]
 			wf.InstBufferStartPC += 64
 		}
@@ -803,7 +887,7 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 		info := cu.shadowInFlightScalarMemAccess[0]
 
 		req := info.Req
-		req.ID = xid.New().String()
+		req.ID = sim.GetIDGenerator().Generate()
 		err := cu.ToScalarMem.Send(req)
 		if err == nil {
 			cu.InFlightScalarMemAccess =
@@ -848,7 +932,7 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightInstFetch) > 0 {
 		info := cu.shadowInFlightInstFetch[0]
 		req := info.Req
-		req.ID = xid.New().String()
+		req.ID = sim.GetIDGenerator().Generate()
 		err := cu.ToInstMem.Send(req)
 		if err == nil {
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
@@ -896,10 +980,16 @@ func NewComputeUnit(
 	cu.TickingComponent = sim.NewTickingComponent(
 		name, engine, 1*sim.GHz, cu)
 
+	// Re-register the ComputeUnit (not the TickingComponent) as the handler
+	// so that the custom Handle method is called for WfCompletionEvent.
+	if registrar, ok := engine.(sim.HandlerRegistrar); ok {
+		registrar.RegisterHandler(name, cu)
+	}
+
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
-	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewPort(cu, 32, 32, name+".ToVectorMem")
+	cu.ToScalarMem = sim.NewPort(cu, 32, 32, name+".ToScalarMem")
+	cu.ToVectorMem = sim.NewPort(cu, 512, 512, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	cu.AddPort("Top", cu.ToACE)
@@ -908,7 +998,7 @@ func NewComputeUnit(
 	cu.AddPort("ScalarMem", cu.ToScalarMem)
 	cu.AddPort("VectorMem", cu.ToVectorMem)
 
-	cu.wftime = make(map[string]sim.VTimeInSec)
+	cu.wftime = make(map[uint64]sim.VTimeInSec)
 
 	return cu
 }

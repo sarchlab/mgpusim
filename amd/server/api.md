@@ -24,7 +24,7 @@
 
 ```json
 {
-  "name": "gfx803",
+  "name": "gfx942",
   "total_global_mem": 4294967296,
   "shared_mem_per_block": 4096,
   "regs_per_block": 102,
@@ -52,7 +52,7 @@
   "max_shared_memory_per_multi_processor": 65536,
   "is_multi_gpu_board": 0,
   "can_map_host_memory": 0,
-  "gcn_arch": 803
+  "gcn_arch": 942
 }
 ```
 

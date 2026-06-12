@@ -2,7 +2,7 @@
 package sampling
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // WFFeature is used for recording the runtime info

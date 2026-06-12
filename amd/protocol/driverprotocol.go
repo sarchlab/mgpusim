@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
@@ -75,8 +75,6 @@ func NewLaunchKernelReq(
 // the kernel completes execution.
 type LaunchKernelRsp struct {
 	sim.MsgMeta
-
-	RspTo string
 }
 
 // Meta returns the meta data associated with the message.
@@ -95,7 +93,7 @@ func (m *LaunchKernelRsp) Clone() sim.Msg {
 // NewLaunchKernelRsp returns a new LaunchKernelRsp.
 func NewLaunchKernelRsp(
 	src, dst sim.RemotePort,
-	rspTo string,
+	rspTo uint64,
 ) *LaunchKernelRsp {
 	r := new(LaunchKernelRsp)
 	r.ID = sim.GetIDGenerator().Generate()

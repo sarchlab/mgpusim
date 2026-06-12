@@ -3,8 +3,9 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
@@ -91,7 +92,21 @@ func (u *ScalarUnit) runExecStage() bool {
 			return true
 		}
 
+		// Pre-advance the PC before running the ALU emulation.
+		// The CDNA3 ALU expects the wavefront PC to already point
+		// to the next instruction (matching the emulation path where
+		// PC is advanced before execution). This is critical for
+		// s_getpc_b64, which writes the current PC to a register
+		// pair — the hardware returns the address of the *next*
+		// instruction, not the current one.
+		//
+		// After the ALU runs, we restore the PC so that
+		// UpdatePCAndSetReady (called in the write stage) can
+		// advance it in the normal way.
+		savedPC := u.toExec.PC()
+		u.toExec.SetPC(savedPC + uint64(u.toExec.Inst().ByteSize))
 		u.alu.Run(u.toExec)
+		u.toExec.SetPC(savedPC)
 
 		u.toWrite = u.toExec
 		u.toExec = nil
@@ -112,6 +127,19 @@ func (u *ScalarUnit) executeSMEMInst() bool {
 		return u.executeSMEMLoad(16)
 	case 3:
 		return u.executeSMEMLoad(32)
+	case 4:
+		return u.executeSMEMLoad(64)
+	// s_buffer_load variants use the same load path
+	case 8:
+		return u.executeSMEMLoad(4)
+	case 9:
+		return u.executeSMEMLoad(8)
+	case 10:
+		return u.executeSMEMLoad(16)
+	case 11:
+		return u.executeSMEMLoad(32)
+	case 12:
+		return u.executeSMEMLoad(64)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}
@@ -138,13 +166,14 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
 
-		req := mem.ReadReqBuilder{}.
-			WithSrc(u.cu.ToScalarMem.AsRemote()).
-			WithDst(u.cu.ScalarMem.AsRemote()).
-			WithAddress(curr).
-			WithPID(u.toExec.PID()).
-			WithByteSize(bytesLeftInCacheline).
-			Build()
+		req := &mem.ReadReq{
+			Address:        curr,
+			AccessByteSize: bytesLeftInCacheline,
+			PID:            u.toExec.PID(),
+		}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Src = u.cu.ToScalarMem.AsRemote()
+		req.Dst = u.cu.ScalarMem.AsRemote()
 		if bytesLeft > 0 {
 			req.CanWaitForCoalesce = true
 		}
@@ -219,15 +248,18 @@ func (u *ScalarUnit) runWriteStage() bool {
 }
 
 func (u *ScalarUnit) sendRequest() bool {
-	if len(u.readBuf) > 0 {
+	madeProgress := false
+	for i := 0; i < 4 && len(u.readBuf) > 0; i++ {
 		req := u.readBuf[0]
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
-			return true
+			madeProgress = true
+		} else {
+			break
 		}
 	}
-	return false
+	return madeProgress
 }
 
 // Flush clears the unit

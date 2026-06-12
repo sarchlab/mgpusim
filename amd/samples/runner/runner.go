@@ -8,8 +8,9 @@ import (
 	_ "net/http/pprof"
 	"sync"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/mgpusim/v4/domain"
 	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
@@ -27,14 +28,13 @@ type verificationPreEnablingBenchmark interface {
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	simulation *simulation.Simulation
-	platform   *sim.Domain
+	platform   *domain.Domain
 	reporter   *reporter
 
-	Timing           bool
-	Verify           bool
-	Parallel         bool
-	UseUnifiedMemory bool
-	ArchType         arch.Type
+	Timing   bool
+	Verify   bool
+	Parallel bool
+	ArchType arch.Type
 	GPUType          string
 
 	GPUIDs     []int
@@ -55,8 +55,6 @@ func (r *Runner) Init() *Runner {
 		r.buildEmuPlatform()
 	}
 
-	r.createUnifiedGPUs()
-
 	return r
 }
 
@@ -65,6 +63,12 @@ func (r *Runner) initSimulation() {
 
 	if *parallelFlag {
 		builder = builder.WithParallelEngine()
+	}
+
+	if *disableAkitaRTM {
+		builder = builder.WithoutMonitoring()
+	} else if *customPortForAkitaRTM > 0 {
+		builder = builder.WithMonitorPort(*customPortForAkitaRTM)
 	}
 
 	if *visTracing {
@@ -103,22 +107,9 @@ func (r *Runner) buildTimingPlatform() {
 	r.reporter = newReporter(r.simulation)
 }
 
-func (r *Runner) createUnifiedGPUs() {
-	if *unifiedGPUFlag == "" {
-		return
-	}
-
-	driver := r.simulation.GetComponentByName("Driver").(*driver.Driver)
-	unifiedGPUID := driver.CreateUnifiedGPU(nil, r.GPUIDs)
-	r.GPUIDs = []int{unifiedGPUID}
-}
-
 // AddBenchmark adds an benchmark that the driver runs
 func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 	b.SelectGPU(r.GPUIDs)
-	if r.UseUnifiedMemory {
-		b.SetUnifiedMemory()
-	}
 
 	r.benchmarks = append(r.benchmarks, b)
 }
@@ -126,10 +117,6 @@ func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 // AddBenchmarkWithoutSettingGPUsToUse allows for user specified GPUs for
 // the benchmark to run.
 func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
-	if r.UseUnifiedMemory {
-		b.SetUnifiedMemory()
-	}
-
 	r.benchmarks = append(r.benchmarks, b)
 }
 
@@ -159,6 +146,7 @@ func (r *Runner) Run() {
 
 	if r.reporter != nil {
 		r.reporter.report()
+		r.reporter.dataRecorder.Flush()
 	}
 
 	r.Driver().Terminate()

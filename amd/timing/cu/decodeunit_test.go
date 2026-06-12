@@ -25,7 +25,7 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should tell if it cannot accept wave when queue is full", func() {
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 8; i++ {
 			du.toDecode = append(du.toDecode, new(wavefront.Wavefront))
 		}
 		Expect(du.CanAcceptWave()).To(BeFalse())
@@ -51,7 +51,7 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should panic if the queue is full", func() {
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 8; i++ {
 			du.AcceptWave(new(wavefront.Wavefront))
 		}
 		Expect(func() { du.AcceptWave(new(wavefront.Wavefront)) }).Should(Panic())

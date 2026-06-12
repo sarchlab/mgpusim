@@ -1,8 +1,9 @@
 package rob
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 )
 
 // The portHook hooks on the top port of the reorder buffer to monitor the
@@ -12,7 +13,7 @@ import (
 type portHook struct {
 }
 
-func (h *portHook) Func(ctx sim.HookCtx) {
+func (h *portHook) Func(ctx hooking.HookCtx) {
 	switch ctx.Pos {
 	case sim.HookPosPortMsgRecvd:
 		h.recordMsgRecvd(ctx)
@@ -21,7 +22,7 @@ func (h *portHook) Func(ctx sim.HookCtx) {
 	}
 }
 
-func (h *portHook) recordMsgRecvd(ctx sim.HookCtx) {
+func (h *portHook) recordMsgRecvd(ctx hooking.HookCtx) {
 	msg := ctx.Item.(sim.Msg)
 	port := ctx.Domain.(sim.Port)
 	comp := port.Component().(tracing.NamedHookable)
@@ -35,7 +36,7 @@ func (h *portHook) recordMsgRecvd(ctx sim.HookCtx) {
 	)
 }
 
-func (h *portHook) recordMsgRetrieved(ctx sim.HookCtx) {
+func (h *portHook) recordMsgRetrieved(ctx hooking.HookCtx) {
 	port := ctx.Domain.(sim.Port)
 	comp := port.Component().(tracing.NamedHookable)
 	head := port.PeekIncoming()

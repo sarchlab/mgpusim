@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "run_id": "24481375286",
+  "benchmark_ref_sha": "ba9bcc06f812b7d5d839d3d4bb43b8d8fd1e1932",
+  "context": "Archived legacy CI run 24481375286 on main (ba9bcc06). This manifest is retained only to document the old ci_artifacts snapshot and is not current M57 report provenance.",
+  "generated_at_utc": "2026-04-16T02:38:43Z",
+  "artifacts_dir": "ci_artifacts",
+  "fingerprint": {
+    "algorithm": "sha256",
+    "basis": "sha256 of sorted lines: '<file_sha256><two spaces><relative_path>\\n'",
+    "file_count": 95,
+    "value": "2a91ea9c491d9fe91b46513a20a647f1942d02612ec9af035b620d545dcd5b33"
+  },
+  "archive_status": "legacy_archived",
+  "active_for_m57_reports": false,
+  "archive_notice": "Do not use ci_artifacts/provenance_manifest.json as current M57 selected-run evidence. The current report provenance is benchmark-comparison/selected-run-25619929396.",
+  "superseded_by": {
+    "purpose": "current M57 selected-run report provenance",
+    "run_id": "25619929396",
+    "head_sha": "a281789a7354b86a8a04b350c145c573d531f54d",
+    "artifacts_dir": "benchmark-comparison/selected-run-25619929396",
+    "run_metadata": "benchmark-comparison/selected-run-25619929396/run-view.json",
+    "comparison_ci_csv": "benchmark-comparison/selected-run-25619929396/comparison_ci.detailed.csv",
+    "comparison_ci_sha256": "867f125aa726ff3a06dff4b40d27008e897347da1001011cd5bd6207823a3a20"
+  }
+}

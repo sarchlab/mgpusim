@@ -1,0 +1,639 @@
+event_type,tier,workflow_benchmark,size_label,timestamp,source_log_line,job_name,message,timeout_sec,exit_or_reason,emitted_ms
+finished,Tier 1,device_memory_read,1MB,2026-05-03T01:20:15.9831496Z,4434,Tier 1 Bench: device_memory_read,[OK] device_memory_read 1MB -> 0.003791 ms,,,0.003791
+timed_out_3600s,Tier 1,device_memory_read,2MB,2026-05-03T02:20:16.0288520Z,4438,Tier 1 Bench: device_memory_read,##[warning]TIMEOUT: device_memory_read 2MB (>3600s),3600,timeout,
+finished,Tier 1,l1_cache_bw,1024,2026-05-03T01:18:45.1812522Z,5370,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 1024 -> 0.008117 ms,,,0.008117
+finished,Tier 1,l1_cache_bw,2048,2026-05-03T01:18:56.3326560Z,5374,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 2048 -> 0.008116 ms,,,0.008116
+finished,Tier 1,l1_cache_bw,3072,2026-05-03T01:19:13.4981769Z,5378,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 3072 -> 0.008120 ms,,,0.008120
+finished,Tier 1,l1_cache_bw,4096,2026-05-03T01:19:37.2319274Z,5382,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 4096 -> 0.008119 ms,,,0.008119
+finished,Tier 1,l1_cache_bw,6144,2026-05-03T01:20:15.1026568Z,5386,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 6144 -> 0.008121 ms,,,0.008121
+finished,Tier 1,l1_cache_bw,8192,2026-05-03T01:21:09.9303287Z,5390,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 8192 -> 0.008123 ms,,,0.008123
+finished,Tier 1,l1_cache_bw,10240,2026-05-03T01:22:20.6618776Z,5394,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 10240 -> 0.008127 ms,,,0.008127
+finished,Tier 1,l1_cache_bw,12288,2026-05-03T01:23:44.2078509Z,5398,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 12288 -> 0.008128 ms,,,0.008128
+finished,Tier 1,l1_cache_bw,14336,2026-05-03T01:25:24.0662570Z,5402,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 14336 -> 0.008129 ms,,,0.008129
+finished,Tier 1,l1_cache_bw,16384,2026-05-03T01:27:20.8908666Z,5406,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 16384 -> 0.008132 ms,,,0.008132
+finished,Tier 1,l1_cache_bw,20480,2026-05-03T01:29:48.6491753Z,5410,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 20480 -> 0.008220 ms,,,0.008220
+finished,Tier 1,l1_cache_bw,24576,2026-05-03T01:32:49.2533615Z,5414,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 24576 -> 0.008225 ms,,,0.008225
+finished,Tier 1,l1_cache_bw,28672,2026-05-03T01:36:20.5057233Z,5418,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 28672 -> 0.008229 ms,,,0.008229
+finished,Tier 1,l1_cache_bw,32768,2026-05-03T01:40:22.5939323Z,5422,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 32768 -> 0.008233 ms,,,0.008233
+finished,Tier 1,l1_cache_bw,49152,2026-05-03T01:46:40.3868278Z,5426,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 49152 -> 0.008335 ms,,,0.008335
+finished,Tier 1,l1_cache_bw,65536,2026-05-03T01:56:42.2488584Z,5430,Tier 1 Bench: l1_cache_bw,[OK] l1_cache_bw 65536 -> 0.008558 ms,,,0.008558
+finished,Tier 1,bus_speed_readback,1KB,2026-05-03T01:18:39.9215932Z,6020,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 1KB -> 551000000.000000 ms,,,551000000.000000
+finished,Tier 1,bus_speed_readback,2KB,2026-05-03T01:18:40.1244637Z,6024,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 2KB -> 549000000.000000 ms,,,549000000.000000
+finished,Tier 1,bus_speed_readback,4KB,2026-05-03T01:18:40.3501401Z,6028,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 4KB -> 551000000.000000 ms,,,551000000.000000
+finished,Tier 1,bus_speed_readback,8KB,2026-05-03T01:18:40.5884177Z,6032,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 8KB -> 552000000.000000 ms,,,552000000.000000
+finished,Tier 1,bus_speed_readback,16KB,2026-05-03T01:18:40.8237424Z,6036,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 16KB -> 554000000.000000 ms,,,554000000.000000
+finished,Tier 1,bus_speed_readback,32KB,2026-05-03T01:18:41.0979245Z,6040,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 32KB -> 558000000.000000 ms,,,558000000.000000
+finished,Tier 1,bus_speed_readback,64KB,2026-05-03T01:18:41.5027734Z,6044,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 64KB -> 566000000.000000 ms,,,566000000.000000
+finished,Tier 1,bus_speed_readback,128KB,2026-05-03T01:18:42.1118627Z,6048,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 128KB -> 738000000.000000 ms,,,738000000.000000
+finished,Tier 1,bus_speed_readback,256KB,2026-05-03T01:18:43.2067929Z,6052,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 256KB -> 0.001144 ms,,,0.001144
+finished,Tier 1,bus_speed_readback,512KB,2026-05-03T01:18:45.2313826Z,6056,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 512KB -> 0.001947 ms,,,0.001947
+finished,Tier 1,bus_speed_readback,1024KB,2026-05-03T01:18:49.7783781Z,6060,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 1024KB -> 0.003569 ms,,,0.003569
+finished,Tier 1,bus_speed_readback,2048KB,2026-05-03T01:19:01.1030234Z,6064,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 2048KB -> 0.006839 ms,,,0.006839
+finished,Tier 1,bus_speed_readback,4096KB,2026-05-03T01:19:35.7508641Z,6068,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 4096KB -> 0.013344 ms,,,0.013344
+finished,Tier 1,bus_speed_readback,8192KB,2026-05-03T01:20:52.3875905Z,6072,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 8192KB -> 0.026275 ms,,,0.026275
+finished,Tier 1,bus_speed_readback,16384KB,2026-05-03T01:24:14.4738663Z,6076,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 16384KB -> 0.052127 ms,,,0.052127
+finished,Tier 1,bus_speed_readback,32768KB,2026-05-03T01:47:31.2782464Z,6080,Tier 1 Bench: bus_speed_readback,[OK] bus_speed_readback 32768KB -> 0.103843 ms,,,0.103843
+timed_out_3600s,Tier 1,bus_speed_readback,65536KB,2026-05-03T02:47:31.3788975Z,6084,Tier 1 Bench: bus_speed_readback,##[warning]TIMEOUT: bus_speed_readback 65536KB (>3600s),3600,timeout,
+finished,Tier 1,device_memory_write,1MB,2026-05-03T01:18:42.2609616Z,6787,Tier 1 Bench: device_memory_write,[OK] device_memory_write 1MB -> 0.001951 ms,,,0.001951
+finished,Tier 1,device_memory_write,2MB,2026-05-03T01:18:49.3227376Z,6791,Tier 1 Bench: device_memory_write,[OK] device_memory_write 2MB -> 0.003607 ms,,,0.003607
+finished,Tier 1,device_memory_write,4MB,2026-05-03T01:19:13.9133950Z,6795,Tier 1 Bench: device_memory_write,[OK] device_memory_write 4MB -> 0.006879 ms,,,0.006879
+finished,Tier 1,device_memory_write,8MB,2026-05-03T01:20:07.6187880Z,6799,Tier 1 Bench: device_memory_write,[OK] device_memory_write 8MB -> 0.013345 ms,,,0.013345
+finished,Tier 1,device_memory_write,12MB,2026-05-03T01:21:41.6093965Z,6803,Tier 1 Bench: device_memory_write,[OK] device_memory_write 12MB -> 0.019811 ms,,,0.019811
+finished,Tier 1,device_memory_write,16MB,2026-05-03T01:24:09.1268111Z,6807,Tier 1 Bench: device_memory_write,[OK] device_memory_write 16MB -> 0.026275 ms,,,0.026275
+finished,Tier 1,device_memory_write,24MB,2026-05-03T01:29:00.6138899Z,6811,Tier 1 Bench: device_memory_write,[OK] device_memory_write 24MB -> 0.039202 ms,,,0.039202
+finished,Tier 1,device_memory_write,32MB,2026-05-03T01:37:58.4811294Z,6815,Tier 1 Bench: device_memory_write,[OK] device_memory_write 32MB -> 0.052129 ms,,,0.052129
+finished,Tier 1,device_memory_write,48MB,2026-05-03T02:26:11.3771852Z,6819,Tier 1 Bench: device_memory_write,[OK] device_memory_write 48MB -> 0.077987 ms,,,0.077987
+timed_out_3600s,Tier 1,device_memory_write,64MB,2026-05-03T03:26:11.4497628Z,6823,Tier 1 Bench: device_memory_write,##[warning]TIMEOUT: device_memory_write 64MB (>3600s),3600,timeout,
+finished,Tier 1,shared_bw,1048576,2026-05-03T01:22:34.6384107Z,7743,Tier 1 Bench: shared_bw,[OK] shared_bw 1048576 -> 0.013602 ms,,,0.013602
+finished,Tier 1,shared_bw,2097152,2026-05-03T01:32:58.8223830Z,7747,Tier 1 Bench: shared_bw,[OK] shared_bw 2097152 -> 0.026312 ms,,,0.026312
+timed_out_3600s,Tier 1,shared_bw,4194304,2026-05-03T02:32:58.9852959Z,7751,Tier 1 Bench: shared_bw,##[warning]TIMEOUT: shared_bw 4194304 (>3600s),3600,timeout,
+timed_out_3600s,Tier 1,fp64_fma,1024,2026-05-03T02:18:40.1204369Z,8673,Tier 1 Bench: fp64_fma,##[warning]TIMEOUT: fp64_fma 1024 (>3600s),3600,timeout,
+finished,Tier 1,occupancy_fma,1024,2026-05-03T01:56:50.3220859Z,9518,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 1024 -> 0.012537 ms,,,0.012537
+finished,Tier 1,occupancy_fma,2048,2026-05-03T01:56:52.1325493Z,9522,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 2048 -> 0.012472 ms,,,0.012472
+finished,Tier 1,occupancy_fma,4096,2026-05-03T01:56:55.3535597Z,9526,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 4096 -> 0.012540 ms,,,0.012540
+finished,Tier 1,occupancy_fma,8192,2026-05-03T01:57:04.0845823Z,9530,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 8192 -> 0.012542 ms,,,0.012542
+finished,Tier 1,occupancy_fma,16384,2026-05-03T01:57:27.4496719Z,9534,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 16384 -> 0.012551 ms,,,0.012551
+finished,Tier 1,occupancy_fma,32768,2026-05-03T01:58:30.2636988Z,9538,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 32768 -> 0.012649 ms,,,0.012649
+finished,Tier 1,occupancy_fma,65536,2026-05-03T02:01:07.6884648Z,9542,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 65536 -> 0.012837 ms,,,0.012837
+finished,Tier 1,occupancy_fma,131072,2026-05-03T02:08:46.4416811Z,9546,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 131072 -> 0.012559 ms,,,0.012559
+finished,Tier 1,occupancy_fma,262144,2026-05-03T02:32:46.8185060Z,9550,Tier 1 Bench: occupancy_fma,[OK] occupancy_fma 262144 -> 0.015023 ms,,,0.015023
+timed_out_3600s,Tier 1,occupancy_fma,524288,2026-05-03T03:32:47.0490808Z,9554,Tier 1 Bench: occupancy_fma,##[warning]TIMEOUT: occupancy_fma 524288 (>3600s),3600,timeout,
+finished,Tier 1,mem_latency_chase,256,2026-05-03T01:18:41.0602613Z,10258,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 256 -> 0.005242 ms,,,0.005242
+finished,Tier 1,mem_latency_chase,512,2026-05-03T01:18:43.6297434Z,10262,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 512 -> 0.005330 ms,,,0.005330
+finished,Tier 1,mem_latency_chase,1024,2026-05-03T01:18:49.8159495Z,10266,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 1024 -> 0.005320 ms,,,0.005320
+finished,Tier 1,mem_latency_chase,2048,2026-05-03T01:19:01.1356035Z,10270,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 2048 -> 0.005311 ms,,,0.005311
+finished,Tier 1,mem_latency_chase,4096,2026-05-03T01:19:27.4153610Z,10274,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 4096 -> 0.005327 ms,,,0.005327
+finished,Tier 1,mem_latency_chase,8192,2026-05-03T01:20:23.7760483Z,10278,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 8192 -> 0.005331 ms,,,0.005331
+finished,Tier 1,mem_latency_chase,16384,2026-05-03T01:22:19.8137633Z,10282,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 16384 -> 0.005399 ms,,,0.005399
+finished,Tier 1,mem_latency_chase,32768,2026-05-03T01:26:13.7969605Z,10286,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 32768 -> 0.005466 ms,,,0.005466
+finished,Tier 1,mem_latency_chase,65536,2026-05-03T01:36:39.4783033Z,10290,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 65536 -> 0.005723 ms,,,0.005723
+finished,Tier 1,mem_latency_chase,131072,2026-05-03T02:35:34.3288949Z,10294,Tier 1 Bench: mem_latency_chase,[OK] mem_latency_chase 131072 -> 0.007932 ms,,,0.007932
+timed_out_3600s,Tier 1,mem_latency_chase,262144,2026-05-03T03:35:34.3884806Z,10298,Tier 1 Bench: mem_latency_chase,##[warning]TIMEOUT: mem_latency_chase 262144 (>3600s),3600,timeout,
+finished,Tier 1,max_flops,512,2026-05-03T01:18:39.3745903Z,10961,Tier 1 Bench: max_flops,[OK] max_flops 512 -> 0.006158 ms,,,0.006158
+finished,Tier 1,max_flops,1024,2026-05-03T01:18:39.9243576Z,10965,Tier 1 Bench: max_flops,[OK] max_flops 1024 -> 0.006158 ms,,,0.006158
+finished,Tier 1,max_flops,2048,2026-05-03T01:18:40.8259626Z,10969,Tier 1 Bench: max_flops,[OK] max_flops 2048 -> 0.006112 ms,,,0.006112
+finished,Tier 1,max_flops,4096,2026-05-03T01:18:42.3968734Z,10973,Tier 1 Bench: max_flops,[OK] max_flops 4096 -> 0.006161 ms,,,0.006161
+finished,Tier 1,max_flops,8192,2026-05-03T01:18:46.0626877Z,10977,Tier 1 Bench: max_flops,[OK] max_flops 8192 -> 0.006164 ms,,,0.006164
+finished,Tier 1,max_flops,16384,2026-05-03T01:18:56.1012555Z,10981,Tier 1 Bench: max_flops,[OK] max_flops 16384 -> 0.006172 ms,,,0.006172
+finished,Tier 1,max_flops,32768,2026-05-03T01:19:20.7811163Z,10985,Tier 1 Bench: max_flops,[OK] max_flops 32768 -> 0.006274 ms,,,0.006274
+finished,Tier 1,max_flops,65536,2026-05-03T01:20:22.5660098Z,10989,Tier 1 Bench: max_flops,[OK] max_flops 65536 -> 0.006470 ms,,,0.006470
+finished,Tier 1,max_flops,131072,2026-05-03T01:22:51.3635434Z,10993,Tier 1 Bench: max_flops,[OK] max_flops 131072 -> 0.006838 ms,,,0.006838
+finished,Tier 1,max_flops,262144,2026-05-03T01:30:35.2312198Z,10997,Tier 1 Bench: max_flops,[OK] max_flops 262144 -> 0.008691 ms,,,0.008691
+finished,Tier 1,max_flops,524288,2026-05-03T02:12:00.8265219Z,11001,Tier 1 Bench: max_flops,[OK] max_flops 524288 -> 0.018244 ms,,,0.018244
+timed_out_3600s,Tier 1,max_flops,1048576,2026-05-03T03:12:01.0069234Z,11005,Tier 1 Bench: max_flops,##[warning]TIMEOUT: max_flops 1048576 (>3600s),3600,timeout,
+finished,Tier 1,l2_cache_bw,32768,2026-05-03T01:20:04.8889092Z,11954,Tier 1 Bench: l2_cache_bw,[OK] l2_cache_bw 32768 -> 0.011168 ms,,,0.011168
+finished,Tier 1,l2_cache_bw,65536,2026-05-03T01:23:22.0290083Z,11958,Tier 1 Bench: l2_cache_bw,[OK] l2_cache_bw 65536 -> 0.010574 ms,,,0.010574
+finished,Tier 1,l2_cache_bw,131072,2026-05-03T01:31:45.1054806Z,11962,Tier 1 Bench: l2_cache_bw,[OK] l2_cache_bw 131072 -> 0.010551 ms,,,0.010551
+finished,Tier 1,l2_cache_bw,196608,2026-05-03T02:00:29.0731419Z,11966,Tier 1 Bench: l2_cache_bw,[OK] l2_cache_bw 196608 -> 0.010377 ms,,,0.010377
+timed_out_3600s,Tier 1,l2_cache_bw,262144,2026-05-03T03:00:29.1414063Z,11970,Tier 1 Bench: l2_cache_bw,##[warning]TIMEOUT: l2_cache_bw 262144 (>3600s),3600,timeout,
+timed_out_3600s,Tier 1,int_mad,1024,2026-05-03T02:18:39.5750592Z,12653,Tier 1 Bench: int_mad,##[warning]TIMEOUT: int_mad 1024 (>3600s),3600,timeout,
+timed_out_3600s,Tier 1,atomic_throughput,1024,2026-05-03T03:18:47.7803894Z,13287,Tier 1 Bench: atomic_throughput,##[warning]TIMEOUT: atomic_throughput 1024 (>3600s),3600,timeout,
+finished,Tier 1,triad,1024,2026-05-03T02:18:48.7742542Z,13931,Tier 1 Bench: triad,[OK] triad 1024 -> 559000000.000000 ms,,,559000000.000000
+finished,Tier 1,triad,2048,2026-05-03T02:18:49.0026284Z,13935,Tier 1 Bench: triad,[OK] triad 2048 -> 560000000.000000 ms,,,560000000.000000
+finished,Tier 1,triad,4096,2026-05-03T02:18:49.4233227Z,13939,Tier 1 Bench: triad,[OK] triad 4096 -> 565000000.000000 ms,,,565000000.000000
+finished,Tier 1,triad,8192,2026-05-03T02:18:49.8304366Z,13943,Tier 1 Bench: triad,[OK] triad 8192 -> 571000000.000000 ms,,,571000000.000000
+finished,Tier 1,triad,16384,2026-05-03T02:18:50.3311694Z,13947,Tier 1 Bench: triad,[OK] triad 16384 -> 672000000.000000 ms,,,672000000.000000
+finished,Tier 1,triad,32768,2026-05-03T02:18:51.0492130Z,13951,Tier 1 Bench: triad,[OK] triad 32768 -> 946000000.000000 ms,,,946000000.000000
+finished,Tier 1,triad,65536,2026-05-03T02:18:53.2749764Z,13955,Tier 1 Bench: triad,[OK] triad 65536 -> 0.001544 ms,,,0.001544
+finished,Tier 1,triad,131072,2026-05-03T02:18:57.1755180Z,13959,Tier 1 Bench: triad,[OK] triad 131072 -> 0.002755 ms,,,0.002755
+finished,Tier 1,triad,262144,2026-05-03T02:19:04.4592908Z,13963,Tier 1 Bench: triad,[OK] triad 262144 -> 0.005181 ms,,,0.005181
+finished,Tier 1,triad,524288,2026-05-03T02:19:25.1605352Z,13967,Tier 1 Bench: triad,[OK] triad 524288 -> 0.010071 ms,,,0.010071
+finished,Tier 1,triad,1048576,2026-05-03T02:20:28.0927739Z,13971,Tier 1 Bench: triad,[OK] triad 1048576 -> 0.019816 ms,,,0.019816
+finished,Tier 1,triad,2097152,2026-05-03T02:22:40.5952532Z,13975,Tier 1 Bench: triad,[OK] triad 2097152 -> 0.039202 ms,,,0.039202
+finished,Tier 1,triad,4194304,2026-05-03T02:33:28.9184401Z,13979,Tier 1 Bench: triad,[OK] triad 4194304 -> 0.077992 ms,,,0.077992
+timed_out_3600s,Tier 1,triad,8388608,2026-05-03T03:33:29.0575361Z,13983,Tier 1 Bench: triad,##[warning]TIMEOUT: triad 8388608 (>3600s),3600,timeout,
+timed_out_3600s,Tier 1,sfun_sin,1024,2026-05-03T02:18:41.1666272Z,14661,Tier 1 Bench: sfun_sin,##[warning]TIMEOUT: sfun_sin 1024 (>3600s),3600,timeout,
+finished,Tier 1,global_bw_copy,1048576,2026-05-03T01:18:43.0548367Z,15345,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 1048576 -> 0.003569 ms,,,0.003569
+finished,Tier 1,global_bw_copy,2097152,2026-05-03T01:18:53.0480454Z,15349,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 2097152 -> 0.006839 ms,,,0.006839
+finished,Tier 1,global_bw_copy,4194304,2026-05-03T01:19:24.0924483Z,15353,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 4194304 -> 0.013345 ms,,,0.013345
+finished,Tier 1,global_bw_copy,8388608,2026-05-03T01:20:33.0396340Z,15357,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 8388608 -> 0.026275 ms,,,0.026275
+finished,Tier 1,global_bw_copy,12582912,2026-05-03T01:22:38.8238200Z,15361,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 12582912 -> 0.039204 ms,,,0.039204
+finished,Tier 1,global_bw_copy,16777216,2026-05-03T01:25:59.6928500Z,15365,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 16777216 -> 0.052132 ms,,,0.052132
+finished,Tier 1,global_bw_copy,25165824,2026-05-03T01:36:29.4569087Z,15369,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 25165824 -> 0.077983 ms,,,0.077983
+finished,Tier 1,global_bw_copy,33554432,2026-05-03T02:08:57.5348601Z,15373,Tier 1 Bench: global_bw_copy,[OK] global_bw_copy 33554432 -> 0.103839 ms,,,0.103839
+timed_out_3600s,Tier 1,global_bw_copy,50331648,2026-05-03T03:08:57.6765960Z,15377,Tier 1 Bench: global_bw_copy,##[warning]TIMEOUT: global_bw_copy 50331648 (>3600s),3600,timeout,
+timed_out_3600s,Tier 1,fp32_fma,1024,2026-05-03T02:18:40.7605784Z,16095,Tier 1 Bench: fp32_fma,##[warning]TIMEOUT: fp32_fma 1024 (>3600s),3600,timeout,
+finished,Tier 1,branch_div_50pct,1024,2026-05-03T02:18:47.8787820Z,16944,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 1024 -> 0.003396 ms,,,0.003396
+finished,Tier 1,branch_div_50pct,2048,2026-05-03T02:18:48.4273468Z,16948,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 2048 -> 0.003368 ms,,,0.003368
+finished,Tier 1,branch_div_50pct,4096,2026-05-03T02:18:49.2394583Z,16952,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 4096 -> 0.003395 ms,,,0.003395
+finished,Tier 1,branch_div_50pct,8192,2026-05-03T02:18:50.8035401Z,16956,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 8192 -> 0.003402 ms,,,0.003402
+finished,Tier 1,branch_div_50pct,16384,2026-05-03T02:18:54.0663524Z,16960,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 16384 -> 0.003402 ms,,,0.003402
+finished,Tier 1,branch_div_50pct,32768,2026-05-03T02:19:02.2770720Z,16964,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 32768 -> 0.003500 ms,,,0.003500
+finished,Tier 1,branch_div_50pct,65536,2026-05-03T02:19:23.1134316Z,16968,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 65536 -> 0.003698 ms,,,0.003698
+finished,Tier 1,branch_div_50pct,131072,2026-05-03T02:20:14.7256057Z,16972,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 131072 -> 0.004030 ms,,,0.004030
+finished,Tier 1,branch_div_50pct,262144,2026-05-03T02:23:16.6103760Z,16976,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 262144 -> 0.005623 ms,,,0.005623
+finished,Tier 1,branch_div_50pct,524288,2026-05-03T02:33:55.9603282Z,16980,Tier 1 Bench: branch_div_50pct,[OK] branch_div_50pct 524288 -> 0.010352 ms,,,0.010352
+timed_out_3600s,Tier 1,branch_div_50pct,1048576,2026-05-03T03:33:55.9990689Z,16984,Tier 1 Bench: branch_div_50pct,##[warning]TIMEOUT: branch_div_50pct 1048576 (>3600s),3600,timeout,
+finished,Tier 1,bus_speed_download,1KB,2026-05-03T01:18:39.8251343Z,17725,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 1KB -> 551000000.000000 ms,,,551000000.000000
+finished,Tier 1,bus_speed_download,2KB,2026-05-03T01:18:40.0090674Z,17729,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 2KB -> 549000000.000000 ms,,,549000000.000000
+finished,Tier 1,bus_speed_download,4KB,2026-05-03T01:18:40.2103307Z,17733,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 4KB -> 551000000.000000 ms,,,551000000.000000
+finished,Tier 1,bus_speed_download,8KB,2026-05-03T01:18:40.4325509Z,17737,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 8KB -> 552000000.000000 ms,,,552000000.000000
+finished,Tier 1,bus_speed_download,16KB,2026-05-03T01:18:40.6502274Z,17741,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 16KB -> 554000000.000000 ms,,,554000000.000000
+finished,Tier 1,bus_speed_download,32KB,2026-05-03T01:18:40.9132568Z,17745,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 32KB -> 558000000.000000 ms,,,558000000.000000
+finished,Tier 1,bus_speed_download,64KB,2026-05-03T01:18:41.2702397Z,17749,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 64KB -> 566000000.000000 ms,,,566000000.000000
+finished,Tier 1,bus_speed_download,128KB,2026-05-03T01:18:41.7512256Z,17753,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 128KB -> 738000000.000000 ms,,,738000000.000000
+finished,Tier 1,bus_speed_download,256KB,2026-05-03T01:18:42.7187859Z,17757,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 256KB -> 0.001144 ms,,,0.001144
+finished,Tier 1,bus_speed_download,512KB,2026-05-03T01:18:44.5472559Z,17761,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 512KB -> 0.001947 ms,,,0.001947
+finished,Tier 1,bus_speed_download,1024KB,2026-05-03T01:18:48.4640904Z,17765,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 1024KB -> 0.003569 ms,,,0.003569
+finished,Tier 1,bus_speed_download,2048KB,2026-05-03T01:18:58.2204579Z,17769,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 2048KB -> 0.006839 ms,,,0.006839
+finished,Tier 1,bus_speed_download,4096KB,2026-05-03T01:19:28.2071601Z,17773,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 4096KB -> 0.013344 ms,,,0.013344
+finished,Tier 1,bus_speed_download,8192KB,2026-05-03T01:20:34.5834154Z,17777,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 8192KB -> 0.026275 ms,,,0.026275
+finished,Tier 1,bus_speed_download,16384KB,2026-05-03T01:23:40.3854347Z,17781,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 16384KB -> 0.052127 ms,,,0.052127
+finished,Tier 1,bus_speed_download,32768KB,2026-05-03T01:46:52.6327237Z,17785,Tier 1 Bench: bus_speed_download,[OK] bus_speed_download 32768KB -> 0.103843 ms,,,0.103843
+timed_out_3600s,Tier 1,bus_speed_download,65536KB,2026-05-03T02:46:52.7521108Z,17789,Tier 1 Bench: bus_speed_download,##[warning]TIMEOUT: bus_speed_download 65536KB (>3600s),3600,timeout,
+finished,Tier 1,reduction,512,2026-05-03T02:18:49.3992167Z,18429,Tier 1 Bench: reduction,[OK] reduction 512 -> 0.001045 ms,,,0.001045
+finished,Tier 1,reduction,1024,2026-05-03T02:18:49.6797820Z,18433,Tier 1 Bench: reduction,[OK] reduction 1024 -> 0.001863 ms,,,0.001863
+finished,Tier 1,reduction,2048,2026-05-03T02:18:49.9589985Z,18437,Tier 1 Bench: reduction,[OK] reduction 2048 -> 0.001867 ms,,,0.001867
+finished,Tier 1,reduction,4096,2026-05-03T02:18:50.3131728Z,18441,Tier 1 Bench: reduction,[OK] reduction 4096 -> 0.001863 ms,,,0.001863
+finished,Tier 1,reduction,8192,2026-05-03T02:18:50.6566800Z,18445,Tier 1 Bench: reduction,[OK] reduction 8192 -> 0.001864 ms,,,0.001864
+finished,Tier 1,reduction,16384,2026-05-03T02:18:51.3616022Z,18449,Tier 1 Bench: reduction,[OK] reduction 16384 -> 0.001865 ms,,,0.001865
+finished,Tier 1,reduction,32768,2026-05-03T02:18:52.0927397Z,18453,Tier 1 Bench: reduction,[OK] reduction 32768 -> 0.001890 ms,,,0.001890
+finished,Tier 1,reduction,65536,2026-05-03T02:18:53.9838779Z,18457,Tier 1 Bench: reduction,[OK] reduction 65536 -> 0.002086 ms,,,0.002086
+finished,Tier 1,reduction,131072,2026-05-03T02:18:57.7563230Z,18461,Tier 1 Bench: reduction,[OK] reduction 131072 -> 0.002518 ms,,,0.002518
+finished,Tier 1,reduction,262144,2026-05-03T02:19:07.4806127Z,18465,Tier 1 Bench: reduction,[OK] reduction 262144 -> 0.003398 ms,,,0.003398
+finished,Tier 1,reduction,524288,2026-05-03T02:19:29.4105341Z,18469,Tier 1 Bench: reduction,[OK] reduction 524288 -> 0.006026 ms,,,0.006026
+finished,Tier 1,reduction,1048576,2026-05-03T02:20:40.8920123Z,18473,Tier 1 Bench: reduction,[OK] reduction 1048576 -> 0.009598 ms,,,0.009598
+finished,Tier 1,reduction,2097152,2026-05-03T02:26:11.8950908Z,18477,Tier 1 Bench: reduction,[OK] reduction 2097152 -> 0.016297 ms,,,0.016297
+finished,Tier 1,reduction,4194304,2026-05-03T02:43:46.3371049Z,18481,Tier 1 Bench: reduction,[OK] reduction 4194304 -> 0.029554 ms,,,0.029554
+timed_out_3600s,Tier 1,reduction,8388608,2026-05-03T03:43:46.4630553Z,18485,Tier 1 Bench: reduction,##[warning]TIMEOUT: reduction 8388608 (>3600s),3600,timeout,
+finished,Tier 2,gemm,32,2026-05-03T03:44:01.3309123Z,19345,Tier 2 Bench: gemm,[OK] gemm 32 -> 0.001868 ms,,,0.001868
+finished,Tier 2,gemm,48,2026-05-03T03:44:02.2426617Z,19349,Tier 2 Bench: gemm,[OK] gemm 48 -> 0.002660 ms,,,0.002660
+finished,Tier 2,gemm,64,2026-05-03T03:44:04.4393362Z,19353,Tier 2 Bench: gemm,[OK] gemm 64 -> 0.003426 ms,,,0.003426
+finished,Tier 2,gemm,96,2026-05-03T03:44:14.9375998Z,19357,Tier 2 Bench: gemm,[OK] gemm 96 -> 0.004963 ms,,,0.004963
+finished,Tier 2,gemm,128,2026-05-03T03:44:48.6208024Z,19361,Tier 2 Bench: gemm,[OK] gemm 128 -> 0.007177 ms,,,0.007177
+finished,Tier 2,gemm,192,2026-05-03T03:47:43.2911280Z,19365,Tier 2 Bench: gemm,[OK] gemm 192 -> 0.011564 ms,,,0.011564
+finished,Tier 2,gemm,256,2026-05-03T03:59:23.2856598Z,19369,Tier 2 Bench: gemm,[OK] gemm 256 -> 0.016335 ms,,,0.016335
+timed_out_3600s,Tier 2,gemm,384,2026-05-03T04:59:23.3515740Z,19373,Tier 2 Bench: gemm,##[warning]TIMEOUT: gemm 384 (>3600s),3600,timeout,
+finished,Tier 2,3dconvolution,32x32x32,2026-05-03T03:44:06.5855571Z,20014,Tier 2 Bench: 3dconvolution,[OK] 3dconvolution 32x32x32 -> 976000000.000000 ms,,,976000000.000000
+finished,Tier 2,3dconvolution,48x48x48,2026-05-03T03:44:28.4956820Z,20018,Tier 2 Bench: 3dconvolution,[OK] 3dconvolution 48x48x48 -> 0.001796 ms,,,0.001796
+finished,Tier 2,3dconvolution,64x64x64,2026-05-03T03:45:48.8726962Z,20022,Tier 2 Bench: 3dconvolution,[OK] 3dconvolution 64x64x64 -> 0.003661 ms,,,0.003661
+timed_out_3600s,Tier 2,3dconvolution,80x80x80,2026-05-03T04:45:48.9634650Z,20026,Tier 2 Bench: 3dconvolution,##[warning]TIMEOUT: 3dconvolution 80x80x80 (>3600s),3600,timeout,
+finished,Tier 2,parboil_spmv,1024,2026-05-03T03:44:01.0737266Z,20647,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 1024 -> 0.001108 ms,,,0.001108
+finished,Tier 2,parboil_spmv,2048,2026-05-03T03:44:01.5357232Z,20651,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 2048 -> 0.001109 ms,,,0.001109
+finished,Tier 2,parboil_spmv,4096,2026-05-03T03:44:02.1579642Z,20655,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 4096 -> 0.001115 ms,,,0.001115
+finished,Tier 2,parboil_spmv,8192,2026-05-03T03:44:03.3991433Z,20659,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 8192 -> 0.001282 ms,,,0.001282
+finished,Tier 2,parboil_spmv,16384,2026-05-03T03:44:05.6428645Z,20663,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 16384 -> 0.001621 ms,,,0.001621
+finished,Tier 2,parboil_spmv,32768,2026-05-03T03:44:10.0346704Z,20667,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 32768 -> 0.002429 ms,,,0.002429
+finished,Tier 2,parboil_spmv,65536,2026-05-03T03:44:19.7512292Z,20671,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 65536 -> 0.004191 ms,,,0.004191
+finished,Tier 2,parboil_spmv,131072,2026-05-03T03:44:44.2485913Z,20675,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 131072 -> 0.007692 ms,,,0.007692
+finished,Tier 2,parboil_spmv,262144,2026-05-03T03:45:55.7328598Z,20679,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 262144 -> 0.014966 ms,,,0.014966
+finished,Tier 2,parboil_spmv,524288,2026-05-03T03:50:11.1870514Z,20683,Tier 2 Bench: parboil_spmv,[OK] parboil_spmv 524288 -> 0.029550 ms,,,0.029550
+timed_out_3600s,Tier 2,parboil_spmv,1048576,2026-05-03T04:50:11.2784939Z,20687,Tier 2 Bench: parboil_spmv,##[warning]TIMEOUT: parboil_spmv 1048576 (>3600s),3600,timeout,
+finished,Tier 2,nn,1024,2026-05-03T03:44:01.9565174Z,21547,Tier 2 Bench: nn,[OK] nn 1024 -> 619000000.000000 ms,,,619000000.000000
+finished,Tier 2,nn,2048,2026-05-03T03:44:02.3517148Z,21551,Tier 2 Bench: nn,[OK] nn 2048 -> 619000000.000000 ms,,,619000000.000000
+finished,Tier 2,nn,4096,2026-05-03T03:44:02.7123942Z,21555,Tier 2 Bench: nn,[OK] nn 4096 -> 621000000.000000 ms,,,621000000.000000
+finished,Tier 2,nn,8192,2026-05-03T03:44:03.1193342Z,21559,Tier 2 Bench: nn,[OK] nn 8192 -> 630000000.000000 ms,,,630000000.000000
+finished,Tier 2,nn,16384,2026-05-03T03:44:03.7770961Z,21563,Tier 2 Bench: nn,[OK] nn 16384 -> 728000000.000000 ms,,,728000000.000000
+finished,Tier 2,nn,32768,2026-05-03T03:44:04.6153505Z,21567,Tier 2 Bench: nn,[OK] nn 32768 -> 944000000.000000 ms,,,944000000.000000
+finished,Tier 2,nn,65536,2026-05-03T03:44:06.2164264Z,21571,Tier 2 Bench: nn,[OK] nn 65536 -> 0.001543 ms,,,0.001543
+finished,Tier 2,nn,131072,2026-05-03T03:44:10.0375831Z,21575,Tier 2 Bench: nn,[OK] nn 131072 -> 0.002753 ms,,,0.002753
+finished,Tier 2,nn,262144,2026-05-03T03:44:21.1434347Z,21579,Tier 2 Bench: nn,[OK] nn 262144 -> 0.005179 ms,,,0.005179
+finished,Tier 2,nn,524288,2026-05-03T03:44:49.4064857Z,21583,Tier 2 Bench: nn,[OK] nn 524288 -> 0.010070 ms,,,0.010070
+finished,Tier 2,nn,1048576,2026-05-03T03:46:10.8279113Z,21587,Tier 2 Bench: nn,[OK] nn 1048576 -> 0.019817 ms,,,0.019817
+finished,Tier 2,nn,2097152,2026-05-03T03:48:50.1684651Z,21591,Tier 2 Bench: nn,[OK] nn 2097152 -> 0.039209 ms,,,0.039209
+finished,Tier 2,nn,3145728,2026-05-03T03:53:48.7111622Z,21595,Tier 2 Bench: nn,[OK] nn 3145728 -> 0.058600 ms,,,0.058600
+finished,Tier 2,nn,4194304,2026-05-03T04:08:31.5263767Z,21599,Tier 2 Bench: nn,[OK] nn 4194304 -> 0.077990 ms,,,0.077990
+finished,Tier 2,nn,6291456,2026-05-03T04:46:54.4790228Z,21603,Tier 2 Bench: nn,[OK] nn 6291456 -> 0.116773 ms,,,0.116773
+timed_out_3600s,Tier 2,nn,8388608,2026-05-03T05:46:54.5979271Z,21607,Tier 2 Bench: nn,##[warning]TIMEOUT: nn 8388608 (>3600s),3600,timeout,
+finished,Tier 2,2dconvolution,64x64,2026-05-03T03:44:02.9666366Z,22263,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 64x64 -> 684000000.000000 ms,,,684000000.000000
+finished,Tier 2,2dconvolution,128x128,2026-05-03T03:44:04.6858569Z,22267,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 128x128 -> 697000000.000000 ms,,,697000000.000000
+finished,Tier 2,2dconvolution,192x192,2026-05-03T03:44:07.6591058Z,22271,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 192x192 -> 958000000.000000 ms,,,958000000.000000
+finished,Tier 2,2dconvolution,256x256,2026-05-03T03:44:13.1504601Z,22275,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 256x256 -> 0.001172 ms,,,0.001172
+finished,Tier 2,2dconvolution,384x384,2026-05-03T03:44:30.7177584Z,22279,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 384x384 -> 0.002180 ms,,,0.002180
+finished,Tier 2,2dconvolution,512x512,2026-05-03T03:45:06.9121753Z,22283,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 512x512 -> 0.003592 ms,,,0.003592
+finished,Tier 2,2dconvolution,640x640,2026-05-03T03:46:07.8658181Z,22287,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 640x640 -> 0.005413 ms,,,0.005413
+finished,Tier 2,2dconvolution,768x768,2026-05-03T03:47:53.0395375Z,22291,Tier 2 Bench: 2dconvolution,[OK] 2dconvolution 768x768 -> 0.007660 ms,,,0.007660
+timed_out_3600s,Tier 2,2dconvolution,896x896,2026-05-03T04:47:53.1735788Z,22295,Tier 2 Bench: 2dconvolution,##[warning]TIMEOUT: 2dconvolution 896x896 (>3600s),3600,timeout,
+finished,Tier 2,scan,1024,2026-05-03T03:44:00.8736109Z,22934,Tier 2 Bench: scan,[OK] scan 1024 -> 0.004434 ms,,,0.004434
+finished,Tier 2,scan,2048,2026-05-03T03:44:01.2263205Z,22938,Tier 2 Bench: scan,[OK] scan 2048 -> 0.004399 ms,,,0.004399
+finished,Tier 2,scan,4096,2026-05-03T03:44:01.6205395Z,22942,Tier 2 Bench: scan,[OK] scan 4096 -> 0.004404 ms,,,0.004404
+finished,Tier 2,scan,8192,2026-05-03T03:44:02.3082630Z,22946,Tier 2 Bench: scan,[OK] scan 8192 -> 0.004401 ms,,,0.004401
+finished,Tier 2,scan,16384,2026-05-03T03:44:03.3396294Z,22950,Tier 2 Bench: scan,[OK] scan 16384 -> 0.004419 ms,,,0.004419
+finished,Tier 2,scan,32768,2026-05-03T03:44:05.5264648Z,22954,Tier 2 Bench: scan,[OK] scan 32768 -> 0.004518 ms,,,0.004518
+finished,Tier 2,scan,65536,2026-05-03T03:44:10.5269586Z,22958,Tier 2 Bench: scan,[OK] scan 65536 -> 0.004723 ms,,,0.004723
+finished,Tier 2,scan,131072,2026-05-03T03:44:23.0185887Z,22962,Tier 2 Bench: scan,[OK] scan 131072 -> 0.005299 ms,,,0.005299
+finished,Tier 2,scan,262144,2026-05-03T03:44:54.5672724Z,22966,Tier 2 Bench: scan,[OK] scan 262144 -> 0.006706 ms,,,0.006706
+finished,Tier 2,scan,524288,2026-05-03T03:46:13.3314306Z,22970,Tier 2 Bench: scan,[OK] scan 524288 -> 0.012172 ms,,,0.012172
+finished,Tier 2,scan,1048576,2026-05-03T03:50:52.1982843Z,22974,Tier 2 Bench: scan,[OK] scan 1048576 -> 0.018877 ms,,,0.018877
+finished,Tier 2,scan,2097152,2026-05-03T04:28:55.7926819Z,22978,Tier 2 Bench: scan,[OK] scan 2097152 -> 0.033817 ms,,,0.033817
+crashed,Tier 2,scan,4194304,2026-05-03T04:43:47.6398871Z,22982,Tier 2 Bench: scan,##[error]CRASH: scan 4194304 (exit 2),,exit 2,
+finished,Tier 2,2mm,64,2026-05-03T03:44:05.0228502Z,23717,Tier 2 Bench: 2mm,[OK] 2mm 64 -> 0.006793 ms,,,0.006793
+finished,Tier 2,2mm,128,2026-05-03T03:45:11.4671182Z,23721,Tier 2 Bench: 2mm,[OK] 2mm 128 -> 0.014398 ms,,,0.014398
+finished,Tier 2,2mm,192,2026-05-03T03:53:39.9109030Z,23725,Tier 2 Bench: 2mm,[OK] 2mm 192 -> 0.023157 ms,,,0.023157
+timed_out_3600s,Tier 2,2mm,256,2026-05-03T04:53:39.9775228Z,23729,Tier 2 Bench: 2mm,##[warning]TIMEOUT: 2mm 256 (>3600s),3600,timeout,
+finished,Tier 2,parboil_mri_q,256,2026-05-03T03:44:02.3761773Z,24578,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 256 -> 0.024802 ms,,,0.024802
+finished,Tier 2,parboil_mri_q,512,2026-05-03T03:44:04.7770822Z,24582,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 512 -> 0.025143 ms,,,0.025143
+finished,Tier 2,parboil_mri_q,1024,2026-05-03T03:44:11.3491968Z,24586,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 1024 -> 0.030580 ms,,,0.030580
+finished,Tier 2,parboil_mri_q,2048,2026-05-03T03:44:38.8410931Z,24590,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 2048 -> 0.026394 ms,,,0.026394
+finished,Tier 2,parboil_mri_q,4096,2026-05-03T03:45:43.3638640Z,24594,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 4096 -> 0.030554 ms,,,0.030554
+finished,Tier 2,parboil_mri_q,8192,2026-05-03T03:48:28.6913993Z,24598,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 8192 -> 0.026496 ms,,,0.026496
+finished,Tier 2,parboil_mri_q,16384,2026-05-03T03:54:24.6380613Z,24602,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 16384 -> 0.030806 ms,,,0.030806
+finished,Tier 2,parboil_mri_q,32768,2026-05-03T04:07:11.4218441Z,24606,Tier 2 Bench: parboil_mri_q,[OK] parboil_mri_q 32768 -> 0.025503 ms,,,0.025503
+timed_out_3600s,Tier 2,parboil_mri_q,65536,2026-05-03T05:07:11.4716245Z,24610,Tier 2 Bench: parboil_mri_q,##[warning]TIMEOUT: parboil_mri_q 65536 (>3600s),3600,timeout,
+finished,Tier 2,bs,512,2026-05-03T03:44:01.6800749Z,25462,Tier 2 Bench: bs,[OK] bs 512 -> 0.001101 ms,,,0.001101
+finished,Tier 2,bs,1024,2026-05-03T03:44:02.1178904Z,25466,Tier 2 Bench: bs,[OK] bs 1024 -> 0.001114 ms,,,0.001114
+finished,Tier 2,bs,2048,2026-05-03T03:44:02.5300319Z,25470,Tier 2 Bench: bs,[OK] bs 2048 -> 0.001102 ms,,,0.001102
+finished,Tier 2,bs,4096,2026-05-03T03:44:02.9473475Z,25474,Tier 2 Bench: bs,[OK] bs 4096 -> 0.001112 ms,,,0.001112
+finished,Tier 2,bs,8192,2026-05-03T03:44:03.6261963Z,25478,Tier 2 Bench: bs,[OK] bs 8192 -> 0.001205 ms,,,0.001205
+finished,Tier 2,bs,16384,2026-05-03T03:44:04.9291295Z,25482,Tier 2 Bench: bs,[OK] bs 16384 -> 0.001319 ms,,,0.001319
+finished,Tier 2,bs,32768,2026-05-03T03:44:07.4919005Z,25486,Tier 2 Bench: bs,[OK] bs 32768 -> 0.001673 ms,,,0.001673
+finished,Tier 2,bs,65536,2026-05-03T03:44:13.1928461Z,25490,Tier 2 Bench: bs,[OK] bs 65536 -> 0.002392 ms,,,0.002392
+finished,Tier 2,bs,131072,2026-05-03T03:44:25.6331521Z,25494,Tier 2 Bench: bs,[OK] bs 131072 -> 0.004369 ms,,,0.004369
+finished,Tier 2,bs,262144,2026-05-03T03:44:59.2731733Z,25498,Tier 2 Bench: bs,[OK] bs 262144 -> 0.008413 ms,,,0.008413
+finished,Tier 2,bs,524288,2026-05-03T03:47:20.1610888Z,25502,Tier 2 Bench: bs,[OK] bs 524288 -> 0.252052 ms,,,0.252052
+timed_out_3600s,Tier 2,bs,1048576,2026-05-03T04:47:20.3341031Z,25506,Tier 2 Bench: bs,##[warning]TIMEOUT: bs 1048576 (>3600s),3600,timeout,
+finished,Tier 2,parboil_sgemm,64,2026-05-03T03:44:01.7415424Z,26139,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 64 -> 0.002332 ms,,,0.002332
+finished,Tier 2,parboil_sgemm,128,2026-05-03T03:44:05.5273939Z,26143,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 128 -> 0.004023 ms,,,0.004023
+finished,Tier 2,parboil_sgemm,192,2026-05-03T03:44:22.9420773Z,26147,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 192 -> 0.005970 ms,,,0.005970
+finished,Tier 2,parboil_sgemm,256,2026-05-03T03:45:22.9430557Z,26151,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 256 -> 0.008194 ms,,,0.008194
+finished,Tier 2,parboil_sgemm,320,2026-05-03T03:48:14.4156330Z,26155,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 320 -> 0.010298 ms,,,0.010298
+finished,Tier 2,parboil_sgemm,384,2026-05-03T03:53:40.4576967Z,26159,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 384 -> 0.013761 ms,,,0.013761
+finished,Tier 2,parboil_sgemm,448,2026-05-03T04:19:20.5991106Z,26163,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 448 -> 0.021900 ms,,,0.021900
+finished,Tier 2,parboil_sgemm,512,2026-05-03T05:18:26.3081198Z,26167,Tier 2 Bench: parboil_sgemm,[OK] parboil_sgemm 512 -> 0.024762 ms,,,0.024762
+timed_out_3600s,Tier 2,parboil_sgemm,576,2026-05-03T06:18:26.3875333Z,26171,Tier 2 Bench: parboil_sgemm,##[warning]TIMEOUT: parboil_sgemm 576 (>3600s),3600,timeout,
+finished,Tier 2,atax,64x64,2026-05-03T03:44:03.5972784Z,26811,Tier 2 Bench: atax,[OK] atax 64x64 -> 0.008627 ms,,,0.008627
+finished,Tier 2,atax,128x128,2026-05-03T03:44:34.2807102Z,26815,Tier 2 Bench: atax,[OK] atax 128x128 -> 0.024673 ms,,,0.024673
+finished,Tier 2,atax,192x192,2026-05-03T03:47:24.2499802Z,26819,Tier 2 Bench: atax,[OK] atax 192x192 -> 0.048321 ms,,,0.048321
+finished,Tier 2,atax,256x256,2026-05-03T04:03:16.9027045Z,26823,Tier 2 Bench: atax,[OK] atax 256x256 -> 0.080102 ms,,,0.080102
+timed_out_3600s,Tier 2,atax,384x384,2026-05-03T05:03:16.9206799Z,26827,Tier 2 Bench: atax,##[warning]TIMEOUT: atax 384x384 (>3600s),3600,timeout,
+finished,Tier 2,bicg,64x64,2026-05-03T04:43:57.1792894Z,27404,Tier 2 Bench: bicg,[OK] bicg 64x64 -> 0.008956 ms,,,0.008956
+finished,Tier 2,bicg,128x128,2026-05-03T04:44:26.0212701Z,27408,Tier 2 Bench: bicg,[OK] bicg 128x128 -> 0.025249 ms,,,0.025249
+finished,Tier 2,bicg,192x192,2026-05-03T04:46:53.0770465Z,27412,Tier 2 Bench: bicg,[OK] bicg 192x192 -> 0.049130 ms,,,0.049130
+finished,Tier 2,bicg,256x256,2026-05-03T04:57:31.6304530Z,27416,Tier 2 Bench: bicg,[OK] bicg 256x256 -> 0.081171 ms,,,0.081171
+finished,Tier 2,bicg,384x384,2026-05-03T05:54:53.2403494Z,27420,Tier 2 Bench: bicg,[OK] bicg 384x384 -> 0.121793 ms,,,0.121793
+timed_out_3600s,Tier 2,bicg,512x512,2026-05-03T06:54:53.2535268Z,27424,Tier 2 Bench: bicg,##[warning]TIMEOUT: bicg 512x512 (>3600s),3600,timeout,
+timed_out_3600s,Tier 2,dwt2d,32x32,2026-05-03T04:44:00.6103543Z,28276,Tier 2 Bench: dwt2d,##[warning]TIMEOUT: dwt2d 32x32 (>3600s),3600,timeout,
+finished,Tier 2,pagerank,128,2026-05-03T04:47:30.0620473Z,29069,Tier 2 Bench: pagerank,[OK] pagerank 128 -> 0.001601 ms,,,0.001601
+finished,Tier 2,pagerank,256,2026-05-03T04:47:57.5756521Z,29073,Tier 2 Bench: pagerank,[OK] pagerank 256 -> 0.062024 ms,,,0.062024
+finished,Tier 2,pagerank,512,2026-05-03T04:48:12.9798941Z,29077,Tier 2 Bench: pagerank,[OK] pagerank 512 -> 0.004630 ms,,,0.004630
+timed_out_3600s,Tier 2,pagerank,1024,2026-05-03T05:48:13.0102623Z,29081,Tier 2 Bench: pagerank,##[warning]TIMEOUT: pagerank 1024 (>3600s),3600,timeout,
+finished,Tier 2,nw,64,2026-05-03T04:45:59.3975082Z,29662,Tier 2 Bench: nw,[OK] nw 64 -> 0.041897 ms,,,0.041897
+finished,Tier 2,nw,128,2026-05-03T04:46:03.9538357Z,29666,Tier 2 Bench: nw,[OK] nw 128 -> 0.084088 ms,,,0.084088
+finished,Tier 2,nw,192,2026-05-03T04:46:08.7280595Z,29670,Tier 2 Bench: nw,[OK] nw 192 -> 0.127238 ms,,,0.127238
+finished,Tier 2,nw,256,2026-05-03T04:46:16.4019023Z,29674,Tier 2 Bench: nw,[OK] nw 256 -> 0.171555 ms,,,0.171555
+finished,Tier 2,nw,512,2026-05-03T04:46:45.2843692Z,29678,Tier 2 Bench: nw,[OK] nw 512 -> 0.359700 ms,,,0.359700
+finished,Tier 2,nw,768,2026-05-03T04:47:39.5744770Z,29682,Tier 2 Bench: nw,[OK] nw 768 -> 0.562273 ms,,,0.562273
+finished,Tier 2,nw,1024,2026-05-03T04:49:49.5347964Z,29686,Tier 2 Bench: nw,[OK] nw 1024 -> 0.781289 ms,,,0.781289
+finished,Tier 2,nw,1536,2026-05-03T04:59:59.3950109Z,29690,Tier 2 Bench: nw,[OK] nw 1536 -> 1.252003 ms,,,1.252003
+timed_out_3600s,Tier 2,nw,2048,2026-05-03T05:59:59.4498259Z,29694,Tier 2 Bench: nw,##[warning]TIMEOUT: nw 2048 (>3600s),3600,timeout,
+finished,Tier 2,ep,512,2026-05-03T03:44:01.2141796Z,30551,Tier 2 Bench: ep,[OK] ep 512 -> 0.002128 ms,,,0.002128
+finished,Tier 2,ep,1024,2026-05-03T03:44:01.4902665Z,30555,Tier 2 Bench: ep,[OK] ep 1024 -> 0.004420 ms,,,0.004420
+finished,Tier 2,ep,2048,2026-05-03T03:44:01.8128261Z,30559,Tier 2 Bench: ep,[OK] ep 2048 -> 0.004422 ms,,,0.004422
+finished,Tier 2,ep,4096,2026-05-03T03:44:02.2223994Z,30563,Tier 2 Bench: ep,[OK] ep 4096 -> 0.004413 ms,,,0.004413
+finished,Tier 2,ep,8192,2026-05-03T03:44:02.8957836Z,30567,Tier 2 Bench: ep,[OK] ep 8192 -> 0.004419 ms,,,0.004419
+finished,Tier 2,ep,16384,2026-05-03T03:44:04.0326596Z,30571,Tier 2 Bench: ep,[OK] ep 16384 -> 0.004424 ms,,,0.004424
+finished,Tier 2,ep,32768,2026-05-03T03:44:06.2669185Z,30575,Tier 2 Bench: ep,[OK] ep 32768 -> 0.004526 ms,,,0.004526
+finished,Tier 2,ep,65536,2026-05-03T03:44:11.7801231Z,30579,Tier 2 Bench: ep,[OK] ep 65536 -> 0.004746 ms,,,0.004746
+finished,Tier 2,ep,131072,2026-05-03T03:44:25.1585915Z,30583,Tier 2 Bench: ep,[OK] ep 131072 -> 0.005327 ms,,,0.005327
+finished,Tier 2,ep,262144,2026-05-03T03:45:02.1333865Z,30587,Tier 2 Bench: ep,[OK] ep 262144 -> 0.006799 ms,,,0.006799
+finished,Tier 2,ep,524288,2026-05-03T03:46:37.4648891Z,30591,Tier 2 Bench: ep,[OK] ep 524288 -> 0.012205 ms,,,0.012205
+finished,Tier 2,ep,1048576,2026-05-03T03:52:20.9995915Z,30595,Tier 2 Bench: ep,[OK] ep 1048576 -> 0.018960 ms,,,0.018960
+timed_out_3600s,Tier 2,ep,2097152,2026-05-03T04:52:21.1572665Z,30599,Tier 2 Bench: ep,##[warning]TIMEOUT: ep 2097152 (>3600s),3600,timeout,
+finished,Tier 2,covariance,64x64,2026-05-03T04:59:31.9603349Z,31219,Tier 2 Bench: covariance,[OK] covariance 64x64 -> 0.006361 ms,,,0.006361
+finished,Tier 2,covariance,128x128,2026-05-03T04:59:45.5565859Z,31223,Tier 2 Bench: covariance,[OK] covariance 128x128 -> 0.012895 ms,,,0.012895
+finished,Tier 2,covariance,192x192,2026-05-03T05:00:43.6680268Z,31227,Tier 2 Bench: covariance,[OK] covariance 192x192 -> 0.019783 ms,,,0.019783
+finished,Tier 2,covariance,256x256,2026-05-03T05:04:05.7993941Z,31231,Tier 2 Bench: covariance,[OK] covariance 256x256 -> 0.027696 ms,,,0.027696
+finished,Tier 2,covariance,384x384,2026-05-03T05:54:17.9934948Z,31235,Tier 2 Bench: covariance,[OK] covariance 384x384 -> 0.046398 ms,,,0.046398
+timed_out_3600s,Tier 2,covariance,512x512,2026-05-03T06:54:18.1761178Z,31239,Tier 2 Bench: covariance,##[warning]TIMEOUT: covariance 512x512 (>3600s),3600,timeout,
+finished,Tier 2,3mm,64,2026-05-03T04:52:36.9662221Z,32036,Tier 2 Bench: 3mm,[OK] 3mm 64 -> 0.009800 ms,,,0.009800
+finished,Tier 2,3mm,128,2026-05-03T04:54:25.8769573Z,32040,Tier 2 Bench: 3mm,[OK] 3mm 128 -> 0.019733 ms,,,0.019733
+finished,Tier 2,3mm,192,2026-05-03T05:16:41.6044941Z,32044,Tier 2 Bench: 3mm,[OK] 3mm 192 -> 0.031201 ms,,,0.031201
+timed_out_3600s,Tier 2,3mm,256,2026-05-03T06:16:41.6877424Z,32048,Tier 2 Bench: 3mm,##[warning]TIMEOUT: 3mm 256 (>3600s),3600,timeout,
+finished,Tier 2,hotspot,32,2026-05-03T03:44:01.0119254Z,32675,Tier 2 Bench: hotspot,[OK] hotspot 32 -> 0.004429 ms,,,0.004429
+finished,Tier 2,hotspot,48,2026-05-03T03:44:02.0308081Z,32679,Tier 2 Bench: hotspot,[OK] hotspot 48 -> 0.004508 ms,,,0.004508
+finished,Tier 2,hotspot,64,2026-05-03T03:44:03.6973057Z,32683,Tier 2 Bench: hotspot,[OK] hotspot 64 -> 0.004545 ms,,,0.004545
+finished,Tier 2,hotspot,96,2026-05-03T03:44:07.5921150Z,32687,Tier 2 Bench: hotspot,[OK] hotspot 96 -> 0.004447 ms,,,0.004447
+finished,Tier 2,hotspot,128,2026-05-03T03:44:16.6187871Z,32691,Tier 2 Bench: hotspot,[OK] hotspot 128 -> 0.004449 ms,,,0.004449
+finished,Tier 2,hotspot,192,2026-05-03T03:44:45.9316390Z,32695,Tier 2 Bench: hotspot,[OK] hotspot 192 -> 0.004591 ms,,,0.004591
+finished,Tier 2,hotspot,256,2026-05-03T03:46:01.0387645Z,32699,Tier 2 Bench: hotspot,[OK] hotspot 256 -> 0.005678 ms,,,0.005678
+finished,Tier 2,hotspot,384,2026-05-03T03:49:54.3629647Z,32703,Tier 2 Bench: hotspot,[OK] hotspot 384 -> 0.007363 ms,,,0.007363
+finished,Tier 2,hotspot,512,2026-05-03T04:19:01.2880912Z,32707,Tier 2 Bench: hotspot,[OK] hotspot 512 -> 0.010299 ms,,,0.010299
+timed_out_3600s,Tier 2,hotspot,640,2026-05-03T05:19:01.3366219Z,32711,Tier 2 Bench: hotspot,##[warning]TIMEOUT: hotspot 640 (>3600s),3600,timeout,
+finished,Tier 2,bitonicsort,1024,2026-05-03T04:44:08.4148859Z,33509,Tier 2 Bench: bitonicsort,[OK] bitonicsort 1024 -> 0.013677 ms,,,0.013677
+finished,Tier 2,bitonicsort,2048,2026-05-03T04:44:10.4656347Z,33513,Tier 2 Bench: bitonicsort,[OK] bitonicsort 2048 -> 0.016388 ms,,,0.016388
+finished,Tier 2,bitonicsort,4096,2026-05-03T04:44:15.5728103Z,33517,Tier 2 Bench: bitonicsort,[OK] bitonicsort 4096 -> 0.019300 ms,,,0.019300
+finished,Tier 2,bitonicsort,8192,2026-05-03T04:44:30.3736419Z,33521,Tier 2 Bench: bitonicsort,[OK] bitonicsort 8192 -> 0.022474 ms,,,0.022474
+finished,Tier 2,bitonicsort,16384,2026-05-03T04:45:23.1953490Z,33525,Tier 2 Bench: bitonicsort,[OK] bitonicsort 16384 -> 0.025920 ms,,,0.025920
+finished,Tier 2,bitonicsort,32768,2026-05-03T04:49:04.6674281Z,33529,Tier 2 Bench: bitonicsort,[OK] bitonicsort 32768 -> 0.029364 ms,,,0.029364
+finished,Tier 2,bitonicsort,65536,2026-05-03T05:15:59.2505738Z,33533,Tier 2 Bench: bitonicsort,[OK] bitonicsort 65536 -> 0.034624 ms,,,0.034624
+timed_out_3600s,Tier 2,bitonicsort,131072,2026-05-03T06:15:59.3279548Z,33537,Tier 2 Bench: bitonicsort,##[warning]TIMEOUT: bitonicsort 131072 (>3600s),3600,timeout,
+finished,Tier 2,kmeans,1024,2026-05-03T04:48:03.9130192Z,34135,Tier 2 Bench: kmeans,[OK] kmeans 1024 -> 0.011799 ms,,,0.011799
+finished,Tier 2,kmeans,2048,2026-05-03T04:48:10.2687616Z,34139,Tier 2 Bench: kmeans,[OK] kmeans 2048 -> 0.012474 ms,,,0.012474
+finished,Tier 2,kmeans,4096,2026-05-03T04:48:23.0682213Z,34143,Tier 2 Bench: kmeans,[OK] kmeans 4096 -> 0.012568 ms,,,0.012568
+finished,Tier 2,kmeans,8192,2026-05-03T04:48:56.3346472Z,34147,Tier 2 Bench: kmeans,[OK] kmeans 8192 -> 0.012775 ms,,,0.012775
+finished,Tier 2,kmeans,16384,2026-05-03T04:50:30.5647020Z,34151,Tier 2 Bench: kmeans,[OK] kmeans 16384 -> 0.013161 ms,,,0.013161
+finished,Tier 2,kmeans,32768,2026-05-03T04:55:02.2865500Z,34155,Tier 2 Bench: kmeans,[OK] kmeans 32768 -> 0.014693 ms,,,0.014693
+finished,Tier 2,kmeans,65536,2026-05-03T05:21:39.5531989Z,34159,Tier 2 Bench: kmeans,[OK] kmeans 65536 -> 0.017999 ms,,,0.017999
+timed_out_3600s,Tier 2,kmeans,131072,2026-05-03T06:21:39.8142679Z,34163,Tier 2 Bench: kmeans,##[warning]TIMEOUT: kmeans 131072 (>3600s),3600,timeout,
+finished,Tier 2,fdtd2d,64,2026-05-03T05:03:29.0169826Z,34751,Tier 2 Bench: fdtd2d,[OK] fdtd2d 64 -> 0.011508 ms,,,0.011508
+finished,Tier 2,fdtd2d,128,2026-05-03T05:03:51.1444759Z,34755,Tier 2 Bench: fdtd2d,[OK] fdtd2d 128 -> 0.011286 ms,,,0.011286
+finished,Tier 2,fdtd2d,192,2026-05-03T05:04:49.7464428Z,34759,Tier 2 Bench: fdtd2d,[OK] fdtd2d 192 -> 0.011576 ms,,,0.011576
+finished,Tier 2,fdtd2d,256,2026-05-03T05:07:22.4119043Z,34763,Tier 2 Bench: fdtd2d,[OK] fdtd2d 256 -> 0.012874 ms,,,0.012874
+finished,Tier 2,fdtd2d,384,2026-05-03T05:19:31.6971410Z,34767,Tier 2 Bench: fdtd2d,[OK] fdtd2d 384 -> 0.014988 ms,,,0.014988
+timed_out_3600s,Tier 2,fdtd2d,512,2026-05-03T06:19:31.8191088Z,34771,Tier 2 Bench: fdtd2d,##[warning]TIMEOUT: fdtd2d 512 (>3600s),3600,timeout,
+finished,Tier 2,bfs,1024,2026-05-03T04:50:19.9889595Z,35338,Tier 2 Bench: bfs,[OK] bfs 1024 -> 0.002946 ms,,,0.002946
+finished,Tier 2,bfs,2048,2026-05-03T04:50:20.4794706Z,35342,Tier 2 Bench: bfs,[OK] bfs 2048 -> 0.002942 ms,,,0.002942
+finished,Tier 2,bfs,4096,2026-05-03T04:50:21.5063165Z,35346,Tier 2 Bench: bfs,[OK] bfs 4096 -> 0.003463 ms,,,0.003463
+finished,Tier 2,bfs,8192,2026-05-03T04:50:24.0125252Z,35350,Tier 2 Bench: bfs,[OK] bfs 8192 -> 0.003369 ms,,,0.003369
+finished,Tier 2,bfs,16384,2026-05-03T04:50:29.4793131Z,35354,Tier 2 Bench: bfs,[OK] bfs 16384 -> 0.003393 ms,,,0.003393
+finished,Tier 2,bfs,32768,2026-05-03T04:50:47.8965846Z,35358,Tier 2 Bench: bfs,[OK] bfs 32768 -> 0.003501 ms,,,0.003501
+finished,Tier 2,bfs,65536,2026-05-03T04:51:23.6373425Z,35362,Tier 2 Bench: bfs,[OK] bfs 65536 -> 0.003689 ms,,,0.003689
+finished,Tier 2,bfs,131072,2026-05-03T04:52:47.5074251Z,35366,Tier 2 Bench: bfs,[OK] bfs 131072 -> 0.004028 ms,,,0.004028
+finished,Tier 2,bfs,196608,2026-05-03T04:54:59.1780951Z,35370,Tier 2 Bench: bfs,[OK] bfs 196608 -> 0.004452 ms,,,0.004452
+finished,Tier 2,bfs,262144,2026-05-03T04:58:06.2212453Z,35374,Tier 2 Bench: bfs,[OK] bfs 262144 -> 0.005567 ms,,,0.005567
+finished,Tier 2,bfs,524288,2026-05-03T05:06:46.2824153Z,35378,Tier 2 Bench: bfs,[OK] bfs 524288 -> 0.008648 ms,,,0.008648
+finished,Tier 2,bfs,786432,2026-05-03T05:23:28.1054832Z,35382,Tier 2 Bench: bfs,[OK] bfs 786432 -> 0.011019 ms,,,0.011019
+finished,Tier 2,bfs,1048576,2026-05-03T05:53:52.7525936Z,35386,Tier 2 Bench: bfs,[OK] bfs 1048576 -> 0.012061 ms,,,0.012061
+timed_out_3600s,Tier 2,bfs,1572864,2026-05-03T06:53:52.8492308Z,35390,Tier 2 Bench: bfs,##[warning]TIMEOUT: bfs 1572864 (>3600s),3600,timeout,
+finished,Tier 2,correlation,64x64,2026-05-03T04:53:50.6372436Z,35966,Tier 2 Bench: correlation,[OK] correlation 64x64 -> 0.009883 ms,,,0.009883
+finished,Tier 2,correlation,128x128,2026-05-03T04:54:04.4535316Z,35970,Tier 2 Bench: correlation,[OK] correlation 128x128 -> 0.019232 ms,,,0.019232
+finished,Tier 2,correlation,192x192,2026-05-03T04:55:31.4573786Z,35974,Tier 2 Bench: correlation,[OK] correlation 192x192 -> 0.028892 ms,,,0.028892
+finished,Tier 2,correlation,256x256,2026-05-03T05:00:10.9449417Z,35978,Tier 2 Bench: correlation,[OK] correlation 256x256 -> 0.039878 ms,,,0.039878
+finished,Tier 2,correlation,384x384,2026-05-03T05:46:04.9993805Z,35982,Tier 2 Bench: correlation,[OK] correlation 384x384 -> 0.062675 ms,,,0.062675
+timed_out_3600s,Tier 2,correlation,512x512,2026-05-03T06:46:05.0976771Z,35986,Tier 2 Bench: correlation,##[warning]TIMEOUT: correlation 512x512 (>3600s),3600,timeout,
+finished,Tier 2,gesummv,64,2026-05-03T05:07:27.4368406Z,36786,Tier 2 Bench: gesummv,[OK] gesummv 64 -> 0.009697 ms,,,0.009697
+finished,Tier 2,gesummv,128,2026-05-03T05:09:07.1990588Z,36790,Tier 2 Bench: gesummv,[OK] gesummv 128 -> 0.031707 ms,,,0.031707
+finished,Tier 2,gesummv,192,2026-05-03T05:23:41.5543126Z,36794,Tier 2 Bench: gesummv,[OK] gesummv 192 -> 0.070705 ms,,,0.070705
+timed_out_3600s,Tier 2,gesummv,256,2026-05-03T06:23:41.5679755Z,36798,Tier 2 Bench: gesummv,##[warning]TIMEOUT: gesummv 256 (>3600s),3600,timeout,
+finished,Tier 2,mvt,64,2026-05-03T05:47:05.2431362Z,37646,Tier 2 Bench: mvt,[OK] mvt 64 -> 0.008434 ms,,,0.008434
+finished,Tier 2,mvt,128,2026-05-03T05:47:30.3455559Z,37650,Tier 2 Bench: mvt,[OK] mvt 128 -> 0.020813 ms,,,0.020813
+finished,Tier 2,mvt,192,2026-05-03T05:49:33.8598332Z,37654,Tier 2 Bench: mvt,[OK] mvt 192 -> 0.042298 ms,,,0.042298
+finished,Tier 2,mvt,256,2026-05-03T05:56:41.2696831Z,37658,Tier 2 Bench: mvt,[OK] mvt 256 -> 0.071903 ms,,,0.071903
+finished,Tier 2,mvt,384,2026-05-03T06:28:16.9556505Z,37662,Tier 2 Bench: mvt,[OK] mvt 384 -> 0.107916 ms,,,0.107916
+timed_out_3600s,Tier 2,mvt,512,2026-05-03T07:28:16.9814561Z,37666,Tier 2 Bench: mvt,##[warning]TIMEOUT: mvt 512 (>3600s),3600,timeout,
+finished,Tier 2,gramschmidt,64,2026-05-03T05:23:09.5777946Z,38238,Tier 2 Bench: gramschmidt,[OK] gramschmidt 64 -> 2.556476 ms,,,2.556476
+timed_out_3600s,Tier 2,gramschmidt,128,2026-05-03T06:23:09.7912302Z,38242,Tier 2 Bench: gramschmidt,##[warning]TIMEOUT: gramschmidt 128 (>3600s),3600,timeout,
+finished,Tier 2,hotspot3D,8,2026-05-03T06:18:36.0741923Z,38864,Tier 2 Bench: hotspot3D,[OK] hotspot3D 8 -> 0.017585 ms,,,0.017585
+finished,Tier 2,hotspot3D,16,2026-05-03T06:18:45.5700669Z,38868,Tier 2 Bench: hotspot3D,[OK] hotspot3D 16 -> 0.034560 ms,,,0.034560
+finished,Tier 2,hotspot3D,24,2026-05-03T06:19:30.3417112Z,38872,Tier 2 Bench: hotspot3D,[OK] hotspot3D 24 -> 0.051304 ms,,,0.051304
+finished,Tier 2,hotspot3D,32,2026-05-03T06:21:33.1926554Z,38876,Tier 2 Bench: hotspot3D,[OK] hotspot3D 32 -> 0.070598 ms,,,0.070598
+finished,Tier 2,hotspot3D,48,2026-05-03T06:48:05.7933749Z,38880,Tier 2 Bench: hotspot3D,[OK] hotspot3D 48 -> 0.101738 ms,,,0.101738
+timed_out_3600s,Tier 2,hotspot3D,64,2026-05-03T07:48:05.8458282Z,38884,Tier 2 Bench: hotspot3D,##[warning]TIMEOUT: hotspot3D 64 (>3600s),3600,timeout,
+finished,Tier 2,backprop,256,2026-05-03T06:16:09.6021281Z,39730,Tier 2 Bench: backprop,[OK] backprop 256 -> 0.010626 ms,,,0.010626
+finished,Tier 2,backprop,256,2026-05-03T06:16:11.9865379Z,39734,Tier 2 Bench: backprop,[OK] backprop 256 -> 0.010626 ms,,,0.010626
+finished,Tier 2,backprop,512,2026-05-03T06:16:20.2218429Z,39738,Tier 2 Bench: backprop,[OK] backprop 512 -> 0.019919 ms,,,0.019919
+finished,Tier 2,backprop,512,2026-05-03T06:16:28.4557994Z,39742,Tier 2 Bench: backprop,[OK] backprop 512 -> 0.019919 ms,,,0.019919
+finished,Tier 2,backprop,1024,2026-05-03T06:17:07.5753744Z,39746,Tier 2 Bench: backprop,[OK] backprop 1024 -> 0.043525 ms,,,0.043525
+finished,Tier 2,backprop,1024,2026-05-03T06:17:46.6620795Z,39750,Tier 2 Bench: backprop,[OK] backprop 1024 -> 0.043525 ms,,,0.043525
+finished,Tier 2,backprop,2048,2026-05-03T06:20:51.2688024Z,39754,Tier 2 Bench: backprop,[OK] backprop 2048 -> 0.101943 ms,,,0.101943
+finished,Tier 2,backprop,2048,2026-05-03T06:23:55.7998830Z,39758,Tier 2 Bench: backprop,[OK] backprop 2048 -> 0.101943 ms,,,0.101943
+finished,Tier 2,backprop,4096,2026-05-03T06:46:56.5225899Z,39762,Tier 2 Bench: backprop,[OK] backprop 4096 -> 0.202691 ms,,,0.202691
+finished,Tier 2,backprop,4096,2026-05-03T07:04:23.2630832Z,39766,Tier 2 Bench: backprop,[OK] backprop 4096 -> 0.202691 ms,,,0.202691
+timed_out_3600s,Tier 2,backprop,8192,2026-05-03T08:04:23.2762388Z,39770,Tier 2 Bench: backprop,##[warning]TIMEOUT: backprop 8192 (>3600s),3600,timeout,
+finished,Tier 2,syr2k,64,2026-05-03T05:49:56.2329947Z,40624,Tier 2 Bench: syr2k,[OK] syr2k 64 -> 0.010079 ms,,,0.010079
+finished,Tier 2,syr2k,128,2026-05-03T06:17:05.7131371Z,40628,Tier 2 Bench: syr2k,[OK] syr2k 128 -> 0.019708 ms,,,0.019708
+timed_out_3600s,Tier 2,syr2k,192,2026-05-03T07:17:05.7573932Z,40632,Tier 2 Bench: syr2k,##[warning]TIMEOUT: syr2k 192 (>3600s),3600,timeout,
+finished,Tier 2,syrk,64,2026-05-03T06:00:32.6710059Z,41261,Tier 2 Bench: syrk,[OK] syrk 64 -> 0.004632 ms,,,0.004632
+finished,Tier 2,syrk,128,2026-05-03T06:08:05.2170848Z,41265,Tier 2 Bench: syrk,[OK] syrk 128 -> 0.008655 ms,,,0.008655
+finished,Tier 2,syrk,192,2026-05-03T06:43:09.4695353Z,41269,Tier 2 Bench: syrk,[OK] syrk 192 -> 0.012906 ms,,,0.012906
+timed_out_3600s,Tier 2,syrk,256,2026-05-03T07:43:09.5162664Z,41273,Tier 2 Bench: syrk,##[warning]TIMEOUT: syrk 256 (>3600s),3600,timeout,
+finished,Tier 2,gaussian,32,2026-05-03T06:16:51.9295419Z,42118,Tier 2 Bench: gaussian,[OK] gaussian 32 -> 0.031374 ms,,,0.031374
+finished,Tier 2,gaussian,48,2026-05-03T06:16:59.9512755Z,42122,Tier 2 Bench: gaussian,[OK] gaussian 48 -> 0.045708 ms,,,0.045708
+finished,Tier 2,gaussian,64,2026-05-03T06:17:16.6727254Z,42126,Tier 2 Bench: gaussian,[OK] gaussian 64 -> 0.073218 ms,,,0.073218
+finished,Tier 2,gaussian,96,2026-05-03T06:18:53.7634052Z,42130,Tier 2 Bench: gaussian,[OK] gaussian 96 -> 0.131427 ms,,,0.131427
+finished,Tier 2,gaussian,128,2026-05-03T06:25:24.3846742Z,42134,Tier 2 Bench: gaussian,[OK] gaussian 128 -> 0.184656 ms,,,0.184656
+timed_out_3600s,Tier 2,gaussian,192,2026-05-03T07:25:24.4871211Z,42138,Tier 2 Bench: gaussian,##[warning]TIMEOUT: gaussian 192 (>3600s),3600,timeout,
+finished,Tier 2,huffman,1024,2026-05-03T06:19:39.8356352Z,42775,Tier 2 Bench: huffman,[OK] huffman 1024 -> 0.001318 ms,,,0.001318
+finished,Tier 2,huffman,2048,2026-05-03T06:19:40.1311281Z,42779,Tier 2 Bench: huffman,[OK] huffman 2048 -> 0.001319 ms,,,0.001319
+finished,Tier 2,huffman,4096,2026-05-03T06:19:40.5657167Z,42783,Tier 2 Bench: huffman,[OK] huffman 4096 -> 0.001320 ms,,,0.001320
+finished,Tier 2,huffman,8192,2026-05-03T06:19:42.8926780Z,42787,Tier 2 Bench: huffman,[OK] huffman 8192 -> 0.001816 ms,,,0.001816
+finished,Tier 2,huffman,16384,2026-05-03T06:19:48.3956421Z,42791,Tier 2 Bench: huffman,[OK] huffman 16384 -> 0.002086 ms,,,0.002086
+finished,Tier 2,huffman,32768,2026-05-03T06:19:59.8062784Z,42795,Tier 2 Bench: huffman,[OK] huffman 32768 -> 0.002422 ms,,,0.002422
+finished,Tier 2,huffman,65536,2026-05-03T06:20:35.5700868Z,42799,Tier 2 Bench: huffman,[OK] huffman 65536 -> 0.002067 ms,,,0.002067
+finished,Tier 2,huffman,131072,2026-05-03T06:22:24.8421158Z,42803,Tier 2 Bench: huffman,[OK] huffman 131072 -> 0.003784 ms,,,0.003784
+finished,Tier 2,huffman,262144,2026-05-03T06:26:55.0117038Z,42807,Tier 2 Bench: huffman,[OK] huffman 262144 -> 0.005445 ms,,,0.005445
+finished,Tier 2,huffman,524288,2026-05-03T06:38:38.9511085Z,42811,Tier 2 Bench: huffman,[OK] huffman 524288 -> 0.010119 ms,,,0.010119
+finished,Tier 2,huffman,1048576,2026-05-03T07:20:44.7092506Z,42815,Tier 2 Bench: huffman,[OK] huffman 1048576 -> 0.021203 ms,,,0.021203
+timed_out_3600s,Tier 2,huffman,2097152,2026-05-03T08:20:44.8881541Z,42819,Tier 2 Bench: huffman,##[warning]TIMEOUT: huffman 2097152 (>3600s),3600,timeout,
+finished,Tier 2,lavaMD,2,2026-05-03T06:24:19.0406121Z,43471,Tier 2 Bench: lavaMD,[OK] lavaMD 2 -> 0.121569 ms,,,0.121569
+timed_out_3600s,Tier 2,lavaMD,3,2026-05-03T07:24:19.0727279Z,43475,Tier 2 Bench: lavaMD,##[warning]TIMEOUT: lavaMD 3 (>3600s),3600,timeout,
+finished,Tier 2,lud,64,2026-05-03T06:23:18.8653209Z,44093,Tier 2 Bench: lud,[OK] lud 64 -> 0.095793 ms,,,0.095793
+finished,Tier 2,lud,128,2026-05-03T06:23:21.8025514Z,44097,Tier 2 Bench: lud,[OK] lud 128 -> 0.226365 ms,,,0.226365
+finished,Tier 2,lud,192,2026-05-03T06:23:29.3769915Z,44101,Tier 2 Bench: lud,[OK] lud 192 -> 0.356301 ms,,,0.356301
+finished,Tier 2,lud,256,2026-05-03T06:23:46.9188098Z,44105,Tier 2 Bench: lud,[OK] lud 256 -> 0.485321 ms,,,0.485321
+finished,Tier 2,lud,384,2026-05-03T06:24:54.7946060Z,44109,Tier 2 Bench: lud,[OK] lud 384 -> 0.751421 ms,,,0.751421
+finished,Tier 2,lud,512,2026-05-03T06:28:25.5520342Z,44113,Tier 2 Bench: lud,[OK] lud 512 -> 1.014092 ms,,,1.014092
+finished,Tier 2,lud,640,2026-05-03T06:58:31.6115462Z,44117,Tier 2 Bench: lud,[OK] lud 640 -> 1.321136 ms,,,1.321136
+timed_out_3600s,Tier 2,lud,768,2026-05-03T07:58:31.7665338Z,44121,Tier 2 Bench: lud,##[warning]TIMEOUT: lud 768 (>3600s),3600,timeout,
+finished,Tier 2,particlefilter,256,2026-05-03T06:23:54.3834609Z,44974,Tier 2 Bench: particlefilter,[OK] particlefilter 256 -> 0.101947 ms,,,0.101947
+finished,Tier 2,particlefilter,512,2026-05-03T06:24:07.7104585Z,44978,Tier 2 Bench: particlefilter,[OK] particlefilter 512 -> 0.180905 ms,,,0.180905
+finished,Tier 2,particlefilter,1024,2026-05-03T06:24:43.9231195Z,44982,Tier 2 Bench: particlefilter,[OK] particlefilter 1024 -> 0.339841 ms,,,0.339841
+finished,Tier 2,particlefilter,2048,2026-05-03T06:26:33.0946536Z,44986,Tier 2 Bench: particlefilter,[OK] particlefilter 2048 -> 0.653706 ms,,,0.653706
+finished,Tier 2,particlefilter,4096,2026-05-03T06:35:28.8337084Z,44990,Tier 2 Bench: particlefilter,[OK] particlefilter 4096 -> 1.274204 ms,,,1.274204
+finished,Tier 2,particlefilter,8192,2026-05-03T07:07:08.0824834Z,44994,Tier 2 Bench: particlefilter,[OK] particlefilter 8192 -> 2.505040 ms,,,2.505040
+timed_out_3600s,Tier 2,particlefilter,16384,2026-05-03T08:07:08.1613585Z,44998,Tier 2 Bench: particlefilter,##[warning]TIMEOUT: particlefilter 16384 (>3600s),3600,timeout,
+finished,Tier 2,pathfinder,1024,2026-05-03T06:46:16.5133840Z,45618,Tier 2 Bench: pathfinder,[OK] pathfinder 1024 -> 0.041631 ms,,,0.041631
+finished,Tier 2,pathfinder,2048,2026-05-03T06:46:22.1536906Z,45622,Tier 2 Bench: pathfinder,[OK] pathfinder 2048 -> 0.040584 ms,,,0.040584
+finished,Tier 2,pathfinder,4096,2026-05-03T06:46:35.6315609Z,45626,Tier 2 Bench: pathfinder,[OK] pathfinder 4096 -> 0.040226 ms,,,0.040226
+finished,Tier 2,pathfinder,8192,2026-05-03T06:47:13.0178109Z,45630,Tier 2 Bench: pathfinder,[OK] pathfinder 8192 -> 0.040464 ms,,,0.040464
+finished,Tier 2,pathfinder,16384,2026-05-03T06:49:28.1668235Z,45634,Tier 2 Bench: pathfinder,[OK] pathfinder 16384 -> 0.041092 ms,,,0.041092
+finished,Tier 2,pathfinder,32768,2026-05-03T06:59:06.1799220Z,45638,Tier 2 Bench: pathfinder,[OK] pathfinder 32768 -> 0.051161 ms,,,0.051161
+timed_out_3600s,Tier 2,pathfinder,65536,2026-05-03T07:59:06.2562796Z,45642,Tier 2 Bench: pathfinder,##[warning]TIMEOUT: pathfinder 65536 (>3600s),3600,timeout,
+finished,Tier 2,srad,64,2026-05-03T06:54:06.6934722Z,46259,Tier 2 Bench: srad,[OK] srad 64 -> 0.010028 ms,,,0.010028
+finished,Tier 2,srad,128,2026-05-03T06:54:43.1873675Z,46263,Tier 2 Bench: srad,[OK] srad 128 -> 0.009865 ms,,,0.009865
+finished,Tier 2,srad,192,2026-05-03T06:56:35.8280265Z,46267,Tier 2 Bench: srad,[OK] srad 192 -> 0.010616 ms,,,0.010616
+finished,Tier 2,srad,256,2026-05-03T07:02:52.5641655Z,46271,Tier 2 Bench: srad,[OK] srad 256 -> 0.012220 ms,,,0.012220
+timed_out_3600s,Tier 2,srad,384,2026-05-03T08:02:52.6511720Z,46275,Tier 2 Bench: srad,##[warning]TIMEOUT: srad 384 (>3600s),3600,timeout,
+finished,Tier 2,hist,512,2026-05-03T07:17:13.6681569Z,47071,Tier 2 Bench: hist,[OK] hist 512 -> 0.001011 ms,,,0.001011
+finished,Tier 2,hist,1024,2026-05-03T07:17:14.0718849Z,47075,Tier 2 Bench: hist,[OK] hist 1024 -> 0.001013 ms,,,0.001013
+finished,Tier 2,hist,2048,2026-05-03T07:17:14.5026011Z,47079,Tier 2 Bench: hist,[OK] hist 2048 -> 0.001014 ms,,,0.001014
+finished,Tier 2,hist,4096,2026-05-03T07:17:15.0442775Z,47083,Tier 2 Bench: hist,[OK] hist 4096 -> 0.001015 ms,,,0.001015
+finished,Tier 2,hist,8192,2026-05-03T07:17:16.1014508Z,47087,Tier 2 Bench: hist,[OK] hist 8192 -> 0.001075 ms,,,0.001075
+finished,Tier 2,hist,16384,2026-05-03T07:17:18.5609145Z,47091,Tier 2 Bench: hist,[OK] hist 16384 -> 0.001338 ms,,,0.001338
+finished,Tier 2,hist,32768,2026-05-03T07:17:31.5140221Z,47095,Tier 2 Bench: hist,[OK] hist 32768 -> 0.002454 ms,,,0.002454
+finished,Tier 2,hist,65536,2026-05-03T07:17:56.9753433Z,47099,Tier 2 Bench: hist,[OK] hist 65536 -> 0.001535 ms,,,0.001535
+finished,Tier 2,hist,131072,2026-05-03T07:19:24.6401598Z,47103,Tier 2 Bench: hist,[OK] hist 131072 -> 0.001765 ms,,,0.001765
+finished,Tier 2,hist,262144,2026-05-03T07:24:06.5623447Z,47107,Tier 2 Bench: hist,[OK] hist 262144 -> 0.004555 ms,,,0.004555
+finished,Tier 2,hist,524288,2026-05-03T07:30:56.2536907Z,47111,Tier 2 Bench: hist,[OK] hist 524288 -> 0.004241 ms,,,0.004241
+finished,Tier 2,hist,1048576,2026-05-03T07:41:11.6217082Z,47115,Tier 2 Bench: hist,[OK] hist 1048576 -> 0.007948 ms,,,0.007948
+finished,Tier 2,hist,2097152,2026-05-03T07:50:19.8968278Z,47119,Tier 2 Bench: hist,[OK] hist 2097152 -> 0.014779 ms,,,0.014779
+finished,Tier 2,hist,4194304,2026-05-03T07:58:39.7245469Z,47123,Tier 2 Bench: hist,[OK] hist 4194304 -> 0.027536 ms,,,0.027536
+finished,Tier 2,hist,8388608,2026-05-03T08:26:16.3409997Z,47127,Tier 2 Bench: hist,[OK] hist 8388608 -> 0.053444 ms,,,0.053444
+timed_out_3600s,Tier 2,hist,16777216,2026-05-03T09:26:16.5019544Z,47131,Tier 2 Bench: hist,##[warning]TIMEOUT: hist 16777216 (>3600s),3600,timeout,
+finished,Tier 2,ga,32,2026-05-03T06:55:05.6299122Z,47769,Tier 2 Bench: ga,[OK] ga 32 -> 0.314695 ms,,,0.314695
+finished,Tier 2,ga,64,2026-05-03T06:55:14.1183849Z,47773,Tier 2 Bench: ga,[OK] ga 64 -> 0.342331 ms,,,0.342331
+finished,Tier 2,ga,128,2026-05-03T06:55:36.6414665Z,47777,Tier 2 Bench: ga,[OK] ga 128 -> 0.384651 ms,,,0.384651
+finished,Tier 2,ga,256,2026-05-03T06:57:52.0906247Z,47781,Tier 2 Bench: ga,[OK] ga 256 -> 0.561214 ms,,,0.561214
+finished,Tier 2,ga,512,2026-05-03T07:05:00.1525292Z,47785,Tier 2 Bench: ga,[OK] ga 512 -> 0.639217 ms,,,0.639217
+finished,Tier 2,ga,1024,2026-05-03T07:37:01.0456748Z,47789,Tier 2 Bench: ga,[OK] ga 1024 -> 0.740288 ms,,,0.740288
+timed_out_3600s,Tier 2,ga,2048,2026-05-03T08:37:01.1555048Z,47793,Tier 2 Bench: ga,##[warning]TIMEOUT: ga 2048 (>3600s),3600,timeout,
+finished,Tier 2,streamcluster,1024,2026-05-03T06:55:10.1061278Z,48457,Tier 2 Bench: streamcluster,[OK] streamcluster 1024 -> 0.010058 ms,,,0.010058
+finished,Tier 2,streamcluster,2048,2026-05-03T06:56:11.5081566Z,48461,Tier 2 Bench: streamcluster,[OK] streamcluster 2048 -> 0.009989 ms,,,0.009989
+finished,Tier 2,streamcluster,4096,2026-05-03T06:58:24.3487044Z,48465,Tier 2 Bench: streamcluster,[OK] streamcluster 4096 -> 0.011475 ms,,,0.011475
+finished,Tier 2,streamcluster,8192,2026-05-03T07:05:10.4598436Z,48469,Tier 2 Bench: streamcluster,[OK] streamcluster 8192 -> 0.021724 ms,,,0.021724
+finished,Tier 2,streamcluster,16384,2026-05-03T07:15:27.7283072Z,48473,Tier 2 Bench: streamcluster,[OK] streamcluster 16384 -> 0.016177 ms,,,0.016177
+finished,Tier 2,streamcluster,32768,2026-05-03T07:34:29.1913636Z,48477,Tier 2 Bench: streamcluster,[OK] streamcluster 32768 -> 0.022661 ms,,,0.022661
+finished,Tier 2,streamcluster,65536,2026-05-03T08:31:06.4985286Z,48481,Tier 2 Bench: streamcluster,[OK] streamcluster 65536 -> 0.043836 ms,,,0.043836
+timed_out_3600s,Tier 2,streamcluster,131072,2026-05-03T09:31:06.7523728Z,48485,Tier 2 Bench: streamcluster,##[warning]TIMEOUT: streamcluster 131072 (>3600s),3600,timeout,
+finished,Tier 2,parboil_histo,1024,2026-05-03T07:25:33.0581947Z,49284,Tier 2 Bench: parboil_histo,[OK] parboil_histo 1024 -> 0.001171 ms,,,0.001171
+finished,Tier 2,parboil_histo,2048,2026-05-03T07:25:34.7380628Z,49288,Tier 2 Bench: parboil_histo,[OK] parboil_histo 2048 -> 0.001349 ms,,,0.001349
+finished,Tier 2,parboil_histo,4096,2026-05-03T07:25:38.2201617Z,49292,Tier 2 Bench: parboil_histo,[OK] parboil_histo 4096 -> 0.001828 ms,,,0.001828
+finished,Tier 2,parboil_histo,8192,2026-05-03T07:25:46.1342206Z,49296,Tier 2 Bench: parboil_histo,[OK] parboil_histo 8192 -> 0.002772 ms,,,0.002772
+finished,Tier 2,parboil_histo,16384,2026-05-03T07:25:59.0529634Z,49300,Tier 2 Bench: parboil_histo,[OK] parboil_histo 16384 -> 0.002924 ms,,,0.002924
+finished,Tier 2,parboil_histo,32768,2026-05-03T07:26:25.0122341Z,49304,Tier 2 Bench: parboil_histo,[OK] parboil_histo 32768 -> 0.002886 ms,,,0.002886
+crashed,Tier 2,parboil_histo,65536,2026-05-03T07:27:34.3214262Z,49308,Tier 2 Bench: parboil_histo,##[error]CRASH: parboil_histo 65536 (exit 1),,exit 1,
+finished,Tier 2,parboil_cutcp,256,2026-05-03T07:36:07.4514487Z,49975,Tier 2 Bench: parboil_cutcp,[OK] parboil_cutcp 256 -> 0.028030 ms,,,0.028030
+finished,Tier 2,parboil_cutcp,512,2026-05-03T08:24:24.4981216Z,49979,Tier 2 Bench: parboil_cutcp,[OK] parboil_cutcp 512 -> 0.045238 ms,,,0.045238
+timed_out_3600s,Tier 2,parboil_cutcp,1024,2026-05-03T09:24:24.6080606Z,49983,Tier 2 Bench: parboil_cutcp,##[warning]TIMEOUT: parboil_cutcp 1024 (>3600s),3600,timeout,
+finished,Tier 2,parboil_lbm,16,2026-05-03T07:28:28.3782683Z,50777,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 16 -> 0.007146 ms,,,0.007146
+finished,Tier 2,parboil_lbm,20,2026-05-03T07:29:47.9011703Z,50781,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 20 -> 0.007513 ms,,,0.007513
+finished,Tier 2,parboil_lbm,24,2026-05-03T07:31:32.8892460Z,50785,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 24 -> 0.008142 ms,,,0.008142
+finished,Tier 2,parboil_lbm,28,2026-05-03T07:34:48.4007033Z,50789,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 28 -> 0.009125 ms,,,0.009125
+finished,Tier 2,parboil_lbm,32,2026-05-03T07:39:40.4051157Z,50793,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 32 -> 0.010563 ms,,,0.010563
+finished,Tier 2,parboil_lbm,36,2026-05-03T07:46:57.6208050Z,50797,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 36 -> 0.013589 ms,,,0.013589
+finished,Tier 2,parboil_lbm,40,2026-05-03T07:57:55.1912907Z,50801,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 40 -> 0.017484 ms,,,0.017484
+finished,Tier 2,parboil_lbm,44,2026-05-03T08:19:07.2003054Z,50805,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 44 -> 0.021898 ms,,,0.021898
+finished,Tier 2,parboil_lbm,48,2026-05-03T09:00:06.9448611Z,50809,Tier 2 Bench: parboil_lbm,[OK] parboil_lbm 48 -> 0.028784 ms,,,0.028784
+timed_out_3600s,Tier 2,parboil_lbm,52,2026-05-03T10:00:07.0959835Z,50813,Tier 2 Bench: parboil_lbm,##[warning]TIMEOUT: parboil_lbm 52 (>3600s),3600,timeout,
+finished,Tier 2,parboil_mri_gridding,256,2026-05-03T07:28:34.2301645Z,51616,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 256 -> 0.014689 ms,,,0.014689
+finished,Tier 2,parboil_mri_gridding,512,2026-05-03T07:28:54.0551714Z,51620,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 512 -> 0.014792 ms,,,0.014792
+finished,Tier 2,parboil_mri_gridding,1024,2026-05-03T07:29:34.3253882Z,51624,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 1024 -> 0.015283 ms,,,0.015283
+finished,Tier 2,parboil_mri_gridding,2048,2026-05-03T07:31:03.5604132Z,51628,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 2048 -> 0.015090 ms,,,0.015090
+finished,Tier 2,parboil_mri_gridding,4096,2026-05-03T07:34:16.5964913Z,51632,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 4096 -> 0.015073 ms,,,0.015073
+finished,Tier 2,parboil_mri_gridding,8192,2026-05-03T07:40:57.4650510Z,51636,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 8192 -> 0.015152 ms,,,0.015152
+finished,Tier 2,parboil_mri_gridding,16384,2026-05-03T07:54:53.3052557Z,51640,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 16384 -> 0.015937 ms,,,0.015937
+finished,Tier 2,parboil_mri_gridding,32768,2026-05-03T08:52:31.6977288Z,51644,Tier 2 Bench: parboil_mri_gridding,[OK] parboil_mri_gridding 32768 -> 0.015886 ms,,,0.015886
+timed_out_3600s,Tier 2,parboil_mri_gridding,65536,2026-05-03T09:52:31.9177296Z,51648,Tier 2 Bench: parboil_mri_gridding,##[warning]TIMEOUT: parboil_mri_gridding 65536 (>3600s),3600,timeout,
+finished,Tier 2,parboil_sad,32,2026-05-03T07:57:14.4083676Z,52234,Tier 2 Bench: parboil_sad,[OK] parboil_sad 32 -> 0.186922 ms,,,0.186922
+finished,Tier 2,parboil_sad,32,2026-05-03T08:11:55.6081155Z,52240,Tier 2 Bench: parboil_sad,[OK] parboil_sad 32 -> 0.186922 ms,,,0.186922
+finished,Tier 2,parboil_sad,48,2026-05-03T08:58:18.1683382Z,52246,Tier 2 Bench: parboil_sad,[OK] parboil_sad 48 -> 0.196132 ms,,,0.196132
+finished,Tier 2,parboil_sad,48,2026-05-03T09:47:15.7803575Z,52252,Tier 2 Bench: parboil_sad,[OK] parboil_sad 48 -> 0.196132 ms,,,0.196132
+timed_out_3600s,Tier 2,parboil_sad,64,2026-05-03T10:47:15.8879337Z,52258,Tier 2 Bench: parboil_sad,##[warning]TIMEOUT: parboil_sad 64 (>3600s),3600,timeout,
+finished,Tier 2,parboil_tpacf,256,2026-05-03T08:00:13.6432287Z,52829,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 256 -> 0.102997 ms,,,0.102997
+finished,Tier 2,parboil_tpacf,256,2026-05-03T08:01:47.6798187Z,52833,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 256 -> 0.104568 ms,,,0.104568
+finished,Tier 2,parboil_tpacf,256,2026-05-03T08:03:22.2475759Z,52837,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 256 -> 0.103980 ms,,,0.103980
+finished,Tier 2,parboil_tpacf,512,2026-05-03T08:24:53.4473947Z,52841,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 512 -> 0.242744 ms,,,0.242744
+finished,Tier 2,parboil_tpacf,512,2026-05-03T08:45:55.8246599Z,52845,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 512 -> 0.239022 ms,,,0.239022
+finished,Tier 2,parboil_tpacf,512,2026-05-03T09:04:41.3240094Z,52849,Tier 2 Bench: parboil_tpacf,[OK] parboil_tpacf 512 -> 0.238059 ms,,,0.238059
+timed_out_3600s,Tier 2,parboil_tpacf,1024,2026-05-03T10:04:41.3494878Z,52853,Tier 2 Bench: parboil_tpacf,##[warning]TIMEOUT: parboil_tpacf 1024 (>3600s),3600,timeout,
+finished,Tier 2,md5hash,512,2026-05-03T07:59:16.3744376Z,53422,Tier 2 Bench: md5hash,[OK] md5hash 512 -> 0.007869 ms,,,0.007869
+finished,Tier 2,md5hash,1024,2026-05-03T07:59:18.5706917Z,53426,Tier 2 Bench: md5hash,[OK] md5hash 1024 -> 0.007868 ms,,,0.007868
+finished,Tier 2,md5hash,2048,2026-05-03T07:59:21.9822903Z,53430,Tier 2 Bench: md5hash,[OK] md5hash 2048 -> 0.007873 ms,,,0.007873
+finished,Tier 2,md5hash,4096,2026-05-03T07:59:29.8259536Z,53434,Tier 2 Bench: md5hash,[OK] md5hash 4096 -> 0.007872 ms,,,0.007872
+finished,Tier 2,md5hash,8192,2026-05-03T07:59:47.1284816Z,53438,Tier 2 Bench: md5hash,[OK] md5hash 8192 -> 0.007880 ms,,,0.007880
+finished,Tier 2,md5hash,16384,2026-05-03T08:00:31.8671646Z,53442,Tier 2 Bench: md5hash,[OK] md5hash 16384 -> 0.008729 ms,,,0.008729
+finished,Tier 2,md5hash,32768,2026-05-03T08:02:18.1941964Z,53446,Tier 2 Bench: md5hash,[OK] md5hash 32768 -> 0.010350 ms,,,0.010350
+finished,Tier 2,md5hash,65536,2026-05-03T08:06:50.1234607Z,53450,Tier 2 Bench: md5hash,[OK] md5hash 65536 -> 0.013710 ms,,,0.013710
+finished,Tier 2,md5hash,131072,2026-05-03T08:53:59.5237421Z,53454,Tier 2 Bench: md5hash,[OK] md5hash 131072 -> 0.022480 ms,,,0.022480
+timed_out_3600s,Tier 2,md5hash,262144,2026-05-03T09:53:59.5895583Z,53458,Tier 2 Bench: md5hash,##[warning]TIMEOUT: md5hash 262144 (>3600s),3600,timeout,
+finished,Tier 2,parboil_stencil,16,2026-05-03T07:48:15.0274344Z,54037,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 16 -> 0.003777 ms,,,0.003777
+finished,Tier 2,parboil_stencil,24,2026-05-03T07:48:29.2301479Z,54041,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 24 -> 0.003979 ms,,,0.003979
+finished,Tier 2,parboil_stencil,32,2026-05-03T07:48:51.0713712Z,54045,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 32 -> 0.003867 ms,,,0.003867
+finished,Tier 2,parboil_stencil,40,2026-05-03T07:50:36.7613125Z,54049,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 40 -> 0.005312 ms,,,0.005312
+finished,Tier 2,parboil_stencil,48,2026-05-03T07:52:11.0206282Z,54053,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 48 -> 0.005315 ms,,,0.005315
+finished,Tier 2,parboil_stencil,56,2026-05-03T08:05:03.1563216Z,54057,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 56 -> 0.008666 ms,,,0.008666
+finished,Tier 2,parboil_stencil,64,2026-05-03T08:24:53.5374882Z,54061,Tier 2 Bench: parboil_stencil,[OK] parboil_stencil 64 -> 0.008547 ms,,,0.008547
+timed_out_3600s,Tier 2,parboil_stencil,72,2026-05-03T09:24:53.6234224Z,54065,Tier 2 Bench: parboil_stencil,##[warning]TIMEOUT: parboil_stencil 72 (>3600s),3600,timeout,
+finished,Tier 2,qtc,64,2026-05-03T08:03:00.1125479Z,54634,Tier 2 Bench: qtc,[OK] qtc 64 -> 0.005447 ms,,,0.005447
+finished,Tier 2,qtc,128,2026-05-03T08:03:00.4214561Z,54638,Tier 2 Bench: qtc,[OK] qtc 128 -> 0.010341 ms,,,0.010341
+finished,Tier 2,qtc,192,2026-05-03T08:03:00.9352371Z,54642,Tier 2 Bench: qtc,[OK] qtc 192 -> 0.015235 ms,,,0.015235
+finished,Tier 2,qtc,256,2026-05-03T08:03:01.7075437Z,54646,Tier 2 Bench: qtc,[OK] qtc 256 -> 0.020238 ms,,,0.020238
+finished,Tier 2,qtc,384,2026-05-03T08:03:04.4172448Z,54650,Tier 2 Bench: qtc,[OK] qtc 384 -> 0.029914 ms,,,0.029914
+finished,Tier 2,qtc,512,2026-05-03T08:03:08.7337497Z,54654,Tier 2 Bench: qtc,[OK] qtc 512 -> 0.039934 ms,,,0.039934
+finished,Tier 2,qtc,768,2026-05-03T08:03:31.3083495Z,54658,Tier 2 Bench: qtc,[OK] qtc 768 -> 0.059638 ms,,,0.059638
+finished,Tier 2,qtc,1024,2026-05-03T08:05:18.6978301Z,54662,Tier 2 Bench: qtc,[OK] qtc 1024 -> 0.078848 ms,,,0.078848
+finished,Tier 2,qtc,1536,2026-05-03T08:27:06.1747970Z,54666,Tier 2 Bench: qtc,[OK] qtc 1536 -> 0.118106 ms,,,0.118106
+finished,Tier 2,qtc,2048,2026-05-03T09:19:44.9777121Z,54670,Tier 2 Bench: qtc,[OK] qtc 2048 -> 0.158006 ms,,,0.158006
+timed_out_3600s,Tier 2,qtc,3072,2026-05-03T10:19:45.0153644Z,54674,Tier 2 Bench: qtc,##[warning]TIMEOUT: qtc 3072 (>3600s),3600,timeout,
+timed_out_3600s,Tier 2,gelu,n16777216_bs256_ept1_gelu,2026-05-03T09:04:30.2000383Z,55473,Tier 2 Bench: gelu,##[warning]TIMEOUT: gelu n16777216_bs256_ept1_gelu (>3600s),3600,timeout,
+finished,Tier 2,softmax,rows64_cols1024_bs256,2026-05-03T08:08:11.4527906Z,56269,Tier 2 Bench: softmax,[OK] softmax rows64_cols1024_bs256 -> 0.002755 ms,,,0.002755
+finished,Tier 2,softmax,rows128_cols1024_bs256,2026-05-03T08:08:23.9052866Z,56273,Tier 2 Bench: softmax,[OK] softmax rows128_cols1024_bs256 -> 0.003145 ms,,,0.003145
+finished,Tier 2,softmax,rows256_cols1024_bs256,2026-05-03T08:08:48.2385108Z,56277,Tier 2 Bench: softmax,[OK] softmax rows256_cols1024_bs256 -> 0.004592 ms,,,0.004592
+finished,Tier 2,softmax,rows512_cols1024_bs256,2026-05-03T08:09:47.4647456Z,56281,Tier 2 Bench: softmax,[OK] softmax rows512_cols1024_bs256 -> 0.007831 ms,,,0.007831
+finished,Tier 2,softmax,rows1024_cols1024_bs256,2026-05-03T08:12:23.1723894Z,56285,Tier 2 Bench: softmax,[OK] softmax rows1024_cols1024_bs256 -> 0.014409 ms,,,0.014409
+finished,Tier 2,softmax,rows2048_cols1024_bs256,2026-05-03T08:23:23.8443939Z,56289,Tier 2 Bench: softmax,[OK] softmax rows2048_cols1024_bs256 -> 0.027966 ms,,,0.027966
+timed_out_3600s,Tier 2,softmax,rows4096_cols1024_bs256,2026-05-03T09:23:24.0911958Z,56293,Tier 2 Bench: softmax,##[warning]TIMEOUT: softmax rows4096_cols1024_bs256 (>3600s),3600,timeout,
+finished,Tier 2,layernorm,rows64_hid4096_bs256_layernorm,2026-05-03T08:21:11.6112631Z,56880,Tier 2 Bench: layernorm,[OK] layernorm rows64_hid4096_bs256_layernorm -> 0.005838 ms,,,0.005838
+finished,Tier 2,layernorm,rows128_hid4096_bs256_layernorm,2026-05-03T08:21:53.6152255Z,56884,Tier 2 Bench: layernorm,[OK] layernorm rows128_hid4096_bs256_layernorm -> 0.008653 ms,,,0.008653
+finished,Tier 2,layernorm,rows256_hid4096_bs256_layernorm,2026-05-03T08:23:26.5068584Z,56888,Tier 2 Bench: layernorm,[OK] layernorm rows256_hid4096_bs256_layernorm -> 0.014008 ms,,,0.014008
+finished,Tier 2,layernorm,rows512_hid4096_bs256_layernorm,2026-05-03T08:27:25.0667810Z,56892,Tier 2 Bench: layernorm,[OK] layernorm rows512_hid4096_bs256_layernorm -> 0.026413 ms,,,0.026413
+finished,Tier 2,layernorm,rows1024_hid4096_bs256_layernorm,2026-05-03T08:57:53.0995674Z,56896,Tier 2 Bench: layernorm,[OK] layernorm rows1024_hid4096_bs256_layernorm -> 0.052334 ms,,,0.052334
+timed_out_3600s,Tier 2,layernorm,rows2048_hid4096_bs256_layernorm,2026-05-03T09:57:53.3084391Z,56900,Tier 2 Bench: layernorm,##[warning]TIMEOUT: layernorm rows2048_hid4096_bs256_layernorm (>3600s),3600,timeout,
+finished,Tier 2,fused_swiglu,n49152_bs256_ept1_p1,2026-05-03T08:37:10.6917076Z,57478,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n49152_bs256_ept1_p1 -> 0.001245 ms,,,0.001245
+finished,Tier 2,fused_swiglu,n98304_bs256_ept1_p1,2026-05-03T08:37:13.6340881Z,57482,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n98304_bs256_ept1_p1 -> 0.002150 ms,,,0.002150
+finished,Tier 2,fused_swiglu,n196608_bs256_ept1_p1,2026-05-03T08:37:23.3110673Z,57486,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n196608_bs256_ept1_p1 -> 0.003966 ms,,,0.003966
+finished,Tier 2,fused_swiglu,n393216_bs256_ept1_p1,2026-05-03T08:37:45.5553728Z,57490,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n393216_bs256_ept1_p1 -> 0.007628 ms,,,0.007628
+finished,Tier 2,fused_swiglu,n786432_bs256_ept1_p1,2026-05-03T08:38:50.7006960Z,57494,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n786432_bs256_ept1_p1 -> 0.014963 ms,,,0.014963
+finished,Tier 2,fused_swiglu,n1572864_bs256_ept1_p1,2026-05-03T08:41:09.1270625Z,57498,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n1572864_bs256_ept1_p1 -> 0.029511 ms,,,0.029511
+finished,Tier 2,fused_swiglu,n3145728_bs256_ept1_p1,2026-05-03T08:46:48.2135588Z,57502,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n3145728_bs256_ept1_p1 -> 0.058601 ms,,,0.058601
+finished,Tier 2,fused_swiglu,n4194304_bs256_ept1_p1,2026-05-03T09:01:05.2196939Z,57506,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n4194304_bs256_ept1_p1 -> 0.077988 ms,,,0.077988
+finished,Tier 2,fused_swiglu,n6291456_bs256_ept1_p1,2026-05-03T09:30:50.9736062Z,57510,Tier 2 Bench: fused_swiglu,[OK] fused_swiglu n6291456_bs256_ept1_p1 -> 0.116774 ms,,,0.116774
+timed_out_3600s,Tier 2,fused_swiglu,n8388608_bs256_ept1_p1,2026-05-03T10:30:51.0980689Z,57514,Tier 2 Bench: fused_swiglu,##[warning]TIMEOUT: fused_swiglu n8388608_bs256_ept1_p1 (>3600s),3600,timeout,
+finished,Tier 2,md_lj,128,2026-05-03T09:04:48.7096261Z,58313,Tier 2 Bench: md_lj,[OK] md_lj 128 -> 0.014444 ms,,,0.014444
+finished,Tier 2,md_lj,256,2026-05-03T09:05:59.8551653Z,58317,Tier 2 Bench: md_lj,[OK] md_lj 256 -> 0.027477 ms,,,0.027477
+finished,Tier 2,md_lj,512,2026-05-03T09:11:00.9651806Z,58321,Tier 2 Bench: md_lj,[OK] md_lj 512 -> 0.036674 ms,,,0.036674
+finished,Tier 2,md_lj,1024,2026-05-03T09:29:16.3381799Z,58325,Tier 2 Bench: md_lj,[OK] md_lj 1024 -> 0.046292 ms,,,0.046292
+finished,Tier 2,md_lj,2048,2026-05-03T10:19:15.5299959Z,58329,Tier 2 Bench: md_lj,[OK] md_lj 2048 -> 0.054280 ms,,,0.054280
+timed_out_3600s,Tier 2,md_lj,4096,2026-05-03T11:19:15.5556236Z,58333,Tier 2 Bench: md_lj,##[warning]TIMEOUT: md_lj 4096 (>3600s),3600,timeout,
+finished,Tier 2,s3d,512,2026-05-03T09:23:42.4364654Z,59134,Tier 2 Bench: s3d,[OK] s3d 512 -> 0.027544 ms,,,0.027544
+finished,Tier 2,s3d,1024,2026-05-03T09:23:59.4356789Z,59138,Tier 2 Bench: s3d,[OK] s3d 1024 -> 0.034488 ms,,,0.034488
+finished,Tier 2,s3d,2048,2026-05-03T09:24:23.9802344Z,59142,Tier 2 Bench: s3d,[OK] s3d 2048 -> 0.042666 ms,,,0.042666
+finished,Tier 2,s3d,4096,2026-05-03T09:25:00.6359479Z,59146,Tier 2 Bench: s3d,[OK] s3d 4096 -> 0.046189 ms,,,0.046189
+finished,Tier 2,s3d,8192,2026-05-03T09:26:16.5586362Z,59150,Tier 2 Bench: s3d,[OK] s3d 8192 -> 0.047608 ms,,,0.047608
+finished,Tier 2,s3d,16384,2026-05-03T09:28:40.9939175Z,59154,Tier 2 Bench: s3d,[OK] s3d 16384 -> 0.048018 ms,,,0.048018
+finished,Tier 2,s3d,32768,2026-05-03T09:33:37.8065043Z,59158,Tier 2 Bench: s3d,[OK] s3d 32768 -> 0.051055 ms,,,0.051055
+finished,Tier 2,s3d,65536,2026-05-03T09:57:01.4598932Z,59162,Tier 2 Bench: s3d,[OK] s3d 65536 -> 0.057081 ms,,,0.057081
+finished,Tier 2,s3d,131072,2026-05-03T10:49:22.9575991Z,59166,Tier 2 Bench: s3d,[OK] s3d 131072 -> 0.059943 ms,,,0.059943
+timed_out_3600s,Tier 2,s3d,262144,2026-05-03T11:49:23.0964947Z,59170,Tier 2 Bench: s3d,##[warning]TIMEOUT: s3d 262144 (>3600s),3600,timeout,
+finished,Tier 2,rope,B4_S64_H32_D128_blk256,2026-05-03T09:25:24.8695945Z,59770,Tier 2 Bench: rope,[OK] rope B4_S64_H32_D128_blk256 -> 0.013318 ms,,,0.013318
+finished,Tier 2,rope,B4_S128_H32_D128_blk256,2026-05-03T09:27:52.8466545Z,59774,Tier 2 Bench: rope,[OK] rope B4_S128_H32_D128_blk256 -> 0.026296 ms,,,0.026296
+finished,Tier 2,rope,B4_S256_H32_D128_blk256,2026-05-03T09:33:07.7875871Z,59778,Tier 2 Bench: rope,[OK] rope B4_S256_H32_D128_blk256 -> 0.052155 ms,,,0.052155
+finished,Tier 2,rope,B4_S384_H32_D128_blk256,2026-05-03T09:43:00.0872777Z,59782,Tier 2 Bench: rope,[OK] rope B4_S384_H32_D128_blk256 -> 0.078012 ms,,,0.078012
+finished,Tier 2,rope,B4_S512_H32_D128_blk256,2026-05-03T10:10:59.4371942Z,59786,Tier 2 Bench: rope,[OK] rope B4_S512_H32_D128_blk256 -> 0.103865 ms,,,0.103865
+timed_out_3600s,Tier 2,rope,B4_S768_H32_D128_blk256,2026-05-03T11:10:59.7365011Z,59790,Tier 2 Bench: rope,##[warning]TIMEOUT: rope B4_S768_H32_D128_blk256 (>3600s),3600,timeout,
+finished,Tier 2,naive_attention,B4_S32_H12_D64_blk256,2026-05-03T09:25:07.4651198Z,60366,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S32_H12_D64_blk256 -> 0.068667 ms,,,0.068667
+finished,Tier 2,naive_attention,B4_S64_H12_D64_blk256,2026-05-03T09:25:24.1555231Z,60370,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S64_H12_D64_blk256 -> 0.132441 ms,,,0.132441
+finished,Tier 2,naive_attention,B4_S96_H12_D64_blk256,2026-05-03T09:25:58.1843178Z,60374,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S96_H12_D64_blk256 -> 0.193598 ms,,,0.193598
+finished,Tier 2,naive_attention,B4_S128_H12_D64_blk256,2026-05-03T09:26:58.5887917Z,60378,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S128_H12_D64_blk256 -> 0.257308 ms,,,0.257308
+finished,Tier 2,naive_attention,B4_S192_H12_D64_blk256,2026-05-03T09:29:22.9445113Z,60382,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S192_H12_D64_blk256 -> 0.384828 ms,,,0.384828
+finished,Tier 2,naive_attention,B4_S256_H12_D64_blk256,2026-05-03T09:34:11.6069114Z,60386,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S256_H12_D64_blk256 -> 0.512338 ms,,,0.512338
+finished,Tier 2,naive_attention,B4_S384_H12_D64_blk256,2026-05-03T09:48:00.0637429Z,60390,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S384_H12_D64_blk256 -> 0.767552 ms,,,0.767552
+finished,Tier 2,naive_attention,B4_S512_H12_D64_blk256,2026-05-03T10:20:25.4947795Z,60394,Tier 2 Bench: naive_attention,[OK] naive_attention B4_S512_H12_D64_blk256 -> 1.022502 ms,,,1.022502
+timed_out_3600s,Tier 2,naive_attention,B4_S640_H12_D64_blk256,2026-05-03T11:20:25.6138507Z,60398,Tier 2 Bench: naive_attention,##[warning]TIMEOUT: naive_attention B4_S640_H12_D64_blk256 (>3600s),3600,timeout,
+finished,Tier 2,tiled_gemm_16,M1_N768_K768_tile16,2026-05-03T09:27:02.0989954Z,61199,Tier 2 Bench: tiled_gemm_16,[OK] tiled_gemm_16 M1_N768_K768_tile16 -> 0.020218 ms,,,0.020218
+finished,Tier 2,tiled_gemm_16,M8_N768_K768_tile16,2026-05-03T09:27:43.8208419Z,61203,Tier 2 Bench: tiled_gemm_16,[OK] tiled_gemm_16 M8_N768_K768_tile16 -> 0.020327 ms,,,0.020327
+finished,Tier 2,tiled_gemm_16,M32_N768_K768_tile16,2026-05-03T09:29:38.4837348Z,61207,Tier 2 Bench: tiled_gemm_16,[OK] tiled_gemm_16 M32_N768_K768_tile16 -> 0.020755 ms,,,0.020755
+finished,Tier 2,tiled_gemm_16,M64_N768_K768_tile16,2026-05-03T09:33:41.4625326Z,61211,Tier 2 Bench: tiled_gemm_16,[OK] tiled_gemm_16 M64_N768_K768_tile16 -> 0.020907 ms,,,0.020907
+finished,Tier 2,tiled_gemm_16,M128_N768_K768_tile16,2026-05-03T09:50:16.3999690Z,61215,Tier 2 Bench: tiled_gemm_16,[OK] tiled_gemm_16 M128_N768_K768_tile16 -> 0.022554 ms,,,0.022554
+timed_out_3600s,Tier 2,tiled_gemm_16,M256_N768_K768_tile16,2026-05-03T10:50:16.4934283Z,61219,Tier 2 Bench: tiled_gemm_16,##[warning]TIMEOUT: tiled_gemm_16 M256_N768_K768_tile16 (>3600s),3600,timeout,
+finished,Tier 2,sssp,1024,2026-05-03T09:31:14.9886667Z,61832,Tier 2 Bench: sssp,[OK] sssp 1024 -> 0.001526 ms,,,0.001526
+finished,Tier 2,sssp,2048,2026-05-03T09:31:15.1860437Z,61836,Tier 2 Bench: sssp,[OK] sssp 2048 -> 0.001545 ms,,,0.001545
+finished,Tier 2,sssp,4096,2026-05-03T09:31:15.5095138Z,61840,Tier 2 Bench: sssp,[OK] sssp 4096 -> 0.001555 ms,,,0.001555
+finished,Tier 2,sssp,8192,2026-05-03T09:31:15.7381639Z,61844,Tier 2 Bench: sssp,[OK] sssp 8192 -> 0.001558 ms,,,0.001558
+finished,Tier 2,sssp,16384,2026-05-03T09:31:15.9969549Z,61848,Tier 2 Bench: sssp,[OK] sssp 16384 -> 0.001583 ms,,,0.001583
+finished,Tier 2,sssp,32768,2026-05-03T09:31:16.4397450Z,61852,Tier 2 Bench: sssp,[OK] sssp 32768 -> 0.001691 ms,,,0.001691
+finished,Tier 2,sssp,65536,2026-05-03T09:31:17.3332193Z,61856,Tier 2 Bench: sssp,[OK] sssp 65536 -> 0.001885 ms,,,0.001885
+finished,Tier 2,sssp,131072,2026-05-03T09:31:19.2573682Z,61860,Tier 2 Bench: sssp,[OK] sssp 131072 -> 0.002228 ms,,,0.002228
+finished,Tier 2,sssp,196608,2026-05-03T09:31:22.5710937Z,61864,Tier 2 Bench: sssp,[OK] sssp 196608 -> 0.002624 ms,,,0.002624
+finished,Tier 2,sssp,262144,2026-05-03T09:31:29.9595674Z,61868,Tier 2 Bench: sssp,[OK] sssp 262144 -> 0.003043 ms,,,0.003043
+finished,Tier 2,sssp,524288,2026-05-03T09:31:48.7839087Z,61872,Tier 2 Bench: sssp,[OK] sssp 524288 -> 0.004695 ms,,,0.004695
+finished,Tier 2,sssp,786432,2026-05-03T09:32:26.6172200Z,61876,Tier 2 Bench: sssp,[OK] sssp 786432 -> 0.006358 ms,,,0.006358
+finished,Tier 2,sssp,1048576,2026-05-03T09:33:18.0207518Z,61880,Tier 2 Bench: sssp,[OK] sssp 1048576 -> 0.007816 ms,,,0.007816
+finished,Tier 2,sssp,1572864,2026-05-03T09:34:34.2087865Z,61884,Tier 2 Bench: sssp,[OK] sssp 1572864 -> 0.011049 ms,,,0.011049
+finished,Tier 2,sssp,2097152,2026-05-03T09:36:21.5206088Z,61888,Tier 2 Bench: sssp,[OK] sssp 2097152 -> 0.014455 ms,,,0.014455
+finished,Tier 2,sssp,2621440,2026-05-03T09:38:42.8425742Z,61892,Tier 2 Bench: sssp,[OK] sssp 2621440 -> 0.018029 ms,,,0.018029
+finished,Tier 2,sssp,3145728,2026-05-03T09:41:50.1311356Z,61896,Tier 2 Bench: sssp,[OK] sssp 3145728 -> 0.020530 ms,,,0.020530
+finished,Tier 2,sssp,4194304,2026-05-03T09:46:53.5524663Z,61900,Tier 2 Bench: sssp,[OK] sssp 4194304 -> 0.026861 ms,,,0.026861
+finished,Tier 2,bh,256,2026-05-03T09:47:13.3586472Z,62576,Tier 2 Bench: bh,[OK] bh 256 -> 0.008805 ms,,,0.008805
+finished,Tier 2,bh,512,2026-05-03T09:47:14.0645817Z,62580,Tier 2 Bench: bh,[OK] bh 512 -> 0.009207 ms,,,0.009207
+finished,Tier 2,bh,1024,2026-05-03T09:47:15.3634299Z,62584,Tier 2 Bench: bh,[OK] bh 1024 -> 0.009307 ms,,,0.009307
+finished,Tier 2,bh,2048,2026-05-03T09:47:17.7665135Z,62588,Tier 2 Bench: bh,[OK] bh 2048 -> 0.009911 ms,,,0.009911
+finished,Tier 2,bh,4096,2026-05-03T09:47:23.1628052Z,62592,Tier 2 Bench: bh,[OK] bh 4096 -> 0.011163 ms,,,0.011163
+finished,Tier 2,bh,8192,2026-05-03T09:47:42.1493588Z,62596,Tier 2 Bench: bh,[OK] bh 8192 -> 0.011415 ms,,,0.011415
+finished,Tier 2,bh,16384,2026-05-03T09:48:42.6104149Z,62600,Tier 2 Bench: bh,[OK] bh 16384 -> 0.012279 ms,,,0.012279
+finished,Tier 2,bh,32768,2026-05-03T09:51:02.8654638Z,62604,Tier 2 Bench: bh,[OK] bh 32768 -> 0.013168 ms,,,0.013168
+finished,Tier 2,bh,65536,2026-05-03T09:56:38.7637722Z,62608,Tier 2 Bench: bh,[OK] bh 65536 -> 0.013968 ms,,,0.013968
+finished,Tier 2,bh,131072,2026-05-03T10:07:29.5798248Z,62612,Tier 2 Bench: bh,[OK] bh 131072 -> 0.018726 ms,,,0.018726
+finished,Tier 2,bh,196608,2026-05-03T10:24:03.3368888Z,62616,Tier 2 Bench: bh,[OK] bh 196608 -> 0.022021 ms,,,0.022021
+finished,Tier 2,bh,262144,2026-05-03T10:48:44.6748033Z,62620,Tier 2 Bench: bh,[OK] bh 262144 -> 0.024765 ms,,,0.024765
+finished,Tier 2,bh,393216,2026-05-03T11:35:32.8160553Z,62624,Tier 2 Bench: bh,[OK] bh 393216 -> 0.030934 ms,,,0.030934
+timed_out_3600s,Tier 2,bh,524288,2026-05-03T12:35:32.8766061Z,62628,Tier 2 Bench: bh,##[warning]TIMEOUT: bh 524288 (>3600s),3600,timeout,
+finished,Tier 2,dmr,256,2026-05-03T09:52:41.2319663Z,63486,Tier 2 Bench: dmr,[OK] dmr 256 -> 0.001627 ms,,,0.001627
+finished,Tier 2,dmr,512,2026-05-03T09:52:41.5473213Z,63490,Tier 2 Bench: dmr,[OK] dmr 512 -> 0.001645 ms,,,0.001645
+finished,Tier 2,dmr,1024,2026-05-03T09:52:41.9371033Z,63494,Tier 2 Bench: dmr,[OK] dmr 1024 -> 0.001628 ms,,,0.001628
+finished,Tier 2,dmr,2048,2026-05-03T09:52:42.6162407Z,63498,Tier 2 Bench: dmr,[OK] dmr 2048 -> 0.001631 ms,,,0.001631
+finished,Tier 2,dmr,4096,2026-05-03T09:52:43.7080236Z,63502,Tier 2 Bench: dmr,[OK] dmr 4096 -> 0.001625 ms,,,0.001625
+finished,Tier 2,dmr,8192,2026-05-03T09:52:45.7501732Z,63506,Tier 2 Bench: dmr,[OK] dmr 8192 -> 0.001837 ms,,,0.001837
+finished,Tier 2,dmr,16384,2026-05-03T09:52:50.0656122Z,63510,Tier 2 Bench: dmr,[OK] dmr 16384 -> 0.002352 ms,,,0.002352
+finished,Tier 2,dmr,32768,2026-05-03T09:52:59.9357267Z,63514,Tier 2 Bench: dmr,[OK] dmr 32768 -> 0.003302 ms,,,0.003302
+crashed,Tier 2,dmr,65536,2026-05-03T09:53:21.3143989Z,63518,Tier 2 Bench: dmr,##[error]CRASH: dmr 65536 (exit 2),,exit 2,

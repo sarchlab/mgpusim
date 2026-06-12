@@ -3,9 +3,9 @@ package runner
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 )
 
 // dramTracer can trace DRAM activities.
@@ -13,7 +13,7 @@ type dramTracer struct {
 	sync.Mutex
 	sim.TimeTeller
 
-	inflightTasks map[string]tracing.Task
+	inflightTasks map[uint64]tracing.Task
 
 	readCount       int
 	writeCount      int
@@ -26,7 +26,7 @@ type dramTracer struct {
 func newDramTracer(timeTeller sim.TimeTeller) *dramTracer {
 	return &dramTracer{
 		TimeTeller:    timeTeller,
-		inflightTasks: make(map[string]tracing.Task),
+		inflightTasks: make(map[uint64]tracing.Task),
 	}
 }
 

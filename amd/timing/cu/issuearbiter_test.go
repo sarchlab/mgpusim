@@ -49,7 +49,7 @@ var _ = Describe("IssueArbiter", func() {
 
 		issueCandidate := arbiter.Arbitrate(wfPools)
 
-		Expect(len(issueCandidate)).To(Equal(6))
+		Expect(len(issueCandidate)).To(Equal(7))
 		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[0])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[1])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[2])))
@@ -59,7 +59,7 @@ var _ = Describe("IssueArbiter", func() {
 		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[6])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[7])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[8])))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[9])))
+		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[9])))
 	})
 
 	It("should issue from all SIMDs with wavefronts", func() {

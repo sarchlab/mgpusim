@@ -8,32 +8,14 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// KernelArgs defines kernel arguments for GCN3 architecture
-type KernelArgs struct {
-	Reference          driver.Ptr
-	InputItemSets      driver.Ptr
-	OutputItemSets     driver.Ptr
-	LocalInputItemSets driver.LocalPtr
-	LocalReference     driver.LocalPtr
-	Cols               int32
-	Penalty            int32
-	Blk                int32
-	BlockSize          int32
-	BlockWidth         int32
-	WorkSize           int32
-	OffsetR            int32
-	OffsetC            int32
-}
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (gfx942)
+// KernelArgs defines kernel arguments architecture (gfx942)
 // No LocalInputItemSets/LocalReference - those are __shared__ inside the kernel.
 // KernargSegmentByteSize=56 (no hidden args needed - kernel uses AQL packet for dispatch dims)
-type CDNA3KernelArgs struct {
+type KernelArgs struct {
 	Reference      driver.Ptr // offset 0
 	InputItemSets  driver.Ptr // offset 8
 	OutputItemSets driver.Ptr // offset 16
@@ -83,8 +65,6 @@ type Benchmark struct {
 	kernel1, kernel2 *insts.KernelCodeObject
 	queue            *driver.CommandQueue
 
-	Arch arch.Type
-
 	blockSize         int
 	length            int
 	penalty           int
@@ -112,20 +92,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-//go:embed kernels.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
-
 	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "nw_kernel1")
 	if b.kernel1 == nil {
 		log.Panic("Failed to load kernel binary nw_kernel1")
@@ -249,39 +219,20 @@ func (b *Benchmark) runKernel1() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		if b.Arch == arch.CDNA3 {
-			cdna3Args := CDNA3KernelArgs{
-				Reference:      b.dReference,
-				InputItemSets:  b.dInputItemSets,
-				OutputItemSets: b.dOutputItemSets,
-				Cols:           int32(b.col),
-				Penalty:        int32(b.penalty),
-				Blk:            int32(blk),
-				BlockSize:      int32(b.blockSize),
-				BlockWidth:     int32(blockWidth),
-				WorkSize:       int32(workSize),
-				OffsetR:        int32(offsetR),
-				OffsetC:        int32(offsetC),
-			}
-			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &cdna3Args)
-		} else {
-			args := KernelArgs{
-				Reference:          b.dReference,
-				InputItemSets:      b.dInputItemSets,
-				OutputItemSets:     b.dOutputItemSets,
-				LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
-				LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
-				Cols:               int32(b.col),
-				Penalty:            int32(b.penalty),
-				Blk:                int32(blk),
-				BlockSize:          int32(b.blockSize),
-				BlockWidth:         int32(blockWidth),
-				WorkSize:           int32(workSize),
-				OffsetR:            int32(offsetR),
-				OffsetC:            int32(offsetC),
-			}
-			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &args)
+		kernelArgs := KernelArgs{
+			Reference:      b.dReference,
+			InputItemSets:  b.dInputItemSets,
+			OutputItemSets: b.dOutputItemSets,
+			Cols:           int32(b.col),
+			Penalty:        int32(b.penalty),
+			Blk:            int32(blk),
+			BlockSize:      int32(b.blockSize),
+			BlockWidth:     int32(blockWidth),
+			WorkSize:       int32(workSize),
+			OffsetR:        int32(offsetR),
+			OffsetC:        int32(offsetC),
 		}
+		b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &kernelArgs)
 	}
 }
 
@@ -295,39 +246,20 @@ func (b *Benchmark) runKernel2() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		if b.Arch == arch.CDNA3 {
-			cdna3Args := CDNA3KernelArgs{
-				Reference:      b.dReference,
-				InputItemSets:  b.dInputItemSets,
-				OutputItemSets: b.dOutputItemSets,
-				Cols:           int32(b.col),
-				Penalty:        int32(b.penalty),
-				Blk:            int32(blk),
-				BlockSize:      int32(b.blockSize),
-				BlockWidth:     int32(blockWidth),
-				WorkSize:       int32(workSize),
-				OffsetR:        int32(offsetR),
-				OffsetC:        int32(offsetC),
-			}
-			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &cdna3Args)
-		} else {
-			args := KernelArgs{
-				Reference:          b.dReference,
-				InputItemSets:      b.dInputItemSets,
-				OutputItemSets:     b.dOutputItemSets,
-				LocalInputItemSets: driver.LocalPtr((b.blockSize + 1) * (b.blockSize + 1) * 4),
-				LocalReference:     driver.LocalPtr(b.blockSize * b.blockSize * 4),
-				Cols:               int32(b.col),
-				Penalty:            int32(b.penalty),
-				Blk:                int32(blk),
-				BlockSize:          int32(b.blockSize),
-				BlockWidth:         int32(blockWidth),
-				WorkSize:           int32(workSize),
-				OffsetR:            int32(offsetR),
-				OffsetC:            int32(offsetC),
-			}
-			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &args)
+		kernelArgs := KernelArgs{
+			Reference:      b.dReference,
+			InputItemSets:  b.dInputItemSets,
+			OutputItemSets: b.dOutputItemSets,
+			Cols:           int32(b.col),
+			Penalty:        int32(b.penalty),
+			Blk:            int32(blk),
+			BlockSize:      int32(b.blockSize),
+			BlockWidth:     int32(blockWidth),
+			WorkSize:       int32(workSize),
+			OffsetR:        int32(offsetR),
+			OffsetC:        int32(offsetC),
 		}
+		b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &kernelArgs)
 	}
 }
 

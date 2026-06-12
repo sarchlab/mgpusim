@@ -155,6 +155,10 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewIntOperand(code, int64(num)-128), nil
 	case num >= 193 && num <= 208:
 		return NewIntOperand(code, 192-int64(num)), nil
+	case num == 237:
+		// GFX940/CDNA3: SRC_PRIVATE_BASE special source operand.
+		// Model as zero immediate until dedicated source register state is modeled.
+		return NewIntOperand(code, 0), nil
 	case num == 240:
 		return NewFloatOperand(code, 0.5), nil
 	case num == 241:
@@ -173,6 +177,9 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewFloatOperand(code, -4.0), nil
 	case num == 248:
 		return NewFloatOperand(code, 1.0/(2.0*math.Pi)), nil
+	case num == 249:
+		// GFX940/CDNA3: NULL operand — reads as 0
+		return NewIntOperand(code, 0), nil
 	case num == 251:
 		return NewRegOperand(code, VCCZ, 0), nil
 	case num == 252:

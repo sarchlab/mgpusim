@@ -24,6 +24,8 @@ func (u *ALU) runVOP3B(state emu.InstEmuState) {
 		u.runVSUBBREVU32VOP3b(state)
 	case 480:
 		u.runVDIVSCALEF32(state)
+	case 488:
+		u.runVMADU64U32VOP3b(state)
 	case 494:
 		u.runVDIVSCALEF64(state)
 	default:
@@ -145,6 +147,32 @@ func (u *ALU) runVSUBBREVU32VOP3b(state emu.InstEmuState) {
 		diff := src1 - src0 - borrow
 		state.WriteOperand(inst.Dst, i, diff&0xffffffff)
 		if src0+borrow > src1 {
+			sdst |= 1 << uint(i)
+		}
+	}
+	state.WriteOperand(inst.SDst, 0, sdst)
+}
+
+// runVMADU64U32VOP3b implements v_mad_u64_u32 in VOP3B encoding.
+// D[63:0] = S0[31:0] * S1[31:0] + S2[63:0]
+// SDST = carry-out (bit 64 of the result)
+func (u *ALU) runVMADU64U32VOP3b(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sdst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		s0 := uint64(uint32(state.ReadOperand(inst.Src0, i)))
+		s1 := uint64(uint32(state.ReadOperand(inst.Src1, i)))
+		s2 := state.ReadOperand(inst.Src2, i)
+		result := s0*s1 + s2
+		state.WriteOperand(inst.Dst, i, result)
+		// Carry-out: set if the addition overflowed 64 bits
+		// For unsigned 32x32 multiply, max product is 0xFFFFFFFE00000001
+		// Adding s2 can overflow if s2 > 0xFFFFFFFF_FFFFFFFF - product
+		if s2 > 0 && result < s0*s1 {
 			sdst |= 1 << uint(i)
 		}
 	}

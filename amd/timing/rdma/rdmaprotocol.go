@@ -1,7 +1,7 @@
 package rdma
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // DrainReq asks the rdma to stop processing requests from L1 while allowing pending requests to L2 to complete

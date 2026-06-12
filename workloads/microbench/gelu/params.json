@@ -1,0 +1,9 @@
+{
+  "benchmark": "gelu",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Number of elements processed by the GELU activation kernel",
+    "values": [1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216]
+  }
+}

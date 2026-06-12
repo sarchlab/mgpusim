@@ -1,0 +1,174 @@
+name: Compile HSACO from kernel.hip files
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to compile'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  compile:
+    name: Compile HSACOs
+    runs-on: self-hosted
+    timeout-minutes: 90
+    steps:
+      - name: Install ROCm clang
+        run: |
+          if ! command -v /opt/rocm/llvm/bin/clang &>/dev/null; then
+            echo "Installing ROCm LLVM for HSACO compilation..."
+            # Try to install from ROCm repo
+            if [ -f /etc/apt/sources.list.d/rocm.list ] || [ -d /etc/apt/sources.list.d/ ]; then
+              sudo apt-get update -qq
+              sudo apt-get install -y --no-install-recommends rocm-llvm 2>/dev/null || \
+              sudo apt-get install -y --no-install-recommends llvm-amdgpu 2>/dev/null || \
+              sudo apt-get install -y --no-install-recommends clang 2>/dev/null || true
+            fi
+            # Verify
+            for p in /opt/rocm/llvm/bin/clang /usr/lib/llvm-*/bin/clang /usr/bin/clang; do
+              [ -x "$p" ] && echo "Found clang at $p" && break
+            done
+          else
+            echo "ROCm clang already available"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Compile kernel.hip files
+        run: |
+          REPO_ROOT="$(pwd)"
+          HIP_HEADERS="$REPO_ROOT/amd/benchmarks/hip_headers"
+          # Find ROCm clang - search various locations
+          CLANG=""
+          for p in /opt/rocm/llvm/bin/clang /opt/rocm-*/llvm/bin/clang /usr/lib/llvm-*/bin/clang /usr/bin/clang-*  /usr/bin/clang; do
+            if [ -x "$p" ]; then CLANG="$p"; break; fi
+          done
+          if [ -z "$CLANG" ]; then
+            echo "ERROR: No clang found. Searched /opt/rocm, /usr/lib/llvm-*, /usr/bin/clang"
+            echo "Available in /opt/:"
+            ls /opt/ 2>/dev/null || true
+            echo "Available clang-like in PATH:"
+            which clang clang++ clang-17 clang-18 2>/dev/null || true
+            exit 1
+          fi
+          COMPILED=0
+          FAILED=0
+
+          echo "Using ROCm clang: $CLANG"
+          $CLANG --version | head -2
+
+          mapfile -t KFILES < <(find amd/benchmarks -name 'kernel.hip' | sort)
+          echo "Found ${#KFILES[@]} kernel.hip files to compile"
+
+          for kfile in "${KFILES[@]}"; do
+            dir="$REPO_ROOT/$(dirname "$kfile")"
+            bench=$(basename "$dir")
+            echo ""
+            echo "=== Compiling $bench ==="
+            cd "$dir"
+            rm -f kernel_gfx942.o kernels_gfx942.hsaco kernels.hsaco 2>/dev/null || true
+
+            set +e
+            "${CLANG}" \
+              -target amdgcn-amd-amdhsa \
+              -mcpu=gfx942 \
+              -x c++ \
+              -std=c++14 \
+              -O2 \
+              -nogpulib \
+              -nostdinc \
+              -I"${HIP_HEADERS}" \
+              -D__AMDGCN__=1 \
+              -fno-exceptions \
+              -fvisibility=default \
+              -c \
+              kernel.hip \
+              -o kernel_gfx942.o \
+              2>&1
+            exit_code=$?
+            set -e
+
+            if [ $exit_code -eq 0 ] && [ -f "kernel_gfx942.o" ]; then
+              cp kernel_gfx942.o kernels_gfx942.hsaco
+              cp kernel_gfx942.o kernels.hsaco
+              size=$(wc -c < kernels_gfx942.hsaco)
+              echo "  SUCCESS: $bench - $size bytes"
+              COMPILED=$((COMPILED+1))
+            else
+              echo "  COMPILE FAILED: $bench (exit $exit_code)"
+              FAILED=$((FAILED+1))
+            fi
+
+            cd "$REPO_ROOT"
+          done
+
+          echo ""
+          echo "=== Summary: COMPILED=$COMPILED FAILED=$FAILED ==="
+          if [ "$COMPILED" -eq 0 ]; then
+            echo "ERROR: No kernels compiled"
+            exit 1
+          fi
+
+      - name: Verify compiled HSACOs
+        run: |
+          echo "=== HSACO verification ==="
+          find amd/benchmarks -name 'kernel.hip' -exec dirname {} \; | sort | while read d; do
+            bench=$(basename "$d")
+            hsaco="$d/kernels_gfx942.hsaco"
+            if [ -f "$hsaco" ]; then
+              size=$(wc -c < "$hsaco")
+              machine=$(python3 -c "import struct; d=open('$hsaco','rb').read(); print(struct.unpack_from('<H',d,18)[0] if d[:4]==b'\x7fELF' else 0)" 2>/dev/null || echo 0)
+              if [ "$machine" = "224" ]; then
+                echo "  REAL_AMDGPU: $bench ($size bytes)"
+              else
+                echo "  PLACEHOLDER_OR_WRONG: $bench ($size bytes, machine=$machine)"
+              fi
+            else
+              echo "  MISSING: $bench"
+            fi
+          done
+
+      - name: Verify ABI version
+        run: |
+          echo "=== ABI v4 verification ==="
+          FAIL=0
+          find amd/benchmarks -name 'kernels_gfx942.hsaco' | sort | while read hsaco; do
+            abi=$(python3 -c "d=open('$hsaco','rb').read(); print(d[8])" 2>/dev/null || echo "?")
+            bench=$(basename "$(dirname "$hsaco")")
+            if [ "$abi" = "4" ]; then
+              echo "  OK: $bench (ABI v$abi)"
+            else
+              echo "  FAIL: $bench (ABI byte=$abi, expected 4)"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" = "1" ]; then
+            echo "ERROR: Some HSACOs have wrong ABI version"
+            exit 1
+          fi
+
+      - name: Commit compiled HSACOs
+        run: |
+          git config --global --add safe.directory "$(pwd)"
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          find amd/benchmarks -name 'kernel.hip' -exec dirname {} \; | while read d; do
+            git add "$d/kernels_gfx942.hsaco" "$d/kernels.hsaco" 2>/dev/null || true
+          done
+
+          if git diff --staged --quiet; then
+            echo "No HSACO changes to commit"
+          else
+            COMPILED_COUNT=$(git diff --staged --name-only | grep -c 'kernels_gfx942.hsaco' || true)
+            git commit -m "[CI] Compile HSACOs using ROCm Docker (gfx942 ABI v4)"
+            git push
+            echo "Committed and pushed $COMPILED_COUNT HSACO files"
+          fi

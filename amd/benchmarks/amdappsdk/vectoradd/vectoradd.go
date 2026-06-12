@@ -76,7 +76,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-//go:embed kernels.hsaco
+//go:embed kernels_gfx942.hsaco
 var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {

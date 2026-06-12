@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 )
 
@@ -200,27 +200,15 @@ func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
 		return madeProgress
 	}
 
+	// TODO: V5 migration - sim.GeneralRsp removed in V5.
+	// Dispatch directly on the incoming message type instead.
 	switch req := req.(type) {
-	case *sim.GeneralRsp:
-		madeProgress = m.processGeneralRsp(req)
-	}
-
-	return madeProgress
-}
-
-func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
-	rsp *sim.GeneralRsp,
-) bool {
-	madeProgress := false
-	originalReq := rsp.OriginalReq
-
-	switch originalReq := originalReq.(type) {
 	case *protocol.FlushReq:
-		madeProgress = m.processFlushReturn(originalReq)
+		madeProgress = m.processFlushReturn(req)
 	case *protocol.MemCopyH2DReq:
-		madeProgress = m.processMemCopyH2DReturn(originalReq)
+		madeProgress = m.processMemCopyH2DReturn(req)
 	case *protocol.MemCopyD2HReq:
-		madeProgress = m.processMemCopyD2HReturn(originalReq)
+		madeProgress = m.processMemCopyD2HReturn(req)
 	}
 
 	return madeProgress
@@ -289,9 +277,13 @@ func (m *defaultMemoryCopyMiddleware) processFlushReturn(
 
 	m.driver.logTaskToGPUClear(req)
 
-	cmd, _ := m.driver.findCommandByReq(req)
+	cmd, cmdQueue := m.driver.findCommandByReq(req)
 
 	cmd.RemoveReq(req)
+
+	// After a successful flush, mark all buffers in the context as clean
+	// so that subsequent D2H copies don't redundantly re-flush.
+	cmdQueue.Context.markAllBuffersClean()
 
 	m.driver.logTaskToGPUClear(req)
 

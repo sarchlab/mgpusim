@@ -1,0 +1,23 @@
+{
+  "benchmark": "hotspot3D",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "grid_size",
+    "description": "Grid dimension N (NxNxN grid, N^3 total cells)",
+    "values": [8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512]
+  },
+  "non_scaling_parameters": {
+    "num_iterations": {
+      "description": "Number of stencil iterations per benchmark run",
+      "values": [1, 5, 10, 50, 100]
+    },
+    "block_x": {
+      "description": "Thread block dimension in X",
+      "values": [4, 8, 16]
+    },
+    "block_y": {
+      "description": "Thread block dimension in Y",
+      "values": [4, 8, 16]
+    }
+  }
+}

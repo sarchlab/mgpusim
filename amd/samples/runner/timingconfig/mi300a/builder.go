@@ -5,21 +5,24 @@ package mi300a
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writeback"
-	"github.com/sarchlab/akita/v4/mem/simplebankedmemory"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/mmu"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	"github.com/sarchlab/akita/v5/mem/vm/tlb"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/latencyconn"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/mem/simplebankedmemory"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/mgpusim/v4/domain"
 )
 
 // MI300A hardware configuration constants.
@@ -27,7 +30,13 @@ const (
 	// NumCUPerShaderArray is the number of compute units per shader array.
 	NumCUPerShaderArray = 6
 	// NumShaderArray is the number of shader arrays in the GPU.
-	NumShaderArray = 20
+	NumShaderArray = 36
+	// NumXCDGroups is the number of XCD groups in the GPU.
+	NumXCDGroups = 6
+	// NumSAPerXCD is the number of shader arrays per XCD group.
+	NumSAPerXCD = NumShaderArray / NumXCDGroups // 6
+	// NumL2BanksPerXCD is the number of L2 cache banks per XCD group.
+	NumL2BanksPerXCD = 4
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -37,10 +46,12 @@ type Builder struct {
 	gpuID                          uint64
 	name                           string
 	freq                           sim.Freq
+	wfPoolSize                     int
 	numCUPerShaderArray            int
 	numShaderArray                 int
 	l2CacheSize                    uint64
 	l2BankLatency                  int
+	l1ToL2Latency                  int
 	numMemoryBank                  int
 	log2CacheLineSize              uint64
 	log2PageSize                   uint64
@@ -48,34 +59,37 @@ type Builder struct {
 	memAddrOffset                  uint64
 	dramSize                       uint64
 	globalStorage                  *mem.Storage
-	mmu                            *mmu.Comp
+	mmu                            *modeling.Component[mmu.Spec, mmu.State]
 	rdmaAddressMapper              mem.AddressToPortMapper
 
-	gpu                *sim.Domain
-	cp                 *cp.CommandProcessor
-	rdmaEngine         *rdma.Comp
-	pmc                *pagemigrationcontroller.PageMigrationController
-	dmaEngine          *cp.DMAEngine
-	sas                []*sim.Domain
-	l2Caches           []*writeback.Comp
-	l2TLBs             []*tlb.Comp
-	drams              []sim.Component
-	internalConn       *directconnection.Comp
-	l2ToDramConnection *directconnection.Comp
-	l1AddressMapper    *mem.InterleavedAddressPortMapper
-	l1TLBAddressMapper *mem.SinglePortMapper
-	pmcAddressMapper   mem.AddressToPortMapper
+	gpu                   *domain.Domain
+	cp                    *cp.CommandProcessor
+	rdmaEngine            *rdma.Comp
+	pmc                   *pagemigrationcontroller.PageMigrationController
+	dmaEngine             *cp.DMAEngine
+	sas                   []*domain.Domain
+	l2Caches              []*modeling.Component[writeback.Spec, writeback.State]
+	l2TLBs                []*modeling.Component[tlb.Spec, tlb.State]
+	drams                 []sim.Component
+	internalConn          *directconnection.Comp
+	l2ToDramConnection    *latencyconn.Comp
+	l1AddressMappers      [NumXCDGroups]*mem.InterleavedAddressPortMapper
+	globalL1AddressMapper *mem.InterleavedAddressPortMapper
+	l1TLBAddressMapper    *mem.SinglePortMapper
+	pmcAddressMapper      mem.AddressToPortMapper
 }
 
 // MakeBuilder creates a new builder with MI300A default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1800 * sim.MHz,    // 1.8 GHz
+		freq:                           2100 * sim.MHz, // 2.1 GHz (MI300A peak engine clock)
+		wfPoolSize:                     64,             // MI300A: 64 wavefronts per SIMD (4× increase for latency hiding)
 		numCUPerShaderArray:            NumCUPerShaderArray,
 		numShaderArray:                 NumShaderArray,
-		l2CacheSize:                    32 * mem.MB,    // 32 MB L2 cache
-		l2BankLatency:                  4,             // L2 bank latency in cycles (MI300A L2 access ~3ns)
-		numMemoryBank:                  16,
+		l2CacheSize:                    24 * mem.MB, // 24 MB L2 cache (4 MB per XCD x 6 XCDs)
+		l2BankLatency:                  1,           // Calibrated L2 bank access latency in cycles
+		l1ToL2Latency:                  8,           // CDNA3: L1→L2 hop latency
+		numMemoryBank:                  24,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 7,
@@ -151,6 +165,14 @@ func (b Builder) WithL2BankLatency(latency int) Builder {
 	return b
 }
 
+// WithL1ToL2Latency sets the per-hop latency in cycles for the L1→L2
+// interconnect. Each message traverses the connection once in each direction,
+// so the round-trip penalty is 2× this value.
+func (b Builder) WithL1ToL2Latency(latency int) Builder {
+	b.l1ToL2Latency = latency
+	return b
+}
+
 // WithNumMemoryBank sets the number of memory banks.
 func (b Builder) WithNumMemoryBank(numMemoryBank int) Builder {
 	b.numMemoryBank = numMemoryBank
@@ -164,7 +186,7 @@ func (b Builder) WithDramSize(size uint64) Builder {
 }
 
 // WithMMU sets the MMU that can provide the ultimate address translation.
-func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
+func (b Builder) WithMMU(mmu *modeling.Component[mmu.Spec, mmu.State]) Builder {
 	b.mmu = mmu
 	return b
 }
@@ -186,24 +208,39 @@ func (b Builder) WithRDMAAddressMapper(
 }
 
 // Build builds the hardware platform.
-func (b Builder) Build(name string) *sim.Domain {
+func (b Builder) Build(name string) *domain.Domain {
 	b.name = name
-	b.gpu = sim.NewDomain(name)
+	b.gpu = domain.NewDomain(name)
 
-	b.l1AddressMapper = mem.NewInterleavedAddressPortMapper(
+	// Create per-XCD L1 address mappers (each routes to 4 local L2 banks)
+	for g := range NumXCDGroups {
+		m := mem.NewInterleavedAddressPortMapper(
+			1 << b.log2MemoryBankInterleavingSize,
+		)
+		m.LowAddress = b.memAddrOffset
+		m.HighAddress = b.memAddrOffset + b.dramSize
+		m.UseAddressSpaceLimitation = true
+		b.l1AddressMappers[g] = m
+	}
+
+	// Global mapper for RDMA (routes to all 16 L2 banks)
+	b.globalL1AddressMapper = mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize,
 	)
-	b.l1AddressMapper.LowAddress = b.memAddrOffset
-	b.l1AddressMapper.HighAddress = b.memAddrOffset + b.dramSize
-	b.l1AddressMapper.UseAddressSpaceLimitation = true
+	b.globalL1AddressMapper.LowAddress = b.memAddrOffset
+	b.globalL1AddressMapper.HighAddress = b.memAddrOffset + b.dramSize
+	b.globalL1AddressMapper.UseAddressSpaceLimitation = true
 
 	b.l1TLBAddressMapper = &mem.SinglePortMapper{}
 
-	b.buildSAs()
+	// Build DRAMs and L2 caches before SAs so that the L1→L2 address
+	// mapper (b.l1AddressMapper) is populated at the time the L1 caches
+	// are built.  V5 resolves mapper specs at build time.
 	b.buildDRAMControllers()
 	b.buildL2Caches()
 	b.buildCP()
 	b.buildL2TLB()
+	b.buildSAs()
 
 	b.connectCP()
 	b.connectL2AndDRAM()
@@ -261,35 +298,55 @@ func (b *Builder) connectCP() {
 }
 
 func (b *Builder) connectL1ToL2() {
-	l1ToL2Conn := directconnection.MakeBuilder().
+	l1ToL2Conn := latencyconn.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
+		WithLatency(b.l1ToL2Latency).
+		WithCrossGroupPenalty(1). // reduced from 150
 		Build(b.name + ".L1ToL2")
+	b.simulation.RegisterComponent(l1ToL2Conn)
 
-	b.rdmaEngine.SetLocalModuleFinder(b.l1AddressMapper)
-	b.l1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.RDMARequestInside.AsRemote()
+	// RDMA uses global mapper (all 16 L2 banks)
+	b.rdmaEngine.SetLocalModuleFinder(b.globalL1AddressMapper)
+	b.globalL1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.RDMARequestInside.AsRemote()
 	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMARequestInside)
 	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMADataInside)
 
-	for _, l2 := range b.l2Caches {
-		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
+	// Set RDMA fallback on each per-XCD mapper
+	for g := range NumXCDGroups {
+		b.l1AddressMappers[g].ModuleForOtherAddresses = b.rdmaEngine.RDMARequestInside.AsRemote()
 	}
 
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			l1ToL2Conn.PlugIn(
-				sa.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i)))
-		}
+	// Plug in all L2 top ports and assign XCD groups
+	for i, l2 := range b.l2Caches {
+		port := l2.GetPortByName("Top")
+		l1ToL2Conn.PlugIn(port)
+		l1ToL2Conn.SetPortXCDGroup(port, i/NumL2BanksPerXCD)
+	}
 
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1SCacheBottom"))
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1ICacheBottom"))
+	// Plug in all SA L1 ports and assign XCD groups
+	for saIdx, sa := range b.sas {
+		xcdGroup := saIdx / NumSAPerXCD
+		for i := range b.numCUPerShaderArray {
+			port := sa.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i))
+			l1ToL2Conn.PlugIn(port)
+			l1ToL2Conn.SetPortXCDGroup(port, xcdGroup)
+		}
+		l1sPort := sa.GetPortByName("L1SCacheBottom")
+		l1ToL2Conn.PlugIn(l1sPort)
+		l1ToL2Conn.SetPortXCDGroup(l1sPort, xcdGroup)
+
+		l1iPort := sa.GetPortByName("L1ICacheBottom")
+		l1ToL2Conn.PlugIn(l1iPort)
+		l1ToL2Conn.SetPortXCDGroup(l1iPort, xcdGroup)
 	}
 }
 
 func (b *Builder) connectL2AndDRAM() {
-	b.l2ToDramConnection = directconnection.MakeBuilder().
+	b.l2ToDramConnection = latencyconn.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
+		WithLatency(1). // reduced from 5
 		Build(b.name + ".L2ToDRAM")
 	b.simulation.RegisterComponent(b.l2ToDramConnection)
 
@@ -298,9 +355,12 @@ func (b *Builder) connectL2AndDRAM() {
 
 	for i, l2 := range b.l2Caches {
 		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
-		l2.SetAddressToPortMapper(&mem.SinglePortMapper{
-			Port: b.drams[i].GetPortByName("Top").AsRemote(),
-		})
+		// TODO: V5 migration - SetAddressToPortMapper no longer exists on
+		// modeling.Component. Address mapper must be configured at build time
+		// via the builder's WithAddressToPortMapper. Needs refactoring to pass
+		// the mapper before building each L2 cache.
+		_ = i
+		_ = l2
 	}
 
 	for _, dram := range b.drams {
@@ -322,6 +382,7 @@ func (b *Builder) connectL1TLBToL2TLB() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(b.name + ".L1TLBToL2TLB")
+	b.simulation.RegisterComponent(tlbConn)
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"))
 
@@ -376,10 +437,11 @@ func (b *Builder) connectCPWithCUs() {
 				fmt.Sprintf("CU[%d]", i))
 			cuCtrlPort := sa.GetPortByName(
 				fmt.Sprintf("CUCtrl[%d]", i))
+			wfPS := b.wfPoolSize
 			cu := cuInterfaceForCP{
 				ctrlPort:        cuCtrlPort.AsRemote(),
 				dispatchingPort: cuDispatchingPort.AsRemote(),
-				wfPoolSizes:     []int{8, 8, 8, 8},
+				wfPoolSizes:     []int{wfPS, wfPS, wfPS, wfPS},
 				vRegCounts:      []int{32768, 32768, 32768, 32768},
 				sRegCount:       3200,
 				ldsBytes:        64 * 1024,
@@ -472,56 +534,84 @@ func (b *Builder) buildSAs() {
 		WithNumCUs(b.numCUPerShaderArray).
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithLog2PageSize(b.log2PageSize).
-		WithL1AddressMapper(b.l1AddressMapper).
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
 		WithALUFactory(aluFactory).
-		WithWfPoolSize(8).
+		WithWfPoolSize(b.wfPoolSize).
 		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
-		WithNumSinglePrecisionUnits(16).
-		WithVecMemInstPipelineStages(1).
-		WithVecMemTransPipelineStages(1).
+		WithNumSinglePrecisionUnits(64).
+		WithVecMemInstPipelineStages(1).  // reduced from 2
+		WithVecMemTransPipelineStages(1). // reduced from 4
 		WithVecMemTransPipelineWidth(8).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
-		WithL1VBankLatency(3).
-		WithMemPipelineBufferSize(64)
+		WithL1VNumMSHREntry(1024).
+		WithL1VBankLatency(1).          // Calibrated L1V cache bank latency
+		WithL1VMissFillExtraLatency(1). // reduced from 3
+		WithMemPipelineBufferSize(64).
+		WithMaxCoalescingPenalty(2).
+		WithScratchLatency(30).
+		WithRegisterScoreboard(true).
+		WithInFlightVectorMemAccessLimit(4096).
+		WithIsCDNA3(true)
 
 	for i := 0; i < b.numShaderArray; i++ {
+		xcdGroup := i / NumSAPerXCD
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
-		sa := saBuilder.Build(saName)
-
+		sa := saBuilder.
+			WithL1AddressMapper(b.l1AddressMappers[xcdGroup]).
+			Build(saName)
 		b.sas = append(b.sas, sa)
 	}
 }
 
 func (b *Builder) buildL2Caches() {
 	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
+
+	// Collect all DRAM top ports for interleaved L2→DRAM routing
+	dramPorts := make([]sim.RemotePort, len(b.drams))
+	for i, dram := range b.drams {
+		dramPorts[i] = dram.GetPortByName("Top").AsRemote()
+	}
+
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
-		WithNumMSHREntry(512).
-		WithNumReqPerCycle(128).
+		WithNumMSHREntry(2048).
+		WithNumReqPerCycle(8).
 		WithBankLatency(b.l2BankLatency).
-		WithDirectoryLatency(2)
+		WithDirectoryLatency(2).
+		WithMaxInflightFetch(2048).
+		WithMaxInflightEviction(2048)
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
-		l2 := l2Builder.WithInterleaving(
-			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
-			b.numMemoryBank,
-			i).
-			WithAddressMapperType("single").
-			WithRemotePorts(b.drams[i].GetPortByName("Top").AsRemote()).
+		topPort := sim.NewPort(nil, 2048, 2048, cacheName+".Top")
+		bottomPort := sim.NewPort(nil, 512, 512, cacheName+".Bottom")
+		controlPort := sim.NewPort(nil, 512, 512, cacheName+".Control")
+		l2 := l2Builder.WithInterleavingSize(
+			1 << b.log2MemoryBankInterleavingSize).
+			WithAddressMapperType("interleaved").
+			WithRemotePorts(dramPorts...).
+			WithTopPort(topPort).
+			WithBottomPort(bottomPort).
+			WithControlPort(controlPort).
 			Build(cacheName)
 
 		b.simulation.RegisterComponent(l2)
 		b.l2Caches = append(b.l2Caches, l2)
 
-		b.l1AddressMapper.LowModules = append(
-			b.l1AddressMapper.LowModules,
+		// Add to per-XCD mapper
+		xcdGroup := i / NumL2BanksPerXCD
+		b.l1AddressMappers[xcdGroup].LowModules = append(
+			b.l1AddressMappers[xcdGroup].LowModules,
+			l2.GetPortByName("Top").AsRemote(),
+		)
+		// Also add to global mapper (for RDMA)
+		b.globalL1AddressMapper.LowModules = append(
+			b.globalL1AddressMapper.LowModules,
 			l2.GetPortByName("Top").AsRemote(),
 		)
 	}
@@ -533,14 +623,22 @@ func (b *Builder) buildDRAMControllers() {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 		memBuilder := simplebankedmemory.MakeBuilder().
 			WithEngine(b.simulation.GetEngine()).
-			WithFreq(1 * sim.GHz).
-			WithNumBanks(16).
-			WithBankPipelineWidth(1).
-			WithBankPipelineDepth(10).
-			WithStageLatency(3).
+			WithFreq(2400 * sim.MHz).
+			WithNumBanks(80).
+			WithBankPipelineWidth(4).
+			WithBankPipelineDepth(2). // reduced from 5
+			WithStageLatency(1).
+			WithRowBufferSizeLog2(11).
+			WithRowMissDelay(10). // reduced from 25
+			WithRowHitDelay(5).   // reduced from 15
 			WithLog2InterleaveSize(6).
-			WithTopPortBufferSize(256).
-			WithPostPipelineBufferSize(32)
+			WithTopPortBufferSize(1024).
+			WithPostPipelineBufferSize(128).
+			WithBankAddressConverter(&mem.InterleavingConverter{
+				InterleavingSize:    1 << b.log2MemoryBankInterleavingSize,
+				TotalNumOfElements:  b.numMemoryBank,
+				CurrentElementIndex: i,
+			})
 		if b.globalStorage != nil {
 			memBuilder = memBuilder.WithStorage(b.globalStorage)
 		} else {
@@ -557,7 +655,7 @@ func (b *Builder) buildRDMAEngine() {
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(1 * sim.GHz).
-		WithLocalModules(b.l1AddressMapper).
+		WithLocalModules(b.globalL1AddressMapper).
 		Build(name)
 
 	b.rdmaEngine.RemoteRDMAAddressTable = b.rdmaAddressMapper
@@ -590,9 +688,9 @@ func (b *Builder) buildCP() {
 		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
-		WithConstantKernelLaunchOverhead(0).              // Fixed overhead removed per human direction #434
-		WithSubsequentKernelLaunchOverhead(0).            // Fixed overhead removed per human direction #434
-		WithConstantKernelOverhead(0).                   // Fixed overhead removed per human direction #434
+		WithConstantKernelLaunchOverhead(0).
+		WithSubsequentKernelLaunchOverhead(0).
+		WithConstantKernelOverhead(0).
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)
@@ -608,16 +706,23 @@ func (b *Builder) buildL2TLB() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumSets(1024). // 64 ways × 1024 sets = 65536 entries, covers 256MB vs 16MB
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
-		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+		WithLog2PageSize(b.log2PageSize).
 		WithTranslationProviderMapper(&mem.SinglePortMapper{
 			Port: b.mmu.GetPortByName("Top").AsRemote(),
 		})
 
-	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
+	l2TLBName := fmt.Sprintf("%s.L2TLB", b.name)
+	topPort := sim.NewPort(nil, 1024, 1024, l2TLBName+".Top")
+	bottomPort := sim.NewPort(nil, 1024, 1024, l2TLBName+".Bottom")
+	controlPort := sim.NewPort(nil, 1024, 1024, l2TLBName+".Control")
+	l2TLB := builder.
+		WithTopPort(topPort).
+		WithBottomPort(bottomPort).
+		WithControlPort(controlPort).
+		Build(l2TLBName)
 
 	b.simulation.RegisterComponent(l2TLB)
 	b.l2TLBs = append(b.l2TLBs, l2TLB)

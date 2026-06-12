@@ -9,28 +9,12 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// KernelArgs defines kernel arguments
+// KernelArgs defines kernel arguments.
 type KernelArgs struct {
-	Pos                 driver.Ptr
-	Vel                 driver.Ptr
-	NumBodies           int32
-	DeltaTime           float32
-	EpsSqr              float32
-	LocalPos            driver.LocalPtr
-	NewPosition         driver.Ptr
-	NewVelocity         driver.Ptr
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-}
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
-type CDNA3KernelArgs struct {
 	Pos                 driver.Ptr
 	Vel                 driver.Ptr
 	NumBodies           int32
@@ -65,7 +49,6 @@ type Benchmark struct {
 	useUnifiedMemory bool
 	nbodyKernel      *insts.KernelCodeObject
 
-	Arch         arch.Type
 	NumParticles int32
 	delT             float32   // dT (timestep)
 	espSqr           float32   // Softening Factor
@@ -113,20 +96,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-//go:embed nbody.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed nbody_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
-
 	b.nbodyKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
@@ -187,11 +160,9 @@ func (b *Benchmark) initMem() {
 	b.dNewPos = &b.newPos
 	b.dNewVel = &b.newVel
 
-	if b.Arch == arch.CDNA3 {
-		// CDNA3 HIP kernel uses global memory for localPos instead of LDS
-		b.localPosBuf = b.driver.AllocateMemory(b.context,
-			uint64(b.groupSize*4*4))
-	}
+	// HIP kernel uses global memory for localPos instead of LDS
+	b.localPosBuf = b.driver.AllocateMemory(b.context,
+		uint64(b.groupSize*4*4))
 }
 
 func (b *Benchmark) exec() {
@@ -199,55 +170,34 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
-		if b.Arch == arch.CDNA3 {
-			args := CDNA3KernelArgs{
-				Pos:               *b.dPos,
-				Vel:               *b.dVel,
-				NumBodies:         b.numBodies,
-				DeltaTime:         b.delT,
-				EpsSqr:            b.espSqr,
-				LocalPos:          b.localPosBuf,
-				NewPosition:       *b.dNewPos,
-				NewVelocity:       *b.dNewVel,
-				HiddenBlockCountX: globalSize[0] / uint32(localSize[0]),
-				HiddenBlockCountY: 1,
-				HiddenBlockCountZ: 1,
-				HiddenGroupSizeX:  localSize[0],
-				HiddenGroupSizeY:  1,
-				HiddenGroupSizeZ:  1,
-				HiddenRemainderX:  uint16(globalSize[0] % uint32(localSize[0])),
-				HiddenRemainderY:  0,
-				HiddenRemainderZ:  0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      1,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.nbodyKernel,
-				globalSize, localSize,
-				&args,
-			)
-		} else {
-			args := KernelArgs{
-				Pos:                 *b.dPos,
-				Vel:                 *b.dVel,
-				NumBodies:           b.numBodies,
-				DeltaTime:           b.delT,
-				EpsSqr:              b.espSqr,
-				LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
-				NewPosition:         *b.dNewPos,
-				NewVelocity:         *b.dNewVel,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-			}
-			b.driver.LaunchKernel(b.context,
-				b.nbodyKernel,
-				globalSize, localSize,
-				&args,
-			)
+		args := KernelArgs{
+			Pos:               *b.dPos,
+			Vel:               *b.dVel,
+			NumBodies:         b.numBodies,
+			DeltaTime:         b.delT,
+			EpsSqr:            b.espSqr,
+			LocalPos:          b.localPosBuf,
+			NewPosition:       *b.dNewPos,
+			NewVelocity:       *b.dNewVel,
+			HiddenBlockCountX: globalSize[0] / uint32(localSize[0]),
+			HiddenBlockCountY: 1,
+			HiddenBlockCountZ: 1,
+			HiddenGroupSizeX:  localSize[0],
+			HiddenGroupSizeY:  1,
+			HiddenGroupSizeZ:  1,
+			HiddenRemainderX:  uint16(globalSize[0] % uint32(localSize[0])),
+			HiddenRemainderY:  0,
+			HiddenRemainderZ:  0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
 		}
+		b.driver.LaunchKernel(b.context,
+			b.nbodyKernel,
+			globalSize, localSize,
+			&args,
+		)
 
 		b.dPos, b.dNewPos = b.dNewPos, b.dPos
 		b.dVel, b.dNewVel = b.dNewVel, b.dVel

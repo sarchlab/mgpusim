@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 )
 
 // A CommandQueue maintains a queue of command where the commands from the
@@ -26,7 +26,7 @@ type CommandQueue struct {
 func (q *CommandQueue) Subscribe() *CommandQueueStatusListener {
 	l := &CommandQueueStatusListener{
 		closeSignal: make(chan bool, 0),
-		signal:      make(chan bool, 0),
+		signal:      make(chan bool, 1),
 	}
 
 	q.listenerMutex.Lock()
@@ -104,7 +104,6 @@ func (q *CommandQueue) NumCommand() int {
 // consume the command.
 func (d *Driver) Enqueue(q *CommandQueue, c Command) {
 	q.Enqueue(c)
-	// d.enqueueSignal <- true
 }
 
 // A CommandQueueStatusListener can be notified when a queue updates its state

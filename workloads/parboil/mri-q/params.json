@@ -1,0 +1,23 @@
+{
+  "benchmark": "mri-q",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "num_voxels",
+    "description": "Number of image voxels (threads) for Q matrix computation",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 1572864, 2097152, 2621440, 3145728]
+  },
+  "non_scaling_parameters": {
+    "num_k_samples": {
+      "description": "Number of k-space trajectory sample points",
+      "values": [64, 128, 256, 512, 1024]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "precision_mode": {
+      "description": "Precision mode: 1=fast math, 2=standard, 3=high precision",
+      "values": [1, 2, 3]
+    }
+  }
+}

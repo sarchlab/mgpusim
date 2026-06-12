@@ -10,10 +10,10 @@ import (
 
 func TestDisassembler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GCN3 Disassembler")
+	RunSpecs(t, "GPU Disassembler")
 }
 
-var _ = Describe("GCN3 Disassembler", func() {
+var _ = Describe("GPU Disassembler", func() {
 
 	var (
 		disassembler *insts.Disassembler
@@ -335,5 +335,25 @@ var _ = Describe("CDNA3 Disassembler", func() {
 
 		Expect(err).To(BeNil())
 		Expect(printer.Print(inst)).To(Equal("global_store_dword v[0:1], v2, off"))
+	})
+
+	It("should decode CDNA3 SOP1 s_mov_b64 with operand code 237", func() {
+		bufA := []byte{0xed, 0x01, 0x84, 0xbe} // 0xbe8401ed
+		instA, err := disassembler.Decode(bufA)
+		Expect(err).To(BeNil())
+		Expect(printer.Print(instA)).To(Equal("s_mov_b64 s[4:5], 0"))
+
+		bufB := []byte{0xed, 0x01, 0x82, 0xbe} // 0xbe8201ed
+		instB, err := disassembler.Decode(bufB)
+		Expect(err).To(BeNil())
+		Expect(printer.Print(instB)).To(Equal("s_mov_b64 s[2:3], 0"))
+	})
+
+	It("should propagate SOP1 src0 operand decode errors", func() {
+		buf := []byte{0xfa, 0x01, 0x84, 0xbe} // 0xbe8401fa, src0 operand code 250 (unsupported)
+		_, err := disassembler.Decode(buf)
+		Expect(err).ToNot(BeNil())
+		Expect(err.Error()).To(ContainSubstring("sop1 src0 operand decode failed"))
+		Expect(err.Error()).To(ContainSubstring("code=250"))
 	})
 })

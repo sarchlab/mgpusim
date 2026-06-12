@@ -6,7 +6,6 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -18,13 +17,12 @@ type MatrixMultiplier interface {
 }
 
 // A GPUMatrixMultiplier is a MatrixMultiplier that runs the
-// MatrixMultiplication on GCN3 simulator.
+// MatrixMultiplication on GPU simulator.
 type GPUMatrixMultiplier struct {
 	driver           *driver.Driver
 	context          *driver.Context
 	gpus             []int
 	kernel           *insts.KernelCodeObject
-	Arch             arch.Type
 	useUnifiedMemory bool
 	blockABuf        driver.Ptr
 }
@@ -47,20 +45,8 @@ func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
 	m.gpus = gpus
 }
 
-// KernelArgs defines kernel arguments for GCN3
+// KernelArgs defines kernel arguments.
 type KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
-	WidthA              uint32
-	BlockA              driver.LocalPtr
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-}
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
-type CDNA3KernelArgs struct {
 	MatrixA             driver.Ptr
 	MatrixB             driver.Ptr
 	MatrixC             driver.Ptr
@@ -119,53 +105,37 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 		localSizeX := uint16(8)
 		localSizeY := uint16(8)
 
-		if m.Arch == arch.CDNA3 {
-			if m.blockABuf == 0 {
-				m.blockABuf = m.driver.AllocateMemory(m.context,
-					uint64(32*32*4))
-			}
-			kernArgs := &CDNA3KernelArgs{
-				MatrixA:             gA,
-				MatrixB:             gB,
-				MatrixC:             gC,
-				WidthA:              mA.Width,
-				BlockA:              m.blockABuf,
-				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
-				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
-				HiddenBlockCountZ:   1,
-				HiddenGroupSizeX:    localSizeX,
-				HiddenGroupSizeY:    localSizeY,
-				HiddenGroupSizeZ:    1,
-				HiddenRemainderX:    uint16(globalSizeX % uint32(localSizeX)),
-				HiddenRemainderY:    uint16(globalSizeY % uint32(localSizeY)),
-				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: int64(height * i),
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      2,
-			}
-			m.driver.EnqueueLaunchKernel(
-				q,
-				m.kernel,
-				[3]uint32{globalSizeX, globalSizeY, 1},
-				[3]uint16{localSizeX, localSizeY, 1},
-				kernArgs,
-			)
-		} else {
-			kernArgs := &KernelArgs{
-				gA, gB, gC,
-				mA.Width,
-				32 * 32 * 4,
-				0, int64(height * i), 0,
-			}
-			m.driver.EnqueueLaunchKernel(
-				q,
-				m.kernel,
-				[3]uint32{globalSizeX, globalSizeY, 1},
-				[3]uint16{localSizeX, localSizeY, 1},
-				kernArgs,
-			)
+		if m.blockABuf == 0 {
+			m.blockABuf = m.driver.AllocateMemory(m.context,
+				uint64(32*32*4))
 		}
+		kernArgs := &KernelArgs{
+			MatrixA:             gA,
+			MatrixB:             gB,
+			MatrixC:             gC,
+			WidthA:              mA.Width,
+			BlockA:              m.blockABuf,
+			HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
+			HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    localSizeX,
+			HiddenGroupSizeY:    localSizeY,
+			HiddenGroupSizeZ:    1,
+			HiddenRemainderX:    uint16(globalSizeX % uint32(localSizeX)),
+			HiddenRemainderY:    uint16(globalSizeY % uint32(localSizeY)),
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: int64(height * i),
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      2,
+		}
+		m.driver.EnqueueLaunchKernel(
+			q,
+			m.kernel,
+			[3]uint32{globalSizeX, globalSizeY, 1},
+			[3]uint16{localSizeX, localSizeY, 1},
+			kernArgs,
+		)
 	}
 
 	for _, q := range queues {
@@ -206,21 +176,11 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }
 
-//go:embed kernels.hsaco
+//go:embed kernels_gfx942.hsaco
 var hsacoBytes []byte
 
-//go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
-
 func (m *GPUMatrixMultiplier) loadKernel() {
-	var kernelBytes []byte
-	if m.Arch == arch.CDNA3 {
-		kernelBytes = cdna3HSACOBytes
-	} else {
-		kernelBytes = hsacoBytes
-	}
-
-	m.kernel = insts.LoadKernelCodeObjectFromBytes(kernelBytes, "mmmKernel_local")
+	m.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "mmmKernel_local")
 	if m.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

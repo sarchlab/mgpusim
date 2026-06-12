@@ -20,20 +20,11 @@ var onlyParallel = flag.Bool("only-parallel", false,
 	`Only run the parallel benchmark cases.`)
 var noParallel = flag.Bool("no-parallel", false,
 	`Skip the parallel benchmark cases.`)
-var onlyUnifiedMemory = flag.Bool("only-unified-memory", false,
-	`Only run the unified memory benchmark cases.`)
-var noUnifiedMemory = flag.Bool("no-unified-memory", false,
-	`Skip the unified memory benchmark cases.`)
-var onlyUnifiedGPU = flag.Bool("only-unified-gpu", false,
-	`Only run the unified GPU benchmark cases.`)
-var noUnifiedGPU = flag.Bool("no-unified-gpu", false,
-	`Skip the unified GPU benchmark cases.`)
 var onlyTiming = flag.Bool("only-timing", false,
 	`Only run the timing benchmark cases.`)
 var noTiming = flag.Bool("no-timing", false,
 	`Skip the timing benchmark cases.`)
-var archFilter = flag.String("arch", "",
-	`Only run benchmarks for specified architecture (gcn3 or cdna3). Empty means all.`)
+
 
 type benchmark struct {
 	benchmarkPath  string
@@ -44,13 +35,29 @@ type benchmark struct {
 }
 
 type benchmarkCase struct {
-	gpus          []int
-	timing        bool
-	unifiedGPU    bool
-	unifiedMemory bool
-	parallel      bool
-	arch          string // GPU architecture: "gcn3" (default) or "cdna3"
-	gpuType       string // GPU model: "r9nano" (default) or "mi300a"
+	gpus     []int
+	timing   bool
+	parallel bool
+	gpuType  string // GPU model: "mi300a" (default)
+}
+
+// generateCases returns the standard test matrix: all combinations of
+// {timing} x {parallel} x {gpus}.
+func generateCases() []benchmarkCase {
+	var cases []benchmarkCase
+	gpuSets := [][]int{{1}, {1, 2}, {1, 2, 3, 4}}
+	for _, timing := range []bool{false, true} {
+		for _, parallel := range []bool{false, true} {
+			for _, gpus := range gpuSets {
+				cases = append(cases, benchmarkCase{
+					gpus:     gpus,
+					timing:   timing,
+					parallel: parallel,
+				})
+			}
+		}
+	}
+	return cases
 }
 
 func (b benchmark) compile() error {
@@ -89,7 +96,7 @@ func (b benchmark) runCase(c benchmarkCase) error {
 	if err != nil {
 		return err
 	}
-	defer stdout.Close()
+	defer stderr.Close()
 
 	args := b.populateArgs(c)
 
@@ -107,6 +114,13 @@ func (b benchmark) runCase(c benchmarkCase) error {
 		color.Red("\tFailed\n")
 
 		fmt.Printf("\nError: %v\n", execErr)
+
+		// Print stderr content for debugging
+		stderr.Seek(0, io.SeekStart)
+		stderrContent, _ := io.ReadAll(stderr)
+		if len(stderrContent) > 0 {
+			fmt.Printf("\n--- stderr ---\n%s\n--- end stderr ---\n", string(stderrContent))
+		}
 
 		return execErr
 	}
@@ -148,16 +162,6 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 		args = append(args, "-parallel=false")
 	}
 
-	if c.unifiedMemory {
-		args = append(args, "-use-unified-memory=true")
-	} else {
-		args = append(args, "-use-unified-memory=false")
-	}
-
-	if c.arch != "" {
-		args = append(args, "-arch="+c.arch)
-	}
-
 	if c.gpuType != "" {
 		args = append(args, "-gpu="+c.gpuType)
 	}
@@ -166,12 +170,7 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 }
 
 func (b benchmark) populateGPUArgs(c benchmarkCase) string {
-	gpuArg := ""
-	if c.unifiedGPU {
-		gpuArg = "-unified-gpus="
-	} else {
-		gpuArg = "-gpus="
-	}
+	gpuArg := "-gpus="
 
 	for i, g := range c.gpus {
 		if i != 0 {
@@ -207,39 +206,12 @@ func shouldRunBenchmarkCase(b benchmark, c benchmarkCase) bool {
 		return false
 	}
 
-	if *onlyUnifiedGPU && !c.unifiedGPU {
-		return false
-	}
-
-	if *noUnifiedGPU && c.unifiedGPU {
-		return false
-	}
-
-	if *onlyUnifiedMemory && !c.unifiedMemory {
-		return false
-	}
-
-	if *noUnifiedMemory && c.unifiedMemory {
-		return false
-	}
-
 	if *onlyTiming && !c.timing {
 		return false
 	}
 
 	if *noTiming && c.timing {
 		return false
-	}
-
-	// Filter by architecture
-	if *archFilter != "" {
-		caseArch := c.arch
-		if caseArch == "" {
-			caseArch = "gcn3" // default architecture
-		}
-		if caseArch != *archFilter {
-			return false
-		}
 	}
 
 	return true
@@ -260,7 +232,11 @@ func run() {
 			continue
 		}
 
-		for _, c := range b.cases {
+		cases := b.cases
+		if len(cases) == 0 {
+			cases = generateCases()
+		}
+		for _, c := range cases {
 			if !shouldRunBenchmarkCase(b, c) {
 				continue
 			}

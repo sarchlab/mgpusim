@@ -1,11 +1,9 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v4/mem/cache"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
@@ -42,6 +40,12 @@ func (m *ctrlMiddleware) Handle() bool {
 
 func (m *ctrlMiddleware) HandleInternal() bool {
 	madeProgress := false
+
+	// Retry sending flush response if a previous attempt failed.
+	if m.pendingFlushRsp {
+		madeProgress = m.retryFlushResponse() || madeProgress
+	}
+
 	madeProgress = m.processRspFromRDMAs() || madeProgress
 	madeProgress = m.processRspFromCUs() || madeProgress
 	madeProgress = m.processRspFromATs() || madeProgress
@@ -90,10 +94,13 @@ func (m *ctrlMiddleware) processRspFromCaches() bool {
 	}
 
 	switch req := msg.(type) {
-	case *cache.FlushRsp:
-		return m.processCacheFlushRsp(req)
-	case *cache.RestartRsp:
-		return m.processCacheRestartRsp(req)
+	case *mem.ControlRsp:
+		if m.numCacheACK > 0 {
+			if req.Command == mem.CmdFlush {
+				return m.processCacheFlushRsp(req)
+			}
+			return m.processCacheRestartRsp(req)
+		}
 	}
 
 	panic("never")
@@ -105,7 +112,7 @@ func (m *ctrlMiddleware) processRspFromATs() bool {
 		return false
 	}
 
-	msg := item.(*mem.ControlMsg)
+	msg := item.(*mem.ControlRsp)
 
 	if m.numAddrTranslationFlushAck > 0 {
 		return m.processAddressTranslatorFlushRsp(msg)
@@ -123,10 +130,13 @@ func (m *ctrlMiddleware) processRspFromTLBs() bool {
 	}
 
 	switch req := msg.(type) {
-	case *tlb.FlushRsp:
-		return m.processTLBFlushRsp(req)
-	case *tlb.RestartRsp:
-		return m.processTLBRestartRsp(req)
+	case *mem.ControlRsp:
+		if m.numTLBAck > 0 {
+			if req.Command == mem.CmdFlush {
+				return m.processTLBFlushRsp(req)
+			}
+			return m.processTLBRestartRsp(req)
+		}
 	}
 
 	panic("never")
@@ -168,11 +178,13 @@ func (m *ctrlMiddleware) processCUPipelineFlushRsp(
 
 	if m.numCUAck == 0 {
 		for i := 0; i < len(m.AddressTranslators); i++ {
-			req := mem.ControlMsgBuilder{}.
-				WithSrc(m.ToAddressTranslators.AsRemote()).
-				WithDst(m.AddressTranslators[i].AsRemote()).
-				ToDiscardTransactions().
-				Build()
+			req := &mem.ControlReq{
+				Command:         mem.CmdDrain,
+				DiscardInflight: true,
+			}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = m.ToAddressTranslators.AsRemote()
+			req.Dst = m.AddressTranslators[i].AsRemote()
 			m.ToAddressTranslators.Send(req)
 			m.numAddrTranslationFlushAck++
 		}
@@ -184,7 +196,7 @@ func (m *ctrlMiddleware) processCUPipelineFlushRsp(
 }
 
 func (m *ctrlMiddleware) processAddressTranslatorFlushRsp(
-	msg *mem.ControlMsg,
+	msg *mem.ControlRsp,
 ) bool {
 	m.numAddrTranslationFlushAck--
 
@@ -214,38 +226,70 @@ func (m *ctrlMiddleware) processAddressTranslatorFlushRsp(
 func (m *ctrlMiddleware) flushAndResetL1Cache(
 	port sim.Port,
 ) {
-	req := cache.FlushReqBuilder{}.
-		WithSrc(m.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		PauseAfterFlushing().
-		DiscardInflight().
-		InvalidateAllCacheLines().
-		Build()
+	req := &mem.ControlReq{
+		Command:         mem.CmdFlush,
+		DiscardInflight: true,
+		InvalidateAfter: true,
+		PauseAfter:      true,
+	}
+	req.ID = sim.GetIDGenerator().Generate()
+	req.Src = m.ToCaches.AsRemote()
+	req.Dst = port.AsRemote()
 
 	m.ToCaches.Send(req)
 	m.numCacheACK++
 }
 
 func (m *ctrlMiddleware) flushAndResetL2Cache(port sim.Port) {
-	req := cache.FlushReqBuilder{}.
-		WithSrc(m.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		PauseAfterFlushing().
-		DiscardInflight().
-		InvalidateAllCacheLines().
-		Build()
+	req := &mem.ControlReq{
+		Command:         mem.CmdFlush,
+		DiscardInflight: true,
+		InvalidateAfter: true,
+		PauseAfter:      true,
+	}
+	req.ID = sim.GetIDGenerator().Generate()
+	req.Src = m.ToCaches.AsRemote()
+	req.Dst = port.AsRemote()
 
 	m.ToCaches.Send(req)
 	m.numCacheACK++
 }
 
 func (m *ctrlMiddleware) processCacheFlushRsp(
-	rsp *cache.FlushRsp,
+	rsp *mem.ControlRsp,
 ) bool {
 	m.numCacheACK--
 	m.ToCaches.RetrieveIncoming()
 
 	if m.numCacheACK == 0 {
+		if m.flushPhase == 1 {
+			// Phase 1 (L1 flush) complete. Start phase 2 (L2 flush).
+			m.flushPhase = 2
+			for _, port := range m.L2Caches {
+				flushReq := &mem.ControlReq{
+					Command: mem.CmdFlush,
+				}
+				flushReq.ID = sim.GetIDGenerator().Generate()
+				flushReq.Src = m.ToCaches.AsRemote()
+				flushReq.Dst = port.AsRemote()
+				err := m.ToCaches.Send(flushReq)
+				if err != nil {
+					panic(err)
+				}
+				m.numCacheACK++
+			}
+
+			if m.numCacheACK > 0 {
+				return true
+			}
+			// No L2 caches — fall through to complete the flush
+		}
+
+		if m.flushPhase == 2 {
+			m.flushPhase = 0
+			return m.processRegularCacheFlush(rsp)
+		}
+
 		if m.shootDownInProcess {
 			return m.processCacheFlushCausedByTLBShootdown(rsp)
 		}
@@ -256,35 +300,67 @@ func (m *ctrlMiddleware) processCacheFlushRsp(
 }
 
 func (m *ctrlMiddleware) processRegularCacheFlush(
-	flushRsp *cache.FlushRsp,
+	flushRsp *mem.ControlRsp,
 ) bool {
-	rsp := sim.GeneralRspBuilder{}.
-		WithSrc(m.ToDriver.AsRemote()).
-		WithDst(m.currFlushRequest.Src).
-		WithOriginalReq(m.currFlushRequest).
-		Build()
+	// Prepare the original flush request to send back to the driver.
+	req := m.currFlushRequest
+	if !m.pendingFlushRsp {
+		// Swap Src/Dst only once (skip on retry).
+		origSrc := req.Meta().Src
+		req.Meta().Src = m.ToDriver.AsRemote()
+		req.Meta().Dst = origSrc
+	}
 
-	m.ToDriver.Send(rsp)
+	err := m.ToDriver.Send(req)
+	if err != nil {
+		// Port busy — mark for retry on the next tick.
+		m.pendingFlushRsp = true
+		return false
+	}
 
-	tracing.TraceReqComplete(m.currFlushRequest, m)
+	tracing.TraceReqComplete(req, m)
 	m.currFlushRequest = nil
+	m.pendingFlushRsp = false
+
+	return true
+}
+
+// retryFlushResponse retries sending the flush response to the driver
+// after a previous attempt failed due to a busy port.
+func (m *ctrlMiddleware) retryFlushResponse() bool {
+	if m.currFlushRequest == nil {
+		m.pendingFlushRsp = false
+		return false
+	}
+
+	req := m.currFlushRequest
+	err := m.ToDriver.Send(req)
+	if err != nil {
+		return false // Still busy, will retry next tick
+	}
+
+	tracing.TraceReqComplete(req, m)
+	m.currFlushRequest = nil
+	m.pendingFlushRsp = false
 
 	return true
 }
 
 func (m *ctrlMiddleware) processCacheFlushCausedByTLBShootdown(
-	flushRsp *cache.FlushRsp,
+	flushRsp *mem.ControlRsp,
 ) bool {
 	m.currFlushRequest = nil
 
 	for i := 0; i < len(m.TLBs); i++ {
 		shootDownCmd := m.currShootdownRequest
-		req := tlb.FlushReqBuilder{}.
-			WithSrc(m.ToTLBs.AsRemote()).
-			WithDst(m.TLBs[i].AsRemote()).
-			WithPID(shootDownCmd.PID).
-			WithVAddrs(shootDownCmd.VAddr).
-			Build()
+		req := &mem.ControlReq{
+			Command: mem.CmdFlush,
+		}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Src = m.ToTLBs.AsRemote()
+		req.Dst = m.TLBs[i].AsRemote()
+		// TODO: V5 migration - TLB flush with PID/VAddrs needs ControlReq extension
+		_ = shootDownCmd
 
 		m.ToTLBs.Send(req)
 		m.numTLBAck++
@@ -294,7 +370,7 @@ func (m *ctrlMiddleware) processCacheFlushCausedByTLBShootdown(
 }
 
 func (m *ctrlMiddleware) processTLBFlushRsp(
-	rsp *tlb.FlushRsp,
+	rsp *mem.ControlRsp,
 ) bool {
 	m.numTLBAck--
 
@@ -319,17 +395,19 @@ func (m *ctrlMiddleware) processRDMARestartRsp(rsp *rdma.RestartRsp) bool {
 }
 
 func (m *ctrlMiddleware) processCacheRestartRsp(
-	rsp *cache.RestartRsp,
+	rsp *mem.ControlRsp,
 ) bool {
 	m.numCacheACK--
 	if m.numCacheACK == 0 {
 		for i := 0; i < len(m.TLBs); i++ {
 			m.numTLBAck++
 
-			req := tlb.RestartReqBuilder{}.
-				WithSrc(m.ToTLBs.AsRemote()).
-				WithDst(m.TLBs[i].AsRemote()).
-				Build()
+			req := &mem.ControlReq{
+				Command: mem.CmdEnable,
+			}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = m.ToTLBs.AsRemote()
+			req.Dst = m.TLBs[i].AsRemote()
 			m.ToTLBs.Send(req)
 		}
 	}
@@ -340,20 +418,19 @@ func (m *ctrlMiddleware) processCacheRestartRsp(
 }
 
 func (m *ctrlMiddleware) processTLBRestartRsp(
-	rsp *tlb.RestartRsp,
+	rsp *mem.ControlRsp,
 ) bool {
 	m.numTLBAck--
 
 	if m.numTLBAck == 0 {
 		for i := 0; i < len(m.AddressTranslators); i++ {
-			req := mem.ControlMsgBuilder{}.
-				WithSrc(m.ToAddressTranslators.AsRemote()).
-				WithDst(m.AddressTranslators[i].AsRemote()).
-				ToRestart().
-				Build()
+			req := &mem.ControlReq{
+				Command: mem.CmdEnable,
+			}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = m.ToAddressTranslators.AsRemote()
+			req.Dst = m.AddressTranslators[i].AsRemote()
 			m.ToAddressTranslators.Send(req)
-
-			// fmt.Printf("Restarting %s\n", p.AddressTranslators[i].Name())
 
 			m.numAddrTranslationRestartAck++
 		}
@@ -365,7 +442,7 @@ func (m *ctrlMiddleware) processTLBRestartRsp(
 }
 
 func (m *ctrlMiddleware) processAddressTranslatorRestartRsp(
-	rsp *mem.ControlMsg,
+	rsp *mem.ControlRsp,
 ) bool {
 	m.numAddrTranslationRestartAck--
 
@@ -518,10 +595,12 @@ func (m *ctrlMiddleware) processPageMigrationReq(
 }
 
 func (m *ctrlMiddleware) restartCache(port sim.Port) {
-	req := cache.RestartReqBuilder{}.
-		WithSrc(m.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		Build()
+	req := &mem.ControlReq{
+		Command: mem.CmdEnable,
+	}
+	req.ID = sim.GetIDGenerator().Generate()
+	req.Src = m.ToCaches.AsRemote()
+	req.Dst = port.AsRemote()
 
 	err := m.ToCaches.Send(req)
 	if err != nil {

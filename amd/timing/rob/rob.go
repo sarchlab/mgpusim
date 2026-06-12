@@ -4,9 +4,9 @@ package rob
 import (
 	"container/list"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 )
 
 type transaction struct {
@@ -28,7 +28,7 @@ type ReorderBuffer struct {
 	bufferSize     int
 	numReqPerCycle int
 
-	toBottomReqIDToTransactionTable map[string]*list.Element
+	toBottomReqIDToTransactionTable map[uint64]*list.Element
 	transactions                    *list.List
 	isFlushing                      bool
 }
@@ -50,10 +50,11 @@ func (b *ReorderBuffer) processControlMsg() (madeProgress bool) {
 		return false
 	}
 
-	msg := item.(*mem.ControlMsg)
-	if msg.DiscardTransations {
+	msg := item.(*mem.ControlReq)
+	switch msg.Command {
+	case mem.CmdInvalidate, mem.CmdFlush:
 		return b.discardTransactions(msg)
-	} else if msg.Restart {
+	case mem.CmdEnable, mem.CmdReset:
 		return b.restart(msg)
 	}
 
@@ -61,13 +62,18 @@ func (b *ReorderBuffer) processControlMsg() (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) discardTransactions(
-	msg *mem.ControlMsg,
+	msg *mem.ControlReq,
 ) (madeProgress bool) {
-	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort.AsRemote()).
-		WithDst(msg.Src).
-		ToNotifyDone().
-		Build()
+	rsp := &mem.ControlRsp{
+		MsgMeta: sim.MsgMeta{
+			ID:    sim.GetIDGenerator().Generate(),
+			Src:   b.controlPort.AsRemote(),
+			Dst:   msg.Src,
+			RspTo: msg.ID,
+		},
+		Command: msg.Command,
+		Success: true,
+	}
 
 	err := b.controlPort.Send(rsp)
 	if err != nil {
@@ -75,23 +81,26 @@ func (b *ReorderBuffer) discardTransactions(
 	}
 
 	b.isFlushing = true
-	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
+	b.toBottomReqIDToTransactionTable = make(map[uint64]*list.Element)
 	b.transactions.Init()
 	b.controlPort.RetrieveIncoming()
-
-	// fmt.Printf("%.10f, %s, rob flushed\n", now, b.Name())
 
 	return true
 }
 
 func (b *ReorderBuffer) restart(
-	msg *mem.ControlMsg,
+	msg *mem.ControlReq,
 ) (madeProgress bool) {
-	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort.AsRemote()).
-		WithDst(msg.Src).
-		ToNotifyDone().
-		Build()
+	rsp := &mem.ControlRsp{
+		MsgMeta: sim.MsgMeta{
+			ID:    sim.GetIDGenerator().Generate(),
+			Src:   b.controlPort.AsRemote(),
+			Dst:   msg.Src,
+			RspTo: msg.ID,
+		},
+		Command: msg.Command,
+		Success: true,
+	}
 
 	err := b.controlPort.Send(rsp)
 	if err != nil {
@@ -99,7 +108,7 @@ func (b *ReorderBuffer) restart(
 	}
 
 	b.isFlushing = false
-	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
+	b.toBottomReqIDToTransactionTable = make(map[uint64]*list.Element)
 	b.transactions.Init()
 
 	for b.topPort.RetrieveIncoming() != nil {
@@ -183,7 +192,7 @@ func (b *ReorderBuffer) parseBottom() bool {
 	}
 
 	rsp := item.(mem.AccessRsp)
-	rspTo := rsp.GetRspTo()
+	rspTo := rsp.Meta().RspTo
 	transElement, found := b.toBottomReqIDToTransactionTable[rspTo]
 
 	if found {
@@ -275,27 +284,33 @@ func (b *ReorderBuffer) duplicateReq(req mem.AccessReq) mem.AccessReq {
 }
 
 func (b *ReorderBuffer) duplicateReadReq(req *mem.ReadReq) *mem.ReadReq {
-	return mem.ReadReqBuilder{}.
-		WithAddress(req.Address).
-		WithByteSize(req.AccessByteSize).
-		WithPID(req.PID).
-		WithDst(b.BottomUnit).
-		Build()
+	return &mem.ReadReq{
+		MsgMeta: sim.MsgMeta{
+			ID:  sim.GetIDGenerator().Generate(),
+			Dst: b.BottomUnit,
+		},
+		Address:        req.Address,
+		AccessByteSize: req.AccessByteSize,
+		PID:            req.PID,
+	}
 }
 
 func (b *ReorderBuffer) duplicateWriteReq(req *mem.WriteReq) *mem.WriteReq {
-	return mem.WriteReqBuilder{}.
-		WithAddress(req.Address).
-		WithPID(req.PID).
-		WithData(req.Data).
-		WithDirtyMask(req.DirtyMask).
-		WithDst(b.BottomUnit).
-		Build()
+	return &mem.WriteReq{
+		MsgMeta: sim.MsgMeta{
+			ID:  sim.GetIDGenerator().Generate(),
+			Dst: b.BottomUnit,
+		},
+		Address:   req.Address,
+		PID:       req.PID,
+		Data:      req.Data,
+		DirtyMask: req.DirtyMask,
+	}
 }
 
 func (b *ReorderBuffer) duplicateRsp(
 	rsp mem.AccessRsp,
-	rspTo string,
+	rspTo uint64,
 ) mem.AccessRsp {
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -309,19 +324,25 @@ func (b *ReorderBuffer) duplicateRsp(
 
 func (b *ReorderBuffer) duplicateDataReadyRsp(
 	rsp *mem.DataReadyRsp,
-	rspTo string,
+	rspTo uint64,
 ) *mem.DataReadyRsp {
-	return mem.DataReadyRspBuilder{}.
-		WithData(rsp.Data).
-		WithRspTo(rspTo).
-		Build()
+	return &mem.DataReadyRsp{
+		MsgMeta: sim.MsgMeta{
+			ID:    sim.GetIDGenerator().Generate(),
+			RspTo: rspTo,
+		},
+		Data: rsp.Data,
+	}
 }
 
 func (b *ReorderBuffer) duplicateWriteDoneRsp(
 	rsp *mem.WriteDoneRsp,
-	rspTo string,
+	rspTo uint64,
 ) *mem.WriteDoneRsp {
-	return mem.WriteDoneRspBuilder{}.
-		WithRspTo(rspTo).
-		Build()
+	return &mem.WriteDoneRsp{
+		MsgMeta: sim.MsgMeta{
+			ID:    sim.GetIDGenerator().Generate(),
+			RspTo: rspTo,
+		},
+	}
 }

@@ -1,28 +1,31 @@
 # =============================================================================
-# benchmark.yml — MI300A Simulation Benchmark Workflow
+# benchmark.yml — MI300A Linear Regular Benchmark Workflow
 # =============================================================================
 #
-# Runs MGPUSim benchmarks in parallel using matrix strategy, extracts kernel
-# timing from SQLite metrics, and compares against MI300A hardware reference.
+# Default path is intentionally linear and regular-workflow only:
+#   Validation -> Tier 1 -> Tier-1 summary -> Tier 2 -> Summary
 #
-# Strategy: Include ALL reference sizes from mi300a.csv for runnable benchmarks.
-# Each size gets a 55s timeout — sizes that exceed it are skipped gracefully.
-# A 6GB virtual memory ulimit prevents OOM kills.
-# The workflow NEVER fails due to individual size timeouts/crashes.
+# Regular MI300A runtime contract for both benchmark tiers:
+#   * strategy.max-parallel: 14
+#   * each individual simulator invocation: timeout_sec: 7200
+#   * each benchmark-tier job layer: timeout-minutes: 360 (21600 seconds)
 #
-# Excluded benchmarks (simulator limitations, not cherry-picking):
-#   - nbody (22 pts): hangs at all sizes (>60s even for 256 particles)
-#   - simpleconvolution (24 pts): no main.go sample binary
-#   - conv2d (14 pts): crashes with MMU page table walk panic at all sizes
-#   - memcopy (30 pts): no kernel_time metric in SQLite output
+# The maintained regular Tier 1 and Tier 2 matrices are materialized directly
+# from the checked-in 1416-entry problem-size discovery plan:
+#   benchmark-comparison/mi300a_problem_size_discovery_plan.json
+# into clean per-benchmark rows before any simulator job starts. The bounded
+# finishable manifest remains checked in for audit/report artifacts only; it is
+# not used to prune the regular runtime matrix.
 #
-# All other benchmarks include EVERY reference size. Sizes that timeout
-# (>55s) or crash are skipped gracefully — only successful results are reported.
+# Reference run ID: GitHub Actions run 24959959195 is an immutable
+# observation-time / bounded non-terminal snapshot preserved for auditability.
+# It is not used to prune the maintained regular runtime matrix.
 #
-# Trigger: Manual (workflow_dispatch) with optional branch input.
-# Runner: ubuntu-latest (GitHub-hosted)
+# Legacy curated-primary, focused-near-miss-stencil-single, exploratory, and
+# problem-size-discovery dispatch modes were removed from this default workflow
+# rather than kept as additional modes. The historical manifests/provenance stay
+# checked in for auditability, but benchmark.yml now has one default path.
 # =============================================================================
-
 name: MI300A Benchmark
 
 on:
@@ -34,231 +37,212 @@ on:
         default: ''
         type: string
 
+permissions:
+  contents: read
+
 jobs:
-  # ===========================================================================
-  # Parallel benchmark jobs via matrix strategy
-  # ===========================================================================
-  benchmark:
-    name: "Bench: ${{ matrix.benchmark }}"
+  # ==========================================================================
+  # Validation: static/schema checks and dynamic matrix materialization.
+  # ==========================================================================
+  validation:
+    name: "Validation: full regular matrix"
     runs-on: self-hosted
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # -----------------------------------------------------------------
-          # vectoradd: -width N -height 1
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: vectoradd
-            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912"
-            flag_template: "-width {size} -height 1"
-            size_label_template: "{size}"
-
-          # -----------------------------------------------------------------
-          # relu: -length N
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: relu
-            sizes: "1024 2048 4096 8192 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456 536870912 1073741824"
-            flag_template: "-length {size}"
-            size_label_template: "{size}"
-
-          # -----------------------------------------------------------------
-          # matrixmultiplication: -x N -y N -z N
-          # ALL 22 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: matrixmultiplication
-            sizes: "32 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048 2560 3072 4096 5120 6144 8192"
-            flag_template: "-x {size} -y {size} -z {size}"
-            size_label_template: "{size}x{size}x{size}"
-
-          # -----------------------------------------------------------------
-          # stencil2d: -row N -col N
-          # ALL 18 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: stencil2d
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
-            flag_template: "-row {size} -col {size}"
-            size_label_template: "{size}x{size}"
-
-          # -----------------------------------------------------------------
-          # atax: -x N -y N
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: atax
-            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
-            flag_template: "-x {size} -y {size}"
-            size_label_template: "{size}x{size}"
-
-          # -----------------------------------------------------------------
-          # bicg: -x N -y N
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: bicg
-            sizes: "48 64 96 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768"
-            flag_template: "-x {size} -y {size}"
-            size_label_template: "{size}x{size}"
-
-          # -----------------------------------------------------------------
-          # fastwalshtransform: -length N
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: fastwalshtransform
-            sizes: "512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456"
-            flag_template: "-length {size}"
-            size_label_template: "{size}"
-
-          # -----------------------------------------------------------------
-          # matrixtranspose: -width N
-          # ALL 19 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: matrixtranspose
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
-            flag_template: "-width {size}"
-            size_label_template: "{size}x{size}"
-
-          # -----------------------------------------------------------------
-          # fir: -length N -taps T (compound format: length_taps)
-          # ALL 20 reference sizes (now supports configurable taps!)
-          # -----------------------------------------------------------------
-          - benchmark: fir
-            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64 65536_8 65536_16 65536_32 65536_64 262144_8 262144_16 262144_32 262144_64"
-            flag_template: "-length {p1} -taps {p2}"
-            size_label_template: "{p1}_taps{p2}"
-
-          # -----------------------------------------------------------------
-          # bitonicsort: -length N
-          # ALL 15 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: bitonicsort
-            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216"
-            flag_template: "-length {size}"
-            size_label_template: "{size}"
-
-          # -----------------------------------------------------------------
-          # floydwarshall: -node N
-          # ALL 23 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: floydwarshall
-            sizes: "8 16 24 32 48 64 96 128 160 192 256 320 384 512 640 768 1024 1280 1536 2048 2560 3072 4096"
-            flag_template: "-node {size}"
-            size_label_template: "{size}_nodes"
-
-          # -----------------------------------------------------------------
-          # nw: -length N
-          # ALL 24 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: nw
-            sizes: "64 128 192 256 320 384 448 512 640 768 896 1024 1280 1536 1792 2048 2560 3072 3584 4096 5120 6144 7168 8192"
-            flag_template: "-length {size}"
-            size_label_template: "length={size}"
-
-          # -----------------------------------------------------------------
-          # pagerank: -node N -sparsity 0.5 -iterations 2
-          # ALL 19 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: pagerank
-            sizes: "64 128 192 256 384 512 768 1024 1536 2048 3072 4096 6144 8192 12288 16384 24576 32768 49152"
-            flag_template: "-node {size} -sparsity 0.5 -iterations 2"
-            size_label_template: "nodes{size}_sparsity0.5_priters2"
-
-          # -----------------------------------------------------------------
-          # kmeans: -points P1 -features P2 -clusters 5 -max-iter 1
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: kmeans
-            sizes: "1024_8 1024_16 1024_32 1024_64 4096_8 4096_16 4096_32 4096_64 16384_8 16384_16 16384_32 16384_64 65536_8 65536_16 65536_32 65536_64 262144_8 262144_16 262144_32 262144_64"
-            flag_template: "-points {p1} -features {p2} -clusters 5 -max-iter 1"
-            size_label_template: "pts{p1}_feat{p2}_clus5"
-
-          # -----------------------------------------------------------------
-          # bfs: -node N -degree 3
-          # ALL 5 unique reference sizes (reference has 4 seeds each = 20 rows)
-          # -----------------------------------------------------------------
-          - benchmark: bfs
-            sizes: "1024_4 1024_8 1024_16 1024_32 4096_4 4096_8 4096_16 4096_32"
-            flag_template: "-node {p1} -degree {p2} -depth 100"
-            size_label_template: "nodes{p1}"
-
-          # -----------------------------------------------------------------
-          # spmv: -dim P1 -sparsity P2 (compound: dim_sparsity_nnz)
-          # ALL 20 reference sizes
-          # -----------------------------------------------------------------
-          - benchmark: spmv
-            sizes: "1024_0.00390625_4096 1024_0.0078125_8192 1024_0.015625_16384 1024_0.03125_32768 4096_0.0009765625_16384 4096_0.001953125_32768 4096_0.00390625_65536 4096_0.0078125_131072 16384_0.000244140625_65536 16384_0.00048828125_131072 16384_0.0009765625_262144 16384_0.001953125_524288 65536_6.103515625e-05_262144 65536_0.0001220703125_524288 65536_0.000244140625_1048576 65536_0.00048828125_2097152 262144_1.52587890625e-05_1048576 262144_3.0517578125e-05_2097152 262144_6.103515625e-05_4194304 262144_0.0001220703125_8388608"
-            flag_template: "-dim {p1} -sparsity {p2}"
-            size_label_template: "{p1}x{p1}_nnz{p3}"
-
-          # -----------------------------------------------------------------
-          # fft: -MB N -passes 1 (colon format: actual_MB:label_elements)
-          # 3 of 19 reference sizes (sub-MB sizes unsupported; 8MB+ crashes)
-          # 1MB=131072, 2MB=262144, 4MB=524288 elements
-          # -----------------------------------------------------------------
-          - benchmark: fft
-            sizes: "1:131072 2:262144 4:524288"
-            flag_template: "-MB {size} -passes 1"
-            size_label_template: "{size}_elements"
-
-          # -----------------------------------------------------------------
-          # im2col: -N 1 -C 1 -H P1 -W P1 -kernel-height P2 -kernel-width P2
-          # ALL 24 reference sizes (32+ may crash; gracefully skipped)
-          # -----------------------------------------------------------------
-          - benchmark: im2col
-            sizes: "8_3 8_5 8_7 16_3 16_5 16_7 32_3 32_5 32_7 64_3 64_5 64_7 128_3 128_5 128_7 256_3 256_5 256_7 512_3 512_5 512_7 1024_3 1024_5 1024_7"
-            flag_template: "-N 1 -C 1 -H {p1} -W {p1} -kernel-height {p2} -kernel-width {p2}"
-            size_label_template: "N1_C1_{p1}x{p1}_k{p2}x{p2}"
-
-
+    timeout-minutes: 10
+    outputs:
+      tier1_matrix: ${{ steps.matrix-outputs.outputs.tier1_matrix }}
+      tier2_matrix: ${{ steps.matrix-outputs.outputs.tier2_matrix }}
+      tier1_count: ${{ steps.matrix-outputs.outputs.tier1_count }}
+      tier2_count: ${{ steps.matrix-outputs.outputs.tier2_count }}
+      tier1_sizes: ${{ steps.matrix-outputs.outputs.tier1_sizes }}
+      tier2_sizes: ${{ steps.matrix-outputs.outputs.tier2_sizes }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Install gcc (Fedora self-hosted runners)
-        run: |
-          if command -v dnf &>/dev/null; then
-            sudo dnf install -y gcc
-          fi
 
       - name: Check Python
         run: python3 --version
 
-      - name: Build benchmark
+      - name: Validate finishable-size manifest
+        run: python3 scripts/validate_mi300a_finishable_size_manifest.py
+
+      - name: Validate full regular workflow matrix contract
         run: |
-          # CGO_ENABLED=1 required for mattn/go-sqlite3. Needs gcc on PATH.
-          CGO_ENABLED=1 go build -o ./_bench_${{ matrix.benchmark }} ./amd/samples/${{ matrix.benchmark }}/
+          python3 scripts/validate_mi300a_regular_workflow_matrix.py \
+            --report regular_workflow_contract_validation.json
+
+      - name: Materialize full regular matrix from plan
+        id: matrix-outputs
+        run: |
+          set -euo pipefail
+          python3 scripts/materialize_mi300a_regular_workflow_matrix.py \
+            --summary regular_workflow_validation_summary.md \
+            --report regular_matrix_validation.json
+          cat regular_workflow_validation_summary.md
+
+      - name: Upload validation summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-summary
+          path: |
+            regular_workflow_validation_summary.md
+            regular_matrix_validation.json
+            regular_workflow_contract_validation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  # ==========================================================================
+  # Tier 1: priority microbenchmark/probe simulations.
+  #
+  # NOTE: Compute-bound benchmark exclusions from CI pass/fail gate
+  # ---------------------------------------------------------------
+  # The following benchmarks are included in the tier-1 matrix but are
+  # EXCLUDED from tier-1 CI pass/fail criteria:
+  #   fp32_fma, fp64_fma, int_mad, sfun_sin, atomic_throughput
+  #
+  # These benchmarks require 4-7 hours of wall-clock simulation per problem
+  # size (e.g. fp32_fma@1024 ~6.4h, int_mad@1024 ~7.2h). The per-invocation
+  # limit is 2 hours. This is a structural simulator speed limitation, NOT a
+  # calibration issue. Jobs for these benchmarks will always time out and
+  # their failures are NOT counted as CI gate failures. See docs/runner_configuration.md.
+  # ==========================================================================
+  benchmark-tier1:
+    name: "Tier 1 Bench: ${{ matrix.benchmark }}"
+    runs-on: self-hosted
+    timeout-minutes: 360
+    needs: [validation]
+    strategy:
+      fail-fast: false
+      max-parallel: 14
+      matrix: ${{ fromJson(needs.validation.outputs.tier1_matrix) }}
+    env: &benchmark_env
+      GOMEMLIMIT: ${{ matrix.gomemlimit || '4GiB' }}
+      GOGC: ${{ matrix.gogc || '50' }}
+    steps: &benchmark_steps
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install gcc (Fedora self-hosted runners)
+        run: |
+          if command -v gcc &>/dev/null; then
+            echo "gcc already installed: $(gcc --version | head -1)"
+          elif command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo dnf failed, hoping gcc is on PATH"
+          fi
+          command -v gcc || { echo "ERROR: gcc not found"; exit 1; }
+
+      - name: Check Python
+        run: python3 --version
+
+      - name: Resolve benchmark metadata
+        id: benchmark-metadata
+        env:
+          MATRIX_BENCHMARK: ${{ matrix.benchmark }}
+          MATRIX_SIZES: ${{ matrix.sizes }}
+          MATRIX_FLAG_TEMPLATE: ${{ matrix.flag_template }}
+          MATRIX_SIZE_LABEL_TEMPLATE: ${{ matrix.size_label_template }}
+          MATRIX_EXTRA_FLAGS: ${{ matrix.extra_flags || '' }}
+          MATRIX_TIMEOUT_SEC: ${{ matrix.timeout_sec || '7200' }}
+          MATRIX_ARTIFACT_ID: ${{ matrix.artifact_id || matrix.benchmark }}
+          MATRIX_GOMEMLIMIT: ${{ matrix.gomemlimit || '4GiB' }}
+          MATRIX_GOGC: ${{ matrix.gogc || '50' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import sys
+
+          def env(name, default=""):
+              return os.environ.get(name, default)
+
+          def fail(message):
+              print(f"::error::{message}", file=sys.stderr)
+              sys.exit(1)
+
+          metadata = {
+              "benchmark": env("MATRIX_BENCHMARK"),
+              "sizes": env("MATRIX_SIZES"),
+              "flag_template": env("MATRIX_FLAG_TEMPLATE"),
+              "size_label_template": env("MATRIX_SIZE_LABEL_TEMPLATE"),
+              "extra_flags": env("MATRIX_EXTRA_FLAGS"),
+              "timeout_sec": env("MATRIX_TIMEOUT_SEC", "7200"),
+              "artifact_id": env("MATRIX_ARTIFACT_ID") or env("MATRIX_BENCHMARK"),
+              "gomemlimit": env("MATRIX_GOMEMLIMIT", "4GiB") or "4GiB",
+              "gogc": env("MATRIX_GOGC", "50") or "50",
+          }
+          for key in ("benchmark", "sizes", "flag_template", "size_label_template", "timeout_sec", "artifact_id"):
+              if not str(metadata.get(key, "")):
+                  fail(f"resolved benchmark metadata missing {key}")
+          if int(metadata["timeout_sec"]) != 7200:
+              fail(
+                  f"{metadata['benchmark']} timeout_sec must be 7200s for the regular MI300A contract"
+              )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              for key, value in metadata.items():
+                  value = str(value)
+                  if "\n" in value:
+                      fail(f"resolved metadata value for {key} must be single-line")
+                  output.write(f"{key}={value}\n")
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"GOMEMLIMIT={metadata['gomemlimit']}\n")
+              env_file.write(f"GOGC={metadata['gogc']}\n")
+
+          print(
+              "Resolved benchmark metadata: "
+              f"benchmark={metadata['benchmark']} sizes={metadata['sizes']} "
+              f"artifact_id={metadata['artifact_id']} timeout_sec={metadata['timeout_sec']} "
+              f"gomemlimit={metadata['gomemlimit']} gogc={metadata['gogc']}"
+          )
+          PY
+
+      - name: Build benchmark
+        env:
+          RESOLVED_BENCHMARK: ${{ steps.benchmark-metadata.outputs.benchmark }}
+        run: |
+          CGO_ENABLED=1 go build -o "./_bench_${RESOLVED_BENCHMARK}" "./amd/samples/${RESOLVED_BENCHMARK}/"
 
       - name: Run benchmark sizes
         id: run
+        env:
+          RESOLVED_BENCHMARK: ${{ steps.benchmark-metadata.outputs.benchmark }}
+          RESOLVED_SIZES: ${{ steps.benchmark-metadata.outputs.sizes }}
+          RESOLVED_FLAG_TEMPLATE: ${{ steps.benchmark-metadata.outputs.flag_template }}
+          RESOLVED_SIZE_LABEL_TEMPLATE: ${{ steps.benchmark-metadata.outputs.size_label_template }}
+          RESOLVED_EXTRA_FLAGS: ${{ steps.benchmark-metadata.outputs.extra_flags }}
+          RESOLVED_TIMEOUT_SEC: ${{ steps.benchmark-metadata.outputs.timeout_sec }}
         run: |
-          set +e  # Don't exit on errors — we handle them per-size
+          set +e
 
-          BENCHMARK="${{ matrix.benchmark }}"
-          SIZES="${{ matrix.sizes }}"
-          FLAG_TEMPLATE='${{ matrix.flag_template }}'
-          LABEL_TEMPLATE='${{ matrix.size_label_template }}'
-          COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
+          BENCHMARK="${RESOLVED_BENCHMARK}"
+          SIZES="${RESOLVED_SIZES}"
+          FLAG_TEMPLATE="${RESOLVED_FLAG_TEMPLATE}"
+          LABEL_TEMPLATE="${RESOLVED_SIZE_LABEL_TEMPLATE}"
+          EXTRA_FLAGS="${RESOLVED_EXTRA_FLAGS}"
+          COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm ${EXTRA_FLAGS}"
           BINARY="./_bench_${BENCHMARK}"
-          TIMEOUT_SEC=55
+          TIMEOUT_SEC="${RESOLVED_TIMEOUT_SEC}"
           OUTPUT="results_${BENCHMARK}.csv"
 
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > "${OUTPUT}"
-
           PASS=0
           FAIL=0
+          CRASH_FAIL=0
 
-          # Limit virtual memory to 6GB to prevent OOM kills
-          ulimit -v 6291456 2>/dev/null || true
+          ulimit -v 16777216 2>/dev/null || true
 
           for size in ${SIZES}; do
-            # Handle compound sizes (p1_p2 format for multi-param benchmarks)
             if echo "${FLAG_TEMPLATE}" | grep -q '{p1}'; then
               p1=$(echo "${size}" | cut -d_ -f1)
               p2=$(echo "${size}" | cut -d_ -f2)
@@ -266,13 +250,11 @@ jobs:
               FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{p1}/${p1}/g; s/{p2}/${p2}/g; s/{p3}/${p3}/g")
               LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{p1}/${p1}/g; s/{p2}/${p2}/g; s/{p3}/${p3}/g")
             elif echo "${size}" | grep -q ':'; then
-              # Handle colon-separated format: actual_value:label_value (used by FFT)
               actual_size=$(echo "${size}" | cut -d: -f1)
               label_size=$(echo "${size}" | cut -d: -f2)
               FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${actual_size}/g")
               LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${label_size}/g")
             else
-              # Standard single-parameter format
               FLAGS=$(echo "${FLAG_TEMPLATE}" | sed "s/{size}/${size}/g")
               LABEL=$(echo "${LABEL_TEMPLATE}" | sed "s/{size}/${size}/g")
             fi
@@ -280,13 +262,9 @@ jobs:
             echo "::group::${BENCHMARK} ${LABEL}"
             echo "[RUN] ${BENCHMARK} ${LABEL} with flags: ${COMMON_FLAGS} ${FLAGS}"
 
-            # Create a clean working directory for each run
             WORK_DIR=$(mktemp -d)
-            EXIT_CODE=0
-
-            # Run with timeout; binary writes SQLite to cwd
             cd "${WORK_DIR}"
-            timeout ${TIMEOUT_SEC} "${OLDPWD}/${BINARY}" ${COMMON_FLAGS} ${FLAGS} > stdout.log 2>&1
+            timeout "${TIMEOUT_SEC}" "${OLDPWD}/${BINARY}" ${COMMON_FLAGS} ${FLAGS} > stdout.log 2>&1
             EXIT_CODE=$?
             cd "${OLDPWD}"
 
@@ -295,62 +273,139 @@ jobs:
               FAIL=$((FAIL + 1))
               rm -rf "${WORK_DIR}"
               echo "::endgroup::"
-              continue
+              break
             fi
 
             if [ ${EXIT_CODE} -ne 0 ]; then
-              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (exit ${EXIT_CODE})"
-              cat "${WORK_DIR}/stdout.log" 2>/dev/null | tail -20
-              FAIL=$((FAIL + 1))
+              echo "::error::CRASH: ${BENCHMARK} ${LABEL} (exit ${EXIT_CODE})"
+              echo '--- CRASH OUTPUT (first 50 lines) ---'
+              cat "${WORK_DIR}/stdout.log" 2>/dev/null | head -50
+              echo '--- CRASH OUTPUT (last 50 lines) ---'
+              cat "${WORK_DIR}/stdout.log" 2>/dev/null | tail -50
+              CRASH_FAIL=$((CRASH_FAIL + 1))
               rm -rf "${WORK_DIR}"
               echo "::endgroup::"
-              continue
+              break
             fi
 
-            # Find SQLite database
             DB_FILE=$(ls "${WORK_DIR}"/akita_sim_*.sqlite3 2>/dev/null | head -1)
             if [ -z "${DB_FILE}" ]; then
               DB_FILE=$(ls "${WORK_DIR}"/akita_data_recording_*.sqlite3 2>/dev/null | head -1)
             fi
 
             if [ -z "${DB_FILE}" ] || [ ! -f "${DB_FILE}" ]; then
-              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no SQLite output)"
-              FAIL=$((FAIL + 1))
+              echo "::error::CRASH: ${BENCHMARK} ${LABEL} (no SQLite output)"
+              CRASH_FAIL=$((CRASH_FAIL + 1))
               rm -rf "${WORK_DIR}"
               echo "::endgroup::"
-              continue
+              exit 1
             fi
 
-            # Extract kernel time from Driver entry (using Python sqlite3 - no CLI needed)
             export _BENCH_DB="${DB_FILE}"
-            KERNEL_TIME_SEC=$(python3 -c "import sqlite3,os; db=os.environ['_BENCH_DB']; conn=sqlite3.connect(db); c=conn.cursor(); c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1\"); r=c.fetchone(); r=r or (c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1\"),c.fetchone())[1]; print(r[0]) if r else None; conn.close()" 2>/dev/null || true)
+            if [ "${BENCHMARK}" = "bus_speed_download" ] || [ "${BENCHMARK}" = "bus_speed_readback" ]; then
+              KERNEL_TIME_SEC=$(python3 -c "import sqlite3,os; db=os.environ['_BENCH_DB']; conn=sqlite3.connect(db); c=conn.cursor(); c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='d2h_time' LIMIT 1\"); r=c.fetchone(); print(r[0]) if r else None; conn.close()" 2>/dev/null || true)
+            else
+              KERNEL_TIME_SEC=$(python3 -c "import sqlite3,os; db=os.environ['_BENCH_DB']; conn=sqlite3.connect(db); c=conn.cursor(); c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver' LIMIT 1\"); r=c.fetchone(); r=r or (c.execute(\"SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' LIMIT 1\"),c.fetchone())[1]; print(r[0]) if r else None; conn.close()" 2>/dev/null || true)
+            fi
 
             if [ -z "${KERNEL_TIME_SEC}" ]; then
-              echo "::warning::FAIL: ${BENCHMARK} ${LABEL} (no kernel_time in DB)"
-              FAIL=$((FAIL + 1))
+              echo "::error::CRASH: ${BENCHMARK} ${LABEL} (no kernel_time in DB)"
+              CRASH_FAIL=$((CRASH_FAIL + 1))
               rm -rf "${WORK_DIR}"
               echo "::endgroup::"
-              continue
+              exit 1
             fi
 
-            # Convert seconds to milliseconds
-            KERNEL_TIME_MS=$(python3 -c "print(f'{${KERNEL_TIME_SEC} * 1000:.6f}')")
+            KERNEL_TIME_MS=$(python3 -c "v=${KERNEL_TIME_SEC}; print(f'{v*1000:.6f}')")
 
-            # Map benchmark name to reference kernel name
             CSV_NAME="${BENCHMARK}"
-            if [ "${BENCHMARK}" = "fft" ]; then
-              CSV_NAME="fft1D_512"
-            fi
-            if [ "${BENCHMARK}" = "spmv" ]; then
-              CSV_NAME="spmv_csr_scalar"
-            fi
+            if [ "${BENCHMARK}" = "fft" ]; then CSV_NAME="fft1D_512"; fi
+            if [ "${BENCHMARK}" = "spmv" ]; then CSV_NAME="spmv_csr_scalar"; fi
+            if [ "${BENCHMARK}" = "2dconvolution" ]; then CSV_NAME="2DConvolution"; fi
+            if [ "${BENCHMARK}" = "3dconvolution" ]; then CSV_NAME="3DConvolution"; fi
+            if [ "${BENCHMARK}" = "backprop" ]; then CSV_NAME="layerforward"; fi
+            if [ "${BENCHMARK}" = "backprop_adjust_weights" ]; then CSV_NAME="adjust_weights"; fi
+            if [ "${BENCHMARK}" = "streamcluster" ]; then CSV_NAME="streamcluster_pgain"; fi
+            if [ "${BENCHMARK}" = "parboil_cutcp" ]; then CSV_NAME="cutoff_potential"; fi
+            if [ "${BENCHMARK}" = "parboil_histo" ]; then CSV_NAME="histogram"; fi
+            if [ "${BENCHMARK}" = "parboil_lbm" ]; then CSV_NAME="lbm_stream_collide"; fi
+            if [ "${BENCHMARK}" = "parboil_mri_gridding" ]; then CSV_NAME="gridding_kernel"; fi
+            if [ "${BENCHMARK}" = "parboil_mri_q" ]; then CSV_NAME="ComputeQ"; fi
+            if [ "${BENCHMARK}" = "parboil_sad" ]; then CSV_NAME="ComputeSAD"; fi
+            if [ "${BENCHMARK}" = "parboil_sgemm" ]; then CSV_NAME="sgemm_tiled"; fi
+            if [ "${BENCHMARK}" = "parboil_spmv" ]; then CSV_NAME="spmv_csr"; fi
+            if [ "${BENCHMARK}" = "parboil_stencil" ]; then CSV_NAME="stencil_kernel"; fi
+            if [ "${BENCHMARK}" = "parboil_tpacf" ]; then CSV_NAME="tpacf_DD"; fi
+            if [ "${BENCHMARK}" = "bus_speed_download" ]; then CSV_NAME="BusSpeedDownload"; fi
+            if [ "${BENCHMARK}" = "bus_speed_readback" ]; then CSV_NAME="BusSpeedReadback"; fi
+            if [ "${BENCHMARK}" = "device_memory_read" ]; then CSV_NAME="DeviceMemory_Read"; fi
+            if [ "${BENCHMARK}" = "device_memory_write" ]; then CSV_NAME="DeviceMemory_Write"; fi
+            if [ "${BENCHMARK}" = "max_flops" ]; then CSV_NAME="MaxFlops"; fi
+            if [ "${BENCHMARK}" = "md_lj" ]; then CSV_NAME="md"; fi
+            if [ "${BENCHMARK}" = "md5hash" ]; then CSV_NAME="md5hash"; fi
+            if [ "${BENCHMARK}" = "qtc" ]; then CSV_NAME="qtc"; fi
+            if [ "${BENCHMARK}" = "sssp" ]; then CSV_NAME="sssp_relax_kernel"; fi
+            if [ "${BENCHMARK}" = "bh" ]; then CSV_NAME="compute_forces_kernel"; fi
+            if [ "${BENCHMARK}" = "dmr" ]; then CSV_NAME="identify_bad_triangles"; fi
 
-            # Simulator is deterministic: avg = min = max
             echo "${CSV_NAME},${LABEL},1,${KERNEL_TIME_MS},${KERNEL_TIME_MS},${KERNEL_TIME_MS}" >> "${OUTPUT}"
             echo "[OK] ${BENCHMARK} ${LABEL} -> ${KERNEL_TIME_MS} ms"
-            PASS=$((PASS + 1))
 
-            # Cleanup
+            if [ "${BENCHMARK}" = "parboil_sad" ]; then
+              FINDMIN_OUTPUT="results_findminsad.csv"
+              if [ ! -f "${FINDMIN_OUTPUT}" ]; then
+                echo "kernel_name,problem_size,num_runs,avg_ms,min_ms,max_ms" > "${FINDMIN_OUTPUT}"
+              fi
+              extract_per_kernel_ms() {
+                python3 - "${WORK_DIR}/stdout.log" "${BENCHMARK}" "${LABEL}" "$1" <<'PY'
+          import math
+          import sys
+
+          stdout_path, benchmark, size_label, kernel = sys.argv[1:5]
+          needle = f"PER_KERNEL_TIME {kernel}"
+          valid_value = None
+          try:
+              with open(stdout_path, "r", encoding="utf-8", errors="replace") as f:
+                  for line in f:
+                      if needle not in line:
+                          continue
+                      parts = line.strip().split()
+                      if len(parts) < 3:
+                          print(f"::warning::PER_KERNEL_TIME_SKIP benchmark={benchmark} size={size_label} kernel={kernel} raw_token=<missing> reason=missing_token", file=sys.stderr)
+                          continue
+                      raw_token = parts[2]
+                      try:
+                          value = float(raw_token)
+                      except ValueError:
+                          print(f"::warning::PER_KERNEL_TIME_SKIP benchmark={benchmark} size={size_label} kernel={kernel} raw_token={raw_token} reason=non_numeric", file=sys.stderr)
+                          continue
+                      if not math.isfinite(value):
+                          print(f"::warning::PER_KERNEL_TIME_SKIP benchmark={benchmark} size={size_label} kernel={kernel} raw_token={raw_token} reason=non_finite", file=sys.stderr)
+                          continue
+                      if valid_value is None:
+                          valid_value = value
+                      else:
+                          print(f"::warning::PER_KERNEL_TIME_SKIP benchmark={benchmark} size={size_label} kernel={kernel} raw_token={raw_token} reason=extra_numeric_token_ignored", file=sys.stderr)
+          except FileNotFoundError:
+              print(f"::warning::PER_KERNEL_TIME_SKIP benchmark={benchmark} size={size_label} kernel={kernel} raw_token=<missing> reason=stdout_log_missing", file=sys.stderr)
+          if valid_value is None:
+              sys.exit(0)
+          ms = valid_value * 1000
+          print(f"{ms:.6f}")
+          PY
+              }
+              COMPUTESAD_MS=$(extract_per_kernel_ms ComputeSAD)
+              FINDMINSAD_MS=$(extract_per_kernel_ms FindMinSAD)
+              if [ -n "${COMPUTESAD_MS}" ]; then
+                sed -i'' "\$d" "${OUTPUT}"
+                echo "ComputeSAD,${LABEL},1,${COMPUTESAD_MS},${COMPUTESAD_MS},${COMPUTESAD_MS}" >> "${OUTPUT}"
+              fi
+              if [ -n "${FINDMINSAD_MS}" ]; then
+                echo "FindMinSAD,${LABEL},1,${FINDMINSAD_MS},${FINDMINSAD_MS},${FINDMINSAD_MS}" >> "${FINDMIN_OUTPUT}"
+              fi
+            fi
+
+            PASS=$((PASS + 1))
             rm -rf "${WORK_DIR}"
             echo "::endgroup::"
           done
@@ -358,246 +413,423 @@ jobs:
           echo ""
           echo "=== Summary: ${BENCHMARK} ==="
           echo "  Passed: ${PASS}"
-          echo "  Failed: ${FAIL}"
-          echo "  Total sizes: $((PASS + FAIL))"
-
-          echo "pass_count=${PASS}" >> $GITHUB_OUTPUT
-          echo "fail_count=${FAIL}" >> $GITHUB_OUTPUT
-
-          # Print results
-          echo ""
-          echo "Results:"
+          echo "  Failed/timeouts: ${FAIL}"
+          echo "  Crash failures: ${CRASH_FAIL}"
+          echo "  Total attempted: $((PASS + FAIL + CRASH_FAIL))"
+          echo "pass_count=${PASS}" >> "${GITHUB_OUTPUT}"
+          echo "fail_count=${FAIL}" >> "${GITHUB_OUTPUT}"
           cat "${OUTPUT}"
 
-          # Always exit 0 so artifacts are uploaded even if some sizes failed
+          if [ ${CRASH_FAIL} -gt 0 ] || [ ${FAIL} -gt 0 ] || [ ${PASS} -eq 0 ]; then
+            echo "::error::${BENCHMARK}: regular benchmark job did not produce complete usable data"
+            exit 1
+          fi
           exit 0
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: benchmark-results-${{ matrix.benchmark }}
-          path: results_${{ matrix.benchmark }}.csv
+          name: benchmark-results-${{ steps.benchmark-metadata.outputs.artifact_id || matrix.artifact_id || matrix.benchmark || 'unknown' }}
+          path: |
+            results_${{ steps.benchmark-metadata.outputs.benchmark || matrix.benchmark || 'unknown' }}.csv
+            results_findminsad.csv
+          if-no-files-found: ignore
           retention-days: 30
 
-  # ===========================================================================
-  # Comparison job: collect all results and compare against reference
-  # ===========================================================================
-  compare:
-    name: Compare vs MI300A Reference
-    runs-on: ubuntu-latest
+  # ==========================================================================
+  # Tier-1 summary: concise early diagnosis of Tier 1 results.
+  # ==========================================================================
+  tier1-summary:
+    name: "Tier-1 summary"
+    runs-on: self-hosted
     timeout-minutes: 10
-    needs: [benchmark]
+    needs: [validation, benchmark-tier1]
+    if: always()
+    steps:
+      - name: Download Tier 1 benchmark artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: tier1-artifacts/
+          pattern: benchmark-results-*
+
+      - name: Summarize Tier 1 outputs
+        run: |
+          set -euo pipefail
+          echo "## Tier 1 Summary" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Expected matrix rows: ${{ needs.validation.outputs.tier1_count }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Expected regular Tier 1 data rows: ${{ needs.validation.outputs.tier1_sizes }}" >> "${GITHUB_STEP_SUMMARY}"
+          read RESULT_FILES DATA_ROWS <<EOF
+          $(python3 - <<'PY'
+          try:
+              from pathlib import Path
+              files = sorted(Path('tier1-artifacts').glob('**/results_*.csv'))
+              rows = 0
+              for path in files:
+                  with path.open(encoding='utf-8', errors='replace') as f:
+                      next(f, None)
+                      rows += sum(1 for _ in f)
+              print(len(files), rows)
+          except Exception:
+              print(0, 0)
+          PY
+          )
+          EOF
+          echo "Downloaded result files: ${RESULT_FILES}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Downloaded data rows: ${DATA_ROWS}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Tier 1 job result: ${{ needs['benchmark-tier1'].result }}" >> "${GITHUB_STEP_SUMMARY}"
+          ISSUES_FOUND=0
+          EXPECTED_TIER1_ROWS="${{ needs.validation.outputs.tier1_sizes }}"
+          if [ "${DATA_ROWS}" != "${EXPECTED_TIER1_ROWS}" ]; then
+            echo "::warning::Tier 1 artifacts contain ${DATA_ROWS} data rows; expected ${EXPECTED_TIER1_ROWS}. Available artifacts are partial/diagnostic only."
+            ISSUES_FOUND=1
+          fi
+          if [ "${{ needs['benchmark-tier1'].result }}" != "success" ]; then
+            echo "::warning::Tier 1 did not complete successfully; Tier 2 will still run after validation for full regular matrix coverage."
+            ISSUES_FOUND=1
+          fi
+          if [ "${ISSUES_FOUND}" -ne 0 ]; then
+            echo "::warning::Tier-1 summary check: ${ISSUES_FOUND} issue(s) found. Tier-2 will still run."
+          fi
+          # Always exit 0 — summary is informational only
+          exit 0
+
+  # ==========================================================================
+  # Tier 2: application/secondary benchmark simulations after Tier 1 summary.
+  # ==========================================================================
+  benchmark-tier2:
+    name: "Tier 2 Bench: ${{ matrix.benchmark }}"
+    runs-on: self-hosted
+    timeout-minutes: 360
+    needs: [validation, tier1-summary]
+    if: ${{ always() && needs.validation.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 14
+      matrix: ${{ fromJson(needs.validation.outputs.tier2_matrix) }}
+    env: *benchmark_env
+    steps: *benchmark_steps
+
+  # ==========================================================================
+  # Summary: final artifact collection, merge, comparison, report upload.
+  # ==========================================================================
+  summary:
+    name: "Summary: merge, compare, and report"
+    runs-on: self-hosted
+    timeout-minutes: 15
+    needs: [validation, benchmark-tier1, tier1-summary, benchmark-tier2]
     if: always()
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v gcc &>/dev/null; then
+            echo "gcc already installed: $(gcc --version | head -1)"
+          elif command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo dnf failed, hoping gcc is on PATH"
+          fi
 
       - name: Check Python
         run: python3 --version
 
-      - name: Download all benchmark artifacts
+      - name: Download benchmark artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           path: benchmark-artifacts/
           pattern: benchmark-results-*
 
-      - name: Merge results into single CSV
+      - name: Download validation summary artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: validation-summary
+          path: validation-artifacts/
+
+      - name: Merge benchmark results
         run: |
+          set -euo pipefail
           echo "kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms" > sim_results_ci.csv
-
           TOTAL_LINES=0
-          for f in benchmark-artifacts/benchmark-results-*/results_*.csv; do
-            if [ -f "$f" ]; then
-              # Skip header line, append data
-              LINES=$(tail -n +2 "$f" | wc -l)
-              TOTAL_LINES=$((TOTAL_LINES + LINES))
-              tail -n +2 "$f" >> sim_results_ci.csv
-            fi
-          done
+          python3 - <<'PY'
+          from pathlib import Path
 
-          echo "=== Merged ${TOTAL_LINES} result lines ==="
-          echo ""
-          cat sim_results_ci.csv
+          out = Path('sim_results_ci.csv')
+          files = sorted(Path('benchmark-artifacts').glob('**/results_*.csv'))
+          total = 0
+          with out.open('a', encoding='utf-8') as dst:
+              for path in files:
+                  with path.open(encoding='utf-8', errors='replace') as src:
+                      next(src, None)
+                      for line in src:
+                          dst.write(line)
+                          total += 1
+          print(f"=== Merged {total} result lines ===")
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Resolve reference CSV
+        id: reference
+        run: |
+          REF_CSV=$(ls -1t workloads/results/kernel_timings_*.csv 2>/dev/null | head -1 || true)
+          if [ -n "${REF_CSV}" ]; then
+            echo "Using reference CSV: ${REF_CSV}"
+          else
+            echo "::warning::No workloads/results/kernel_timings_*.csv found; comparison steps will use empty fallback outputs."
+          fi
+          echo "ref_csv=${REF_CSV}" >> "${GITHUB_OUTPUT}"
 
       - name: Run comparison against MI300A reference
         run: |
-          python3 gpu_perf_scripts/compare_sim_vs_real.py \
-            --ref gpu_perf_scripts/mi300a.csv \
+          REF_CSV="${{ steps.reference.outputs.ref_csv }}"
+          if [ -z "${REF_CSV}" ]; then
+            echo "kernel_name,problem_size,real_ms,sim_ms,abs_error_ms,rel_error" > comparison_ci.csv
+            echo "No reference CSV found; wrote empty comparison_ci.csv fallback."
+            exit 0
+          fi
+          python3 workloads/scripts/compare_sim_vs_real.py \
+            --ref "${REF_CSV}" \
             --sim sim_results_ci.csv \
             --output comparison_ci.csv
 
       - name: Run regression-based comparison
         run: |
-          python3 gpu_perf_scripts/compare_regression.py \
-            --ref gpu_perf_scripts/mi300a.csv \
+          REF_CSV="${{ steps.reference.outputs.ref_csv }}"
+          if [ -z "${REF_CSV}" ]; then
+            echo "kernel,group,label,problem_size,numeric_size,hw_ms,sim_ms,hw_pred_ms,sim_pred_ms" > regression_ci.csv
+            echo "No reference CSV found; wrote empty regression_ci.csv fallback."
+            exit 0
+          fi
+          set -o pipefail
+          python3 workloads/scripts/compare_regression.py \
+            --ref "${REF_CSV}" \
             --sim sim_results_ci.csv \
-            --output regression_ci.csv
+            --output regression_ci.csv 2>&1 | tee regression_compare.log
+          if grep -q "^\[compare_regression\]" regression_compare.log; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "### Regression Parser Diagnostics" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```text' >> "${GITHUB_STEP_SUMMARY}"
+            grep "^\[compare_regression\]" regression_compare.log >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
-      - name: Generate summary
+      - name: Install Python report dependencies
         run: |
-          echo "## MI300A Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** \`${{ github.event.inputs.ref || github.ref }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          set -euo pipefail
+          MISSING_REPORT_DEPS="$(python3 - <<'PY'
+          import importlib
 
-          # Count matched data points
+          missing = []
+          try:
+              importlib.import_module("pandas")
+          except Exception:
+              missing.append("pandas")
+          try:
+              matplotlib = importlib.import_module("matplotlib")
+              matplotlib.use("Agg")
+              importlib.import_module("matplotlib.pyplot")
+          except Exception:
+              missing.append("matplotlib")
+          print(" ".join(missing))
+          PY
+          )"
+          if [ -n "${MISSING_REPORT_DEPS}" ]; then
+            echo "Installing missing Python report dependencies: ${MISSING_REPORT_DEPS}"
+            if ! python3 -m pip --version >/dev/null 2>&1; then
+              echo "::notice::python3 -m pip is not available; attempting python3 -m ensurepip --upgrade"
+              if ! python3 -m ensurepip --upgrade; then
+                echo "::error::python3 -m pip is unavailable and ensurepip bootstrap failed"
+                exit 1
+              fi
+            fi
+            python3 -m pip --version
+            if ! python3 -m pip install pandas matplotlib; then
+              echo "::error::failed to install Python report dependencies with python3 -m pip"
+              exit 1
+            fi
+          else
+            echo "Python report dependencies already importable"
+          fi
+          python3 - <<'PY'
+          import importlib
+          import sys
+
+          try:
+              importlib.import_module("pandas")
+              matplotlib = importlib.import_module("matplotlib")
+              matplotlib.use("Agg")
+              importlib.import_module("matplotlib.pyplot")
+          except Exception as exc:
+              print(
+                  f"::error::failed to import Python report dependencies after installation: {exc}",
+                  file=sys.stderr,
+              )
+              raise
+          PY
+
+      - name: Generate validation report
+        run: |
+          mkdir -p benchmark-comparison
+          cp comparison_ci.csv benchmark-comparison/comparison_ci.csv
+          python3 scripts/generate_validation_report.py
+
+      - name: Generate accuracy report
+        id: accuracy_report
+        run: |
+          set -euo pipefail
+          export ACCURACY_ARTIFACT_DIR="accuracy-report-artifact"
+          export ACCURACY_MARKER
+          ACCURACY_MARKER="$(mktemp)"
+          ACCURACY_SENTINEL="${ACCURACY_ARTIFACT_DIR}/accuracy_report.generated"
+
+          rm -rf "${ACCURACY_ARTIFACT_DIR}"
+          mkdir -p "${ACCURACY_ARTIFACT_DIR}/docs/figures"
+          touch "${ACCURACY_MARKER}"
+
+          python3 scripts/generate_comparison_report.py
+
+          python3 - <<'PY'
+          import re
+          import shutil
+          import sys
+          from pathlib import Path
+          import os
+
+          artifact_dir = Path(os.environ["ACCURACY_ARTIFACT_DIR"])
+          marker = Path(os.environ["ACCURACY_MARKER"])
+          marker_mtime = marker.stat().st_mtime
+          report = Path("accuracy_report.md")
+
+          def fail(message: str) -> None:
+              print(f"::error::{message}", file=sys.stderr)
+              sys.exit(1)
+
+          if not report.is_file() or report.stat().st_size == 0:
+              fail("accuracy_report.md was not generated by Generate accuracy report")
+          if report.stat().st_mtime < marker_mtime:
+              fail("accuracy_report.md was not generated by this step")
+
+          shutil.copy2(report, artifact_dir / "accuracy_report.md")
+          report_text = report.read_text(encoding="utf-8")
+          figure_refs = list(
+              dict.fromkeys(
+                  re.findall(r"\]\((docs/figures/[^)\s]+\.png)\)", report_text)
+              )
+          )
+          for ref in figure_refs:
+              source = Path(ref)
+              if not source.is_file():
+                  fail(f"reported figure is missing: {ref}")
+              if source.stat().st_mtime < marker_mtime:
+                  fail(f"reported figure was not generated by this step: {ref}")
+              target = artifact_dir / source
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(source, target)
+
+          sentinel = artifact_dir / "accuracy_report.generated"
+          sentinel.write_text("generated\\n", encoding="utf-8")
+          PY
+
+          test -f "${ACCURACY_SENTINEL}" || {
+            echo "::error::accuracy report generated-output sentinel missing"
+            exit 1
+          }
+          echo "generated=true" >> "${GITHUB_OUTPUT}"
+          echo "artifact_dir=${ACCURACY_ARTIFACT_DIR}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write accuracy report to step summary
+        if: ${{ always() && steps.accuracy_report.outputs.generated == 'true' }}
+        run: python3 scripts/generate_accuracy_summary.py
+
+      - name: Generate final summary
+        run: |
+          set -euo pipefail
+          echo "## MI300A Full Regular Benchmark" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Branch/ref:** \`${{ github.event.inputs.ref || github.ref }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Commit:** \`${{ github.sha }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "### Linear stage results" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Stage | Result |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|---|---|" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Validation | ${{ needs.validation.result }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Tier 1 | ${{ needs['benchmark-tier1'].result }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Tier-1 summary | ${{ needs['tier1-summary'].result }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Tier 2 | ${{ needs['benchmark-tier2'].result }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "### Regular matrix coverage" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Tier | Matrix source | Matrix rows | Expected data rows |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|---|---|---:|---:|" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| benchmark-tier1 | \`benchmark-comparison/mi300a_problem_size_discovery_plan.json\` | ${{ needs.validation.outputs.tier1_count }} | ${{ needs.validation.outputs.tier1_sizes }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| benchmark-tier2 | \`benchmark-comparison/mi300a_problem_size_discovery_plan.json\` | ${{ needs.validation.outputs.tier2_count }} | ${{ needs.validation.outputs.tier2_sizes }} |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
           DATA_LINES=$(tail -n +2 sim_results_ci.csv | wc -l | tr -d ' ')
-          REF_LINES=$(tail -n +2 gpu_perf_scripts/mi300a.csv | wc -l | tr -d ' ')
-          UNIQUE_REF=438  # 453 rows - 15 BFS duplicates = 438 unique keys
-          echo "**Simulation data points:** ${DATA_LINES}" >> $GITHUB_STEP_SUMMARY
-          echo "**Reference data points:** ${REF_LINES} rows (${UNIQUE_REF} unique keys)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Show coverage info
-          echo "### Coverage Strategy" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ALL reference sizes from mi300a.csv are attempted for runnable benchmarks." >> $GITHUB_STEP_SUMMARY
-          echo "Sizes that exceed the 55s per-size timeout or crash are gracefully skipped." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Structurally unreachable (90 points, 4 benchmarks):**" >> $GITHUB_STEP_SUMMARY
-          echo "- **nbody** (22 pts): hangs at all sizes" >> $GITHUB_STEP_SUMMARY
-          echo "- **simpleconvolution** (24 pts): no main.go sample binary" >> $GITHUB_STEP_SUMMARY
-          echo "- **conv2d** (14 pts): MMU page table walk panic at all sizes" >> $GITHUB_STEP_SUMMARY
-          echo "- **memcopy** (30 pts): no kernel_time metric in output" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Partially reachable:**" >> $GITHUB_STEP_SUMMARY
-          echo "- **fft** (3/19 pts): sub-MB sizes unsupported by binary, 8MB+ crashes" >> $GITHUB_STEP_SUMMARY
-          echo "- **im2col**: sizes 32+ may crash (MMU page table panic)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Maximum theoretical coverage: 348/438 unique keys = 79.5%" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Extract key metrics from comparison output if available
-          if [ -f comparison_ci.csv ]; then
-            MATCHED=$(tail -n +2 comparison_ci.csv | grep -v ',,,' | wc -l | tr -d ' ')
-            echo "**Matched reference points:** ${MATCHED} / ${UNIQUE_REF} unique keys" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            # Calculate average and max error using a script file
-            cat > /tmp/calc_error.py << 'PYEOF'
-          import csv
-          errors = []
-          with open('comparison_ci.csv') as f:
-              reader = csv.DictReader(f)
-              for row in reader:
-                  try:
-                      rel = float(row.get('rel_error', row.get('relative_error', '')))
-                      errors.append(abs(rel))
-                  except (ValueError, KeyError):
-                      pass
-          if errors:
-              avg = sum(errors)/len(errors)*100
-              mx = max(errors)*100
-              med = sorted(errors)[len(errors)//2]*100
-              within30 = sum(1 for e in errors if e < 0.3)
-              within50 = sum(1 for e in errors if e < 0.5)
-              print(f'**Average absolute error:** {avg:.1f}%')
-              print(f'**Median absolute error:** {med:.1f}%')
-              print(f'**Max absolute error:** {mx:.1f}%')
-              print(f'**Points within 30% error:** {within30}/{len(errors)}')
-              print(f'**Points within 50% error:** {within50}/{len(errors)}')
-          else:
-              print('No matched comparison points found.')
-          PYEOF
-            python3 /tmp/calc_error.py >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Detailed Results" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Kernel | Size | Real (ms) | Sim (ms) | Rel Error |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|------|-----------|----------|-----------|" >> $GITHUB_STEP_SUMMARY
-
-            cat > /tmp/detail_results.py << 'PYEOF'
-          import csv
-          with open('comparison_ci.csv') as f:
-              reader = csv.DictReader(f)
-              for row in reader:
-                  cols = list(row.values())
-                  if len(cols) >= 6 and cols[3]:
-                      kernel = cols[0]
-                      size = cols[1]
-                      real_ms = cols[2]
-                      sim_ms = cols[3]
-                      try:
-                          rel = float(cols[5]) * 100
-                          print(f'| {kernel} | {size} | {real_ms} | {sim_ms} | {rel:+.1f}% |')
-                      except (ValueError, IndexError):
-                          pass
-          PYEOF
-            python3 /tmp/detail_results.py >> $GITHUB_STEP_SUMMARY
+          COMP_LINES=$(tail -n +2 comparison_ci.csv | wc -l | tr -d ' ')
+          REG_LINES=$(tail -n +2 regression_ci.csv | wc -l | tr -d ' ')
+          EXPECTED_TIER1_ROWS="${{ needs.validation.outputs.tier1_sizes }}"
+          EXPECTED_TIER2_ROWS="${{ needs.validation.outputs.tier2_sizes }}"
+          if [[ "${EXPECTED_TIER1_ROWS}" =~ ^[0-9]+$ && "${EXPECTED_TIER2_ROWS}" =~ ^[0-9]+$ ]]; then
+            EXPECTED_TOTAL_ROWS=$((EXPECTED_TIER1_ROWS + EXPECTED_TIER2_ROWS))
+          else
+            EXPECTED_TOTAL_ROWS="unknown"
+          fi
+          echo "### Result artifacts" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Merged simulation rows: ${DATA_LINES}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Expected complete simulation rows: ${EXPECTED_TOTAL_ROWS}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Comparison rows: ${COMP_LINES}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Regression rows: ${REG_LINES}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Artifacts: \`benchmark-comparison\`, \`comparison-detailed\`, \`validation-report\`" >> "${GITHUB_STEP_SUMMARY}"
+          SUMMARY_FAILED=0
+          if [ "${EXPECTED_TOTAL_ROWS}" != "unknown" ] && [ "${DATA_LINES}" != "${EXPECTED_TOTAL_ROWS}" ]; then
+            echo "::warning::Merged simulation rows ${DATA_LINES} of expected ${EXPECTED_TOTAL_ROWS} complete (partial-coverage run). 81/82 matrix rows exceed the 360-min job budget so partial coverage is the expected norm."
           fi
 
-          # Regression analysis summary
-          if [ -f regression_ci.csv ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Regression Analysis (Slope Comparison)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Compares how simulator and hardware scale with problem size." >> $GITHUB_STEP_SUMMARY
-            echo "A slope ratio of 1.0 means identical scaling behavior." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Benchmark | Slope Ratio | Sim Slope | HW Slope | R² Sim | R² HW | Points |" >> $GITHUB_STEP_SUMMARY
-            echo "|-----------|-------------|-----------|----------|--------|-------|--------|" >> $GITHUB_STEP_SUMMARY
-
-            cat > /tmp/regression_summary.py << 'PYEOF'
-          import csv, sys
-          # Re-run the regression script to capture structured output
-          # Instead, parse the output CSV and compute slopes from it
-          from collections import defaultdict
-
-          points = defaultdict(list)
-          with open('regression_ci.csv') as f:
-              reader = csv.DictReader(f)
-              for row in reader:
-                  k = row['kernel']
-                  points[k].append(row)
-
-          ratios = []
-          for kernel in sorted(points.keys()):
-              pts = points[kernel]
-              n = len(pts)
-              if n < 3:
-                  continue
-              x = [float(p['numeric_size']) for p in pts]
-              hw = [float(p['hw_ms']) for p in pts]
-              sim = [float(p['sim_ms']) for p in pts]
-
-              def linreg(xv, yv):
-                  nn = len(xv)
-                  sx = sum(xv); sy = sum(yv)
-                  sxy = sum(a*b for a,b in zip(xv,yv))
-                  sx2 = sum(a*a for a in xv)
-                  my = sy/nn
-                  d = nn*sx2 - sx*sx
-                  if abs(d) < 1e-30: return 0,my,0
-                  sl = (nn*sxy - sx*sy)/d
-                  ic = (sy - sl*sx)/nn
-                  ssr = sum((y-(sl*xi+ic))**2 for xi,y in zip(xv,yv))
-                  sst = sum((y-my)**2 for y in yv)
-                  r2 = 1 - ssr/sst if sst > 1e-30 else 0
-                  return sl, ic, r2
-
-              hs, _, hr2 = linreg(x, hw)
-              ss, _, sr2 = linreg(x, sim)
-              ratio = ss/hs if abs(hs) > 1e-30 else float('inf')
-              ratios.append(ratio)
-              print(f'| {kernel} | {ratio:.4f} | {ss:.6e} | {hs:.6e} | {sr2:.4f} | {hr2:.4f} | {n} |')
-
-          if ratios:
-              mean_r = sum(ratios)/len(ratios)
-              sr = sorted(ratios)
-              med_r = sr[len(sr)//2]
-              print(f'')
-              print(f'**Mean slope ratio:** {mean_r:.4f} | **Median slope ratio:** {med_r:.4f}')
-          PYEOF
-            python3 /tmp/regression_summary.py >> $GITHUB_STEP_SUMMARY
+          REGULAR_COVERAGE_ARGS=()
+          if [ -f validation-artifacts/regular_matrix_validation.json ]; then
+            REGULAR_COVERAGE_ARGS+=(--regular-matrix-report validation-artifacts/regular_matrix_validation.json)
+          else
+            echo "::warning::regular_matrix_validation.json was not downloaded; using checked-in regular plan for partial/diagnostic coverage expectations."
+            REGULAR_COVERAGE_ARGS+=(--regular-plan benchmark-comparison/mi300a_problem_size_discovery_plan.json)
           fi
 
-      - name: Upload merged results
+          python3 scripts/generate_validation_report.py \
+            --regular-artifact-coverage \
+            "${REGULAR_COVERAGE_ARGS[@]}" \
+            --regular-sim-csv sim_results_ci.csv \
+            --regular-comparison-csv comparison_ci.csv \
+            --regular-regression-csv regression_ci.csv \
+            --regular-artifact-coverage-json regular_artifact_coverage_summary.json \
+            --regular-artifact-coverage-md regular_artifact_coverage_summary.md \
+            --regular-stage-result "validation=${{ needs.validation.result }}" \
+            --regular-stage-result "benchmark-tier1=${{ needs['benchmark-tier1'].result }}" \
+            --regular-stage-result "tier1-summary=${{ needs['tier1-summary'].result }}" \
+            --regular-stage-result "benchmark-tier2=${{ needs['benchmark-tier2'].result }}"
+
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          cat regular_artifact_coverage_summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${SUMMARY_FAILED}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload merged benchmark results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-comparison
@@ -605,11 +837,37 @@ jobs:
             sim_results_ci.csv
             comparison_ci.csv
             regression_ci.csv
+            regular_artifact_coverage_summary.json
+            regular_artifact_coverage_summary.md
           retention-days: 90
 
       - name: Upload comparison CSV
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: comparison-detailed
           path: comparison_ci.csv
+          retention-days: 90
+
+      - name: Upload validation report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: |
+            docs/validation_report.md
+            docs/figures/*.png
+            benchmark-comparison/mi300a_finishable_size_manifest.json
+            benchmark-comparison/mi300a_finishable_size_summary.json
+            benchmark-comparison/provenance/mi300a_problem_size_discovery_run_24959959195.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload accuracy report
+        if: ${{ always() && steps.accuracy_report.outputs.generated == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: accuracy-report
+          path: ${{ steps.accuracy_report.outputs.artifact_dir }}/
+          if-no-files-found: error
           retention-days: 90

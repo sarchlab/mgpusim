@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/subcore"
@@ -14,7 +14,7 @@ import (
 type SM struct {
 	*sim.TickingComponent
 
-	ID         string
+	ID         uint64
 	warpsCount int64
 	instsCount int64
 
@@ -23,7 +23,7 @@ type SM struct {
 	toGPURemote sim.Port
 
 	toSubcores   sim.Port
-	Subcores     map[string]*subcore.Subcore
+	Subcores     map[uint64]*subcore.Subcore
 	freeSubcores []*subcore.Subcore
 
 	undispatchedWarps    []*nvidiaconfig.Warp
@@ -142,7 +142,7 @@ func (s *SM) dispatchThreadblocksToSubcores() bool {
 	s.freeSubcores = s.freeSubcores[1:]
 	s.undispatchedWarps = s.undispatchedWarps[1:]
 
-	return false
+	return true
 }
 
 func (s *SM) GetTotalWarpsCount() int64 {

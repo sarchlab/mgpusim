@@ -1,6 +1,6 @@
 # MGPUSim - GPU Simulator
 
-MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator that models GPUs running AMD GCN3 instruction sets with multi-GPU simulation support.
+MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator that models GPUs running AMD CDNA3 (MI300 series) instruction sets with multi-GPU simulation support.
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
@@ -105,15 +105,15 @@ From `amd/samples/`: atax, aes, bfs, bicg, bitonicsort, fft, fir, floydwarshall,
 ## Development Patterns
 
 ### Working with Akita Framework
-- MGPUSim depends on `github.com/sarchlab/akita/v4` simulation framework
-- To use local Akita: add `replace github.com/sarchlab/akita/v4 => ../akita` to `go.mod`
+- MGPUSim depends on the `github.com/sarchlab/akita/v4` simulation framework
+- Keep local Akita checkouts as private Go module overrides; do not commit local-path dependency directives
 - Tests use Ginkgo/Gomega testing framework with extensive mocking
 
 ### Configuration and Platform Files
 When creating experiments:
 - Copy `amd/samples/experiment/` template 
 - Modify `main.go` for benchmark selection
-- Adjust `runner.go`, `platform.go`, `r9nano.go`, `shaderarray.go` for configuration
+- Adjust `runner.go`, `platform.go`, `mi300a.go`, `shaderarray.go` for configuration
 
 ### Timing Expectations (NEVER CANCEL)
 - Initial build with deps: ~70 seconds (subsequent: ~16 seconds clean rebuild)

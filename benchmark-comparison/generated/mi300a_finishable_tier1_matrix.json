@@ -1,0 +1,69 @@
+{
+  "schema_name": "mgpusim.mi300a_finishable_tier_matrix_view",
+  "schema_version": 1,
+  "source_manifest": "benchmark-comparison/mi300a_finishable_size_manifest.json",
+  "source_provenance": "benchmark-comparison/provenance/mi300a_problem_size_discovery_run_24959959195.json",
+  "run": {
+    "database_id": 24959959195,
+    "status": "queued",
+    "conclusion": "",
+    "head_branch": "e5-m3-2-refresh-1416-entry-discovery-evidence",
+    "head_sha": "d1105930b0272b8f8f552abfc2490744ef6fcf2f",
+    "non_terminal_snapshot": true
+  },
+  "snapshot_contract": {
+    "observation_time_utc": "2026-04-26T17:04:42Z",
+    "non_terminal_snapshot": true,
+    "bounded_snapshot": true,
+    "claim_scope": "immutable observation-time evidence snapshot only; queued/in_progress/missing-outcome rows are not final/current finishable-size claims while the source workflow remains non-terminal",
+    "source": "GitHub Actions REST API job/artifact rows plus candidate_outcomes_*.csv rows parsed from downloaded artifacts only"
+  },
+  "tier": 1,
+  "tier_name": "tier1",
+  "eligible_only": true,
+  "eligible_entry_count": 6,
+  "excluded_entry_count": 302,
+  "eligible_plan_index_ranges": [
+    "1",
+    "3",
+    "6",
+    "9",
+    "237-238"
+  ],
+  "excluded_plan_index_ranges": [
+    "2",
+    "4-5",
+    "7-8",
+    "10-236",
+    "239-308"
+  ],
+  "include": [
+    {
+      "benchmark": "mem_latency_chase",
+      "tier": "tier1",
+      "sizes": "256 1024 8192 65536",
+      "flag_template": "-num_elements {size}",
+      "size_label_template": "{size}",
+      "timeout_sec": 3600,
+      "finishable_plan_index_ranges": [
+        "1",
+        "3",
+        "6",
+        "9"
+      ]
+    },
+    {
+      "benchmark": "occupancy_fma",
+      "tier": "tier1",
+      "sizes": "131072 262144",
+      "flag_template": "-num_elements {size}",
+      "size_label_template": "{size}",
+      "timeout_sec": 3600,
+      "finishable_plan_index_ranges": [
+        "237-238"
+      ],
+      "gomemlimit": "6GiB",
+      "gogc": "off"
+    }
+  ]
+}

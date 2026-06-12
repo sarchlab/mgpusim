@@ -6,12 +6,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"go.uber.org/mock/gomock"
 )
 
-//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v4/sim Port,Engine
+//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v5/sim Port,Engine
 
 func TestRDMA(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
@@ -85,12 +85,10 @@ var _ = Describe("Engine", func() {
 		var read *mem.ReadReq
 
 		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = localCache.AsRemote()
+			read.Dst = rdmaEngine.RDMARequestOutside.AsRemote()
 		})
 
 		It("should send read to outside", func() {
@@ -122,12 +120,10 @@ var _ = Describe("Engine", func() {
 		var read *mem.ReadReq
 
 		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = localCache.AsRemote()
+			read.Dst = rdmaEngine.RDMADataOutside.AsRemote()
 		})
 
 		It("should send read to outside", func() {
@@ -162,23 +158,21 @@ var _ = Describe("Engine", func() {
 		)
 
 		BeforeEach(func() {
-			readFromInside = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestInside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithDst(remoteGPU.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithRspTo(read.ID).
-				Build()
+			readFromInside = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			readFromInside.ID = sim.GetIDGenerator().Generate()
+			readFromInside.Src = localCache.AsRemote()
+			readFromInside.Dst = rdmaEngine.RDMARequestInside.AsRemote()
+
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = rdmaEngine.RDMARequestOutside.AsRemote()
+			read.Dst = remoteGPU.AsRemote()
+
+			rsp = &mem.DataReadyRsp{}
+			rsp.ID = sim.GetIDGenerator().Generate()
+			rsp.Src = remoteGPU.AsRemote()
+			rsp.Dst = rdmaEngine.RDMARequestOutside.AsRemote()
+			rsp.RspTo = read.ID
 
 			rdmaEngine.transactionsFromInside = append(
 				rdmaEngine.transactionsFromInside,
@@ -220,23 +214,21 @@ var _ = Describe("Engine", func() {
 		)
 
 		BeforeEach(func() {
-			readFromOutside = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMADataInside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithDst(remoteGPU.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU.AsRemote()).
-				WithDst(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithRspTo(read.ID).
-				Build()
+			readFromOutside = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			readFromOutside.ID = sim.GetIDGenerator().Generate()
+			readFromOutside.Src = localCache.AsRemote()
+			readFromOutside.Dst = rdmaEngine.RDMADataInside.AsRemote()
+
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = rdmaEngine.RDMADataOutside.AsRemote()
+			read.Dst = remoteGPU.AsRemote()
+
+			rsp = &mem.DataReadyRsp{}
+			rsp.ID = sim.GetIDGenerator().Generate()
+			rsp.Src = remoteGPU.AsRemote()
+			rsp.Dst = rdmaEngine.RDMADataOutside.AsRemote()
+			rsp.RspTo = read.ID
 			rdmaEngine.transactionsFromOutside = append(
 				rdmaEngine.transactionsFromInside,
 				transaction{
@@ -277,12 +269,11 @@ var _ = Describe("Engine", func() {
 		)
 
 		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = localCache.AsRemote()
+			read.Dst = rdmaEngine.RDMARequestOutside.AsRemote()
+
 			drainReq = DrainReqBuilder{}.
 				WithSrc(controllingComponent.AsRemote()).
 				WithDst(rdmaEngine.CtrlPort.AsRemote()).Build()

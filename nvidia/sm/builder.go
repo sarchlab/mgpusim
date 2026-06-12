@@ -3,8 +3,8 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
 	"github.com/sarchlab/mgpusim/v4/nvidia/subcore"
 	"github.com/tebeka/atexit"
 )
@@ -34,7 +34,7 @@ func (b *SMBuilder) WithSubcoresCount(count int64) *SMBuilder {
 func (b *SMBuilder) Build(name string) *SM {
 	s := &SM{
 		ID:       sim.GetIDGenerator().Generate(),
-		Subcores: make(map[string]*subcore.Subcore),
+		Subcores: make(map[uint64]*subcore.Subcore),
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
@@ -71,7 +71,7 @@ func (b *SMBuilder) connectSMwithSubcores(sm *SM, subcores []*subcore.Subcore) {
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(1 * sim.GHz).
-		Build("SMToSubcores")
+		Build(fmt.Sprintf("%s.SMToSubcores", sm.Name()))
 
 	conn.PlugIn(sm.toSubcores)
 

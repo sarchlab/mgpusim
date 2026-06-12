@@ -1,0 +1,23 @@
+{
+  "run_id": "20260317-075319-odyssey",
+  "timestamp": "2026-03-17T14:53:20Z",
+  "hostname": "odyssey",
+  "os": "Red Hat Enterprise Linux 8.10 (Ootpa)",
+  "kernel": "4.18.0-553.16.1.el8_10.x86_64",
+  "cpu": {
+    "model": "AMD Instinct MI300A Accelerator",
+    "cores": 192
+  },
+  "ram_gb": 501.0,
+  "gpu": {
+    "model": "unknown",
+    "count": 4,
+    "vram_gb": 0.0,
+    "driver": "6.14.14",
+    "arch": "gfx942\nunknown"
+  },
+  "compiler": "hipcc",
+  "compiler_version": "HIP version: 7.2.25493-a4e03c081c\nAMD clang version 22.0.0git (https://github.com/RadeonOpenCompute/llvm-project roc-7.2.0 25492 aaa1220a0846230b111a8a7670d66c7b0f9179cc)\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/rocm-7.2.0/lib/llvm/bin\nConfiguration file: /opt/rocm-7.2.0/lib/llvm/bin/clang++.cfg",
+  "runtime": "7.2.0",
+  "platform": "hip"
+}

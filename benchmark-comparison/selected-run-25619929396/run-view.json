@@ -1,0 +1,1 @@
+{"conclusion":"failure","createdAt":"2026-05-10T04:36:43Z","databaseId":25619929396,"event":"workflow_dispatch","headBranch":"main","headSha":"a281789a7354b86a8a04b350c145c573d531f54d","status":"completed","updatedAt":"2026-05-10T16:21:40Z","url":"https://github.com/sarchlab/mgpusim-dev/actions/runs/25619929396","workflowName":"MI300A Benchmark"}

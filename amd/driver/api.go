@@ -8,8 +8,8 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -123,6 +123,7 @@ func (d *Driver) DrainCommandQueue(q *CommandQueue) {
 		if q.NumCommand() == 0 {
 			return
 		}
+
 		listener.Wait()
 	}
 }

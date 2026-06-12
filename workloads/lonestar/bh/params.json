@@ -1,0 +1,23 @@
+{
+  "benchmark": "bh",
+  "suite": "lonestar",
+  "scaling_parameter": {
+    "name": "num_bodies",
+    "description": "Number of bodies in the n-body simulation",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144, 393216, 524288, 786432, 1048576, 1572864, 2097152]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "theta_x10": {
+      "description": "Barnes-Hut accuracy parameter theta multiplied by 10 (5=0.5, 10=1.0, 15=1.5, 20=2.0)",
+      "values": [5, 10, 15, 20]
+    },
+    "num_timesteps": {
+      "description": "Number of simulation timesteps per benchmark iteration",
+      "values": [1, 2, 5]
+    }
+  }
+}

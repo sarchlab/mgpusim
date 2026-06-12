@@ -1,8 +1,8 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 )
 
 // InstTracer is a tracer that traces the time that VALU instructions take and VMem instructions take
@@ -13,7 +13,7 @@ type InstTracer struct {
 	TimeManager           InstTimeManagement
 	CountManager          InstCountManagement
 	ScalarInstTracer      *tracing.BusyTimeTracer
-	inflightInsts         map[string]tracing.Task
+	inflightInsts         map[uint64]tracing.Task
 }
 
 // SIMDCPIStack holds the cpi stack values of each type of instruction when looking at the SIMD specifically
@@ -65,7 +65,7 @@ func NewInstTracer(timeTeller sim.TimeTeller) *InstTracer {
 		TimeManager:           *newInstTimeManager(),
 		CountManager:          *newInstCountManager(),
 		ScalarInstTracer:      tracing.NewBusyTimeTracer(timeTeller, nil),
-		inflightInsts:         make(map[string]tracing.Task),
+		inflightInsts:         make(map[uint64]tracing.Task),
 	}
 }
 

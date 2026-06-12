@@ -1,0 +1,23 @@
+{
+  "benchmark": "BS",
+  "suite": "heteromark",
+  "scaling_parameter": {
+    "name": "size",
+    "description": "Number of options to price",
+    "values": [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size",
+      "values": [64, 128, 256, 512]
+    },
+    "risk_free_rate": {
+      "description": "Risk-free interest rate",
+      "values": [0.01, 0.02, 0.05, 0.1]
+    },
+    "volatility": {
+      "description": "Volatility of the underlying asset",
+      "values": [0.1, 0.2, 0.3, 0.5]
+    }
+  }
+}

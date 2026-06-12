@@ -1,0 +1,19 @@
+{
+  "benchmark": "Sort",
+  "suite": "shoc",
+  "scaling_parameter": {
+    "name": "array_size",
+    "description": "Number of unsigned integers to sort",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216]
+  },
+  "non_scaling_parameters": {
+    "bits_per_pass": {
+      "description": "Bits processed per radix sort pass (1 = binary split)",
+      "values": [1, 2, 4]
+    },
+    "block_size": {
+      "description": "Thread block size",
+      "values": [128, 256, 512]
+    }
+  }
+}

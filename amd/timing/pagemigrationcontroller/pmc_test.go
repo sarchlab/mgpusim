@@ -6,12 +6,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"go.uber.org/mock/gomock"
 )
 
-//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v4/sim Port,Engine
+//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v5/sim Port,Engine
 
 func TestPMC(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
@@ -154,12 +154,10 @@ var _ = Describe("PMC", func() {
 		})
 
 		It("send the data request from page migration to MemCtrl", func() {
-			req := mem.ReadReqBuilder{}.
-				WithSrc(pmc.localMemPort.AsRemote()).
-				WithDst(pmc.MemCtrlFinder.Find(0x100)).
-				WithAddress(0x100).
-				WithByteSize(0x04).
-				Build()
+			req := &mem.ReadReq{Address: 0x100, AccessByteSize: 0x04}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = pmc.localMemPort.AsRemote()
+			req.Dst = pmc.MemCtrlFinder.Find(0x100)
 			pmc.toSendLocalMemPort = append(pmc.toSendLocalMemPort, req)
 
 			LocalMemPort.EXPECT().Send(req).Return(nil)
@@ -170,10 +168,10 @@ var _ = Describe("PMC", func() {
 		})
 
 		It("should receive a data ready rsp from MemCtrl", func() {
-			req := mem.DataReadyRspBuilder{}.
-				WithSrc("").
-				WithDst(pmc.localMemPort.AsRemote()).
-				Build()
+			req := &mem.DataReadyRsp{}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = ""
+			req.Dst = pmc.localMemPort.AsRemote()
 
 			LocalMemPort.EXPECT().RetrieveIncoming().Return(req)
 
@@ -185,11 +183,10 @@ var _ = Describe("PMC", func() {
 		It("process a data ready rsp from Mem Ctrl", func() {
 			data := make([]byte, 0)
 			data = append(data, 0x04)
-			req := mem.DataReadyRspBuilder{}.
-				WithSrc("").
-				WithDst(pmc.localMemPort.AsRemote()).
-				WithData(data).
-				Build()
+			req := &mem.DataReadyRsp{Data: data}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = ""
+			req.Dst = pmc.localMemPort.AsRemote()
 
 			pmc.dataReadyRspFromMemCtrl = append(
 				pmc.dataReadyRspFromMemCtrl, req)
@@ -264,12 +261,10 @@ var _ = Describe("PMC", func() {
 
 		It("should send a write req to mem ctrl", func() {
 			data := []byte{1, 2}
-			req := mem.WriteReqBuilder{}.
-				WithSrc(pmc.localMemPort.AsRemote()).
-				WithDst(pmc.MemCtrlFinder.Find(0x100)).
-				WithAddress(0x100).
-				WithData(data).
-				Build()
+			req := &mem.WriteReq{Address: 0x100, Data: data}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = pmc.localMemPort.AsRemote()
+			req.Dst = pmc.MemCtrlFinder.Find(0x100)
 
 			pmc.writeReqLocalMemPort = append(pmc.writeReqLocalMemPort, req)
 
@@ -282,11 +277,11 @@ var _ = Describe("PMC", func() {
 		})
 
 		It("should process a write done rsp from memctrl", func() {
-			req := mem.WriteDoneRspBuilder{}.
-				WithSrc("").
-				WithDst(pmc.localMemPort.AsRemote()).
-				WithRspTo("xx").
-				Build()
+			req := &mem.WriteDoneRsp{}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = ""
+			req.Dst = pmc.localMemPort.AsRemote()
+			req.RspTo = 9999
 
 			pmc.receivedWriteDoneFromMemCtrl = req
 
@@ -300,11 +295,11 @@ var _ = Describe("PMC", func() {
 		})
 
 		It("should receive the last pending data for the page and prepare response for CP", func() {
-			req := mem.WriteDoneRspBuilder{}.
-				WithSrc("").
-				WithDst(pmc.localMemPort.AsRemote()).
-				WithRspTo("xx").
-				Build()
+			req := &mem.WriteDoneRsp{}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = ""
+			req.Dst = pmc.localMemPort.AsRemote()
+			req.RspTo = 9999
 			pageMigrationReq := PageMigrationReqToPMCBuilder{}.
 				WithSrc("").
 				WithDst(pmc.ctrlPort.AsRemote()).

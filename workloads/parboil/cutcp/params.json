@@ -1,0 +1,23 @@
+{
+  "benchmark": "cutcp",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "num_atoms",
+    "description": "Number of atoms to place randomly for electrostatic potential computation",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 1572864, 2097152, 2621440, 3145728]
+  },
+  "non_scaling_parameters": {
+    "grid_size": {
+      "description": "Dimension of the 3D potential grid (grid_size^3 total points)",
+      "values": [16, 32, 48, 64]
+    },
+    "cutoff_distance_x10": {
+      "description": "Cutoff distance multiplied by 10 (integer representation, e.g. 12 = 1.2 Angstroms)",
+      "values": [8, 12, 16, 20]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    }
+  }
+}

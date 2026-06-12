@@ -1,9 +1,9 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v4/mem/cache"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/sampling"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
@@ -46,26 +46,22 @@ func (m *cpMiddleware) processRspFromDMAs() bool {
 		return false
 	}
 
-	switch req := msg.(type) {
-	case *sim.GeneralRsp:
-		return m.processMemCopyRsp(req) //cp
-	}
-
-	panic("never")
+	// TODO: V5 migration - sim.GeneralRsp removed. Handle response by msg type.
+	return m.processMemCopyRsp(msg)
 }
 
 func (m *cpMiddleware) processMemCopyRsp(
-	req sim.Rsp,
+	req sim.Msg,
 ) bool {
 	originalReq := m.findAndRemoveOriginalMemCopyRequest(req)
 
-	rsp := sim.GeneralRspBuilder{}.
-		WithDst(originalReq.Meta().Src).
-		WithSrc(m.ToDriver.AsRemote()).
-		WithOriginalReq(originalReq).
-		Build()
+	// Send the original request object back to the driver so the driver
+	// can find it by pointer comparison in findCommandByReq.
+	origSrc := originalReq.Meta().Src
+	originalReq.Meta().Src = m.ToDriver.AsRemote()
+	originalReq.Meta().Dst = origSrc
 
-	m.ToDriver.Send(rsp)
+	m.ToDriver.Send(originalReq)
 	m.ToDMA.RetrieveIncoming()
 
 	tracing.TraceReqComplete(originalReq, m.CommandProcessor)
@@ -75,9 +71,9 @@ func (m *cpMiddleware) processMemCopyRsp(
 }
 
 func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
-	rsp sim.Rsp,
+	rsp sim.Msg,
 ) sim.Msg {
-	rspTo := rsp.GetRspTo()
+	rspTo := rsp.Meta().RspTo
 
 	originalH2DReq, ok := m.bottomMemCopyH2DReqIDToTopReqMap[rspTo]
 	if ok {
@@ -131,6 +127,13 @@ func (m *cpMiddleware) processFlushReq(
 		return false
 	}
 
+	m.currFlushRequest = req
+
+	// Phase 1: Flush L1 caches first. L1V caches are write-through to L2,
+	// so all L1 flushes must complete before L2 flush begins. Otherwise,
+	// L2 may flush and miss late-arriving write-through data from L1V.
+	m.flushPhase = 1
+
 	for _, port := range m.L1ICaches {
 		m.flushCache(port)
 	}
@@ -143,18 +146,9 @@ func (m *cpMiddleware) processFlushReq(
 		m.flushCache(port)
 	}
 
-	for _, port := range m.L2Caches {
-		m.flushCache(port)
-	}
-
-	m.currFlushRequest = req
+	// If no L1 caches, start phase 2 immediately
 	if m.numCacheACK == 0 {
-		rsp := sim.GeneralRspBuilder{}.
-			WithSrc(m.ToDriver.AsRemote()).
-			WithDst(m.Driver.AsRemote()).
-			WithOriginalReq(req).
-			Build()
-		m.ToDriver.Send(rsp)
+		m.startL2CacheFlush()
 	}
 
 	m.ToDriver.RetrieveIncoming()
@@ -162,6 +156,28 @@ func (m *cpMiddleware) processFlushReq(
 	tracing.TraceReqReceive(req, m.CommandProcessor)
 
 	return true
+}
+
+// startL2CacheFlush begins phase 2 of the two-phase flush by sending
+// flush commands to all L2 caches. If there are no L2 caches, it
+// completes the flush immediately.
+func (m *cpMiddleware) startL2CacheFlush() {
+	m.flushPhase = 2
+
+	for _, port := range m.L2Caches {
+		m.flushCache(port)
+	}
+
+	// If no L2 caches, respond immediately
+	if m.numCacheACK == 0 {
+		m.flushPhase = 0
+		req := m.currFlushRequest
+		origSrc := req.Meta().Src
+		req.Meta().Src = m.ToDriver.AsRemote()
+		req.Meta().Dst = origSrc
+		m.ToDriver.Send(req)
+		m.currFlushRequest = nil
+	}
 }
 
 func (m *cpMiddleware) processMemCopyReq(
@@ -212,10 +228,12 @@ func (m *cpMiddleware) cloneMemCopyD2HReq(
 }
 
 func (m *cpMiddleware) flushCache(port sim.Port) {
-	flushReq := cache.FlushReqBuilder{}.
-		WithSrc(m.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		Build()
+	flushReq := &mem.ControlReq{
+		Command: mem.CmdFlush,
+	}
+	flushReq.ID = sim.GetIDGenerator().Generate()
+	flushReq.Src = m.ToCaches.AsRemote()
+	flushReq.Dst = port.AsRemote()
 
 	err := m.ToCaches.Send(flushReq)
 	if err != nil {

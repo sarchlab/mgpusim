@@ -1,0 +1,23 @@
+{
+  "benchmark": "tpacf",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "num_points",
+    "description": "Number of sky data points in the catalog",
+    "values": [256, 512, 1024, 2048, 3072, 4096, 5120, 6144, 7168, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768]
+  },
+  "non_scaling_parameters": {
+    "num_bins": {
+      "description": "Number of histogram bins for angular separation",
+      "values": [32, 64, 128, 256]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "num_random_catalogs": {
+      "description": "Number of random catalogs for DD/DR/RR computation",
+      "values": [1, 3, 5]
+    }
+  }
+}

@@ -9,7 +9,7 @@ import (
 //nolint:gocyclo
 func (u *ALU) runSOP1(state emu.InstEmuState) {
 	inst := state.Inst()
-	// Opcodes match the GCN3 decode table numbering (used by the shared decoder)
+	// Opcodes match the decode table numbering (used by the shared decoder)
 	switch inst.Opcode {
 	case 0:
 		u.runSMOVB32(state)

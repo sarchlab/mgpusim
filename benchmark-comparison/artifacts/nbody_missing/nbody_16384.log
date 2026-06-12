@@ -1,0 +1,11 @@
+command: amd/samples/nbody/nbody -timing -arch=cdna3 -gpu=mi300a -disable-rtm -particles 16384
+working_dir: <tmp>/devon_issue299_nbody/run_16384
+sim_timeout_seconds: 58
+elapsed_seconds: 58.009
+exit_code: 124
+status: timeout
+reason: sim_exceeded_58s
+sqlite_file: <tmp>/devon_issue299_nbody/run_16384/akita_sim_d6sd3bif5mkma2ktbh2g.sqlite3
+--- stdout ---
+
+--- stderr ---

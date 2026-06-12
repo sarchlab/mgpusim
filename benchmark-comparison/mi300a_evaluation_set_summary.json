@@ -1,0 +1,1782 @@
+{
+  "aggregate_metrics": {
+    "avg_error_boosted_benchmarks": 16,
+    "boosted_unscored_kernels": [
+      "l1_cache_bw",
+      "l2_cache_bw"
+    ],
+    "flat_points": 88,
+    "flat_wmape": 0.882929139708,
+    "matched_kernels": 18,
+    "mean_avg_error_boosted": 0.894577850342,
+    "mean_scaling_factor_error_boosted": 2.046151733556,
+    "nonflat_points": 94,
+    "nonflat_wmape": 0.951382302996,
+    "noninformative_scaling_kernels": [
+      "l1_cache_bw",
+      "l2_cache_bw"
+    ],
+    "overall_wmape": 0.95019489643,
+    "scaling_factor_error_boosted_benchmarks": 15,
+    "spearman_rho_all": 0.67818649967,
+    "tier1_mean_avg_error_boosted": 0.920861088174,
+    "tier1_mean_scaling_factor_error_boosted": 1.84401226876,
+    "tier2_mean_avg_error_boosted": 0.885816771065,
+    "tier2_mean_scaling_factor_error_boosted": 2.119656993482,
+    "total_points": 182
+  },
+  "broad_suite_diagnostics_policy": "Curated primary benchmarks are the tuning/evaluation surface for this report. Non-selected broad-suite kernels remain secondary diagnostics and regression signals; they are excluded here unless promoted into the curated manifest.",
+  "category_counts": {
+    "dense_linear_algebra_factorization": 1,
+    "device_memory_write_probe": 1,
+    "device_to_host_transfer_probe": 1,
+    "dynamic_programming": 1,
+    "embarrassingly_parallel_compute": 1,
+    "global_memory_copy_probe": 1,
+    "histogram_atomic_memory": 1,
+    "host_to_device_transfer_probe": 1,
+    "irregular_graph_tree_traversal": 1,
+    "l1_cache_bandwidth_probe": 1,
+    "l2_cache_bandwidth_probe": 1,
+    "ml_fused_activation": 1,
+    "ml_positional_embedding": 1,
+    "monte_carlo_particle_tracking": 1,
+    "nearest_neighbor_search": 1,
+    "scientific_compute": 1,
+    "stencil_thermal": 1,
+    "tiled_dense_gemm": 1
+  },
+  "coverage_status": {
+    "compliant": 14,
+    "no_sim_data": 0,
+    "non_compliant": 4
+  },
+  "data_source": "benchmark-comparison/comparison_ci.csv",
+  "figure_files": [
+    "docs/figures/curated_bh_scaling.png",
+    "docs/figures/curated_busspeeddownload_scaling.png",
+    "docs/figures/curated_busspeedreadback_scaling.png",
+    "docs/figures/curated_devicememory_write_scaling.png",
+    "docs/figures/curated_ep_scaling.png",
+    "docs/figures/curated_fused_swiglu_scaling.png",
+    "docs/figures/curated_global_bw_copy_scaling.png",
+    "docs/figures/curated_hist_scaling.png",
+    "docs/figures/curated_hotspot_scaling.png",
+    "docs/figures/curated_l1_cache_bw_scaling.png",
+    "docs/figures/curated_l2_cache_bw_scaling.png",
+    "docs/figures/curated_lud_scaling.png",
+    "docs/figures/curated_nn_scaling.png",
+    "docs/figures/curated_nw_scaling.png",
+    "docs/figures/curated_particlefilter_scaling.png",
+    "docs/figures/curated_qtc_scaling.png",
+    "docs/figures/curated_rope_scaling.png",
+    "docs/figures/curated_sgemm_tiled_scaling.png",
+    "docs/figures/curated_sim_vs_hw_scatter.png",
+    "docs/figures/curated_slowdown_bar_chart.png"
+  ],
+  "kernels": [
+    {
+      "accuracy": {
+        "avg_error": 0.989130666064,
+        "avg_error_boosted": 4.040491992891,
+        "avg_error_boosted_diagnostic": 4.040491992891,
+        "avg_sim_hw_ratio": 0.010869333936,
+        "boosted_metrics_scored": true,
+        "booster_ms": 3.380015,
+        "scaling_factor_error_boosted": 0.999803112674,
+        "scaling_factor_error_boosted_diagnostic": 0.999803112674,
+        "scaling_informative": true,
+        "spearman_rho": 0.994505494505,
+        "wmape": 0.9993917798,
+        "wmape_nonflat": 0.999472190382
+      },
+      "category": "irregular_graph_tree_traversal",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 3,
+        "hardware_non_flat_points": 15,
+        "manifest_status": "pass",
+        "matched_flat_points": 3,
+        "matched_non_flat_points": 10,
+        "matched_points": 13,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 4.040491992891,
+        "avg_error_boosted_scored": 4.040491992891,
+        "boosted_metrics_scored": true,
+        "booster_ms": 3.380015,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 3,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 15,
+        "hardware_rows": 18,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.989130666064,
+        "raw_wmape": 0.9993917798,
+        "shape": {
+          "hardware_slope": 0.000288414479,
+          "scaling_factor_error_diagnostic": 0.999803112674,
+          "scaling_factor_error_scored": 0.999803112674,
+          "scaling_informative": true,
+          "sim_slope": 5.6785e-08,
+          "sim_slope_boosted": 5.6785e-08,
+          "spearman_rho": 0.994505494505
+        },
+        "sim_completed_rows": 13,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "bh",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.000288414479,
+        "sim_slope": 5.6785e-08,
+        "trend_ratio": 0.000196887326
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.580870557444,
+        "avg_error_boosted": 0.068676968888,
+        "avg_error_boosted_diagnostic": 0.068676968888,
+        "avg_sim_hw_ratio": 0.430847761402,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.0087955,
+        "scaling_factor_error_boosted": 0.075203974155,
+        "scaling_factor_error_boosted_diagnostic": 0.075203974155,
+        "scaling_informative": true,
+        "spearman_rho": 0.985294117647,
+        "wmape": 0.12529583583,
+        "wmape_nonflat": 0.065884966475
+      },
+      "category": "host_to_device_transfer_probe",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 9,
+        "hardware_non_flat_points": 10,
+        "manifest_status": "pass",
+        "matched_flat_points": 9,
+        "matched_non_flat_points": 7,
+        "matched_points": 16,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.068676968888,
+        "avg_error_boosted_scored": 0.068676968888,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.0087955,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 9,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 10,
+        "hardware_rows": 19,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.580870557444,
+        "raw_wmape": 0.12529583583,
+        "shape": {
+          "hardware_slope": 1.7354e-08,
+          "scaling_factor_error_diagnostic": 0.075203974155,
+          "scaling_factor_error_scored": 0.075203974155,
+          "scaling_informative": true,
+          "sim_slope": 1.8659e-08,
+          "sim_slope_boosted": 1.8659e-08,
+          "spearman_rho": 0.985294117647
+        },
+        "sim_completed_rows": 16,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "busspeeddownload",
+      "tier": 1,
+      "trend": {
+        "hw_slope": 1.7354e-08,
+        "sim_slope": 1.8659e-08,
+        "trend_ratio": 1.075203974155
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.643980759339,
+        "avg_error_boosted": 0.195621310945,
+        "avg_error_boosted_diagnostic": 0.195621310945,
+        "avg_sim_hw_ratio": 0.358168371987,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.011687,
+        "scaling_factor_error_boosted": 0.048609484415,
+        "scaling_factor_error_boosted_diagnostic": 0.048609484415,
+        "scaling_informative": true,
+        "spearman_rho": 0.964285714286,
+        "wmape": 0.205773839878,
+        "wmape_nonflat": 0.161215924426
+      },
+      "category": "device_to_host_transfer_probe",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 5,
+        "hardware_non_flat_points": 14,
+        "manifest_status": "pass",
+        "matched_flat_points": 5,
+        "matched_non_flat_points": 10,
+        "matched_points": 15,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.195621310945,
+        "avg_error_boosted_scored": 0.195621310945,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.011687,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 5,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 14,
+        "hardware_rows": 19,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.643980759339,
+        "raw_wmape": 0.205773839878,
+        "shape": {
+          "hardware_slope": 1.7854e-08,
+          "scaling_factor_error_diagnostic": 0.048609484415,
+          "scaling_factor_error_scored": 0.048609484415,
+          "scaling_informative": true,
+          "sim_slope": 1.8722e-08,
+          "sim_slope_boosted": 1.8722e-08,
+          "spearman_rho": 0.964285714286
+        },
+        "sim_completed_rows": 15,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "busspeedreadback",
+      "tier": 1,
+      "trend": {
+        "hw_slope": 1.7854e-08,
+        "sim_slope": 1.8722e-08,
+        "trend_ratio": 1.048609484415
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.812398683441,
+        "avg_error_boosted": 1.013379122384,
+        "avg_error_boosted_diagnostic": 1.013379122384,
+        "avg_sim_hw_ratio": 1.571152616282,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.008585,
+        "scaling_factor_error_boosted": 2.131211728495,
+        "scaling_factor_error_boosted_diagnostic": 2.131211728495,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 1.06175708502,
+        "wmape_nonflat": 1.276715789474
+      },
+      "category": "device_memory_write_probe",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 4,
+        "hardware_non_flat_points": 12,
+        "manifest_status": "pass",
+        "matched_flat_points": 4,
+        "matched_non_flat_points": 5,
+        "matched_points": 9,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 1.013379122384,
+        "avg_error_boosted_scored": 1.013379122384,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.008585,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 4,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 12,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.812398683441,
+        "raw_wmape": 1.06175708502,
+        "shape": {
+          "hardware_slope": 4.94e-10,
+          "scaling_factor_error_diagnostic": 2.131211728495,
+          "scaling_factor_error_scored": 2.131211728495,
+          "scaling_informative": true,
+          "sim_slope": 1.545e-09,
+          "sim_slope_boosted": 1.545e-09,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 9,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "devicememory_write",
+      "tier": 1,
+      "trend": {
+        "hw_slope": 4.94e-10,
+        "sim_slope": 1.545e-09,
+        "trend_ratio": 3.131211728495
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.769636073818,
+        "avg_error_boosted": 0.254998564462,
+        "avg_error_boosted_diagnostic": 0.254998564462,
+        "avg_sim_hw_ratio": 0.230363926182,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.01831,
+        "scaling_factor_error_boosted": 0.561265601472,
+        "scaling_factor_error_boosted_diagnostic": 0.561265601472,
+        "scaling_informative": true,
+        "spearman_rho": 0.754545454545,
+        "wmape": 0.771681764474,
+        "wmape_nonflat": 0.774590230117
+      },
+      "category": "embarrassingly_parallel_compute",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "no distinct flat region",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 1,
+        "hardware_non_flat_points": 12,
+        "manifest_status": "pass",
+        "matched_flat_points": 1,
+        "matched_non_flat_points": 10,
+        "matched_points": 11,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.254998564462,
+        "avg_error_boosted_scored": 0.254998564462,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.01831,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 1,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 12,
+        "hardware_rows": 13,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.769636073818,
+        "raw_wmape": 0.771681764474,
+        "shape": {
+          "hardware_slope": 3.4904e-08,
+          "scaling_factor_error_diagnostic": 0.561265601472,
+          "scaling_factor_error_scored": 0.561265601472,
+          "scaling_informative": true,
+          "sim_slope": 1.5314e-08,
+          "sim_slope_boosted": 1.5314e-08,
+          "spearman_rho": 0.754545454545
+        },
+        "sim_completed_rows": 11,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "ep",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 3.4904e-08,
+        "sim_slope": 1.5314e-08,
+        "trend_ratio": 0.438734398528
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 1.083483178277,
+        "avg_error_boosted": 1.096372926159,
+        "avg_error_boosted_diagnostic": 1.096372926159,
+        "avg_sim_hw_ratio": 1.572690463393,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.000469,
+        "scaling_factor_error_boosted": 6.808495762712,
+        "scaling_factor_error_boosted_diagnostic": 6.808495762712,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 1.378885869565,
+        "wmape_nonflat": 3.211287128713
+      },
+      "category": "ml_fused_activation",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": false,
+        "coverage_gaps": [
+          {
+            "field": "matched_non_flat_points",
+            "observed": 1,
+            "required": 5
+          }
+        ],
+        "hardware_flat_points": 5,
+        "hardware_non_flat_points": 13,
+        "manifest_status": "partial",
+        "matched_flat_points": 5,
+        "matched_non_flat_points": 1,
+        "matched_points": 6,
+        "point_coverage_ready": false,
+        "reason": "non-flat: 1/5"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 1.096372926159,
+        "avg_error_boosted_scored": 1.096372926159,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.000469,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 5,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 13,
+        "hardware_rows": 18,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 1.083483178277,
+        "raw_wmape": 1.378885869565,
+        "shape": {
+          "hardware_slope": 3.413e-09,
+          "scaling_factor_error_diagnostic": 6.808495762712,
+          "scaling_factor_error_scored": 6.808495762712,
+          "scaling_informative": true,
+          "sim_slope": 2.6647e-08,
+          "sim_slope_boosted": 2.6647e-08,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 6,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "fused_swiglu",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 3.413e-09,
+        "sim_slope": 2.6647e-08,
+        "trend_ratio": 7.808495762712
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 2.069164153861,
+        "avg_error_boosted": 2.40576695048,
+        "avg_error_boosted_diagnostic": 2.40576695048,
+        "avg_sim_hw_ratio": 3.018497487194,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.0228935,
+        "scaling_factor_error_boosted": 5.121023887974,
+        "scaling_factor_error_boosted_diagnostic": 5.121023887974,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 2.72151826484,
+        "wmape_nonflat": 3.362675159236
+      },
+      "category": "global_memory_copy_probe",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": false,
+        "coverage_gaps": [],
+        "hardware_flat_points": 4,
+        "hardware_non_flat_points": 12,
+        "manifest_status": "pass",
+        "matched_flat_points": 4,
+        "matched_non_flat_points": 4,
+        "matched_points": 8,
+        "point_coverage_ready": true,
+        "reason": "non-flat: 4/5"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 2.40576695048,
+        "avg_error_boosted_scored": 2.40576695048,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.0228935,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 4,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 12,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 2.069164153861,
+        "raw_wmape": 2.72151826484,
+        "shape": {
+          "hardware_slope": 5.05e-10,
+          "scaling_factor_error_diagnostic": 5.121023887974,
+          "scaling_factor_error_scored": 5.121023887974,
+          "scaling_informative": true,
+          "sim_slope": 3.091e-09,
+          "sim_slope_boosted": 3.091e-09,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 8,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "global_bw_copy",
+      "tier": 1,
+      "trend": {
+        "hw_slope": 5.05e-10,
+        "sim_slope": 3.091e-09,
+        "trend_ratio": 6.121023887974
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.727545771487,
+        "avg_error_boosted": 0.337057907223,
+        "avg_error_boosted_diagnostic": 0.337057907223,
+        "avg_sim_hw_ratio": 0.632759596926,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.004988,
+        "scaling_factor_error_boosted": 2.422420240256,
+        "scaling_factor_error_boosted_diagnostic": 2.422420240256,
+        "scaling_informative": true,
+        "spearman_rho": 0.982352941176,
+        "wmape": 0.797023274806,
+        "wmape_nonflat": 0.821151385928
+      },
+      "category": "histogram_atomic_memory",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 8,
+        "hardware_non_flat_points": 10,
+        "manifest_status": "pass",
+        "matched_flat_points": 8,
+        "matched_non_flat_points": 8,
+        "matched_points": 16,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.337057907223,
+        "avg_error_boosted_scored": 0.337057907223,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.004988,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 8,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 10,
+        "hardware_rows": 18,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.727545771487,
+        "raw_wmape": 0.797023274806,
+        "shape": {
+          "hardware_slope": 1.811e-09,
+          "scaling_factor_error_diagnostic": 2.422420240256,
+          "scaling_factor_error_scored": 2.422420240256,
+          "scaling_informative": true,
+          "sim_slope": 6.199e-09,
+          "sim_slope_boosted": 6.199e-09,
+          "spearman_rho": 0.982352941176
+        },
+        "sim_completed_rows": 16,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "hist",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 1.811e-09,
+        "sim_slope": 6.199e-09,
+        "trend_ratio": 3.422420240256
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.933790767653,
+        "avg_error_boosted": 0.381358754025,
+        "avg_error_boosted_diagnostic": 0.381358754025,
+        "avg_sim_hw_ratio": 0.066209232347,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.085984,
+        "scaling_factor_error_boosted": 0.916954725898,
+        "scaling_factor_error_boosted_diagnostic": 0.916954725898,
+        "scaling_informative": true,
+        "spearman_rho": 0.827272727273,
+        "wmape": 0.937436595965,
+        "wmape_nonflat": 0.938708220416
+      },
+      "category": "stencil_thermal",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 6,
+        "hardware_non_flat_points": 13,
+        "manifest_status": "pass",
+        "matched_flat_points": 6,
+        "matched_non_flat_points": 5,
+        "matched_points": 11,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.381358754025,
+        "avg_error_boosted_scored": 0.381358754025,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.085984,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 6,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 13,
+        "hardware_rows": 19,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.933790767653,
+        "raw_wmape": 0.937436595965,
+        "shape": {
+          "hardware_slope": 0.000293735664,
+          "scaling_factor_error_diagnostic": 0.916954725898,
+          "scaling_factor_error_scored": 0.916954725898,
+          "scaling_informative": true,
+          "sim_slope": 2.4393359e-05,
+          "sim_slope_boosted": 2.4393359e-05,
+          "spearman_rho": 0.827272727273
+        },
+        "sim_completed_rows": 11,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "hotspot",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.000293735664,
+        "sim_slope": 2.4393359e-05,
+        "trend_ratio": 0.083045274102
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.939625487055,
+        "avg_error_boosted": null,
+        "avg_error_boosted_diagnostic": 0.01231686542,
+        "avg_sim_hw_ratio": 0.060374512945,
+        "boosted_metrics_scored": false,
+        "booster_ms": 0.115041,
+        "scaling_factor_error_boosted": null,
+        "scaling_factor_error_boosted_diagnostic": 0.785911889188,
+        "scaling_informative": false,
+        "spearman_rho": 0.794117647059,
+        "wmape": 0.939682321846,
+        "wmape_nonflat": null
+      },
+      "category": "l1_cache_bandwidth_probe",
+      "classification": {
+        "boosted_metrics_scored": false,
+        "default_total_read_bytes": 262144000,
+        "display_label": "cache bandwidth work-scaling sweep (pending value-change proof)",
+        "implementation_semantics": {
+          "go_simulator": {
+            "input_bytes_formula": "ceil(num_elements / 256) * 256 * bytes_per_read",
+            "read_group_elements": 256,
+            "read_group_footprint_bytes": 1024,
+            "repeat_parameter": "num_repeats",
+            "total_input_footprint_fixed": false,
+            "working_set_model": "per_256_thread_read_group_reuse"
+          },
+          "hip_cuda_workload": {
+            "repeat_parameter": "num_iterations",
+            "working_set_model": "fixed_total_working_set_size",
+            "working_set_size_bytes": 8192
+          }
+        },
+        "metric_policy": "diagnostic_until_value_changing_rows",
+        "repeat_count_parameter_names": {
+          "go_simulator": "num_repeats",
+          "hip_cuda": "num_iterations"
+        },
+        "report_classification": "cache_bandwidth_work_sweep",
+        "scaling_axis": "num_elements",
+        "scaling_axis_role": "work_amount_sweep",
+        "scaling_informative": false,
+        "selected_run_id": null,
+        "source": "workloads/microbench/l1_cache_bw/params.json",
+        "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read",
+        "value_change_proven": false,
+        "work_amount": {
+          "bytes_per_read": 4,
+          "default_num_iterations": 1000,
+          "default_simulator_num_repeats": 256,
+          "default_total_read_bytes": 262144000,
+          "default_working_set_size": 8192,
+          "repeat_count_parameter_names": {
+            "go_simulator": "num_repeats",
+            "hip_cuda": "num_iterations"
+          },
+          "simulator_input_bytes_formula": "ceil(num_elements / 256) * 256 * bytes_per_read",
+          "simulator_read_group_elements": 256,
+          "simulator_read_group_footprint_bytes": 1024,
+          "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read"
+        },
+        "work_amount_scaled": true,
+        "work_amount_scaled_by_axis": true
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 16,
+        "hardware_non_flat_points": 0,
+        "manifest_status": "pass",
+        "matched_flat_points": 16,
+        "matched_non_flat_points": 0,
+        "matched_points": 16,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.01231686542,
+        "avg_error_boosted_scored": null,
+        "boosted_metrics_scored": false,
+        "booster_ms": 0.115041,
+        "flat_threshold_ms": 0.2404,
+        "gate": {
+          "name": "value_change_gate",
+          "passed": false,
+          "reason": "value-change proof failed: loaded_hardware_value_changing",
+          "required": true
+        },
+        "hardware_flat_rows": 16,
+        "hardware_max_ms": 0.138,
+        "hardware_min_ms": 0.1202,
+        "hardware_non_flat_rows": 0,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": 1.148086522463,
+        "raw_avg_error": 0.939625487055,
+        "raw_wmape": 0.939682321846,
+        "shape": {
+          "hardware_slope": 2.7111e-08,
+          "scaling_factor_error_diagnostic": 0.785911889188,
+          "scaling_factor_error_scored": null,
+          "scaling_informative": false,
+          "sim_slope": 5.804e-09,
+          "sim_slope_boosted": 5.804e-09,
+          "spearman_rho": 0.794117647059
+        },
+        "sim_completed_rows": 16,
+        "sim_value_change_ratio": 1.055003403676
+      },
+      "kernel_name": "l1_cache_bw",
+      "tier": 1,
+      "trend": {
+        "hw_slope": null,
+        "sim_slope": null,
+        "trend_ratio": null
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.894679076461,
+        "avg_error_boosted": null,
+        "avg_error_boosted_diagnostic": 0.00439719022,
+        "avg_sim_hw_ratio": 0.105320923539,
+        "boosted_metrics_scored": false,
+        "booster_ms": 0.083162,
+        "scaling_factor_error_boosted": null,
+        "scaling_factor_error_boosted_diagnostic": 3.699090909089,
+        "scaling_informative": false,
+        "spearman_rho": -0.5,
+        "wmape": 0.894681446406,
+        "wmape_nonflat": null
+      },
+      "category": "l2_cache_bandwidth_probe",
+      "classification": {
+        "boosted_metrics_scored": false,
+        "default_total_read_bytes": 524288000,
+        "display_label": "cache bandwidth work-scaling sweep (pending value-change proof)",
+        "implementation_semantics": null,
+        "metric_policy": "diagnostic_until_value_changing_rows",
+        "repeat_count_parameter_names": {
+          "go_simulator": "num_repeats",
+          "hip_cuda": "num_iterations"
+        },
+        "report_classification": "cache_bandwidth_work_sweep",
+        "scaling_axis": "num_elements",
+        "scaling_axis_role": "work_amount_sweep",
+        "scaling_informative": false,
+        "selected_run_id": null,
+        "source": "workloads/microbench/l2_cache_bw/params.json",
+        "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read",
+        "value_change_proven": false,
+        "work_amount": {
+          "bytes_per_read": 4,
+          "default_num_iterations": 500,
+          "default_total_read_bytes": 524288000,
+          "default_working_set_size": 524288,
+          "repeat_count_parameter_names": {
+            "go_simulator": "num_repeats",
+            "hip_cuda": "num_iterations"
+          },
+          "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read"
+        },
+        "work_amount_scaled": true,
+        "work_amount_scaled_by_axis": true
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 16,
+        "hardware_non_flat_points": 0,
+        "manifest_status": "pass",
+        "matched_flat_points": 5,
+        "matched_non_flat_points": 0,
+        "matched_points": 5,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.00439719022,
+        "avg_error_boosted_scored": null,
+        "boosted_metrics_scored": false,
+        "booster_ms": 0.083162,
+        "flat_threshold_ms": 0.1852,
+        "gate": {
+          "name": "value_change_gate",
+          "passed": false,
+          "reason": "value-change proof failed: loaded_hardware_value_changing",
+          "required": true
+        },
+        "hardware_flat_rows": 16,
+        "hardware_max_ms": 0.0934,
+        "hardware_min_ms": 0.0926,
+        "hardware_non_flat_rows": 0,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": 1.008639308855,
+        "raw_avg_error": 0.894679076461,
+        "raw_wmape": 0.894681446406,
+        "shape": {
+          "hardware_slope": -2.05e-10,
+          "scaling_factor_error_diagnostic": 3.699090909089,
+          "scaling_factor_error_scored": null,
+          "scaling_informative": false,
+          "sim_slope": 5.52e-10,
+          "sim_slope_boosted": 5.52e-10,
+          "spearman_rho": -0.5
+        },
+        "sim_completed_rows": 5,
+        "sim_value_change_ratio": 1.129337539432
+      },
+      "kernel_name": "l2_cache_bw",
+      "tier": 1,
+      "trend": {
+        "hw_slope": null,
+        "sim_slope": null,
+        "trend_ratio": null
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.542329226925,
+        "avg_error_boosted": 0.569925643761,
+        "avg_error_boosted_diagnostic": 0.569925643761,
+        "avg_sim_hw_ratio": 0.457670773075,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.578871,
+        "scaling_factor_error_boosted": 0.529617108305,
+        "scaling_factor_error_boosted_diagnostic": 0.529617108305,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 0.541456583567,
+        "wmape_nonflat": 0.541497800361
+      },
+      "category": "dense_linear_algebra_factorization",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "no distinct flat region",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 1,
+        "hardware_non_flat_points": 17,
+        "manifest_status": "pass",
+        "matched_flat_points": 1,
+        "matched_non_flat_points": 6,
+        "matched_points": 7,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.569925643761,
+        "avg_error_boosted_scored": 0.569925643761,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.578871,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 1,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 17,
+        "hardware_rows": 18,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.542329226925,
+        "raw_wmape": 0.541456583567,
+        "shape": {
+          "hardware_slope": 0.004301276845,
+          "scaling_factor_error_diagnostic": 0.529617108305,
+          "scaling_factor_error_scored": 0.529617108305,
+          "scaling_informative": true,
+          "sim_slope": 0.00202324704,
+          "sim_slope_boosted": 0.00202324704,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 7,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "lud",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.004301276845,
+        "sim_slope": 0.00202324704,
+        "trend_ratio": 0.470382891695
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.823601566613,
+        "avg_error_boosted": 0.51654425373,
+        "avg_error_boosted_diagnostic": 0.51654425373,
+        "avg_sim_hw_ratio": 0.692763500612,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.00364,
+        "scaling_factor_error_boosted": 9.109107301721,
+        "scaling_factor_error_boosted_diagnostic": 9.109107301721,
+        "scaling_informative": true,
+        "spearman_rho": 0.645454545455,
+        "wmape": 0.859620253165,
+        "wmape_nonflat": null
+      },
+      "category": "nearest_neighbor_search",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": false,
+        "coverage_gaps": [
+          {
+            "field": "matched_non_flat_points",
+            "observed": 0,
+            "required": 5
+          }
+        ],
+        "hardware_flat_points": 11,
+        "hardware_non_flat_points": 5,
+        "manifest_status": "partial",
+        "matched_flat_points": 11,
+        "matched_non_flat_points": 0,
+        "matched_points": 11,
+        "point_coverage_ready": false,
+        "reason": "non-flat: 0/5"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.51654425373,
+        "avg_error_boosted_scored": 0.51654425373,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.00364,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 11,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 5,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.823601566613,
+        "raw_wmape": 0.859620253165,
+        "shape": {
+          "hardware_slope": 1.825e-09,
+          "scaling_factor_error_diagnostic": 9.109107301721,
+          "scaling_factor_error_scored": 9.109107301721,
+          "scaling_informative": true,
+          "sim_slope": 1.8447e-08,
+          "sim_slope_boosted": 1.8447e-08,
+          "spearman_rho": 0.645454545455
+        },
+        "sim_completed_rows": 11,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "nn",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 1.825e-09,
+        "sim_slope": 1.8447e-08,
+        "trend_ratio": 10.109107301721
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.655826849329,
+        "avg_error_boosted": 0.562710122363,
+        "avg_error_boosted_diagnostic": 0.562710122363,
+        "avg_sim_hw_ratio": 0.344173150671,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.351876,
+        "scaling_factor_error_boosted": 0.582355868748,
+        "scaling_factor_error_boosted_diagnostic": 0.582355868748,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 0.625907265493,
+        "wmape_nonflat": 0.624249245283
+      },
+      "category": "dynamic_programming",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "no distinct flat region",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 1,
+        "hardware_non_flat_points": 16,
+        "manifest_status": "pass",
+        "matched_flat_points": 1,
+        "matched_non_flat_points": 6,
+        "matched_points": 7,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.562710122363,
+        "avg_error_boosted_scored": 0.562710122363,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.351876,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 1,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 16,
+        "hardware_rows": 17,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.655826849329,
+        "raw_wmape": 0.625907265493,
+        "shape": {
+          "hardware_slope": 0.001769548715,
+          "scaling_factor_error_diagnostic": 0.582355868748,
+          "scaling_factor_error_scored": 0.582355868748,
+          "scaling_informative": true,
+          "sim_slope": 0.000739041636,
+          "sim_slope_boosted": 0.000739041636,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 7,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "nw",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.001769548715,
+        "sim_slope": 0.000739041636,
+        "trend_ratio": 0.417644131252
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.818553393043,
+        "avg_error_boosted": 0.819563131577,
+        "avg_error_boosted_diagnostic": 0.819563131577,
+        "avg_sim_hw_ratio": 0.181446606957,
+        "boosted_metrics_scored": true,
+        "booster_ms": 2.66299,
+        "scaling_factor_error_boosted": 0.782572902828,
+        "scaling_factor_error_boosted_diagnostic": 0.782572902828,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 0.793578023744,
+        "wmape_nonflat": 0.790342159598
+      },
+      "category": "monte_carlo_particle_tracking",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 2,
+        "hardware_non_flat_points": 14,
+        "manifest_status": "pass",
+        "matched_flat_points": 2,
+        "matched_non_flat_points": 5,
+        "matched_points": 7,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.819563131577,
+        "avg_error_boosted_scored": 0.819563131577,
+        "boosted_metrics_scored": true,
+        "booster_ms": 2.66299,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 2,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 14,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.818553393043,
+        "raw_wmape": 0.793578023744,
+        "shape": {
+          "hardware_slope": 0.001339133809,
+          "scaling_factor_error_diagnostic": 0.782572902828,
+          "scaling_factor_error_scored": 0.782572902828,
+          "scaling_informative": true,
+          "sim_slope": 0.000291163977,
+          "sim_slope_boosted": 0.000291163977,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 7,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "particlefilter",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.001339133809,
+        "sim_slope": 0.000291163977,
+        "trend_ratio": 0.217427097172
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.540414255007,
+        "avg_error_boosted": 0.715836364714,
+        "avg_error_boosted_diagnostic": 0.715836364714,
+        "avg_sim_hw_ratio": 0.459585744993,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.038036,
+        "scaling_factor_error_boosted": 0.577828861087,
+        "scaling_factor_error_boosted_diagnostic": 0.577828861087,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 0.557426948795,
+        "wmape_nonflat": 0.558260623763
+      },
+      "category": "scientific_compute",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 2,
+        "hardware_non_flat_points": 14,
+        "manifest_status": "pass",
+        "matched_flat_points": 2,
+        "matched_non_flat_points": 8,
+        "matched_points": 10,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.715836364714,
+        "avg_error_boosted_scored": 0.715836364714,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.038036,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 2,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 14,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.540414255007,
+        "raw_wmape": 0.557426948795,
+        "shape": {
+          "hardware_slope": 0.000163206984,
+          "scaling_factor_error_diagnostic": 0.577828861087,
+          "scaling_factor_error_scored": 0.577828861087,
+          "scaling_informative": true,
+          "sim_slope": 6.8901278e-05,
+          "sim_slope_boosted": 6.8901278e-05,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 10,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "qtc",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 0.000163206984,
+        "sim_slope": 6.8901278e-05,
+        "trend_ratio": 0.422171138913
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 1.133612109569,
+        "avg_error_boosted": 1.30903005754,
+        "avg_error_boosted_diagnostic": 1.30903005754,
+        "avg_sim_hw_ratio": 2.072773663761,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.0404995,
+        "scaling_factor_error_boosted": null,
+        "scaling_factor_error_boosted_diagnostic": null,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 1.556672111066,
+        "wmape_nonflat": 1.82808801956
+      },
+      "category": "ml_positional_embedding",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": false,
+        "coverage_gaps": [
+          {
+            "field": "matched_non_flat_points",
+            "observed": 4,
+            "required": 5
+          }
+        ],
+        "hardware_flat_points": 2,
+        "hardware_non_flat_points": 14,
+        "manifest_status": "partial",
+        "matched_flat_points": 2,
+        "matched_non_flat_points": 4,
+        "matched_points": 6,
+        "point_coverage_ready": false,
+        "reason": "non-flat: 4/5"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 1.30903005754,
+        "avg_error_boosted_scored": 1.30903005754,
+        "boosted_metrics_scored": true,
+        "booster_ms": -0.0404995,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 2,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 14,
+        "hardware_rows": 16,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 1.133612109569,
+        "raw_wmape": 1.556672111066,
+        "shape": {
+          "hardware_slope": null,
+          "scaling_factor_error_diagnostic": null,
+          "scaling_factor_error_scored": null,
+          "scaling_informative": true,
+          "sim_slope": null,
+          "sim_slope_boosted": null,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 6,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "rope",
+      "tier": 2,
+      "trend": {
+        "hw_slope": null,
+        "sim_slope": null,
+        "trend_ratio": null
+      }
+    },
+    {
+      "accuracy": {
+        "avg_error": 0.34103977604,
+        "avg_error_boosted": 0.025911534339,
+        "avg_error_boosted_diagnostic": 0.025911534339,
+        "avg_sim_hw_ratio": 0.65896022396,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.004215,
+        "scaling_factor_error_boosted": 0.025805442602,
+        "scaling_factor_error_boosted_diagnostic": 0.025805442602,
+        "scaling_informative": true,
+        "spearman_rho": 1.0,
+        "wmape": 0.251550561798,
+        "wmape_nonflat": 0.193547794118
+      },
+      "category": "tiled_dense_gemm",
+      "classification": {
+        "boosted_metrics_scored": true,
+        "default_total_read_bytes": null,
+        "display_label": "threshold flat/non-flat regions",
+        "implementation_semantics": null,
+        "metric_policy": "scored",
+        "repeat_count_parameter_names": null,
+        "report_classification": "threshold_flat_nonflat",
+        "scaling_axis": null,
+        "scaling_axis_role": null,
+        "scaling_informative": true,
+        "selected_run_id": null,
+        "source": null,
+        "total_read_bytes_formula": null,
+        "value_change_proven": false,
+        "work_amount": null,
+        "work_amount_scaled": null,
+        "work_amount_scaled_by_axis": null
+      },
+      "coverage": {
+        "compliant": true,
+        "coverage_gaps": [],
+        "hardware_flat_points": 3,
+        "hardware_non_flat_points": 17,
+        "manifest_status": "pass",
+        "matched_flat_points": 3,
+        "matched_non_flat_points": 5,
+        "matched_points": 8,
+        "point_coverage_ready": true,
+        "reason": "OK"
+      },
+      "evidence": {
+        "avg_error_boosted_diagnostic": 0.025911534339,
+        "avg_error_boosted_scored": 0.025911534339,
+        "boosted_metrics_scored": true,
+        "booster_ms": 0.004215,
+        "flat_threshold_ms": null,
+        "gate": {
+          "name": null,
+          "passed": null,
+          "reason": null,
+          "required": false
+        },
+        "hardware_flat_rows": 3,
+        "hardware_max_ms": null,
+        "hardware_min_ms": null,
+        "hardware_non_flat_rows": 17,
+        "hardware_rows": 20,
+        "hardware_value_change_ratio": null,
+        "raw_avg_error": 0.34103977604,
+        "raw_wmape": 0.251550561798,
+        "shape": {
+          "hardware_slope": 5.9468006e-05,
+          "scaling_factor_error_diagnostic": 0.025805442602,
+          "scaling_factor_error_scored": 0.025805442602,
+          "scaling_informative": true,
+          "sim_slope": 6.1002604e-05,
+          "sim_slope_boosted": 6.1002604e-05,
+          "spearman_rho": 1.0
+        },
+        "sim_completed_rows": 8,
+        "sim_value_change_ratio": null
+      },
+      "kernel_name": "sgemm_tiled",
+      "tier": 2,
+      "trend": {
+        "hw_slope": 5.9468006e-05,
+        "sim_slope": 6.1002604e-05,
+        "trend_ratio": 1.025805442602
+      }
+    }
+  ],
+  "manifest_path": "benchmark-comparison/mi300a_evaluation_set.json",
+  "manifest_schema_name": "mgpusim.mi300a_evaluation_set",
+  "manifest_schema_version": 1,
+  "point_coverage_status": {
+    "coverage_status_counts": {
+      "partial": 3,
+      "pass": 15
+    },
+    "partial_kernels": [
+      "fused_swiglu",
+      "nn",
+      "rope"
+    ],
+    "selected_total": 18,
+    "selected_with_partial_coverage": 3,
+    "selected_with_passing_coverage": 15,
+    "status": "partial",
+    "totals": {
+      "hardware_flat_points": 99,
+      "hardware_non_flat_points": 208,
+      "hardware_points": 307,
+      "matched_flat_points": 88,
+      "matched_non_flat_points": 94,
+      "matched_points": 182,
+      "trend_points": 182
+    }
+  },
+  "report_path": "docs/validation_report_curated.md",
+  "schema_name": "mgpusim.validation_report_summary",
+  "schema_version": 1,
+  "scope": "curated",
+  "selected_count": 18,
+  "set_id": "mi300a-curated-primary",
+  "set_version": "2026.04.26-m67.partial-current",
+  "slowdown_summary": {
+    "all_mean_slowdown": 0.643723403248,
+    "all_median_slowdown": 0.291819694997,
+    "t1_mean_slowdown": 0.93466080064,
+    "t1_median_slowdown": 0.216107665138,
+    "t2_mean_slowdown": 0.498254704552,
+    "t2_median_slowdown": 0.324012880507
+  },
+  "tier_counts": {
+    "1": 6,
+    "2": 12
+  },
+  "trend_summary": {
+    "kernels_with_trend_data": 15,
+    "mean_trend_ratio_by_tier": {
+      "1": 2.84401226876,
+      "2": 2.219584596934
+    },
+    "tier_counts": {
+      "1": 4,
+      "2": 11
+    }
+  },
+  "validator_accuracy_trend_fields": [
+    "avg_abs_rel_error",
+    "wmape",
+    "mean_signed_rel_error",
+    "spearman_rho",
+    "trend_ratio",
+    "trend_error",
+    "hw_slope",
+    "sim_slope",
+    "avg_sim_hw_ratio"
+  ],
+  "validator_aggregate_accuracy_trend": {
+    "kernels_with_trend_ratio": 17,
+    "mean_avg_abs_rel_error": 0.849982,
+    "mean_trend_error": 2.069252,
+    "mean_trend_ratio": 1.959204,
+    "mean_wmape": 0.889963
+  }
+}

@@ -6,9 +6,10 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/hooking"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
@@ -19,7 +20,7 @@ type emulationEvent struct {
 }
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
-// but can still run the GCN3 instructions.
+// but can run GPU instructions.
 //
 //	ToDispatcher <=> The port that connect the CU with the dispatcher
 type ComputeUnit struct {
@@ -39,7 +40,7 @@ type ComputeUnit struct {
 	ToDispatcher sim.Port
 
 	instCache         map[uint64]*insts.Inst
-	finishedMapWGReqs []string
+	finishedMapWGReqs []uint64
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -115,7 +116,7 @@ func (cu *ComputeUnit) processMapWGReq() {
 		cu.nextTick = sim.VTimeInSec(math.Ceil(float64(now)))
 		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
 		evt := &emulationEvent{
-			sim.NewEventBase(cu.nextTick, cu),
+			sim.NewEventBase(cu.nextTick, cu.Name()),
 		}
 		cu.Engine.Schedule(evt)
 	}
@@ -139,16 +140,22 @@ func (cu *ComputeUnit) runWG(
 	wg := req.WorkGroup
 	cu.initWfs(wg, req)
 
+	scratchPerLane := uint32(0)
+	if wg.CodeObject != nil {
+		scratchPerLane = wg.CodeObject.PrivateSegmentByteSize
+	}
+
 	for !cu.isAllWfCompleted(wg) {
 		for _, wf := range cu.wfs[wg] {
 			cu.alu.SetLDS(wf.LDS)
+			cu.alu.SetScratch(wf.Scratch, scratchPerLane)
 			cu.runWfUntilBarrier(wf)
 		}
 		cu.resolveBarrier(wg)
 	}
 
 	now := cu.TickingComponent.TickScheduler.CurrentTime()
-	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
+	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu.Name(), req)
 	cu.Engine.Schedule(evt)
 
 	return nil
@@ -160,10 +167,20 @@ func (cu *ComputeUnit) initWfs(
 ) error {
 	lds := cu.initLDS(wg, req)
 
+	// Compute per-wavefront scratch size from the code object's
+	// private segment size. Each lane gets PrivateSegmentByteSize bytes.
+	scratchPerWave := uint64(0)
+	if wg.CodeObject != nil && wg.CodeObject.PrivateSegmentByteSize > 0 {
+		scratchPerWave = uint64(wg.CodeObject.PrivateSegmentByteSize) * 64
+	}
+
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		managedWf.LDS = lds
 		managedWf.pid = req.PID
+		if scratchPerWave > 0 {
+			managedWf.Scratch = make([]byte, scratchPerWave)
+		}
 		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
 	}
 
@@ -199,9 +216,13 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	}
 
 	if co.EnableSgprQueuePtr {
-		// Note: QueuePtr is not currently supported. For V5+ kernels, the kernel
-		// descriptor flags may be incorrect. We do NOT reserve space, as the
-		// kernel may not actually use this register.
+		// Provide the AQL packet address as the queue pointer.
+		// The kernel uses the queue/dispatch pointer to read workgroup sizes
+		// and grid dimensions. Providing the packet address works because
+		// __builtin_amdgcn_workgroup_size_x() reads from the dispatch packet,
+		// and our packet address points to a valid HsaKernelDispatchPacket.
+		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprKernargSegmentPtr {
@@ -291,7 +312,7 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
 			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(packed))
 		} else {
-			// For V2/V3 code objects (GCN3), use separate registers
+			// For V2/V3 code objects, use separate registers
 			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
 			if co.EnableVgprWorkItemID() > 0 {
@@ -355,7 +376,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 }
 
 func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
-	ctx := sim.HookCtx{
+	ctx := hooking.HookCtx{
 		Domain: cu,
 		Item:   wf,
 		Detail: inst,
@@ -408,7 +429,7 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 		cu.finishedMapWGReqs = nil
 	} else {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
-			cu, evt.Req)
+			cu.Name(), evt.Req)
 		cu.Engine.Schedule(newEvent)
 	}
 
@@ -427,6 +448,13 @@ func NewComputeUnit(
 	cu.TickingComponent = sim.NewTickingComponent(name,
 		engine, 1*sim.GHz, cu)
 
+	// Re-register the ComputeUnit (not the TickingComponent) as the handler
+	// so that the custom Handle method is called for non-tick events
+	// (emulationEvent, WGCompleteEvent).
+	if registrar, ok := engine.(sim.HandlerRegistrar); ok {
+		registrar.RegisterHandler(name, cu)
+	}
+
 	cu.decoder = decoder
 	cu.alu = alu
 	cu.storageAccessor = sAccessor
@@ -443,7 +471,7 @@ func NewComputeUnit(
 // ALUFactory is a function type that creates an ALU given a storage accessor.
 type ALUFactory func(StorageAccessor) ALU
 
-// BuildComputeUnit builds a compute unit with the default GCN3 ALU.
+// BuildComputeUnit builds a compute unit with the default ALU.
 func BuildComputeUnit(
 	name string,
 	engine sim.Engine,

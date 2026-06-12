@@ -1,0 +1,23 @@
+{
+  "benchmark": "branch_divergence",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Array size (number of elements / threads to process)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512, 1024]
+    },
+    "divergence_pct": {
+      "description": "Percentage of threads in each warp/wavefront taking the if-branch (0=none, 50=half, 100=all)",
+      "values": [0, 25, 50, 75, 100]
+    },
+    "work_per_branch": {
+      "description": "Number of loop iterations of work inside each branch",
+      "values": [256, 512, 1024, 2048, 4096]
+    }
+  }
+}

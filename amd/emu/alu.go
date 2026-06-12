@@ -11,11 +11,12 @@ type ALU interface {
 	Run(state InstEmuState)
 	SetLDS(lds []byte)
 	LDS() []byte
-	ArchName() string // Returns "GCN3" or "CDNA3"
+	SetScratch(scratch []byte, perLaneSize uint32)
+	ArchName() string // Returns the architecture name
 }
 
 // ALUImpl is where the instructions get executed.
-// This is the GCN3 ALU implementation (to be moved to gcn3/ package later).
+// This is the ALU implementation.
 type ALUImpl struct {
 	storageAccessor StorageAccessor
 	lds             []byte
@@ -30,7 +31,7 @@ func NewALU(storageAccessor StorageAccessor) *ALUImpl {
 
 // ArchName returns the architecture name.
 func (u *ALUImpl) ArchName() string {
-	return "GCN3"
+	return "CDNA3"
 }
 
 // SetLDS assigns the LDS storage to be used in the following instructions.
@@ -42,6 +43,9 @@ func (u *ALUImpl) SetLDS(lds []byte) {
 func (u *ALUImpl) LDS() []byte {
 	return u.lds
 }
+
+// SetScratch assigns scratch memory (no-op for legacy ALU).
+func (u *ALUImpl) SetScratch(_ []byte, _ uint32) {}
 
 // Run executes the instruction in the scatchpad of the InstEmuState
 //

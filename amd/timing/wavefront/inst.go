@@ -2,7 +2,7 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
@@ -10,7 +10,8 @@ import (
 type Inst struct {
 	*insts.Inst
 
-	ID string
+	ID             uint64
+	PipelineTaskID uint64
 }
 
 // NewInst creates a newly created Inst

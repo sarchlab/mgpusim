@@ -3,8 +3,8 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/tebeka/atexit"
 )
@@ -40,7 +40,7 @@ func (b *GPUBuilder) WithSubcoresCountPerSM(count int64) *GPUBuilder {
 func (b *GPUBuilder) Build(name string) *GPU {
 	g := &GPU{
 		ID:  sim.GetIDGenerator().Generate(),
-		SMs: make(map[string]*sm.SM),
+		SMs: make(map[uint64]*sm.SM),
 	}
 
 	g.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, g)
@@ -81,7 +81,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(1 * sim.GHz).
-		Build("GPUToSMs")
+		Build(fmt.Sprintf("%s.GPUToSMs", gpu.Name()))
 	conn.PlugIn(gpu.toSMs)
 
 	for i := range sms {

@@ -1,0 +1,6 @@
+Environment: Darwin marin-2.local 25.2.0 arm64
+HIP/ROCm probe commands and results:
+- command -v hipcc: not found (exit 1)
+- command -v rocm-smi: not found (exit 1)
+
+No HIP hardware rows were collected in this macOS environment.

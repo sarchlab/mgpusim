@@ -1,0 +1,23 @@
+{
+  "benchmark": "mem_latency",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "array_size",
+    "description": "Number of elements in the pointer-chase array (determines working set size)",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size (number of threads per block)",
+      "values": [1, 32, 64, 128, 256]
+    },
+    "num_hops": {
+      "description": "Number of pointer-chase hops per thread",
+      "values": [256, 512, 1024, 4096, 16384]
+    },
+    "stride_type": {
+      "description": "Stride pattern: 1=sequential, 2=random, 3=power-of-2 stride",
+      "values": [1, 2, 3]
+    }
+  }
+}

@@ -3,16 +3,15 @@ package driver
 import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {
 	c := &NoopCommand{
-		ID: xid.New().String(),
+		ID: sim.GetIDGenerator().Generate(),
 	}
 	d.Enqueue(q, c)
 }

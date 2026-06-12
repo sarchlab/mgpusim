@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 )
 
@@ -15,7 +15,7 @@ type DeviceToDriverMsg struct {
 	sim.MsgMeta
 
 	KernelFinished bool
-	DeviceID       string
+	DeviceID       uint64
 }
 
 type DeviceToSMMsg struct {
@@ -28,7 +28,7 @@ type SMToDeviceMsg struct {
 	sim.MsgMeta
 
 	ThreadblockFinished bool
-	SMID                string
+	SMID                uint64
 }
 
 type SMToSubcoreMsg struct {
@@ -41,7 +41,7 @@ type SubcoreToSMMsg struct {
 	sim.MsgMeta
 
 	WarpFinished bool
-	SubcoreID    string
+	SubcoreID    uint64
 }
 
 func (m *DriverToDeviceMsg) Meta() *sim.MsgMeta {

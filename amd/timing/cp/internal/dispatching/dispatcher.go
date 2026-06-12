@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/monitoring"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/daisen"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/sampling"
@@ -25,7 +27,7 @@ type Dispatcher interface {
 
 // A DispatcherImpl is a ticking component that can dispatch work-groups.
 type DispatcherImpl struct {
-	sim.HookableBase
+	hooking.HookableBase
 
 	cp                     tracing.NamedHookable
 	name                   string
@@ -37,16 +39,18 @@ type DispatcherImpl struct {
 	cycleLeft              int
 	numDispatchedWGs       int
 	numCompletedWGs        int
-	inflightWGs            map[string]dispatchLocation
-	originalReqs           map[string]*protocol.MapWGReq
+	inflightWGs            map[uint64]dispatchLocation
+	originalReqs           map[uint64]*protocol.MapWGReq
 	latencyTable                 []int
 	constantKernelOverhead              int
 	constantKernelLaunchOverhead        int
 	subsequentKernelLaunchOverhead      int
 	firstKernelLaunched                 bool
+	prevKernelWGCount                   int
+	wgScalingThreshold                  int
 
 	monitor     *monitoring.Monitor
-	progressBar *monitoring.ProgressBar
+	progressBar *daisen.ProgressBar
 }
 
 // Name returns the name of the dispatcher
@@ -82,16 +86,21 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 		d.cycleLeft = d.constantKernelLaunchOverhead
 		d.firstKernelLaunched = true
 	} else {
-		d.cycleLeft = d.subsequentKernelLaunchOverhead
+		if d.prevKernelWGCount > 0 && d.wgScalingThreshold > 0 {
+			scale := float64(d.wgScalingThreshold) / float64(d.prevKernelWGCount)
+			d.cycleLeft = int(float64(d.subsequentKernelLaunchOverhead) * scale)
+		} else {
+			d.cycleLeft = d.subsequentKernelLaunchOverhead
+		}
 	}
 
 	d.initializeProgressBar(req.ID)
 }
 
-func (d *DispatcherImpl) initializeProgressBar(kernelID string) {
+func (d *DispatcherImpl) initializeProgressBar(kernelID uint64) {
 	if d.monitor != nil {
 		d.progressBar = d.monitor.CreateProgressBar(
-			fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), kernelID),
+			fmt.Sprintf("At %s, Kernel: %d, ", d.Name(), kernelID),
 			uint64(d.alg.NumWG()),
 		)
 	}
@@ -114,8 +123,8 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 		if d.kernelCompleted() {
 			madeProgress = d.completeKernel() || madeProgress
 		} else {
-			// Dispatch up to 8 WGs per cycle
-			for i := 0; i < 8; i++ {
+			// Dispatch up to 120 WGs per cycle (matching MI300A CU count)
+			for i := 0; i < 120; i++ {
 				progress := d.dispatchNextWG()
 				madeProgress = progress || madeProgress
 				if !progress || d.cycleLeft > 0 {
@@ -143,7 +152,7 @@ func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLoca
 func (d *DispatcherImpl) processMessagesFromCU() bool {
 	madeProgress := false
 
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 120; i++ {
 		msg := d.dispatchingPort.PeekIncoming()
 		if msg == nil {
 			break
@@ -221,6 +230,7 @@ func (d *DispatcherImpl) completeKernel() (
 
 	err := d.respondingPort.Send(rsp)
 	if err == nil {
+		d.prevKernelWGCount = d.numDispatchedWGs
 		d.dispatching = nil
 
 		if d.monitor != nil {

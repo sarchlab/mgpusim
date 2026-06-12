@@ -1,0 +1,158 @@
+{
+    "Driver": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/driver/driver.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/driver/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/driver/doc.go"
+    ],
+    "GPU.CommandProcessor": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/commandprocessor.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/doc.go"
+    ],
+    "GPU.CommandProcessor.Dispatcher": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/internal/dispatching/dispatcher.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/internal/dispatching/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/internal/dispatching/doc.go"
+    ],
+    "GPU.DMA": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/dma.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cp/doc.go"
+    ],
+    "GPU.DRAM": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/idealmemcontroller/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/idealmemcontroller/comp.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/idealmemcontroller/doc.go"
+    ],
+    "GPU.L2Cache": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writeback/writebackcache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writeback/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writeback/doc.go"
+    ],
+    "GPU.L2TLB": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/tlb.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/doc.go"
+    ],
+    "GPU.SA.CU": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go"
+    ],
+    "GPU.SA.CU.Branch": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/branchunit.go"
+    ],
+    "GPU.SA.CU.Scalar": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/scalarunit.go"
+    ],
+    "GPU.SA.CU.Special": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go"
+    ],
+    "GPU.SA.CU.VALU": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go"
+    ],
+    "GPU.SA.CU.VMem": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/vectormemoryunit.go"
+    ],
+    "GPU.SA.CU.WFPool": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/computeunit.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/cubuilder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/cu/wavefrontpool.go"
+    ],
+    "GPU.SA.L1IAddrTrans": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/addresstranslator.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/doc.go"
+    ],
+    "GPU.SA.L1ICache": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/doc.go"
+    ],
+    "GPU.SA.L1ICache.Local": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/coalescer.go"
+    ],
+    "GPU.SA.L1IROB": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/rob.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/porthook.go"
+    ],
+    "GPU.SA.L1ITLB": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/tlb.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/doc.go"
+    ],
+    "GPU.SA.L1SAddrTrans": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/addresstranslator.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/doc.go"
+    ],
+    "GPU.SA.L1SCache": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/doc.go"
+    ],
+    "GPU.SA.L1SCache.Local": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writethrough/coalescer.go"
+    ],
+    "GPU.SA.L1SROB": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/rob.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/porthook.go"
+    ],
+    "GPU.SA.L1STLB": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/tlb.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/doc.go"
+    ],
+    "GPU.SA.L1VAddrTrans": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/addresstranslator.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/addresstranslator/doc.go"
+    ],
+    "GPU.SA.L1VCache": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/doc.go"
+    ],
+    "GPU.SA.L1VCache.Local": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/cache.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/doc.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/cache/writearound/coalescer.go"
+    ],
+    "GPU.SA.L1VROB": [
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/rob.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/mgpusim/main/amd/timing/rob/porthook.go"
+    ],
+    "GPU.SA.L1VTLB": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/tlb.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/tlb/doc.go"
+    ],
+    "MMU": [
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/mmu/mmu.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/mmu/builder.go",
+        "https://raw.githubusercontent.com/sarchlab/akita/main/mem/vm/mmu/doc.go"
+    ]
+}

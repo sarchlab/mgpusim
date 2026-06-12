@@ -1,0 +1,15 @@
+{
+  "benchmark": "DeviceMemory",
+  "suite": "shoc",
+  "scaling_parameter": {
+    "name": "array_size_mb",
+    "description": "Array size in megabytes",
+    "values": [1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size",
+      "values": [64, 128, 256, 512]
+    }
+  }
+}

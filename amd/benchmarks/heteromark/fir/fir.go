@@ -8,26 +8,12 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// GCN3KernelArgs defines kernel arguments for GCN3 architecture
-type GCN3KernelArgs struct {
-	Output              driver.Ptr
-	Filter              driver.Ptr
-	Input               driver.Ptr
-	History             driver.Ptr
-	NumTaps             uint32
-	Padding             uint32
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-}
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
-type CDNA3KernelArgs struct {
+// KernelArgs defines kernel arguments.
+type KernelArgs struct {
 	Output  driver.Ptr // offset 0
 	Filter  driver.Ptr // offset 8
 	Input   driver.Ptr // offset 16
@@ -59,7 +45,6 @@ type Benchmark struct {
 	hsaco   *insts.KernelCodeObject
 	gpus    []int
 
-	Arch         arch.Type
 	Length       int
 	NumTapsParam int
 	numTaps      int
@@ -73,11 +58,8 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
-//go:embed kernels.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -91,12 +73,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "FIR")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
@@ -180,57 +156,38 @@ func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex, numGPUs 
 	numWi := b.Length
 	gridSize := uint32(numWi / numGPUs)
 
-	if b.Arch == arch.CDNA3 {
-		wgSizeX := uint16(256)
-		wgSizeY := uint16(1)
-		wgSizeZ := uint16(1)
+	wgSizeX := uint16(256)
+	wgSizeY := uint16(1)
+	wgSizeZ := uint16(1)
 
-		kernArg := CDNA3KernelArgs{
-			Output:  b.gOutputData,
-			Filter:  b.gFilterData[gpuIndex],
-			Input:   b.gInputData,
-			History: b.gHistoryData,
-			NumTaps: uint32(b.numTaps),
-			// Hidden kernel arguments for GFX942
-			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
-			HiddenBlockCountY:   1,
-			HiddenBlockCountZ:   1,
-			HiddenGroupSizeX:    wgSizeX,
-			HiddenGroupSizeY:    wgSizeY,
-			HiddenGroupSizeZ:    wgSizeZ,
-			HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
-			HiddenRemainderY:    0,
-			HiddenRemainderZ:    0,
-			HiddenGlobalOffsetX: int64(gpuIndex * numWi / numGPUs),
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
-			HiddenGridDims:      1,
-		}
-
-		b.driver.EnqueueLaunchKernel(
-			queue,
-			b.hsaco,
-			[3]uint32{gridSize, 1, 1},
-			[3]uint16{256, 1, 1}, &kernArg,
-		)
-	} else {
-		kernArg := GCN3KernelArgs{
-			b.gOutputData,
-			b.gFilterData[gpuIndex],
-			b.gInputData,
-			b.gHistoryData,
-			uint32(b.numTaps),
-			0,
-			int64(gpuIndex * numWi / numGPUs), 0, 0,
-		}
-
-		b.driver.EnqueueLaunchKernel(
-			queue,
-			b.hsaco,
-			[3]uint32{gridSize, 1, 1},
-			[3]uint16{256, 1, 1}, &kernArg,
-		)
+	kernArg := KernelArgs{
+		Output:  b.gOutputData,
+		Filter:  b.gFilterData[gpuIndex],
+		Input:   b.gInputData,
+		History: b.gHistoryData,
+		NumTaps: uint32(b.numTaps),
+		// Hidden kernel arguments for GFX942
+		HiddenBlockCountX:   gridSize / uint32(wgSizeX),
+		HiddenBlockCountY:   1,
+		HiddenBlockCountZ:   1,
+		HiddenGroupSizeX:    wgSizeX,
+		HiddenGroupSizeY:    wgSizeY,
+		HiddenGroupSizeZ:    wgSizeZ,
+		HiddenRemainderX:    uint16(gridSize % uint32(wgSizeX)),
+		HiddenRemainderY:    0,
+		HiddenRemainderZ:    0,
+		HiddenGlobalOffsetX: int64(gpuIndex * numWi / numGPUs),
+		HiddenGlobalOffsetY: 0,
+		HiddenGlobalOffsetZ: 0,
+		HiddenGridDims:      1,
 	}
+
+	b.driver.EnqueueLaunchKernel(
+		queue,
+		b.hsaco,
+		[3]uint32{gridSize, 1, 1},
+		[3]uint16{256, 1, 1}, &kernArg,
+	)
 }
 
 func (b *Benchmark) exec() {

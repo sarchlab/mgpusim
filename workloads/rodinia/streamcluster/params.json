@@ -1,0 +1,23 @@
+{
+  "benchmark": "streamcluster",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "num_points",
+    "description": "Number of data points for clustering",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144, 393216, 524288, 786432, 1048576, 1572864, 2097152]
+  },
+  "non_scaling_parameters": {
+    "num_dimensions": {
+      "description": "Number of dimensions per data point",
+      "values": [16, 32, 64, 128]
+    },
+    "num_centers": {
+      "description": "Number of cluster centers to open",
+      "values": [5, 10, 20]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    }
+  }
+}

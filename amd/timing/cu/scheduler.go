@@ -3,8 +3,9 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/sampling"
@@ -30,9 +31,13 @@ type SchedulerImpl struct {
 
 	barrierBuffer     []*wavefront.Wavefront
 	barrierBufferSize int
+	barrierSyncCycles int
 
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
+
+	scoreboardEnabled bool
+	isCDNA3           bool
 
 	isPaused bool
 }
@@ -51,6 +56,7 @@ func NewScheduler(
 
 	s.barrierBufferSize = 16
 	s.barrierBuffer = make([]*wavefront.Wavefront, 0, s.barrierBufferSize)
+	s.barrierSyncCycles = 3
 
 	s.stopTickingAfterNCyclesNoProgress = 4
 
@@ -61,6 +67,10 @@ func NewScheduler(
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
+		madeProgress = s.advanceDispatching() || madeProgress
+		if s.scoreboardEnabled {
+			madeProgress = s.tickScoreboards() || madeProgress
+		}
 		madeProgress = s.EvaluateInternalInst() || madeProgress
 		madeProgress = s.DecodeNextInst() || madeProgress
 		madeProgress = s.DoIssue() || madeProgress
@@ -76,6 +86,38 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
+}
+
+func (s *SchedulerImpl) advanceDispatching() bool {
+	madeProgress := false
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.State == wavefront.WfDispatching && wf.SetupCyclesLeft > 0 {
+				wf.SetupCyclesLeft--
+				if wf.SetupCyclesLeft == 0 {
+					wf.State = wavefront.WfReady
+				}
+				madeProgress = true
+			}
+		}
+	}
+	return madeProgress
+}
+
+func (s *SchedulerImpl) tickScoreboards() bool {
+	ticked := false
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.ScoreboardData != nil {
+				sb := wf.ScoreboardData.(*Scoreboard)
+				if sb.AnyBusy() {
+					sb.Tick()
+					ticked = true
+				}
+			}
+		}
+	}
+	return ticked
 }
 
 // DecodeNextInst checks
@@ -100,8 +142,9 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				continue
 			}
 
+			bufOffset := wf.PC() - wf.InstBufferStartPC
 			inst, err := s.cu.Decoder.Decode(
-				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
+				wf.InstBuffer[bufOffset:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
 				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
@@ -113,7 +156,20 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 }
 
 func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-	return len(wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]) >= 4
+	pc := wf.PC()
+	start := wf.InstBufferStartPC
+	// Guard against PC being before InstBufferStartPC (e.g. after a
+	// flush or branch that reset the buffer). The uint64 subtraction
+	// would wrap around and cause a slice bounds panic.
+	if pc < start {
+		return false
+	}
+	offset := pc - start
+	bufLen := uint64(len(wf.InstBuffer))
+	if offset > bufLen {
+		return false
+	}
+	return (bufLen - offset) >= 4
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
@@ -123,7 +179,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
-	fetchLimit := min(4, len(wfs))
+	fetchLimit := min(8, len(wfs))
 	for idx := 0; idx < fetchLimit; idx++ {
 		wf := wfs[idx]
 
@@ -132,13 +188,14 @@ func (s *SchedulerImpl) DoFetch() bool {
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
-		req := mem.ReadReqBuilder{}.
-			WithSrc(s.cu.ToInstMem.AsRemote()).
-			WithDst(s.cu.InstMem.AsRemote()).
-			WithAddress(addr).
-			WithPID(wf.PID()).
-			WithByteSize(64).
-			Build()
+		req := &mem.ReadReq{
+			Address:        addr,
+			AccessByteSize: 64,
+			PID:            wf.PID(),
+		}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Src = s.cu.ToInstMem.AsRemote()
+		req.Dst = s.cu.InstMem.AsRemote()
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
@@ -151,9 +208,10 @@ func (s *SchedulerImpl) DoFetch() bool {
 
 			madeProgress = true
 
-			tracing.StartTask(req.ID+"_fetch", wf.UID,
+			fetchTaskID := sim.GetIDGenerator().Generate()
+			tracing.StartTask(fetchTaskID, wf.UID,
 				s.cu, "fetch", "fetch", nil)
-			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
+			tracing.TraceReqInitiate(req, s.cu, fetchTaskID)
 		}
 	}
 
@@ -180,6 +238,14 @@ func (s *SchedulerImpl) DoIssue() bool {
 				wf.InstToIssue = nil
 
 				s.cu.logInstTask(wf, wf.DynamicInst(), false)
+
+				if s.scoreboardEnabled && wf.ScoreboardData != nil {
+					latency := GetScoreboardLatency(wf.DynamicInst().Inst, s.isCDNA3)
+					if latency > 0 {
+						wf.ScoreboardData.(*Scoreboard).MarkBusy(
+							wf.DynamicInst().Inst, latency)
+					}
+				}
 
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
@@ -368,7 +434,7 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	msg := protocol.WGCompletionMsgBuilder{}.
 		WithSrc(s.cu.ToACE.AsRemote()).
 		WithDst(dispatcher).
-		WithRspTo([]string{mapReq.ID}).
+		WithRspTo([]uint64{mapReq.ID}).
 		Build()
 
 	err := s.cu.ToACE.Send(msg)
@@ -448,7 +514,7 @@ func (s *SchedulerImpl) passBarrier(
 	wg *wavefront.WorkGroup,
 ) {
 	s.removeAllWfFromBarrierBuffer(wg)
-	s.setAllWfStateToReady(wg)
+	s.setAllWfStateToReadyWithDelay(wg)
 }
 
 func (s *SchedulerImpl) setAllWfStateToReady(
@@ -462,6 +528,29 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 		}
 
 		s.cu.UpdatePCAndSetReady(wf)
+	}
+}
+
+func (s *SchedulerImpl) setAllWfStateToReadyWithDelay(
+	wg *wavefront.WorkGroup,
+) {
+	for _, wf := range wg.Wfs {
+		s.cu.logInstTask(wf, wf.DynamicInst(), true)
+
+		if wf.State == wavefront.WfCompleted {
+			continue
+		}
+
+		s.cu.UpdatePCAndSetReady(wf)
+
+		// Apply barrier synchronization overhead by temporarily putting
+		// wavefronts in dispatching state with setup cycles remaining.
+		// The existing advanceDispatching() loop will count down and
+		// transition to WfReady.
+		if s.barrierSyncCycles > 0 {
+			wf.State = wavefront.WfDispatching
+			wf.SetupCyclesLeft = s.barrierSyncCycles
+		}
 	}
 }
 

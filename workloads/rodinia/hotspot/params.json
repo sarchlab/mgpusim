@@ -1,0 +1,23 @@
+{
+  "benchmark": "hotspot",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "grid_size",
+    "description": "Grid dimension N (NxN grid for 2D thermal simulation)",
+    "values": [32, 48, 64, 96, 128, 192, 256, 384, 512, 640, 768, 1024, 1280, 1536, 2048, 2560, 3072, 3584, 4096]
+  },
+  "non_scaling_parameters": {
+    "num_iterations": {
+      "description": "Number of simulation time steps",
+      "values": [1, 10, 50, 100]
+    },
+    "block_size": {
+      "description": "Thread block dimension (2D: block_size x block_size)",
+      "values": [8, 16, 32]
+    },
+    "ambient_temp": {
+      "description": "Ambient temperature in degrees Celsius",
+      "values": [25.0, 50.0, 80.0]
+    }
+  }
+}

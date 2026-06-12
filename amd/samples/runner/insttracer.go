@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/tebeka/atexit"
 )
 
@@ -12,13 +12,13 @@ type instTracer struct {
 	simdCount uint64
 	maxCount  uint64
 
-	inflightInst map[string]tracing.Task
+	inflightInst map[uint64]tracing.Task
 }
 
 // newInstTracer creates a tracer that can count the number of instructions.
 func newInstTracer() *instTracer {
 	t := &instTracer{
-		inflightInst: map[string]tracing.Task{},
+		inflightInst: map[uint64]tracing.Task{},
 	}
 	return t
 }
@@ -28,7 +28,7 @@ func newInstTracer() *instTracer {
 func newInstStopper(maxInst uint64) *instTracer {
 	t := &instTracer{
 		maxCount:     maxInst,
-		inflightInst: map[string]tracing.Task{},
+		inflightInst: map[uint64]tracing.Task{},
 	}
 	return t
 }

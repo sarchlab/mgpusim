@@ -44,6 +44,11 @@ func (a *CURegFileAccessor) ReadReg(
 			return insts.Uint64ToBytes(a.WF.EXEC())
 		}
 		return insts.Uint32ToBytes(uint32(a.WF.EXEC()))
+	case insts.EXECHI:
+		if regCount >= 2 {
+			return insts.Uint64ToBytes(a.WF.EXEC())
+		}
+		return insts.Uint32ToBytes(uint32(a.WF.EXEC() >> 32))
 	case insts.M0:
 		return insts.Uint32ToBytes(a.WF.M0)
 	}
@@ -124,6 +129,15 @@ func (a *CURegFileAccessor) WriteReg(
 		} else {
 			lo := uint64(insts.BytesToUint32(data))
 			hi := a.WF.EXEC() & 0xFFFFFFFF00000000
+			a.WF.SetEXEC(hi | lo)
+		}
+		return
+	case insts.EXECHI:
+		if regCount >= 2 || len(data) >= 8 {
+			a.WF.SetEXEC(insts.BytesToUint64(padTo8(data)))
+		} else {
+			hi := uint64(insts.BytesToUint32(data)) << 32
+			lo := a.WF.EXEC() & 0x00000000FFFFFFFF
 			a.WF.SetEXEC(hi | lo)
 		}
 		return

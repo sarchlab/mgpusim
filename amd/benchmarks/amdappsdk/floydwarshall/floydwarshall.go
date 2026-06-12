@@ -9,21 +9,12 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// GCN3KernelArgs defines kernel arguments for GCN3 architecture
-type GCN3KernelArgs struct {
-	OutputPathDistanceMatrix driver.Ptr
-	OutputPathMatrix         driver.Ptr
-	NumNodes                 uint32
-	Pass                     uint32
-}
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
-type CDNA3KernelArgs struct {
+// KernelArgs defines kernel arguments.
+type KernelArgs struct {
 	OutputPathDistanceMatrix driver.Ptr
 	OutputPathMatrix         driver.Ptr
 	NumNodes                 uint32
@@ -53,7 +44,6 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
-	Arch                      arch.Type
 	NumNodes                  uint32
 	NumIterations             uint32
 	hOutputPathMatrix         []uint32
@@ -85,19 +75,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-//go:embed kernels.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
 	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "floydWarshallPass")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -185,55 +166,38 @@ func printMatrix(matrix []uint32, n uint32) {
 }
 
 func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
-	if b.Arch == arch.CDNA3 {
-		wgSizeX := uint16(blockSize)
-		wgSizeY := uint16(blockSize)
-		wgSizeZ := uint16(1)
+	wgSizeX := uint16(blockSize)
+	wgSizeY := uint16(blockSize)
+	wgSizeZ := uint16(1)
 
-		kernArg := CDNA3KernelArgs{
-			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-			OutputPathMatrix:         b.dOutputPathMatrix,
-			NumNodes:                 numNodes,
-			Pass:                     pass,
-			// Hidden kernel arguments for GFX942
-			HiddenBlockCountX:   numNodes / uint32(wgSizeX),
-			HiddenBlockCountY:   numNodes / uint32(wgSizeY),
-			HiddenBlockCountZ:   1,
-			HiddenGroupSizeX:    wgSizeX,
-			HiddenGroupSizeY:    wgSizeY,
-			HiddenGroupSizeZ:    wgSizeZ,
-			HiddenRemainderX:    uint16(numNodes % uint32(wgSizeX)),
-			HiddenRemainderY:    uint16(numNodes % uint32(wgSizeY)),
-			HiddenRemainderZ:    0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
-			HiddenGridDims:      2,
-		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			[3]uint32{numNodes, numNodes, 1},
-			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-			&kernArg,
-		)
-	} else {
-		kernArg := GCN3KernelArgs{
-			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-			OutputPathMatrix:         b.dOutputPathMatrix,
-			NumNodes:                 numNodes,
-			Pass:                     pass,
-		}
-
-		b.driver.LaunchKernel(
-			b.context,
-			b.kernel,
-			[3]uint32{numNodes, numNodes, 1},
-			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-			&kernArg,
-		)
+	kernArg := KernelArgs{
+		OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
+		OutputPathMatrix:         b.dOutputPathMatrix,
+		NumNodes:                 numNodes,
+		Pass:                     pass,
+		// Hidden kernel arguments for GFX942
+		HiddenBlockCountX:   numNodes / uint32(wgSizeX),
+		HiddenBlockCountY:   numNodes / uint32(wgSizeY),
+		HiddenBlockCountZ:   1,
+		HiddenGroupSizeX:    wgSizeX,
+		HiddenGroupSizeY:    wgSizeY,
+		HiddenGroupSizeZ:    wgSizeZ,
+		HiddenRemainderX:    uint16(numNodes % uint32(wgSizeX)),
+		HiddenRemainderY:    uint16(numNodes % uint32(wgSizeY)),
+		HiddenRemainderZ:    0,
+		HiddenGlobalOffsetX: 0,
+		HiddenGlobalOffsetY: 0,
+		HiddenGlobalOffsetZ: 0,
+		HiddenGridDims:      2,
 	}
+
+	b.driver.LaunchKernel(
+		b.context,
+		b.kernel,
+		[3]uint32{numNodes, numNodes, 1},
+		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+		&kernArg,
+	)
 }
 
 func (b *Benchmark) exec() {

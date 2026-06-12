@@ -1,0 +1,211 @@
+{
+  "schema_name": "mgpusim.mi300a_finishable_evaluation_summary",
+  "schema_version": 1,
+  "validation_status": "pass",
+  "source_evaluation_manifest": "benchmark-comparison/mi300a_finishable_evaluation_set.json",
+  "set_id": "mi300a-bounded-finishable-evaluation",
+  "set_version": "2026.04.26-run24959959195",
+  "source_paths": {
+    "finishable_manifest": "benchmark-comparison/mi300a_finishable_size_manifest.json",
+    "tier1_view": "benchmark-comparison/generated/mi300a_finishable_tier1_matrix.json",
+    "tier2_view": "benchmark-comparison/generated/mi300a_finishable_tier2_matrix.json",
+    "problem_size_discovery_plan": "benchmark-comparison/mi300a_problem_size_discovery_plan.json",
+    "discovery_provenance": "benchmark-comparison/provenance/mi300a_problem_size_discovery_run_24959959195.json"
+  },
+  "source_run": {
+    "database_id": 24959959195,
+    "url": "https://github.com/sarchlab/mgpusim-dev/actions/runs/24959959195",
+    "workflow_name": "MI300A Benchmark",
+    "event": "workflow_dispatch",
+    "head_branch": "e5-m3-2-refresh-1416-entry-discovery-evidence",
+    "head_sha": "d1105930b0272b8f8f552abfc2490744ef6fcf2f",
+    "status": "queued",
+    "conclusion": "",
+    "non_terminal_snapshot": true,
+    "observed_at_utc": "2026-04-26T17:04:42Z"
+  },
+  "snapshot_contract": {
+    "observation_time_utc": "2026-04-26T17:04:42Z",
+    "non_terminal_snapshot": true,
+    "bounded_snapshot": true,
+    "claim_scope": "immutable observation-time evidence snapshot only; queued/in_progress/missing-outcome rows are not final/current finishable-size claims while the source workflow remains non-terminal",
+    "source": "GitHub Actions REST API job/artifact rows plus candidate_outcomes_*.csv rows parsed from downloaded artifacts only"
+  },
+  "bounded_snapshot_disclaimer": "This evaluation surface includes only completed-success entries from the bounded 3600s discovery snapshot. Timed-out and non-terminal source rows remain visible only in source-contract counts and must not be described as permanent unfinishable claims without new terminal evidence.",
+  "source_contracts": {
+    "discovery_plan_entry_count": 1416,
+    "finishable_manifest_entry_count": 1416,
+    "eligible_entry_count": 23,
+    "excluded_entry_count": 1393,
+    "completed_success_entry_count": 23,
+    "timed_out_entry_count": 20,
+    "non_terminal_entry_count": 1373,
+    "eligible_plan_index_ranges": [
+      "1",
+      "3",
+      "6",
+      "9",
+      "237-238",
+      "473-482",
+      "720-722",
+      "955-958"
+    ],
+    "observed_outcome_bucket_counts": {
+      "completed_success": 23,
+      "non_terminal": 1373,
+      "timed_out": 20
+    },
+    "requested_primary_bucket_counts": {
+      "completed_success": 23,
+      "failed": 0,
+      "timed_out": 20,
+      "skipped": 0,
+      "cancelled": 0,
+      "non_terminal": 1373,
+      "missing_job": 0
+    },
+    "requested_primary_bucket_total": 1416,
+    "terminal_bucket_total": 43
+  },
+  "selection": {
+    "eligible_only": true,
+    "source_eligibility_field": "eligible_for_linear_workflow",
+    "excluded_eligible_entries": [],
+    "included_entry_count": 23,
+    "included_plan_index_ranges": [
+      "1",
+      "3",
+      "6",
+      "9",
+      "237-238",
+      "473-482",
+      "720-722",
+      "955-958"
+    ],
+    "non_included_source_rows_policy": "all non-included source rows are excluded in the finishable-size manifest; the evaluation set does not promote timed-out or non-terminal rows"
+  },
+  "entry_count": 23,
+  "benchmark_count": 5,
+  "tier_counts": {
+    "tier1": {
+      "entry_count": 6,
+      "benchmark_count": 2,
+      "matrix_entry_count": 2,
+      "eligible_plan_index_ranges": [
+        "1",
+        "3",
+        "6",
+        "9",
+        "237-238"
+      ]
+    },
+    "tier2": {
+      "entry_count": 17,
+      "benchmark_count": 3,
+      "matrix_entry_count": 3,
+      "eligible_plan_index_ranges": [
+        "473-482",
+        "720-722",
+        "955-958"
+      ]
+    }
+  },
+  "benchmark_summaries": [
+    {
+      "benchmark": "mem_latency_chase",
+      "kernel": "mem_latency_chase",
+      "tier": 1,
+      "tier_name": "tier1",
+      "entry_count": 4,
+      "plan_index_ranges": [
+        "1",
+        "3",
+        "6",
+        "9"
+      ],
+      "problem_sizes": [
+        "256",
+        "1024",
+        "8192",
+        "65536"
+      ],
+      "duration_sec_min": 9,
+      "duration_sec_max": 652
+    },
+    {
+      "benchmark": "occupancy_fma",
+      "kernel": "occupancy_fma",
+      "tier": 1,
+      "tier_name": "tier1",
+      "entry_count": 2,
+      "plan_index_ranges": [
+        "237-238"
+      ],
+      "problem_sizes": [
+        "131072",
+        "262144"
+      ],
+      "duration_sec_min": 366,
+      "duration_sec_max": 1462
+    },
+    {
+      "benchmark": "hotspot",
+      "kernel": "hotspot",
+      "tier": 2,
+      "tier_name": "tier2",
+      "entry_count": 10,
+      "plan_index_ranges": [
+        "473-482"
+      ],
+      "problem_sizes": [
+        "32",
+        "48",
+        "64",
+        "96",
+        "128",
+        "192",
+        "256",
+        "384",
+        "512",
+        "640"
+      ],
+      "duration_sec_min": 8,
+      "duration_sec_max": 2793
+    },
+    {
+      "benchmark": "gesummv",
+      "kernel": "gesummv",
+      "tier": 2,
+      "tier_name": "tier2",
+      "entry_count": 3,
+      "plan_index_ranges": [
+        "720-722"
+      ],
+      "problem_sizes": [
+        "64",
+        "128",
+        "192"
+      ],
+      "duration_sec_min": 16,
+      "duration_sec_max": 566
+    },
+    {
+      "benchmark": "srad",
+      "kernel": "srad",
+      "tier": 2,
+      "tier_name": "tier2",
+      "entry_count": 4,
+      "plan_index_ranges": [
+        "955-958"
+      ],
+      "problem_sizes": [
+        "64",
+        "128",
+        "192",
+        "256"
+      ],
+      "duration_sec_min": 12,
+      "duration_sec_max": 381
+    }
+  ]
+}

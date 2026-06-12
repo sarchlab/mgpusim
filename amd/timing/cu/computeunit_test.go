@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
@@ -216,18 +216,13 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SetDynamicInst(inst)
 			wf.SetPC(0x1000)
 
-			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem.AsRemote()).
-				WithDst(instMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			req := &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = cu.ToInstMem.AsRemote()
+			req.Dst = instMem.AsRemote()
 
-			dataReady = mem.DataReadyRspBuilder{}.
-				WithSrc(instMem.AsRemote()).
-				WithDst(cu.ToInstMem.AsRemote()).
-				WithRspTo(req.ID).
-				WithData([]byte{
+			dataReady = &mem.DataReadyRsp{
+				Data: []byte{
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
@@ -236,8 +231,12 @@ var _ = Describe("ComputeUnit", func() {
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
-				}).
-				Build()
+				},
+			}
+			dataReady.ID = sim.GetIDGenerator().Generate()
+			dataReady.Src = instMem.AsRemote()
+			dataReady.Dst = cu.ToInstMem.AsRemote()
+			dataReady.RspTo = req.ID
 
 			toInstMem.EXPECT().RetrieveIncoming().Return(dataReady)
 
@@ -274,11 +273,9 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle scalar data load return", func() {
-			read := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToScalarMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			read := &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			read.ID = sim.GetIDGenerator().Generate()
+			read.Src = cu.ToScalarMem.AsRemote()
 
 			info := new(ScalarMemAccessInfo)
 			info.Inst = wavefront.NewInst(insts.NewInst())
@@ -287,10 +284,9 @@ var _ = Describe("ComputeUnit", func() {
 			info.Req = read
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
-			rsp := mem.DataReadyRspBuilder{}.
-				WithRspTo(read.ID).
-				WithData(insts.Uint32ToBytes(32)).
-				Build()
+			rsp := &mem.DataReadyRsp{Data: insts.Uint32ToBytes(32)}
+			rsp.ID = sim.GetIDGenerator().Generate()
+			rsp.RspTo = read.ID
 			toScalarMem.EXPECT().RetrieveIncoming().Return(rsp)
 
 			cu.processInputFromScalarMem()
@@ -328,11 +324,8 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			read = mem.ReadReqBuilder{}.
-				WithAddress(0x100).
-				WithByteSize(16).
-				CanWaitForCoalesce().
-				Build()
+			read = &mem.ReadReq{Address: 0x100, AccessByteSize: 16, CanWaitForCoalesce: true}
+			read.ID = sim.GetIDGenerator().Generate()
 
 			info = VectorMemAccessInfo{}
 			info.Read = read
@@ -347,10 +340,9 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
-			dataReady := mem.DataReadyRspBuilder{}.
-				WithRspTo(read.ID).
-				WithData(make([]byte, 16)).
-				Build()
+			dataReady := &mem.DataReadyRsp{Data: make([]byte, 16)}
+			dataReady.ID = sim.GetIDGenerator().Generate()
+			dataReady.RspTo = read.ID
 			for i := 0; i < 4; i++ {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
@@ -418,10 +410,8 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			writeReq = mem.WriteReqBuilder{}.
-				WithAddress(0x100).
-				CanWaitForCoalesce().
-				Build()
+			writeReq = &mem.WriteReq{Address: 0x100, CanWaitForCoalesce: true}
+			writeReq.ID = sim.GetIDGenerator().Generate()
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
@@ -429,9 +419,9 @@ var _ = Describe("ComputeUnit", func() {
 			info.Write = writeReq
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 
-			doneRsp = mem.WriteDoneRspBuilder{}.
-				WithRspTo(writeReq.ID).
-				Build()
+			doneRsp = &mem.WriteDoneRsp{}
+			doneRsp.ID = sim.GetIDGenerator().Generate()
+			doneRsp.RspTo = writeReq.ID
 			toVectorMem.EXPECT().RetrieveIncoming().Return(doneRsp)
 			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
 		})
@@ -547,12 +537,10 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should not restart a CU where there are shadow buffer reqs pending", func() {
 			info := new(InstFetchReqInfo)
-			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem.AsRemote()).
-				WithDst(instMem.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			req := &mem.ReadReq{Address: 0x100, AccessByteSize: 64}
+			req.ID = sim.GetIDGenerator().Generate()
+			req.Src = cu.ToInstMem.AsRemote()
+			req.Dst = instMem.AsRemote()
 			info.Req = req
 
 			cu.shadowInFlightInstFetch = append(cu.InFlightInstFetch, info)

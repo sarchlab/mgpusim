@@ -1,0 +1,23 @@
+{
+  "benchmark": "fused_swiglu",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Total elements = batch_size * seq_len * intermediate_size. SwiGLU operates on FFN intermediate activations",
+    "values": [49152, 98304, 196608, 393216, 786432, 1572864, 3145728, 4194304, 6291456, 8388608, 11010048, 16777216, 22020096, 33554432, 45088768, 67108864, 90177536, 134217728]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Threads per block",
+      "values": [128, 256, 512, 1024]
+    },
+    "elements_per_thread": {
+      "description": "Elements processed per thread (vectorization/ILP factor)",
+      "values": [1, 4, 8]
+    },
+    "precision": {
+      "description": "Compute precision: 1=FP32, 2=FP32 with fast-math, 3=FP32 with output clamping",
+      "values": [1, 2, 3]
+    }
+  }
+}

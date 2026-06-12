@@ -12,7 +12,7 @@ import (
 type CodeObjectVersion int
 
 const (
-	// CodeObjectV2 is the legacy code object format (GCN3)
+	// CodeObjectV2 is the legacy code object format
 	CodeObjectV2 CodeObjectVersion = 2
 	// CodeObjectV3 is the code object format with 256-byte header
 	CodeObjectV3 CodeObjectVersion = 3
@@ -20,12 +20,30 @@ const (
 	CodeObjectV5 CodeObjectVersion = 5
 )
 
+// ELFRelocation represents a relocation entry from the ELF .rela.text section.
+type ELFRelocation struct {
+	Offset   uint64 // Offset within .text where the relocation applies
+	Type     uint32 // Relocation type (R_AMDGPU_GOTPCREL32_LO=8, _HI=9)
+	SymName  string // Symbol name being referenced
+	Addend   int64  // Addend value from the relocation entry
+	SymValue uint64 // Symbol value (offset within its section)
+	SymSec   string // Section name where the symbol is defined
+}
+
+// ELFDataSection stores a loaded data section from the ELF.
+type ELFDataSection struct {
+	Name string
+	Data []byte
+}
+
 // An KernelCodeObject is the kernel code to be executed on an AMD GPU
 type KernelCodeObject struct {
 	*KernelCodeObjectMeta
-	Symbol  *elf.Symbol
-	Data    []byte // Instruction data only (no header)
-	Version CodeObjectVersion
+	Symbol       *elf.Symbol
+	Data         []byte // Instruction data only (no header)
+	Version      CodeObjectVersion
+	Relocations  []ELFRelocation  // Relocations from .rela.text
+	DataSections []ELFDataSection // Data sections (.data, etc.) needed by relocations
 }
 
 // KernelCodeObjectMeta contains the metadata of an HSACO kernel
@@ -233,6 +251,12 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 				co.KernelCodeObjectMeta = v5Meta
 				co.Version = CodeObjectV5
 				co.Symbol = &symbolCopy
+
+				// Parse relocations and load data sections
+				co.Relocations, co.DataSections =
+					parseRelocationsAndData(executable, symbols,
+						textSection)
+
 				return co
 			}
 
@@ -345,8 +369,8 @@ func isV2V3Header(data []byte) bool {
 	}
 
 	// Secondary validation: MachineVersionMajor should be a known AMD GPU
-	// generation. Valid values: 7 (GCN3/Sea Islands), 8 (GCN4/Volcanic Islands),
-	// 9 (GCN5/Vega). Values outside this range indicate this is not a real header.
+	// generation. Valid values: 7 (legacy Sea Islands), 8 (legacy Volcanic Islands),
+	// 9 (Vega/CDNA). Values outside this range indicate this is not a real header.
 	machineVersionMajor := binary.LittleEndian.Uint16(data[10:12])
 	if machineVersionMajor < 7 || machineVersionMajor > 9 {
 		return false
@@ -414,83 +438,88 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	// 8:12  - kernarg_size
 	// 12:16 - reserved
 	// 16:24 - kernel_code_entry_byte_offset
-	// 24:32 - reserved
-	// 32:40 - reserved
-	// 40:44 - compute_pgm_rsrc3
-	// 44:48 - compute_pgm_rsrc1
-	// 48:52 - compute_pgm_rsrc2
-	// 52:54 - kernel_code_properties
-	// 54:56 - kernarg_preload
-	// 56:60 - reserved
+	// 24:44 - reserved (20 bytes)
+	// 44:48 - compute_pgm_rsrc3
+	// 48:52 - compute_pgm_rsrc1
+	// 52:56 - compute_pgm_rsrc2
+	// 56:58 - kernel_code_properties
+	// 58:60 - kernarg_preload
+	// 60:64 - reserved
 
 	meta.GroupSegmentByteSize = binary.LittleEndian.Uint32(data[0:4])
 	meta.PrivateSegmentByteSize = binary.LittleEndian.Uint32(data[4:8])
 	meta.KernargSegmentByteSize = uint64(binary.LittleEndian.Uint32(data[8:12]))
 	meta.KernelCodeEntryByteOffset = binary.LittleEndian.Uint64(data[16:24])
-	meta.ComputePgmRsrc3 = binary.LittleEndian.Uint32(data[40:44])
-	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[44:48])
-	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[48:52])
+	meta.ComputePgmRsrc3 = binary.LittleEndian.Uint32(data[44:48])
+	meta.ComputePgmRsrc1 = binary.LittleEndian.Uint32(data[48:52])
+	meta.ComputePgmRsrc2 = binary.LittleEndian.Uint32(data[52:56])
 
-	// Derive WIVgprCount and WFSgprCount from ComputePgmRsrc1.
-	// These are "granulated" counts in the hardware register:
-	//   bits 0-5: granulated_workitem_vgpr_count → actual = (value + 1) * 4
-	//   bits 6-9: granulated_wavefront_sgpr_count → actual = (value + 1) * 8
-	// The resource allocator uses WIVgprCount/WFSgprCount for register
-	// allocation; leaving them at 0 causes all wavefronts to share offset 0.
-	granulatedVgpr := extractBits(meta.ComputePgmRsrc1, 0, 5)
+	// Derive WIVgprCount and WFSgprCount.
+	// For CDNA3 (gfx940-942), COMPUTE_PGM_RSRC3.ACCUM_OFFSET (bits 0-5)
+	// specifies the VGPR/AGPR split point in units of 4 VGPRs. This gives
+	// the actual VGPR count as (accum_offset + 1) * 4, which is more
+	// reliable than RSRC1's granulated count for kernels without AGPRs.
+	// The SGPR count still comes from RSRC1 bits 6-9.
 	granulatedSgpr := extractBits(meta.ComputePgmRsrc1, 6, 9)
-	meta.WIVgprCount = uint16((granulatedVgpr + 1) * 4)
 	meta.WFSgprCount = uint16((granulatedSgpr + 1) * 8)
 
-	// For V5 (AMDHSA Code Object V4+) kernel descriptors:
-	// The kernel_code_properties field and compute_pgm_rsrc2 may not
-	// accurately reflect all SGPR setup requirements, especially for
-	// kernels compiled with extern "C". Instead of relying solely on
-	// the property flags, we use a practical approach:
-	//
-	// 1. If kernarg_size > 0, the kernel needs a kernarg segment pointer
-	// 2. Workgroup ID and work-item ID enables come from compute_pgm_rsrc2
-	// 3. We disable unused/deprecated SGPR features (dispatch ptr, queue ptr, etc.)
-	//
-	// The SGPR layout for V5 kernels is always:
-	//   s[0:1] = kernarg segment pointer (if kernel has kernargs)
-	//   s2     = workgroup ID X (if enabled in rsrc2)
-	//   s3     = workgroup ID Y (if enabled in rsrc2)
-	//   s4     = workgroup ID Z (if enabled in rsrc2)
+	// Use RSRC3.ACCUM_OFFSET for VGPR count (CDNA3 layout).
+	// RSRC1's VGPR field may not reflect the actual VGPR usage.
+	accumOffset := extractBits(meta.ComputePgmRsrc3, 0, 5)
+	granulatedVgpr := extractBits(meta.ComputePgmRsrc1, 0, 5)
+	vgprFromRsrc1 := (granulatedVgpr + 1) * 4
+	vgprFromRsrc3 := (accumOffset + 1) * 4
+	if vgprFromRsrc3 > vgprFromRsrc1 {
+		meta.WIVgprCount = uint16(vgprFromRsrc3)
+	} else {
+		meta.WIVgprCount = uint16(vgprFromRsrc1)
+	}
+
+	// Read kernel_code_properties flags from the kernel descriptor.
+	// These tell us which system SGPRs the kernel expects.
+	codeProps := binary.LittleEndian.Uint16(data[56:58])
 
 	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
 
-	// For V5 code objects, always enable kernarg ptr if there are kernel arguments
-	meta.EnableSgprKernargSegmentPtr = meta.KernargSegmentByteSize > 0
+	// Honor the dispatch_ptr flag from kernel_code_properties (bit 1).
+	// Some kernels (e.g., those using hipBlockDim_x/hipGridDim_x via
+	// the dispatch packet rather than implicit args) need the dispatch
+	// pointer in SGPRs.
+	meta.EnableSgprDispatchPtr = (codeProps>>1)&1 != 0
 
-	// Disable features we don't support / that may have incorrect flags
-	meta.EnableSgprDispatchPtr = false
-	meta.EnableSgprQueuePtr = false
+	// Honor the queue_ptr flag from kernel_code_properties (bit 2).
+	meta.EnableSgprQueuePtr = (codeProps>>2)&1 != 0
+
+	// For V5 code objects, enable kernarg ptr if the kernel descriptor
+	// says so (bit 3) or if there are kernel arguments.
+	meta.EnableSgprKernargSegmentPtr = (codeProps>>3)&1 != 0 ||
+		meta.KernargSegmentByteSize > 0
+
 	meta.EnableSgprDispatchID = false
 	meta.EnableSgprFlatScratchInit = false
 	meta.EnableSgprPrivateSegmentSize = false
 
-	// Fix compute_pgm_rsrc2: Some extern "C" kernels have incorrect
-	// enable_sgpr_workgroup_id and enable_vgpr_workitem_id bits.
-	// For V5 code objects, we ensure these are always enabled since
-	// all HIP kernels use workgroup and work-item IDs.
-	// Bit 1-5:  user_sgpr_count → set to 2 (for kernarg ptr s[0:1])
-	// Bit 7:    enable_sgpr_workgroup_id_x → force enable
-	// Bit 8:    enable_sgpr_workgroup_id_y → force enable
-	// Bit 9:    enable_sgpr_workgroup_id_z → leave as-is
-	// Bit 11-12: enable_vgpr_workitem_id → force to at least 1 (X+Y)
-	rsrc2 := meta.ComputePgmRsrc2
-	// Clear bit 0 (enable_sgpr_private_segment_wave_byte_offset) — deprecated in V5
-	rsrc2 &^= 1
-	if meta.EnableSgprKernargSegmentPtr {
-		// Set user_sgpr_count to 2 (kernarg ptr uses 2 SGPRs)
-		rsrc2 = (rsrc2 &^ (0x1F << 1)) | (2 << 1)
+	// Build the user SGPR count based on which system SGPRs are enabled.
+	// The order matches the AMDHSA ABI: dispatch_ptr, queue_ptr,
+	// kernarg_segment_ptr (each occupies 2 SGPRs = 64-bit pointer).
+	userSgprCount := uint32(0)
+	if meta.EnableSgprDispatchPtr {
+		userSgprCount += 2
 	}
+	if meta.EnableSgprQueuePtr {
+		userSgprCount += 2
+	}
+	if meta.EnableSgprKernargSegmentPtr {
+		userSgprCount += 2
+	}
+
+	rsrc2 := meta.ComputePgmRsrc2
+	rsrc2 &^= 1 // clear deprecated bit 0
+	rsrc2 = (rsrc2 &^ (0x1F << 1)) | (userSgprCount << 1)
 	rsrc2 |= (1 << 7) // enable_sgpr_workgroup_id_x
 	rsrc2 |= (1 << 8) // enable_sgpr_workgroup_id_y
-	// Set enable_vgpr_workitem_id to at least 1 (enable X and Y)
 	if (rsrc2>>11)&3 == 0 {
-		rsrc2 = (rsrc2 &^ (3 << 11)) | (1 << 11)
+		rsrc2 = (rsrc2 &^ (3 << 11)) | (1 << 11) // enable_vgpr_workitem_id
 	}
 	meta.ComputePgmRsrc2 = rsrc2
 
@@ -647,4 +676,93 @@ func (h *KernelCodeObjectMeta) Info() string {
 	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Z: %t\n", h.EnableVgprWorkItemID() > 1)
 
 	return s
+}
+
+// parseRelocationsAndData extracts .rela.text relocations and any data sections
+// that are referenced by those relocations.
+func parseRelocationsAndData(
+	executable *elf.File,
+	symbols []elf.Symbol,
+	textSection *elf.Section,
+) ([]ELFRelocation, []ELFDataSection) {
+	var relocs []ELFRelocation
+	var dataSections []ELFDataSection
+
+	// Find .rela.text section
+	relaTextSec := executable.Section(".rela.text")
+	if relaTextSec == nil {
+		return nil, nil
+	}
+
+	relaData, err := relaTextSec.Data()
+	if err != nil {
+		return nil, nil
+	}
+
+	// Parse relocation entries (24 bytes each: offset, info, addend)
+	entrySize := 24
+	numEntries := len(relaData) / entrySize
+
+	// Track which sections we need to load
+	neededSections := make(map[int]bool)
+
+	for i := 0; i < numEntries; i++ {
+		off := i * entrySize
+		offset := binary.LittleEndian.Uint64(relaData[off:])
+		info := binary.LittleEndian.Uint64(relaData[off+8:])
+		addend := int64(binary.LittleEndian.Uint64(relaData[off+16:]))
+
+		symIdx := info >> 32
+		relType := uint32(info & 0xFFFFFFFF)
+
+		// Go's elf.Symbols() skips the null entry at index 0,
+		// so ELF symbol index N maps to symbols[N-1].
+		if symIdx == 0 || int(symIdx-1) >= len(symbols) {
+			continue
+		}
+		sym := symbols[symIdx-1]
+
+		var secName string
+		if sym.Section != elf.SHN_UNDEF &&
+			int(sym.Section) < len(executable.Sections) {
+			secName = executable.Sections[sym.Section].Name
+			neededSections[int(sym.Section)] = true
+		}
+
+		relocs = append(relocs, ELFRelocation{
+			Offset:   offset,
+			Type:     relType,
+			SymName:  sym.Name,
+			Addend:   addend,
+			SymValue: sym.Value,
+			SymSec:   secName,
+		})
+	}
+
+	dataSections = loadNeededDataSections(executable, neededSections)
+
+	return relocs, dataSections
+}
+
+// loadNeededDataSections reads the ELF sections identified by neededSections
+// and returns them as ELFDataSection values.
+func loadNeededDataSections(
+	executable *elf.File,
+	neededSections map[int]bool,
+) []ELFDataSection {
+	var dataSections []ELFDataSection
+
+	for secIdx := range neededSections {
+		sec := executable.Sections[secIdx]
+		data, err := sec.Data()
+		if err != nil {
+			continue
+		}
+		dataSections = append(dataSections, ELFDataSection{
+			Name: sec.Name,
+			Data: data,
+		})
+	}
+
+	return dataSections
 }

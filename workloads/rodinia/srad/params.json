@@ -1,0 +1,23 @@
+{
+  "benchmark": "srad",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "image_size",
+    "description": "Image dimension N (NxN image)",
+    "values": [64, 128, 192, 256, 384, 512, 640, 768, 1024, 1280, 1536, 2048, 2560, 3072, 4096, 6144, 8192]
+  },
+  "non_scaling_parameters": {
+    "num_iterations": {
+      "description": "Number of SRAD diffusion iterations",
+      "values": [1, 5, 10, 50, 100]
+    },
+    "lambda": {
+      "description": "Diffusion coefficient lambda",
+      "values": [0.1, 0.25, 0.5]
+    },
+    "block_size": {
+      "description": "Thread block size (2D: block_size x block_size)",
+      "values": [8, 16, 32]
+    }
+  }
+}

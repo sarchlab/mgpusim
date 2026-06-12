@@ -1,0 +1,15 @@
+{
+  "benchmark": "3DConvolution",
+  "suite": "polybench",
+  "scaling_parameter": {
+    "name": "size",
+    "description": "Volume dimension N (NI=NJ=NK=N)",
+    "values": [32, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size (2D: block_size x block_size, z from grid)",
+      "values": [8, 16, 32]
+    }
+  }
+}

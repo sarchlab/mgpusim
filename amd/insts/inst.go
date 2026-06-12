@@ -29,7 +29,7 @@ type InstType struct {
 	SDSTWidth int
 }
 
-// An Inst is a GCN3 instruction
+// An Inst is a GPU instruction
 type Inst struct {
 	*Format
 	*InstType
@@ -60,6 +60,7 @@ type Inst struct {
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool
+	FlatSeg             int // FLAT segment: 0=FLAT, 1=SCRATCH, 2=GLOBAL
 	Imm                 bool
 	Clamp               bool
 	GDS                 bool

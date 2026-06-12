@@ -4,8 +4,8 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // PageMigrationController control page migration
@@ -35,7 +35,7 @@ type PageMigrationController struct {
 	requestingPMCtrlPort sim.RemotePort
 
 	numDataRspPendingForPageMigration int
-	reqIDToWriteAddressMap            map[string]uint64
+	reqIDToWriteAddressMap            map[uint64]uint64
 
 	MemCtrlFinder mem.AddressToPortMapper
 
@@ -192,14 +192,15 @@ func (e *PageMigrationController) processReadPageReqFromAnotherPMC() bool {
 	for i := 0; i < len(e.currentPullReqFromAnotherPMC); i++ {
 		address := e.currentPullReqFromAnotherPMC[i].ToReadFromPhyAddress
 		dataTransferSize := e.currentPullReqFromAnotherPMC[i].DataTransferSize
-		req := mem.ReadReqBuilder{}.
-			WithSrc(e.localMemPort.AsRemote()).
-			WithDst(e.MemCtrlFinder.Find(address)).
-			WithAddress(address).
-			WithByteSize(dataTransferSize).
-			Build()
-
-		req.ID = e.currentPullReqFromAnotherPMC[i].ID
+		req := &mem.ReadReq{
+			MsgMeta: sim.MsgMeta{
+				ID:  e.currentPullReqFromAnotherPMC[i].ID,
+				Src: e.localMemPort.AsRemote(),
+				Dst: e.MemCtrlFinder.Find(address),
+			},
+			Address:        address,
+			AccessByteSize: dataTransferSize,
+		}
 		e.toSendLocalMemPort = append(e.toSendLocalMemPort, req)
 	}
 
@@ -266,7 +267,7 @@ func (e *PageMigrationController) processDataReadyRspFromMemCtrl() bool {
 			WithDst(e.requestingPMCtrlPort).
 			WithData(data).
 			Build()
-		rsp.ID = e.dataReadyRspFromMemCtrl[i].RespondTo
+		rsp.ID = e.dataReadyRspFromMemCtrl[i].RspTo
 
 		e.toRspToAnotherPMC = append(e.toRspToAnotherPMC, rsp)
 	}
@@ -316,12 +317,15 @@ func (e *PageMigrationController) processDataPullRsp() bool {
 		if !found {
 			log.Panicf("We do not know where the mem controller should write")
 		}
-		req := mem.WriteReqBuilder{}.
-			WithSrc(e.localMemPort.AsRemote()).
-			WithDst(e.MemCtrlFinder.Find(address)).
-			WithData(data).
-			WithAddress(address).
-			Build()
+		req := &mem.WriteReq{
+			MsgMeta: sim.MsgMeta{
+				ID:  sim.GetIDGenerator().Generate(),
+				Src: e.localMemPort.AsRemote(),
+				Dst: e.MemCtrlFinder.Find(address),
+			},
+			Data:    data,
+			Address: address,
+		}
 
 		e.writeReqLocalMemPort = append(e.writeReqLocalMemPort, req)
 		delete(e.reqIDToWriteAddressMap, e.receivedDataFromAnothePMC[i].ID)
@@ -435,7 +439,7 @@ func NewPageMigrationController(
 	e.onDemandPagingDataTransferSize = 64
 	e.numDataRspPendingForPageMigration = -1
 
-	e.reqIDToWriteAddressMap = make(map[string]uint64)
+	e.reqIDToWriteAddressMap = make(map[uint64]uint64)
 
 	return e
 }

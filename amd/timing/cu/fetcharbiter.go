@@ -3,7 +3,7 @@ package cu
 import (
 	"math"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 )
 
@@ -19,12 +19,13 @@ func (a *FetchArbiter) Arbitrate(
 ) []*wavefront.Wavefront {
 	list := make([]*wavefront.Wavefront, 0, 1)
 
-	oldestTime := sim.VTimeInSec(math.MaxFloat64)
+	oldestTime := sim.VTimeInSec(math.MaxUint64)
 	var toFetch *wavefront.Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {
 			wf.RLock()
 			if !a.canFetchFromWF(wf) {
+				wf.RUnlock()
 				continue
 			}
 

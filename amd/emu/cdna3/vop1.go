@@ -37,8 +37,12 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVCVTF32UBYTE0(state)
 	case 28:
 		u.runTRUNKF32(state)
+	case 29: // v_ceil_f32
+		u.runVCEILF32(state)
 	case 30:
 		u.runRNDNEF32(state)
+	case 31: // v_floor_f32
+		u.runVFLOORF32(state)
 	case 32:
 		u.runEXPF32(state)
 	case 33:
@@ -51,6 +55,10 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVRCPF64(state)
 	case 39:
 		u.runVSQRTF32(state)
+	case 41: // v_sin_f32
+		u.runVSINF32(state)
+	case 42: // v_cos_f32
+		u.runVCOSF32(state)
 	case 43:
 		u.runVNOTB32(state)
 	case 44:
@@ -58,7 +66,7 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 	case 45:
 		u.runVFFBHU32(state)
 	case 56:
-		u.runVMOVRELSDB32(state)
+		u.runVMOVB64(state)
 	case 76:
 		u.runLogLegacyF32(state)
 	default:
@@ -435,7 +443,7 @@ func (u *ALU) runVFFBHU32(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMOVRELSDB32(state emu.InstEmuState) {
+func (u *ALU) runVMOVB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -459,6 +467,66 @@ func (u *ALU) runLogLegacyF32(state emu.InstEmuState) {
 		}
 		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		dst := float32(math.Log2(float64(src)))
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+// runVCEILF32 implements v_ceil_f32 (opcode 29)
+// D.f = ceil(S0.f)
+func (u *ALU) runVCEILF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		dst := float32(math.Ceil(float64(src)))
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+// runVSINF32 implements v_sin_f32 (opcode 41)
+// D.f = sin(S0.f * 2π). Input in range [0.0, 1.0] maps to [0, 2π].
+func (u *ALU) runVSINF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		dst := float32(math.Sin(float64(src) * 2 * math.Pi))
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+// runVCOSF32 implements v_cos_f32 (opcode 42)
+// D.f = cos(S0.f * 2π). Input in range [0.0, 1.0] maps to [0, 2π].
+func (u *ALU) runVCOSF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		dst := float32(math.Cos(float64(src) * 2 * math.Pi))
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+// runVFLOORF32 implements v_floor_f32 (opcode 31)
+// D.f = floor(S0.f)
+func (u *ALU) runVFLOORF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		dst := float32(math.Floor(float64(src)))
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }

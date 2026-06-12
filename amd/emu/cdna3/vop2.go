@@ -19,6 +19,9 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 		u.runVSUBF32(state)
 	case 3:
 		u.runVSUBREVF32(state)
+	case 4:
+		// v_mul_legacy_f32: treat as v_mul_f32 for minimal safe CDNA3 coverage.
+		u.runVMULF32(state)
 	case 5:
 		u.runVMULF32(state)
 	case 6:

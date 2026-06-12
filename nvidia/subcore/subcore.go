@@ -3,14 +3,14 @@ package subcore
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 )
 
 type Subcore struct {
 	*sim.TickingComponent
 
-	ID         string
+	ID         uint64
 	instsCount int64
 
 	// meta

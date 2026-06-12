@@ -1,0 +1,1595 @@
+{
+  "matrix": {
+    "jobs": {
+      "benchmark-tier1": {
+        "matrix_rows": 19,
+        "max_plan_entries_per_row": 19,
+        "passability_risk": {
+          "benchmark_job_timeout_sec": 43200,
+          "informational_only": true,
+          "max_invocations_within_job_timeout": 12,
+          "max_planned_invocation_count": 19,
+          "max_row_timeout_budget_sec": 68400,
+          "max_row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "per_invocation_timeout_sec": 3600,
+          "planned_invocations": 308,
+          "planned_invocations_over_job_timeout_capacity": 81,
+          "rows_exceeding_benchmark_job_timeout": 18,
+          "rows_within_benchmark_job_timeout": 1
+        },
+        "plan_entries": 308,
+        "source_plan_index_ranges": [
+          "1-308"
+        ]
+      },
+      "benchmark-tier2": {
+        "matrix_rows": 63,
+        "max_plan_entries_per_row": 54,
+        "passability_risk": {
+          "benchmark_job_timeout_sec": 43200,
+          "informational_only": true,
+          "max_invocations_within_job_timeout": 12,
+          "max_planned_invocation_count": 54,
+          "max_row_timeout_budget_sec": 194400,
+          "max_row_timeout_budget_to_job_timeout_ratio": 4.5,
+          "per_invocation_timeout_sec": 3600,
+          "planned_invocations": 1108,
+          "planned_invocations_over_job_timeout_capacity": 365,
+          "rows_exceeding_benchmark_job_timeout": 61,
+          "rows_within_benchmark_job_timeout": 2
+        },
+        "plan_entries": 1108,
+        "source_plan_index_ranges": [
+          "309-1416"
+        ]
+      }
+    },
+    "per_benchmark_grouping": true,
+    "rows": {
+      "benchmark-tier1": [
+        {
+          "artifact_id": "mem-latency-chase",
+          "benchmark": "mem_latency_chase",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1-16"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "l1-cache-bw",
+          "benchmark": "l1_cache_bw",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "17-32"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "l2-cache-bw",
+          "benchmark": "l2_cache_bw",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "33-48"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "shared-bw",
+          "benchmark": "shared_bw",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "49-64"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "global-bw-copy",
+          "benchmark": "global_bw_copy",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "65-80"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "device-memory-read",
+          "benchmark": "device_memory_read",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "81-96"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "device-memory-write",
+          "benchmark": "device_memory_write",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "97-112"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bus-speed-download",
+          "benchmark": "bus_speed_download",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 19,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 19,
+          "planned_invocation_count": 19,
+          "row_timeout_budget_sec": 68400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "size_count": 19,
+          "source_plan_index_ranges": [
+            "113-131"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bus-speed-readback",
+          "benchmark": "bus_speed_readback",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 19,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 19,
+          "planned_invocation_count": 19,
+          "row_timeout_budget_sec": 68400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "size_count": 19,
+          "source_plan_index_ranges": [
+            "132-150"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "max-flops",
+          "benchmark": "max_flops",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "151-166"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "fp32-fma",
+          "benchmark": "fp32_fma",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "167-182"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "fp64-fma",
+          "benchmark": "fp64_fma",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "183-198"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "int-mad",
+          "benchmark": "int_mad",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "199-214"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "sfun-sin",
+          "benchmark": "sfun_sin",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 15,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 15,
+          "planned_invocation_count": 15,
+          "row_timeout_budget_sec": 54000,
+          "row_timeout_budget_to_job_timeout_ratio": 1.25,
+          "size_count": 15,
+          "source_plan_index_ranges": [
+            "215-229"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "occupancy-fma",
+          "benchmark": "occupancy_fma",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "230-245"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "atomic-throughput",
+          "benchmark": "atomic_throughput",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": false,
+          "expected_simulator_invocations": 11,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 11,
+          "planned_invocation_count": 11,
+          "row_timeout_budget_sec": 39600,
+          "row_timeout_budget_to_job_timeout_ratio": 0.916667,
+          "size_count": 11,
+          "source_plan_index_ranges": [
+            "246-256"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "branch-div-50pct",
+          "benchmark": "branch_div_50pct",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "257-272"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "triad",
+          "benchmark": "triad",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "273-290"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "reduction",
+          "benchmark": "reduction",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "291-308"
+          ],
+          "timeout_sec": 3600
+        }
+      ],
+      "benchmark-tier2": [
+        {
+          "artifact_id": "3dconvolution",
+          "benchmark": "3dconvolution",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 15,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 15,
+          "planned_invocation_count": 15,
+          "row_timeout_budget_sec": 54000,
+          "row_timeout_budget_to_job_timeout_ratio": 1.25,
+          "size_count": 15,
+          "source_plan_index_ranges": [
+            "309-323"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "2dconvolution",
+          "benchmark": "2dconvolution",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "324-341"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-spmv",
+          "benchmark": "parboil_spmv",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "342-357"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bs",
+          "benchmark": "bs",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "358-373"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "nn",
+          "benchmark": "nn",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "374-389"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "gemm",
+          "benchmark": "gemm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 22,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 22,
+          "planned_invocation_count": 22,
+          "row_timeout_budget_sec": 79200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.833333,
+          "size_count": 22,
+          "source_plan_index_ranges": [
+            "390-411"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "scan",
+          "benchmark": "scan",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 13,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 13,
+          "planned_invocation_count": 13,
+          "row_timeout_budget_sec": 46800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.083333,
+          "size_count": 13,
+          "source_plan_index_ranges": [
+            "412-424"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-mri-q",
+          "benchmark": "parboil_mri_q",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "425-441"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "ep",
+          "benchmark": "ep",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 13,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 13,
+          "planned_invocation_count": 13,
+          "row_timeout_budget_sec": 46800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.083333,
+          "size_count": 13,
+          "source_plan_index_ranges": [
+            "442-454"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "2mm",
+          "benchmark": "2mm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "455-472"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "hotspot",
+          "benchmark": "hotspot",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 19,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 19,
+          "planned_invocation_count": 19,
+          "row_timeout_budget_sec": 68400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "size_count": 19,
+          "source_plan_index_ranges": [
+            "473-491"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-sgemm",
+          "benchmark": "parboil_sgemm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 20,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 20,
+          "planned_invocation_count": 20,
+          "row_timeout_budget_sec": 72000,
+          "row_timeout_budget_to_job_timeout_ratio": 1.666667,
+          "size_count": 20,
+          "source_plan_index_ranges": [
+            "492-511"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "dwt2d",
+          "benchmark": "dwt2d",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "512-529"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "atax",
+          "benchmark": "atax",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "530-547"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bicg",
+          "benchmark": "bicg",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "548-565"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bitonicsort",
+          "benchmark": "bitonicsort",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 15,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 15,
+          "planned_invocation_count": 15,
+          "row_timeout_budget_sec": 54000,
+          "row_timeout_budget_to_job_timeout_ratio": 1.25,
+          "size_count": 15,
+          "source_plan_index_ranges": [
+            "566-580"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "nw",
+          "benchmark": "nw",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "581-597"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "pagerank",
+          "benchmark": "pagerank",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "598-613"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "kmeans",
+          "benchmark": "kmeans",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "614-629"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bfs",
+          "benchmark": "bfs",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "630-647"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "3mm",
+          "benchmark": "3mm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "648-665"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "correlation",
+          "benchmark": "correlation",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "666-683"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "covariance",
+          "benchmark": "covariance",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "684-701"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "fdtd2d",
+          "benchmark": "fdtd2d",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "702-719"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "gesummv",
+          "benchmark": "gesummv",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "720-737"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "gramschmidt",
+          "benchmark": "gramschmidt",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": false,
+          "expected_simulator_invocations": 10,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 10,
+          "planned_invocation_count": 10,
+          "row_timeout_budget_sec": 36000,
+          "row_timeout_budget_to_job_timeout_ratio": 0.833333,
+          "size_count": 10,
+          "source_plan_index_ranges": [
+            "738-747"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "mvt",
+          "benchmark": "mvt",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "748-765"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "syr2k",
+          "benchmark": "syr2k",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "766-783"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "syrk",
+          "benchmark": "syrk",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "784-801"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "backprop-adjust-weights",
+          "benchmark": "backprop_adjust_weights",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "802",
+            "804",
+            "806",
+            "808",
+            "810",
+            "812",
+            "814",
+            "816",
+            "818",
+            "820",
+            "822",
+            "824",
+            "826",
+            "828",
+            "830",
+            "832",
+            "834",
+            "836"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "backprop",
+          "benchmark": "backprop",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "803",
+            "805",
+            "807",
+            "809",
+            "811",
+            "813",
+            "815",
+            "817",
+            "819",
+            "821",
+            "823",
+            "825",
+            "827",
+            "829",
+            "831",
+            "833",
+            "835",
+            "837"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "gaussian",
+          "benchmark": "gaussian",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 14,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 14,
+          "planned_invocation_count": 14,
+          "row_timeout_budget_sec": 50400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.166667,
+          "size_count": 14,
+          "source_plan_index_ranges": [
+            "838-851"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "hotspot3D",
+          "benchmark": "hotspot3D",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "852-869"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "huffman",
+          "benchmark": "huffman",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "870-885"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "lavaMD",
+          "benchmark": "lavaMD",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 19,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 19,
+          "planned_invocation_count": 19,
+          "row_timeout_budget_sec": 68400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "size_count": 19,
+          "source_plan_index_ranges": [
+            "886-904"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "lud",
+          "benchmark": "lud",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "905-922"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "particlefilter",
+          "benchmark": "particlefilter",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "923-938"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "pathfinder",
+          "benchmark": "pathfinder",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "939-954"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "srad",
+          "benchmark": "srad",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "955-970"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "streamcluster",
+          "benchmark": "streamcluster",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "971-986"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "ga",
+          "benchmark": "ga",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "987-1002"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "hist",
+          "benchmark": "hist",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1003-1020"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-cutcp",
+          "benchmark": "parboil_cutcp",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "1021-1037"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-histo",
+          "benchmark": "parboil_histo",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "1038-1054"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-lbm",
+          "benchmark": "parboil_lbm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "1055-1071"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-mri-gridding",
+          "benchmark": "parboil_mri_gridding",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "1072-1088"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-sad",
+          "benchmark": "parboil_sad",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 34,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 34,
+          "planned_invocation_count": 34,
+          "row_timeout_budget_sec": 122400,
+          "row_timeout_budget_to_job_timeout_ratio": 2.833333,
+          "size_count": 34,
+          "source_plan_index_ranges": [
+            "1089-1122"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-stencil",
+          "benchmark": "parboil_stencil",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 19,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 19,
+          "planned_invocation_count": 19,
+          "row_timeout_budget_sec": 68400,
+          "row_timeout_budget_to_job_timeout_ratio": 1.583333,
+          "size_count": 19,
+          "source_plan_index_ranges": [
+            "1123-1141"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "parboil-tpacf",
+          "benchmark": "parboil_tpacf",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 54,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 54,
+          "planned_invocation_count": 54,
+          "row_timeout_budget_sec": 194400,
+          "row_timeout_budget_to_job_timeout_ratio": 4.5,
+          "size_count": 54,
+          "source_plan_index_ranges": [
+            "1142-1195"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "md5hash",
+          "benchmark": "md5hash",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1196-1211"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "qtc",
+          "benchmark": "qtc",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1212-1227"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "gelu",
+          "benchmark": "gelu",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": false,
+          "expected_simulator_invocations": 1,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 1,
+          "planned_invocation_count": 1,
+          "row_timeout_budget_sec": 3600,
+          "row_timeout_budget_to_job_timeout_ratio": 0.083333,
+          "size_count": 1,
+          "source_plan_index_ranges": [
+            "1228"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "softmax",
+          "benchmark": "softmax",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1229-1246"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "layernorm",
+          "benchmark": "layernorm",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1247-1264"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "fused-swiglu",
+          "benchmark": "fused_swiglu",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1265-1282"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "md-lj",
+          "benchmark": "md_lj",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1283-1298"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "s3d",
+          "benchmark": "s3d",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1299-1314"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "rope",
+          "benchmark": "rope",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 16,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 16,
+          "planned_invocation_count": 16,
+          "row_timeout_budget_sec": 57600,
+          "row_timeout_budget_to_job_timeout_ratio": 1.333333,
+          "size_count": 16,
+          "source_plan_index_ranges": [
+            "1315-1330"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "naive-attention",
+          "benchmark": "naive_attention",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 17,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 17,
+          "planned_invocation_count": 17,
+          "row_timeout_budget_sec": 61200,
+          "row_timeout_budget_to_job_timeout_ratio": 1.416667,
+          "size_count": 17,
+          "source_plan_index_ranges": [
+            "1331-1347"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "tiled-gemm-16",
+          "benchmark": "tiled_gemm_16",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1348-1365"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "sssp",
+          "benchmark": "sssp",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1366-1383"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "bh",
+          "benchmark": "bh",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 18,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 18,
+          "planned_invocation_count": 18,
+          "row_timeout_budget_sec": 64800,
+          "row_timeout_budget_to_job_timeout_ratio": 1.5,
+          "size_count": 18,
+          "source_plan_index_ranges": [
+            "1384-1401"
+          ],
+          "timeout_sec": 3600
+        },
+        {
+          "artifact_id": "dmr",
+          "benchmark": "dmr",
+          "benchmark_job_timeout_sec": 43200,
+          "exceeds_benchmark_job_timeout": true,
+          "expected_simulator_invocations": 15,
+          "max_invocations_within_job_timeout": 12,
+          "per_invocation_timeout_sec": 3600,
+          "plan_entries": 15,
+          "planned_invocation_count": 15,
+          "row_timeout_budget_sec": 54000,
+          "row_timeout_budget_to_job_timeout_ratio": 1.25,
+          "size_count": 15,
+          "source_plan_index_ranges": [
+            "1402-1416"
+          ],
+          "timeout_sec": 3600
+        }
+      ]
+    },
+    "total_matrix_rows": 82,
+    "total_plan_entries": 1416
+  },
+  "non_goals": [
+    "no terminal-discovery mode or workflow surface",
+    "no repository_dispatch or workflow_call surface",
+    "no workflow dispatch/cancel/rerun",
+    "no artifact/log collection",
+    "no simulator execution, long simulation, or calibration",
+    "no finishable/provenance/Tier regeneration",
+    "no terminal finishability completion claim"
+  ],
+  "plan_entry_count": 1416,
+  "plan_schema_name": "mgpusim.mi300a_problem_size_discovery_plan",
+  "regular_runtime_contract": {
+    "benchmark_job_timeout_minutes": 720,
+    "benchmark_job_timeout_sec": 43200,
+    "max_invocations_within_job_timeout": 12,
+    "per_simulator_timeout_sec": 3600,
+    "row_budget_risk_is_informational": true,
+    "strategy_max_parallel": 14
+  },
+  "runtime_budget_notice": "Runtime-budget/passability-risk visibility is informational only; it is not a hard pass/fail gate and is not a simulator outcome.",
+  "schema_name": "mgpusim.mi300a_regular_workflow_matrix_validation",
+  "schema_version": 1,
+  "source_plan": "benchmark-comparison/mi300a_problem_size_discovery_plan.json",
+  "status": "pass",
+  "workflow_jobs": [
+    "benchmark-tier1",
+    "benchmark-tier2"
+  ]
+}

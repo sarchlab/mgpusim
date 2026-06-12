@@ -5,17 +5,13 @@ package arch
 type Type int
 
 const (
-	// GCN3 represents the GCN3 architecture (gfx803).
-	GCN3 Type = iota
 	// CDNA3 represents the CDNA3 architecture (gfx942).
-	CDNA3
+	CDNA3 Type = iota
 )
 
 // String returns the string representation of the architecture type.
 func (t Type) String() string {
 	switch t {
-	case GCN3:
-		return "GCN3"
 	case CDNA3:
 		return "CDNA3"
 	default:

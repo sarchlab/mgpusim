@@ -12,6 +12,8 @@ import (
 type ALU struct {
 	storageAccessor emu.StorageAccessor
 	lds             []byte
+	scratch         []byte // Per-wavefront scratch (private) memory
+	scratchSize     uint32 // Per-lane scratch size in bytes
 }
 
 // NewALU creates a new CDNA3 ALU instance.
@@ -32,6 +34,12 @@ func (u *ALU) SetLDS(lds []byte) {
 // LDS returns the LDS storage.
 func (u *ALU) LDS() []byte {
 	return u.lds
+}
+
+// SetScratch assigns the per-wavefront scratch buffer and per-lane size.
+func (u *ALU) SetScratch(scratch []byte, perLaneSize uint32) {
+	u.scratch = scratch
+	u.scratchSize = perLaneSize
 }
 
 // Run executes the instruction in the scratchpad of the InstEmuState.

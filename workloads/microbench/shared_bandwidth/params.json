@@ -1,0 +1,23 @@
+{
+  "benchmark": "shared_bandwidth",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "array_size",
+    "description": "Total array size in bytes for global-to-shared memory transfer",
+    "values": [1048576, 2097152, 4194304, 8388608, 12582912, 16777216, 25165824, 33554432, 50331648, 67108864, 100663296, 134217728, 201326592, 268435456, 402653184, 536870912]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size (determines shared memory tile size)",
+      "values": [64, 128, 256, 512]
+    },
+    "bank_stride": {
+      "description": "Stride for shared memory access pattern (1=no conflicts, 16/32=max conflicts)",
+      "values": [1, 4, 8, 16, 32]
+    },
+    "num_iterations": {
+      "description": "Number of repeated shared memory accesses per thread",
+      "values": [10, 50, 100, 500]
+    }
+  }
+}

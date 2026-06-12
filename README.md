@@ -13,11 +13,11 @@
 MGPUSim Documents can be found [here](https://akitasim.dev/docs/mgpusim/intro). Please raise issues if you need documentation on a specific aspect. 
 
 
-MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD GCN3 instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).
+MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD CDNA3 (MI300 series) instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).
 
 ## <span style="color:red">⚠️ Important Note on NVIDIA Simulation</span>
 
-<span style="color:red">**Warning**: NVIDIA GPU simulation is under ongoing development and is not ready for use. Currently, only AMD GCN3-based GPU simulation is stable and supported.</span>
+<span style="color:red">**Warning**: NVIDIA GPU simulation is under ongoing development and is not ready for use. Currently, only AMD CDNA3 (MI300 series) GPU simulation is stable and supported.</span>
 
 ## Getting Started
 
@@ -30,13 +30,9 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 
 ## Develop with Modified Version of Akita (or other depending libraries)
 
-If a modification to Akita is required, you can clone Akita next to the MGPUSim directory in your system. Then, you can modify the `go.mod` file to include the following line. 
-
-```
-replace github.com/sarchlab/akita/v4 => ../akita
-```
-
-This line will direct the go compiler to use your local version of Akita rather than the official release of Akita. 
+If a modification to Akita is required, use Go's module override workflow in a private
+working tree while developing. Keep local-path dependency overrides out of committed
+`go.mod` files so shared branches continue to build from published module versions.
 
 ## Benchmark Support
 
@@ -67,7 +63,7 @@ You can run a simulation with the `--report-all` argument to enable all the perf
 
 - Create a new repository repo. Typically we create one repo for each project, which may contain multiple experiments.
 - Create a folder in your repo for each experiment. Run `go init [git repo path]/[directory_name]` to initialize the folder as a new go module. For example, if your git repository is hosted at `https://github.com/syifan/fancy_project` and your experiment folder is named as `exp1`, your module path should be `github.com/syifan/fancy_project/exp1`.
-- Copy all the files under the directory `samples/experiment` to your experiment folder. In the `main.go` file, change the benchmark and the problem size to run. Or you can use an argument to select which benchmark to run. The file `runner.go`, `platform.go`, `r9nano.go`, and `shaderarray.go` serve as configuration files. So you need to change them according to your need.
+- Copy all the files under the directory `samples/experiment` to your experiment folder. In the `main.go` file, change the benchmark and the problem size to run. Or you can use an argument to select which benchmark to run. The file `runner.go`, `platform.go`, `mi300a.go`, and `shaderarray.go` serve as configuration files. So you need to change them according to your need.
 - It is also possible to modify an existing component or adding a new component. You should copy the folder that includes the component you want to modify to your repo first. Then, modify the configuration scripts to link the system with your new component. You can try to add some print commands to see if your local component is used. Finally, you can start to modify the component code.
 
 ## Contributing
@@ -110,6 +106,32 @@ Papers that use MGPUSim:
 * Priority-Based PCIe Scheduling for Multi-Tenant Multi-GPU Systems
 * Exploiting Adaptive Data Compression to Improve Performance and Energy-efficiency of Compute Workloads in Multi-GPU Systems
 
+
+## MI300A Benchmark Workflow
+
+The repository includes a GitHub Actions workflow (`benchmark.yml`) that runs
+the full MI300A benchmark suite and publishes an accuracy report.
+
+### Triggering the workflow
+
+1. Go to **Actions** → **MI300A Benchmark** → **Run workflow**.
+2. Optionally enter a branch name, tag, or commit SHA in the *Git ref* field.
+   Leave it blank to use the default branch.
+3. Click **Run workflow**.
+
+### What the workflow produces
+
+- **Per-benchmark accuracy metrics** — `err = |sim - hw| / hw` and
+  `symmetric_err = |sim - hw| / min(sim, hw)` computed for every matched
+  data point, summarised per benchmark and globally.
+- **CI step summary** — a Markdown summary attached to the workflow run,
+  visible in the *Summary* tab of the Actions run page.
+
+### Where results live
+
+- **GitHub Actions artifacts** — the `accuracy-report` artifact (Markdown
+  source and chart images) and the `benchmark-comparison` artifact (merged
+  CSV files) are retained for 90 days under the workflow run.
 
 ## License
 

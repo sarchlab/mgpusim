@@ -1,0 +1,23 @@
+{
+  "benchmark": "backprop",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "num_input",
+    "description": "Input layer size (number of input neurons)",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 1572864, 2097152, 2621440, 3145728, 4194304]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "learning_rate": {
+      "description": "Learning rate for weight updates",
+      "values": [0.1, 0.3, 0.5, 0.7]
+    },
+    "momentum": {
+      "description": "Momentum factor for weight updates",
+      "values": [0.1, 0.5, 0.9]
+    }
+  }
+}

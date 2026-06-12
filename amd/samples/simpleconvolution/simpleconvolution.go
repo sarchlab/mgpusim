@@ -20,7 +20,6 @@ func main() {
 	benchmark.Height = uint32(*heightFlag)
 	benchmark.Width = uint32(*widthFlag)
 	benchmark.SetMaskSize(uint32(*maskSizeFlag))
-	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

@@ -1,0 +1,48 @@
+{
+  "benchmark": "l2_cache_bw",
+  "suite": "microbench",
+  "measurement_intent": "L2 cache bandwidth work-amount sweep with a fixed L2-resident working set",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Selected comparison problem_size axis: output elements/threads. Work scales with this axis while working_set_size stays fixed. Total read bytes for a run are num_elements * num_iterations * bytes_per_read.",
+    "scaling_role": "work_amount_sweep",
+    "work_amount_scaled": true,
+    "values": [32768, 65536, 131072, 196608, 262144, 393216, 524288, 786432, 1048576, 1310720, 1572864, 2097152, 2621440, 3145728, 3670016, 4194304]
+  },
+  "work_model": {
+    "description": "Default HIP/CUDA measured work for the L2 cache-bandwidth probe. The cache-residency footprint is controlled by non-scaling working_set_size. Go simulator rows use num_repeats for the same repeat-count role.",
+    "default_num_elements": 262144,
+    "default_working_set_size": 524288,
+    "default_num_iterations": 500,
+    "bytes_per_read": 4,
+    "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read",
+    "default_total_read_bytes": 524288000,
+    "repeat_count_parameter_names": {
+      "hip_cuda": "num_iterations",
+      "go_simulator": "num_repeats"
+    }
+  },
+  "validation_semantics": {
+    "classification": "cache_bandwidth_work_sweep",
+    "flat_region_is_valid_when_residency_unchanged": false,
+    "work_amount_scaled_by_axis": true
+  },
+  "non_scaling_parameters": {
+    "working_set_size": {
+      "description": "Fixed L2-resident input footprint in bytes",
+      "values": [262144, 524288, 1048576, 2097152]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "num_iterations": {
+      "description": "HIP/CUDA name for repeated read iterations per output element; Go simulator flag is num_repeats",
+      "values": [100, 250, 500, 1000]
+    },
+    "stride": {
+      "description": "Stride between consecutive memory accesses (in elements)",
+      "values": [1, 2, 4, 8, 16]
+    }
+  }
+}

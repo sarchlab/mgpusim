@@ -1,0 +1,27 @@
+{
+  "benchmark": "stencil",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "grid_dim",
+    "description": "3D grid size NxNxN for the Jacobi stencil computation",
+    "values": [16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160]
+  },
+  "non_scaling_parameters": {
+    "num_timesteps": {
+      "description": "Number of stencil iterations (timesteps) per benchmark run",
+      "values": [5, 10, 20, 50, 100]
+    },
+    "coeff_center_x100": {
+      "description": "Center coefficient multiplied by 100 (e.g. 60 = 0.60)",
+      "values": [40, 50, 60, 70, 80]
+    },
+    "block_dim_x": {
+      "description": "X-dimension of CUDA/HIP thread block",
+      "values": [8, 16, 32]
+    },
+    "block_dim_y": {
+      "description": "Y-dimension of CUDA/HIP thread block",
+      "values": [4, 8, 16]
+    }
+  }
+}

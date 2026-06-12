@@ -1,9 +1,9 @@
 package insts
 
-// FormatType is a enumeration of all the instruction formats defined by GCN3
+// FormatType is a enumeration of all the instruction formats defined by the GPU ISA
 type FormatType int
 
-// All the GCN3 instruction formats
+// All the GPU instruction formats
 const (
 	SOP2 FormatType = iota
 	SOPK

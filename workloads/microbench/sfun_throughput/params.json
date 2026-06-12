@@ -1,0 +1,23 @@
+{
+  "benchmark": "sfun_throughput",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "num_ops",
+    "description": "Number of special function calls per thread (loop iterations, each does 4 calls)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512, 1024]
+    },
+    "func_type": {
+      "description": "Special function type: 1=sin, 2=cos, 3=exp, 4=sqrt, 5=rsqrt",
+      "values": [1, 2, 3, 4, 5]
+    },
+    "num_threads_total": {
+      "description": "Total number of threads launched across all blocks",
+      "values": [8192, 32768, 65536, 131072, 262144]
+    }
+  }
+}

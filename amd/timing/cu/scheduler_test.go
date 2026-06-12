@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
@@ -380,7 +380,9 @@ var _ = Describe("Scheduler", func() {
 				Expect(scheduler.internalExecuting).To(HaveLen(0))
 				for i := 0; i < 3; i++ {
 					wf := wg.Wfs[i]
-					Expect(wf.State).To(Equal(wavefront.WfReady))
+					// Barrier sync overhead puts wfs in WfDispatching with SetupCyclesLeft
+					Expect(wf.State).To(Equal(wavefront.WfDispatching))
+					Expect(wf.SetupCyclesLeft).To(Equal(3))
 				}
 				Expect(wg.Wfs[3].State).To(Equal(wavefront.WfCompleted))
 			})
@@ -508,7 +510,9 @@ var _ = Describe("Scheduler", func() {
 		Expect(len(scheduler.barrierBuffer)).To(Equal(0))
 		for i := 0; i < 4; i++ {
 			wf := wg.Wfs[i]
-			Expect(wf.State).To(Equal(wavefront.WfReady))
+			// Barrier sync overhead puts wfs in WfDispatching with SetupCyclesLeft
+			Expect(wf.State).To(Equal(wavefront.WfDispatching))
+			Expect(wf.SetupCyclesLeft).To(Equal(3))
 		}
 
 	})

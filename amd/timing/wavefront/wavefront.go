@@ -5,8 +5,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
@@ -62,8 +62,21 @@ type Wavefront struct {
 
 	RegAccessor RegFileAccessor
 
+	// Scratch is the per-wavefront private memory buffer used by SCRATCH
+	// segment (FlatSeg=1) FLAT instructions. Each lane gets
+	// PrivateSegmentByteSize bytes, so total size = 64 * perLaneSize.
+	Scratch         []byte
+	ScratchPerLane  uint32
+
 	OutstandingScalarMemAccess int
 	OutstandingVectorMemAccess int
+
+	SetupCyclesLeft int
+
+	// ScoreboardData holds per-wavefront register scoreboard state.
+	// When register scoreboard is enabled, this contains a *cu.Scoreboard
+	// (stored as interface{} to avoid circular imports).
+	ScoreboardData interface{}
 }
 
 // NewWavefront creates a new Wavefront of the timing package, wrapping the

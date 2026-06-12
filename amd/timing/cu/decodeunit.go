@@ -22,7 +22,7 @@ func NewDecodeUnit(cu *ComputeUnit) *DecodeUnit {
 	du := new(DecodeUnit)
 	du.cu = cu
 	du.decoded = false
-	du.toDecode = make([]*wavefront.Wavefront, 0, 4)
+	du.toDecode = make([]*wavefront.Wavefront, 0, 8)
 	return du
 }
 
@@ -36,7 +36,7 @@ func (du *DecodeUnit) AddExecutionUnit(cuComponent SubComponent) {
 // CanAcceptWave checks if the DecodeUnit is ready to decode another
 // instruction
 func (du *DecodeUnit) CanAcceptWave() bool {
-	return len(du.toDecode) < 4
+	return len(du.toDecode) < 8
 }
 
 // IsIdle checks idleness
@@ -49,7 +49,7 @@ func (du *DecodeUnit) IsIdle() bool {
 func (du *DecodeUnit) AcceptWave(
 	wave *wavefront.Wavefront,
 ) {
-	if len(du.toDecode) >= 4 {
+	if len(du.toDecode) >= 8 {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
 

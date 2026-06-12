@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v4/nvidia/platform"
 	"github.com/sarchlab/mgpusim/v4/nvidia/runner"

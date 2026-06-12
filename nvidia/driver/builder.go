@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 )
 
@@ -23,7 +23,7 @@ func (b *DriverBuilder) WithFreq(freq sim.Freq) *DriverBuilder {
 
 func (b *DriverBuilder) Build(name string) *Driver {
 	d := &Driver{
-		devices: make(map[string]*gpu.GPU),
+		devices: make(map[uint64]*gpu.GPU),
 	}
 
 	d.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, d)

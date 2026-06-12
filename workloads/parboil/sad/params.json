@@ -1,0 +1,23 @@
+{
+  "benchmark": "sad",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "frame_width",
+    "description": "Frame width in pixels (frame is frame_width x frame_width)",
+    "values": [32, 48, 64, 96, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024]
+  },
+  "non_scaling_parameters": {
+    "block_size_sad": {
+      "description": "Macroblock size in pixels (block_size_sad x block_size_sad)",
+      "values": [8, 16, 32]
+    },
+    "search_range": {
+      "description": "Search window radius in pixels",
+      "values": [8, 16, 32]
+    },
+    "num_threads_per_block": {
+      "description": "CUDA/HIP thread block size for ComputeSAD kernel",
+      "values": [64, 128, 256, 512]
+    }
+  }
+}

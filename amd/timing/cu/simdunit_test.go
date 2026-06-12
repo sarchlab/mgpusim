@@ -76,6 +76,53 @@ var _ = Describe("SIMD Unit", func() {
 
 	})
 
+	It("should accept FP64 wave with isCDNA3=true using 4 cycles (full-rate)", func() {
+		bu.isCDNA3 = true
+		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.InstName = "v_add_f64"
+		wave.SetDynamicInst(inst)
+		bu.AcceptWave(wave)
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.cycleLeft).To(Equal(4))
+	})
+
+	It("should accept FP64 wave with isCDNA3=false using 8 cycles", func() {
+		bu.isCDNA3 = false
+		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.InstName = "v_add_f64"
+		wave.SetDynamicInst(inst)
+		bu.AcceptWave(wave)
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.cycleLeft).To(Equal(8))
+	})
+
+	It("should accept transcendental wave using 16 cycles", func() {
+		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.InstName = "v_rcp_f32"
+		wave.SetDynamicInst(inst)
+		bu.AcceptWave(wave)
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.cycleLeft).To(Equal(16))
+	})
+
+	It("should accept up to 4 waves with pipeline capacity=4", func() {
+		bu.scoreboardEnabled = true
+		bu.pipelineCapacity = 4
+		bu.pipelineSlots = make([]*simdPipelineSlot, 0, 4)
+
+		for i := 0; i < 4; i++ {
+			wave := new(wavefront.Wavefront)
+			inst := wavefront.NewInst(insts.NewInst())
+			wave.SetDynamicInst(inst)
+			Expect(bu.CanAcceptWave()).To(BeTrue())
+			bu.AcceptWave(wave)
+		}
+		Expect(bu.CanAcceptWave()).To(BeFalse())
+	})
+
 	It("should flush SIMD", func() {
 		wave := new(wavefront.Wavefront)
 		inst := wavefront.NewInst(insts.NewInst())

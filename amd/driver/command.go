@@ -1,14 +1,14 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
 
 // A Command is a task to execute later
 type Command interface {
-	GetID() string
+	GetID() uint64
 	GetReqs() []sim.Msg
 	AddReq(req sim.Msg)
 	RemoveReq(req sim.Msg)
@@ -17,14 +17,14 @@ type Command interface {
 // A MemCopyH2DCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyH2DCommand struct {
-	ID   string
+	ID   uint64
 	Dst  Ptr
 	Src  interface{}
 	Reqs []sim.Msg
 }
 
 // GetID returns the ID of the command
-func (c *MemCopyH2DCommand) GetID() string {
+func (c *MemCopyH2DCommand) GetID() uint64 {
 	return c.ID
 }
 
@@ -47,7 +47,7 @@ func (c *MemCopyH2DCommand) RemoveReq(req sim.Msg) {
 // A MemCopyD2HCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyD2HCommand struct {
-	ID      string
+	ID      uint64
 	Dst     interface{}
 	Src     Ptr
 	RawData []byte
@@ -55,7 +55,7 @@ type MemCopyD2HCommand struct {
 }
 
 // GetID returns the ID of the command
-func (c *MemCopyD2HCommand) GetID() string {
+func (c *MemCopyD2HCommand) GetID() uint64 {
 	return c.ID
 }
 
@@ -78,7 +78,7 @@ func (c *MemCopyD2HCommand) RemoveReq(req sim.Msg) {
 // A LaunchKernelCommand is a command will execute a kernel when it is
 // processed.
 type LaunchKernelCommand struct {
-	ID         string
+	ID         uint64
 	CodeObject *insts.KernelCodeObject
 	GridSize   [3]uint32
 	WGSize     [3]uint16
@@ -89,7 +89,7 @@ type LaunchKernelCommand struct {
 }
 
 // GetID returns the ID of the command
-func (c *LaunchKernelCommand) GetID() string {
+func (c *LaunchKernelCommand) GetID() uint64 {
 	return c.ID
 }
 
@@ -111,12 +111,12 @@ func (c *LaunchKernelCommand) RemoveReq(req sim.Msg) {
 
 // A FlushCommand is a command triggers the GPU cache to flush
 type FlushCommand struct {
-	ID   string
+	ID   uint64
 	Reqs []sim.Msg
 }
 
 // GetID returns the ID of the command
-func (c *FlushCommand) GetID() string {
+func (c *FlushCommand) GetID() uint64 {
 	return c.ID
 }
 
@@ -139,11 +139,11 @@ func (c *FlushCommand) RemoveReq(req sim.Msg) {
 // A NoopCommand is a command that does not do anything. It is used for testing
 // purposes.
 type NoopCommand struct {
-	ID string
+	ID uint64
 }
 
 // GetID returns the ID of the command
-func (c *NoopCommand) GetID() string {
+func (c *NoopCommand) GetID() uint64 {
 	return c.ID
 }
 
@@ -176,7 +176,7 @@ func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
 // A LaunchUnifiedMultiGPUKernelCommand is a command that launches a kernel
 // on multiple unified GPUs.
 type LaunchUnifiedMultiGPUKernelCommand struct {
-	ID           string
+	ID           uint64
 	CodeObject   *insts.KernelCodeObject
 	GridSize     [3]uint32
 	WGSize       [3]uint16
@@ -187,7 +187,7 @@ type LaunchUnifiedMultiGPUKernelCommand struct {
 }
 
 // GetID returns the ID of the command
-func (c *LaunchUnifiedMultiGPUKernelCommand) GetID() string {
+func (c *LaunchUnifiedMultiGPUKernelCommand) GetID() uint64 {
 	return c.ID
 }
 

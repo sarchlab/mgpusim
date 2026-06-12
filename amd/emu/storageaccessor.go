@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
 )
 
 // StorageAccessor provides memory access for ALU operations.
@@ -79,7 +79,11 @@ func (a *storageAccessorImpl) Write(pid vm.PID, vAddr uint64, data []byte) {
 
 		page, found := a.pageTable.Find(pid, currVAddr)
 		if !found {
-			panic("page not found in page table")
+			panic(fmt.Sprintf(
+				"page not found in page table: "+
+					"pid=%d, vAddr=0x%x, origVAddr=0x%x, "+
+					"size=%d, offset=%d",
+				pid, currVAddr, vAddr, len(data), offset))
 		}
 		pAddr := page.PAddr + (currVAddr - page.VAddr)
 

@@ -1,0 +1,72 @@
+{
+  "schema_name": "mgpusim.mi300a_finishable_tier_matrix_view",
+  "schema_version": 1,
+  "source_manifest": "benchmark-comparison/mi300a_finishable_size_manifest.json",
+  "source_provenance": "benchmark-comparison/provenance/mi300a_problem_size_discovery_run_24959959195.json",
+  "run": {
+    "database_id": 24959959195,
+    "status": "queued",
+    "conclusion": "",
+    "head_branch": "e5-m3-2-refresh-1416-entry-discovery-evidence",
+    "head_sha": "d1105930b0272b8f8f552abfc2490744ef6fcf2f",
+    "non_terminal_snapshot": true
+  },
+  "snapshot_contract": {
+    "observation_time_utc": "2026-04-26T17:04:42Z",
+    "non_terminal_snapshot": true,
+    "bounded_snapshot": true,
+    "claim_scope": "immutable observation-time evidence snapshot only; queued/in_progress/missing-outcome rows are not final/current finishable-size claims while the source workflow remains non-terminal",
+    "source": "GitHub Actions REST API job/artifact rows plus candidate_outcomes_*.csv rows parsed from downloaded artifacts only"
+  },
+  "tier": 2,
+  "tier_name": "tier2",
+  "eligible_only": true,
+  "eligible_entry_count": 17,
+  "excluded_entry_count": 1091,
+  "eligible_plan_index_ranges": [
+    "473-482",
+    "720-722",
+    "955-958"
+  ],
+  "excluded_plan_index_ranges": [
+    "309-472",
+    "483-719",
+    "723-954",
+    "959-1416"
+  ],
+  "include": [
+    {
+      "benchmark": "hotspot",
+      "tier": "tier2",
+      "sizes": "32 48 64 96 128 192 256 384 512 640",
+      "flag_template": "-grid_size {size} -num_iterations 10",
+      "size_label_template": "{size}",
+      "timeout_sec": 3600,
+      "finishable_plan_index_ranges": [
+        "473-482"
+      ]
+    },
+    {
+      "benchmark": "gesummv",
+      "tier": "tier2",
+      "sizes": "64 128 192",
+      "flag_template": "-n {size}",
+      "size_label_template": "{size}",
+      "timeout_sec": 3600,
+      "finishable_plan_index_ranges": [
+        "720-722"
+      ]
+    },
+    {
+      "benchmark": "srad",
+      "tier": "tier2",
+      "sizes": "64 128 192 256",
+      "flag_template": "-image_size {size} -num_iterations 10",
+      "size_label_template": "{size}",
+      "timeout_sec": 3600,
+      "finishable_plan_index_ranges": [
+        "955-958"
+      ]
+    }
+  ]
+}

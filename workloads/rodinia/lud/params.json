@@ -1,0 +1,23 @@
+{
+  "benchmark": "lud",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "matrix_size",
+    "description": "Matrix dimension N (must be multiple of block_size)",
+    "values": [64, 128, 192, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Block size for LU decomposition kernels",
+      "values": [8, 16, 32]
+    },
+    "seed": {
+      "description": "Random seed for matrix generation",
+      "values": [42, 123, 256]
+    },
+    "verify": {
+      "description": "Verification mode: 0=none, 1=partial, 2=full",
+      "values": [0, 1, 2]
+    }
+  }
+}

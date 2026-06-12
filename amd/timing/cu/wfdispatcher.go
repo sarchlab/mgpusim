@@ -21,14 +21,15 @@ type WfDispatcher interface {
 type WfDispatcherImpl struct {
 	cu *ComputeUnit
 
-	Latency int
+	Latency            int
+	scoreboardEnabled  bool
 }
 
 // NewWfDispatcher creates a default WfDispatcher
 func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 	d := new(WfDispatcherImpl)
 	d.cu = cu
-	d.Latency = 0
+	d.Latency = 50
 	return d
 }
 
@@ -39,6 +40,10 @@ func (d *WfDispatcherImpl) DispatchWf(
 ) {
 	d.setWfInfo(wf, location)
 	d.initRegisters(wf)
+
+	if d.scoreboardEnabled {
+		wf.ScoreboardData = NewScoreboard()
+	}
 }
 
 func (d *WfDispatcherImpl) setWfInfo(
@@ -206,26 +211,37 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-			0, insts.VReg(0), 1, laneID, wf.VRegOffset,
-			insts.Uint32ToBytes(uint32(x)),
-			false,
-		})
-
-		if co.EnableVgprWorkItemID() > 0 {
+		if co.Version == insts.CodeObjectV5 {
+			// For V5 code objects (gfx942/CDNA3), pack work-item IDs
+			// into v0 as: v0 = (z << 20) | (y << 10) | x
+			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(1), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(y)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(packed),
 				false,
 			})
-		}
-
-		if co.EnableVgprWorkItemID() > 1 {
+		} else {
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(2), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(z)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(uint32(x)),
 				false,
 			})
+
+			if co.EnableVgprWorkItemID() > 0 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(1), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(y)),
+					false,
+				})
+			}
+
+			if co.EnableVgprWorkItemID() > 1 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(2), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(z)),
+					false,
+				})
+			}
 		}
 	}
 }

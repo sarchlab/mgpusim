@@ -96,6 +96,10 @@ func (u *ALU) runSOPP(state emu.InstEmuState) {
 		u.runSCBRANCHEXECNZ(state)
 	case 12: // S_WAITCNT
 		// Do nothing
+	case 28: // S_SET_GPR_IDX_OFF (no-op in CDNA3)
+		// Do nothing — GPR indexing mode is not modeled
+	case 29: // S_SET_GPR_IDX_MODE (no-op in CDNA3)
+		// Do nothing — GPR indexing mode is not modeled
 	default:
 		log.Panicf("Opcode %d for SOPP format is not implemented", inst.Opcode)
 	}

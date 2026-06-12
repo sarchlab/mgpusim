@@ -1,0 +1,23 @@
+{
+  "benchmark": "layernorm",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "num_rows",
+    "description": "Number of rows (tokens) to normalize. num_rows = batch_size * seq_len",
+    "values": [64, 128, 256, 512, 1024, 2048, 4096, 6144, 8192, 10240, 12288, 16384, 20480, 24576, 32768, 49152, 65536, 131072]
+  },
+  "non_scaling_parameters": {
+    "hidden_dim": {
+      "description": "Hidden dimension per token. 768=GPT-2, 4096=Llama-7B, 5120=Llama-13B, 8192=Llama-70B",
+      "values": [768, 4096, 5120, 8192]
+    },
+    "block_size": {
+      "description": "Threads per block for normalization kernel",
+      "values": [128, 256, 512, 1024]
+    },
+    "norm_type": {
+      "description": "Normalization type: 1=LayerNorm (GPT-2/BERT), 2=RMSNorm (Llama-2), 3=RMSNorm without learnable scale",
+      "values": [1, 2, 3]
+    }
+  }
+}

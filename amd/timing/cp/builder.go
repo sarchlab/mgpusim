@@ -3,10 +3,11 @@ package cp
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/analysis"
-	"github.com/sarchlab/akita/v4/monitoring"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	// TODO: V5 migration - analysis removed in V5
+	// "github.com/sarchlab/akita/v5/analysis"
+	"github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
@@ -18,13 +19,15 @@ type Builder struct {
 	engine                       sim.Engine
 	visTracer                    tracing.Tracer
 	monitor                      *monitoring.Monitor
-	perfAnalyzer                 *analysis.PerfAnalyzer
+	// TODO: V5 migration - analysis removed in V5
+	// perfAnalyzer                 *analysis.PerfAnalyzer
 	numDispatchers               int
 	driver                       sim.Port
 	cus                          []CUInterfaceForCP
 	constantKernelLaunchOverhead   int
 	constantKernelOverhead         int
 	subsequentKernelLaunchOverhead int
+	wgScalingThreshold             int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -61,14 +64,15 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
+// TODO: V5 migration - analysis removed in V5
 // WithPerfAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
-func (b Builder) WithPerfAnalyzer(
-	analyzer *analysis.PerfAnalyzer,
-) Builder {
-	b.perfAnalyzer = analyzer
-	return b
-}
+// func (b Builder) WithPerfAnalyzer(
+// 	analyzer *analysis.PerfAnalyzer,
+// ) Builder {
+// 	b.perfAnalyzer = analyzer
+// 	return b
+// }
 
 // WithDriver sets the driver port for the command processor.
 func (b Builder) WithDriver(driver sim.Port) Builder {
@@ -104,6 +108,14 @@ func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
 	return b
 }
 
+// WithWGScalingThreshold sets the threshold for WG-count-based scaling of
+// subsequent kernel launch overhead. Kernels with more WGs than this threshold
+// will have proportionally reduced launch overhead.
+func (b Builder) WithWGScalingThreshold(n int) Builder {
+	b.wgScalingThreshold = n
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -112,11 +124,11 @@ func (b Builder) Build(name string) *CommandProcessor {
 	b.createPorts(cp, name)
 
 	cp.bottomKernelLaunchReqIDToTopReqMap =
-		make(map[string]*protocol.LaunchKernelReq)
+		make(map[uint64]*protocol.LaunchKernelReq)
 	cp.bottomMemCopyH2DReqIDToTopReqMap =
-		make(map[string]*protocol.MemCopyH2DReq)
+		make(map[uint64]*protocol.MemCopyH2DReq)
 	cp.bottomMemCopyD2HReqIDToTopReqMap =
-		make(map[string]*protocol.MemCopyD2HReq)
+		make(map[uint64]*protocol.MemCopyD2HReq)
 
 	b.buildDispatchers(cp)
 
@@ -129,9 +141,10 @@ func (b Builder) Build(name string) *CommandProcessor {
 	cp.middleware = &cpMiddleware{cp}
 	cp.ctrlMiddleware = &ctrlMiddleware{cp}
 
-	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(cp)
-	}
+	// TODO: V5 migration - analysis removed in V5
+	// if b.perfAnalyzer != nil {
+	// 	b.perfAnalyzer.RegisterComponent(cp)
+	// }
 
 	return cp
 }
@@ -167,11 +180,10 @@ func (b Builder) buildDispatchers(cp *CommandProcessor) {
 		WithRespondingPort(cp.ToDriver).
 		WithMonitor(b.monitor).
 		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead).
-		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead)
+		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead).
+		WithWGScalingThreshold(b.wgScalingThreshold)
 
-	if b.constantKernelOverhead > 0 {
-		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
-	}
+	builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
 
 	for i := 0; i < b.numDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", cp.Name(), i))

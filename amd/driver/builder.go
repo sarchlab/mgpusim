@@ -1,9 +1,9 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -112,7 +112,7 @@ func (b Builder) Build(name string) *Driver {
 	driver.mmuPort = sim.NewPort(driver, 1, 1, "Driver.ToMMU")
 	driver.AddPort("MMU", driver.mmuPort)
 
-	driver.enqueueSignal = make(chan bool)
+	driver.enqueueSignal = make(chan bool, 1)
 	driver.driverStopped = make(chan bool)
 	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 

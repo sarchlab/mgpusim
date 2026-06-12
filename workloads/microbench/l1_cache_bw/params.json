@@ -1,0 +1,55 @@
+{
+  "benchmark": "l1_cache_bw",
+  "suite": "microbench",
+  "measurement_intent": "L1 cache bandwidth work-amount sweep. HIP/CUDA rows use a fixed L1-resident working_set_size; Go simulator rows use per-256-thread read-group reuse, so total simulator input allocation grows with num_elements.",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Selected comparison problem_size axis: output elements/threads. Work scales with this axis. HIP/CUDA keep working_set_size fixed; Go simulator keeps each 256-float read group fixed and allocates ceil(num_elements / 256) * 256 input floats. Total read bytes are num_elements * repeat_count * bytes_per_read, with repeat_count named num_iterations in HIP/CUDA and num_repeats in Go.",
+    "scaling_role": "work_amount_sweep",
+    "work_amount_scaled": true,
+    "values": [1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768, 49152, 65536]
+  },
+  "work_model": {
+    "description": "Default HIP/CUDA measured work for the L1 cache-bandwidth probe. Go simulator rows use num_repeats for the same repeat-count role and follow simulator_input_bytes_formula rather than a fixed total working_set_size.",
+    "default_num_elements": 65536,
+    "default_working_set_size": 8192,
+    "default_num_iterations": 1000,
+    "bytes_per_read": 4,
+    "total_read_bytes_formula": "total_read_bytes = num_elements * num_iterations * bytes_per_read",
+    "default_total_read_bytes": 262144000,
+    "repeat_count_parameter_names": {
+      "hip_cuda": "num_iterations",
+      "go_simulator": "num_repeats"
+    },
+    "simulator_input_bytes_formula": "ceil(num_elements / 256) * 256 * bytes_per_read",
+    "simulator_read_group_elements": 256,
+    "simulator_read_group_footprint_bytes": 1024,
+    "default_simulator_num_repeats": 256
+  },
+  "validation_semantics": {
+    "classification": "cache_bandwidth_work_sweep",
+    "flat_region_is_valid_when_residency_unchanged": false,
+    "work_amount_scaled_by_axis": true,
+    "hip_cuda_total_input_footprint_fixed": true,
+    "go_simulator_total_input_footprint_fixed": false,
+    "go_simulator_working_set_model": "per_256_thread_read_group_reuse"
+  },
+  "non_scaling_parameters": {
+    "working_set_size": {
+      "description": "Fixed L1-resident input footprint in bytes for HIP/CUDA workload rows; not exposed by the current Go simulator sample",
+      "values": [4096, 8192, 16384, 32768]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "num_iterations": {
+      "description": "HIP/CUDA name for repeated read iterations per output element; Go simulator flag is num_repeats",
+      "values": [100, 500, 1000, 5000]
+    },
+    "stride": {
+      "description": "Stride between consecutive memory accesses (in elements)",
+      "values": [1, 2, 4, 8, 16]
+    }
+  }
+}

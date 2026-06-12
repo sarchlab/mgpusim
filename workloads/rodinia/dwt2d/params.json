@@ -1,0 +1,23 @@
+{
+  "benchmark": "dwt2d",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "image_size",
+    "description": "Image dimension N (NxN image)",
+    "values": [32, 64, 128, 256, 384, 512, 768, 1024, 1280, 1536, 2048, 2560, 3072, 4096, 5120, 6144, 7168, 8192]
+  },
+  "non_scaling_parameters": {
+    "levels": {
+      "description": "Number of wavelet decomposition levels",
+      "values": [1, 2, 3, 4]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "wavelet_type": {
+      "description": "Wavelet type (1=Haar, 2=Daubechies-4, 3=Daubechies-6); currently Haar only",
+      "values": [1, 2, 3]
+    }
+  }
+}

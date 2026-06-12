@@ -112,7 +112,7 @@ func handleDeviceProperties(w http.ResponseWriter, r *http.Request) {
 func getDeviceProperty(deviceID int) DeviceProperty {
 	// gpu := serverInstance.driver.GPUs[deviceID-1]
 	dp := DeviceProperty{
-		Name:                             "gfx803",
+		Name:                             "gfx942",
 		TotalGlobalMem:                   0,
 		SharedMemPerBlock:                4096,
 		RegsPerBlock:                     102,

@@ -5,10 +5,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/cache"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
@@ -255,54 +253,30 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a AT flush rsp", func() {
-		req := mem.ControlMsgBuilder{}.
-			WithDst(commandProcessor.ToAddressTranslators.AsRemote()).
-			ToNotifyDone().
-			Build()
+		req := &mem.ControlRsp{Command: mem.CmdFlush}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Dst = commandProcessor.ToAddressTranslators.AsRemote()
+
 		commandProcessor.numAddrTranslationFlushAck = 1
 
 		for i := 0; i < 10; i++ {
-			cacheFlushReq := cache.FlushReqBuilder{}.Build()
-			cacheFlushReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheFlushReq.Dst = commandProcessor.L1ICaches[i].AsRemote()
-			cacheFlushReq.DiscardInflight = true
-			cacheFlushReq.PauseAfterFlushing = true
-			cacheFlushReq.InvalidateAllCachelines = true
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheFlushReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheFlushReq := cache.FlushReqBuilder{}.Build()
-			cacheFlushReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheFlushReq.Dst = commandProcessor.L1VCaches[i].AsRemote()
-			cacheFlushReq.DiscardInflight = true
-			cacheFlushReq.PauseAfterFlushing = true
-			cacheFlushReq.InvalidateAllCachelines = true
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheFlushReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheFlushReq := cache.FlushReqBuilder{}.Build()
-			cacheFlushReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheFlushReq.Dst = commandProcessor.L1VCaches[i].AsRemote()
-			cacheFlushReq.DiscardInflight = true
-			cacheFlushReq.PauseAfterFlushing = true
-			cacheFlushReq.InvalidateAllCachelines = true
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheFlushReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheFlushReq := cache.FlushReqBuilder{}.Build()
-			cacheFlushReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheFlushReq.Dst = commandProcessor.L2Caches[i].AsRemote()
-			cacheFlushReq.DiscardInflight = true
-			cacheFlushReq.PauseAfterFlushing = true
-			cacheFlushReq.InvalidateAllCachelines = true
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheFlushReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		toAddressTranslator.EXPECT().RetrieveIncoming()
@@ -315,8 +289,10 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a Cache flush rsp", func() {
-		req := cache.FlushRspBuilder{}.Build()
+		req := &mem.ControlRsp{Command: mem.CmdFlush}
+		req.ID = sim.GetIDGenerator().Generate()
 		req.Dst = commandProcessor.ToDMA.AsRemote()
+
 		vAddr := make([]uint64, 0)
 		vAddr = append(vAddr, 100)
 		nilPort := NewMockPort(mockCtrl)
@@ -328,10 +304,7 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.currShootdownRequest = shootDwnCmd
 
 		for i := 0; i < 10; i++ {
-			tlbFlushReq := tlb.FlushReqBuilder{}.Build()
-			tlbFlushReq.Src = commandProcessor.ToTLBs.AsRemote()
-			tlbFlushReq.Dst = commandProcessor.TLBs[i].AsRemote()
-			toTLB.EXPECT().Send(gomock.AssignableToTypeOf(tlbFlushReq))
+			toTLB.EXPECT().Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		toCaches.EXPECT().RetrieveIncoming()
@@ -342,7 +315,8 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a TLB flush rsp", func() {
-		req := tlb.FlushRspBuilder{}.Build()
+		req := &mem.ControlRsp{Command: mem.CmdFlush}
+		req.ID = sim.GetIDGenerator().Generate()
 		req.Dst = commandProcessor.ToTLBs.AsRemote()
 
 		commandProcessor.numTLBAck = 1
@@ -363,35 +337,23 @@ var _ = Describe("CommandProcessor", func() {
 		req := protocol.NewGPURestartReq(nilPort, commandProcessor.ToDriver)
 
 		for i := 0; i < 10; i++ {
-			cacheRestartReq := cache.RestartReqBuilder{}.Build()
-			cacheRestartReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheRestartReq.Dst = commandProcessor.L1ICaches[i].AsRemote()
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheRestartReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheRestartReq := cache.RestartReqBuilder{}.Build()
-			cacheRestartReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheRestartReq.Dst = commandProcessor.L1SCaches[i].AsRemote()
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheRestartReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheRestartReq := cache.RestartReqBuilder{}.Build()
-			cacheRestartReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheRestartReq.Dst = commandProcessor.L1VCaches[i].AsRemote()
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheRestartReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		for i := 0; i < 10; i++ {
-			cacheRestartReq := cache.RestartReqBuilder{}.Build()
-			cacheRestartReq.Src = commandProcessor.ToCaches.AsRemote()
-			cacheRestartReq.Dst = commandProcessor.L2Caches[i].AsRemote()
 			toCaches.EXPECT().
-				Send(gomock.AssignableToTypeOf(cacheRestartReq))
+				Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 
 		toDriver.EXPECT().RetrieveIncoming()
@@ -403,16 +365,14 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a cache restart rsp", func() {
-		req := cache.RestartRspBuilder{}.Build()
+		req := &mem.ControlRsp{Command: mem.CmdEnable}
+		req.ID = sim.GetIDGenerator().Generate()
 		req.Dst = commandProcessor.ToDMA.AsRemote()
 
 		commandProcessor.numCacheACK = 1
 
 		for i := 0; i < 10; i++ {
-			tlbRestartReq := tlb.RestartReqBuilder{}.Build()
-			tlbRestartReq.Src = commandProcessor.ToTLBs.AsRemote()
-			tlbRestartReq.Dst = commandProcessor.TLBs[i].AsRemote()
-			toTLB.EXPECT().Send(gomock.AssignableToTypeOf(tlbRestartReq))
+			toTLB.EXPECT().Send(gomock.AssignableToTypeOf(&mem.ControlReq{}))
 		}
 		toCaches.EXPECT().RetrieveIncoming()
 
@@ -423,7 +383,8 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a TLB restart rsp", func() {
-		req := tlb.RestartRspBuilder{}.Build()
+		req := &mem.ControlRsp{Command: mem.CmdEnable}
+		req.ID = sim.GetIDGenerator().Generate()
 		req.Dst = commandProcessor.ToTLBs.AsRemote()
 
 		commandProcessor.numTLBAck = 1
@@ -442,10 +403,9 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a AT restart rsp", func() {
-		req := mem.ControlMsgBuilder{}.
-			WithDst(commandProcessor.ToAddressTranslators.AsRemote()).
-			ToNotifyDone().
-			Build()
+		req := &mem.ControlRsp{Command: mem.CmdEnable}
+		req.ID = sim.GetIDGenerator().Generate()
+		req.Dst = commandProcessor.ToAddressTranslators.AsRemote()
 		commandProcessor.numAddrTranslationRestartAck = 1
 
 		for i := 0; i < 10; i++ {

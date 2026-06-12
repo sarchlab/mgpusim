@@ -25,8 +25,8 @@ func TestIsV2V3Header_ValidHeader(t *testing.T) {
 	}
 }
 
-func TestIsV2V3Header_GCN3Header(t *testing.T) {
-	// GCN3 (MachineVersionMajor = 8)
+func TestIsV2V3Header_LegacyHeader(t *testing.T) {
+	// Legacy header (MachineVersionMajor = 8)
 	data := make([]byte, 256)
 	binary.LittleEndian.PutUint32(data[0:4], 1)   // major
 	binary.LittleEndian.PutUint32(data[4:8], 0)    // minor
@@ -35,7 +35,7 @@ func TestIsV2V3Header_GCN3Header(t *testing.T) {
 	binary.LittleEndian.PutUint64(data[16:24], 256) // entryOffset
 
 	if !isV2V3Header(data) {
-		t.Error("expected GCN3 header to be detected as V2/V3")
+		t.Error("expected legacy header to be detected as V2/V3")
 	}
 }
 
@@ -170,23 +170,3 @@ func TestLoadKernelCodeObjectFromFS_V5(t *testing.T) {
 	}
 }
 
-func TestLoadKernelCodeObjectFromFS_V2V3(t *testing.T) {
-	// Test loading a V2/V3 (GCN3) kernel
-	co := LoadKernelCodeObjectFromFS(
-		"../../amd/benchmarks/shoc/stencil2d/kernels.hsaco",
-		"StencilKernel",
-	)
-
-	if co.Version != CodeObjectV3 {
-		t.Errorf("expected V3, got %d", co.Version)
-	}
-	if co.Symbol == nil {
-		t.Error("expected symbol to be set")
-	}
-	// V2/V3 kernel data should have 256-byte header stripped
-	expectedLen := int(co.Symbol.Size) - 256
-	if len(co.Data) != expectedLen {
-		t.Errorf("expected Data length %d (symbol size %d - 256), got %d",
-			expectedLen, co.Symbol.Size, len(co.Data))
-	}
-}

@@ -1,0 +1,6 @@
+kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms
+vectoradd,262144,1,0.900000,0.900000,0.900000
+vectoradd,524288,1,,,
+vectoradd,1048576,1,not_a_number,,
+vectoradd,2097152,1,8.100000,8.100000,8.100000
+vectoradd,4194304,1,16.200000,16.200000,16.200000

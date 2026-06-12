@@ -1,0 +1,23 @@
+{
+  "run_id": "run-001",
+  "timestamp": "2026-03-17T12:00:00Z",
+  "hostname": "demo-host",
+  "os": "Ubuntu 22.04 LTS",
+  "kernel": "6.8.0",
+  "cpu": {
+    "model": "Demo CPU",
+    "cores": 8
+  },
+  "ram_gb": 32,
+  "gpu": {
+    "model": "Demo GPU",
+    "count": 1,
+    "vram_gb": 24,
+    "driver": "1.2.3",
+    "arch": "gfx942"
+  },
+  "compiler": "hipcc",
+  "compiler_version": "HIP version\nclang version 18.0.0",
+  "runtime": "ROCm 6.1",
+  "platform": "hip"
+}

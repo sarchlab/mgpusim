@@ -1,9 +1,10 @@
 package cdna3
 
 import (
+	"math"
 	"testing"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -207,5 +208,30 @@ func TestVOP1Opcode56VMOVRELSDB32(t *testing.T) {
 			state.operands[state.inst.Dst][1],
 			state.operands[state.inst.Dst][2],
 			state.operands[state.inst.Dst][3])
+	}
+}
+
+func TestVOP2Opcode4VMULLEGACYF32(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP2
+	state.inst.Opcode = 4
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 0x3
+
+	state.setOperand(state.inst.Src0, 0, uint64(math.Float32bits(1.5)))
+	state.setOperand(state.inst.Src1, 0, uint64(math.Float32bits(-2.0)))
+	state.setOperand(state.inst.Src0, 1, uint64(math.Float32bits(-0.25)))
+	state.setOperand(state.inst.Src1, 1, uint64(math.Float32bits(-4.0)))
+
+	alu.Run(state)
+
+	if got := math.Float32frombits(uint32(state.operands[state.inst.Dst][0])); got != -3.0 {
+		t.Fatalf("lane 0: expected -3.0, got %f", got)
+	}
+	if got := math.Float32frombits(uint32(state.operands[state.inst.Dst][1])); got != 1.0 {
+		t.Fatalf("lane 1: expected 1.0, got %f", got)
 	}
 }

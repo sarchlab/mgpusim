@@ -1,0 +1,23 @@
+{
+  "benchmark": "softmax",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "num_rows",
+    "description": "Number of rows to apply softmax over. In attention: num_rows = batch * num_heads * seq_len",
+    "values": [64, 128, 256, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768, 49152, 65536, 98304, 131072, 196608, 262144]
+  },
+  "non_scaling_parameters": {
+    "row_size": {
+      "description": "Elements per row. In attention softmax: row_size = seq_len. 128=Llama-7B head_dim, 512=BERT seq, 1024=GPT-2 seq, 2048=Llama seq, 4096=Llama-70B seq",
+      "values": [128, 512, 1024, 2048, 4096]
+    },
+    "block_size": {
+      "description": "Threads per block for softmax kernel",
+      "values": [128, 256, 512]
+    },
+    "input_scale": {
+      "description": "Scale factor for random input (controls numerical range): 1=unit, 10=moderate, 100=large",
+      "values": [1, 10, 100]
+    }
+  }
+}

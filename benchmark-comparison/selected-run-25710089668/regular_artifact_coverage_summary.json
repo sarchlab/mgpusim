@@ -1,0 +1,146 @@
+{
+  "complete_regular_evidence": false,
+  "evidence_label": "partial_diagnostic_regular_evidence",
+  "expected": {
+    "checked_in_matrix_report": null,
+    "jobs": {
+      "benchmark-tier1": {
+        "expected_rows": 308,
+        "matrix_rows": 19
+      },
+      "benchmark-tier2": {
+        "expected_rows": 1108,
+        "matrix_rows": 63
+      }
+    },
+    "matrix_report": "validation-artifacts/regular_matrix_validation.json",
+    "source_kind": "matrix_report",
+    "source_plan": "benchmark-comparison/mi300a_problem_size_discovery_plan.json",
+    "tier1_matrix_rows": 19,
+    "tier1_rows": 308,
+    "tier2_matrix_rows": 63,
+    "tier2_rows": 1108,
+    "total_matrix_rows": 82,
+    "total_rows": 1416
+  },
+  "observed": {
+    "comparison": {
+      "data_rows": 1416,
+      "exists": true,
+      "expected_rows": 1416,
+      "header_columns": [
+        "kernel_name",
+        "problem_size",
+        "real_ms",
+        "sim_ms",
+        "abs_error_ms",
+        "rel_error"
+      ],
+      "header_recognized": true,
+      "matches_expected": true,
+      "missing_header_columns": [],
+      "name": "comparison",
+      "path": "comparison_ci.csv",
+      "required_for_complete": true,
+      "required_header_columns": [
+        "kernel_name",
+        "problem_size",
+        "real_ms",
+        "sim_ms",
+        "abs_error_ms",
+        "rel_error"
+      ],
+      "status": "matches_expected"
+    },
+    "regression": {
+      "data_rows": 515,
+      "exists": true,
+      "expected_rows": 1416,
+      "header_columns": [
+        "kernel",
+        "group",
+        "label",
+        "problem_size",
+        "numeric_size",
+        "hw_ms",
+        "sim_ms",
+        "hw_pred_ms",
+        "sim_pred_ms"
+      ],
+      "header_recognized": true,
+      "matches_expected": false,
+      "missing_header_columns": [],
+      "name": "regression",
+      "path": "regression_ci.csv",
+      "required_for_complete": true,
+      "required_header_columns": [
+        "kernel",
+        "group",
+        "label",
+        "problem_size",
+        "numeric_size",
+        "hw_ms",
+        "sim_ms"
+      ],
+      "status": "row_count_mismatch"
+    },
+    "simulation": {
+      "data_rows": 632,
+      "exists": true,
+      "expected_rows": 1416,
+      "header_columns": [
+        "kernel_name",
+        "problem_size",
+        "iterations",
+        "avg_ms",
+        "min_ms",
+        "max_ms"
+      ],
+      "header_recognized": true,
+      "matches_expected": false,
+      "missing_header_columns": [],
+      "name": "simulation",
+      "path": "sim_results_ci.csv",
+      "required_for_complete": true,
+      "required_header_columns": [
+        "kernel_name",
+        "problem_size",
+        "iterations",
+        "avg_ms",
+        "min_ms",
+        "max_ms"
+      ],
+      "status": "row_count_mismatch"
+    }
+  },
+  "reasons": [
+    "upstream stage benchmark-tier1 result is failure",
+    "upstream stage benchmark-tier2 result is failure",
+    "simulation CSV sim_results_ci.csv has 632 data rows; expected 1416",
+    "regression CSV regression_ci.csv has 515 data rows; expected 1416"
+  ],
+  "schema_name": "mgpusim.mi300a_regular_artifact_coverage_summary",
+  "schema_version": 1,
+  "upstream_stages": [
+    {
+      "result": "success",
+      "stage": "validation",
+      "success": true
+    },
+    {
+      "result": "failure",
+      "stage": "benchmark-tier1",
+      "success": false
+    },
+    {
+      "result": "success",
+      "stage": "tier1-summary",
+      "success": true
+    },
+    {
+      "result": "failure",
+      "stage": "benchmark-tier2",
+      "success": false
+    }
+  ]
+}

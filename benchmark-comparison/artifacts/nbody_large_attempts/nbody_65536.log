@@ -1,0 +1,11 @@
+command: amd/samples/nbody/nbody -timing -arch=cdna3 -gpu=mi300a -disable-rtm -particles 65536
+working_dir: <tmp>/ares_issue300_nbody/run_65536
+sim_timeout_seconds: 58
+start_utc: 2026-03-17T04:51:42Z
+elapsed_seconds: 58.007
+exit_code: 124
+status: timeout
+reason: sim_exceeded_58s
+sqlite_file: <tmp>/ares_issue300_nbody/run_65536/akita_sim_d6sdr92f5mkn3822lk60.sqlite3
+--- stdout ---
+--- stderr ---

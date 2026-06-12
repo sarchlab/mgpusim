@@ -18,10 +18,11 @@ func BenchmarkNewWavefront(b *testing.B) {
 // mockBenchALU is a minimal ALU implementation for benchmarking executeInst.
 type mockBenchALU struct{}
 
-func (m *mockBenchALU) Run(state InstEmuState) {}
-func (m *mockBenchALU) SetLDS(lds []byte)      {}
-func (m *mockBenchALU) LDS() []byte            { return nil }
-func (m *mockBenchALU) ArchName() string       { return "mock" }
+func (m *mockBenchALU) Run(state InstEmuState)               {}
+func (m *mockBenchALU) SetLDS(lds []byte)                    {}
+func (m *mockBenchALU) LDS() []byte                          { return nil }
+func (m *mockBenchALU) SetScratch(_ []byte, _ uint32)        {}
+func (m *mockBenchALU) ArchName() string                     { return "mock" }
 
 // BenchmarkExecuteInst_VOP2 measures the overhead of executeInst (just alu.Run)
 // for a VOP2 instruction using a no-op mock ALU.

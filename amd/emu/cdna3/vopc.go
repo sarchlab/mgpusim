@@ -27,9 +27,71 @@ func (u *ALU) runVOPC(state emu.InstEmuState) {
 		u.runVCmpLgF32(state)
 	case 0x46:
 		u.runVCmpGeF32(state)
+	case 0x47:
+		u.runVCmpOF32(state)
+	case 0x48:
+		u.runVCmpUF32(state)
+	case 0x49:
+		u.runVCmpNgeF32(state)
+	case 0x4a:
+		u.runVCmpNlgF32(state)
+	case 0x4b:
+		u.runVCmpNgtF32(state)
+	case 0x4c:
+		u.runVCmpNleF32(state)
+	case 0x4d:
+		u.runVCmpNeqF32(state)
+	case 0x4e:
+		u.runVCmpNltF32(state)
+	// f64 comparisons (0x60-0x6f range)
+	case 0x60:
+		u.runVCmpFF64(state)
+	case 0x61:
+		u.runVCmpLtF64(state)
+	case 0x62:
+		u.runVCmpEqF64(state)
+	case 0x63:
+		u.runVCmpLeF64(state)
+	case 0x64:
+		u.runVCmpGtF64(state)
+	case 0x65:
+		u.runVCmpLgF64(state)
+	case 0x66:
+		u.runVCmpGeF64(state)
+	case 0x67:
+		u.runVCmpOF64(state)
+	case 0x68:
+		u.runVCmpUF64(state)
+	case 0x69:
+		u.runVCmpNgeF64(state)
+	case 0x6a:
+		u.runVCmpNlgF64(state)
+	case 0x6b:
+		u.runVCmpNgtF64(state)
+	case 0x6c:
+		u.runVCmpNleF64(state)
+	case 0x6d:
+		u.runVCmpNeqF64(state)
+	case 0x6e:
+		u.runVCmpNltF64(state)
+	case 0x6f:
+		u.runVCmpTruF64(state)
 	// i16 comparisons
 	case 0xa4:
 		u.runVCmpGtI16(state)
+	// u16 comparisons
+	case 0xa9:
+		u.runVCmpLtU16(state)
+	case 0xaa:
+		u.runVCmpEqU16(state)
+	case 0xab:
+		u.runVCmpLeU16(state)
+	case 0xac:
+		u.runVCmpGtU16(state)
+	case 0xad:
+		u.runVCmpLgU16(state)
+	case 0xae:
+		u.runVCmpGeU16(state)
 	// i32 comparisons (0xc0-0xc7 range)
 	case 0xc1:
 		u.runVCmpLtI32(state)
@@ -178,6 +240,429 @@ func (u *ALU) runVCmpGeF32(state emu.InstEmuState) {
 	state.SetVCC(vcc)
 }
 
+// runVCmpOF32 implements v_cmp_o_f32 (Ordered f32)
+// True when both operands are not NaN.
+func (u *ALU) runVCmpOF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !math.IsNaN(float64(src0)) && !math.IsNaN(float64(src1)) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpUF32 implements v_cmp_u_f32 (Unordered f32)
+// True when either operand is NaN.
+func (u *ALU) runVCmpUF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if math.IsNaN(float64(src0)) || math.IsNaN(float64(src1)) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNgeF32 implements v_cmp_nge_f32 (Not Greater or Equal f32)
+// True when !(S0 >= S1), i.e., S0 < S1 or either is NaN.
+func (u *ALU) runVCmpNgeF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 >= src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNlgF32 implements v_cmp_nlg_f32 (Not Less or Greater f32)
+// True when !(S0 != S1), i.e., S0 == S1 or either is NaN.
+func (u *ALU) runVCmpNlgF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 < src1) && !(src0 > src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNgtF32 implements v_cmp_ngt_f32 (Not Greater Than f32)
+// True when !(S0 > S1), i.e., S0 <= S1 or either is NaN.
+func (u *ALU) runVCmpNgtF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 > src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNleF32 implements v_cmp_nle_f32 (Not Less or Equal f32)
+// True when !(S0 <= S1), i.e., S0 > S1 or either is NaN.
+func (u *ALU) runVCmpNleF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 <= src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNeqF32 implements v_cmp_neq_f32 (Not Equal f32)
+// True when !(S0 == S1), i.e., S0 != S1 or either is NaN.
+func (u *ALU) runVCmpNeqF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 == src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNltF32 implements v_cmp_nlt_f32 (Not Less Than f32)
+// True when !(S0 < S1), i.e., S0 >= S1 or either is NaN.
+func (u *ALU) runVCmpNltF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
+		if !(src0 < src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpFF64 implements v_cmp_f_f64 (Always False f64)
+func (u *ALU) runVCmpFF64(state emu.InstEmuState) {
+	state.SetVCC(0)
+}
+
+// runVCmpLtF64 implements v_cmp_lt_f64 (Less Than f64)
+func (u *ALU) runVCmpLtF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 < src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpEqF64 implements v_cmp_eq_f64 (Equal f64)
+func (u *ALU) runVCmpEqF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 == src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpLeF64 implements v_cmp_le_f64 (Less or Equal f64)
+func (u *ALU) runVCmpLeF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 <= src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpGtF64 implements v_cmp_gt_f64 (Greater Than f64)
+func (u *ALU) runVCmpGtF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 > src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpLgF64 implements v_cmp_lg_f64 (Less or Greater f64, i.e. != )
+func (u *ALU) runVCmpLgF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 != src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpGeF64 implements v_cmp_ge_f64 (Greater or Equal f64)
+func (u *ALU) runVCmpGeF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if src0 >= src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpOF64 implements v_cmp_o_f64 (Ordered f64)
+// True when both operands are not NaN.
+func (u *ALU) runVCmpOF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !math.IsNaN(src0) && !math.IsNaN(src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpUF64 implements v_cmp_u_f64 (Unordered f64)
+// True when either operand is NaN.
+func (u *ALU) runVCmpUF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if math.IsNaN(src0) || math.IsNaN(src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNgeF64 implements v_cmp_nge_f64 (Not Greater or Equal f64)
+// True when !(S0 >= S1), i.e., S0 < S1 or either is NaN.
+func (u *ALU) runVCmpNgeF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 >= src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNlgF64 implements v_cmp_nlg_f64 (Not Less or Greater f64)
+// True when !(S0 < S1) && !(S0 > S1), i.e., S0 == S1 or either is NaN.
+func (u *ALU) runVCmpNlgF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 < src1) && !(src0 > src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNgtF64 implements v_cmp_ngt_f64 (Not Greater Than f64)
+// True when !(S0 > S1), i.e., S0 <= S1 or either is NaN.
+func (u *ALU) runVCmpNgtF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 > src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNleF64 implements v_cmp_nle_f64 (Not Less or Equal f64)
+// True when !(S0 <= S1), i.e., S0 > S1 or either is NaN.
+func (u *ALU) runVCmpNleF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 <= src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNeqF64 implements v_cmp_neq_f64 (Not Equal f64)
+// True when !(S0 == S1), i.e., S0 != S1 or either is NaN.
+func (u *ALU) runVCmpNeqF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 == src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpNltF64 implements v_cmp_nlt_f64 (Not Less Than f64)
+// True when !(S0 < S1), i.e., S0 >= S1 or either is NaN.
+func (u *ALU) runVCmpNltF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
+		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
+		if !(src0 < src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+// runVCmpTruF64 implements v_cmp_tru_f64 (Always True f64)
+func (u *ALU) runVCmpTruF64(state emu.InstEmuState) {
+	exec := state.EXEC()
+	state.SetVCC(exec)
+}
+
 func (u *ALU) runVCmpGtI16(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -186,10 +671,167 @@ func (u *ALU) runVCmpGtI16(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		// Extract 16-bit values and sign-extend to int32
-		src0 := int16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
-		src1 := int16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		var src0, src1 int16
+		if inst.IsSdwa {
+			src0 = int16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = int16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = int16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = int16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
 		if src0 > src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpLtU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 < src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpEqU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 == src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpLeU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 <= src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpGtU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 > src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpLgU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 != src1 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpGeU16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		var src0, src1 uint16
+		if inst.IsSdwa {
+			src0 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel) & 0xFFFF)
+			src1 = uint16(u.sdwaSrcSelect(
+				uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel) & 0xFFFF)
+		} else {
+			src0 = uint16(state.ReadOperand(inst.Src0, i) & 0xFFFF)
+			src1 = uint16(state.ReadOperand(inst.Src1, i) & 0xFFFF)
+		}
+		if src0 >= src1 {
 			vcc |= 1 << uint(i)
 		}
 	}

@@ -3,8 +3,8 @@ package rob
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"go.uber.org/mock/gomock"
 )
 
@@ -53,14 +53,16 @@ var _ = Describe("Reorder Buffer", func() {
 		)
 
 		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.Build()
+			read = &mem.ReadReq{}
+			read.ID = sim.GetIDGenerator().Generate()
 		})
 
 		It("should do nothing if buffer is full", func() {
 			topPort.EXPECT().PeekIncoming().Return(read)
 
 			for i := 0; i < 10; i++ {
-				req := mem.ReadReqBuilder{}.Build()
+				req := &mem.ReadReq{}
+				req.ID = sim.GetIDGenerator().Generate()
 				trans := rob.createTransaction(req)
 				rob.addTransaction(trans)
 			}
@@ -115,7 +117,8 @@ var _ = Describe("Reorder Buffer", func() {
 		)
 
 		BeforeEach(func() {
-			writeFromTop = mem.WriteReqBuilder{}.Build()
+			writeFromTop = &mem.WriteReq{}
+			writeFromTop.ID = sim.GetIDGenerator().Generate()
 			transaction = rob.createTransaction(writeFromTop)
 			rob.addTransaction(transaction)
 		})
@@ -129,9 +132,9 @@ var _ = Describe("Reorder Buffer", func() {
 		})
 
 		It("should attach response to transaction", func() {
-			rsp := mem.WriteDoneRspBuilder{}.
-				WithRspTo(transaction.reqToBottom.Meta().ID).
-				Build()
+			rsp := &mem.WriteDoneRsp{}
+			rsp.ID = sim.GetIDGenerator().Generate()
+			rsp.RspTo = transaction.reqToBottom.Meta().ID
 
 			bottomPort.EXPECT().PeekIncoming().Return(rsp)
 			bottomPort.EXPECT().RetrieveIncoming()
@@ -154,12 +157,13 @@ var _ = Describe("Reorder Buffer", func() {
 		BeforeEach(func() {
 			topModule = NewMockPort(mockCtrl)
 			topModule.EXPECT().AsRemote().AnyTimes()
-			writeFromTop = mem.WriteReqBuilder{}.
-				WithSrc(topModule.AsRemote()).
-				Build()
-			rspFromBottom = mem.WriteDoneRspBuilder{}.
-				WithRspTo(writeFromTop.ID).
-				Build()
+			writeFromTop = &mem.WriteReq{}
+			writeFromTop.ID = sim.GetIDGenerator().Generate()
+			writeFromTop.Src = topModule.AsRemote()
+
+			rspFromBottom = &mem.WriteDoneRsp{}
+			rspFromBottom.ID = sim.GetIDGenerator().Generate()
+			rspFromBottom.RspTo = writeFromTop.ID
 			transaction = rob.createTransaction(writeFromTop)
 			transaction.rspFromBottom = rspFromBottom
 			rob.addTransaction(transaction)
@@ -197,7 +201,7 @@ var _ = Describe("Reorder Buffer", func() {
 				Do(func(rsp *mem.WriteDoneRsp) {
 					Expect(rsp.Dst).To(BeIdenticalTo(topModule.AsRemote()))
 					Expect(rsp.Src).To(BeIdenticalTo(topPort.AsRemote()))
-					Expect(rsp.RespondTo).To(Equal(writeFromTop.ID))
+					Expect(rsp.RspTo).To(Equal(writeFromTop.ID))
 				}).
 				Return(nil)
 
@@ -211,9 +215,8 @@ var _ = Describe("Reorder Buffer", func() {
 
 	Context("when processing control messages", func() {
 		It("should flush", func() {
-			flush := mem.ControlMsgBuilder{}.
-				ToDiscardTransactions().
-				Build()
+			flush := &mem.ControlReq{Command: mem.CmdFlush}
+			flush.ID = sim.GetIDGenerator().Generate()
 
 			ctrlPort.EXPECT().PeekIncoming().Return(flush)
 			ctrlPort.EXPECT().RetrieveIncoming()
@@ -226,9 +229,8 @@ var _ = Describe("Reorder Buffer", func() {
 		})
 
 		It("should restart", func() {
-			restart := mem.ControlMsgBuilder{}.
-				ToRestart().
-				Build()
+			restart := &mem.ControlReq{Command: mem.CmdEnable}
+			restart.ID = sim.GetIDGenerator().Generate()
 
 			ctrlPort.EXPECT().PeekIncoming().Return(restart)
 			ctrlPort.EXPECT().RetrieveIncoming()

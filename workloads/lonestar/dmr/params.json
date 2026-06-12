@@ -1,0 +1,23 @@
+{
+  "benchmark": "dmr",
+  "suite": "lonestar",
+  "scaling_parameter": {
+    "name": "num_points",
+    "description": "Number of initial points for the mesh triangulation",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144, 393216, 524288, 786432, 1048576, 1572864, 2097152]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "min_angle_deg": {
+      "description": "Minimum angle quality threshold in degrees -- triangles with min angle below this are refined",
+      "values": [20, 25, 30]
+    },
+    "seed": {
+      "description": "Random seed for point generation",
+      "values": [42, 123, 256]
+    }
+  }
+}

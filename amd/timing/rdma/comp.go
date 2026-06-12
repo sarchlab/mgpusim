@@ -5,9 +5,9 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 )
 
 type transaction struct {
@@ -215,7 +215,7 @@ func (c *Comp) processRspFromL2(
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
-		rsp.GetRspTo(), c.transactionsFromOutside)
+		rsp.Meta().RspTo, c.transactionsFromOutside)
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
@@ -263,7 +263,7 @@ func (c *Comp) processRspFromRDMARequestOutside(
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
-		rsp.GetRspTo(), c.transactionsFromInside)
+		rsp.Meta().RspTo, c.transactionsFromInside)
 	trans := c.transactionsFromInside[transactionIndex]
 
 	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
@@ -333,7 +333,7 @@ func (c *Comp) processReqFromRDMADataOutside(
 }
 
 func (c *Comp) findTransactionByRspToID(
-	rspTo string,
+	rspTo uint64,
 	transactions []transaction,
 ) int {
 	for i, trans := range transactions {
@@ -346,28 +346,34 @@ func (c *Comp) findTransactionByRspToID(
 		}
 	}
 
-	log.Panicf("transaction %s not found", rspTo)
+	log.Panicf("transaction %d not found", rspTo)
 	return 0
 }
 
 func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	switch origin := origin.(type) {
 	case *mem.ReadReq:
-		read := mem.ReadReqBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithAddress(origin.Address).
-			WithByteSize(origin.AccessByteSize).
-			Build()
+		read := &mem.ReadReq{
+			MsgMeta: sim.MsgMeta{
+				ID:  sim.GetIDGenerator().Generate(),
+				Src: origin.Src,
+				Dst: origin.Dst,
+			},
+			Address:        origin.Address,
+			AccessByteSize: origin.AccessByteSize,
+		}
 		return read
 	case *mem.WriteReq:
-		write := mem.WriteReqBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithAddress(origin.Address).
-			WithData(origin.Data).
-			WithDirtyMask(origin.DirtyMask).
-			Build()
+		write := &mem.WriteReq{
+			MsgMeta: sim.MsgMeta{
+				ID:  sim.GetIDGenerator().Generate(),
+				Src: origin.Src,
+				Dst: origin.Dst,
+			},
+			Address:   origin.Address,
+			Data:      origin.Data,
+			DirtyMask: origin.DirtyMask,
+		}
 		return write
 	default:
 		log.Panicf("cannot clone request of type %s",
@@ -376,22 +382,28 @@ func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	return nil
 }
 
-func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
+func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo uint64) mem.AccessRsp {
 	switch origin := origin.(type) {
 	case *mem.DataReadyRsp:
-		rsp := mem.DataReadyRspBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithRspTo(rspTo).
-			WithData(origin.Data).
-			Build()
+		rsp := &mem.DataReadyRsp{
+			MsgMeta: sim.MsgMeta{
+				ID:    sim.GetIDGenerator().Generate(),
+				Src:   origin.Src,
+				Dst:   origin.Dst,
+				RspTo: rspTo,
+			},
+			Data: origin.Data,
+		}
 		return rsp
 	case *mem.WriteDoneRsp:
-		rsp := mem.WriteDoneRspBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithRspTo(rspTo).
-			Build()
+		rsp := &mem.WriteDoneRsp{
+			MsgMeta: sim.MsgMeta{
+				ID:    sim.GetIDGenerator().Generate(),
+				Src:   origin.Src,
+				Dst:   origin.Dst,
+				RspTo: rspTo,
+			},
+		}
 		return rsp
 	default:
 		log.Panicf("cannot clone request of type %s",
@@ -412,7 +424,7 @@ func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
 
 	tracing.StartTaskWithSpecificLocation(
 		tracing.MsgIDAtReceiver(req, c),
-		req.Meta().ID+"_req_out",
+		req.Meta().ID,
 		c,
 		"req_in",
 		reflect.TypeOf(req).String(),
@@ -421,7 +433,7 @@ func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
 	)
 
 	tracing.StartTaskWithSpecificLocation(
-		cloned.Meta().ID+"_req_out",
+		cloned.Meta().ID,
 		tracing.MsgIDAtReceiver(req, c),
 		c,
 		"req_out",
@@ -438,7 +450,7 @@ func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
 
 	tracing.StartTaskWithSpecificLocation(
 		tracing.MsgIDAtReceiver(req, c),
-		req.Meta().ID+"_req_out",
+		req.Meta().ID,
 		c,
 		"req_in",
 		reflect.TypeOf(req).String(),
@@ -447,7 +459,7 @@ func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
 	)
 
 	tracing.StartTaskWithSpecificLocation(
-		cloned.Meta().ID+"_req_out",
+		cloned.Meta().ID,
 		tracing.MsgIDAtReceiver(req, c),
 		c,
 		"req_out",

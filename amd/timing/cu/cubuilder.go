@@ -3,10 +3,10 @@ package cu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/pipelining"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/queueing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
@@ -26,7 +26,14 @@ type Builder struct {
 	vecMemInstPipelineStages   int
 	vecMemTransPipelineStages  int
 	vecMemTransPipelineWidth   int
-	memPipelineBufferSize      int
+	memPipelineBufferSize          int
+	inFlightVectorMemAccessLimit   int
+
+	maxCoalescingPenalty int
+	scratchLatency       int
+	ldsNumBanks          int
+	registerScoreboard   bool
+	isCDNA3              bool
 
 	decoder    emu.Decoder
 	alu        emu.ALU
@@ -127,14 +134,14 @@ func (b Builder) WithVectorMemModules(m mem.AddressToPortMapper) Builder {
 }
 
 // WithALUFactory sets the ALU factory function to use for creating the ALU.
-// This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
+// This allows using different ALU implementations for different architectures.
 func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
 	b.aluFactory = factory
 	return b
 }
 
 // WithNumSinglePrecisionUnits sets the number of single-precision units per
-// SIMD. Default is 16 (GCN3). CDNA3 uses 32.
+// SIMD. Default is 16.
 func (b Builder) WithNumSinglePrecisionUnits(n int) Builder {
 	b.numSinglePrecisionUnits = n
 	return b
@@ -168,15 +175,68 @@ func (b Builder) WithMemPipelineBufferSize(n int) Builder {
 	return b
 }
 
+// WithLDSNumBanks sets the number of LDS banks for bank conflict modeling.
+// Default is 32. When set to 0, defaults to 32.
+func (b Builder) WithLDSNumBanks(n int) Builder {
+	b.ldsNumBanks = n
+	return b
+}
+
+// WithMaxCoalescingPenalty sets the maximum coalescing penalty in cycles
+// for poorly-coalesced read transactions. Default is 0 (disabled).
+func (b Builder) WithMaxCoalescingPenalty(n int) Builder {
+	b.maxCoalescingPenalty = n
+	return b
+}
+
+// WithScratchLatency sets the latency in cycles for SCRATCH segment
+// (FlatSeg=1) memory operations. On CDNA3, scratch accesses go through
+// the memory hierarchy and incur 20-40 cycles. Default is 0 (instant).
+func (b Builder) WithScratchLatency(n int) Builder {
+	b.scratchLatency = n
+	return b
+}
+
+// WithInFlightVectorMemAccessLimit sets the maximum number of in-flight
+// vector memory access transactions per CU. Default is 512.
+func (b Builder) WithInFlightVectorMemAccessLimit(limit int) Builder {
+	b.inFlightVectorMemAccessLimit = limit
+	return b
+}
+
+// WithRegisterScoreboard enables or disables the register scoreboard and
+// SIMD pipelining feature. When enabled, the CU tracks per-wavefront
+// register availability to detect RAW hazards and allows multiple
+// wavefronts to be in-flight in SIMD units simultaneously.
+func (b Builder) WithRegisterScoreboard(enabled bool) Builder {
+	b.registerScoreboard = enabled
+	return b
+}
+
+// WithIsCDNA3 sets whether the compute unit should use CDNA3 ISA decoding.
+// When enabled, the disassembler uses CDNA3-specific instruction formats.
+func (b Builder) WithIsCDNA3(cdna3 bool) Builder {
+	b.isCDNA3 = cdna3
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
-	cu.Decoder = insts.NewDisassembler()
-	cu.WfDispatcher = NewWfDispatcher(cu)
-	cu.InFlightVectorMemAccessLimit = 512
+	decoder := insts.NewDisassembler()
+	decoder.IsCDNA3 = b.isCDNA3
+	cu.Decoder = decoder
+	wfDispatcher := NewWfDispatcher(cu)
+	wfDispatcher.scoreboardEnabled = b.registerScoreboard
+	cu.WfDispatcher = wfDispatcher
+	if b.inFlightVectorMemAccessLimit > 0 {
+		cu.InFlightVectorMemAccessLimit = b.inFlightVectorMemAccessLimit
+	} else {
+		cu.InFlightVectorMemAccessLimit = 512
+	}
 
 	if b.aluFactory != nil {
 		b.alu = b.aluFactory(nil)
@@ -186,6 +246,8 @@ func (b Builder) Build(name string) *ComputeUnit {
 	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(b.wfPoolSize))
 	}
+
+	cu.scratchALU = b.alu
 
 	b.equipScheduler(cu)
 	b.equipScalarUnits(cu)
@@ -213,7 +275,10 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
+	issueArbitor.scoreboardEnabled = b.registerScoreboard
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
+	scheduler.scoreboardEnabled = b.registerScoreboard
+	scheduler.isCDNA3 = b.isCDNA3
 	cu.Scheduler = scheduler
 }
 
@@ -237,6 +302,12 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, name, b.alu)
 		simdUnit.NumSinglePrecisionUnit = b.numSinglePrecisionUnits
+		simdUnit.scoreboardEnabled = b.registerScoreboard
+		simdUnit.isCDNA3 = b.isCDNA3
+		if b.registerScoreboard {
+			simdUnit.pipelineCapacity = 4
+			simdUnit.pipelineSlots = make([]*simdPipelineSlot, 0, 4)
+		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -249,7 +320,11 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.alu)
+	numBanks := b.ldsNumBanks
+	if numBanks == 0 {
+		numBanks = 32
+	}
+	ldsUnit := NewLDSUnit(cu, b.alu, numBanks)
 	cu.LDSUnit = ldsUnit
 
 	for i := 0; i < b.simdCount; i++ {
@@ -265,16 +340,18 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 		log2CacheLineSize: b.log2CachelineSize,
 	}
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
+	vectorMemoryUnit.maxCoalescingPenalty = b.maxCoalescingPenalty
+	vectorMemoryUnit.scratchLatency = b.scratchLatency
 	cu.VectorMemUnit = vectorMemoryUnit
 
-	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostInstPipelineBuffer", 4*b.simdCount)
-	vectorMemoryUnit.instructionPipeline = pipelining.MakeBuilder().
-		WithPipelineWidth(b.simdCount).
-		WithNumStage(b.vecMemInstPipelineStages).
-		WithCyclePerStage(1).
-		WithPostPipelineBuffer(vectorMemoryUnit.postInstructionPipelineBuffer).
-		Build(cu.Name() + ".VectorMemoryUnit.InstPipeline")
+	vectorMemoryUnit.postInstructionPipelineBuffer = queueing.Buffer[vectorMemInst]{
+		BufferName: cu.Name() + ".VectorMemoryUnit.PostInstPipelineBuffer",
+		Cap:        8 * b.simdCount,
+	}
+	vectorMemoryUnit.instructionPipeline = queueing.Pipeline[vectorMemInst]{
+		Width:     b.simdCount * 2,
+		NumStages: b.vecMemInstPipelineStages,
+	}
 
 	pipelineWidth := b.vecMemTransPipelineWidth
 	if pipelineWidth < 1 {
@@ -284,14 +361,14 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	if bufSize < 8 {
 		bufSize = 8
 	}
-	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(
-		cu.Name()+".VectorMemoryUnit.PostTransPipelineBuffer", bufSize)
-	vectorMemoryUnit.transactionPipeline = pipelining.MakeBuilder().
-		WithPipelineWidth(pipelineWidth).
-		WithNumStage(b.vecMemTransPipelineStages).
-		WithCyclePerStage(1).
-		WithPostPipelineBuffer(vectorMemoryUnit.postTransactionPipelineBuffer).
-		Build(cu.Name() + ".VectorMemoryUnit.TransactionPipeline")
+	vectorMemoryUnit.postTransactionPipelineBuffer = queueing.Buffer[VectorMemAccessInfo]{
+		BufferName: cu.Name() + ".VectorMemoryUnit.PostTransPipelineBuffer",
+		Cap:        bufSize,
+	}
+	vectorMemoryUnit.transactionPipeline = queueing.Pipeline[VectorMemAccessInfo]{
+		Width:     pipelineWidth,
+		NumStages: b.vecMemTransPipelineStages,
+	}
 
 	for i := 0; i < b.simdCount; i++ {
 		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 	"github.com/tebeka/atexit"
@@ -18,7 +18,7 @@ type ISADebugger struct {
 
 	isFirstEntry  bool
 	cu            *ComputeUnit
-	executingInst map[string]tracing.Task
+	executingInst map[uint64]tracing.Task
 	// prevWf *Wavefront
 }
 
@@ -28,7 +28,7 @@ func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h.Logger = logger
 	h.isFirstEntry = true
 	h.cu = cu
-	h.executingInst = make(map[string]tracing.Task)
+	h.executingInst = make(map[uint64]tracing.Task)
 
 	h.Logger.Print("[")
 	atexit.Register(func() { h.Logger.Print("\n]") })

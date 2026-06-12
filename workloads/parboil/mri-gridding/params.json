@@ -1,0 +1,23 @@
+{
+  "benchmark": "mri-gridding",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "num_samples",
+    "description": "Number of non-uniform k-space samples to grid",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 1572864, 2097152, 2621440, 3145728]
+  },
+  "non_scaling_parameters": {
+    "grid_size": {
+      "description": "Dimension of the output Cartesian grid (grid_size x grid_size)",
+      "values": [64, 128, 256, 512]
+    },
+    "kernel_width": {
+      "description": "Width of the Kaiser-Bessel convolution window in grid cells",
+      "values": [2, 4, 6]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    }
+  }
+}

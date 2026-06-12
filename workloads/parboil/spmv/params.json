@@ -1,0 +1,23 @@
+{
+  "benchmark": "spmv",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "num_rows",
+    "description": "Number of rows in the sparse matrix (CSR format)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 1572864, 2097152, 2621440, 3145728, 4194304]
+  },
+  "non_scaling_parameters": {
+    "avg_nnz_per_row": {
+      "description": "Average number of non-zero entries per row",
+      "values": [5, 10, 20, 50]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    },
+    "seed": {
+      "description": "Random seed for sparse matrix generation",
+      "values": [42, 123, 456]
+    }
+  }
+}

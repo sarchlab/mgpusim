@@ -1,0 +1,7 @@
+benchmark,num_elements,num_repeats,working_set_size,status,sim_ms,metric_rows,sqlite,wall_s,command,notes
+l1_cache_bw,16384,256,,ok,0.007362,3,akita_sim_d80v3ctalt3vo2sh2ifg.sqlite3,23.806,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 16384 -num_repeats 256","default-repeat pilot"
+l1_cache_bw,65536,256,,ok,0.007749,3,akita_sim_d80v3ilalt3vojcms2p0.sqlite3,143.875,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 65536 -num_repeats 256","default-repeat pilot; flatter than desired"
+l1_cache_bw,262144,256,,timeout,,,,300.129,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 262144 -num_repeats 256","Python subprocess timeout=300; sqlite had 0 metric rows"
+l2_cache_bw,16384,128,262144,ok,0.009989,3,akita_sim_d80v71talt3vpe8bk7f0.sqlite3,10.641,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 16384 -num_repeats 128 -working_set_size 262144","default-repeat pilot"
+l2_cache_bw,65536,128,262144,ok,0.009638,3,akita_sim_d80v74dalt3vph6cd4j0.sqlite3,74.563,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 65536 -num_repeats 128 -working_set_size 262144","default-repeat pilot; flatter than desired"
+l2_cache_bw,262144,128,262144,incomplete,,,,,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 262144 -num_repeats 128 -working_set_size 262144","batched pilot was interrupted by outer 600s API timeout before Python row materialization; sqlite had 0 metric rows"

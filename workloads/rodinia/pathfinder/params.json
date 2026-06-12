@@ -1,0 +1,23 @@
+{
+  "benchmark": "pathfinder",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "width",
+    "description": "Grid width (number of columns in the 2D cost grid)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144, 393216, 524288, 786432, 1048576, 1572864, 2097152]
+  },
+  "non_scaling_parameters": {
+    "num_rows": {
+      "description": "Number of rows in the 2D cost grid",
+      "values": [10, 50, 100, 500]
+    },
+    "block_size": {
+      "description": "CUDA/HIP thread block size",
+      "values": [64, 128, 256, 512]
+    },
+    "seed": {
+      "description": "Random seed for cost grid generation",
+      "values": [42, 123, 256]
+    }
+  }
+}

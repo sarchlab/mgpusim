@@ -1,0 +1,2795 @@
+{
+  "schema_name": "mgpusim.mi300a_terminal_discovery_recovery_manifest",
+  "schema_version": 1,
+  "source_plan": {
+    "artifact": "benchmark-comparison/mi300a_problem_size_discovery_plan.json",
+    "sha256": "01186ff9bea2ade8ed32cb04ae7e9f82ad793a763fd7a56fde2f07a0c5f4c805",
+    "schema_name": "mgpusim.mi300a_problem_size_discovery_plan",
+    "schema_version": 1,
+    "entry_count": 1416,
+    "timeout_sec": 3600,
+    "tier_counts": {
+      "1": 308,
+      "2": 1108
+    }
+  },
+  "source_evidence": {
+    "m24_coverage_report": "docs/m24_incomplete_terminal_discovery_coverage.md",
+    "run_id": "25111815292",
+    "run_url": "https://github.com/sarchlab/mgpusim-dev/actions/runs/25111815292",
+    "head_branch": "e31-m23-execute-278-terminal-discovery-relaunch",
+    "head_sha": "8ff0b0e1674c6778c3c697ff516abb9b2e4694c1",
+    "run_conclusion": "cancelled",
+    "prior_attempt_timeout_sec": 600,
+    "evidence_policy": "Observed records remain incomplete prior evidence; this manifest contains only unobserved recovery scope."
+  },
+  "source_plan_lookup_fields": [
+    "problem_size",
+    "sizes",
+    "size_token",
+    "size_label",
+    "flag_template",
+    "size_label_template",
+    "timeout_sec",
+    "artifact_id",
+    "job_id",
+    "extra_flags",
+    "gomemlimit",
+    "gogc"
+  ],
+  "generation_policy": {
+    "scope_policy": "include only plan indices missing from run 25111815292; do not synthesize terminal outcomes",
+    "ordering_policy": "source_plan_order_grouped_by_workflow_benchmark_with_missing_attempts_only",
+    "row_policy": "one recovery row per workflow benchmark that has at least one missing plan index",
+    "attempt_policy": "each recovery attempt is identified by plan_index; runner metadata is resolved from the source plan",
+    "non_goals": [
+      "no simulator execution",
+      "no workflow dispatch/cancel/rerun",
+      "no provenance or finishable manifest regeneration",
+      "no terminal finishability completion claim"
+    ]
+  },
+  "entry_count": 940,
+  "recovery_entry_count": 940,
+  "attempt_count": 940,
+  "recovery_attempt_count": 940,
+  "benchmark_count": 79,
+  "recovery_row_count": 79,
+  "timeout_sec": 3600,
+  "missing_plan_index_ranges": [
+    "9-16",
+    "27-32",
+    "35-48",
+    "50-64",
+    "71-80",
+    "82-96",
+    "104-112",
+    "128-131",
+    "147-150",
+    "161-166",
+    "168-182",
+    "184-198",
+    "200-214",
+    "216-229",
+    "237-245",
+    "247-256",
+    "266-272",
+    "286-290",
+    "304-308",
+    "312-323",
+    "332-341",
+    "352-357",
+    "369-373",
+    "387-389",
+    "396-411",
+    "423-424",
+    "431-441",
+    "454",
+    "458-472",
+    "481-491",
+    "498-511",
+    "513-529",
+    "534-547",
+    "551-565",
+    "572-580",
+    "588-597",
+    "601-613",
+    "620-629",
+    "640-647",
+    "650-665",
+    "670-683",
+    "688-701",
+    "706-719",
+    "722-737",
+    "739-747",
+    "752-765",
+    "767-783",
+    "786-801",
+    "810-837",
+    "843-851",
+    "856-869",
+    "879-885",
+    "887-904",
+    "911-922",
+    "927-938",
+    "945-954",
+    "959-970",
+    "975-986",
+    "992-1002",
+    "1013-1020",
+    "1022-1037",
+    "1047-1054",
+    "1060-1071",
+    "1077-1088",
+    "1090-1122",
+    "1128-1141",
+    "1145-1195",
+    "1204-1211",
+    "1220-1227",
+    "1234-1246",
+    "1251-1264",
+    "1272-1282",
+    "1286-1298",
+    "1306-1314",
+    "1318-1330",
+    "1337-1347",
+    "1352-1365",
+    "1393-1401"
+  ],
+  "prior_incomplete_evidence": {
+    "run_id": "25111815292",
+    "treatment": "incomplete_prior_evidence_only",
+    "observed_unique_plan_index_count": 476,
+    "observed_raw_per_plan_outcome_file_count": 476,
+    "duplicate_observed_plan_index_count": 0,
+    "extra_observed_plan_index_count": 0,
+    "observed_terminal_status_counts": {
+      "failed": 9,
+      "success": 459,
+      "timeout": 8
+    },
+    "observed_plan_index_ranges": [
+      "1-8",
+      "17-26",
+      "33-34",
+      "49",
+      "65-70",
+      "81",
+      "97-103",
+      "113-127",
+      "132-146",
+      "151-160",
+      "167",
+      "183",
+      "199",
+      "215",
+      "230-236",
+      "246",
+      "257-265",
+      "273-285",
+      "291-303",
+      "309-311",
+      "324-331",
+      "342-351",
+      "358-368",
+      "374-386",
+      "390-395",
+      "412-422",
+      "425-430",
+      "442-453",
+      "455-457",
+      "473-480",
+      "492-497",
+      "512",
+      "530-533",
+      "548-550",
+      "566-571",
+      "581-587",
+      "598-600",
+      "614-619",
+      "630-639",
+      "648-649",
+      "666-669",
+      "684-687",
+      "702-705",
+      "720-721",
+      "738",
+      "748-751",
+      "766",
+      "784-785",
+      "802-809",
+      "838-842",
+      "852-855",
+      "870-878",
+      "886",
+      "905-910",
+      "923-926",
+      "939-944",
+      "955-958",
+      "971-974",
+      "987-991",
+      "1003-1012",
+      "1021",
+      "1038-1046",
+      "1055-1059",
+      "1072-1076",
+      "1089",
+      "1123-1127",
+      "1142-1144",
+      "1196-1203",
+      "1212-1219",
+      "1228-1233",
+      "1247-1250",
+      "1265-1271",
+      "1283-1285",
+      "1299-1305",
+      "1315-1317",
+      "1331-1336",
+      "1348-1351",
+      "1366-1392",
+      "1402-1416"
+    ],
+    "complete_logical_rows_excluded_from_recovery": [
+      {
+        "benchmark": "gelu",
+        "plan_index_ranges": [
+          "1228"
+        ],
+        "observed_count": 1,
+        "recovery_attempt_count": 0,
+        "treatment": "prior_incomplete_evidence_only_not_recovery_scope"
+      },
+      {
+        "benchmark": "sssp",
+        "plan_index_ranges": [
+          "1366-1383"
+        ],
+        "observed_count": 18,
+        "recovery_attempt_count": 0,
+        "treatment": "prior_incomplete_evidence_only_not_recovery_scope"
+      },
+      {
+        "benchmark": "dmr",
+        "plan_index_ranges": [
+          "1402-1416"
+        ],
+        "observed_count": 15,
+        "recovery_attempt_count": 0,
+        "treatment": "prior_incomplete_evidence_only_not_recovery_scope"
+      }
+    ],
+    "not_complete_terminal_provenance": true
+  },
+  "coverage": {
+    "expected_plan_index_count": 1416,
+    "source_plan_index_ranges": [
+      "1-1416"
+    ],
+    "recovery_missing_plan_index_count": 940,
+    "recovery_missing_plan_index_ranges": [
+      "9-16",
+      "27-32",
+      "35-48",
+      "50-64",
+      "71-80",
+      "82-96",
+      "104-112",
+      "128-131",
+      "147-150",
+      "161-166",
+      "168-182",
+      "184-198",
+      "200-214",
+      "216-229",
+      "237-245",
+      "247-256",
+      "266-272",
+      "286-290",
+      "304-308",
+      "312-323",
+      "332-341",
+      "352-357",
+      "369-373",
+      "387-389",
+      "396-411",
+      "423-424",
+      "431-441",
+      "454",
+      "458-472",
+      "481-491",
+      "498-511",
+      "513-529",
+      "534-547",
+      "551-565",
+      "572-580",
+      "588-597",
+      "601-613",
+      "620-629",
+      "640-647",
+      "650-665",
+      "670-683",
+      "688-701",
+      "706-719",
+      "722-737",
+      "739-747",
+      "752-765",
+      "767-783",
+      "786-801",
+      "810-837",
+      "843-851",
+      "856-869",
+      "879-885",
+      "887-904",
+      "911-922",
+      "927-938",
+      "945-954",
+      "959-970",
+      "975-986",
+      "992-1002",
+      "1013-1020",
+      "1022-1037",
+      "1047-1054",
+      "1060-1071",
+      "1077-1088",
+      "1090-1122",
+      "1128-1141",
+      "1145-1195",
+      "1204-1211",
+      "1220-1227",
+      "1234-1246",
+      "1251-1264",
+      "1272-1282",
+      "1286-1298",
+      "1306-1314",
+      "1318-1330",
+      "1337-1347",
+      "1352-1365",
+      "1393-1401"
+    ],
+    "prior_observed_plan_index_count": 476,
+    "prior_observed_plan_index_ranges": [
+      "1-8",
+      "17-26",
+      "33-34",
+      "49",
+      "65-70",
+      "81",
+      "97-103",
+      "113-127",
+      "132-146",
+      "151-160",
+      "167",
+      "183",
+      "199",
+      "215",
+      "230-236",
+      "246",
+      "257-265",
+      "273-285",
+      "291-303",
+      "309-311",
+      "324-331",
+      "342-351",
+      "358-368",
+      "374-386",
+      "390-395",
+      "412-422",
+      "425-430",
+      "442-453",
+      "455-457",
+      "473-480",
+      "492-497",
+      "512",
+      "530-533",
+      "548-550",
+      "566-571",
+      "581-587",
+      "598-600",
+      "614-619",
+      "630-639",
+      "648-649",
+      "666-669",
+      "684-687",
+      "702-705",
+      "720-721",
+      "738",
+      "748-751",
+      "766",
+      "784-785",
+      "802-809",
+      "838-842",
+      "852-855",
+      "870-878",
+      "886",
+      "905-910",
+      "923-926",
+      "939-944",
+      "955-958",
+      "971-974",
+      "987-991",
+      "1003-1012",
+      "1021",
+      "1038-1046",
+      "1055-1059",
+      "1072-1076",
+      "1089",
+      "1123-1127",
+      "1142-1144",
+      "1196-1203",
+      "1212-1219",
+      "1228-1233",
+      "1247-1250",
+      "1265-1271",
+      "1283-1285",
+      "1299-1305",
+      "1315-1317",
+      "1331-1336",
+      "1348-1351",
+      "1366-1392",
+      "1402-1416"
+    ],
+    "represented_plan_index_count_after_union": 1416,
+    "duplicate_recovery_plan_index_count": 0,
+    "extra_recovery_plan_index_count": 0,
+    "missing_recovery_plan_index_count": 0
+  },
+  "recovery_rows": [
+    {
+      "recovery_row_index": 1,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-mem-latency-chase",
+      "job_name": "Benchmark Recovery: mem_latency_chase (8 missing attempts)",
+      "benchmark": "mem_latency_chase",
+      "workflow_benchmark": "mem_latency_chase",
+      "workflow_benchmark_name": "mem_latency_chase",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 8,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "1-16"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1-8"
+      ],
+      "missing_plan_index_ranges": [
+        "9-16"
+      ],
+      "missing_plan_index_start": 9,
+      "missing_plan_index_end": 16,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0009",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0016"
+    },
+    {
+      "recovery_row_index": 2,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-l1-cache-bw",
+      "job_name": "Benchmark Recovery: l1_cache_bw (6 missing attempts)",
+      "benchmark": "l1_cache_bw",
+      "workflow_benchmark": "l1_cache_bw",
+      "workflow_benchmark_name": "l1_cache_bw",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 10,
+      "recovery_attempt_count": 6,
+      "attempt_count": 6,
+      "source_plan_index_ranges": [
+        "17-32"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "17-26"
+      ],
+      "missing_plan_index_ranges": [
+        "27-32"
+      ],
+      "missing_plan_index_start": 27,
+      "missing_plan_index_end": 32,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0027",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0032"
+    },
+    {
+      "recovery_row_index": 3,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-l2-cache-bw",
+      "job_name": "Benchmark Recovery: l2_cache_bw (14 missing attempts)",
+      "benchmark": "l2_cache_bw",
+      "workflow_benchmark": "l2_cache_bw",
+      "workflow_benchmark_name": "l2_cache_bw",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 2,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "33-48"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "33-34"
+      ],
+      "missing_plan_index_ranges": [
+        "35-48"
+      ],
+      "missing_plan_index_start": 35,
+      "missing_plan_index_end": 48,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0035",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0048"
+    },
+    {
+      "recovery_row_index": 4,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-shared-bw",
+      "job_name": "Benchmark Recovery: shared_bw (15 missing attempts)",
+      "benchmark": "shared_bw",
+      "workflow_benchmark": "shared_bw",
+      "workflow_benchmark_name": "shared_bw",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "49-64"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "49"
+      ],
+      "missing_plan_index_ranges": [
+        "50-64"
+      ],
+      "missing_plan_index_start": 50,
+      "missing_plan_index_end": 64,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0050",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0064"
+    },
+    {
+      "recovery_row_index": 5,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-global-bw-copy",
+      "job_name": "Benchmark Recovery: global_bw_copy (10 missing attempts)",
+      "benchmark": "global_bw_copy",
+      "workflow_benchmark": "global_bw_copy",
+      "workflow_benchmark_name": "global_bw_copy",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "65-80"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "65-70"
+      ],
+      "missing_plan_index_ranges": [
+        "71-80"
+      ],
+      "missing_plan_index_start": 71,
+      "missing_plan_index_end": 80,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0071",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0080"
+    },
+    {
+      "recovery_row_index": 6,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-device-memory-read",
+      "job_name": "Benchmark Recovery: device_memory_read (15 missing attempts)",
+      "benchmark": "device_memory_read",
+      "workflow_benchmark": "device_memory_read",
+      "workflow_benchmark_name": "device_memory_read",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "81-96"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "81"
+      ],
+      "missing_plan_index_ranges": [
+        "82-96"
+      ],
+      "missing_plan_index_start": 82,
+      "missing_plan_index_end": 96,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0082",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0096"
+    },
+    {
+      "recovery_row_index": 7,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-device-memory-write",
+      "job_name": "Benchmark Recovery: device_memory_write (9 missing attempts)",
+      "benchmark": "device_memory_write",
+      "workflow_benchmark": "device_memory_write",
+      "workflow_benchmark_name": "device_memory_write",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 7,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "97-112"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "97-103"
+      ],
+      "missing_plan_index_ranges": [
+        "104-112"
+      ],
+      "missing_plan_index_start": 104,
+      "missing_plan_index_end": 112,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0104",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0112"
+    },
+    {
+      "recovery_row_index": 8,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bus-speed-download",
+      "job_name": "Benchmark Recovery: bus_speed_download (4 missing attempts)",
+      "benchmark": "bus_speed_download",
+      "workflow_benchmark": "bus_speed_download",
+      "workflow_benchmark_name": "bus_speed_download",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 19,
+      "prior_observed_count": 15,
+      "recovery_attempt_count": 4,
+      "attempt_count": 4,
+      "source_plan_index_ranges": [
+        "113-131"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "113-127"
+      ],
+      "missing_plan_index_ranges": [
+        "128-131"
+      ],
+      "missing_plan_index_start": 128,
+      "missing_plan_index_end": 131,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0128",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0131"
+    },
+    {
+      "recovery_row_index": 9,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bus-speed-readback",
+      "job_name": "Benchmark Recovery: bus_speed_readback (4 missing attempts)",
+      "benchmark": "bus_speed_readback",
+      "workflow_benchmark": "bus_speed_readback",
+      "workflow_benchmark_name": "bus_speed_readback",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 19,
+      "prior_observed_count": 15,
+      "recovery_attempt_count": 4,
+      "attempt_count": 4,
+      "source_plan_index_ranges": [
+        "132-150"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "132-146"
+      ],
+      "missing_plan_index_ranges": [
+        "147-150"
+      ],
+      "missing_plan_index_start": 147,
+      "missing_plan_index_end": 150,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0147",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0150"
+    },
+    {
+      "recovery_row_index": 10,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-max-flops",
+      "job_name": "Benchmark Recovery: max_flops (6 missing attempts)",
+      "benchmark": "max_flops",
+      "workflow_benchmark": "max_flops",
+      "workflow_benchmark_name": "max_flops",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 10,
+      "recovery_attempt_count": 6,
+      "attempt_count": 6,
+      "source_plan_index_ranges": [
+        "151-166"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "151-160"
+      ],
+      "missing_plan_index_ranges": [
+        "161-166"
+      ],
+      "missing_plan_index_start": 161,
+      "missing_plan_index_end": 166,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0161",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0166"
+    },
+    {
+      "recovery_row_index": 11,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-fp32-fma",
+      "job_name": "Benchmark Recovery: fp32_fma (15 missing attempts)",
+      "benchmark": "fp32_fma",
+      "workflow_benchmark": "fp32_fma",
+      "workflow_benchmark_name": "fp32_fma",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "167-182"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "167"
+      ],
+      "missing_plan_index_ranges": [
+        "168-182"
+      ],
+      "missing_plan_index_start": 168,
+      "missing_plan_index_end": 182,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0168",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0182"
+    },
+    {
+      "recovery_row_index": 12,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-fp64-fma",
+      "job_name": "Benchmark Recovery: fp64_fma (15 missing attempts)",
+      "benchmark": "fp64_fma",
+      "workflow_benchmark": "fp64_fma",
+      "workflow_benchmark_name": "fp64_fma",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "183-198"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "183"
+      ],
+      "missing_plan_index_ranges": [
+        "184-198"
+      ],
+      "missing_plan_index_start": 184,
+      "missing_plan_index_end": 198,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0184",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0198"
+    },
+    {
+      "recovery_row_index": 13,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-int-mad",
+      "job_name": "Benchmark Recovery: int_mad (15 missing attempts)",
+      "benchmark": "int_mad",
+      "workflow_benchmark": "int_mad",
+      "workflow_benchmark_name": "int_mad",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "199-214"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "199"
+      ],
+      "missing_plan_index_ranges": [
+        "200-214"
+      ],
+      "missing_plan_index_start": 200,
+      "missing_plan_index_end": 214,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0200",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0214"
+    },
+    {
+      "recovery_row_index": 14,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-sfun-sin",
+      "job_name": "Benchmark Recovery: sfun_sin (14 missing attempts)",
+      "benchmark": "sfun_sin",
+      "workflow_benchmark": "sfun_sin",
+      "workflow_benchmark_name": "sfun_sin",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 15,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "215-229"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "215"
+      ],
+      "missing_plan_index_ranges": [
+        "216-229"
+      ],
+      "missing_plan_index_start": 216,
+      "missing_plan_index_end": 229,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0216",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0229"
+    },
+    {
+      "recovery_row_index": 15,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-occupancy-fma",
+      "job_name": "Benchmark Recovery: occupancy_fma (9 missing attempts)",
+      "benchmark": "occupancy_fma",
+      "workflow_benchmark": "occupancy_fma",
+      "workflow_benchmark_name": "occupancy_fma",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 7,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "230-245"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "230-236"
+      ],
+      "missing_plan_index_ranges": [
+        "237-245"
+      ],
+      "missing_plan_index_start": 237,
+      "missing_plan_index_end": 245,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0237",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0245"
+    },
+    {
+      "recovery_row_index": 16,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-atomic-throughput",
+      "job_name": "Benchmark Recovery: atomic_throughput (10 missing attempts)",
+      "benchmark": "atomic_throughput",
+      "workflow_benchmark": "atomic_throughput",
+      "workflow_benchmark_name": "atomic_throughput",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 11,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "246-256"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "246"
+      ],
+      "missing_plan_index_ranges": [
+        "247-256"
+      ],
+      "missing_plan_index_start": 247,
+      "missing_plan_index_end": 256,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0247",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0256"
+    },
+    {
+      "recovery_row_index": 17,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-branch-div-50pct",
+      "job_name": "Benchmark Recovery: branch_div_50pct (7 missing attempts)",
+      "benchmark": "branch_div_50pct",
+      "workflow_benchmark": "branch_div_50pct",
+      "workflow_benchmark_name": "branch_div_50pct",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 9,
+      "recovery_attempt_count": 7,
+      "attempt_count": 7,
+      "source_plan_index_ranges": [
+        "257-272"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "257-265"
+      ],
+      "missing_plan_index_ranges": [
+        "266-272"
+      ],
+      "missing_plan_index_start": 266,
+      "missing_plan_index_end": 272,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0266",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0272"
+    },
+    {
+      "recovery_row_index": 18,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-triad",
+      "job_name": "Benchmark Recovery: triad (5 missing attempts)",
+      "benchmark": "triad",
+      "workflow_benchmark": "triad",
+      "workflow_benchmark_name": "triad",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 13,
+      "recovery_attempt_count": 5,
+      "attempt_count": 5,
+      "source_plan_index_ranges": [
+        "273-290"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "273-285"
+      ],
+      "missing_plan_index_ranges": [
+        "286-290"
+      ],
+      "missing_plan_index_start": 286,
+      "missing_plan_index_end": 290,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0286",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0290"
+    },
+    {
+      "recovery_row_index": 19,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-reduction",
+      "job_name": "Benchmark Recovery: reduction (5 missing attempts)",
+      "benchmark": "reduction",
+      "workflow_benchmark": "reduction",
+      "workflow_benchmark_name": "reduction",
+      "workflow_job": "benchmark-tier1",
+      "tier": 1,
+      "tier_name": "tier1",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 13,
+      "recovery_attempt_count": 5,
+      "attempt_count": 5,
+      "source_plan_index_ranges": [
+        "291-308"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "291-303"
+      ],
+      "missing_plan_index_ranges": [
+        "304-308"
+      ],
+      "missing_plan_index_start": 304,
+      "missing_plan_index_end": 308,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0304",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0308"
+    },
+    {
+      "recovery_row_index": 20,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-3dconvolution",
+      "job_name": "Benchmark Recovery: 3dconvolution (12 missing attempts)",
+      "benchmark": "3dconvolution",
+      "workflow_benchmark": "3dconvolution",
+      "workflow_benchmark_name": "3dconvolution",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 15,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "309-323"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "309-311"
+      ],
+      "missing_plan_index_ranges": [
+        "312-323"
+      ],
+      "missing_plan_index_start": 312,
+      "missing_plan_index_end": 323,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0312",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0323"
+    },
+    {
+      "recovery_row_index": 21,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-2dconvolution",
+      "job_name": "Benchmark Recovery: 2dconvolution (10 missing attempts)",
+      "benchmark": "2dconvolution",
+      "workflow_benchmark": "2dconvolution",
+      "workflow_benchmark_name": "2dconvolution",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 8,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "324-341"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "324-331"
+      ],
+      "missing_plan_index_ranges": [
+        "332-341"
+      ],
+      "missing_plan_index_start": 332,
+      "missing_plan_index_end": 341,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0332",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0341"
+    },
+    {
+      "recovery_row_index": 22,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-spmv",
+      "job_name": "Benchmark Recovery: parboil_spmv (6 missing attempts)",
+      "benchmark": "parboil_spmv",
+      "workflow_benchmark": "parboil_spmv",
+      "workflow_benchmark_name": "parboil_spmv",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 10,
+      "recovery_attempt_count": 6,
+      "attempt_count": 6,
+      "source_plan_index_ranges": [
+        "342-357"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "342-351"
+      ],
+      "missing_plan_index_ranges": [
+        "352-357"
+      ],
+      "missing_plan_index_start": 352,
+      "missing_plan_index_end": 357,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0352",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0357"
+    },
+    {
+      "recovery_row_index": 23,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bs",
+      "job_name": "Benchmark Recovery: bs (5 missing attempts)",
+      "benchmark": "bs",
+      "workflow_benchmark": "bs",
+      "workflow_benchmark_name": "bs",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 11,
+      "recovery_attempt_count": 5,
+      "attempt_count": 5,
+      "source_plan_index_ranges": [
+        "358-373"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "358-368"
+      ],
+      "missing_plan_index_ranges": [
+        "369-373"
+      ],
+      "missing_plan_index_start": 369,
+      "missing_plan_index_end": 373,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0369",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0373"
+    },
+    {
+      "recovery_row_index": 24,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-nn",
+      "job_name": "Benchmark Recovery: nn (3 missing attempts)",
+      "benchmark": "nn",
+      "workflow_benchmark": "nn",
+      "workflow_benchmark_name": "nn",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 13,
+      "recovery_attempt_count": 3,
+      "attempt_count": 3,
+      "source_plan_index_ranges": [
+        "374-389"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "374-386"
+      ],
+      "missing_plan_index_ranges": [
+        "387-389"
+      ],
+      "missing_plan_index_start": 387,
+      "missing_plan_index_end": 389,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0387",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0389"
+    },
+    {
+      "recovery_row_index": 25,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-gemm",
+      "job_name": "Benchmark Recovery: gemm (16 missing attempts)",
+      "benchmark": "gemm",
+      "workflow_benchmark": "gemm",
+      "workflow_benchmark_name": "gemm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 22,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 16,
+      "attempt_count": 16,
+      "source_plan_index_ranges": [
+        "390-411"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "390-395"
+      ],
+      "missing_plan_index_ranges": [
+        "396-411"
+      ],
+      "missing_plan_index_start": 396,
+      "missing_plan_index_end": 411,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0396",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0411"
+    },
+    {
+      "recovery_row_index": 26,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-scan",
+      "job_name": "Benchmark Recovery: scan (2 missing attempts)",
+      "benchmark": "scan",
+      "workflow_benchmark": "scan",
+      "workflow_benchmark_name": "scan",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 13,
+      "prior_observed_count": 11,
+      "recovery_attempt_count": 2,
+      "attempt_count": 2,
+      "source_plan_index_ranges": [
+        "412-424"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "412-422"
+      ],
+      "missing_plan_index_ranges": [
+        "423-424"
+      ],
+      "missing_plan_index_start": 423,
+      "missing_plan_index_end": 424,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0423",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0424"
+    },
+    {
+      "recovery_row_index": 27,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-mri-q",
+      "job_name": "Benchmark Recovery: parboil_mri_q (11 missing attempts)",
+      "benchmark": "parboil_mri_q",
+      "workflow_benchmark": "parboil_mri_q",
+      "workflow_benchmark_name": "parboil_mri_q",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 11,
+      "attempt_count": 11,
+      "source_plan_index_ranges": [
+        "425-441"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "425-430"
+      ],
+      "missing_plan_index_ranges": [
+        "431-441"
+      ],
+      "missing_plan_index_start": 431,
+      "missing_plan_index_end": 441,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0431",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0441"
+    },
+    {
+      "recovery_row_index": 28,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-ep",
+      "job_name": "Benchmark Recovery: ep (1 missing attempts)",
+      "benchmark": "ep",
+      "workflow_benchmark": "ep",
+      "workflow_benchmark_name": "ep",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 13,
+      "prior_observed_count": 12,
+      "recovery_attempt_count": 1,
+      "attempt_count": 1,
+      "source_plan_index_ranges": [
+        "442-454"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "442-453"
+      ],
+      "missing_plan_index_ranges": [
+        "454"
+      ],
+      "missing_plan_index_start": 454,
+      "missing_plan_index_end": 454,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0454",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0454"
+    },
+    {
+      "recovery_row_index": 29,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-2mm",
+      "job_name": "Benchmark Recovery: 2mm (15 missing attempts)",
+      "benchmark": "2mm",
+      "workflow_benchmark": "2mm",
+      "workflow_benchmark_name": "2mm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "455-472"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "455-457"
+      ],
+      "missing_plan_index_ranges": [
+        "458-472"
+      ],
+      "missing_plan_index_start": 458,
+      "missing_plan_index_end": 472,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0458",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0472"
+    },
+    {
+      "recovery_row_index": 30,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-hotspot",
+      "job_name": "Benchmark Recovery: hotspot (11 missing attempts)",
+      "benchmark": "hotspot",
+      "workflow_benchmark": "hotspot",
+      "workflow_benchmark_name": "hotspot",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 19,
+      "prior_observed_count": 8,
+      "recovery_attempt_count": 11,
+      "attempt_count": 11,
+      "source_plan_index_ranges": [
+        "473-491"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "473-480"
+      ],
+      "missing_plan_index_ranges": [
+        "481-491"
+      ],
+      "missing_plan_index_start": 481,
+      "missing_plan_index_end": 491,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0481",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0491"
+    },
+    {
+      "recovery_row_index": 31,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-sgemm",
+      "job_name": "Benchmark Recovery: parboil_sgemm (14 missing attempts)",
+      "benchmark": "parboil_sgemm",
+      "workflow_benchmark": "parboil_sgemm",
+      "workflow_benchmark_name": "parboil_sgemm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 20,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "492-511"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "492-497"
+      ],
+      "missing_plan_index_ranges": [
+        "498-511"
+      ],
+      "missing_plan_index_start": 498,
+      "missing_plan_index_end": 511,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0498",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0511"
+    },
+    {
+      "recovery_row_index": 32,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-dwt2d",
+      "job_name": "Benchmark Recovery: dwt2d (17 missing attempts)",
+      "benchmark": "dwt2d",
+      "workflow_benchmark": "dwt2d",
+      "workflow_benchmark_name": "dwt2d",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 17,
+      "attempt_count": 17,
+      "source_plan_index_ranges": [
+        "512-529"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "512"
+      ],
+      "missing_plan_index_ranges": [
+        "513-529"
+      ],
+      "missing_plan_index_start": 513,
+      "missing_plan_index_end": 529,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0513",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0529"
+    },
+    {
+      "recovery_row_index": 33,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-atax",
+      "job_name": "Benchmark Recovery: atax (14 missing attempts)",
+      "benchmark": "atax",
+      "workflow_benchmark": "atax",
+      "workflow_benchmark_name": "atax",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "530-547"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "530-533"
+      ],
+      "missing_plan_index_ranges": [
+        "534-547"
+      ],
+      "missing_plan_index_start": 534,
+      "missing_plan_index_end": 547,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0534",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0547"
+    },
+    {
+      "recovery_row_index": 34,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bicg",
+      "job_name": "Benchmark Recovery: bicg (15 missing attempts)",
+      "benchmark": "bicg",
+      "workflow_benchmark": "bicg",
+      "workflow_benchmark_name": "bicg",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 15,
+      "attempt_count": 15,
+      "source_plan_index_ranges": [
+        "548-565"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "548-550"
+      ],
+      "missing_plan_index_ranges": [
+        "551-565"
+      ],
+      "missing_plan_index_start": 551,
+      "missing_plan_index_end": 565,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0551",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0565"
+    },
+    {
+      "recovery_row_index": 35,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bitonicsort",
+      "job_name": "Benchmark Recovery: bitonicsort (9 missing attempts)",
+      "benchmark": "bitonicsort",
+      "workflow_benchmark": "bitonicsort",
+      "workflow_benchmark_name": "bitonicsort",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 15,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "566-580"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "566-571"
+      ],
+      "missing_plan_index_ranges": [
+        "572-580"
+      ],
+      "missing_plan_index_start": 572,
+      "missing_plan_index_end": 580,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0572",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0580"
+    },
+    {
+      "recovery_row_index": 36,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-nw",
+      "job_name": "Benchmark Recovery: nw (10 missing attempts)",
+      "benchmark": "nw",
+      "workflow_benchmark": "nw",
+      "workflow_benchmark_name": "nw",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 7,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "581-597"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "581-587"
+      ],
+      "missing_plan_index_ranges": [
+        "588-597"
+      ],
+      "missing_plan_index_start": 588,
+      "missing_plan_index_end": 597,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0588",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0597"
+    },
+    {
+      "recovery_row_index": 37,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-pagerank",
+      "job_name": "Benchmark Recovery: pagerank (13 missing attempts)",
+      "benchmark": "pagerank",
+      "workflow_benchmark": "pagerank",
+      "workflow_benchmark_name": "pagerank",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 13,
+      "attempt_count": 13,
+      "source_plan_index_ranges": [
+        "598-613"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "598-600"
+      ],
+      "missing_plan_index_ranges": [
+        "601-613"
+      ],
+      "missing_plan_index_start": 601,
+      "missing_plan_index_end": 613,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0601",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0613"
+    },
+    {
+      "recovery_row_index": 38,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-kmeans",
+      "job_name": "Benchmark Recovery: kmeans (10 missing attempts)",
+      "benchmark": "kmeans",
+      "workflow_benchmark": "kmeans",
+      "workflow_benchmark_name": "kmeans",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "614-629"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "614-619"
+      ],
+      "missing_plan_index_ranges": [
+        "620-629"
+      ],
+      "missing_plan_index_start": 620,
+      "missing_plan_index_end": 629,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0620",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0629"
+    },
+    {
+      "recovery_row_index": 39,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bfs",
+      "job_name": "Benchmark Recovery: bfs (8 missing attempts)",
+      "benchmark": "bfs",
+      "workflow_benchmark": "bfs",
+      "workflow_benchmark_name": "bfs",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 10,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "630-647"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "630-639"
+      ],
+      "missing_plan_index_ranges": [
+        "640-647"
+      ],
+      "missing_plan_index_start": 640,
+      "missing_plan_index_end": 647,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0640",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0647"
+    },
+    {
+      "recovery_row_index": 40,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-3mm",
+      "job_name": "Benchmark Recovery: 3mm (16 missing attempts)",
+      "benchmark": "3mm",
+      "workflow_benchmark": "3mm",
+      "workflow_benchmark_name": "3mm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 2,
+      "recovery_attempt_count": 16,
+      "attempt_count": 16,
+      "source_plan_index_ranges": [
+        "648-665"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "648-649"
+      ],
+      "missing_plan_index_ranges": [
+        "650-665"
+      ],
+      "missing_plan_index_start": 650,
+      "missing_plan_index_end": 665,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0650",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0665"
+    },
+    {
+      "recovery_row_index": 41,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-correlation",
+      "job_name": "Benchmark Recovery: correlation (14 missing attempts)",
+      "benchmark": "correlation",
+      "workflow_benchmark": "correlation",
+      "workflow_benchmark_name": "correlation",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "666-683"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "666-669"
+      ],
+      "missing_plan_index_ranges": [
+        "670-683"
+      ],
+      "missing_plan_index_start": 670,
+      "missing_plan_index_end": 683,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0670",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0683"
+    },
+    {
+      "recovery_row_index": 42,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-covariance",
+      "job_name": "Benchmark Recovery: covariance (14 missing attempts)",
+      "benchmark": "covariance",
+      "workflow_benchmark": "covariance",
+      "workflow_benchmark_name": "covariance",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "684-701"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "684-687"
+      ],
+      "missing_plan_index_ranges": [
+        "688-701"
+      ],
+      "missing_plan_index_start": 688,
+      "missing_plan_index_end": 701,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0688",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0701"
+    },
+    {
+      "recovery_row_index": 43,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-fdtd2d",
+      "job_name": "Benchmark Recovery: fdtd2d (14 missing attempts)",
+      "benchmark": "fdtd2d",
+      "workflow_benchmark": "fdtd2d",
+      "workflow_benchmark_name": "fdtd2d",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "702-719"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "702-705"
+      ],
+      "missing_plan_index_ranges": [
+        "706-719"
+      ],
+      "missing_plan_index_start": 706,
+      "missing_plan_index_end": 719,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0706",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0719"
+    },
+    {
+      "recovery_row_index": 44,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-gesummv",
+      "job_name": "Benchmark Recovery: gesummv (16 missing attempts)",
+      "benchmark": "gesummv",
+      "workflow_benchmark": "gesummv",
+      "workflow_benchmark_name": "gesummv",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 2,
+      "recovery_attempt_count": 16,
+      "attempt_count": 16,
+      "source_plan_index_ranges": [
+        "720-737"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "720-721"
+      ],
+      "missing_plan_index_ranges": [
+        "722-737"
+      ],
+      "missing_plan_index_start": 722,
+      "missing_plan_index_end": 737,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0722",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0737"
+    },
+    {
+      "recovery_row_index": 45,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-gramschmidt",
+      "job_name": "Benchmark Recovery: gramschmidt (9 missing attempts)",
+      "benchmark": "gramschmidt",
+      "workflow_benchmark": "gramschmidt",
+      "workflow_benchmark_name": "gramschmidt",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 10,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "738-747"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "738"
+      ],
+      "missing_plan_index_ranges": [
+        "739-747"
+      ],
+      "missing_plan_index_start": 739,
+      "missing_plan_index_end": 747,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0739",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0747"
+    },
+    {
+      "recovery_row_index": 46,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-mvt",
+      "job_name": "Benchmark Recovery: mvt (14 missing attempts)",
+      "benchmark": "mvt",
+      "workflow_benchmark": "mvt",
+      "workflow_benchmark_name": "mvt",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "748-765"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "748-751"
+      ],
+      "missing_plan_index_ranges": [
+        "752-765"
+      ],
+      "missing_plan_index_start": 752,
+      "missing_plan_index_end": 765,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0752",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0765"
+    },
+    {
+      "recovery_row_index": 47,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-syr2k",
+      "job_name": "Benchmark Recovery: syr2k (17 missing attempts)",
+      "benchmark": "syr2k",
+      "workflow_benchmark": "syr2k",
+      "workflow_benchmark_name": "syr2k",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 17,
+      "attempt_count": 17,
+      "source_plan_index_ranges": [
+        "766-783"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "766"
+      ],
+      "missing_plan_index_ranges": [
+        "767-783"
+      ],
+      "missing_plan_index_start": 767,
+      "missing_plan_index_end": 783,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0767",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0783"
+    },
+    {
+      "recovery_row_index": 48,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-syrk",
+      "job_name": "Benchmark Recovery: syrk (16 missing attempts)",
+      "benchmark": "syrk",
+      "workflow_benchmark": "syrk",
+      "workflow_benchmark_name": "syrk",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 2,
+      "recovery_attempt_count": 16,
+      "attempt_count": 16,
+      "source_plan_index_ranges": [
+        "784-801"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "784-785"
+      ],
+      "missing_plan_index_ranges": [
+        "786-801"
+      ],
+      "missing_plan_index_start": 786,
+      "missing_plan_index_end": 801,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0786",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0801"
+    },
+    {
+      "recovery_row_index": 49,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-backprop-adjust-weights",
+      "job_name": "Benchmark Recovery: backprop_adjust_weights (14 missing attempts)",
+      "benchmark": "backprop_adjust_weights",
+      "workflow_benchmark": "backprop_adjust_weights",
+      "workflow_benchmark_name": "backprop_adjust_weights",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "802",
+        "804",
+        "806",
+        "808",
+        "810",
+        "812",
+        "814",
+        "816",
+        "818",
+        "820",
+        "822",
+        "824",
+        "826",
+        "828",
+        "830",
+        "832",
+        "834",
+        "836"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "802",
+        "804",
+        "806",
+        "808"
+      ],
+      "missing_plan_index_ranges": [
+        "810",
+        "812",
+        "814",
+        "816",
+        "818",
+        "820",
+        "822",
+        "824",
+        "826",
+        "828",
+        "830",
+        "832",
+        "834",
+        "836"
+      ],
+      "missing_plan_index_start": 810,
+      "missing_plan_index_end": 836,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0810",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0836"
+    },
+    {
+      "recovery_row_index": 50,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-backprop",
+      "job_name": "Benchmark Recovery: backprop (14 missing attempts)",
+      "benchmark": "backprop",
+      "workflow_benchmark": "backprop",
+      "workflow_benchmark_name": "backprop",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "803",
+        "805",
+        "807",
+        "809",
+        "811",
+        "813",
+        "815",
+        "817",
+        "819",
+        "821",
+        "823",
+        "825",
+        "827",
+        "829",
+        "831",
+        "833",
+        "835",
+        "837"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "803",
+        "805",
+        "807",
+        "809"
+      ],
+      "missing_plan_index_ranges": [
+        "811",
+        "813",
+        "815",
+        "817",
+        "819",
+        "821",
+        "823",
+        "825",
+        "827",
+        "829",
+        "831",
+        "833",
+        "835",
+        "837"
+      ],
+      "missing_plan_index_start": 811,
+      "missing_plan_index_end": 837,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0811",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0837"
+    },
+    {
+      "recovery_row_index": 51,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-gaussian",
+      "job_name": "Benchmark Recovery: gaussian (9 missing attempts)",
+      "benchmark": "gaussian",
+      "workflow_benchmark": "gaussian",
+      "workflow_benchmark_name": "gaussian",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 14,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "838-851"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "838-842"
+      ],
+      "missing_plan_index_ranges": [
+        "843-851"
+      ],
+      "missing_plan_index_start": 843,
+      "missing_plan_index_end": 851,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0843",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0851"
+    },
+    {
+      "recovery_row_index": 52,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-hotspot3d",
+      "job_name": "Benchmark Recovery: hotspot3D (14 missing attempts)",
+      "benchmark": "hotspot3D",
+      "workflow_benchmark": "hotspot3D",
+      "workflow_benchmark_name": "hotspot3D",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "852-869"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "852-855"
+      ],
+      "missing_plan_index_ranges": [
+        "856-869"
+      ],
+      "missing_plan_index_start": 856,
+      "missing_plan_index_end": 869,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0856",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0869"
+    },
+    {
+      "recovery_row_index": 53,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-huffman",
+      "job_name": "Benchmark Recovery: huffman (7 missing attempts)",
+      "benchmark": "huffman",
+      "workflow_benchmark": "huffman",
+      "workflow_benchmark_name": "huffman",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 9,
+      "recovery_attempt_count": 7,
+      "attempt_count": 7,
+      "source_plan_index_ranges": [
+        "870-885"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "870-878"
+      ],
+      "missing_plan_index_ranges": [
+        "879-885"
+      ],
+      "missing_plan_index_start": 879,
+      "missing_plan_index_end": 885,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0879",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0885"
+    },
+    {
+      "recovery_row_index": 54,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-lavamd",
+      "job_name": "Benchmark Recovery: lavaMD (18 missing attempts)",
+      "benchmark": "lavaMD",
+      "workflow_benchmark": "lavaMD",
+      "workflow_benchmark_name": "lavaMD",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 19,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 18,
+      "attempt_count": 18,
+      "source_plan_index_ranges": [
+        "886-904"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "886"
+      ],
+      "missing_plan_index_ranges": [
+        "887-904"
+      ],
+      "missing_plan_index_start": 887,
+      "missing_plan_index_end": 904,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0887",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0904"
+    },
+    {
+      "recovery_row_index": 55,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-lud",
+      "job_name": "Benchmark Recovery: lud (12 missing attempts)",
+      "benchmark": "lud",
+      "workflow_benchmark": "lud",
+      "workflow_benchmark_name": "lud",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "905-922"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "905-910"
+      ],
+      "missing_plan_index_ranges": [
+        "911-922"
+      ],
+      "missing_plan_index_start": 911,
+      "missing_plan_index_end": 922,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0911",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0922"
+    },
+    {
+      "recovery_row_index": 56,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-particlefilter",
+      "job_name": "Benchmark Recovery: particlefilter (12 missing attempts)",
+      "benchmark": "particlefilter",
+      "workflow_benchmark": "particlefilter",
+      "workflow_benchmark_name": "particlefilter",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "923-938"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "923-926"
+      ],
+      "missing_plan_index_ranges": [
+        "927-938"
+      ],
+      "missing_plan_index_start": 927,
+      "missing_plan_index_end": 938,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0927",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0938"
+    },
+    {
+      "recovery_row_index": 57,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-pathfinder",
+      "job_name": "Benchmark Recovery: pathfinder (10 missing attempts)",
+      "benchmark": "pathfinder",
+      "workflow_benchmark": "pathfinder",
+      "workflow_benchmark_name": "pathfinder",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 10,
+      "attempt_count": 10,
+      "source_plan_index_ranges": [
+        "939-954"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "939-944"
+      ],
+      "missing_plan_index_ranges": [
+        "945-954"
+      ],
+      "missing_plan_index_start": 945,
+      "missing_plan_index_end": 954,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0945",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0954"
+    },
+    {
+      "recovery_row_index": 58,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-srad",
+      "job_name": "Benchmark Recovery: srad (12 missing attempts)",
+      "benchmark": "srad",
+      "workflow_benchmark": "srad",
+      "workflow_benchmark_name": "srad",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "955-970"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "955-958"
+      ],
+      "missing_plan_index_ranges": [
+        "959-970"
+      ],
+      "missing_plan_index_start": 959,
+      "missing_plan_index_end": 970,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0959",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0970"
+    },
+    {
+      "recovery_row_index": 59,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-streamcluster",
+      "job_name": "Benchmark Recovery: streamcluster (12 missing attempts)",
+      "benchmark": "streamcluster",
+      "workflow_benchmark": "streamcluster",
+      "workflow_benchmark_name": "streamcluster",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "971-986"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "971-974"
+      ],
+      "missing_plan_index_ranges": [
+        "975-986"
+      ],
+      "missing_plan_index_start": 975,
+      "missing_plan_index_end": 986,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0975",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-0986"
+    },
+    {
+      "recovery_row_index": 60,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-ga",
+      "job_name": "Benchmark Recovery: ga (11 missing attempts)",
+      "benchmark": "ga",
+      "workflow_benchmark": "ga",
+      "workflow_benchmark_name": "ga",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 11,
+      "attempt_count": 11,
+      "source_plan_index_ranges": [
+        "987-1002"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "987-991"
+      ],
+      "missing_plan_index_ranges": [
+        "992-1002"
+      ],
+      "missing_plan_index_start": 992,
+      "missing_plan_index_end": 1002,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-0992",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1002"
+    },
+    {
+      "recovery_row_index": 61,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-hist",
+      "job_name": "Benchmark Recovery: hist (8 missing attempts)",
+      "benchmark": "hist",
+      "workflow_benchmark": "hist",
+      "workflow_benchmark_name": "hist",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 10,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "1003-1020"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1003-1012"
+      ],
+      "missing_plan_index_ranges": [
+        "1013-1020"
+      ],
+      "missing_plan_index_start": 1013,
+      "missing_plan_index_end": 1020,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1013",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1020"
+    },
+    {
+      "recovery_row_index": 62,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-cutcp",
+      "job_name": "Benchmark Recovery: parboil_cutcp (16 missing attempts)",
+      "benchmark": "parboil_cutcp",
+      "workflow_benchmark": "parboil_cutcp",
+      "workflow_benchmark_name": "parboil_cutcp",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 16,
+      "attempt_count": 16,
+      "source_plan_index_ranges": [
+        "1021-1037"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1021"
+      ],
+      "missing_plan_index_ranges": [
+        "1022-1037"
+      ],
+      "missing_plan_index_start": 1022,
+      "missing_plan_index_end": 1037,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1022",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1037"
+    },
+    {
+      "recovery_row_index": 63,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-histo",
+      "job_name": "Benchmark Recovery: parboil_histo (8 missing attempts)",
+      "benchmark": "parboil_histo",
+      "workflow_benchmark": "parboil_histo",
+      "workflow_benchmark_name": "parboil_histo",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 9,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "1038-1054"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1038-1046"
+      ],
+      "missing_plan_index_ranges": [
+        "1047-1054"
+      ],
+      "missing_plan_index_start": 1047,
+      "missing_plan_index_end": 1054,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1047",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1054"
+    },
+    {
+      "recovery_row_index": 64,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-lbm",
+      "job_name": "Benchmark Recovery: parboil_lbm (12 missing attempts)",
+      "benchmark": "parboil_lbm",
+      "workflow_benchmark": "parboil_lbm",
+      "workflow_benchmark_name": "parboil_lbm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "1055-1071"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1055-1059"
+      ],
+      "missing_plan_index_ranges": [
+        "1060-1071"
+      ],
+      "missing_plan_index_start": 1060,
+      "missing_plan_index_end": 1071,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1060",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1071"
+    },
+    {
+      "recovery_row_index": 65,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-mri-gridding",
+      "job_name": "Benchmark Recovery: parboil_mri_gridding (12 missing attempts)",
+      "benchmark": "parboil_mri_gridding",
+      "workflow_benchmark": "parboil_mri_gridding",
+      "workflow_benchmark_name": "parboil_mri_gridding",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 12,
+      "attempt_count": 12,
+      "source_plan_index_ranges": [
+        "1072-1088"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1072-1076"
+      ],
+      "missing_plan_index_ranges": [
+        "1077-1088"
+      ],
+      "missing_plan_index_start": 1077,
+      "missing_plan_index_end": 1088,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1077",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1088"
+    },
+    {
+      "recovery_row_index": 66,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-sad",
+      "job_name": "Benchmark Recovery: parboil_sad (33 missing attempts)",
+      "benchmark": "parboil_sad",
+      "workflow_benchmark": "parboil_sad",
+      "workflow_benchmark_name": "parboil_sad",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 34,
+      "prior_observed_count": 1,
+      "recovery_attempt_count": 33,
+      "attempt_count": 33,
+      "source_plan_index_ranges": [
+        "1089-1122"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1089"
+      ],
+      "missing_plan_index_ranges": [
+        "1090-1122"
+      ],
+      "missing_plan_index_start": 1090,
+      "missing_plan_index_end": 1122,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1090",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1122"
+    },
+    {
+      "recovery_row_index": 67,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-stencil",
+      "job_name": "Benchmark Recovery: parboil_stencil (14 missing attempts)",
+      "benchmark": "parboil_stencil",
+      "workflow_benchmark": "parboil_stencil",
+      "workflow_benchmark_name": "parboil_stencil",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 19,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "1123-1141"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1123-1127"
+      ],
+      "missing_plan_index_ranges": [
+        "1128-1141"
+      ],
+      "missing_plan_index_start": 1128,
+      "missing_plan_index_end": 1141,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1128",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1141"
+    },
+    {
+      "recovery_row_index": 68,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-parboil-tpacf",
+      "job_name": "Benchmark Recovery: parboil_tpacf (51 missing attempts)",
+      "benchmark": "parboil_tpacf",
+      "workflow_benchmark": "parboil_tpacf",
+      "workflow_benchmark_name": "parboil_tpacf",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 54,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 51,
+      "attempt_count": 51,
+      "source_plan_index_ranges": [
+        "1142-1195"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1142-1144"
+      ],
+      "missing_plan_index_ranges": [
+        "1145-1195"
+      ],
+      "missing_plan_index_start": 1145,
+      "missing_plan_index_end": 1195,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1145",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1195"
+    },
+    {
+      "recovery_row_index": 69,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-md5hash",
+      "job_name": "Benchmark Recovery: md5hash (8 missing attempts)",
+      "benchmark": "md5hash",
+      "workflow_benchmark": "md5hash",
+      "workflow_benchmark_name": "md5hash",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 8,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "1196-1211"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1196-1203"
+      ],
+      "missing_plan_index_ranges": [
+        "1204-1211"
+      ],
+      "missing_plan_index_start": 1204,
+      "missing_plan_index_end": 1211,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1204",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1211"
+    },
+    {
+      "recovery_row_index": 70,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-qtc",
+      "job_name": "Benchmark Recovery: qtc (8 missing attempts)",
+      "benchmark": "qtc",
+      "workflow_benchmark": "qtc",
+      "workflow_benchmark_name": "qtc",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 8,
+      "recovery_attempt_count": 8,
+      "attempt_count": 8,
+      "source_plan_index_ranges": [
+        "1212-1227"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1212-1219"
+      ],
+      "missing_plan_index_ranges": [
+        "1220-1227"
+      ],
+      "missing_plan_index_start": 1220,
+      "missing_plan_index_end": 1227,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1220",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1227"
+    },
+    {
+      "recovery_row_index": 71,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-softmax",
+      "job_name": "Benchmark Recovery: softmax (13 missing attempts)",
+      "benchmark": "softmax",
+      "workflow_benchmark": "softmax",
+      "workflow_benchmark_name": "softmax",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 5,
+      "recovery_attempt_count": 13,
+      "attempt_count": 13,
+      "source_plan_index_ranges": [
+        "1229-1246"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1229-1233"
+      ],
+      "missing_plan_index_ranges": [
+        "1234-1246"
+      ],
+      "missing_plan_index_start": 1234,
+      "missing_plan_index_end": 1246,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1234",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1246"
+    },
+    {
+      "recovery_row_index": 72,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-layernorm",
+      "job_name": "Benchmark Recovery: layernorm (14 missing attempts)",
+      "benchmark": "layernorm",
+      "workflow_benchmark": "layernorm",
+      "workflow_benchmark_name": "layernorm",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "1247-1264"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1247-1250"
+      ],
+      "missing_plan_index_ranges": [
+        "1251-1264"
+      ],
+      "missing_plan_index_start": 1251,
+      "missing_plan_index_end": 1264,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1251",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1264"
+    },
+    {
+      "recovery_row_index": 73,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-fused-swiglu",
+      "job_name": "Benchmark Recovery: fused_swiglu (11 missing attempts)",
+      "benchmark": "fused_swiglu",
+      "workflow_benchmark": "fused_swiglu",
+      "workflow_benchmark_name": "fused_swiglu",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 7,
+      "recovery_attempt_count": 11,
+      "attempt_count": 11,
+      "source_plan_index_ranges": [
+        "1265-1282"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1265-1271"
+      ],
+      "missing_plan_index_ranges": [
+        "1272-1282"
+      ],
+      "missing_plan_index_start": 1272,
+      "missing_plan_index_end": 1282,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1272",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1282"
+    },
+    {
+      "recovery_row_index": 74,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-md-lj",
+      "job_name": "Benchmark Recovery: md_lj (13 missing attempts)",
+      "benchmark": "md_lj",
+      "workflow_benchmark": "md_lj",
+      "workflow_benchmark_name": "md_lj",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 13,
+      "attempt_count": 13,
+      "source_plan_index_ranges": [
+        "1283-1298"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1283-1285"
+      ],
+      "missing_plan_index_ranges": [
+        "1286-1298"
+      ],
+      "missing_plan_index_start": 1286,
+      "missing_plan_index_end": 1298,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1286",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1298"
+    },
+    {
+      "recovery_row_index": 75,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-s3d",
+      "job_name": "Benchmark Recovery: s3d (9 missing attempts)",
+      "benchmark": "s3d",
+      "workflow_benchmark": "s3d",
+      "workflow_benchmark_name": "s3d",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 7,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "1299-1314"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1299-1305"
+      ],
+      "missing_plan_index_ranges": [
+        "1306-1314"
+      ],
+      "missing_plan_index_start": 1306,
+      "missing_plan_index_end": 1314,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1306",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1314"
+    },
+    {
+      "recovery_row_index": 76,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-rope",
+      "job_name": "Benchmark Recovery: rope (13 missing attempts)",
+      "benchmark": "rope",
+      "workflow_benchmark": "rope",
+      "workflow_benchmark_name": "rope",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 16,
+      "prior_observed_count": 3,
+      "recovery_attempt_count": 13,
+      "attempt_count": 13,
+      "source_plan_index_ranges": [
+        "1315-1330"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1315-1317"
+      ],
+      "missing_plan_index_ranges": [
+        "1318-1330"
+      ],
+      "missing_plan_index_start": 1318,
+      "missing_plan_index_end": 1330,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1318",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1330"
+    },
+    {
+      "recovery_row_index": 77,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-naive-attention",
+      "job_name": "Benchmark Recovery: naive_attention (11 missing attempts)",
+      "benchmark": "naive_attention",
+      "workflow_benchmark": "naive_attention",
+      "workflow_benchmark_name": "naive_attention",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 17,
+      "prior_observed_count": 6,
+      "recovery_attempt_count": 11,
+      "attempt_count": 11,
+      "source_plan_index_ranges": [
+        "1331-1347"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1331-1336"
+      ],
+      "missing_plan_index_ranges": [
+        "1337-1347"
+      ],
+      "missing_plan_index_start": 1337,
+      "missing_plan_index_end": 1347,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1337",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1347"
+    },
+    {
+      "recovery_row_index": 78,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-tiled-gemm-16",
+      "job_name": "Benchmark Recovery: tiled_gemm_16 (14 missing attempts)",
+      "benchmark": "tiled_gemm_16",
+      "workflow_benchmark": "tiled_gemm_16",
+      "workflow_benchmark_name": "tiled_gemm_16",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 4,
+      "recovery_attempt_count": 14,
+      "attempt_count": 14,
+      "source_plan_index_ranges": [
+        "1348-1365"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1348-1351"
+      ],
+      "missing_plan_index_ranges": [
+        "1352-1365"
+      ],
+      "missing_plan_index_start": 1352,
+      "missing_plan_index_end": 1365,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1352",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1365"
+    },
+    {
+      "recovery_row_index": 79,
+      "matrix_row_id": "mi300a-terminal-discovery-recovery-benchmark-bh",
+      "job_name": "Benchmark Recovery: bh (9 missing attempts)",
+      "benchmark": "bh",
+      "workflow_benchmark": "bh",
+      "workflow_benchmark_name": "bh",
+      "workflow_job": "benchmark-tier2",
+      "tier": 2,
+      "tier_name": "tier2",
+      "source_plan_lookup": "source_plan.artifact",
+      "source_plan_entry_count": 18,
+      "prior_observed_count": 9,
+      "recovery_attempt_count": 9,
+      "attempt_count": 9,
+      "source_plan_index_ranges": [
+        "1384-1401"
+      ],
+      "prior_observed_plan_index_ranges": [
+        "1384-1392"
+      ],
+      "missing_plan_index_ranges": [
+        "1393-1401"
+      ],
+      "missing_plan_index_start": 1393,
+      "missing_plan_index_end": 1401,
+      "first_runnable_unit_id": "mi300a-terminal-discovery-plan-1393",
+      "last_runnable_unit_id": "mi300a-terminal-discovery-plan-1401"
+    }
+  ]
+}

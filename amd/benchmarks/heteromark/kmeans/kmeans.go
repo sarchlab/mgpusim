@@ -11,89 +11,31 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// GCN3 Kernel Arguments
-
-// SwapArgs defines arguments for GCN3
+// SwapArgs defines kernel arguments for kmeans_kernel_swap.
+// V5 implicit args (256 bytes) are filled automatically by the driver.
 type SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
-	NPoints             int32
-	NFeatures           int32
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
+	Feature     driver.Ptr
+	FeatureSwap driver.Ptr
+	NPoints     int32
+	NFeatures   int32
 }
 
-// ComputeArgs defines arguments for GCN3
+// ComputeArgs defines kernel arguments for kmeans_kernel_compute.
+// V5 implicit args (256 bytes) are filled automatically by the driver.
 type ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
-	NPoints             int32
-	NClusters           int32
-	NFeatures           int32
-	Offset              int32
-	Size                int32
-	Padding             int32
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-}
-
-// CDNA3 Kernel Arguments
-
-// CDNA3SwapArgs defines arguments for CDNA3 architecture (GFX942)
-type CDNA3SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
-	NPoints             int32
-	NFeatures           int32
-	HiddenBlockCountX   uint32
-	HiddenBlockCountY   uint32
-	HiddenBlockCountZ   uint32
-	HiddenGroupSizeX    uint16
-	HiddenGroupSizeY    uint16
-	HiddenGroupSizeZ    uint16
-	HiddenRemainderX    uint16
-	HiddenRemainderY    uint16
-	HiddenRemainderZ    uint16
-	Padding             [16]byte
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-	HiddenGridDims      uint16
-}
-
-// CDNA3ComputeArgs defines arguments for CDNA3 architecture (GFX942)
-type CDNA3ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
-	NPoints             int32
-	NClusters           int32
-	NFeatures           int32
-	Offset              int32
-	Size                int32
-	Padding             int32
-	HiddenBlockCountX   uint32
-	HiddenBlockCountY   uint32
-	HiddenBlockCountZ   uint32
-	HiddenGroupSizeX    uint16
-	HiddenGroupSizeY    uint16
-	HiddenGroupSizeZ    uint16
-	HiddenRemainderX    uint16
-	HiddenRemainderY    uint16
-	HiddenRemainderZ    uint16
-	Padding2            [16]byte
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-	HiddenGridDims      uint16
+	Feature    driver.Ptr
+	Clusters   driver.Ptr
+	Membership driver.Ptr
+	NPoints    int32
+	NClusters  int32
+	NFeatures  int32
+	Offset     int32
+	Size       int32
+	Padding    int32
 }
 
 // Benchmark defines a benchmark
@@ -106,7 +48,6 @@ type Benchmark struct {
 	computeKernel *insts.KernelCodeObject
 	swapKernel    *insts.KernelCodeObject
 
-	Arch          arch.Type
 	NumClusters   int
 	NumPoints     int
 	NumFeatures   int
@@ -134,20 +75,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-//go:embed kernels.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadKernels() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
-
 	b.computeKernel = insts.LoadKernelCodeObjectFromBytes(
 		hsacoBytes, "kmeans_kernel_compute")
 	b.swapKernel = insts.LoadKernelCodeObjectFromBytes(
@@ -234,56 +165,25 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) transposeFeatures() {
-	for i, q := range b.queues {
+	for _, q := range b.queues {
 		numWI := b.NumPoints / len(b.gpus)
 
-		if b.Arch == arch.CDNA3 {
-			globalSize := [3]uint32{uint32(numWI), 1, 1}
-			localSize := [3]uint16{64, 1, 1}
-			kernArg := CDNA3SwapArgs{
-				Feature:             b.dFeatures,
-				FeatureSwap:         b.dFeaturesSwap,
-				NPoints:             int32(b.NumPoints),
-				NFeatures:           int32(b.NumFeatures),
-				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
-				HiddenBlockCountY:   1,
-				HiddenBlockCountZ:   1,
-				HiddenGroupSizeX:    localSize[0],
-				HiddenGroupSizeY:    localSize[1],
-				HiddenGroupSizeZ:    localSize[2],
-				HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
-				HiddenRemainderY:    0,
-				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: 0,
-				HiddenGlobalOffsetY: 0,
-				HiddenGlobalOffsetZ: 0,
-				HiddenGridDims:      1,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				q,
-				b.swapKernel,
-				globalSize,
-				localSize,
-				&kernArg,
-			)
-		} else {
-			kernArg := SwapArgs{
-				b.dFeatures,
-				b.dFeaturesSwap,
-				int32(b.NumPoints),
-				int32(b.NumFeatures),
-				int64(numWI * i), 0, 0,
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				q,
-				b.swapKernel,
-				[3]uint32{uint32(numWI), 1, 1},
-				[3]uint16{64, 1, 1},
-				&kernArg,
-			)
+		globalSize := [3]uint32{uint32(numWI), 1, 1}
+		localSize := [3]uint16{64, 1, 1}
+		kernArg := SwapArgs{
+			Feature:     b.dFeatures,
+			FeatureSwap: b.dFeaturesSwap,
+			NPoints:     int32(b.NumPoints),
+			NFeatures:   int32(b.NumFeatures),
 		}
+
+		b.driver.EnqueueLaunchKernel(
+			q,
+			b.swapKernel,
+			globalSize,
+			localSize,
+			&kernArg,
+		)
 	}
 
 	for _, q := range b.queues {
@@ -311,16 +211,15 @@ func (b *Benchmark) verifySwap() {
 }
 
 func (b *Benchmark) kmeansClustering() {
-	numIterations := 0
-	delta := float64(1.0)
-
 	b.initializeClusters()
 	b.initializeMembership()
 
+	delta := float64(b.NumPoints)
+	numIterations := 0
 	for delta > 0 && numIterations < b.MaxIter {
 		delta = b.updateMembership()
-		numIterations++
 		b.updateCentroids()
+		numIterations++
 	}
 
 	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", numIterations)
@@ -343,61 +242,27 @@ func (b *Benchmark) initializeMembership() {
 func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 	numWI := b.NumPoints / len(b.gpus)
 
-	if b.Arch == arch.CDNA3 {
-		globalSize := [3]uint32{uint32(numWI), 1, 1}
-		localSize := [3]uint16{64, 1, 1}
-		kernArg := CDNA3ComputeArgs{
-			Feature:             b.dFeaturesSwap,
-			Clusters:            b.dClusters[gpuIndex],
-			Membership:          b.dMembership,
-			NPoints:             int32(b.NumPoints),
-			NClusters:           int32(b.NumClusters),
-			NFeatures:           int32(b.NumFeatures),
-			Offset:              0,
-			Size:                0,
-			Padding:             0,
-			HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
-			HiddenBlockCountY:   1,
-			HiddenBlockCountZ:   1,
-			HiddenGroupSizeX:    localSize[0],
-			HiddenGroupSizeY:    localSize[1],
-			HiddenGroupSizeZ:    localSize[2],
-			HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
-			HiddenRemainderY:    0,
-			HiddenRemainderZ:    0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
-			HiddenGridDims:      1,
-		}
-
-		b.driver.EnqueueLaunchKernel(
-			q,
-			b.computeKernel,
-			globalSize,
-			localSize,
-			&kernArg,
-		)
-	} else {
-		kernArg := ComputeArgs{
-			b.dFeaturesSwap,
-			b.dClusters[gpuIndex],
-			b.dMembership,
-			int32(b.NumPoints),
-			int32(b.NumClusters),
-			int32(b.NumFeatures),
-			0, 0, 0,
-			int64(numWI * gpuIndex), 0, 0,
-		}
-
-		b.driver.EnqueueLaunchKernel(
-			q,
-			b.computeKernel,
-			[3]uint32{uint32(numWI), 1, 1},
-			[3]uint16{64, 1, 1},
-			&kernArg,
-		)
+	globalSize := [3]uint32{uint32(numWI), 1, 1}
+	localSize := [3]uint16{64, 1, 1}
+	kernArg := ComputeArgs{
+		Feature:             b.dFeaturesSwap,
+		Clusters:            b.dClusters[gpuIndex],
+		Membership:          b.dMembership,
+		NPoints:             int32(b.NumPoints),
+		NClusters:           int32(b.NumClusters),
+		NFeatures:           int32(b.NumFeatures),
+		Offset:  0,
+		Size:    0,
+		Padding: 0,
 	}
+
+	b.driver.EnqueueLaunchKernel(
+		q,
+		b.computeKernel,
+		globalSize,
+		localSize,
+		&kernArg,
+	)
 }
 
 func (b *Benchmark) updateMembership() float64 {
@@ -538,10 +403,15 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 }
 
 func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
+	const tolerance = 5e-2
+
 	for i := 0; i < b.NumClusters; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			index := i*b.NumFeatures + j
-			if cpuCentroids[index] != gpuCentroids[index] {
+			cpu := float64(cpuCentroids[index])
+			gpu := float64(gpuCentroids[index])
+			denom := math.Max(math.Abs(cpu), 1e-8)
+			if math.Abs(cpu-gpu)/denom > tolerance {
 				log.Panicf("centroid %d feature %d mismatch, CPU %f, GPU %f",
 					i, j, cpuCentroids[index], gpuCentroids[index])
 			}

@@ -1,0 +1,259 @@
+{
+  "artifacts": {
+    "count": 4,
+    "entries": [
+      {
+        "expired": false,
+        "id": 6647705453,
+        "name": "benchmark-comparison",
+        "size_in_bytes": 10861
+      },
+      {
+        "expired": false,
+        "id": 6647705522,
+        "name": "comparison-detailed",
+        "size_in_bytes": 10388
+      },
+      {
+        "expired": false,
+        "id": 6647705641,
+        "name": "problem-size-discovery-evidence",
+        "size_in_bytes": 80705
+      },
+      {
+        "expired": false,
+        "id": 6647705581,
+        "name": "validation-report",
+        "size_in_bytes": 1534256
+      }
+    ]
+  },
+  "dispatch": {
+    "command": "gh workflow run benchmark.yml --ref e3-m3-add-3600s-problem-size-discovery-workflow -f ref=e3-m3-add-3600s-problem-size-discovery-workflow -f run_mode=problem-size-discovery",
+    "dispatched_exactly_once_by_issue_11": true,
+    "post_dispatch_selected_run_id": 24957661613,
+    "pre_dispatch_matching_runs": []
+  },
+  "issue": 11,
+  "jobs": {
+    "conclusion_counts": {
+      "failure": 2,
+      "skipped": 12,
+      "success": 1
+    },
+    "count": 15,
+    "entries": [
+      {
+        "completed_at": "2026-04-26T13:21:37Z",
+        "conclusion": "success",
+        "database_id": 73078637742,
+        "failed_steps": [],
+        "name": "Validate benchmark matrix",
+        "started_at": "2026-04-26T13:21:34Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:43Z",
+        "conclusion": "failure",
+        "database_id": 73078642000,
+        "failed_steps": [],
+        "name": "Validate problem-size discovery plan",
+        "started_at": "2026-04-26T13:21:39Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642113,
+        "failed_steps": [],
+        "name": "Tier 2 Focused Near-Miss Stencil Single: ${{ matrix.benchmark }} ${{ matrix.sizes }}",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642144,
+        "failed_steps": [],
+        "name": "Tier 1 Bench: ${{ matrix.benchmark }}",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642201,
+        "failed_steps": [],
+        "name": "Validate curated-primary workflow plan",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642277,
+        "failed_steps": [],
+        "name": "Tier 2 Bench: ${{ matrix.benchmark }}",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642283,
+        "failed_steps": [],
+        "name": "Tier 1 Curated Primary Bench: ${{ matrix.benchmark }}",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:38Z",
+        "conclusion": "skipped",
+        "database_id": 73078642327,
+        "failed_steps": [],
+        "name": "Tier 2 Curated Primary Bench: ${{ matrix.benchmark }}",
+        "started_at": "2026-04-26T13:21:38Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647191,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 4: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:56Z",
+        "conclusion": "failure",
+        "database_id": 73078647230,
+        "failed_steps": [
+          {
+            "conclusion": "failure",
+            "name": "Generate validation report",
+            "number": 12,
+            "status": "completed"
+          },
+          {
+            "conclusion": "failure",
+            "name": "Analyze regressions with 1pp significance threshold",
+            "number": 15,
+            "status": "completed"
+          }
+        ],
+        "name": "Compare vs MI300A Reference",
+        "started_at": "2026-04-26T13:21:45Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647250,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 3: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647284,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 5: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647312,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 6: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647367,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 2: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-04-26T13:21:44Z",
+        "conclusion": "skipped",
+        "database_id": 73078647383,
+        "failed_steps": [],
+        "name": "Problem-Size Discovery 1: ${{ matrix.discovery_hardware_kernel_name }} ${{ matrix.discovery_hardware_problem_size }}",
+        "started_at": "2026-04-26T13:21:44Z",
+        "status": "completed"
+      }
+    ],
+    "status_conclusion_counts": {
+      "completed/failure": 2,
+      "completed/skipped": 12,
+      "completed/success": 1
+    }
+  },
+  "known_failure_summary": [
+    "Run reached terminal conclusion=failure before any discovery matrix entry executed.",
+    "Validate problem-size discovery plan concluded failure after setting six large matrix_shard_* job outputs; gh run watch reported annotation: Job outputs exceed 1,048,576 bytes.",
+    "All six Problem-Size Discovery shard jobs were skipped, so the problem-size-discovery evidence artifact contains the checked-in plan plus a header-only problem_size_discovery_outcomes.csv.",
+    "Compare vs MI300A Reference also failed because no benchmark result artifacts existed; validation report generation saw 0 current matched points against pre-existing coverage evidence."
+  ],
+  "local_collection_commands": [
+    "gh run list --workflow benchmark.yml --branch e3-m3-add-3600s-problem-size-discovery-workflow --limit 20 --json databaseId,displayTitle,event,headBranch,headSha,status,conclusion,createdAt,url,name,workflowName",
+    "gh workflow run benchmark.yml --ref e3-m3-add-3600s-problem-size-discovery-workflow -f ref=e3-m3-add-3600s-problem-size-discovery-workflow -f run_mode=problem-size-discovery",
+    "gh run watch 24957661613 --interval 30 --exit-status",
+    "gh run view 24957661613 --json databaseId,status,conclusion,url,headBranch,headSha,createdAt,updatedAt,event,displayTitle,workflowName,jobs",
+    "gh api repos/sarchlab/mgpusim-dev/actions/runs/24957661613/artifacts --paginate",
+    "gh run download 24957661613 --name problem-size-discovery-evidence --dir downloads/run24957661613/artifacts_download/problem-size-discovery-evidence"
+  ],
+  "notes": [
+    "No raw artifact tree or log dump is committed; only this compact JSON summary is tracked.",
+    "No simulator timing model, simulator tuning configuration, or comparison_ci.csv merge changes were made."
+  ],
+  "parsed_discovery_outcomes": {
+    "missing_plan_entry_count": 1415,
+    "observed_plan_entry_count": 0,
+    "requested_total_buckets": {
+      "completed_success": 0,
+      "failed_crashed_missing_output_missing_kernel_time": 0,
+      "missing": 1415,
+      "skipped": 0,
+      "timed_out": 0
+    },
+    "row_count": 0,
+    "source_artifact": "problem-size-discovery-evidence",
+    "source_csv": "problem_size_discovery_outcomes.csv",
+    "terminal_outcome_counts": {}
+  },
+  "plan_summary": {
+    "artifact": "benchmark-comparison/mi300a_problem_size_discovery_plan.json",
+    "entry_count": 1415,
+    "first_plan_index": 1,
+    "last_plan_index": 1415,
+    "tier_counts": {
+      "1": 308,
+      "2": 1107
+    },
+    "timeout_sec": 3600
+  },
+  "purpose": "Single opt-in MI300A problem-size-discovery workflow_dispatch evidence snapshot.",
+  "run": {
+    "conclusion": "failure",
+    "created_at": "2026-04-26T13:21:31Z",
+    "database_id": 24957661613,
+    "event": "workflow_dispatch",
+    "head_branch": "e3-m3-add-3600s-problem-size-discovery-workflow",
+    "head_sha": "97789bfd96179d9545c606ae959f69faab9c6b62",
+    "status": "completed",
+    "updated_at": "2026-04-26T13:21:57Z",
+    "url": "https://github.com/sarchlab/mgpusim-dev/actions/runs/24957661613",
+    "workflow_name": "MI300A Benchmark"
+  },
+  "schema_version": 1
+}

@@ -3,7 +3,7 @@ package dispatching
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
@@ -200,7 +200,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.inflightWGs[mapWGReq.ID] = location
 		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []uint64{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48
@@ -239,7 +239,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.inflightWGs[mapWGReq.ID] = location
 		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []uint64{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 63
@@ -278,7 +278,7 @@ var _ = Describe("Dispatcher", func() {
 		mapWGReq := protocol.MapWGReqBuilder{}.Build()
 		// dispatcher.inflightWGs[mapWGReq.ID] = location
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []uint64{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48

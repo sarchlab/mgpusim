@@ -1,0 +1,15 @@
+{
+  "benchmark": "bicg",
+  "suite": "polybench",
+  "scaling_parameter": {
+    "name": "size",
+    "description": "Matrix dimension N (NX=NY=N)",
+    "values": [64, 128, 192, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size",
+      "values": [64, 128, 256, 512]
+    }
+  }
+}

@@ -3,9 +3,9 @@ package driver
 import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"go.uber.org/mock/gomock"
 )
@@ -136,23 +136,17 @@ var _ = ginkgo.Describe("Driver", func() {
 				Return(1)
 
 			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil).AnyTimes()
 
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
+			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{})).AnyTimes()
 
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(12))
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(13))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(1000))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(2000))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(3000))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
-			driver.Handle(sim.MakeTickEvent(nil, 12))
-			driver.Handle(sim.MakeTickEvent(nil, 13))
+			driver.Handle(sim.MakeTickEvent("", 1000))
+			driver.Handle(sim.MakeTickEvent("", 2000))
+			driver.Handle(sim.MakeTickEvent("", 3000))
 
 			Expect(driver.requestsToSend).To(HaveLen(4))
 			Expect(cmdQueue.IsRunning).To(BeTrue())
@@ -177,8 +171,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(req)
 			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
 				RetrieveIncoming().
@@ -190,7 +183,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent("", 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -212,8 +205,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(req)
 			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
 				RetrieveIncoming().
@@ -226,7 +218,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent("", 11))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.NumCommand()).To(Equal(0))
@@ -257,26 +249,18 @@ var _ = ginkgo.Describe("Driver", func() {
 				Return(1)
 
 			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
-			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil).AnyTimes()
 
 			engine.EXPECT().Schedule(
-				gomock.AssignableToTypeOf(sim.TickEvent{}))
-			engine.EXPECT().Schedule(
-				gomock.AssignableToTypeOf(sim.TickEvent{}))
-			engine.EXPECT().Schedule(
-				gomock.AssignableToTypeOf(sim.TickEvent{}))
+				gomock.AssignableToTypeOf(sim.TickEvent{})).AnyTimes()
 
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(12))
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(13))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(1000))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(2000))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(3000))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
-			driver.Handle(sim.MakeTickEvent(nil, 12))
-			driver.Handle(sim.MakeTickEvent(nil, 13))
+			driver.Handle(sim.MakeTickEvent("", 1000))
+			driver.Handle(sim.MakeTickEvent("", 2000))
+			driver.Handle(sim.MakeTickEvent("", 3000))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -302,8 +286,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(req)
 			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
 				RetrieveIncoming().
@@ -315,7 +298,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent("", 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -340,8 +323,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(req)
 			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
 				RetrieveIncoming().
@@ -352,7 +334,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent("", 11))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.commands).To(HaveLen(0))
@@ -381,7 +363,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent("", 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -414,7 +396,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-		driver.Handle(sim.MakeTickEvent(nil, 11))
+		driver.Handle(sim.MakeTickEvent("", 11))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
@@ -598,13 +580,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		reqToMMU := vm.NewPageMigrationRspFromDriver(driver.mmuPort.AsRemote(), pageMigrationReq.Src, pageMigrationReq)
-		reqToMMU.VAddr = append(reqToMMU.VAddr, 0x100)
-		reqToMMU.RspToTop = true
-
 		driver.processReturnReq()
 
-		Expect(driver.toSendToMMU).To(BeEquivalentTo(reqToMMU))
+		Expect(driver.toSendToMMU).NotTo(BeNil())
+		Expect(driver.toSendToMMU.VAddr).To(Equal([]uint64{0x100}))
+		Expect(driver.toSendToMMU.RspToTop).To(BeTrue())
+		Expect(driver.toSendToMMU.Src).To(Equal(driver.mmuPort.AsRemote()))
+		Expect(driver.toSendToMMU.RspTo).To(Equal(pageMigrationReq.ID))
 		Expect(driver.requestsToSend).To(HaveLen(1))
 	})
 
@@ -664,7 +646,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should send to MMU", func() {
-		reqToMMU := vm.NewPageMigrationRspFromDriver(driver.mmuPort.AsRemote(), "", nil)
+		reqToMMU := vm.NewPageMigrationRspFromDriver(driver.mmuPort.AsRemote(), "", 0)
 		driver.toSendToMMU = reqToMMU
 
 		toMMU.EXPECT().Send(reqToMMU)

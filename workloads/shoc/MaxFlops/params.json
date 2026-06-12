@@ -1,0 +1,19 @@
+{
+  "benchmark": "MaxFlops",
+  "suite": "shoc",
+  "scaling_parameter": {
+    "name": "num_threads",
+    "description": "Total number of threads (work items)",
+    "values": [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size",
+      "values": [64, 128, 256, 512]
+    },
+    "ops_per_thread": {
+      "description": "Number of FMA operations per thread",
+      "values": [256, 512, 1024]
+    }
+  }
+}

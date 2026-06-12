@@ -1,0 +1,23 @@
+{
+  "benchmark": "rope",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "seq_len",
+    "description": "Sequence length. Position for RoPE ranges from 0..seq_len-1",
+    "values": [64, 128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+  },
+  "non_scaling_parameters": {
+    "batch_size": {
+      "description": "Batch size for inference/training",
+      "values": [1, 4, 8, 16, 32]
+    },
+    "head_config": {
+      "description": "num_heads,head_dim config: 1=12,64 (GPT-2), 2=32,128 (Llama-7B), 3=40,128 (Llama-13B), 4=64,128 (Llama-70B)",
+      "values": [1, 2, 3, 4]
+    },
+    "block_size": {
+      "description": "Threads per block",
+      "values": [128, 256, 512]
+    }
+  }
+}

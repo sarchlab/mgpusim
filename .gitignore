@@ -3,6 +3,13 @@
 *.coverprofile
 *.prof
 *.png
+# docs/figures PNGs: committed to repo for human review
+!docs/figures/*_comparison.png
+!docs/figures/*_scaling.png
+!docs/figures/slowdown_bar_chart.png
+!docs/figures/sim_vs_hw_scatter.png
+!docs/figures/curated_slowdown_bar_chart.png
+!docs/figures/curated_sim_vs_hw_scatter.png
 *.log
 *.svg
 *.exe
@@ -11,6 +18,7 @@ debug
 *.csv
 *.sqlite3-journal
 *.sqlite3
+*.sqlite3*
 *~
 *.debug
 *.trace
@@ -26,7 +34,7 @@ _bench_*
 *.orig
 *.orig.bc
 .idea
-vendor
+# vendor is committed (akita v5 dev dependency, no published module yet)
 .DS_Store
 *.json
 __debug_bin
@@ -40,13 +48,6 @@ test
 
 .history
 
-fastwalshtransform
-fir
-floydwarshall
-matmul
-matrixtranspose
-simpleconvolution
-
 # HIP/ROCm build artifacts
 *.hipi
 *.bc
@@ -57,3 +58,218 @@ im2col
 _sim_benchmarks/
 stencil2d_bench
 _akita_local/
+
+# Repo-local support artifacts
+skills/
+workspace/
+
+# Canonical benchmark reference datasets
+!workloads/reference/
+!workloads/reference/*.csv
+
+# Canonical CI artifact provenance manifest
+!ci_artifacts/provenance_manifest.json
+
+# Benchmark tier configuration
+!scripts/benchmark_tiers.json
+
+# Vendor directory is committed — override all ignore rules for vendor/
+!vendor/
+!vendor/**
+
+
+# ============================================
+# Root-level compiled benchmark binaries
+# ============================================
+/3mm
+/atomic_throughput
+/bh
+/dmr
+/fastwalshtransform
+/fir
+/floydwarshall
+/fp32_fma
+/fp64_fma
+/int_mad
+/matmul
+/matrixtranspose
+/sfun_sin
+/simpleconvolution
+/sssp
+/test_bfs
+/test_ga
+/test_kmeans
+/test_sort
+
+# ============================================
+# Wildcard patterns for ALL amd/samples compiled binaries
+# Each Go sample compiles to a binary with the same name as its directory
+# ============================================
+amd/samples/2dconvolution/2dconvolution
+amd/samples/2mm/2mm
+amd/samples/2mm/test_2mm
+amd/samples/3dconvolution/3dconvolution
+amd/samples/3mm/3mm
+amd/samples/3mm/3mm_test
+amd/samples/3mm/test_3mm
+amd/samples/aes/aes
+amd/samples/atax/atax
+amd/samples/atomic_throughput/atomic_throughput
+amd/samples/backprop/backprop
+amd/samples/bfs/bfs
+amd/samples/bfs/bfs_test
+amd/samples/bh/bh
+amd/samples/bicg/bicg
+amd/samples/bicg/bicg_test
+amd/samples/bitonicsort/bitonicsort
+amd/samples/bitonicsort/bitonicsort_new
+amd/samples/branch_div_50pct/branch_div_50pct
+amd/samples/bs/bs
+amd/samples/bus_speed_download/bus_speed_download
+amd/samples/bus_speed_readback/bus_speed_readback
+amd/samples/concurrentkernel/concurrentkernel
+amd/samples/concurrentworkload/concurrentworkload
+amd/samples/correlation/correlation
+amd/samples/covariance/covariance
+amd/samples/device_memory_read/device_memory_read
+amd/samples/device_memory_write/device_memory_write
+amd/samples/dmr/dmr
+amd/samples/dwt2d/dwt2d
+amd/samples/ep/ep
+amd/samples/fastwalshtransform/fastwalshtransform
+amd/samples/fdtd2d/fdtd2d
+amd/samples/fft/fft
+amd/samples/fir/fir
+amd/samples/floydwarshall/floydwarshall
+amd/samples/fp32_fma/fp32_fma
+amd/samples/fp64_fma/fp64_fma
+amd/samples/fused_swiglu/fused_swiglu
+amd/samples/ga/ga
+amd/samples/gaussian/gaussian
+amd/samples/gelu/gelu
+amd/samples/gemm/gemm
+amd/samples/gemm/gemm_test
+amd/samples/gesummv/gesummv
+amd/samples/global_bw_copy/global_bw_copy
+amd/samples/gramschmidt/gramschmidt
+amd/samples/hist/hist
+amd/samples/hotspot/hotspot
+amd/samples/hotspot/hotspot_old
+amd/samples/hotspot/hotspot_test
+amd/samples/hotspot3D/hotspot3D
+amd/samples/hotspot3D/hotspot3d_test
+amd/samples/huffman/huffman
+amd/samples/int_mad/int_mad
+amd/samples/kmeans/kmeans
+amd/samples/l1_cache_bw/l1_cache_bw
+amd/samples/l2_cache_bw/l2_cache_bw
+amd/samples/lavaMD/lavaMD
+amd/samples/layernorm/layernorm
+amd/samples/lud/lud
+amd/samples/matrixmultiplication/matrixmultiplication
+amd/samples/matrixtranspose/matrixtranspose
+amd/samples/max_flops/max_flops
+amd/samples/md5hash/md5hash
+amd/samples/md_lj/md_lj
+amd/samples/mem_latency_chase/mem_latency_chase
+amd/samples/memcopy/memcopy
+amd/samples/mvt/mvt
+amd/samples/naive_attention/naive_attention
+amd/samples/nbody/nbody
+amd/samples/nn/nn
+amd/samples/nw/nw
+amd/samples/occupancy_fma/occupancy_fma
+amd/samples/pagerank/pagerank
+amd/samples/parboil_cutcp/parboil_cutcp
+amd/samples/parboil_cutcp/cutoff_main
+amd/samples/parboil_cutcp/cutoff_potential
+amd/samples/parboil_histo/parboil_histo
+amd/samples/parboil_lbm/parboil_lbm
+amd/samples/parboil_mri_gridding/parboil_mri_gridding
+amd/samples/parboil_mri_q/parboil_mri_q
+amd/samples/parboil_sad/parboil_sad
+amd/samples/parboil_sgemm/parboil_sgemm
+amd/samples/parboil_spmv/parboil_spmv
+amd/samples/parboil_stencil/parboil_stencil
+amd/samples/parboil_tpacf/parboil_tpacf
+amd/samples/particlefilter/particlefilter
+amd/samples/pathfinder/pathfinder
+amd/samples/qtc/qtc
+amd/samples/reduction/reduction
+amd/samples/rope/rope
+amd/samples/runner/runner
+amd/samples/s3d/s3d
+amd/samples/scan/scan
+amd/samples/server/server
+amd/samples/sfun_sin/sfun_sin
+amd/samples/shared_bw/shared_bw
+amd/samples/shoc_gemm/shoc_gemm
+amd/samples/simpleconvolution/simpleconvolution
+amd/samples/softmax/softmax
+amd/samples/sort/sort
+amd/samples/sort/sort_test
+amd/samples/spmv/spmv
+amd/samples/srad/srad
+amd/samples/sssp/sssp
+amd/samples/stencil2d/stencil2d
+amd/samples/streamcluster/streamcluster
+amd/samples/syr2k/syr2k
+amd/samples/syrk/syrk
+amd/samples/tiled_gemm_16/tiled_gemm_16
+amd/samples/triad/triad
+amd/samples/vectoradd/vectoradd
+
+# Also catch test binaries and bench_ binaries in sample directories
+amd/samples/*/_test
+amd/samples/*/*_test
+amd/samples/*/*_old
+amd/samples/*/*_debug
+amd/samples/*/benchmark
+amd/samples/*/bench_*
+
+# Large data files
+amd/samples/bfs/Slashdot0902.txt
+
+# ============================================
+# Other compiled benchmark binaries
+# ============================================
+backprop_adjust_weights_bin
+fp32_fma_test
+monitor.pid
+parboil_sad
+tiled_test
+
+# amd/tests acceptance binaries (not acceptance_test itself)
+amd/tests/acceptance/acceptance_debug
+amd/tests/acceptance/acceptance_fix
+amd/tests/acceptance/acceptance_flush
+amd/tests/acceptance/acceptance_old
+amd/tests/acceptance/acceptance_test_bin
+amd/tests/acceptance/acceptance_test_flush
+amd/tests/acceptance/acceptance_test_global
+amd/tests/acceptance/acceptance_test_local
+amd/tests/acceptance/acceptance_v2
+amd/tests/acceptance/acceptance_xcd0
+amd/tests/acceptance/acceptance_test
+
+# Repo-local temporary and run artifacts
+.repo_tmp/
+bench_runs/
+benchmark-comparison/selected-run-*/raw-zips/
+
+# accuracy_report.md and docs/figures/ comparison charts are committed to the
+# repo so the human can review them at any time. They are regenerated by CI
+# and updated via commit when a new benchmark run completes.
+
+# Repo-local caches and temporary directories
+.goaudit-cache/
+.gocache/
+.gomodcache/
+run_*/
+rundir_*/
+.repo_tmp-*/
+
+# Project knowledge base (not part of repo)
+knowledge/
+.gopath/
+validation-summary/

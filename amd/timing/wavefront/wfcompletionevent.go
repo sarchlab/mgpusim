@@ -1,7 +1,7 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront
@@ -13,11 +13,11 @@ type WfCompletionEvent struct {
 // NewWfCompletionEvent returns a newly constructed WfCompleteEvent
 func NewWfCompletionEvent(
 	time sim.VTimeInSec,
-	handler sim.Handler,
+	handlerName string,
 	wf *Wavefront,
 ) *WfCompletionEvent {
 	evt := new(WfCompletionEvent)
-	evt.EventBase = sim.NewEventBase(time, handler)
+	evt.EventBase = sim.NewEventBase(time, handlerName)
 	evt.Wf = wf
 	return evt
 }

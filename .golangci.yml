@@ -21,6 +21,7 @@ linters:
     - gocritic
     - godot
     - godox
+    - gomoddirectives
     - gosec
     - iface
     - inamedparam
@@ -54,5 +55,11 @@ linters:
     - usestdlibvars
     - predeclared
     - unused
+    - embeddedstructfieldcheck
+    - godoclint
+    - modernize
+    - noinlineerr
+    - prealloc
+    - wsl_v5
 
 

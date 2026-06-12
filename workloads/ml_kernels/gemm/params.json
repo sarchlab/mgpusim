@@ -1,0 +1,23 @@
+{
+  "benchmark": "gemm",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "M",
+    "description": "First matrix dimension (rows of A, rows of C). Represents batch_size * seq_len in transformer models",
+    "values": [1, 8, 32, 64, 128, 256, 512, 1024, 2048, 4096, 6144, 8192, 10240, 12288, 16384, 20480, 24576, 32768]
+  },
+  "non_scaling_parameters": {
+    "NK_shape": {
+      "description": "N,K shape preset: 1=768,768 (GPT-2 attn_out), 2=2304,768 (GPT-2 QKV), 3=3072,768 (GPT-2 FFN up), 4=4096,4096 (Llama-7B attn), 5=11008,4096 (Llama-7B FFN)",
+      "values": [1, 2, 3, 4, 5]
+    },
+    "tile_size": {
+      "description": "Shared memory tile dimension (tile_size x tile_size threads per block)",
+      "values": [8, 16, 32]
+    },
+    "alpha": {
+      "description": "Scalar multiplier for A*B product",
+      "values": [0.5, 1.0, 2.0]
+    }
+  }
+}

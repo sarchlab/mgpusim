@@ -1,0 +1,27 @@
+{
+  "benchmark": "PR",
+  "suite": "heteromark",
+  "scaling_parameter": {
+    "name": "size",
+    "description": "Number of graph nodes",
+    "values": [128, 256, 512, 1024, 2048, 4096, 6144, 8192, 12288, 16384, 24576, 32768, 49152, 65536, 98304, 262144]
+  },
+  "non_scaling_parameters": {
+    "avg_degree": {
+      "description": "Average number of edges per node",
+      "values": [4, 8, 16]
+    },
+    "num_iterations": {
+      "description": "Number of PageRank iterations",
+      "values": [10, 20, 50]
+    },
+    "damping": {
+      "description": "PageRank damping factor",
+      "values": [0.5, 0.7, 0.85, 0.95]
+    },
+    "block_size": {
+      "description": "Thread block size",
+      "values": [64, 128, 256, 512]
+    }
+  }
+}

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DaisenBot Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            display: flex;
+            height: 100vh;
+        }
+        .left-half {
+            width: 47%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255,255,255,0.7);
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .right-half {
+            width: 47%;
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        /* .csv-editor {
+            width: 100%;
+            height: 80vh;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: auto;
+            margin-bottom: 15px;
+        } */
+        .csv-editor {
+            width: 100%;
+            height: 80vh;
+            padding: 15px;
+            border: 1px solid #222;
+            border-radius: 6px;
+            background: #23272e; /* code-like dark grey */
+            color: #eaeaea;
+            font-family: 'Fira Mono', 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: auto;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        .csv-editor:focus {
+            outline: 2px solid #0d6efd;
+            outline-offset: -2px;
+        }
+        .csv-label {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: normal;
+        }
+        .update-button {
+            padding: 10px 20px;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .update-button:hover {
+            background-color: #0b5ed7;
+        }
+        .update-button:active {
+            background-color: #0a58ca;
+            transform: translateY(1px);
+        }
+        .chart-container {
+            width: 100%;
+            height: 60vh;
+            position: relative;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-controls {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .chart-type-selector {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+        }
+        .chart-type-selector:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-half">
+        <h2>DaisenBot Data Visualization</h2>
+        <div class="chart-controls">
+            <label for="chartType" style="margin-right: 10px; color: #333;">Chart Type:</label>
+            <select id="chartType" class="chart-type-selector">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="pie">Pie Chart</option>
+            </select>
+        </div>
+        <div class="chart-container">
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+    <div class="right-half">
+        <h3 class="csv-label">Edit Data:</h3>
+        <textarea id="csvEditor" class="csv-editor" placeholder="Enter CSV data here..."></textarea>
+        <!-- <div id="csvRainbowPreview" style="font-family: 'Fira Mono', 'Consolas', monospace; font-size: 14px; margin-top: 8px;"></div> -->
+        <button id="updateButton" class="update-button">Update Graph</button>
+    </div>
+
+    <script>
+        // CSV data from chatpanel.ts
+        let csvData;
+        try {
+            const stored = localStorage.getItem("visualization_data");
+            if (stored) {
+                csvData = JSON.parse(stored);
+            } else {
+                csvData = [
+                    ['TIME', 'CAR SPEED'],
+                    ['0', '0'],
+                    ['1', '1'],
+                    ['2', '4'],
+                    ['3', '9'],
+                    ['4', '16'],
+                    ['5', '25']
+                ];
+            }
+        } catch (e) {
+            csvData = [
+                ['TIME', 'CAR SPEED'],
+                ['0', '0'],
+                ['1', '1'],
+                ['2', '4'],
+                ['3', '9'],
+                ['4', '16'],
+                ['5', '25']
+            ];
+        }
+
+        // Global chart variable
+        let barChart;
+
+        // Function to convert CSV data array to text
+        function csvDataToText(data) {
+            return data.map(row => row.join(',')).join('\n');
+        }
+
+        // Function to parse CSV text to data array
+        function parseCSVText(text) {
+            const lines = text.trim().split('\n');
+            return lines.map(line => line.split(',').map(cell => cell.trim()));
+        }
+
+        // Function to create/update the chart
+        function createChart(data, chartType = 'bar') {
+            // Extract headers and data
+            const headers = data[0];
+            const chartData = data.slice(1);
+            
+            // Prepare data for Chart.js
+            const labels = chartData.map(row => row[0]); // First column as labels
+            const values = chartData.map(row => parseFloat(row[1]) || 0); // Second column as values
+
+            const ctx = document.getElementById('barChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (barChart) {
+                barChart.destroy();
+            }
+
+            // Generate colors for pie/doughnut charts
+            const colors = [
+                '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
+                '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'
+            ];
+            
+            let backgroundColor, borderColor;
+            
+            if (chartType === 'pie') {
+                backgroundColor = values.map((_, index) => colors[index % colors.length] + '80'); // Add transparency
+                borderColor = values.map((_, index) => colors[index % colors.length]);
+            } else {
+                backgroundColor = 'rgba(13, 110, 253, 0.6)';
+                borderColor = '#0d6efd';
+            }
+
+            // Chart configuration based on type
+            let chartConfig = {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: headers[1] || 'Data',
+                        data: values,
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
+                        borderWidth: chartType === 'line' ? 3 : 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 800,
+                        easing: 'easeInOutQuart',
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${headers[1] || 'Data'} ${chartType === 'pie' ? 'Distribution' : 'vs. ' + (headers[0] || 'Categories')}`,
+                            color: '#333',
+                            font: {
+                                family: 'Arial, sans-serif',
+                                size: 16,
+                                weight: 'normal'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            labels: {
+                                color: '#333',
+                                font: {
+                                    family: 'Arial, sans-serif'
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Add specific configurations for different chart types
+            if (chartType === 'line') {
+                chartConfig.data.datasets[0].fill = false;
+                chartConfig.data.datasets[0].tension = 0.1;
+                chartConfig.data.datasets[0].pointBackgroundColor = '#0d6efd';
+                chartConfig.data.datasets[0].pointBorderColor = '#fff';
+                chartConfig.data.datasets[0].pointRadius = 5;
+                chartConfig.data.datasets[0].pointHoverRadius = 7;
+            }
+
+            // Add scales for charts that need them
+            if (chartType === 'bar' || chartType === 'line') {
+                chartConfig.options.scales = {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: headers[1] || 'Values',
+                            color: '#333',
+                            font: {
+                                family: 'Arial, sans-serif',
+                                weight: 'normal'
+                            }
+                        },
+                        ticks: {
+                            color: '#666',
+                            font: {
+                                family: 'Arial, sans-serif'
+                            }
+                        },
+                        grid: {
+                            color: '#ddd',
+                            borderColor: '#ccc'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: headers[0] || 'Categories',
+                            color: '#333',
+                            font: {
+                                family: 'Arial, sans-serif',
+                                weight: 'normal'
+                            }
+                        },
+                        ticks: {
+                            color: '#666',
+                            font: {
+                                family: 'Arial, sans-serif'
+                            }
+                        },
+                        grid: {
+                            color: '#ddd',
+                            borderColor: '#ccc'
+                        }
+                    }
+                };
+            }
+
+            if (chartType === 'bar') {
+                chartConfig.data.datasets[0].borderRadius = 4;
+                chartConfig.data.datasets[0].borderSkipped = false;
+            }
+
+            // Create new chart
+            barChart = new Chart(ctx, chartConfig);
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            const csvEditor = document.getElementById('csvEditor');
+            // const csvRainbowPreview = document.getElementById('csvRainbowPreview');
+            const chartTypeSelector = document.getElementById('chartType');
+            const updateButton = document.getElementById('updateButton');
+
+            // Populate the text area with initial CSV data
+            csvEditor.value = csvDataToText(csvData);
+            // csvRainbowPreview.value = csvDataToText(csvData);
+
+            // Create initial chart
+            createChart(csvData, chartTypeSelector.value);
+
+            // Function to update the chart
+            function updateChart() {
+                try {
+                    const newCsvData = parseCSVText(csvEditor.value);
+                    if (newCsvData.length < 2) {
+                        alert('Please enter at least one header row and one data row.');
+                        return;
+                    }
+                    csvData = newCsvData;
+                    createChart(csvData, chartTypeSelector.value);
+                } catch (error) {
+                    alert('Error parsing CSV data. Please check the format.');
+                    console.error('CSV parsing error:', error);
+                }
+            }
+
+            // Chart type change handler (still updates immediately)
+            chartTypeSelector.addEventListener('change', function() {
+                createChart(csvData, this.value);
+            });
+
+            // Update button click handler
+            updateButton.addEventListener('click', updateChart);
+
+            // Optional: Update on Ctrl+Enter or Cmd+Enter
+            csvEditor.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    updateChart();
+                }
+            });
+        });
+        
+        // Rainbow colors for columns
+        const rainbowColors = [
+            "#e53935", // red
+            "#fb8c00", // orange
+            "#fdd835", // yellow
+            "#43a047", // green
+            "#1e88e5", // blue
+            "#8e24aa", // purple
+            "#00bcd4", // cyan
+            "#ff4081", // pink
+            "#cddc39", // lime
+            "#ff9800", // deep orange
+        ];
+
+        // Function to render rainbow CSV preview
+        function renderRainbowCSVPreview(text) {
+            const previewDiv = document.getElementById('csvRainbowPreview');
+            const lines = text.trim().split('\n');
+            let html = '';
+            lines.forEach(line => {
+                const cells = line.split(',');
+                html += '<div>';
+                cells.forEach((cell, i) => {
+                    const color = rainbowColors[i % rainbowColors.length];
+                    html += `<span style="color:${color};white-space:pre;">${cell}${i < cells.length - 1 ? ',' : ''}</span>`;
+                });
+                html += '</div>';
+            });
+            previewDiv.innerHTML = html;
+        }
+
+        // Initial render
+        document.addEventListener('DOMContentLoaded', function() {
+            const csvEditor = document.getElementById('csvEditor');
+            renderRainbowCSVPreview(csvEditor.value);
+
+            // Update preview on input
+            csvEditor.addEventListener('input', function() {
+                renderRainbowCSVPreview(csvEditor.value);
+            });
+        });
+    </script>
+</body>
+</html>

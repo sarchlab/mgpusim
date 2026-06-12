@@ -4,10 +4,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sarchlab/akita/v4/datarecording"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/datarecording"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 )
@@ -24,6 +24,11 @@ type metric struct {
 }
 
 type kernelTimeTracer struct {
+	tracer *tracing.BusyTimeTracer
+	comp   tracing.NamedHookable
+}
+
+type d2hTimeTracer struct {
 	tracer *tracing.BusyTimeTracer
 	comp   tracing.NamedHookable
 }
@@ -74,6 +79,7 @@ type reporter struct {
 
 	kernelTimeTracer        *kernelTimeTracer
 	perGPUKernelTimeTracers []*kernelTimeTracer
+	d2hTimeTracer           *d2hTimeTracer
 	instCountTracers        []*instCountTracer
 	cacheLatencyTracers     []*cacheLatencyTracer
 	cacheHitRateTracers     []*cacheHitRateTracer
@@ -107,6 +113,7 @@ func newReporter(s *simulation.Simulation) *reporter {
 
 func (r *reporter) injectTracers(s *simulation.Simulation) {
 	r.injectKernelTimeTracer(s)
+	r.injectD2HTimeTracer(s)
 	r.injectInstCountTracer(s)
 	r.injectCUCPIHook(s)
 	r.injectCacheLatencyTracer(s)
@@ -118,32 +125,17 @@ func (r *reporter) injectTracers(s *simulation.Simulation) {
 }
 
 func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
-	if *unifiedGPUFlag != "" {
-		tracer := tracing.NewBusyTimeTracer(
-			s.GetEngine(),
-			func(task tracing.Task) bool {
-				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
-			})
-		tracing.CollectTrace(
-			s.GetComponentByName("Driver").(tracing.NamedHookable),
-			tracer)
-		r.kernelTimeTracer = &kernelTimeTracer{
-			tracer: tracer,
-			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
-		}
-	} else {
-		tracer := tracing.NewBusyTimeTracer(
-			s.GetEngine(),
-			func(task tracing.Task) bool {
-				return task.What == "*driver.LaunchKernelCommand"
-			})
-		tracing.CollectTrace(
-			s.GetComponentByName("Driver").(tracing.NamedHookable),
-			tracer)
-		r.kernelTimeTracer = &kernelTimeTracer{
-			tracer: tracer,
-			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
-		}
+	tracer := tracing.NewBusyTimeTracer(
+		s.GetEngine(),
+		func(task tracing.Task) bool {
+			return task.What == "*driver.LaunchKernelCommand"
+		})
+	tracing.CollectTrace(
+		s.GetComponentByName("Driver").(tracing.NamedHookable),
+		tracer)
+	r.kernelTimeTracer = &kernelTimeTracer{
+		tracer: tracer,
+		comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
 	}
 
 	for _, comp := range s.Components() {
@@ -163,6 +155,21 @@ func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
 					comp:   comp.(tracing.NamedHookable),
 				})
 		}
+	}
+}
+
+func (r *reporter) injectD2HTimeTracer(s *simulation.Simulation) {
+	tracer := tracing.NewBusyTimeTracer(
+		s.GetEngine(),
+		func(task tracing.Task) bool {
+			return task.What == "*driver.MemCopyD2HCommand"
+		})
+	tracing.CollectTrace(
+		s.GetComponentByName("Driver").(tracing.NamedHookable),
+		tracer)
+	r.d2hTimeTracer = &d2hTimeTracer{
+		tracer: tracer,
+		comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
 	}
 }
 
@@ -227,7 +234,7 @@ func (r *reporter) injectCacheLatencyTracer(s *simulation.Simulation) {
 }
 
 func (r *reporter) injectCacheHitRateTracer(s *simulation.Simulation) {
-	if !*reportAll && !*cacheLatencyReportFlag {
+	if !*reportAll && !*cacheHitRateReportFlag {
 		return
 	}
 
@@ -354,6 +361,7 @@ func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 
 func (r *reporter) report() {
 	r.reportKernelTime()
+	r.reportD2HTime()
 	r.reportInstCount()
 	r.reportCPIStack()
 	r.reportSIMDBusyTime()
@@ -365,7 +373,9 @@ func (r *reporter) report() {
 }
 
 func (r *reporter) reportKernelTime() {
-	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime())
+	// BusyTime() returns picoseconds (VTimeInSec is uint64 in ps).
+	// Divide by 1e12 to store the value in seconds as the unit label states.
+	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime()) / 1e12
 	r.dataRecorder.InsertData(
 		tableName,
 		metric{
@@ -377,7 +387,7 @@ func (r *reporter) reportKernelTime() {
 	)
 
 	for _, t := range r.perGPUKernelTimeTracers {
-		kernelTime := float64(t.tracer.BusyTime())
+		kernelTime := float64(t.tracer.BusyTime()) / 1e12
 		r.dataRecorder.InsertData(
 			tableName,
 			metric{
@@ -388,6 +398,20 @@ func (r *reporter) reportKernelTime() {
 			},
 		)
 	}
+}
+
+func (r *reporter) reportD2HTime() {
+	// BusyTime() returns picoseconds; divide by 1e12 for seconds.
+	d2hTime := float64(r.d2hTimeTracer.tracer.BusyTime()) / 1e12
+	r.dataRecorder.InsertData(
+		tableName,
+		metric{
+			Location: r.d2hTimeTracer.comp.Name(),
+			What:     "d2h_time",
+			Value:    d2hTime,
+			Unit:     "second",
+		},
+	)
 }
 
 func (r *reporter) reportInstCount() {

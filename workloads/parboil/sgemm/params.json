@@ -1,0 +1,27 @@
+{
+  "benchmark": "sgemm",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "matrix_size",
+    "description": "Matrix dimension N for NxN matrices in C = alpha*A*B + beta*C",
+    "values": [64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280]
+  },
+  "non_scaling_parameters": {
+    "tile_size": {
+      "description": "Shared memory tile dimension for tiled SGEMM (also sets block dimensions)",
+      "values": [8, 16, 32]
+    },
+    "alpha_x10": {
+      "description": "Scaling factor alpha multiplied by 10 (e.g. 10 = 1.0, 15 = 1.5)",
+      "values": [5, 10, 15, 20]
+    },
+    "beta_x10": {
+      "description": "Scaling factor beta multiplied by 10 (e.g. 0 = 0.0, 5 = 0.5)",
+      "values": [0, 5, 10]
+    },
+    "block_dim": {
+      "description": "Thread block dimension (overridden by tile_size for tiled kernel)",
+      "values": [8, 16, 32]
+    }
+  }
+}

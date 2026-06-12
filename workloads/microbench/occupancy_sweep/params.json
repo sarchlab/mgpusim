@@ -1,0 +1,23 @@
+{
+  "benchmark": "occupancy_sweep",
+  "suite": "microbench",
+  "scaling_parameter": {
+    "name": "num_elements",
+    "description": "Array size (total number of elements to process, one per thread)",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size -- different sizes yield different occupancy levels",
+      "values": [64, 128, 256, 512, 1024]
+    },
+    "shared_mem_bytes": {
+      "description": "Bytes of dynamic shared memory per block -- limits occupancy",
+      "values": [4, 4096, 16384, 32768, 49152]
+    },
+    "num_iterations": {
+      "description": "Number of FMA iterations per thread in the inner loop",
+      "values": [256, 512, 1024, 2048, 4096]
+    }
+  }
+}

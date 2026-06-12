@@ -1,0 +1,3 @@
+run_id,suite,benchmark,platform,problem_size,kernel_name,iterations,avg_ms,min_ms,max_ms,stddev_ms
+run-001,polybench,atax,hip,1024,atax_kernel1,10,0.5670,0.5500,0.5900,0.0120
+run-001,polybench,atax,hip,1024,atax_kernel2,10,0.6670,0.6500,0.6900,0.0150

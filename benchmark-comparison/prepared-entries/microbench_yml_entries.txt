@@ -1,0 +1,142 @@
+# =============================================================================
+# Microbenchmark YAML matrix entries for benchmark.yml
+# =============================================================================
+# Prepared for issue #169 — Task 2
+# These entries should be added to the benchmark.yml matrix once Jade's
+# microbenchmark code is merged into amd/samples/.
+#
+# All sizes are taken from the HW reference data in comparison_ci.csv.
+# All microbenchmarks use: -num_elements {size}
+# =============================================================================
+
+          # =================================================================
+          # Microbenchmarks: Compute throughput
+          # =================================================================
+
+          # -----------------------------------------------------------------
+          # fp32_fma — -num_elements N
+          # HW kernel_name: fp32_fma, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: fp32_fma
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # fp64_fma — -num_elements N
+          # HW kernel_name: fp64_fma, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: fp64_fma
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # int_mad — -num_elements N
+          # HW kernel_name: int_mad, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: int_mad
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # sfun_sin — -num_elements N
+          # HW kernel_name: sfun_sin, problem_size: N
+          # ALL 15 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: sfun_sin
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # occupancy_fma — -num_elements N
+          # HW kernel_name: occupancy_fma, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: occupancy_fma
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # =================================================================
+          # Microbenchmarks: Memory bandwidth
+          # =================================================================
+
+          # -----------------------------------------------------------------
+          # global_bw_copy — -num_elements N
+          # HW kernel_name: global_bw_copy, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: global_bw_copy
+            sizes: "1048576 2097152 4194304 8388608 12582912 16777216 25165824 33554432 50331648 67108864 100663296 134217728 201326592 268435456 402653184 536870912"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # shared_bw — -num_elements N
+          # HW kernel_name: shared_bw, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: shared_bw
+            sizes: "1048576 2097152 4194304 8388608 12582912 16777216 25165824 33554432 50331648 67108864 100663296 134217728 201326592 268435456 402653184 536870912"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # l1_cache_bw — -num_elements N
+          # HW kernel_name: l1_cache_bw, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: l1_cache_bw
+            sizes: "1024 2048 3072 4096 6144 8192 10240 12288 14336 16384 20480 24576 28672 32768 49152 65536"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # l2_cache_bw — -num_elements N
+          # HW kernel_name: l2_cache_bw, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: l2_cache_bw
+            sizes: "32768 65536 131072 196608 262144 393216 524288 786432 1048576 1310720 1572864 2097152 2621440 3145728 3670016 4194304"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # =================================================================
+          # Microbenchmarks: Memory latency & special
+          # =================================================================
+
+          # -----------------------------------------------------------------
+          # mem_latency_chase — -num_elements N
+          # HW kernel_name: mem_latency_chase, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: mem_latency_chase
+            sizes: "256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # atomic_throughput — -num_elements N
+          # HW kernel_name: atomic_throughput, problem_size: N
+          # ALL 11 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: atomic_throughput
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"
+
+          # -----------------------------------------------------------------
+          # branch_div_50pct — -num_elements N
+          # HW kernel_name: branch_div_50pct, problem_size: N
+          # ALL 16 reference sizes
+          # -----------------------------------------------------------------
+          - benchmark: branch_div_50pct
+            sizes: "1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432"
+            flag_template: "-num_elements {size}"
+            size_label_template: "{size}"

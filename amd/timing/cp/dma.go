@@ -4,9 +4,9 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 )
 
@@ -15,15 +15,15 @@ import (
 // requests
 type RequestCollection struct {
 	superiorRequest       sim.Msg
-	subordinateRequestIDs []string
+	subordinateRequestIDs []uint64
 	subordinateCount      int
 }
 
 // removeIDIfExists reduces the subordinate count if a specific ID is present in
 // the list of subordinate IDs, returning true if it was and false if it was not
-func (rqC *RequestCollection) decrementCountIfExists(id string) bool {
-	for _, str := range rqC.subordinateRequestIDs {
-		if id == str {
+func (rqC *RequestCollection) decrementCountIfExists(id uint64) bool {
+	for _, v := range rqC.subordinateRequestIDs {
+		if id == v {
 			rqC.subordinateCount -= 1
 			return true
 		}
@@ -41,12 +41,12 @@ func (rqC *RequestCollection) getSuperior() sim.Msg {
 	return rqC.superiorRequest
 }
 
-func (rqC *RequestCollection) getSuperiorID() string {
+func (rqC *RequestCollection) getSuperiorID() uint64 {
 	return rqC.superiorRequest.Meta().ID
 }
 
 // appendSubordinateID adds a message ID to the list and increases the count
-func (rqC *RequestCollection) appendSubordinateID(id string) {
+func (rqC *RequestCollection) appendSubordinateID(id uint64) {
 	rqC.subordinateRequestIDs = append(rqC.subordinateRequestIDs, id)
 	rqC.subordinateCount += 1
 }
@@ -138,7 +138,7 @@ func (dma *DMAEngine) parseFromMem() bool {
 func (dma *DMAEngine) processDataReadyRsp(
 	rsp *mem.DataReadyRsp,
 ) {
-	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
+	req := dma.removeReqFromPendingReqList(rsp.RspTo).(*mem.ReadReq)
 	tracing.TraceReqFinalize(req, dma)
 
 	found := false
@@ -158,25 +158,26 @@ func (dma *DMAEngine) processDataReadyRsp(
 
 	offset := req.Address - processing.SrcAddress
 	copy(processing.DstBuffer[offset:], rsp.Data)
-	// fmt.Printf("Dma DataReady %x, %v\n", req.Address, rsp.Data)
 
 	if result.isFinished() {
 		tracing.TraceReqComplete(processing, dma)
 		dma.removeReqFromProcessingReqList(processing.Meta().ID)
 
-		rsp := sim.GeneralRspBuilder{}.
-			WithDst(processing.Src).
-			WithSrc(processing.Dst).
-			WithOriginalReq(processing).
-			Build()
-		dma.toSendToCP = append(dma.toSendToCP, rsp)
+		// TODO: V5 migration - sim.GeneralRspBuilder removed.
+		// Send a response using MemCopyD2HReq as rsp carrier.
+		rspMsg := &protocol.MemCopyD2HReq{}
+		rspMsg.ID = sim.GetIDGenerator().Generate()
+		rspMsg.Dst = processing.Src
+		rspMsg.Src = processing.Dst
+		rspMsg.RspTo = processing.ID
+		dma.toSendToCP = append(dma.toSendToCP, rspMsg)
 	}
 }
 
 func (dma *DMAEngine) processDoneRsp(
 	rsp *mem.WriteDoneRsp,
 ) {
-	r := dma.removeReqFromPendingReqList(rsp.RespondTo)
+	r := dma.removeReqFromPendingReqList(rsp.RspTo)
 	tracing.TraceReqFinalize(r, dma)
 
 	found := false
@@ -197,16 +198,17 @@ func (dma *DMAEngine) processDoneRsp(
 		tracing.TraceReqComplete(processing, dma)
 		dma.removeReqFromProcessingReqList(processing.Meta().ID)
 
-		rsp := sim.GeneralRspBuilder{}.
-			WithDst(processing.Src).
-			WithSrc(processing.Dst).
-			WithOriginalReq(processing).
-			Build()
-		dma.toSendToCP = append(dma.toSendToCP, rsp)
+		// TODO: V5 migration - sim.GeneralRspBuilder removed.
+		rspMsg := &protocol.MemCopyH2DReq{}
+		rspMsg.ID = sim.GetIDGenerator().Generate()
+		rspMsg.Dst = processing.Src
+		rspMsg.Src = processing.Dst
+		rspMsg.RspTo = processing.ID
+		dma.toSendToCP = append(dma.toSendToCP, rspMsg)
 	}
 }
 
-func (dma *DMAEngine) removeReqFromPendingReqList(id string) sim.Msg {
+func (dma *DMAEngine) removeReqFromPendingReqList(id uint64) sim.Msg {
 	var reqToRet sim.Msg
 	newList := make([]sim.Msg, 0, len(dma.pendingReqs)-1)
 	for _, r := range dma.pendingReqs {
@@ -225,7 +227,7 @@ func (dma *DMAEngine) removeReqFromPendingReqList(id string) sim.Msg {
 	return reqToRet
 }
 
-func (dma *DMAEngine) removeReqFromProcessingReqList(id string) {
+func (dma *DMAEngine) removeReqFromProcessingReqList(id uint64) {
 	found := false
 	newList := make([]*RequestCollection, 0, len(dma.processingReqs)-1)
 	for _, r := range dma.processingReqs {
@@ -287,12 +289,13 @@ func (dma *DMAEngine) parseMemCopyH2D(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.WriteReqBuilder{}.
-			WithSrc(dma.ToMem.AsRemote()).
-			WithDst(module).
-			WithAddress(addr).
-			WithData(req.SrcBuffer[offset : offset+length]).
-			Build()
+		reqToBottom := &mem.WriteReq{
+			Address: addr,
+			Data:    req.SrcBuffer[offset : offset+length],
+		}
+		reqToBottom.ID = sim.GetIDGenerator().Generate()
+		reqToBottom.Src = dma.ToMem.AsRemote()
+		reqToBottom.Dst = module
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 		rqC.appendSubordinateID(reqToBottom.Meta().ID)
@@ -325,12 +328,13 @@ func (dma *DMAEngine) parseMemCopyD2H(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.ReadReqBuilder{}.
-			WithSrc(dma.ToMem.AsRemote()).
-			WithDst(module).
-			WithAddress(addr).
-			WithByteSize(length).
-			Build()
+		reqToBottom := &mem.ReadReq{
+			Address:        addr,
+			AccessByteSize: length,
+		}
+		reqToBottom.ID = sim.GetIDGenerator().Generate()
+		reqToBottom.Src = dma.ToMem.AsRemote()
+		reqToBottom.Dst = module
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 		rqC.appendSubordinateID(reqToBottom.Meta().ID)
@@ -353,7 +357,7 @@ func NewDMAEngine(
 ) *DMAEngine {
 	dma := new(DMAEngine)
 	dma.TickingComponent = sim.NewTickingComponent(
-		name, engine, 1*sim.GHz, dma)
+		name, engine, 840*sim.MHz, dma)
 
 	dma.Log2AccessSize = 6
 	dma.localDataSource = localDataSource

@@ -3,7 +3,7 @@ package rob
 import (
 	"container/list"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // A Builder can build ReorderBuffers.
@@ -63,7 +63,7 @@ func (b Builder) Build(name string) *ReorderBuffer {
 
 	rb.transactions = list.New()
 	rb.transactions.Init()
-	rb.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
+	rb.toBottomReqIDToTransactionTable = make(map[uint64]*list.Element)
 
 	rb.bufferSize = b.bufferSize
 	rb.numReqPerCycle = b.numReqPerCycle

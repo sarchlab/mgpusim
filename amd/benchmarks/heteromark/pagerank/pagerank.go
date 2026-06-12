@@ -10,31 +10,13 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
-// GCN3 Kernel Arguments
-
-// KernelArgs defines kernel arguments for GCN3
+// KernelArgs defines kernel arguments.
 type KernelArgs struct {
-	NumRows   uint32
-	Padding   uint32
-	RowOffset driver.Ptr
-	Col       driver.Ptr
-	Val       driver.Ptr
-	Vals      driver.LocalPtr
-	Padding2  uint32
-	X         driver.Ptr
-	Y         driver.Ptr
-}
-
-// CDNA3 Kernel Arguments
-
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
-type CDNA3KernelArgs struct {
 	NumRows             uint32
 	Padding             uint32
 	RowOffset           driver.Ptr
@@ -66,7 +48,6 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
-	Arch           arch.Type
 	NumNodes       uint32
 	NumConnections uint32
 	MaxIterations  uint32
@@ -104,20 +85,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-//go:embed kernels.hsaco
-var gcn3HSACOBytes []byte
-
 //go:embed kernels_gfx942.hsaco
-var cdna3HSACOBytes []byte
+var hsacoBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
-	} else {
-		hsacoBytes = gcn3HSACOBytes
-	}
-
 	b.kernel = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
@@ -184,7 +155,7 @@ func printMatrix(matrix [][]float32, n uint32) {
 	}
 }
 
-func (b *Benchmark) launchCDNA3PageRank(
+func (b *Benchmark) launchPageRank(
 	i uint32,
 	globalSize [3]uint32,
 	localSize [3]uint16,
@@ -198,7 +169,7 @@ func (b *Benchmark) launchCDNA3PageRank(
 		yPtr = b.dPageRank
 	}
 
-	kernArg := CDNA3KernelArgs{
+	kernArg := KernelArgs{
 		NumRows:             b.NumNodes,
 		RowOffset:           b.dRowOffsets,
 		Col:                 b.dColumnNumbers,
@@ -229,53 +200,12 @@ func (b *Benchmark) launchCDNA3PageRank(
 	)
 }
 
-func (b *Benchmark) launchGCN3PageRank(
-	i uint32,
-	globalSize [3]uint32,
-	localSize [3]uint16,
-) {
-	var kernArg KernelArgs
-	if i%2 == 0 {
-		kernArg = KernelArgs{
-			NumRows:   b.NumNodes,
-			RowOffset: b.dRowOffsets,
-			Col:       b.dColumnNumbers,
-			Val:       b.dValues,
-			Vals:      b.dLocalValues,
-			X:         b.dPageRank,
-			Y:         b.dPageRankTemp,
-		}
-	} else {
-		kernArg = KernelArgs{
-			NumRows:   b.NumNodes,
-			RowOffset: b.dRowOffsets,
-			Col:       b.dColumnNumbers,
-			Val:       b.dValues,
-			Vals:      b.dLocalValues,
-			X:         b.dPageRankTemp,
-			Y:         b.dPageRank,
-		}
-	}
-
-	b.driver.LaunchKernel(
-		b.context,
-		b.kernel,
-		globalSize,
-		localSize,
-		&kernArg,
-	)
-}
-
 func (b *Benchmark) launchPageRankKernel(
 	i uint32,
 	globalSize [3]uint32,
 	localSize [3]uint16,
 ) {
-	if b.Arch == arch.CDNA3 {
-		b.launchCDNA3PageRank(i, globalSize, localSize)
-	} else {
-		b.launchGCN3PageRank(i, globalSize, localSize)
-	}
+	b.launchPageRank(i, globalSize, localSize)
 }
 
 func (b *Benchmark) exec() {

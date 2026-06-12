@@ -6,12 +6,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/mgpusim/v4/domain"
 	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
@@ -27,7 +28,7 @@ type Builder struct {
 	log2PageSize     uint64
 	enableISADebug   bool
 	gpuName          string
-	gpu              *sim.Domain
+	gpu              *domain.Domain
 	engine           sim.Engine
 	pageTable        vm.PageTable
 	gpuMem           *idealmemcontroller.Comp
@@ -96,10 +97,10 @@ func (b Builder) WithArchitecture(archType arch.Type) Builder {
 }
 
 // Build builds the GPU.
-func (b Builder) Build(name string) *sim.Domain {
+func (b Builder) Build(name string) *domain.Domain {
 	b.gpuName = name
 
-	b.gpu = sim.NewDomain(name)
+	b.gpu = domain.NewDomain(name)
 
 	b.buildMemory()
 	b.buildComputeUnits()
@@ -120,7 +121,7 @@ func (b *Builder) buildComputeUnits() {
 		computeUnit := emu.BuildComputeUnitWithALU(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
-			b.log2PageSize, b.gpuMem.Storage, nil, aluFactory,
+			b.log2PageSize, b.gpuMem.GetStorage(), nil, aluFactory,
 			isCDNA3)
 		b.simulation.RegisterComponent(computeUnit)
 
@@ -152,12 +153,17 @@ func (b *Builder) getALUFactory() emu.ALUFactory {
 }
 
 func (b *Builder) buildMemory() {
+	topPort := sim.NewPort(nil, 16, 16, b.gpuName+".GlobalMem.Top")
+	ctrlPort := sim.NewPort(nil, 1, 1, b.gpuName+".GlobalMem.Ctrl")
+
 	b.gpuMem = idealmemcontroller.
 		MakeBuilder().
 		WithStorage(b.storage).
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLatency(1).
+		WithSpec(idealmemcontroller.Spec{Latency: 1, Width: 1, CacheLineSize: 64}).
+		WithTopPort(topPort).
+		WithCtrlPort(ctrlPort).
 		Build(b.gpuName + ".GlobalMem")
 
 	b.simulation.RegisterComponent(b.gpuMem)

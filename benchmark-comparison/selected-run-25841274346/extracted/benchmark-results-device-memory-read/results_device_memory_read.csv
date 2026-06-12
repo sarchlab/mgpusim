@@ -1,0 +1,4 @@
+kernel_name,problem_size,iterations,avg_ms,min_ms,max_ms
+DeviceMemory_Read,1MB,1,0.003964,0.003964,0.003964
+DeviceMemory_Read,2MB,1,0.349409,0.349409,0.349409
+DeviceMemory_Read,4MB,1,0.783973,0.783973,0.783973

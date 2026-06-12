@@ -1,0 +1,23 @@
+{
+  "benchmark": "attention",
+  "suite": "ml_kernels",
+  "scaling_parameter": {
+    "name": "seq_len",
+    "description": "Sequence length. Attention is O(seq_len^2) -- this is the key scaling dimension",
+    "values": [32, 64, 96, 128, 192, 256, 384, 512, 640, 768, 1024, 1280, 1536, 2048, 2560, 3072, 4096]
+  },
+  "non_scaling_parameters": {
+    "batch_size": {
+      "description": "Batch size",
+      "values": [1, 4, 8, 16]
+    },
+    "head_config": {
+      "description": "num_heads,head_dim config: 1=12,64 (GPT-2), 2=32,128 (Llama-7B), 3=64,128 (Llama-70B)",
+      "values": [1, 2, 3]
+    },
+    "block_size": {
+      "description": "Threads per block for matmul and softmax kernels",
+      "values": [128, 256, 512]
+    }
+  }
+}

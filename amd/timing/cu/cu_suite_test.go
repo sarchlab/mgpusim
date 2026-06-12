@@ -10,8 +10,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
 
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go github.com/sarchlab/akita/v4/sim Port,Engine,Buffer
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_pipelining_test.go github.com/sarchlab/akita/v4/pipelining Pipeline
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go github.com/sarchlab/akita/v5/sim Port,Engine
 //go:generate mockgen -source subcomponent.go -destination mock_subcomponent_test.go -package $GOPACKAGE
 //go:generate mockgen -source wfdispatcher.go -destination mock_wfdispatcher_test.go -package $GOPACKAGE
 //go:generate mockgen -source coalescer.go -destination mock_coalsecer_test.go -package $GOPACKAGE
@@ -19,7 +18,7 @@ import (
 func TestSimulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GCN3 Timing Simulator")
+	RunSpecs(t, "GPU Timing Simulator")
 }
 
 func prepareGrid(co *insts.KernelCodeObject) *kernels.Grid {

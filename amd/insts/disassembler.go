@@ -29,7 +29,7 @@ func (f *Format) retrieveOpcode(firstFourBytes uint32) Opcode {
 	return Opcode(opcode)
 }
 
-// Opcode is the opcode of a GCN3 Instruction
+// Opcode is the opcode of a GPU Instruction
 type Opcode uint16
 
 type decodeTable struct {
@@ -379,18 +379,16 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
-	// Extract 13-bit signed offset from bits [12:0] of the first dword.
-	// In CDNA3 (GFX9+), FLAT/GLOBAL instructions support a signed 13-bit
-	// immediate offset added to the address. For example:
-	//   global_load_dword v11, v[64:65], off offset:4
-	// encodes offset=4 in bits [12:0].
+	// Extract 13-bit signed offset from bits [12:0] (CDNA3 FLAT/GLOBAL).
 	rawOffset := extractBits(bytesLo, 0, 12)
-	// Sign-extend the 13-bit value
+	inst.Offset0 = rawOffset
 	if rawOffset&(1<<12) != 0 {
 		inst.Offset0 = rawOffset | 0xFFFFE000 // sign extend to 32-bit
-	} else {
-		inst.Offset0 = rawOffset
 	}
+
+	// Extract SEG bits (15:14) to distinguish FLAT/SCRATCH/GLOBAL.
+	// 0 = FLAT, 1 = SCRATCH, 2 = GLOBAL
+	inst.FlatSeg = int(extractBits(bytesLo, 14, 15))
 
 	if extractBits(bytesLo, 17, 17) != 0 {
 		inst.SystemLevelCoherent = true
@@ -413,7 +411,7 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	// SAddr handling is architecture-dependent:
 	// - CDNA3 (GFX9+): SAddr=0x7F means OFF mode, any other value (including 0
 	//   for s[0:1]) is a valid scalar base register.
-	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
+	// - Legacy ISA: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
 	if d.IsCDNA3 {
 		if saddrBits != 0x7F {
 			inst.Addr = NewVRegOperand(bits, bits, 1)
@@ -433,18 +431,31 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bits = int(extractBits(bytesHi, 8, 15))
 	inst.Data = NewVRegOperand(bits, bits, 0)
 
+	d.setFLATRegCounts(inst)
+
+	return nil
+}
+
+func (d *Disassembler) setFLATRegCounts(inst *Inst) {
 	switch inst.Opcode {
-	case 21, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
+	case 21, 29: // Load/store DWordX2
 		inst.Data.RegCount = 2
 		inst.Dst.RegCount = 2
-	case 22, 30:
+	case 22, 30: // Load/store DWordX3
 		inst.Data.RegCount = 3
 		inst.Dst.RegCount = 3
-	case 23, 31:
+	case 23, 31: // Load/store DWordX4
 		inst.Data.RegCount = 4
 		inst.Dst.RegCount = 4
+	case 65: // flat/global_atomic_cmpswap
+		inst.Data.RegCount = 2
+	case 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108:
+		inst.Data.RegCount = 2
+		inst.Dst.RegCount = 2
+		if inst.Opcode == 97 { // cmpswap_x2: 4 data regs
+			inst.Data.RegCount = 4
+		}
 	}
-	return nil
 }
 
 //nolint:gocyclo,funlen
@@ -488,10 +499,13 @@ func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) error {
 	}
 
 	if inst.Imm {
-		bits64 := int64(extractBits(bytesHi, 0, 19))
+		bits64 := int64(extractBits(bytesHi, 0, 20))
+		if bits64&(1<<20) != 0 {
+			bits64 |= ^int64((1 << 21) - 1) // sign extend from bit 20
+		}
 		inst.Offset = NewIntOperand(0, bits64)
 	} else {
-		bits := int(extractBits(bytesHi, 0, 19))
+		bits := int(extractBits(bytesHi, 0, 20))
 		inst.Offset = NewSRegOperand(bits, bits, 1)
 	}
 	return nil
@@ -504,6 +518,7 @@ func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) error {
 
 	if inst.Opcode == 12 { // WAIT_CNT
 		inst.VMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 0, 3))
+		inst.VMCNT |= int(extractBits(uint32(inst.SImm16.IntValue), 14, 15)) << 4
 		inst.LKGMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 8, 12))
 	}
 
@@ -512,18 +527,77 @@ func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) error {
 
 func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
-	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
-	if inst.Src0.OperandType == LiteralConstant {
-		inst.ByteSize += 4
+
+	operandBits := uint16(extractBits(bytes, 0, 8))
+	if operandBits == 249 {
+		// SDWA encoding: src0 = 0xF9 is the SDWA marker in GFX9/CDNA3.
+		// The next 4 bytes contain the SDWA control word.
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return errors.New("no enough bytes for VOPC SDWA")
 		}
-		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
+		inst.IsSdwa = true
+		inst.ByteSize += 4
+
+		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
+		src0Bits := int(extractBits(sdwaBytes, 0, 7))
+		src0Sel := int(extractBits(sdwaBytes, 16, 18))
+		src1Sel := int(extractBits(sdwaBytes, 24, 26))
+		src0IsSgpr := extractBits(sdwaBytes, 30, 30) != 0
+
+		if src0IsSgpr {
+			inst.Src0 = NewSRegOperand(src0Bits, src0Bits, 0)
+		} else {
+			inst.Src0 = NewVRegOperand(src0Bits, src0Bits, 0)
+		}
+
+		inst.Src0Sel = d.sdwaSelFromBits(src0Sel)
+		inst.Src1Sel = d.sdwaSelFromBits(src1Sel)
+	} else {
+		inst.Src0, _ = getOperand(operandBits)
+		if inst.Src0.OperandType == LiteralConstant {
+			inst.ByteSize += 4
+			if len(buf) < 8 {
+				return errors.New("no enough bytes")
+			}
+			inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
+		}
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
-	inst.Src1 = NewVRegOperand(bits, bits, 0)
+	if inst.IsSdwa {
+		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
+		src1IsSgpr := extractBits(sdwaBytes, 31, 31) != 0
+		if src1IsSgpr {
+			inst.Src1 = NewSRegOperand(bits, bits, 0)
+		} else {
+			inst.Src1 = NewVRegOperand(bits, bits, 0)
+		}
+	} else {
+		inst.Src1 = NewVRegOperand(bits, bits, 0)
+	}
 	return nil
+}
+
+// sdwaSelFromBits converts a 3-bit SDWA select field to SDWASelect.
+func (d *Disassembler) sdwaSelFromBits(sel int) SDWASelect {
+	switch sel {
+	case 0:
+		return SDWASelectByte0
+	case 1:
+		return SDWASelectByte1
+	case 2:
+		return SDWASelectByte2
+	case 3:
+		return SDWASelectByte3
+	case 4:
+		return SDWASelectWord0
+	case 5:
+		return SDWASelectWord1
+	case 6:
+		return SDWASelectDWord
+	default:
+		return SDWASelectDWord
+	}
 }
 
 func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
@@ -554,7 +628,7 @@ func (d *Disassembler) isVOP3bOpcode(opcode Opcode) bool {
 	//}
 
 	switch opcode {
-	case 281, 282, 283, 284, 285, 286, 480, 481:
+	case 281, 282, 283, 284, 285, 286, 480, 481, 488:
 		return true
 	}
 
@@ -692,12 +766,24 @@ func (d *Disassembler) parseAbs(inst *Inst, abs int) {
 func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
-	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
+	src0Code := uint16(extractBits(bytes, 0, 7))
+	src0Operand, err := getOperand(src0Code)
+	if err != nil {
+		return fmt.Errorf("sop1 src0 operand decode failed (inst=%s opcode=%d code=%d bytes=%08x): %w",
+			inst.InstName, inst.Opcode, src0Code, bytes, err)
+	}
+	inst.Src0 = src0Operand
 	if inst.SRC0Width == 64 {
 		inst.Src0.RegCount = 2
 	}
 
-	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
+	dstCode := uint16(extractBits(bytes, 16, 22))
+	dstOperand, err := getOperand(dstCode)
+	if err != nil {
+		return fmt.Errorf("sop1 dst operand decode failed (inst=%s opcode=%d code=%d bytes=%08x): %w",
+			inst.InstName, inst.Opcode, dstCode, bytes, err)
+	}
+	inst.Dst = dstOperand
 	if inst.DSTWidth == 64 {
 		inst.Dst.RegCount = 2
 	}

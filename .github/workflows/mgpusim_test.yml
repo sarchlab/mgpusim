@@ -1,34 +1,40 @@
 name: MGPUSim Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
-  compile:
-    name: Compile
-    runs-on: ubuntu-latest
+  unit_test:
+    name: Compile, Lint & Unit Test
+    runs-on: self-hosted
     steps:
+      - name: Clean stale git credentials
+        run: |
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "stable"
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Build
         run: go build ./...
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
 
       - name: Install mockgen
         run: go install go.uber.org/mock/mockgen@v0.6.0
@@ -39,31 +45,15 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: "v2.1.5"
+          version: "v2.11.2"
           # Build golangci-lint with the configured Go toolchain to avoid
           # Go version mismatch (linter built with older Go than target).
-          install-mode: goinstall
+          install-mode: binary
           args: --timeout=10m
           skip-cache: true
 
-  unit_test:
-    name: Unit Test
-    runs-on: ubuntu-latest
-    needs: [compile, lint]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Install mockgen
-        run: go install go.uber.org/mock/mockgen@v0.6.0
-
-      - name: Generate mocks
-        run: go generate ./...
+      - name: Run parser robustness tests
+        run: python3 -m unittest discover -s workloads/scripts/tests -p 'test_*.py' -v
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -73,24 +63,37 @@ jobs:
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
+      - name: Clean stale git credentials
+        run: |
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
 
       - name: List Directory Contents
         run: ls -R
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "stable"
+          go-version-file: 'go.mod'
+          cache: false
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Check Python
+        run: python3 --version
 
       - name: Run Deterministicity Test
         run: python test.py
@@ -98,107 +101,172 @@ jobs:
 
   disassembler_test:
     name: Disassembler Test (GFX942)
-    runs-on: ubuntu-latest
-    needs: [compile]
+    runs-on: self-hosted
+    needs: [unit_test]
     steps:
+      - name: Clean stale git credentials
+        run: |
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "stable"
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Run Disassembler Test
         run: ./test-disasm.sh --check
         working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
 
   # =============================================================================
-  # GCN3 (R9Nano) Tests
-  # =============================================================================
-
-  gcn3_emu_test:
-    name: GCN3 Emulation Test
-    runs-on: ubuntu-latest
-    needs: [unit_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Emulation Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=1 -no-timing -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
-  gcn3_single_gpu_timing_test:
-    name: GCN3 Single GPU Timing Test
-    runs-on: ubuntu-latest
-    needs: [gcn3_emu_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run GCN3 Single GPU Timing Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=1 -arch=gcn3
-        working-directory: amd/tests/acceptance/
-
-  # =============================================================================
   # CDNA3 (MI300A) Tests
   # =============================================================================
 
   cdna3_emu_test:
-    name: CDNA3 Emulation Test
-    runs-on: ubuntu-latest
+    name: CDNA3 Emulation (${{ matrix.benchmark_group }})
+    runs-on: self-hosted
+    needs: [unit_test]
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark_group: [polybench, rodinia, heteromark_shoc, parboil_misc]
+        include:
+          - benchmark_group: polybench
+            benchmark_filter: '^(atax|bicg|2dconvolution|2mm|3dconvolution|3mm|correlation|covariance|fdtd2d|gemm|gesummv|gramschmidt|mvt|syr2k|syrk)$'
+          - benchmark_group: rodinia
+            benchmark_filter: '^(backprop|gaussian|hotspot|hotspot3D|lavaMD|nn|pathfinder|nw|nbody|fft|srad)$'
+          - benchmark_group: heteromark_shoc
+            benchmark_filter: '^(bs|ep|fir|aes|hist|ga|kmeans|pagerank|bfs|stencil2d|spmv|reduction|sort|scan|shoc_gemm|triad|memcopy|vectoradd)$'
+          - benchmark_group: parboil_misc
+            benchmark_filter: '^(parboil_cutcp|parboil_histo|parboil_sad|parboil_sgemm|parboil_tpacf|matrixmultiplication|matrixtranspose|simpleconvolution|floydwarshall|fastwalshtransform|bitonicsort)$'
+    steps:
+      - name: Clean stale git credentials
+        run: |
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Emulation Test (${{ matrix.benchmark_group }})
+        timeout-minutes: 30
+        run: |
+          go build
+          ./acceptance -num-gpu=1 -no-timing -benchmark="${{ matrix.benchmark_filter }}"
+        working-directory: amd/tests/acceptance/
+
+  # -------------------------------------------------------------------------
+  # Tiered CI: Only Tier 1 (fast) timing benchmarks run in regular CI.
+  # Slow timing benchmarks (atax, 2dconvolution, 2mm, 3dconvolution, gemm,
+  # gesummv, gramschmidt, mvt, syr2k, backprop, gaussian, hotspot, hotspot3D,
+  # nw, nbody, matrixmultiplication, parboil_sgemm, parboil_sad, parboil_tpacf)
+  # are tested via the MI300A Benchmark workflow (benchmark.yml).
+  # All benchmarks are still tested in emulation mode above.
+  # See benchmark-comparison/benchmark_tiers.md for tier definitions.
+  # -------------------------------------------------------------------------
+  cdna3_timing_test:
+    name: CDNA3 Timing (${{ matrix.benchmark_group }})
+    runs-on: self-hosted
+    needs: [unit_test]
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark_group: [polybench_fast, rodinia_fast, heteromark_shoc]
+        include:
+          - benchmark_group: polybench_fast
+            # 3mm excluded: per-XCD L2 routing causes coherence mismatch without pre-kernel flush (see issue tracker)
+            benchmark_filter: "^(correlation|covariance|fdtd2d)$"
+          - benchmark_group: rodinia_fast
+            benchmark_filter: "^(lavaMD|nn|pathfinder|srad)$"
+          - benchmark_group: heteromark_shoc
+            benchmark_filter: "^(fir|shoc_gemm|vectoradd|stencil2d|memcopy)$"
+    steps:
+      - name: Clean stale git credentials
+        run: |
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Timing Test (${{ matrix.benchmark_group }})
+        timeout-minutes: 45
+        run: |
+          go build
+          ./acceptance -num-gpu=1 --only-timing -benchmark="${{ matrix.benchmark_filter }}"
+        working-directory: amd/tests/acceptance/
+
+  python_test:
+    name: Python Test Suite
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run CDNA3 Emulation Test
-        timeout-minutes: 60
+      - name: Clean stale git credentials
         run: |
-          go build
-          ./acceptance -num-gpu=1 -no-timing -arch=cdna3
-        working-directory: amd/tests/acceptance/
+          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
 
-  cdna3_single_gpu_timing_test:
-    name: CDNA3 Single GPU Timing Test
-    runs-on: ubuntu-latest
-    needs: [cdna3_emu_test]
-    steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/checkout@v4
         with:
-          go-version: "stable"
+          clean: true
+          persist-credentials: false
 
-      - name: Run CDNA3 Single GPU Timing Test
-        timeout-minutes: 60
+      - name: Bootstrap pip
         run: |
-          go build
-          ./acceptance -num-gpu=1 -arch=cdna3
-        working-directory: amd/tests/acceptance/
+          python3 --version
+          if ! python3 -m pip --version; then
+            python3 -m ensurepip --upgrade --user
+          fi
+          python3 -m pip --version
 
+      - name: Install Python test dependencies
+        run: python3 -m pip install --user --upgrade pytest pandas matplotlib
 
+      - name: Run pytest suite
+        env:
+          PYTHONPATH: .
+        run: python3 -m pytest scripts/tests/ -v

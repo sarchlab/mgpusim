@@ -1,7 +1,8 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 )
@@ -72,6 +73,21 @@ func (c defaultCoalescer) generateWriteReqs(
 		}
 
 		addr := c.readFlatAddr(wf, int(i))
+
+		// Sub-dword stores: write only the low byte(s) of the register
+		storeByteSize := c.instStoreByteSize(inst)
+		if storeByteSize < 4 {
+			dataReg := insts.NewVRegOperand(
+				inst.Data.Register.RegIndex(),
+				inst.Data.Register.RegIndex(),
+				1,
+			)
+			dataVal := uint32(wf.ReadOperand(dataReg, int(i)))
+			data := insts.Uint32ToBytes(dataVal)[:storeByteSize]
+			c.findOrCreateWriteReq(&reqs, addr, data)
+			continue
+		}
+
 		regCount := uint(c.instRegCount(inst))
 		for j := uint(0); j < regCount; j++ {
 			dataReg := insts.NewVRegOperand(
@@ -134,10 +150,11 @@ func (c defaultCoalescer) findOrCreateReadReq(
 		}
 	}
 
-	req := mem.ReadReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithByteSize(1 << c.log2CacheLineSize).
-		Build()
+	req := &mem.ReadReq{
+		Address:        c.cacheLineID(addr),
+		AccessByteSize: 1 << c.log2CacheLineSize,
+	}
+	req.ID = sim.GetIDGenerator().Generate()
 	*reqs = append(*reqs, req)
 	return req
 }
@@ -147,6 +164,16 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 	addr uint64,
 	data []byte,
 ) *mem.WriteReq {
+	// Split writes that cross a cache line boundary.
+	cacheLineSize := uint64(1 << c.log2CacheLineSize)
+	offset := c.addrOffsetInCacheLine(addr)
+	if offset+uint64(len(data)) > cacheLineSize {
+		firstPartLen := cacheLineSize - offset
+		c.findOrCreateWriteReq(reqs, addr, data[:firstPartLen])
+		return c.findOrCreateWriteReq(reqs,
+			addr+firstPartLen, data[firstPartLen:])
+	}
+
 	for _, req := range *reqs {
 		if c.isInSameCacheLine(addr, req.Address) {
 			c.mergeDataWithReq(req, addr, data)
@@ -154,11 +181,12 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 		}
 	}
 
-	req := mem.WriteReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithData(make([]byte, 1<<c.log2CacheLineSize)).
-		WithDirtyMask(make([]bool, 1<<c.log2CacheLineSize)).
-		Build()
+	req := &mem.WriteReq{
+		Address:   c.cacheLineID(addr),
+		Data:      make([]byte, cacheLineSize),
+		DirtyMask: make([]bool, cacheLineSize),
+	}
+	req.ID = sim.GetIDGenerator().Generate()
 	c.mergeDataWithReq(req, addr, data)
 	*reqs = append(*reqs, req)
 	return req
@@ -228,6 +256,16 @@ func (c defaultCoalescer) readFlatAddr(
 	wf *wavefront.Wavefront,
 	laneID int,
 ) uint64 {
+	return readFlatAddrForLane(wf, laneID)
+}
+
+// readFlatAddrForLane computes the flat memory address for a given lane.
+// This is a standalone function so it can be used by both the coalescer
+// and the VectorMemoryUnit (e.g., for atomic instructions).
+func readFlatAddrForLane(
+	wf *wavefront.Wavefront,
+	laneID int,
+) uint64 {
 	inst := wf.Inst()
 
 	// Handle SAddr mode
@@ -275,6 +313,17 @@ func (c defaultCoalescer) addrOffsetInCacheLine(addr uint64) uint64 {
 
 func (c defaultCoalescer) isLoadInst(inst *insts.Inst) bool {
 	return inst.Opcode >= 6 && inst.Opcode <= 23
+}
+
+func (c defaultCoalescer) instStoreByteSize(inst *insts.Inst) int {
+	switch inst.Opcode {
+	case 24: // flat_store_byte
+		return 1
+	case 26: // flat_store_short
+		return 2
+	default:
+		return 4
+	}
 }
 
 func (c defaultCoalescer) instRegCount(inst *insts.Inst) int {

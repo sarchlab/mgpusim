@@ -1,0 +1,23 @@
+{
+  "benchmark": "nw",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "sequence_length",
+    "description": "Length of sequences to align (DP matrix is sequence_length x sequence_length)",
+    "values": [64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 5120, 6144, 8192, 10240, 12288, 16384]
+  },
+  "non_scaling_parameters": {
+    "block_size": {
+      "description": "Thread block size for shared memory tile dimension",
+      "values": [8, 16, 32]
+    },
+    "penalty": {
+      "description": "Gap penalty for sequence alignment",
+      "values": [1, 5, 10, 15, 20]
+    },
+    "seed": {
+      "description": "Random seed for sequence generation",
+      "values": [42, 123, 256]
+    }
+  }
+}

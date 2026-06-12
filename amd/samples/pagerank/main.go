@@ -19,7 +19,6 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := pagerank.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
 	benchmark.NumNodes = uint32(*numNode)
 
 	if *sparsity > 1 {

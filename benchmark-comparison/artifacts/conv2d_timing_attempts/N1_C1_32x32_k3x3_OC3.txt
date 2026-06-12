@@ -1,0 +1,40 @@
+command: <tmp>/conv2d_issue301 -timing -arch=cdna3 -gpu=mi300a -disable-rtm -N 1 -C 1 -H 32 -W 32 -kernel-height 3 -kernel-width 3 -output-channel 3
+working_dir: <repo>
+timeout_seconds: 60
+start_utc: 2026-03-17T04:22:04.448316+00:00
+end_utc: 2026-03-17T04:22:05.109142+00:00
+elapsed_seconds: 0.660825
+exit_code: 1
+status: panic
+--- stdout ---
+Im2Col input [1 1 32 32], kernel [3 3], stride [1 1], padding [0 0], dilation [1 1], output [9 900]
+Kernel Im2Col, Start 0.0000080450, Virtual Time: 4.703999999999999e-06, Real Time: 306.501167ms
+--- stderr ---
+2026/03/17 00:22:05 <repo>/amd/driver/driver.go:120: Panic: page not found
+goroutine 43 [running]:
+runtime/debug.Stack()
+	<go-root>/src/runtime/debug/stack.go:26 +0x64
+runtime/debug.PrintStack()
+	<go-root>/src/runtime/debug/stack.go:18 +0x1c
+github.com/sarchlab/mgpusim/v4/amd/driver.(*Driver).runEngine.func1()
+	<repo>/amd/driver/driver.go:121 +0x80
+panic({0x1007ebfe0?, 0x1008aec80?})
+	<go-root>/src/runtime/panic.go:783 +0x120
+github.com/sarchlab/akita/v4/mem/vm/mmu.(*middleware).finalizePageWalk(0x140000642c0, 0x0)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/mem/vm/mmu/mmu.go:107 +0x24c
+github.com/sarchlab/akita/v4/mem/vm/mmu.(*middleware).walkPageTable(0x140000642c0)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/mem/vm/mmu/mmu.go:79 +0x70
+github.com/sarchlab/akita/v4/mem/vm/mmu.(*middleware).Tick(0x140000642c0)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/mem/vm/mmu/mmu.go:61 +0x2c
+github.com/sarchlab/akita/v4/sim.(*MiddlewareHolder).Tick(...)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/sim/middleware.go:29
+github.com/sarchlab/akita/v4/mem/vm/mmu.(*Comp).Tick(0x14000082f20?)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/mem/vm/mmu/mmu.go:49 +0x3c
+github.com/sarchlab/akita/v4/sim.(*TickingComponent).Handle(0x14000082f20, {0x3efc160b2f331e65?, 0x14000063628?})
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/sim/ticker.go:146 +0x28
+github.com/sarchlab/akita/v4/sim.(*SerialEngine).Run(0x140000f3400)
+	<go-module-cache>/github.com/sarchlab/akita/v4@v4.9.0/sim/serialengine.go:98 +0x2ac
+github.com/sarchlab/mgpusim/v4/amd/driver.(*Driver).runEngine(0x140000a8b60)
+	<repo>/amd/driver/driver.go:128 +0xc8
+created by github.com/sarchlab/mgpusim/v4/amd/driver.(*Driver).runAsync in goroutine 18
+	<repo>/amd/driver/driver.go:111 +0x1ac

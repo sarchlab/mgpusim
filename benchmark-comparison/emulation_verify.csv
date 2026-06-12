@@ -1,0 +1,75 @@
+benchmark,size_desc,pass_fail,notes
+atax,64x64,PASS,
+bicg,64x64,PASS,
+bfs,node1024_degree4_depth100,PASS,
+bitonicsort,length256,PASS,
+conv2d,N1_C1_W8_H8_kw3_kh3_oc3,PASS,flags: -N 1 -C 1 -W 8 -H 8 -kernel-width 3 -kernel-height 3 -output-channel 3
+fastwalshtransform,length128,PASS,
+fft,1MB,PASS,flags: -MB 1 (128 bytes too small causes 0-alloc panic)
+fir,length256_taps32,PASS,
+floydwarshall,node8,PASS,
+im2col,W8_H8_C1_N1_kw3_kh3,PASS,flags: -W 8 -H 8 -C 1 -N 1 -kernel-width 3 -kernel-height 3
+kmeans,points256_features8_clusters5_maxiter1,PASS,
+matrixmultiplication,32x32x32,PASS,
+matrixtranspose,width64,PASS,
+nbody,particles256,PASS,
+nw,length64,PASS,
+pagerank,node64_sparsity0.5_iter2,PASS,
+relu,length256,PASS,
+simpleconvolution,64x64_mask3,PASS,
+spmv,dim256_sparsity0.01,PASS,
+stencil2d,64x64,PASS,
+vectoradd,64x1,PASS,
+aes,length256,PASS,
+memcopy,default,PASS,
+xor,default,FAIL,panic: not implemented in Verify()
+lenet,batch1,FAIL,requires MNIST dataset files not available
+vgg16,batch1,FAIL,requires MNIST/CIFAR dataset files not available
+minerva,batch1,FAIL,requires MNIST dataset files not available
+2dconvolution,64x64,PASS,real HSACO compiled from HIP source (gfx942)
+2mm,64,PASS,real HSACO compiled from HIP source (gfx942)
+3dconvolution,32x32x32,PASS,real HSACO compiled from HIP source (gfx942)
+3mm,64,PASS,real HSACO compiled from HIP source (gfx942)
+backprop,256,PASS,real HSACO compiled from HIP source (gfx942)
+bs,64,PASS,real HSACO compiled from HIP source (gfx942)
+correlation,32x32,PASS,real HSACO compiled from HIP source (gfx942)
+covariance,32x32,PASS,real HSACO compiled from HIP source (gfx942)
+dwt2d,16,PASS,real HSACO compiled from HIP source (gfx942)
+ep,8192,PASS,real HSACO compiled from HIP source (gfx942)
+fdtd2d,64x64,PASS,real HSACO compiled from HIP source (gfx942)
+ga,default,PASS,real HSACO compiled from HIP source (gfx942)
+gaussian,16,PASS,real HSACO compiled from HIP source (gfx942)
+gemm,64,PASS,real HSACO compiled from HIP source (gfx942)
+gesummv,64,PASS,real HSACO compiled from HIP source (gfx942)
+gramschmidt,64x64,PASS,real HSACO compiled from HIP source (gfx942)
+hist,default,PASS,real HSACO compiled from HIP source (gfx942)
+hotspot,32,PASS,real HSACO compiled from HIP source (gfx942)
+hotspot3D,32,PASS,real HSACO compiled from HIP source (gfx942)
+huffman,default,PASS,real HSACO compiled from HIP source (gfx942)
+lavaMD,boxes1,PASS,real HSACO compiled from HIP source (gfx942)
+lud,32,PASS,real HSACO compiled from HIP source (gfx942)
+mvt,64,PASS,real HSACO compiled from HIP source (gfx942)
+nn,16,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_cutcp,atoms256_grid8,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_histo,elem1024_bins64,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_lbm,grid4_ts2,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_mri_gridding,samp256_grid32,PASS,real HSACO recompiled with correct kernel symbols (gfx942)
+parboil_mri_q,vox1024_k64,PASS,real HSACO recompiled with correct kernel symbols (gfx942)
+parboil_sad,frame32_blk8,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_sgemm,n64,PASS,real HSACO compiled from HIP source (gfx942)
+parboil_spmv,rows64,PASS,real HSACO recompiled with correct kernel symbols (gfx942)
+parboil_stencil,grid8_ts2,PASS,real HSACO recompiled with correct kernel symbols (gfx942)
+parboil_tpacf,pts256_bins16,PASS,real HSACO compiled from HIP source (gfx942)
+particlefilter,p32_ts2,PASS,real HSACO compiled from HIP source (gfx942)
+pathfinder,16x16,PASS,real HSACO compiled from HIP source (gfx942)
+reduction,256,PASS,real HSACO compiled from HIP source (gfx942)
+scan,256,PASS,real HSACO compiled from HIP source (gfx942)
+shoc_gemm,64x64x64,PASS,real HSACO compiled from HIP source (gfx942)
+sort,256,PASS,real HSACO compiled from HIP source (gfx942)
+srad,32x2,PASS,real HSACO compiled from HIP source (gfx942)
+streamcluster,p32_d4_c4,PASS,real HSACO compiled from HIP source (gfx942)
+syr2k,64x64,PASS,real HSACO compiled from HIP source (gfx942)
+syrk,64x64,PASS,real HSACO compiled from HIP source (gfx942)
+triad,256,PASS,real HSACO compiled from HIP source (gfx942)
+concurrentkernel,fir10240_bs64,PASS,multi-benchmark: runs fir+bitonicsort on GPU1 (uses their HSACOs)
+concurrentworkload,fir10240_bs64,PASS,multi-benchmark: runs fir on GPU1+2 bitonicsort on GPU3 (uses their HSACOs)

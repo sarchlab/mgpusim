@@ -1,0 +1,23 @@
+{
+  "benchmark": "particlefilter",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "num_particles",
+    "description": "Number of particles in the particle filter",
+    "values": [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 786432, 1048576, 2097152, 4194304]
+  },
+  "non_scaling_parameters": {
+    "num_timesteps": {
+      "description": "Number of time steps for the sequential Monte Carlo estimation",
+      "values": [5, 10, 20, 50]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "state_dimensions": {
+      "description": "Number of dimensions in the particle state vector",
+      "values": [1, 2, 4]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "benchmark": "lbm",
+  "suite": "parboil",
+  "scaling_parameter": {
+    "name": "grid_dim",
+    "description": "Dimension of the 3D lattice grid (grid_dim^3 total cells)",
+    "values": [16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80]
+  },
+  "non_scaling_parameters": {
+    "num_timesteps": {
+      "description": "Number of LBM streaming+collision timesteps per iteration",
+      "values": [5, 10, 20, 50]
+    },
+    "omega_x100": {
+      "description": "Relaxation parameter omega multiplied by 100 (e.g. 160 = 1.60)",
+      "values": [100, 140, 160, 180, 196]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256]
+    }
+  }
+}

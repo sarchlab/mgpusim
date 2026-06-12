@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
@@ -14,14 +14,14 @@ import (
 type GPU struct {
 	*sim.TickingComponent
 
-	ID string
+	ID uint64
 
 	// meta
 	toDriver       sim.Port
 	toDriverRemote sim.Port
 
 	toSMs   sim.Port
-	SMs     map[string]*sm.SM
+	SMs     map[uint64]*sm.SM
 	freeSMs []*sm.SM
 
 	undispatchedThreadblocks    []*nvidiaconfig.Threadblock
@@ -139,7 +139,7 @@ func (g *GPU) dispatchThreadblocksToSMs() bool {
 	g.freeSMs = g.freeSMs[1:]
 	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
 
-	return false
+	return true
 }
 
 func (g *GPU) LogStatus() {

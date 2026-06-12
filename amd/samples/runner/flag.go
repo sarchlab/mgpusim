@@ -14,9 +14,9 @@ var maxInstCount = flag.Uint64("max-inst", 0,
 var parallelFlag = flag.Bool("parallel", false,
 	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
-var archFlag = flag.String("arch", "gcn3", "GPU architecture: gcn3 or cdna3.")
-var gpuTypeFlag = flag.String("gpu", "r9nano",
-	"GPU model for timing simulation: r9nano or mi300a.")
+var archFlag = flag.String("arch", "cdna3", "GPU architecture (cdna3 is default).")
+var gpuTypeFlag = flag.String("gpu", "mi300a",
+	"GPU model for timing simulation (mi300a is default).")
 
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
@@ -34,11 +34,6 @@ var dramTransactionCountReportFlag = flag.Bool("report-dram-transaction-count",
 	false, "Report the number of transactions accessing the DRAMs.")
 var gpuFlag = flag.String("gpus", "",
 	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
-var unifiedGPUFlag = flag.String("unified-gpus", "",
-	`Run multi-GPU benchmark in a unified mode.
-Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
-var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
-	"Run benchmark with Unified Memory or not")
 var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
 var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
@@ -101,32 +96,17 @@ func (r *Runner) parseSimulationFlags() {
 		r.Timing = true
 	}
 
-	if *useUnifiedMemoryFlag {
-		r.UseUnifiedMemory = true
-	}
-
 	r.ArchType = parseArchFlag()
 	r.GPUType = parseGPUTypeFlag()
 }
 
 func (r *Runner) parseGPUFlag() {
-	if *gpuFlag == "" && *unifiedGPUFlag == "" {
+	if *gpuFlag == "" {
 		r.GPUIDs = []int{1}
 		return
 	}
 
-	if *gpuFlag != "" && *unifiedGPUFlag != "" {
-		panic("cannot use -gpus and -unified-gpus together")
-	}
-
-	var gpuIDs []int
-	if *gpuFlag != "" {
-		gpuIDs = r.gpuIDStringToList(*gpuFlag)
-	} else if *unifiedGPUFlag != "" {
-		gpuIDs = r.gpuIDStringToList(*unifiedGPUFlag)
-	}
-
-	r.GPUIDs = gpuIDs
+	r.GPUIDs = r.gpuIDStringToList(*gpuFlag)
 }
 
 func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
@@ -149,7 +129,7 @@ func parseArchFlag() arch.Type {
 	case "cdna3", "gfx942":
 		return arch.CDNA3
 	default:
-		return arch.GCN3
+		return arch.CDNA3
 	}
 }
 

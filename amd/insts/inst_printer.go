@@ -152,7 +152,7 @@ func (p *InstPrinter) BranchTargetAnnotation(i *Inst) string {
 
 func (p *InstPrinter) waitcntOperandString(i *Inst) string {
 	operandStr := ""
-	if i.VMCNT != 15 {
+	if i.VMCNT != 63 {
 		operandStr += fmt.Sprintf(" vmcnt(%d)", i.VMCNT)
 	}
 

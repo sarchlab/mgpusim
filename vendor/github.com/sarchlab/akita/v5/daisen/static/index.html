@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+  <!--
+  Available key presses which do something on teh visualization page:
+  "s" -> Resizes page to be in the correct format for time scrubbing
+  "esc" -> Hides the time and dotted line, while "ctrl" shows them when hidden
+  "w" -> Alerts current window size 
+-->
+
+  <head>
+    <title>Akita GPU Visualization</title>
+    <!-- <link rel="stylesheet" href="src/css/reset.css" type="text/css"> -->
+    <link rel="stylesheet" href="src/css/app.css" type="text/css" />
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous"
+    ></script>
+    <script src="node_modules/@fortawesome/fontawesome-free/js/all.js" type="module"></script>
+  </head>
+
+  <body>
+    <!-- <img id="image" onkeydown="keyPressed()" src="newLine3.png" />
+
+  <div id="lineGuide">
+  </div> -->
+    <svg id="mouse-coordinate">
+      <line
+        id="mouse-x-coordinate"
+        x1="0"
+        y1="0"
+        x2="0"
+        y2="1000000"
+        stroke="#666666"
+        stroke-dasharray="5,5"
+        stroke-width="0.3"
+      />
+      <line
+        id="mouse-y-coordinate"
+        x1="0"
+        y1="0"
+        x2="10000000"
+        y2="0"
+        stroke="#666666"
+        stroke-dasharray="5,5"
+        stroke-width="0.3"
+      />
+    </svg>
+    <div id="container">
+      <nav class="navbar navbar-dark bg-dark" id="top-nav">
+        <a class="navbar-brand" href="/">Daisen</a>
+        <!-- <input type="text" id="bleh" placeholder="Start Time (no µ)" size="12" /><input type="text" id="bleh2"
+        placeholder="End Time (no µ)" size="12" /> <input type="text" id="bleh3" placeholder="Enter ID or Parent ID"
+        size="19" />
+      <p id="submitMe">Press Enter to Search</p> -->
+        <!-- <image id="copied" src=imageshown /> -->
+        <!-- <image id="downloadFile" src=saveIcon.png /> -->
+        <!-- <image id="copyData" src=copy.png /> -->
+        <!-- <div id="copiedText"> -->
+        <!-- </div> -->
+      </nav>
+
+      <div class="main-body">
+        <div id="inner-container"></div>
+      </div>
+
+      <div class="status-bar">
+        <div id="mouse-time"></div>
+      </div>
+    </div>
+
+    <script src="src/index.ts" type="module"></script>
+  </body>
+</html>

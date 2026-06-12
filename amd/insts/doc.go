@@ -1,2 +1,2 @@
-// Package insts provides the definition for GCN3 instructions.
+// Package insts provides the definition for GPU instructions.
 package insts

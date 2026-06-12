@@ -1,0 +1,23 @@
+{
+  "benchmark": "bfs",
+  "suite": "rodinia",
+  "scaling_parameter": {
+    "name": "num_nodes",
+    "description": "Number of nodes in the graph",
+    "values": [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 196608, 262144, 524288, 786432, 1048576, 1572864, 2097152, 2621440, 3145728, 4194304]
+  },
+  "non_scaling_parameters": {
+    "edges_per_node": {
+      "description": "Average number of edges per node in the random graph",
+      "values": [3, 6, 10, 20]
+    },
+    "block_size": {
+      "description": "Thread block size for kernel launches",
+      "values": [64, 128, 256, 512]
+    },
+    "seed": {
+      "description": "Random seed for graph generation",
+      "values": [42, 123, 256]
+    }
+  }
+}

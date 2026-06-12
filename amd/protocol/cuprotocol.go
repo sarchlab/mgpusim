@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
 
@@ -267,7 +267,7 @@ func (b MapWGReqBuilder) Build() *MapWGReq {
 // execution
 type WGCompletionMsg struct {
 	sim.MsgMeta
-	RspTo []string
+	RspTo []uint64
 }
 
 // Meta returns the meta data associated with the MapWGReq.
@@ -286,7 +286,7 @@ func (r *WGCompletionMsg) Clone() sim.Msg {
 // WGCompletionMsgBuilder can build MapWGReqs.
 type WGCompletionMsgBuilder struct {
 	src, dst sim.RemotePort
-	rspTo    []string
+	rspTo    []uint64
 }
 
 // WithSrc sets the source of the message.
@@ -307,7 +307,7 @@ func (b WGCompletionMsgBuilder) WithDst(
 
 // WithRspTo sets rspTo
 func (b WGCompletionMsgBuilder) WithRspTo(
-	rspTo []string,
+	rspTo []uint64,
 ) WGCompletionMsgBuilder {
 	b.rspTo = rspTo
 	return b

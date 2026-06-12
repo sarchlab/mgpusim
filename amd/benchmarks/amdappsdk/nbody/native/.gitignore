@@ -1,9 +1,0 @@
-*.o
-*.bc
-*.s
-*.ll
-*.hipi
-*.hipfb
-*.out
-*.out.resolution.txt
-*.mgpusim.disasm

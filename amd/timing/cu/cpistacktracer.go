@@ -3,8 +3,8 @@ package cu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 )
 
@@ -131,7 +131,7 @@ type CPIStackTracer struct {
 	timeTeller sim.TimeTeller
 	cu         *ComputeUnit
 
-	inflightTasks        map[string]tracing.Task
+	inflightTasks        map[uint64]tracing.Task
 	firstWFStarted       bool
 	firstWFStartTime     float64
 	lastWFEndTime        float64
@@ -152,7 +152,7 @@ func NewCPIStackInstHook(
 		timeTeller: timeTeller,
 		cu:         cu,
 
-		inflightTasks: make(map[string]tracing.Task),
+		inflightTasks: make(map[uint64]tracing.Task),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
 			taskTypeIdle:          0,

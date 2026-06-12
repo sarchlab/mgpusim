@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
@@ -25,7 +25,7 @@ func NewGrid() *Grid {
 
 // A WorkGroup is part of the kernel that runs on one ComputeUnit.
 type WorkGroup struct {
-	UID                             string
+	UID                             uint64
 	CodeObject                      *insts.KernelCodeObject
 	Packet                          *HsaKernelDispatchPacket
 	PacketAddress                   uint64
@@ -48,7 +48,7 @@ func NewWorkGroup() *WorkGroup {
 
 // A Wavefront is a collection of work-items.
 type Wavefront struct {
-	UID           string
+	UID                             uint64
 	CodeObject    *insts.KernelCodeObject
 	Packet        *HsaKernelDispatchPacket
 	PacketAddress uint64

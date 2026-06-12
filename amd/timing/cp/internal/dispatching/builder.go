@@ -1,9 +1,9 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v4/monitoring"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
@@ -20,6 +20,7 @@ type Builder struct {
 	constantKernelOverhead         int
 	constantKernelLaunchOverhead   int
 	subsequentKernelLaunchOverhead int
+	wgScalingThreshold             int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
@@ -27,7 +28,9 @@ func MakeBuilder() Builder {
 	b := Builder{
 		alg:                           "partition",
 		constantKernelOverhead:         3600,
+		constantKernelLaunchOverhead:   1800,
 		subsequentKernelLaunchOverhead: 1800,
+		wgScalingThreshold:             128,
 	}
 	return b
 }
@@ -98,6 +101,14 @@ func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
 	return b
 }
 
+// WithWGScalingThreshold sets the threshold for WG-count-based scaling of
+// subsequent kernel launch overhead. When the previous kernel had more WGs
+// than this threshold, the overhead is scaled down proportionally.
+func (b Builder) WithWGScalingThreshold(n int) Builder {
+	b.wgScalingThreshold = n
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
@@ -105,8 +116,8 @@ func (b Builder) Build(name string) Dispatcher {
 		cp:              b.cp,
 		respondingPort:  b.respondingPort,
 		dispatchingPort: b.dispatchingPort,
-		inflightWGs:     make(map[string]dispatchLocation),
-		originalReqs:    make(map[string]*protocol.MapWGReq),
+		inflightWGs:     make(map[uint64]dispatchLocation),
+		originalReqs:    make(map[uint64]*protocol.MapWGReq),
 		latencyTable: []int{
 			0,           // 0 WFs
 			0, 0, 0, 0, // 1-4 WFs
@@ -117,6 +128,7 @@ func (b Builder) Build(name string) Dispatcher {
 		constantKernelOverhead:         b.constantKernelOverhead,
 		constantKernelLaunchOverhead:   b.constantKernelLaunchOverhead,
 		subsequentKernelLaunchOverhead: b.subsequentKernelLaunchOverhead,
+		wgScalingThreshold:             b.wgScalingThreshold,
 		monitor:                        b.monitor,
 	}
 

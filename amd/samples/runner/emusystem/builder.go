@@ -4,11 +4,12 @@ package emusystem
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/mgpusim/v4/domain"
 	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem/emugpu"
@@ -68,8 +69,8 @@ func (b Builder) WithArchitecture(archType arch.Type) Builder {
 }
 
 // Build builds the hardware platform.
-func (b Builder) Build() *sim.Domain {
-	domain := &sim.Domain{}
+func (b Builder) Build() *domain.Domain {
+	domain := domain.NewDomain("")
 
 	b.storage = mem.NewStorage(uint64(b.numGPUs+1) * 4 * mem.GB)
 	b.pageTable = vm.NewPageTable(b.log2PageSize)

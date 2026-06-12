@@ -5,7 +5,7 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 )
@@ -28,6 +28,7 @@ type Wavefront struct {
 	SRegFile []byte
 	VRegFile []byte
 	LDS      []byte
+	Scratch  []byte // Per-wavefront scratch (private) memory
 }
 
 // NewWavefront returns the Wavefront that wraps the nativeWf

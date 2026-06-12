@@ -57,7 +57,11 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCmpLeF32VOP3a(state)
 	case 16: // v_cmp_class_f32
 		u.runVCmpClassF32VOP3a(state)
-	case 78: // 0x41
+	case 73: // 0x49 v_cmp_nge_f32_e64
+		u.runVCmpNgeF32VOP3a(state)
+	case 75: // 0x4B v_cmp_ngt_f32_e64
+		u.runVCmpNgtF32VOP3a(state)
+	case 78: // 0x4E v_cmp_nlt_f32_e64
 		u.runVCmpNltF32VOP3a(state)
 	case 193: // 0xC1
 		u.runVCmpLtI32VOP3a(state)
@@ -83,15 +87,19 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCmpLtU64VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
+	case 257: // v_add_f32 (VOP3a encoding of VOP2)
+		u.runVADDF32VOP3a(state)
 	case 258:
 		u.runVSUBF32VOP3a(state)
 	case 261:
 		u.runVMULF32VOP3a(state)
+	case 276:
+		u.runVORB32VOP3a(state)
 	case 449:
 		u.runVMADF32(state)
 	case 450:
 		u.runVMADI32I24(state)
-	case 451, 488:
+	case 451:
 		u.runVMADU64U32(state)
 	case 456: // CDNA3-specific: v_bfe_u32
 		u.runVBFEU32(state)
@@ -141,6 +149,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVPKMULF32(state)
 	case 946:
 		u.runVPKADDF32(state)
+	case 499:
+		u.runVXADU32(state)
 	case 509:
 		u.runVLSHLADDU32(state)
 	case 510:
@@ -151,10 +161,22 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVLSHLORB32(state)
 	case 520:
 		u.runVLSHLADDU64(state)
+	case 648:
+		u.runVLDEXPF32(state)
 	case 655:
 		u.runVLSHLREVB64(state)
 	case 657:
 		u.runVASHRREVI64(state)
+	case 458:
+		u.runVPERMB32(state)
+	case 513:
+		u.runVANDORB32(state)
+	case 672:
+		u.runVMADU64U32VOP3a(state)
+	case 673:
+		u.runVMADI64I32VOP3a(state)
+	case 947:
+		u.runVPKMOVB32(state)
 	default:
 		log.Panicf("Opcode %d for VOP3a format is not implemented", inst.Opcode)
 	}
@@ -215,6 +237,23 @@ func (u *ALU) runVBFEI32(state emu.InstEmuState) {
 			result = int32(extracted)
 		}
 		state.WriteOperand(inst.Dst, i, uint64(emu.Int32ToBits(result)))
+	}
+}
+
+// runVXADU32 implements v_xad_u32 (XOR and add unsigned 32-bit)
+// D.u = (S0.u ^ S1.u) + S2.u
+func (u *ALU) runVXADU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
+		src2 := uint32(state.ReadOperand(inst.Src2, i))
+		result := (src0 ^ src1) + src2
+		state.WriteOperand(inst.Dst, i, uint64(result))
 	}
 }
 
@@ -435,6 +474,44 @@ func (u *ALU) runVCmpNltF32VOP3a(state emu.InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
+// runVCmpNgeF32VOP3a implements v_cmp_nge_f32_e64 (opcode 0x49)
+// D.u64 = !(S0.f >= S1.f) — true if S0 < S1 OR either is NaN
+func (u *ALU) runVCmpNgeF32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
+		if !(src0 >= src1) {
+			dst |= 1 << uint(i)
+		}
+	}
+	state.WriteOperand(inst.Dst, 0, dst)
+}
+
+// runVCmpNgtF32VOP3a implements v_cmp_ngt_f32_e64 (opcode 0x4B)
+// D.u64 = !(S0.f > S1.f) — true if S0 <= S1 OR either is NaN
+func (u *ALU) runVCmpNgtF32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var dst uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
+		if !(src0 > src1) {
+			dst |= 1 << uint(i)
+		}
+	}
+	state.WriteOperand(inst.Dst, 0, dst)
+}
+
 func (u *ALU) runVCmpLtI32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -640,6 +717,22 @@ func (u *ALU) runVCNDMASKB32VOP3a(state emu.InstEmuState) {
 	}
 }
 
+// runVADDF32VOP3a implements v_add_f32 in VOP3A encoding (opcode 257)
+// D.f = S0.f + S1.f
+func (u *ALU) runVADDF32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
+		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
+		dst := src0 + src1
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
 func (u *ALU) runVSUBF32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -665,6 +758,21 @@ func (u *ALU) runVMULF32VOP3a(state emu.InstEmuState) {
 		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		dst := src0 * src1
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+// runVORB32VOP3a implements v_or_b32 in VOP3A encoding
+// D.u = S0.u | S1.u (bitwise OR)
+func (u *ALU) runVORB32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := state.ReadOperand(inst.Src0, i)
+		src1 := state.ReadOperand(inst.Src1, i)
+		state.WriteOperand(inst.Dst, i, src0|src1)
 	}
 }
 
@@ -739,6 +847,22 @@ func (u *ALU) runVMULHIU32(state emu.InstEmuState) {
 	}
 }
 
+// runVLDEXPF32 implements v_ldexp_f32
+// D.f = ldexp(S0.f, S1.i) = S0.f * 2^S1.i
+func (u *ALU) runVLDEXPF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
+		src1 := int32(state.ReadOperand(inst.Src1, i))
+		result := math.Ldexp(float64(src0), int(src1))
+		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(float32(result))))
+	}
+}
+
 func (u *ALU) runVLSHLREVB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -762,6 +886,36 @@ func (u *ALU) runVASHRREVI64(state emu.InstEmuState) {
 		shift := state.ReadOperand(inst.Src0, i)
 		src := state.ReadOperand(inst.Src1, i)
 		state.WriteOperand(inst.Dst, i, emu.Int64ToBits(emu.AsInt64(src)>>shift))
+	}
+}
+
+func (u *ALU) runVPERMB32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
+		sel := uint32(state.ReadOperand(inst.Src2, i))
+		// Build 8-byte source: src0 is high word (bytes 4-7), src1 is low word (bytes 0-3)
+		src64 := (uint64(src0) << 32) | uint64(src1)
+		var result uint32
+		for b := uint(0); b < 4; b++ {
+			s := (sel >> (b * 8)) & 0xFF
+			var byteVal uint8
+			switch {
+			case s <= 7:
+				byteVal = uint8((src64 >> (s * 8)) & 0xFF)
+			case s == 0x0C, s == 0x0D:
+				byteVal = 0x00
+			default: // 0x0E, 0x0F, and other high values
+				byteVal = 0xFF
+			}
+			result |= uint32(byteVal) << (b * 8)
+		}
+		state.WriteOperand(inst.Dst, i, uint64(result))
 	}
 }
 
@@ -1067,21 +1221,46 @@ func (u *ALU) runVDIVFIXUPF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
 		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		src2 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src2, i), 2, inst)))
-		// v_div_fixup_f32: Final fixup for division
-		// Simplified: handles special cases (NaN, inf, denormals)
-		// For normal values, just use src0 as the quotient
+		// v_div_fixup_f32: Final fixup for software division
+		// src0 = quotient estimate, src1 = divisor (B), src2 = dividend (A)
+		// Computes: A / B with special-case handling
+		signOut := math.Signbit(float64(src1)) != math.Signbit(float64(src2))
 		dst := src0
-		// Handle special cases
 		if math.IsNaN(float64(src1)) || math.IsNaN(float64(src2)) {
 			dst = float32(math.NaN())
-		} else if math.IsInf(float64(src1), 0) && math.IsInf(float64(src2), 0) {
+		} else if src1 == 0 && src2 == 0 {
+			// 0/0 = NaN
 			dst = float32(math.NaN())
-		} else if src2 == 0 && src1 != 0 {
-			// Division by zero
-			if src1 > 0 {
-				dst = float32(math.Inf(1))
-			} else {
+		} else if math.IsInf(float64(src1), 0) && math.IsInf(float64(src2), 0) {
+			// Inf/Inf = NaN
+			dst = float32(math.NaN())
+		} else if src1 == 0 {
+			// Division by zero: A/0 = ±Inf (sign = sign(A) XOR sign(B))
+			if signOut {
 				dst = float32(math.Inf(-1))
+			} else {
+				dst = float32(math.Inf(1))
+			}
+		} else if src2 == 0 {
+			// Zero dividend: 0/B = ±0
+			if signOut {
+				dst = float32(math.Copysign(0, -1))
+			} else {
+				dst = 0
+			}
+		} else if math.IsInf(float64(src2), 0) {
+			// Inf/B = ±Inf
+			if signOut {
+				dst = float32(math.Inf(-1))
+			} else {
+				dst = float32(math.Inf(1))
+			}
+		} else if math.IsInf(float64(src1), 0) {
+			// A/Inf = ±0
+			if signOut {
+				dst = float32(math.Copysign(0, -1))
+			} else {
+				dst = 0
 			}
 		}
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
@@ -1319,5 +1498,90 @@ func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 
 		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
 		state.WriteOperand(inst.Dst, i, dstBits)
+	}
+}
+
+// runVANDORB32 implements v_and_or_b32 (CDNA3 VOP3A opcode 513).
+// D.u = (S0.u & S1.u) | S2.u
+func (u *ALU) runVANDORB32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		s0 := uint32(state.ReadOperand(inst.Src0, i))
+		s1 := uint32(state.ReadOperand(inst.Src1, i))
+		s2 := uint32(state.ReadOperand(inst.Src2, i))
+		result := (s0 & s1) | s2
+		state.WriteOperand(inst.Dst, i, uint64(result))
+	}
+}
+
+// runVMADU64U32VOP3a implements v_mad_u64_u32 in CDNA3 VOP3A encoding (opcode 672).
+// D[63:0] = S0[31:0] * S1[31:0] + S2[63:0]  (unsigned)
+func (u *ALU) runVMADU64U32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		s0 := uint64(uint32(state.ReadOperand(inst.Src0, i)))
+		s1 := uint64(uint32(state.ReadOperand(inst.Src1, i)))
+		s2 := state.ReadOperand(inst.Src2, i)
+		result := s0*s1 + s2
+		state.WriteOperand(inst.Dst, i, result)
+	}
+}
+
+// runVMADI64I32VOP3a implements v_mad_i64_i32 in CDNA3 VOP3A encoding (opcode 673).
+// D[63:0] = S0[31:0] * S1[31:0] + S2[63:0]  (signed)
+func (u *ALU) runVMADI64I32VOP3a(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		s0 := int64(int32(uint32(state.ReadOperand(inst.Src0, i))))
+		s1 := int64(int32(uint32(state.ReadOperand(inst.Src1, i))))
+		s2 := int64(state.ReadOperand(inst.Src2, i))
+		result := s0*s1 + s2
+		state.WriteOperand(inst.Dst, i, uint64(result))
+	}
+}
+
+// runVPKMOVB32 implements v_pk_mov_b32 (CDNA3 VOP3A opcode 947).
+// Packed 32-bit move: copies two packed 32-bit values based on op_sel.
+// With standard encoding: D[31:0] = SRC0[31:0], D[63:32] = SRC1[31:0]
+// (or high halves, depending on op_sel bits).
+func (u *ALU) runVPKMOVB32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0Full := state.ReadOperand(inst.Src0, i)
+		src1Full := state.ReadOperand(inst.Src1, i)
+
+		// op_sel selects which 32-bit half of each source:
+		//   op_sel[0] = 0 -> src0 low dword, 1 -> src0 high dword
+		//   op_sel[1] = 0 -> src1 low dword, 1 -> src1 high dword
+		var lo, hi uint32
+		if inst.OpSel&1 == 0 {
+			lo = uint32(src0Full)
+		} else {
+			lo = uint32(src0Full >> 32)
+		}
+		if inst.OpSel&2 == 0 {
+			hi = uint32(src1Full)
+		} else {
+			hi = uint32(src1Full >> 32)
+		}
+
+		result := uint64(lo) | (uint64(hi) << 32)
+		state.WriteOperand(inst.Dst, i, result)
 	}
 }

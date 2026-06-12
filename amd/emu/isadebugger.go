@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/hooking"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/tebeka/atexit"
 )
@@ -31,7 +32,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *ISADebugger) Func(ctx sim.HookCtx) {
+func (h *ISADebugger) Func(ctx hooking.HookCtx) {
 	wf, ok := ctx.Item.(*Wavefront)
 	if !ok {
 		return

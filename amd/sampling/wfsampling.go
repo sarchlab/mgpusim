@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // SampledRunnerFlag is used to enable wf sampling

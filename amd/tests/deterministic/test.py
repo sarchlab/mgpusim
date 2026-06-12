@@ -8,7 +8,6 @@ TestCase = namedtuple("TestCase", "dir executable arguments")
 cwd = os.getcwd()
 
 cases = [
-    TestCase("empty_kernel", "empty_kernel", ""),
     TestCase("memcopy", "memcopy", ""),
     TestCase("../../samples/fir", "fir", "-length=64"),
     TestCase("../../samples/fir", "fir", "-length=65536"),
