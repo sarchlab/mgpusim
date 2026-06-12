@@ -10,12 +10,12 @@ type WorkGroup struct {
 	*kernels.WorkGroup
 
 	Wfs    []*Wavefront
-	MapReq *protocol.MapWGReq
+	MapReq protocol.MapWGReq
 	LDS    []byte
 }
 
 // NewWorkGroup returns a newly constructed WorkGroup
-func NewWorkGroup(raw *kernels.WorkGroup, req *protocol.MapWGReq) *WorkGroup {
+func NewWorkGroup(raw *kernels.WorkGroup, req protocol.MapWGReq) *WorkGroup {
 	wg := new(WorkGroup)
 	wg.WorkGroup = raw
 	wg.MapReq = req

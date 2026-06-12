@@ -1,106 +1,76 @@
 package rob
 
 import (
-	"container/list"
-
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
-// A Builder can build ReorderBuffers.
+var defaultSpec = Spec{
+	Freq:           1 * timing.GHz,
+	BufferSize:     128,
+	NumReqPerCycle: 4,
+}
+
+// DefaultSpec returns a copy of the default reorder-buffer configuration.
+// Callers typically take it, tweak the fields they care about, and pass the
+// result to WithSpec.
+func DefaultSpec() Spec {
+	return defaultSpec
+}
+
+// A Builder can build ReorderBuffers. Configuration is supplied as a whole
+// through WithSpec; wiring is supplied through WithRegistrar. The component
+// declares its "Top", "Bottom", and "Control" ports; the port instances are
+// supplied externally after Build with AssignPort.
 type Builder struct {
-	engine         sim.Engine
-	freq           sim.Freq
-	numReqPerCycle int
-	bufferSize     int
-	bottomUnit     sim.RemotePort
+	spec      Spec
+	registrar modeling.Registrar
 }
 
-// MakeBuilder creates a builder with default parameters.
+// MakeBuilder creates a builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{
-		freq:           1 * sim.GHz,
-		numReqPerCycle: 4,
-		bufferSize:     128,
-	}
+	return Builder{spec: defaultSpec}
 }
 
-// WithEngine sets the engine to use.
-func (b Builder) WithEngine(engine sim.Engine) Builder {
-	b.engine = engine
+// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// platform assembly, or modeling.NewStandaloneRegistrar(engine) in isolated
+// tests). The registrar provides the engine and registers the built
+// component.
+func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+	b.registrar = reg
 	return b
 }
 
-// WithFreq sets the frequency that the ReorderBuffer works at.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
-	b.freq = freq
+// WithSpec sets the entire configuration. Start from DefaultSpec() and tweak.
+func (b Builder) WithSpec(spec Spec) Builder {
+	b.spec = spec
 	return b
 }
 
-// WithNumReqPerCycle sets the number of request that the ReorderBuffer can
-// handle in each cycle.
-func (b Builder) WithNumReqPerCycle(n int) Builder {
-	b.numReqPerCycle = n
-	return b
-}
-
-// WithBufferSize sets the number of transactions that the buffer can handle.
-func (b Builder) WithBufferSize(n int) Builder {
-	b.bufferSize = n
-	return b
-}
-
-// WithBottomUnit sets the bottom unit port for the reorder buffer.
-func (b Builder) WithBottomUnit(port sim.RemotePort) Builder {
-	b.bottomUnit = port
-	return b
-}
-
-// Build creates a ReorderBuffer with the given parameters.
-func (b Builder) Build(name string) *ReorderBuffer {
-	rb := &ReorderBuffer{}
-
-	rb.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, rb)
-
-	rb.transactions = list.New()
-	rb.transactions.Init()
-	rb.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
-
-	rb.bufferSize = b.bufferSize
-	rb.numReqPerCycle = b.numReqPerCycle
-
-	if b.bottomUnit != "" {
-		rb.BottomUnit = b.bottomUnit
+// Build creates a ReorderBuffer with the given name. It declares the
+// component's Top, Bottom, and Control ports and registers the component;
+// the port instances are assigned externally after Build with AssignPort.
+func (b Builder) Build(name string) *Comp {
+	if b.registrar == nil {
+		panic("rob: WithRegistrar is required")
 	}
 
-	b.createPorts(name, rb)
+	comp := modeling.NewBuilder[Spec, State, modeling.None]().
+		WithEngine(b.registrar.GetEngine()).
+		WithFreq(b.spec.Freq).
+		WithSpec(b.spec).
+		Build(name)
 
-	return rb
-}
+	comp.State = State{}
+	comp.AddMiddleware(&middleware{comp: comp})
 
-func (b *Builder) createPorts(name string, rb *ReorderBuffer) {
-	rb.topPort = sim.NewPort(
-		rb,
-		2*b.numReqPerCycle,
-		2*b.numReqPerCycle,
-		name+".TopPort",
-	)
-	rb.AddPort("Top", rb.topPort)
+	comp.DeclarePort("Top", memprotocol.Responder)
+	comp.DeclarePort("Bottom", memprotocol.Requester)
+	comp.DeclarePort("Control", memcontrolprotocol.Responder)
 
-	rb.topPort.AcceptHook(&portHook{})
+	b.registrar.RegisterComponent(comp)
 
-	rb.bottomPort = sim.NewPort(
-		rb,
-		2*b.numReqPerCycle,
-		2*b.numReqPerCycle,
-		name+".BottomPort",
-	)
-	rb.AddPort("Bottom", rb.bottomPort)
-
-	rb.controlPort = sim.NewPort(
-		rb,
-		1,
-		1,
-		name+".ControlPort",
-	)
-	rb.AddPort("Control", rb.controlPort)
+	return comp
 }

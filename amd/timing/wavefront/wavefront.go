@@ -5,8 +5,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
@@ -40,9 +40,9 @@ type Wavefront struct {
 
 	pid            vm.PID
 	State          WfState
-	inst           *Inst          // The instruction that is being executed
-	LastFetchTime  sim.VTimeInSec // The time that the last instruction was fetched
-	CompletedLanes int            // The number of lanes that is completed in the SIMD unit
+	inst           *Inst                 // The instruction that is being executed
+	LastFetchTime  timing.VTimeInPicoSec // The time that the last instruction was fetched
+	CompletedLanes int                   // The number of lanes that is completed in the SIMD unit
 
 	InstBuffer        []byte
 	InstBufferStartPC uint64
