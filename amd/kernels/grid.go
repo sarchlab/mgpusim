@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -25,7 +25,7 @@ func NewGrid() *Grid {
 
 // A WorkGroup is part of the kernel that runs on one ComputeUnit.
 type WorkGroup struct {
-	UID                             string
+	UID                             uint64
 	CodeObject                      *insts.KernelCodeObject
 	Packet                          *HsaKernelDispatchPacket
 	PacketAddress                   uint64
@@ -40,7 +40,7 @@ type WorkGroup struct {
 // NewWorkGroup creates a workgroup object.
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
-	wg.UID = sim.GetIDGenerator().Generate()
+	wg.UID = timing.GetIDGenerator().Generate()
 	wg.Wavefronts = make([]*Wavefront, 0)
 	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
@@ -48,7 +48,7 @@ func NewWorkGroup() *WorkGroup {
 
 // A Wavefront is a collection of work-items.
 type Wavefront struct {
-	UID           string
+	UID           uint64
 	CodeObject    *insts.KernelCodeObject
 	Packet        *HsaKernelDispatchPacket
 	PacketAddress uint64
@@ -58,14 +58,14 @@ type Wavefront struct {
 
 	WorkItems []*WorkItem
 	//for sampling
-	FinishTime sim.VTimeInSec
-	IssueTime  sim.VTimeInSec
+	FinishTime timing.VTimeInPicoSec
+	IssueTime  timing.VTimeInPicoSec
 }
 
 // NewWavefront returns a new Wavefront.
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
-	wf.UID = sim.GetIDGenerator().Generate()
+	wf.UID = timing.GetIDGenerator().Generate()
 	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }
