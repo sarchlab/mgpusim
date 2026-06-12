@@ -1,9 +1,8 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v4/monitoring"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/monitoring2"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
@@ -11,12 +10,13 @@ import (
 
 // A Builder can build dispatchers
 type Builder struct {
-	cp                           tracing.NamedHookable
-	cuResourcePool               resource.CUResourcePool
-	alg                          string
-	respondingPort               sim.Port
-	dispatchingPort              sim.Port
-	monitor                      *monitoring.Monitor
+	cp                             tracing.NamedHookable
+	cuResourcePool                 resource.CUResourcePool
+	alg                            string
+	portSource                     PortSource
+	respondingPortName             string
+	dispatchingPortName            string
+	monitor                        *monitoring2.Monitor
 	constantKernelOverhead         int
 	constantKernelLaunchOverhead   int
 	subsequentKernelLaunchOverhead int
@@ -26,7 +26,7 @@ type Builder struct {
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg:                           "partition",
+		alg:                            "partition",
 		constantKernelOverhead:         3600,
 		subsequentKernelLaunchOverhead: 1800,
 		wgScalingThreshold:             128,
@@ -47,16 +47,25 @@ func (b Builder) WithCUResourcePool(pool resource.CUResourcePool) Builder {
 	return b
 }
 
-// WithRespondingPort sets the port that the dispatcher can send WFCompleteMsg
-// to.
-func (b Builder) WithRespondingPort(p sim.Port) Builder {
-	b.respondingPort = p
+// WithPortSource sets the object (typically the Command Processor component)
+// that the dispatcher uses to resolve its ports by name. Ports are resolved
+// lazily, since port instances are assigned to the component after Build.
+func (b Builder) WithPortSource(ps PortSource) Builder {
+	b.portSource = ps
 	return b
 }
 
-// WithDispatchingPort sets the port that connects to the Compute Units.
-func (b Builder) WithDispatchingPort(p sim.Port) Builder {
-	b.dispatchingPort = p
+// WithRespondingPortName sets the name of the port that the dispatcher sends
+// kernel-completion responses through.
+func (b Builder) WithRespondingPortName(name string) Builder {
+	b.respondingPortName = name
+	return b
+}
+
+// WithDispatchingPortName sets the name of the port that connects to the
+// Compute Units.
+func (b Builder) WithDispatchingPortName(name string) Builder {
+	b.dispatchingPortName = name
 	return b
 }
 
@@ -73,7 +82,7 @@ func (b Builder) WithAlg(alg string) Builder {
 }
 
 // WithMonitor sets the monitor that manages progress bars.
-func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
+func (b Builder) WithMonitor(monitor *monitoring2.Monitor) Builder {
 	b.monitor = monitor
 	return b
 }
@@ -111,14 +120,15 @@ func (b Builder) WithWGScalingThreshold(n int) Builder {
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
-		name:            name,
-		cp:              b.cp,
-		respondingPort:  b.respondingPort,
-		dispatchingPort: b.dispatchingPort,
-		inflightWGs:     make(map[string]dispatchLocation),
-		originalReqs:    make(map[string]*protocol.MapWGReq),
+		name:                name,
+		cp:                  b.cp,
+		portSource:          b.portSource,
+		respondingPortName:  b.respondingPortName,
+		dispatchingPortName: b.dispatchingPortName,
+		inflightWGs:         make(map[uint64]dispatchLocation),
+		originalReqs:        make(map[uint64]protocol.MapWGReq),
 		latencyTable: []int{
-			0,           // 0 WFs
+			0,          // 0 WFs
 			0, 0, 0, 0, // 1-4 WFs
 			0, 0, 0, 0, // 5-8 WFs
 			0, 0, 0, 0, // 9-12 WFs

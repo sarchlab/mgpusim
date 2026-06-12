@@ -7,8 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v4/sim Engine,Port
-//go:generate mockgen -destination "mock_kernels_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/mgpusim/v5/amd/kernels GridBuilder
 //go:generate mockgen -destination "mock_dispatching_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching Dispatcher
 
 func TestCp(t *testing.T) {

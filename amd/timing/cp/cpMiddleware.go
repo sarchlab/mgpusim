@@ -1,93 +1,128 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v4/mem/cache"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 )
 
+// cpMiddleware handles the data-path duties of the Command Processor: kernel
+// launching (through the dispatchers), memory copies (through the DMA
+// engine), and cache flush requests from the driver.
 type cpMiddleware struct {
-	*CommandProcessor
+	comp *Comp
+
+	// TODO(akita5): state purity — the dispatchers hold rich runtime object
+	// graphs (grid builders, in-flight work-group maps), so they live here
+	// rather than in the component State.
+	dispatchers []dispatching.Dispatcher
+}
+
+func (m *cpMiddleware) toDriver() messaging.Port {
+	return m.comp.GetPortByName("ToDriver")
+}
+
+func (m *cpMiddleware) toDMA() messaging.Port {
+	return m.comp.GetPortByName("ToDMA")
 }
 
 func (m *cpMiddleware) Tick() bool {
 	madeProgress := false
-	madeProgress = m.Handle() || madeProgress
-	madeProgress = m.HandleInternal() || madeProgress
+
+	madeProgress = m.tickDispatchers() || madeProgress
+	madeProgress = m.processReqFromDriver() || madeProgress
+	madeProgress = m.processRspFromDMA() || madeProgress
+
 	return madeProgress
 }
 
-func (m *cpMiddleware) Handle() bool {
-	msg := m.ToDriver.PeekIncoming()
-
-	switch req := msg.(type) {
-	case *protocol.LaunchKernelReq:
-		return m.processLaunchKernelReq(req)
-	case *protocol.FlushReq:
-		return m.processFlushReq(req)
-	case *protocol.MemCopyH2DReq, *protocol.MemCopyD2HReq:
-		return m.processMemCopyReq(req)
+func (m *cpMiddleware) tickDispatchers() (madeProgress bool) {
+	for _, d := range m.dispatchers {
+		madeProgress = d.Tick() || madeProgress
 	}
-	return false
-}
 
-func (m *cpMiddleware) HandleInternal() bool {
-	madeProgress := false
-	madeProgress = m.processRspFromDMAs() || madeProgress
 	return madeProgress
 }
 
-func (m *cpMiddleware) processRspFromDMAs() bool {
-	msg := m.ToDMA.PeekIncoming()
+func (m *cpMiddleware) processReqFromDriver() bool {
+	msg := m.toDriver().PeekIncoming()
 	if msg == nil {
 		return false
 	}
 
 	switch req := msg.(type) {
-	case *sim.GeneralRsp:
-		return m.processMemCopyRsp(req) //cp
+	case protocol.LaunchKernelReq:
+		return m.processLaunchKernelReq(req)
+	case protocol.FlushReq:
+		return m.processFlushReq(req)
+	case protocol.MemCopyH2DReq, protocol.MemCopyD2HReq:
+		return m.processMemCopyReq(req)
+	}
+
+	// Control requests are left in the queue for the control middleware.
+	return false
+}
+
+func (m *cpMiddleware) processRspFromDMA() bool {
+	msg := m.toDMA().PeekIncoming()
+	if msg == nil {
+		return false
+	}
+
+	switch rsp := msg.(type) {
+	case protocol.GeneralRsp:
+		return m.processMemCopyRsp(rsp)
 	}
 
 	panic("never")
 }
 
-func (m *cpMiddleware) processMemCopyRsp(
-	req sim.Rsp,
-) bool {
-	originalReq := m.findAndRemoveOriginalMemCopyRequest(req)
+func (m *cpMiddleware) processMemCopyRsp(rsp protocol.GeneralRsp) bool {
+	if !m.toDriver().CanSend() {
+		return false
+	}
 
-	rsp := sim.GeneralRspBuilder{}.
-		WithDst(originalReq.Meta().Src).
-		WithSrc(m.ToDriver.AsRemote()).
-		WithOriginalReq(originalReq).
-		Build()
+	originalReq := m.findAndRemoveOriginalMemCopyRequest(rsp)
+	originalMeta := originalReq.Meta()
 
-	m.ToDriver.Send(rsp)
-	m.ToDMA.RetrieveIncoming()
+	rspToDriver := protocol.GeneralRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			Src:   m.toDriver().AsRemote(),
+			Dst:   originalMeta.Src,
+			RspTo: originalMeta.ID,
+		},
+	}
 
-	tracing.TraceReqComplete(originalReq, m.CommandProcessor)
-	tracing.TraceReqFinalize(req, m.CommandProcessor)
+	m.toDriver().Send(rspToDriver)
+	m.toDMA().RetrieveIncoming()
+
+	tracing.TraceReqComplete(m.comp, originalReq)
+	// End the sender-side task of the cloned request that was sent to the
+	// DMA engine.
+	tracing.EndTask(m.comp, tracing.TaskEnd{ID: rsp.Meta().RspTo})
 
 	return true
 }
 
 func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
-	rsp sim.Rsp,
-) sim.Msg {
-	rspTo := rsp.GetRspTo()
+	rsp protocol.GeneralRsp,
+) messaging.Msg {
+	rspTo := rsp.Meta().RspTo
+	state := &m.comp.State
 
-	originalH2DReq, ok := m.bottomMemCopyH2DReqIDToTopReqMap[rspTo]
+	originalH2DReq, ok := state.BottomMemCopyH2DToTop[rspTo]
 	if ok {
-		delete(m.bottomMemCopyH2DReqIDToTopReqMap, rspTo)
+		delete(state.BottomMemCopyH2DToTop, rspTo)
 		return originalH2DReq
 	}
 
-	originalD2HReq, ok := m.bottomMemCopyD2HReqIDToTopReqMap[rspTo]
+	originalD2HReq, ok := state.BottomMemCopyD2HToTop[rspTo]
 	if ok {
-		delete(m.bottomMemCopyD2HReqIDToTopReqMap, rspTo)
+		delete(state.BottomMemCopyD2HToTop, rspTo)
 		return originalD2HReq
 	}
 
@@ -95,10 +130,9 @@ func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
 }
 
 func (m *cpMiddleware) processLaunchKernelReq(
-	req *protocol.LaunchKernelReq,
+	req protocol.LaunchKernelReq,
 ) bool {
 	d := m.findAvailableDispatcher()
-
 	if d == nil {
 		return false
 	}
@@ -107,15 +141,15 @@ func (m *cpMiddleware) processLaunchKernelReq(
 		sampling.SampledEngineInstance.Reset()
 	}
 	d.StartDispatching(req)
-	m.ToDriver.RetrieveIncoming()
+	m.toDriver().RetrieveIncoming()
 
-	tracing.TraceReqReceive(req, m.CommandProcessor)
+	tracing.TraceReqReceive(m.comp, req)
 
 	return true
 }
 
 func (m *cpMiddleware) findAvailableDispatcher() dispatching.Dispatcher {
-	for _, d := range m.Dispatchers {
+	for _, d := range m.dispatchers {
 		if !d.IsDispatching() {
 			return d
 		}
@@ -124,103 +158,70 @@ func (m *cpMiddleware) findAvailableDispatcher() dispatching.Dispatcher {
 	return nil
 }
 
-func (m *cpMiddleware) processFlushReq(
-	req *protocol.FlushReq,
-) bool {
-	if m.numCacheACK > 0 {
+// processFlushReq starts the cache-flush control sequence. See
+// ctrlMiddleware.go for the control-verb mapping.
+func (m *cpMiddleware) processFlushReq(req protocol.FlushReq) bool {
+	state := &m.comp.State
+	if state.CtrlSeq != ctrlSeqNone {
 		return false
 	}
 
-	for _, port := range m.L1ICaches {
-		m.flushCache(port)
-	}
+	state.CurrFlushReq = req
+	m.ctrlMW().startSeq(ctrlSeqFlush)
 
-	for _, port := range m.L1SCaches {
-		m.flushCache(port)
-	}
+	m.toDriver().RetrieveIncoming()
 
-	for _, port := range m.L1VCaches {
-		m.flushCache(port)
-	}
-
-	for _, port := range m.L2Caches {
-		m.flushCache(port)
-	}
-
-	m.currFlushRequest = req
-	if m.numCacheACK == 0 {
-		rsp := sim.GeneralRspBuilder{}.
-			WithSrc(m.ToDriver.AsRemote()).
-			WithDst(m.Driver.AsRemote()).
-			WithOriginalReq(req).
-			Build()
-		m.ToDriver.Send(rsp)
-	}
-
-	m.ToDriver.RetrieveIncoming()
-
-	tracing.TraceReqReceive(req, m.CommandProcessor)
+	tracing.TraceReqReceive(m.comp, req)
 
 	return true
 }
 
-func (m *cpMiddleware) processMemCopyReq(
-	req sim.Msg,
-) bool {
-	if m.numCacheACK > 0 {
+func (m *cpMiddleware) ctrlMW() *ctrlMiddleware {
+	for _, mw := range m.comp.Middlewares() {
+		if ctrlMW, ok := mw.(*ctrlMiddleware); ok {
+			return ctrlMW
+		}
+	}
+
+	panic("ctrl middleware not found")
+}
+
+func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
+	state := &m.comp.State
+	if state.CtrlSeq != ctrlSeqNone {
 		return false
 	}
 
-	var cloned sim.Msg
+	if !m.toDMA().CanSend() {
+		return false
+	}
+
+	var cloned messaging.Msg
 	switch req := req.(type) {
-	case *protocol.MemCopyH2DReq:
-		cloned = m.cloneMemCopyH2DReq(req)
-	case *protocol.MemCopyD2HReq:
-		cloned = m.cloneMemCopyD2HReq(req)
+	case protocol.MemCopyH2DReq:
+		c := req
+		c.ID = timing.GetIDGenerator().Generate()
+		c.Src = m.toDMA().AsRemote()
+		c.Dst = state.DMAEngine
+		state.BottomMemCopyH2DToTop[c.ID] = req
+		cloned = c
+	case protocol.MemCopyD2HReq:
+		c := req
+		c.ID = timing.GetIDGenerator().Generate()
+		c.Src = m.toDMA().AsRemote()
+		c.Dst = state.DMAEngine
+		state.BottomMemCopyD2HToTop[c.ID] = req
+		cloned = c
 	default:
 		panic("unknown type")
 	}
 
-	cloned.Meta().Dst = m.DMAEngine.AsRemote()
-	cloned.Meta().Src = m.ToDMA.AsRemote()
+	m.toDMA().Send(cloned)
+	m.toDriver().RetrieveIncoming()
 
-	m.ToDMA.Send(cloned)
-	m.ToDriver.RetrieveIncoming()
-
-	tracing.TraceReqReceive(req, m.CommandProcessor)
-	tracing.TraceReqInitiate(cloned, m.CommandProcessor, tracing.MsgIDAtReceiver(req, m.CommandProcessor))
+	tracing.TraceReqReceive(m.comp, req)
+	tracing.TraceReqInitiate(m.comp, cloned,
+		tracing.MsgIDAtReceiver(req, m.comp))
 
 	return true
-}
-
-func (m *cpMiddleware) cloneMemCopyH2DReq(
-	req *protocol.MemCopyH2DReq,
-) *protocol.MemCopyH2DReq {
-	cloned := *req
-	cloned.ID = sim.GetIDGenerator().Generate()
-	m.bottomMemCopyH2DReqIDToTopReqMap[cloned.ID] = req
-	return &cloned
-}
-
-func (m *cpMiddleware) cloneMemCopyD2HReq(
-	req *protocol.MemCopyD2HReq,
-) *protocol.MemCopyD2HReq {
-	cloned := *req
-	cloned.ID = sim.GetIDGenerator().Generate()
-	m.bottomMemCopyD2HReqIDToTopReqMap[cloned.ID] = req
-	return &cloned
-}
-
-func (m *cpMiddleware) flushCache(port sim.Port) {
-	flushReq := cache.FlushReqBuilder{}.
-		WithSrc(m.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		Build()
-
-	err := m.ToCaches.Send(flushReq)
-	if err != nil {
-		panic(err)
-	}
-
-	m.numCacheACK++
 }

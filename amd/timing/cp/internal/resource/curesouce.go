@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
@@ -12,5 +12,5 @@ type CUResource interface {
 		ok bool,
 	)
 	FreeResourcesForWG(wg *kernels.WorkGroup)
-	DispatchingPort() sim.RemotePort
+	DispatchingPort() messaging.RemotePort
 }

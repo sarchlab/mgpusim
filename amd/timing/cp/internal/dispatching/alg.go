@@ -1,7 +1,7 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
@@ -10,7 +10,7 @@ import (
 type dispatchLocation struct {
 	valid     bool
 	cuID      int
-	cu        sim.RemotePort
+	cu        messaging.RemotePort
 	wg        *kernels.WorkGroup
 	locations []protocol.WfDispatchLocation
 }

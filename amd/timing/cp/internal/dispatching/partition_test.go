@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	"go.uber.org/mock/gomock"
@@ -30,7 +30,7 @@ var _ = Describe("Partition Algorithm", func() {
 		for i := 0; i < 2; i++ {
 			cus[i] = NewMockCUResource(ctrl)
 			cus[i].EXPECT().DispatchingPort().
-				Return(sim.RemotePort("CUPort" + strconv.Itoa(i))).
+				Return(messaging.RemotePort("CUPort" + strconv.Itoa(i))).
 				AnyTimes()
 		}
 
