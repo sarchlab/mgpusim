@@ -3,185 +3,164 @@ package emu
 import (
 	"encoding/binary"
 	"log"
-	"math"
-	"reflect"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
-type emulationEvent struct {
-	*sim.EventBase
+const psPerSecond = timing.VTimeInPicoSec(1_000_000_000_000)
+
+// ceilToSecond rounds the time up to the next whole virtual second. The
+// emulation ComputeUnit batches all the work-groups that arrive before a
+// whole-second boundary into a single emulation pass (matching the v4
+// behavior of scheduling the emulation event at math.Ceil(now)).
+func ceilToSecond(t timing.VTimeInPicoSec) timing.VTimeInPicoSec {
+	return (t + psPerSecond - 1) / psPerSecond * psPerSecond
 }
 
-// A ComputeUnit in the emu package is a component that omit the pipeline design
-// but can still run the GCN3 instructions.
-//
-//	ToDispatcher <=> The port that connect the CU with the dispatcher
-type ComputeUnit struct {
-	*sim.TickingComponent
-
-	decoder         Decoder
-	alu             ALU
-	storageAccessor StorageAccessor
-
-	nextTick    sim.VTimeInSec
-	queueingWGs []*protocol.MapWGReq
-	wfs         map[*kernels.WorkGroup][]*Wavefront
-	LDSStorage  []byte
-
-	GlobalMemStorage *mem.Storage
-
-	ToDispatcher sim.Port
-
-	instCache         map[uint64]*insts.Inst
-	finishedMapWGReqs []string
+// pendingWGCompletion is a work-group that finished emulation and whose
+// completion is scheduled at a future time.
+type pendingWGCompletion struct {
+	completeAt timing.VTimeInPicoSec
+	reqID      uint64
+	workGroup  *kernels.WorkGroup
+	dst        messaging.RemotePort
 }
 
-// ControlPort returns the port that can receive controlling messages from the
-// Command Processor.
-func (cu *ComputeUnit) ControlPort() sim.RemotePort {
-	return cu.ToDispatcher.AsRemote()
+// cuProcessor implements modeling.EventProcessor for the emulation
+// ComputeUnit. It receives protocol.MapWGReq messages, functionally emulates
+// the work-groups, and responds with protocol.WGCompletionMsg.
+type cuProcessor struct {
+	// TODO(akita5): state purity — these runtime structures hold pointers
+	// (kernels, wavefronts, decoded instructions) and cannot live in the
+	// pure component State. They are not checkpointable.
+	queuedWGs          []protocol.MapWGReq
+	wfs                map[*kernels.WorkGroup][]*Wavefront
+	instCache          map[uint64]*insts.Inst
+	pendingCompletions []pendingWGCompletion
 }
 
-// DispatchingPort returns the port that the dispatcher can use to dispatch
-// work-groups to the CU.
-func (cu *ComputeUnit) DispatchingPort() sim.RemotePort {
-	return cu.ToDispatcher.AsRemote()
+// Process reacts to a wakeup: it collects newly arrived MapWGReqs, runs the
+// emulation pass when due, and sends out matured work-group completions.
+func (p *cuProcessor) Process(comp *Comp, now timing.VTimeInPicoSec) bool {
+	progress := false
+
+	progress = p.collectMapWGReqs(comp, now) || progress
+	progress = p.runEmulation(comp, now) || progress
+	progress = p.completeWorkGroups(comp, now) || progress
+
+	return progress
 }
 
-// WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit
-// can execute.
-func (cu *ComputeUnit) WfPoolSizes() []int {
-	return []int{math.MaxInt32}
-}
+func (p *cuProcessor) collectMapWGReqs(
+	comp *Comp,
+	now timing.VTimeInPicoSec,
+) bool {
+	port := comp.GetPortByName(DispatchPortName)
+	state := &comp.State
+	progress := false
 
-// VRegCounts returns an array of the numbers of vector regsiters in each SIMD
-// unit.
-func (cu *ComputeUnit) VRegCounts() []int {
-	return []int{-1}
-}
-
-// SRegCount returns the number of scalar register in the Compute Unit.
-func (cu *ComputeUnit) SRegCount() int {
-	return -1
-}
-
-// LDSBytes returns the number of bytes in the LDS of the CU.
-func (cu *ComputeUnit) LDSBytes() int {
-	return -1
-}
-
-// Handle defines the behavior on event scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt sim.Event) error {
-	cu.Lock()
-
-	switch evt := evt.(type) {
-	case sim.TickEvent:
-		cu.TickingComponent.Handle(evt)
-	case *emulationEvent:
-		cu.runEmulation(evt)
-	case *WGCompleteEvent:
-		cu.handleWGCompleteEvent(evt)
-	default:
-		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
-	}
-
-	cu.Unlock()
-
-	return nil
-}
-
-// Tick ticks
-func (cu *ComputeUnit) Tick() bool {
-	cu.processMapWGReq()
-	return false
-}
-
-func (cu *ComputeUnit) processMapWGReq() {
-	msg := cu.ToDispatcher.RetrieveIncoming()
-	if msg == nil {
-		return
-	}
-
-	req := msg.(*protocol.MapWGReq)
-
-	now := cu.TickingComponent.TickScheduler.CurrentTime()
-	if cu.nextTick <= now {
-		cu.nextTick = sim.VTimeInSec(math.Ceil(float64(now)))
-		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
-		evt := &emulationEvent{
-			sim.NewEventBase(cu.nextTick, cu),
+	for {
+		msg := port.RetrieveIncoming()
+		if msg == nil {
+			break
 		}
-		cu.Engine.Schedule(evt)
+
+		req := msg.(protocol.MapWGReq)
+
+		if state.NextEmulationAt <= now {
+			state.NextEmulationAt = ceilToSecond(now)
+			comp.ScheduleWakeAt(state.NextEmulationAt)
+		}
+
+		p.queuedWGs = append(p.queuedWGs, req)
+		p.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
+
+		progress = true
 	}
 
-	cu.queueingWGs = append(cu.queueingWGs, req)
-	cu.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
+	return progress
 }
 
-func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
-	for len(cu.queueingWGs) > 0 {
-		wg := cu.queueingWGs[0]
-		cu.queueingWGs = cu.queueingWGs[1:]
-		cu.runWG(wg)
+func (p *cuProcessor) runEmulation(
+	comp *Comp,
+	now timing.VTimeInPicoSec,
+) bool {
+	if len(p.queuedWGs) == 0 {
+		return false
 	}
-	return nil
+
+	if now < comp.State.NextEmulationAt {
+		comp.ScheduleWakeAt(comp.State.NextEmulationAt)
+		return false
+	}
+
+	for len(p.queuedWGs) > 0 {
+		req := p.queuedWGs[0]
+		p.queuedWGs = p.queuedWGs[1:]
+		p.runWG(comp, req, now)
+	}
+
+	return true
 }
 
-func (cu *ComputeUnit) runWG(
-	req *protocol.MapWGReq,
-) error {
+func (p *cuProcessor) runWG(
+	comp *Comp,
+	req protocol.MapWGReq,
+	now timing.VTimeInPicoSec,
+) {
 	wg := req.WorkGroup
-	cu.initWfs(wg, req)
+	p.initWfs(wg, req)
 
-	for !cu.isAllWfCompleted(wg) {
-		for _, wf := range cu.wfs[wg] {
-			cu.alu.SetLDS(wf.LDS)
-			cu.runWfUntilBarrier(wf)
+	alu := comp.Resources().ALU
+	for !p.isAllWfCompleted(wg) {
+		for _, wf := range p.wfs[wg] {
+			alu.SetLDS(wf.LDS)
+			p.runWfUntilBarrier(comp, wf)
 		}
-		cu.resolveBarrier(wg)
+		p.resolveBarrier(wg)
 	}
 
-	now := cu.TickingComponent.TickScheduler.CurrentTime()
-	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
-	cu.Engine.Schedule(evt)
-
-	return nil
+	completeAt := comp.Spec().Freq.NextTick(now)
+	p.pendingCompletions = append(p.pendingCompletions, pendingWGCompletion{
+		completeAt: completeAt,
+		reqID:      req.ID,
+		workGroup:  wg,
+		dst:        req.Src,
+	})
+	comp.ScheduleWakeAt(completeAt)
 }
 
-func (cu *ComputeUnit) initWfs(
+func (p *cuProcessor) initWfs(
 	wg *kernels.WorkGroup,
-	req *protocol.MapWGReq,
-) error {
-	lds := cu.initLDS(wg, req)
+	req protocol.MapWGReq,
+) {
+	lds := p.initLDS(req)
 
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		managedWf.LDS = lds
 		managedWf.pid = req.PID
-		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
+		p.wfs[wg] = append(p.wfs[wg], managedWf)
 	}
 
-	for _, managedWf := range cu.wfs[wg] {
-		cu.initWfRegs(managedWf)
+	for _, managedWf := range p.wfs[wg] {
+		p.initWfRegs(managedWf)
 	}
-
-	return nil
 }
 
-func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *protocol.MapWGReq) []byte {
+func (p *cuProcessor) initLDS(req protocol.MapWGReq) []byte {
 	ldsSize := req.WorkGroup.Packet.GroupSegmentSize
 	lds := make([]byte, ldsSize)
 	return lds
 }
 
 //nolint:funlen,gocyclo
-func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
+func (p *cuProcessor) initWfRegs(wf *Wavefront) {
 	co := wf.CodeObject
 	pkt := wf.Packet
 
@@ -305,8 +284,8 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	}
 }
 
-func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
-	for _, wf := range cu.wfs[wg] {
+func (p *cuProcessor) isAllWfCompleted(wg *kernels.WorkGroup) bool {
+	for _, wf := range p.wfs[wg] {
 		if !wf.Completed {
 			return false
 		}
@@ -314,22 +293,24 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 	return true
 }
 
-func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
+func (p *cuProcessor) runWfUntilBarrier(comp *Comp, wf *Wavefront) {
 	if wf.Completed {
-		return nil
+		return
 	}
+
+	resources := comp.Resources()
 
 	for {
 		pc := wf.PC()
-		inst, ok := cu.instCache[pc]
+		inst, ok := p.instCache[pc]
 		if !ok {
-			instBuf := cu.storageAccessor.Read(wf.pid, pc, 8)
+			instBuf := resources.StorageAccessor.Read(wf.pid, pc, 8)
 			var err error
-			inst, err = cu.decoder.Decode(instBuf)
+			inst, err = resources.Decoder.Decode(instBuf)
 			if err != nil {
 				log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", pc, err, instBuf)
 			}
-			cu.instCache[pc] = inst
+			p.instCache[pc] = inst
 		}
 		wf.inst = inst
 
@@ -337,42 +318,40 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_BARRIER
 			wf.AtBarrier = true
-			cu.logInst(wf, inst)
+			p.logInst(comp, wf, inst)
 			break
 		}
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_ENDPGM
 			wf.Completed = true
-			cu.logInst(wf, inst)
+			p.logInst(comp, wf, inst)
 			break
 		}
 
-		cu.executeInst(wf)
-		cu.logInst(wf, inst)
+		p.executeInst(comp.Resources().ALU, wf)
+		p.logInst(comp, wf, inst)
 	}
-
-	return nil
 }
 
-func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
-	ctx := sim.HookCtx{
-		Domain: cu,
+func (p *cuProcessor) logInst(comp *Comp, wf *Wavefront, inst *insts.Inst) {
+	ctx := hooking.HookCtx{
+		Domain: comp,
 		Item:   wf,
 		Detail: inst,
 	}
-	cu.InvokeHook(ctx)
+	comp.InvokeHook(ctx)
 }
 
-func (cu *ComputeUnit) executeInst(wf *Wavefront) {
-	cu.alu.Run(wf)
+func (p *cuProcessor) executeInst(alu ALU, wf *Wavefront) {
+	alu.Run(wf)
 }
 
-func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
-	if cu.isAllWfCompleted(wg) {
+func (p *cuProcessor) resolveBarrier(wg *kernels.WorkGroup) {
+	if p.isAllWfCompleted(wg) {
 		return
 	}
 
-	for _, wf := range cu.wfs[wg] {
+	for _, wf := range p.wfs[wg] {
 		if !wf.AtBarrier {
 			log.Panic("not all wavefronts at barrier")
 		}
@@ -380,101 +359,72 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 	}
 }
 
-func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
-	delete(cu.wfs, evt.Req.WorkGroup)
-	found := false
-	for _, r := range cu.finishedMapWGReqs {
-		if r == evt.Req.ID {
-			found = true
-			break
+// completeWorkGroups retires the pending work-group completions that have
+// matured. Once all the in-flight work-groups have completed, it sends a
+// single WGCompletionMsg that acknowledges all of them.
+func (p *cuProcessor) completeWorkGroups(
+	comp *Comp,
+	now timing.VTimeInPicoSec,
+) bool {
+	state := &comp.State
+	progress := false
+	remaining := make([]pendingWGCompletion, 0, len(p.pendingCompletions))
+
+	for _, pc := range p.pendingCompletions {
+		if pc.completeAt > now {
+			remaining = append(remaining, pc)
+			comp.ScheduleWakeAt(pc.completeAt)
+			continue
+		}
+
+		delete(p.wfs, pc.workGroup)
+		if !containsID(state.FinishedMapWGReqIDs, pc.reqID) {
+			state.FinishedMapWGReqIDs =
+				append(state.FinishedMapWGReqIDs, pc.reqID)
+		}
+		state.CompletionDst = pc.dst
+
+		progress = true
+	}
+
+	p.pendingCompletions = remaining
+
+	return p.sendWGCompletionMsg(comp) || progress
+}
+
+func (p *cuProcessor) sendWGCompletionMsg(comp *Comp) bool {
+	state := &comp.State
+
+	if len(state.FinishedMapWGReqIDs) == 0 || len(p.wfs) != 0 {
+		return false
+	}
+
+	port := comp.GetPortByName(DispatchPortName)
+	if !port.CanSend() {
+		// NotifyPortFree will wake the component up to retry.
+		return false
+	}
+
+	msg := protocol.WGCompletionMsg{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: port.AsRemote(),
+			Dst: state.CompletionDst,
+		},
+		RspToIDs: state.FinishedMapWGReqIDs,
+	}
+	port.Send(msg)
+
+	state.FinishedMapWGReqIDs = nil
+
+	return true
+}
+
+func containsID(ids []uint64, id uint64) bool {
+	for _, i := range ids {
+		if i == id {
+			return true
 		}
 	}
-	if !found {
-		cu.finishedMapWGReqs = append(cu.finishedMapWGReqs, evt.Req.ID)
-	}
-
-	if len(cu.wfs) != 0 {
-		return nil
-	}
-
-	req := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(cu.ToDispatcher.AsRemote()).
-		WithDst(evt.Req.Src).
-		WithRspTo(cu.finishedMapWGReqs).
-		Build()
-
-	err := cu.ToDispatcher.Send(req)
-	if err == nil {
-		cu.finishedMapWGReqs = nil
-	} else {
-		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
-			cu, evt.Req)
-		cu.Engine.Schedule(newEvent)
-	}
-
-	return nil
-}
-
-// NewComputeUnit creates a new ComputeUnit with the given name
-func NewComputeUnit(
-	name string,
-	engine sim.Engine,
-	decoder Decoder,
-	alu ALU,
-	sAccessor StorageAccessor,
-) *ComputeUnit {
-	cu := new(ComputeUnit)
-	cu.TickingComponent = sim.NewTickingComponent(name,
-		engine, 1*sim.GHz, cu)
-
-	cu.decoder = decoder
-	cu.alu = alu
-	cu.storageAccessor = sAccessor
-
-	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
-	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
-	cu.instCache = make(map[uint64]*insts.Inst)
-
-	cu.ToDispatcher = sim.NewPort(cu, 1, 1, name+".ToDispatcher")
-
-	return cu
-}
-
-// ALUFactory is a function type that creates an ALU given a storage accessor.
-type ALUFactory func(StorageAccessor) ALU
-
-// BuildComputeUnit builds a compute unit with the default GCN3 ALU.
-func BuildComputeUnit(
-	name string,
-	engine sim.Engine,
-	decoder Decoder,
-	pageTable vm.PageTable,
-	log2PageSize uint64,
-	storage *mem.Storage,
-	addrConverter mem.AddressConverter,
-) *ComputeUnit {
-	return BuildComputeUnitWithALU(
-		name, engine, decoder, pageTable, log2PageSize,
-		storage, addrConverter, func(sa StorageAccessor) ALU {
-			return NewALU(sa)
-		}, false)
-}
-
-// BuildComputeUnitWithALU builds a compute unit with a custom ALU factory.
-func BuildComputeUnitWithALU(
-	name string,
-	engine sim.Engine,
-	decoder Decoder,
-	pageTable vm.PageTable,
-	log2PageSize uint64,
-	storage *mem.Storage,
-	addrConverter mem.AddressConverter,
-	aluFactory ALUFactory,
-	isCDNA3 bool,
-) *ComputeUnit {
-	sAccessor := NewStorageAccessor(
-		storage, pageTable, log2PageSize, addrConverter)
-	alu := aluFactory(sAccessor)
-	cu := NewComputeUnit(name, engine, decoder, alu, sAccessor)
-	return cu
+	return false
 }

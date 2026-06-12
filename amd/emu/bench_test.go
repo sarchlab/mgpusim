@@ -37,10 +37,11 @@ func BenchmarkExecuteInst_VOP2(b *testing.B) {
 	// Set EXEC mask
 	wf.SetEXEC(0xFFFFFFFFFFFFFFFF)
 
-	cu := &ComputeUnit{alu: &mockBenchALU{}}
+	p := &cuProcessor{}
+	alu := &mockBenchALU{}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cu.executeInst(wf)
+		p.executeInst(alu, wf)
 	}
 }

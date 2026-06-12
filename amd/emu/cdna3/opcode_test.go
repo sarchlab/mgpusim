@@ -3,7 +3,7 @@ package cdna3
 import (
 	"testing"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
