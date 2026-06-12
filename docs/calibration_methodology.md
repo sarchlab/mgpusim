@@ -133,11 +133,10 @@ The previous calibration achieved 16.4% WMAPE on 19 benchmarks. The current scop
 
 ## Multi-Parameter Evidence Summary
 
-13 parameters were systematically tested. Only `maxCoalescingPenalty` provides a net WMAPE improvement. GPU frequency provides marginal improvement via uniform scaling. All other parameters (L2, DRAM, CU count, pipeline stages, kernel overhead) have zero or negative net effect. See `accuracy_analysis.md` §8.2 for the comprehensive evidence table.
+13 parameters were systematically tested. Only `maxCoalescingPenalty` provides a net WMAPE improvement. GPU frequency provides marginal improvement via uniform scaling. All other parameters (L2, DRAM, CU count, pipeline stages, kernel overhead) have zero or negative net effect.
 
 ## Files
 
-- `benchmark-comparison/comparison_ci.csv`: Full CI comparison data (353 points)
 - `workloads/results/kernel_timings_20260317-075319-odyssey.csv`: Hardware reference
 - `amd/samples/runner/timingconfig/mi300a/builder.go`: MI300A timing parameters
 

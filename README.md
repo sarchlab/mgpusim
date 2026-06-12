@@ -107,32 +107,6 @@ Papers that use MGPUSim:
 * Exploiting Adaptive Data Compression to Improve Performance and Energy-efficiency of Compute Workloads in Multi-GPU Systems
 
 
-## MI300A Benchmark Workflow
-
-The repository includes a GitHub Actions workflow (`benchmark.yml`) that runs
-the full MI300A benchmark suite and publishes an accuracy report.
-
-### Triggering the workflow
-
-1. Go to **Actions** → **MI300A Benchmark** → **Run workflow**.
-2. Optionally enter a branch name, tag, or commit SHA in the *Git ref* field.
-   Leave it blank to use the default branch.
-3. Click **Run workflow**.
-
-### What the workflow produces
-
-- **Per-benchmark accuracy metrics** — `err = |sim - hw| / hw` and
-  `symmetric_err = |sim - hw| / min(sim, hw)` computed for every matched
-  data point, summarised per benchmark and globally.
-- **CI step summary** — a Markdown summary attached to the workflow run,
-  visible in the *Summary* tab of the Actions run page.
-
-### Where results live
-
-- **GitHub Actions artifacts** — the `accuracy-report` artifact (Markdown
-  source and chart images) and the `benchmark-comparison` artifact (merged
-  CSV files) are retained for 90 days under the workflow run.
-
 ## License
 
 MIT © Project Akita Developers.

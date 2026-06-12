@@ -184,13 +184,9 @@ jobs:
         working-directory: amd/tests/acceptance/
 
   # -------------------------------------------------------------------------
-  # Tiered CI: Only Tier 1 (fast) timing benchmarks run in regular CI.
-  # Slow timing benchmarks (atax, 2dconvolution, 2mm, 3dconvolution, gemm,
-  # gesummv, gramschmidt, mvt, syr2k, backprop, gaussian, hotspot, hotspot3D,
-  # nw, nbody, matrixmultiplication, parboil_sgemm, parboil_sad, parboil_tpacf)
-  # are tested via the MI300A Benchmark workflow (benchmark.yml).
+  # Tiered CI: Only Tier 1 (fast) timing benchmarks run in regular CI to keep
+  # CI runtime bounded. Slow timing benchmarks are excluded from this gate.
   # All benchmarks are still tested in emulation mode above.
-  # See benchmark-comparison/benchmark_tiers.md for tier definitions.
   # -------------------------------------------------------------------------
   cdna3_timing_test:
     name: CDNA3 Timing (${{ matrix.benchmark_group }})
@@ -238,35 +234,3 @@ jobs:
           go build
           ./acceptance -num-gpu=1 --only-timing -benchmark="${{ matrix.benchmark_filter }}"
         working-directory: amd/tests/acceptance/
-
-  python_test:
-    name: Python Test Suite
-    runs-on: self-hosted
-    needs: [unit_test]
-    steps:
-      - name: Clean stale git credentials
-        run: |
-          git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-          git config --system --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          clean: true
-          persist-credentials: false
-
-      - name: Bootstrap pip
-        run: |
-          python3 --version
-          if ! python3 -m pip --version; then
-            python3 -m ensurepip --upgrade --user
-          fi
-          python3 -m pip --version
-
-      - name: Install Python test dependencies
-        run: python3 -m pip install --user --upgrade pytest pandas matplotlib
-
-      - name: Run pytest suite
-        env:
-          PYTHONPATH: .
-        run: python3 -m pytest scripts/tests/ -v

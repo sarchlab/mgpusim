@@ -1,7 +1,0 @@
-benchmark,num_elements,num_repeats,working_set_size,status,returncode,sim_ms,metric_rows,sqlite,wall_s,command
-l1_cache_bw,65536,64,,ok,0,0.002678,3,akita_sim_d80v8e5alt3vq4f76id0.sqlite3,18.499,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 65536 -num_repeats 64"
-l1_cache_bw,131072,64,,ok,0,0.003312,3,akita_sim_d80v8ilalt3vq5tvoml0.sqlite3,43.801,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 131072 -num_repeats 64"
-l1_cache_bw,262144,64,,ok,0,0.005732,3,akita_sim_d80v8tlalt3vq72qfm10.sqlite3,127.288,"./_bench_l1_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 262144 -num_repeats 64"
-l2_cache_bw,65536,64,262144,ok,0,0.005219,3,akita_sim_d80v9vlalt3vqhp2igd0.sqlite3,27.853,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 65536 -num_repeats 64 -working_set_size 262144"
-l2_cache_bw,131072,64,262144,ok,0,0.005348,3,akita_sim_d80va6lalt3vqlefs3i0.sqlite3,66.977,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 131072 -num_repeats 64 -working_set_size 262144"
-l2_cache_bw,262144,64,262144,ok,0,0.006015,3,akita_sim_d80vandalt3vqu2hoo2g.sqlite3,196.603,"./_bench_l2_cache_bw -timing -arch cdna3 -gpu mi300a -disable-rtm -num_elements 262144 -num_repeats 64 -working_set_size 262144"
