@@ -40,7 +40,8 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		page, found := m.driver.pageTable.Find(queue.Context.pid, addr)
+		page, found := m.driver.Resources().PageTable.
+			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
 		}
@@ -52,7 +53,8 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		m.driver.globalStorage.Write(pAddr, rawBytes[offset:offset+sizeToCopy])
+		m.driver.Resources().GlobalStorage.
+			Write(pAddr, rawBytes[offset:offset+sizeToCopy])
 
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
@@ -75,7 +77,8 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		page, found := m.driver.pageTable.Find(queue.Context.pid, addr)
+		page, found := m.driver.Resources().PageTable.
+			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
 		}
@@ -87,7 +90,7 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		data, _ := m.driver.globalStorage.Read(pAddr, sizeToCopy)
+		data, _ := m.driver.Resources().GlobalStorage.Read(pAddr, sizeToCopy)
 		copy(cmd.RawData[offset:], data)
 
 		sizeLeft -= sizeToCopy

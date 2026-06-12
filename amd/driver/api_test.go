@@ -3,37 +3,46 @@ package driver
 import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {
 	c := &NoopCommand{
-		ID: xid.New().String(),
+		ID: timing.GetIDGenerator().Generate(),
 	}
 	d.Enqueue(q, c)
 }
 
 var _ = ginkgo.Describe("Driver async API execution", func() {
 	var (
-		engine    sim.Engine
+		engine    timing.Engine
 		pageTable vm.PageTable
 		driver    *Driver
 	)
 
 	ginkgo.BeforeEach(func() {
 		log2PageSize := uint64(12)
-		engine = sim.NewSerialEngine()
+		engine = timing.NewSerialEngine()
 		pageTable = vm.NewPageTable(log2PageSize)
 
+		spec := DefaultSpec()
+		spec.Log2PageSize = log2PageSize
+
 		driver = MakeBuilder().
-			WithEngine(engine).
-			WithLog2PageSize(log2PageSize).
-			WithPageTable(pageTable).
+			WithRegistrar(modeling.NewStandaloneRegistrar(engine)).
+			WithSpec(spec).
+			WithResources(Resources{PageTable: pageTable}).
 			Build("Driver")
+
+		gpuPort := messaging.NewPort(driver.Comp, 16, 16, "Driver.GPU")
+		(&noopConn{}).PlugIn(gpuPort)
+		driver.AssignPort(GPUPortName, gpuPort)
+
 		gpuDevice := &internal.Device{
 			ID:       1,
 			Type:     internal.DeviceTypeCPU,
@@ -42,6 +51,10 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		gpuDevice.SetTotalMemSize(1 * mem.GB)
 		driver.memAllocator.RegisterDevice(gpuDevice)
 		driver.Run()
+	})
+
+	ginkgo.AfterEach(func() {
+		driver.Terminate()
 	})
 
 	ginkgo.It("should drain queues", func() {
@@ -72,7 +85,7 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		ptr := driver.AllocateMemory(context, 1*mem.MB)
 
 		Expect(context.buffers).To(HaveLen(1))
-		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
+		Expect(context.buffers[0].size).To(Equal(uint64(1 * mem.MB)))
 		Expect(context.buffers[0].vAddr).To(Equal(ptr))
 		Expect(context.buffers[0].freed).To(BeFalse())
 		Expect(context.buffers[0].l2Dirty).To(BeFalse())
@@ -84,16 +97,9 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		ptr := driver.AllocateUnifiedMemory(context, 1*mem.MB)
 
 		Expect(context.buffers).To(HaveLen(1))
-		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
+		Expect(context.buffers[0].size).To(Equal(uint64(1 * mem.MB)))
 		Expect(context.buffers[0].vAddr).To(Equal(ptr))
 		Expect(context.buffers[0].freed).To(BeFalse())
 		Expect(context.buffers[0].l2Dirty).To(BeFalse())
 	})
-
-	// ginkgo.Measure("Memory allocation", func(b ginkgo.Benchmarker) {
-	// 	context := driver.Init()
-	// 	b.Time("runtime", func() {
-	// 		driver.AllocateMemory(context, 400*mem.MB)
-	// 	})
-	// }, 10)
 })
