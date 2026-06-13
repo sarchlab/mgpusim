@@ -65,29 +65,29 @@ type Benchmark struct {
 	useUnifiedMemory bool
 	nbodyKernel      *insts.KernelCodeObject
 
-	Arch         arch.Type
-	NumParticles int32
-	delT             float32   // dT (timestep)
-	espSqr           float32   // Softening Factor
-	initPos          []float32 // initial position
-	initVel          []float32 // initial velocity
-	pos              []float32 // Output position
-	vel              []float32 // Output velocity
-	refPos           []float32 // Reference position
-	refVel           []float32 // Reference velocity
-	groupSize        int32     // Work-Group size
-	NumIterations    int32
-	exchange         bool
-	numBodies        int32
-	currPos          driver.Ptr
-	currVel          driver.Ptr
-	newPos           driver.Ptr
-	newVel           driver.Ptr
-	dPos             *driver.Ptr
-	dVel             *driver.Ptr
-	dNewPos          *driver.Ptr
-	dNewVel          *driver.Ptr
-	localPosBuf      driver.Ptr
+	Arch          arch.Type
+	NumParticles  int32
+	delT          float32   // dT (timestep)
+	espSqr        float32   // Softening Factor
+	initPos       []float32 // initial position
+	initVel       []float32 // initial velocity
+	pos           []float32 // Output position
+	vel           []float32 // Output velocity
+	refPos        []float32 // Reference position
+	refVel        []float32 // Reference velocity
+	groupSize     int32     // Work-Group size
+	NumIterations int32
+	exchange      bool
+	numBodies     int32
+	currPos       driver.Ptr
+	currVel       driver.Ptr
+	newPos        driver.Ptr
+	newVel        driver.Ptr
+	dPos          *driver.Ptr
+	dVel          *driver.Ptr
+	dNewPos       *driver.Ptr
+	dNewVel       *driver.Ptr
+	localPosBuf   driver.Ptr
 }
 
 // NewBenchmark returns a benchmark
@@ -201,23 +201,23 @@ func (b *Benchmark) exec() {
 	for i := int32(0); i < b.NumIterations; i++ {
 		if b.Arch == arch.CDNA3 {
 			args := CDNA3KernelArgs{
-				Pos:               *b.dPos,
-				Vel:               *b.dVel,
-				NumBodies:         b.numBodies,
-				DeltaTime:         b.delT,
-				EpsSqr:            b.espSqr,
-				LocalPos:          b.localPosBuf,
-				NewPosition:       *b.dNewPos,
-				NewVelocity:       *b.dNewVel,
-				HiddenBlockCountX: globalSize[0] / uint32(localSize[0]),
-				HiddenBlockCountY: 1,
-				HiddenBlockCountZ: 1,
-				HiddenGroupSizeX:  localSize[0],
-				HiddenGroupSizeY:  1,
-				HiddenGroupSizeZ:  1,
-				HiddenRemainderX:  uint16(globalSize[0] % uint32(localSize[0])),
-				HiddenRemainderY:  0,
-				HiddenRemainderZ:  0,
+				Pos:                 *b.dPos,
+				Vel:                 *b.dVel,
+				NumBodies:           b.numBodies,
+				DeltaTime:           b.delT,
+				EpsSqr:              b.espSqr,
+				LocalPos:            b.localPosBuf,
+				NewPosition:         *b.dNewPos,
+				NewVelocity:         *b.dNewVel,
+				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
+				HiddenBlockCountY:   1,
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    localSize[0],
+				HiddenGroupSizeY:    1,
+				HiddenGroupSizeZ:    1,
+				HiddenRemainderX:    uint16(globalSize[0] % uint32(localSize[0])),
+				HiddenRemainderY:    0,
+				HiddenRemainderZ:    0,
 				HiddenGlobalOffsetX: 0,
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
@@ -316,20 +316,24 @@ func (b *Benchmark) nbodyCPU() {
 	}
 }
 
-func random(randMax float32, randMin float32) float32 {
-	result := rand.Float32()
+func random(rng *rand.Rand, randMax float32, randMin float32) float32 {
+	result := rng.Float32()
 	result = ((1.0-result)*randMin + result*randMax)
 	return result
 }
 
 func (b *Benchmark) fill() {
+	// Use a local random source so the input is reproducible. The global
+	// generator is seeded randomly at startup (rand.Seed is a no-op since
+	// Go 1.24), which made this benchmark's input differ on every run.
+	rng := rand.New(rand.NewSource(1))
 	for i := int32(0); i < b.numBodies; i++ {
 		index := 4 * i
 
 		for j := int32(0); j < 3; j++ {
-			b.initPos[index+j] = random(3, 50)
+			b.initPos[index+j] = random(rng, 3, 50)
 		}
-		b.initPos[index+3] = random(1, 1000)
+		b.initPos[index+3] = random(rng, 1, 1000)
 
 		for j := int32(0); j < 3; j++ {
 			b.initVel[index+j] = 0.0
