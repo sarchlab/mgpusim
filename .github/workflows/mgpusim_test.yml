@@ -172,9 +172,23 @@ jobs:
         working-directory: amd/tests/acceptance/
 
   gcn3_single_gpu_timing_test:
-    name: GCN3 Single GPU Timing Test
+    name: GCN3 Single GPU Timing Test (${{ matrix.shard.name }})
     runs-on: self-hosted
     needs: [gcn3_emu_test]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Split the timing benchmarks across runners so no single shard
+        # approaches the 60-minute job timeout. nbody dominates the runtime
+        # (~40 min on its own), so it gets a dedicated shard; atax and bicg
+        # are the next heaviest, and everything else fits comfortably together.
+        shard:
+          - name: nbody
+            filter: "^nbody$"
+          - name: polybench
+            filter: "^(atax|bicg)$"
+          - name: others
+            filter: "^(fir|aes|kmeans|pagerank|matrixmultiplication|matrixtranspose|simpleconvolution|floydwarshall|relu|bfs|stencil2d|spmv|fft|vectoradd|nw)$"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -194,7 +208,7 @@ jobs:
         timeout-minutes: 60
         run: |
           go build
-          ./acceptance -num-gpu=1 -arch=gcn3
+          ./acceptance -num-gpu=1 -arch=gcn3 -benchmark='${{ matrix.shard.filter }}'
         working-directory: amd/tests/acceptance/
 
   # =============================================================================
