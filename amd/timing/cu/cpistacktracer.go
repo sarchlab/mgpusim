@@ -273,20 +273,32 @@ func (h *CPIStackTracer) handleRegularTaskStart(task tracing.TaskStart) {
 }
 
 func (h *CPIStackTracer) handleReqStart(task tracing.TaskStart) {
-	if task.What == "ReadReq" || task.What == "WriteReq" {
-		parentTask, found := h.inflightTasks[task.ParentID]
+	if task.What != "ReadReq" && task.What != "WriteReq" {
+		return
+	}
 
-		if !found {
-			panic("Could not find parent task")
-		}
+	parentTask, found := h.inflightTasks[task.ParentID]
+	if !found {
+		// The parent instruction (or fetch) task has already ended. With
+		// coalesced vector-memory accesses, the requests for one instruction
+		// share its task as their parent, and the instruction is completed
+		// when the coalesce-terminating request returns. Because the memory
+		// system may return responses out of order, a sibling request can
+		// return after the instruction task has already ended. Such a
+		// request cannot be attributed, so skip it; handleReqEnd is
+		// symmetric and only accounts for requests classified here.
+		return
+	}
 
-		if parentTask.What == "VMem" {
-			task.What = "VectorMemTransaction"
-			h.handleRegularTaskStart(task)
-		} else if parentTask.What == "Scalar" {
-			task.What = "ScalarMemTransaction"
-			h.handleRegularTaskStart(task)
-		}
+	switch parentTask.What {
+	case "VMem":
+		task.What = "VectorMemTransaction"
+		h.inflightTasks[task.ID] = task
+		h.handleRegularTaskStart(task)
+	case "Scalar":
+		task.What = "ScalarMemTransaction"
+		h.inflightTasks[task.ID] = task
+		h.handleRegularTaskStart(task)
 	}
 }
 
@@ -318,20 +330,15 @@ func (h *CPIStackTracer) handleReqEnd(
 	task tracing.TaskStart,
 	endTime timing.VTimeInPicoSec,
 ) {
-	if task.What == "ReadReq" || task.What == "WriteReq" {
-		parentTask, found := h.inflightTasks[task.ParentID]
-
-		if !found {
-			panic("Could not find parent task")
-		}
-
-		if parentTask.What == "VMem" {
-			task.What = "VectorMemTransaction"
-			h.handleRegularTaskEnd(task, endTime)
-		} else if parentTask.What == "Scalar" {
-			task.What = "ScalarMemTransaction"
-			h.handleRegularTaskEnd(task, endTime)
-		}
+	// task is the request's own task, as persisted by handleReqStart. If the
+	// request was classified as a memory transaction under a VMem/Scalar
+	// instruction, its What was rewritten accordingly at start; account for
+	// it symmetrically here. Requests that were not classified (the parent
+	// instruction task was already gone at start) are skipped, exactly as at
+	// start, so the in-flight counters stay balanced.
+	switch task.What {
+	case "VectorMemTransaction", "ScalarMemTransaction":
+		h.handleRegularTaskEnd(task, endTime)
 	}
 }
 
