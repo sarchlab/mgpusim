@@ -52,24 +52,7 @@ func Float64ToBits(num float64) uint64 {
 	return *((*uint64)((unsafe.Pointer(&num))))
 }
 
-// Unexported aliases for backward compatibility within emu package
-func asInt16(bits uint16) int16     { return AsInt16(bits) }
-func asInt32(bits uint32) int32     { return AsInt32(bits) }
-func asInt64(bits uint64) int64     { return AsInt64(bits) }
-func asFloat32(bits uint32) float32 { return AsFloat32(bits) }
-func asFloat64(bits uint64) float64 { return AsFloat64(bits) }
-func int16ToBits(num int16) uint16  { return Int16ToBits(num) }
-func int32ToBits(num int32) uint32  { return Int32ToBits(num) }
-func int64ToBits(num int64) uint64  { return Int64ToBits(num) }
-func float32ToBits(num float32) uint32 { return Float32ToBits(num) }
-func float64ToBits(num float64) uint64 { return Float64ToBits(num) }
-
 // LaneMasked checks if a lane is active in the EXEC mask.
 func LaneMasked(Exec uint64, laneID uint) bool {
 	return Exec&(1<<laneID) > 0
-}
-
-// laneMasked is the unexported wrapper for backward compatibility.
-func laneMasked(Exec uint64, laneID uint) bool {
-	return LaneMasked(Exec, laneID)
 }

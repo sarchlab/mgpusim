@@ -1,16 +1,17 @@
-package emu
+package gcn3
 
 import (
 	"log"
 
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // flatPrecomputeScalarBase reads the scalar base register once (lane-invariant).
 // Returns (hasSAddr, scalarBase). If hasSAddr is false, scalarBase is unused.
 // GCN3 rules: SAddr is OFF when value is 0x7F or 0.
-func (u *ALUImpl) flatPrecomputeScalarBase(
-	state InstEmuState,
+func (u *ALU) flatPrecomputeScalarBase(
+	state emu.InstEmuState,
 ) (bool, uint64) {
 	inst := state.Inst()
 	if inst.SAddr != nil && inst.SAddr.IntValue != 0x7F && inst.SAddr.IntValue != 0 {
@@ -28,15 +29,15 @@ func (u *ALUImpl) flatPrecomputeScalarBase(
 //   - Signed 13-bit immediate offset (Offset0)
 //
 // GCN3 rules: SAddr is OFF when value is 0x7F or 0.
-func (u *ALUImpl) flatAddr(state InstEmuState, laneID int) uint64 {
+func (u *ALU) flatAddr(state emu.InstEmuState, laneID int) uint64 {
 	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
 	return u.flatAddrWithScalar(state, laneID, hasSAddr, scalarBase)
 }
 
 // flatAddrWithScalar computes the effective address using a precomputed
 // scalar base, avoiding redundant scalar register reads across lanes.
-func (u *ALUImpl) flatAddrWithScalar(
-	state InstEmuState, laneID int,
+func (u *ALU) flatAddrWithScalar(
+	state emu.InstEmuState, laneID int,
 	hasSAddr bool, scalarBase uint64,
 ) uint64 {
 	inst := state.Inst()
@@ -59,7 +60,7 @@ func (u *ALUImpl) flatAddrWithScalar(
 
 //nolint:gocyclo
 //nolint:funlen
-func (u *ALUImpl) runFlat(state InstEmuState) {
+func (u *ALU) runFlat(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 16:
@@ -87,7 +88,7 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
+func (u *ALU) runFlatLoadUByte(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -107,7 +108,7 @@ func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadSByte(state InstEmuState) {
+func (u *ALU) runFlatLoadSByte(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -126,7 +127,7 @@ func (u *ALUImpl) runFlatLoadSByte(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
+func (u *ALU) runFlatLoadUShort(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -145,7 +146,7 @@ func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
+func (u *ALU) runFlatLoadDWord(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -161,7 +162,7 @@ func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadDWordX2(state InstEmuState) {
+func (u *ALU) runFlatLoadDWordX2(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -177,7 +178,7 @@ func (u *ALUImpl) runFlatLoadDWordX2(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
+func (u *ALU) runFlatLoadDWordX4(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -193,7 +194,7 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
+func (u *ALU) runFlatStoreDWord(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -210,7 +211,7 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatStoreDWordX2(state InstEmuState) {
+func (u *ALU) runFlatStoreDWordX2(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -226,7 +227,7 @@ func (u *ALUImpl) runFlatStoreDWordX2(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatStoreDWordX3(state InstEmuState) {
+func (u *ALU) runFlatStoreDWordX3(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -242,7 +243,7 @@ func (u *ALUImpl) runFlatStoreDWordX3(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
+func (u *ALU) runFlatStoreDWordX4(state emu.InstEmuState) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()

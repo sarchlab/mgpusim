@@ -1,11 +1,13 @@
-package emu
+package gcn3
 
 import (
 	"log"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runSOPC(state InstEmuState) {
+func (u *ALU) runSOPC(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -33,7 +35,7 @@ func (u *ALUImpl) runSOPC(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPGTI32(state InstEmuState) {
+func (u *ALU) runSCMPGTI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -44,7 +46,7 @@ func (u *ALUImpl) runSCMPGTI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPLTI32(state InstEmuState) {
+func (u *ALU) runSCMPLTI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -55,7 +57,7 @@ func (u *ALUImpl) runSCMPLTI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPLEI32(state InstEmuState) {
+func (u *ALU) runSCMPLEI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -66,7 +68,7 @@ func (u *ALUImpl) runSCMPLEI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPGEI32(state InstEmuState) {
+func (u *ALU) runSCMPGEI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -77,7 +79,7 @@ func (u *ALUImpl) runSCMPGEI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {
+func (u *ALU) runSCMPEQU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -88,7 +90,7 @@ func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPLGU32(state InstEmuState) {
+func (u *ALU) runSCMPLGU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -99,7 +101,7 @@ func (u *ALUImpl) runSCMPLGU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPGTU32(state InstEmuState) {
+func (u *ALU) runSCMPGTU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -110,7 +112,7 @@ func (u *ALUImpl) runSCMPGTU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPLTU32(state InstEmuState) {
+func (u *ALU) runSCMPLTU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))

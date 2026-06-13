@@ -1,9 +1,13 @@
-package emu
+package gcn3
 
-import "log"
+import (
+	"log"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+)
 
 //nolint:gocyclo
-func (u *ALUImpl) runSOP1(state InstEmuState) {
+func (u *ALU) runSOP1(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -39,19 +43,19 @@ func (u *ALUImpl) runSOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMOVB32(state InstEmuState) {
+func (u *ALU) runSMOVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	state.WriteOperand(inst.Dst, 0, src0)
 }
 
-func (u *ALUImpl) runSMOVB64(state InstEmuState) {
+func (u *ALU) runSMOVB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	state.WriteOperand(inst.Dst, 0, src0)
 }
 
-func (u *ALUImpl) runSNOTU32(state InstEmuState) {
+func (u *ALU) runSNOTU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	dst := ^src0
@@ -61,7 +65,7 @@ func (u *ALUImpl) runSNOTU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSBREVB32(state InstEmuState) {
+func (u *ALU) runSBREVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	dst := uint32(0)
@@ -75,13 +79,13 @@ func (u *ALUImpl) runSBREVB32(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, uint64(dst))
 }
 
-func (u *ALUImpl) runSGETPCB64(state InstEmuState) {
+func (u *ALU) runSGETPCB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	pc := state.PC()
 	state.WriteOperand(inst.Dst, 0, pc+4)
 }
 
-func (u *ALUImpl) runSANDSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSANDSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -95,7 +99,7 @@ func (u *ALUImpl) runSANDSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSORSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSORSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -109,7 +113,7 @@ func (u *ALUImpl) runSORSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSXORSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSXORSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -123,7 +127,7 @@ func (u *ALUImpl) runSXORSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSANDN2SAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSANDN2SAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -137,7 +141,7 @@ func (u *ALUImpl) runSANDN2SAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSORN2SAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSORN2SAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -151,7 +155,7 @@ func (u *ALUImpl) runSORN2SAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSNANDSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSNANDSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -165,7 +169,7 @@ func (u *ALUImpl) runSNANDSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSNORSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSNORSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -179,7 +183,7 @@ func (u *ALUImpl) runSNORSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSNXORSAVEEXECB64(state InstEmuState) {
+func (u *ALU) runSNXORSAVEEXECB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	exec := state.EXEC()
@@ -193,7 +197,7 @@ func (u *ALUImpl) runSNXORSAVEEXECB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSABSI32(state InstEmuState) {
+func (u *ALU) runSABSI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	var result int32
