@@ -280,12 +280,17 @@ var _ = Describe("CommandProcessor", func() {
 
 		tickUntilQuiet()
 
-		// Drain -> Flush the L1 caches, then the L2 caches, then re-enable.
+		// Drain -> Flush -> Invalidate the L1 caches, then the L2 caches, then
+		// re-enable. The Invalidate matches v4's flush, which unconditionally
+		// reset the cache directory (dropping all lines) on every flush.
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
+		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain,
 			cp.State.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush,
+			cp.State.L2Caches)
+		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate,
 			cp.State.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
 
