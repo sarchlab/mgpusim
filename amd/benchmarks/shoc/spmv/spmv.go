@@ -142,8 +142,12 @@ func (b *Benchmark) initMem() {
 	b.vec = make([]float32, b.Dim)
 	b.out = make([]float32, b.Dim)
 
+	// Use a local random source so the input is reproducible. The global
+	// generator is seeded randomly at startup (rand.Seed is a no-op since
+	// Go 1.24), which made this benchmark's input differ on every run.
+	rng := rand.New(rand.NewSource(1))
 	for j := int32(0); j < b.Dim; j++ {
-		b.vec[j] = (rand.Float32() * b.maxval)
+		b.vec[j] = (rng.Float32() * b.maxval)
 	}
 
 	if b.useUnifiedMemory {

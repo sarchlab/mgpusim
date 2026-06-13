@@ -9,6 +9,7 @@ type MatrixGenerator struct {
 	values                   []float32
 	positionOccupied         map[uint32]bool
 	xCoordIndex, yCoordIndex map[uint32][]uint32
+	rng                      *rand.Rand
 }
 
 // MakeMatrixGenerator returns a matrixGenerator
@@ -16,6 +17,10 @@ func MakeMatrixGenerator(numNode, numConnection uint32) MatrixGenerator {
 	return MatrixGenerator{
 		numNode:       numNode,
 		numConnection: numConnection,
+		// Use a local random source so the generated matrix is reproducible.
+		// The global generator is seeded randomly at startup (rand.Seed is a
+		// no-op since Go 1.24), which made the matrix differ on every run.
+		rng: rand.New(rand.NewSource(1)),
 	}
 }
 
@@ -111,7 +116,7 @@ func (g MatrixGenerator) sumColumn(i uint32) float32 {
 
 func (g *MatrixGenerator) generateOneConnection() {
 	x, y := g.generateUnoccupiedPosition()
-	v := rand.Float32()
+	v := g.rng.Float32()
 	g.xCoords = append(g.xCoords, x)
 	g.yCoords = append(g.yCoords, y)
 	g.values = append(g.values, v)
@@ -128,8 +133,8 @@ func (g *MatrixGenerator) generateOneConnection() {
 
 func (g MatrixGenerator) generateUnoccupiedPosition() (x, y uint32) {
 	for {
-		x = uint32(rand.Int()) % g.numNode
-		y = uint32(rand.Int()) % g.numNode
+		x = uint32(g.rng.Int()) % g.numNode
+		y = uint32(g.rng.Int()) % g.numNode
 		if !g.isPositionOccupied(x, y) {
 			g.markPositionOccupied(x, y)
 			return

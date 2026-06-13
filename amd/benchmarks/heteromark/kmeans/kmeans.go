@@ -217,10 +217,15 @@ func (b *Benchmark) initMem() {
 		}
 	}
 
-	rand.Seed(0)
+	// Use a local random source seeded with a fixed value so the generated
+	// input is reproducible across runs. The top-level rand.Seed has been a
+	// no-op since Go 1.24, so seeding the global generator no longer yields a
+	// deterministic sequence; that made the feature data (and therefore the
+	// clustering result) differ on every run.
+	rng := rand.New(rand.NewSource(0))
 	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
 	for i := 0; i < b.NumPoints*b.NumFeatures; i++ {
-		b.hFeatures[i] = rand.Float32()
+		b.hFeatures[i] = rng.Float32()
 		// b.hFeatures[i] = float32(i)
 	}
 

@@ -21,12 +21,18 @@ import (
 // compound semantics map to verb sequences as follows (see
 // akita/mem/CONTROL_PROTOCOL.md):
 //
-//   - Driver flush (v4 cache.FlushReq with no flags: write back dirty data,
-//     keep lines valid, keep running): per cache level,
-//     CmdDrain -> CmdFlush -> CmdEnable. Drain (rather than Pause) is needed
-//     because CmdFlush only starts once no transaction is in flight. L1
-//     caches are drained/flushed before L2 caches so that in-flight L1
-//     misses can still complete in the L2.
+//   - Driver flush (v4 cache.FlushReq with no flags): per cache level,
+//     CmdDrain -> CmdFlush -> CmdInvalidate, then CmdEnable for all caches.
+//     Drain (rather than Pause) is needed because CmdFlush only starts once
+//     no transaction is in flight. L1 caches are drained/flushed before L2
+//     caches so that in-flight L1 misses can still complete in the L2. The
+//     CmdInvalidate is required for correctness: v4's flush unconditionally
+//     reset the cache directory (writeback flusher.go and writethrough
+//     controlstage.go both call directory.Reset() on every flush), so a plain
+//     v4 flush dropped all cache lines, not just wrote back dirty data.
+//     Without invalidation a kernel that reads a buffer rewritten by a host
+//     MemCopy (e.g. the per-iteration cluster buffer in kmeans) hits stale
+//     cache lines and computes incorrect results.
 //   - Shootdown cache flush (v4 cache.FlushReq with PauseAfterFlushing +
 //     DiscardInflight + InvalidateAllCacheLines): per cache level,
 //     CmdDrain -> CmdFlush -> CmdInvalidate, and the cache stays paused.
@@ -58,7 +64,8 @@ import (
 //
 // Flush (driver protocol.FlushReq -> protocol.GeneralRsp):
 //
-//	Drain L1s -> Flush L1s -> Drain L2s -> Flush L2s -> Enable all caches.
+//	Drain L1s -> Flush L1s -> Invalidate L1s ->
+//	Drain L2s -> Flush L2s -> Invalidate L2s -> Enable all caches.
 //
 // Shootdown (driver protocol.ShootDownCommand ->
 // protocol.ShootDownCompleteRsp):
@@ -457,14 +464,20 @@ func (m *ctrlMiddleware) execFlushStep(step int) int {
 			m.l1Caches(), memcontrolprotocol.CmdFlush, nil, 0)
 	case 2:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			state.L2Caches, memcontrolprotocol.CmdDrain, nil, 0)
+			m.l1Caches(), memcontrolprotocol.CmdInvalidate, nil, 0)
 	case 3:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			state.L2Caches, memcontrolprotocol.CmdFlush, nil, 0)
+			state.L2Caches, memcontrolprotocol.CmdDrain, nil, 0)
 	case 4:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			m.allCaches(), memcontrolprotocol.CmdEnable, nil, 0)
+			state.L2Caches, memcontrolprotocol.CmdFlush, nil, 0)
 	case 5:
+		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
+			state.L2Caches, memcontrolprotocol.CmdInvalidate, nil, 0)
+	case 6:
+		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
+			m.allCaches(), memcontrolprotocol.CmdEnable, nil, 0)
+	case 7:
 		state.PendingDriverRsps = append(
 			state.PendingDriverRsps, driverRspFlushDone)
 		state.CtrlSeq = ctrlSeqNone
