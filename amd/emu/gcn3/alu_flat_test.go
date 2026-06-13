@@ -1,10 +1,11 @@
-package emu
+package gcn3
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"go.uber.org/mock/gomock"
 )
@@ -15,11 +16,11 @@ var _ = Describe("ALU", func() {
 		mockCtrl  *gomock.Controller
 		pageTable *MockPageTable
 
-		alu           *ALUImpl
+		alu           *ALU
 		state         *mockInstState
 		storage       *mem.Storage
 		addrConverter *mem.InterleavingConverter
-		sAccessor     StorageAccessor
+		sAccessor     emu.StorageAccessor
 	)
 
 	BeforeEach(func() {
@@ -33,7 +34,7 @@ var _ = Describe("ALU", func() {
 			CurrentElementIndex: 0,
 			Offset:              0,
 		}
-		sAccessor = NewStorageAccessor(storage, pageTable, 12, addrConverter)
+		sAccessor = emu.NewStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
 		state = newMockInstState()

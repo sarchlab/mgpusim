@@ -1,12 +1,14 @@
-package emu
+package gcn3
 
 import (
 	"log"
 	"math"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runVOPC(state InstEmuState) {
+func (u *ALU) runVOPC(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0x41: // v_cmp_lt_f32
@@ -76,7 +78,7 @@ func (u *ALUImpl) runVOPC(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCmpLtF32(state InstEmuState) {
+func (u *ALU) runVCmpLtF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -93,7 +95,7 @@ func (u *ALUImpl) runVCmpLtF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpEqF32(state InstEmuState) {
+func (u *ALU) runVCmpEqF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -110,7 +112,7 @@ func (u *ALUImpl) runVCmpEqF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLeF32(state InstEmuState) {
+func (u *ALU) runVCmpLeF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -127,7 +129,7 @@ func (u *ALUImpl) runVCmpLeF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLgF32(state InstEmuState) {
+func (u *ALU) runVCmpLgF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -144,7 +146,7 @@ func (u *ALUImpl) runVCmpLgF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGtF32(state InstEmuState) {
+func (u *ALU) runVCmpGtF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -161,7 +163,7 @@ func (u *ALUImpl) runVCmpGtF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGeF32(state InstEmuState) {
+func (u *ALU) runVCmpGeF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -178,7 +180,7 @@ func (u *ALUImpl) runVCmpGeF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNgeF32(state InstEmuState) {
+func (u *ALU) runVCmpNgeF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -195,7 +197,7 @@ func (u *ALUImpl) runVCmpNgeF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNlgF32(state InstEmuState) {
+func (u *ALU) runVCmpNlgF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -212,7 +214,7 @@ func (u *ALUImpl) runVCmpNlgF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNgtF32(state InstEmuState) {
+func (u *ALU) runVCmpNgtF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -229,7 +231,7 @@ func (u *ALUImpl) runVCmpNgtF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNleF32(state InstEmuState) {
+func (u *ALU) runVCmpNleF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -246,7 +248,7 @@ func (u *ALUImpl) runVCmpNleF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNeqF32(state InstEmuState) {
+func (u *ALU) runVCmpNeqF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -263,7 +265,7 @@ func (u *ALUImpl) runVCmpNeqF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNltF32(state InstEmuState) {
+func (u *ALU) runVCmpNltF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -280,7 +282,7 @@ func (u *ALUImpl) runVCmpNltF32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLtI32(state InstEmuState) {
+func (u *ALU) runVCmpLtI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -298,7 +300,7 @@ func (u *ALUImpl) runVCmpLtI32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLeI32(state InstEmuState) {
+func (u *ALU) runVCmpLeI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -316,7 +318,7 @@ func (u *ALUImpl) runVCmpLeI32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGtI32(state InstEmuState) {
+func (u *ALU) runVCmpGtI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -334,7 +336,7 @@ func (u *ALUImpl) runVCmpGtI32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLgI32(state InstEmuState) {
+func (u *ALU) runVCmpLgI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -352,7 +354,7 @@ func (u *ALUImpl) runVCmpLgI32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGeI32(state InstEmuState) {
+func (u *ALU) runVCmpGeI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -370,7 +372,7 @@ func (u *ALUImpl) runVCmpGeI32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLtU32(state InstEmuState) {
+func (u *ALU) runVCmpLtU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -388,7 +390,7 @@ func (u *ALUImpl) runVCmpLtU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
+func (u *ALU) runVCmpEqU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -404,7 +406,7 @@ func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLeU32(state InstEmuState) {
+func (u *ALU) runVCmpLeU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -421,7 +423,7 @@ func (u *ALUImpl) runVCmpLeU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGtU32(state InstEmuState) {
+func (u *ALU) runVCmpGtU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -438,7 +440,7 @@ func (u *ALUImpl) runVCmpGtU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpNeU32(state InstEmuState) {
+func (u *ALU) runVCmpNeU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -455,7 +457,7 @@ func (u *ALUImpl) runVCmpNeU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGeU32(state InstEmuState) {
+func (u *ALU) runVCmpGeU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -472,7 +474,7 @@ func (u *ALUImpl) runVCmpGeU32(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpFU64(state InstEmuState) {
+func (u *ALU) runVCmpFU64(state emu.InstEmuState) {
 	exec := state.EXEC()
 	var vcc uint64
 	for i := 0; i < 64; i++ {
@@ -485,7 +487,7 @@ func (u *ALUImpl) runVCmpFU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLtU64(state InstEmuState) {
+func (u *ALU) runVCmpLtU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -502,7 +504,7 @@ func (u *ALUImpl) runVCmpLtU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpEqU64(state InstEmuState) {
+func (u *ALU) runVCmpEqU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -519,7 +521,7 @@ func (u *ALUImpl) runVCmpEqU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLeU64(state InstEmuState) {
+func (u *ALU) runVCmpLeU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -536,7 +538,7 @@ func (u *ALUImpl) runVCmpLeU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGtU64(state InstEmuState) {
+func (u *ALU) runVCmpGtU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -553,7 +555,7 @@ func (u *ALUImpl) runVCmpGtU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpLgU64(state InstEmuState) {
+func (u *ALU) runVCmpLgU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -570,7 +572,7 @@ func (u *ALUImpl) runVCmpLgU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpGeU64(state InstEmuState) {
+func (u *ALU) runVCmpGeU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -587,7 +589,7 @@ func (u *ALUImpl) runVCmpGeU64(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVCmpTruU64(state InstEmuState) {
+func (u *ALU) runVCmpTruU64(state emu.InstEmuState) {
 	exec := state.EXEC()
 	var vcc uint64
 	for i := 0; i < 64; i++ {

@@ -1,4 +1,4 @@
-package emu
+package gcn3
 
 import (
 	"math"
@@ -23,7 +23,7 @@ func writeVRegU64(state *mockInstState, lane, reg int, val uint64) {
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALUImpl
+		alu   *ALU
 		state *mockInstState
 	)
 

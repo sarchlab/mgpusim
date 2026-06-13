@@ -7,7 +7,7 @@ import (
 	"github.com/sarchlab/akita/v5/modeling"
 	"github.com/sarchlab/akita/v5/queueing"
 	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/gcn3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -71,7 +71,7 @@ func (b Builder) WithSpec(spec Spec) Builder {
 }
 
 // WithResources sets the shared references of the compute unit. Decoder and
-// ALU default to insts.NewDisassembler() and emu.NewALU(nil) when left nil.
+// ALU default to insts.NewDisassembler() and gcn3.NewALU(nil) when left nil.
 func (b Builder) WithResources(resources Resources) Builder {
 	b.resources = resources
 	return b
@@ -150,7 +150,7 @@ func (b *Builder) fillResourceDefaults() {
 	}
 
 	if b.resources.ALU == nil {
-		b.resources.ALU = emu.NewALU(nil)
+		b.resources.ALU = gcn3.NewALU(nil)
 	}
 }
 

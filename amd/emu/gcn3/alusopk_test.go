@@ -1,4 +1,4 @@
-package emu
+package gcn3
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -9,7 +9,7 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALUImpl
+		alu   *ALU
 		state *mockInstState
 	)
 

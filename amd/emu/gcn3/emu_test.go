@@ -1,4 +1,4 @@
-package emu
+package gcn3
 
 import (
 	"log"

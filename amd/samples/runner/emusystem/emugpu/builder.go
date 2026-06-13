@@ -17,6 +17,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/gcn3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -144,7 +145,7 @@ func (b Builder) buildComputeUnit(
 	if isCDNA3 {
 		alu = cdna3.NewALU(storageAccessor)
 	} else {
-		alu = emu.NewALU(storageAccessor)
+		alu = gcn3.NewALU(storageAccessor)
 	}
 
 	spec := emu.DefaultSpec()

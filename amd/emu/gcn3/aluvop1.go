@@ -1,12 +1,14 @@
-package emu
+package gcn3
 
 import (
 	"log"
 	"math"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runVOP1(state InstEmuState) {
+func (u *ALU) runVOP1(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 1:
@@ -59,7 +61,7 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMOVB32(state InstEmuState) {
+func (u *ALU) runVMOVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -72,7 +74,7 @@ func (u *ALUImpl) runVMOVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
+func (u *ALU) runVREADFIRSTLANEB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var laneid int
@@ -90,7 +92,7 @@ func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF64I32(state InstEmuState) {
+func (u *ALU) runVCVTF64I32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -104,7 +106,7 @@ func (u *ALUImpl) runVCVTF64I32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF32I32(state InstEmuState) {
+func (u *ALU) runVCVTF32I32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -118,7 +120,7 @@ func (u *ALUImpl) runVCVTF32I32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF32U32(state InstEmuState) {
+func (u *ALU) runVCVTF32U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -132,7 +134,7 @@ func (u *ALUImpl) runVCVTF32U32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTU32F32(state InstEmuState) {
+func (u *ALU) runVCVTU32F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -157,7 +159,7 @@ func (u *ALUImpl) runVCVTU32F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
+func (u *ALU) runVCVTI32F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -181,7 +183,7 @@ func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runTRUNKF32(state InstEmuState) {
+func (u *ALU) runTRUNKF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -195,7 +197,7 @@ func (u *ALUImpl) runTRUNKF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runRNDNEF32(state InstEmuState) {
+func (u *ALU) runRNDNEF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -209,7 +211,7 @@ func (u *ALUImpl) runRNDNEF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runEXPF32(state InstEmuState) {
+func (u *ALU) runEXPF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -223,7 +225,7 @@ func (u *ALUImpl) runEXPF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runLOGF32(state InstEmuState) {
+func (u *ALU) runLOGF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -237,7 +239,7 @@ func (u *ALUImpl) runLOGF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVRSQF32(state InstEmuState) {
+func (u *ALU) runVRSQF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -251,7 +253,7 @@ func (u *ALUImpl) runVRSQF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
+func (u *ALU) runVRCPIFLAGF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -265,7 +267,7 @@ func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVNOTB32(state InstEmuState) {
+func (u *ALU) runVNOTB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -279,7 +281,7 @@ func (u *ALUImpl) runVNOTB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runBFREVB32(state InstEmuState) {
+func (u *ALU) runBFREVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -300,7 +302,7 @@ func (u *ALUImpl) runBFREVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF32UBYTE0(state InstEmuState) {
+func (u *ALU) runVCVTF32UBYTE0(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -314,7 +316,7 @@ func (u *ALUImpl) runVCVTF32UBYTE0(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF64F32(state InstEmuState) {
+func (u *ALU) runVCVTF64F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -327,7 +329,7 @@ func (u *ALUImpl) runVCVTF64F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVRCPF64(state InstEmuState) {
+func (u *ALU) runVRCPF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -341,7 +343,7 @@ func (u *ALUImpl) runVRCPF64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSQRTF32(state InstEmuState) {
+func (u *ALU) runVSQRTF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -355,7 +357,7 @@ func (u *ALUImpl) runVSQRTF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF32F64(state InstEmuState) {
+func (u *ALU) runVCVTF32F64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -369,7 +371,7 @@ func (u *ALUImpl) runVCVTF32F64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
+func (u *ALU) runVCVTF16F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -400,7 +402,7 @@ func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runLogLegacyF32(state InstEmuState) {
+func (u *ALU) runLogLegacyF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {

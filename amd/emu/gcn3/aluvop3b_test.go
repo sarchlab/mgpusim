@@ -1,4 +1,4 @@
-package emu
+package gcn3
 
 import (
 	"math"
@@ -11,7 +11,7 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALUImpl
+		alu   *ALU
 		state *mockInstState
 	)
 

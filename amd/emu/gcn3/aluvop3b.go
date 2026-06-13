@@ -1,11 +1,13 @@
-package emu
+package gcn3
 
 import (
 	"log"
 	"math"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
-func (u *ALUImpl) runVOP3B(state InstEmuState) {
+func (u *ALU) runVOP3B(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	u.vop3aPreprocess(state)
@@ -32,7 +34,7 @@ func (u *ALUImpl) runVOP3B(state InstEmuState) {
 	u.vop3aPostprocess(state)
 }
 
-func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
+func (u *ALU) runVADDU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -51,7 +53,7 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
-func (u *ALUImpl) runVSUBU32VOP3b(state InstEmuState) {
+func (u *ALU) runVSUBU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -70,7 +72,7 @@ func (u *ALUImpl) runVSUBU32VOP3b(state InstEmuState) {
 	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
-func (u *ALUImpl) runVSUBREVU32VOP3b(state InstEmuState) {
+func (u *ALU) runVSUBREVU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -89,7 +91,7 @@ func (u *ALUImpl) runVSUBREVU32VOP3b(state InstEmuState) {
 	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
-func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
+func (u *ALU) runVADDCU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -111,7 +113,7 @@ func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
 	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
-func (u *ALUImpl) runVSUBBU32VOP3b(state InstEmuState) {
+func (u *ALU) runVSUBBU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -133,7 +135,7 @@ func (u *ALUImpl) runVSUBBU32VOP3b(state InstEmuState) {
 	state.WriteOperand(inst.SDst, 0, sdst)
 }
 
-func (u *ALUImpl) runVSUBBREVU32VOP3b(state InstEmuState) {
+func (u *ALU) runVSUBBREVU32VOP3b(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var sdst uint64
@@ -156,7 +158,7 @@ func (u *ALUImpl) runVSUBBREVU32VOP3b(state InstEmuState) {
 }
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
+func (u *ALU) runVDIVSCALEF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
