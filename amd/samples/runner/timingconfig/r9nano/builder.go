@@ -574,6 +574,15 @@ func (b *Builder) hbmDRAMSpec() dram.Spec {
 	spec.NumRow = dramRow
 	spec.CommandQueueCapacity = 8
 	spec.TransactionQueueSize = 32
+	applyHBMTimings(&spec)
+
+	return spec
+}
+
+// applyHBMTimings applies the v4 dram.HBM timing parameters onto spec.
+//
+//nolint:unused
+func applyHBMTimings(spec *dram.Spec) {
 	spec.TCL = 7
 	spec.TCWL = 2
 	spec.TRCDRD = 7
@@ -591,8 +600,6 @@ func (b *Builder) hbmDRAMSpec() dram.Spec {
 	spec.TRTRS = 0
 	spec.TRTP = 3
 	spec.TPPD = 2
-
-	return spec
 }
 
 func (b *Builder) buildRDMAEngine() {

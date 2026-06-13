@@ -67,6 +67,10 @@ func (m *respondPipelineMW) parseTranslation() bool {
 	}
 
 	// Then, process new translation responses.
+	return m.processTranslationRsp()
+}
+
+func (m *respondPipelineMW) processTranslationRsp() bool {
 	rspI := m.translationPort().PeekIncoming()
 	if rspI == nil {
 		return false
