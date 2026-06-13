@@ -570,7 +570,13 @@ func (b *Builder) buildTLB(
 func (b *Builder) buildL1VTLBs() {
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
-		tlbComp := b.buildTLB(name, 4, 64, 64, 32, 1)
+		// v4 used a 1-cycle TLB. The v5 TLB inserts requests into its
+		// lookup pipeline with a 1-cycle dwell at stage 0; with a
+		// single-stage pipeline (Latency=1) the dwell counter of items
+		// already at the last stage is never decremented (akita
+		// v5.0.0-beta.2 queueing.Pipeline), so the request deadlocks.
+		// Latency=2 is the minimum functional value.
+		tlbComp := b.buildTLB(name, 4, 64, 64, 32, 2)
 		b.sa.L1VTLBs = append(b.sa.L1VTLBs, tlbComp)
 	}
 }
@@ -661,7 +667,10 @@ func (b *Builder) buildL1SCache() {
 	spec.NumReqPerCycle = 32
 	spec.TotalByteSize = 16 * mem.KB
 	spec.MaxNumConcurrentTrans = 16 // v4 writethrough default
-	spec.DirLatency = 0             // v4 writethrough default
+	// v4 writethrough had a 0-cycle directory stage. The v5 directory
+	// pipeline needs at least 1 stage (a 0-stage pipeline never releases
+	// items), so this adds one cycle of directory latency vs v4.
+	spec.DirLatency = 1
 
 	name := fmt.Sprintf("%s.L1SCache", b.name)
 	b.sa.L1SCache = b.buildL1Cache(name, spec, b.l1AddressMapper)
@@ -699,7 +708,10 @@ func (b *Builder) buildL1ICache() {
 	spec.NumReqPerCycle = 4
 	spec.TotalByteSize = 32 * mem.KB
 	spec.MaxNumConcurrentTrans = 16 // v4 writethrough default
-	spec.DirLatency = 0             // v4 writethrough default
+	// v4 writethrough had a 0-cycle directory stage. The v5 directory
+	// pipeline needs at least 1 stage (a 0-stage pipeline never releases
+	// items), so this adds one cycle of directory latency vs v4.
+	spec.DirLatency = 1
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	b.sa.L1ICache = b.buildL1Cache(name, spec,

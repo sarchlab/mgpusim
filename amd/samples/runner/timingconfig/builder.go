@@ -9,7 +9,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/networking/pcie"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
 	"github.com/sarchlab/akita/v5/simulation"
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
@@ -101,14 +101,9 @@ func (b Builder) Build() *driver.Driver {
 	gpuDriver := b.buildGPUDriver(pageTable)
 
 	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
-	pcieConnector, rootComplexID :=
-		b.createConnection(gpuDriver, mmuComp)
+	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
 
-	b.createGPUs(
-		rootComplexID, pcieConnector,
-		gpuBuilder, gpuDriver)
-
-	pcieConnector.EstablishRoute()
+	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
 
 	return gpuDriver
 }
@@ -224,39 +219,37 @@ func (b *Builder) createGPUBuilder(
 }
 
 func (b *Builder) createGPUs(
-	rootComplexID int,
-	pcieConnector *pcie.Connector,
+	interDeviceConn *directconnection.Comp,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
 ) {
-	lastSwitchID := rootComplexID
 	for i := 1; i < b.numGPUs+1; i++ {
-		if i%2 == 1 {
-			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
-		}
-
-		b.createGPU(i, gpuBuilder, gpuDriver,
-			pcieConnector, lastSwitchID)
+		b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn)
 	}
 }
 
+// createConnection creates the inter-device connection that links the
+// driver, the MMU, and the GPUs' external ports.
+//
+// NOTE(akita5): v4 used the PCIe network here. The Akita v5.0.0-beta.2
+// switching network (pcie included) is traffic-only — endpoints deliver
+// metadata-only packetization.AssembledMsg values instead of the original
+// messages — so it cannot carry MGPUSim's protocol messages. Until upstream
+// provides payload delivery, the platform uses a direct connection, which
+// delivers real messages but does not model PCIe/switch latency.
 func (b *Builder) createConnection(
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.Comp,
-) (*pcie.Connector, int) {
-	pcieConnector := pcie.NewConnector().
-		WithEngine(b.simulation.GetEngine()).
-		WithVersion(4, 16).
-		WithSwitchLatency(b.switchLatency)
+) *directconnection.Comp {
+	conn := directconnection.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: 1 * timing.GHz}).
+		Build("InterDeviceConn")
 
-	pcieConnector.CreateNetwork("PCIe")
-	rootComplexID := pcieConnector.AddRootComplex(
-		[]messaging.Port{
-			gpuDriver.GetPortByName(driver.GPUPortName),
-			mmuComponent.GetPortByName("Top"),
-		})
+	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
+	conn.PlugIn(mmuComponent.GetPortByName("Top"))
 
-	return pcieConnector, rootComplexID
+	return conn
 }
 
 func (b *Builder) createRDMAAddressMapper() {
@@ -270,8 +263,7 @@ func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	pcieConnector *pcie.Connector,
-	pcieSwitchID int,
+	interDeviceConn *directconnection.Comp,
 ) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * b.gpuMemSize
@@ -291,7 +283,9 @@ func (b *Builder) createGPU(
 
 	b.configRDMAEngine(gpu)
 
-	pcieConnector.PlugInDevice(pcieSwitchID, gpu.ExternalPorts())
+	for _, port := range gpu.ExternalPorts() {
+		interDeviceConn.PlugIn(port)
+	}
 
 	return gpu
 }

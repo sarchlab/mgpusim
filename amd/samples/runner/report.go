@@ -4,10 +4,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sarchlab/akita/v4/datarecording"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/datarecording"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -15,6 +16,12 @@ import (
 const (
 	tableName = "mgpusim_metrics"
 )
+
+// secondsOf converts a simulated time in picoseconds to seconds, keeping the
+// reported metrics in the same unit as the v4 reports.
+func secondsOf(t timing.VTimeInPicoSec) float64 {
+	return float64(t) * 1e-12
+}
 
 type metric struct {
 	Location string
@@ -39,12 +46,12 @@ type cacheLatencyTracer struct {
 }
 
 type cacheHitRateTracer struct {
-	tracer *tracing.StepCountTracer
+	tracer *tracing.TagCountTracer
 	cache  tracing.NamedHookable
 }
 
 type tlbHitRateTracer struct {
-	tracer *tracing.StepCountTracer
+	tracer *tracing.TagCountTracer
 	tlb    tracing.NamedHookable
 }
 
@@ -118,40 +125,35 @@ func (r *reporter) injectTracers(s *simulation.Simulation) {
 }
 
 func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
+	driverComp := s.GetComponentByName("Driver").(tracing.NamedHookable)
+
 	if *unifiedGPUFlag != "" {
 		tracer := tracing.NewBusyTimeTracer(
-			s.GetEngine(),
-			func(task tracing.Task) bool {
+			func(task tracing.TaskStart) bool {
 				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
 			})
-		tracing.CollectTrace(
-			s.GetComponentByName("Driver").(tracing.NamedHookable),
-			tracer)
+		tracing.CollectTrace(driverComp, tracer)
 		r.kernelTimeTracer = &kernelTimeTracer{
 			tracer: tracer,
-			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
+			comp:   driverComp,
 		}
 	} else {
 		tracer := tracing.NewBusyTimeTracer(
-			s.GetEngine(),
-			func(task tracing.Task) bool {
+			func(task tracing.TaskStart) bool {
 				return task.What == "*driver.LaunchKernelCommand"
 			})
-		tracing.CollectTrace(
-			s.GetComponentByName("Driver").(tracing.NamedHookable),
-			tracer)
+		tracing.CollectTrace(driverComp, tracer)
 		r.kernelTimeTracer = &kernelTimeTracer{
 			tracer: tracer,
-			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
+			comp:   driverComp,
 		}
 	}
 
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "CommandProcessor") {
 			tracer := tracing.NewBusyTimeTracer(
-				s.GetEngine(),
-				func(task tracing.Task) bool {
-					return task.What == "*protocol.LaunchKernelReq"
+				func(task tracing.TaskStart) bool {
+					return task.What == "LaunchKernelReq"
 				})
 			tracing.CollectTrace(
 				comp.(tracing.NamedHookable),
@@ -192,7 +194,7 @@ func (r *reporter) injectCUCPIHook(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "CU") {
 			tracer := cu.NewCPIStackInstHook(
-				comp.(*cu.ComputeUnit), s.GetEngine())
+				comp.(*cu.Comp), s.GetEngine())
 			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 
 			r.cuCPITraces = append(r.cuCPITraces,
@@ -212,8 +214,7 @@ func (r *reporter) injectCacheLatencyTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "Cache") {
 			tracer := tracing.NewAverageTimeTracer(
-				s.GetEngine(),
-				func(task tracing.Task) bool {
+				func(task tracing.TaskStart) bool {
 					return task.Kind == "req_in"
 				})
 			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
@@ -233,8 +234,8 @@ func (r *reporter) injectCacheHitRateTracer(s *simulation.Simulation) {
 
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "Cache") {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
+			tracer := tracing.NewTagCountTracer(
+				func(task tracing.TaskStart) bool { return true })
 			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				&cacheHitRateTracer{
 					tracer: tracer,
@@ -252,8 +253,8 @@ func (r *reporter) injectTLBHitRateTracer(s *simulation.Simulation) {
 
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "TLB") {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
+			tracer := tracing.NewTagCountTracer(
+				func(task tracing.TaskStart) bool { return true })
 			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
 				&tlbHitRateTracer{
 					tracer: tracer,
@@ -274,14 +275,18 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 			t := &rdmaTransactionCountTracer{}
 			t.rdmaEngine = comp.(*rdma.Comp)
 			t.incomingTracer = tracing.NewAverageTimeTracer(
-				s.GetEngine(),
-				func(task tracing.Task) bool {
+				func(task tracing.TaskStart) bool {
 					if task.Kind != "req_in" {
 						return false
 					}
 
+					msg, ok := task.Detail.(messaging.Msg)
+					if !ok {
+						return false
+					}
+
 					isFromOutside := strings.Contains(
-						string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
+						string(msg.Meta().Src), "RDMA")
 					if !isFromOutside {
 						return false
 					}
@@ -289,14 +294,18 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 					return true
 				})
 			t.outgoingTracer = tracing.NewAverageTimeTracer(
-				s.GetEngine(),
-				func(task tracing.Task) bool {
+				func(task tracing.TaskStart) bool {
 					if task.Kind != "req_in" {
 						return false
 					}
 
+					msg, ok := task.Detail.(messaging.Msg)
+					if !ok {
+						return false
+					}
+
 					isFromOutside := strings.Contains(
-						string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
+						string(msg.Meta().Src), "RDMA")
 					if isFromOutside {
 						return false
 					}
@@ -321,7 +330,7 @@ func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
 		if strings.Contains(comp.Name(), "DRAM") {
 			t := &dramTransactionCountTracer{}
 			t.dram = comp.(tracing.NamedHookable)
-			t.tracer = newDramTracer(s.GetEngine())
+			t.tracer = newDramTracer()
 
 			tracing.CollectTrace(t.dram, t.tracer)
 
@@ -330,24 +339,37 @@ func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
 	}
 }
 
+// injectSIMDBusyTimeTracer attaches a busy-time tracer to every SIMD unit.
+// SIMD units are no longer stand-alone components registered with the
+// simulation; they are sub-components of the compute units, reachable
+// through cu.MiddlewareOf.
 func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 	if !*reportAll && !*simdBusyTimeTracerFlag {
 		return
 	}
 
 	for _, comp := range s.Components() {
-		if strings.Contains(comp.Name(), "SIMD") {
+		cuComp, ok := comp.(*cu.Comp)
+		if !ok || !strings.Contains(comp.Name(), "CU") {
+			continue
+		}
+
+		for _, simdUnit := range cu.MiddlewareOf(cuComp).SIMDUnit {
+			simd, ok := simdUnit.(tracing.NamedHookable)
+			if !ok {
+				continue
+			}
+
 			perSIMDBusyTimeTracer := tracing.NewBusyTimeTracer(
-				s.GetEngine(),
-				func(task tracing.Task) bool {
+				func(task tracing.TaskStart) bool {
 					return task.Kind == "pipeline"
 				})
 			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers,
 				&simdBusyTimeTracer{
 					tracer: perSIMDBusyTimeTracer,
-					simd:   comp.(tracing.NamedHookable),
+					simd:   simd,
 				})
-			tracing.CollectTrace(comp.(tracing.NamedHookable), perSIMDBusyTimeTracer)
+			tracing.CollectTrace(simd, perSIMDBusyTimeTracer)
 		}
 	}
 }
@@ -365,7 +387,7 @@ func (r *reporter) report() {
 }
 
 func (r *reporter) reportKernelTime() {
-	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime())
+	kernelTime := secondsOf(r.kernelTimeTracer.tracer.BusyTime())
 	r.dataRecorder.InsertData(
 		tableName,
 		metric{
@@ -377,7 +399,7 @@ func (r *reporter) reportKernelTime() {
 	)
 
 	for _, t := range r.perGPUKernelTimeTracers {
-		kernelTime := float64(t.tracer.BusyTime())
+		kernelTime := secondsOf(t.tracer.BusyTime())
 		r.dataRecorder.InsertData(
 			tableName,
 			metric{
@@ -391,9 +413,9 @@ func (r *reporter) reportKernelTime() {
 }
 
 func (r *reporter) reportInstCount() {
-	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime())
+	kernelTime := secondsOf(r.kernelTimeTracer.tracer.BusyTime())
 	for _, t := range r.instCountTracers {
-		cuFreq := float64(t.cu.(*cu.ComputeUnit).Freq)
+		cuFreq := float64(t.cu.(*cu.Comp).Spec().Freq)
 		numCycle := kernelTime * cuFreq
 
 		r.dataRecorder.InsertData(
@@ -490,7 +512,7 @@ func (r *reporter) reportSIMDBusyTime() {
 			metric{
 				Location: t.simd.Name(),
 				What:     "busy_time",
-				Value:    float64(t.tracer.BusyTime()),
+				Value:    secondsOf(t.tracer.BusyTime()),
 				Unit:     "second",
 			},
 		)
@@ -508,7 +530,7 @@ func (r *reporter) reportCacheLatency() {
 			metric{
 				Location: tracer.cache.Name(),
 				What:     "req_average_latency",
-				Value:    float64(tracer.tracer.AverageTime()),
+				Value:    secondsOf(tracer.tracer.AverageTime()),
 				Unit:     "second",
 			},
 		)
@@ -517,12 +539,12 @@ func (r *reporter) reportCacheLatency() {
 
 func (r *reporter) reportCacheHitRate() {
 	for _, tracer := range r.cacheHitRateTracers {
-		readHit := tracer.tracer.GetStepCount("read-hit")
-		readMiss := tracer.tracer.GetStepCount("read-miss")
-		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-hit")
-		writeHit := tracer.tracer.GetStepCount("write-hit")
-		writeMiss := tracer.tracer.GetStepCount("write-miss")
-		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-hit")
+		readHit := tracer.tracer.GetTagCount("read-hit")
+		readMiss := tracer.tracer.GetTagCount("read-miss")
+		readMSHRHit := tracer.tracer.GetTagCount("read-mshr-hit")
+		writeHit := tracer.tracer.GetTagCount("write-hit")
+		writeMiss := tracer.tracer.GetTagCount("write-miss")
+		writeMSHRHit := tracer.tracer.GetTagCount("write-mshr-hit")
 
 		totalTransaction := readHit + readMiss + readMSHRHit +
 			writeHit + writeMiss + writeMSHRHit
@@ -572,9 +594,9 @@ func (r *reporter) reportCacheHitRate() {
 
 func (r *reporter) reportTLBHitRate() {
 	for _, tracer := range r.tlbHitRateTracers {
-		hit := tracer.tracer.GetStepCount("hit")
-		miss := tracer.tracer.GetStepCount("miss")
-		mshrHit := tracer.tracer.GetStepCount("mshr-hit")
+		hit := tracer.tracer.GetTagCount("hit")
+		miss := tracer.tracer.GetTagCount("miss")
+		mshrHit := tracer.tracer.GetTagCount("mshr-hit")
 
 		totalTransaction := hit + miss + mshrHit
 
@@ -660,7 +682,7 @@ func (r *reporter) reportDRAMTransactionCount() {
 			metric{
 				Location: t.dram.Name(),
 				What:     "read_avg_latency",
-				Value:    float64(t.tracer.readAvgLatency),
+				Value:    t.tracer.readAvgLatency,
 				Unit:     "second",
 			},
 		)
@@ -669,7 +691,7 @@ func (r *reporter) reportDRAMTransactionCount() {
 			metric{
 				Location: t.dram.Name(),
 				What:     "write_avg_latency",
-				Value:    float64(t.tracer.writeAvgLatency),
+				Value:    t.tracer.writeAvgLatency,
 				Unit:     "second",
 			},
 		)

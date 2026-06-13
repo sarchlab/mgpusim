@@ -50,8 +50,6 @@ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
-github.com/sarchlab/akita/v4 v4.9.2 h1:mirnKwLkUn5WY+wtMg/gO5+LGqjlWPIqbZGUr3QOsq4=
-github.com/sarchlab/akita/v4 v4.9.2/go.mod h1:vVlir6nufR0z98VzAaWRx0pgKKyEyEtufmAMGghPFQw=
 github.com/sarchlab/akita/v5 v5.0.0-beta.2 h1:da8+RKBzzWiglI4Wr9qgdssMLUZxy3HPKg0FTnKhOIY=
 github.com/sarchlab/akita/v5 v5.0.0-beta.2/go.mod h1:UGHq9nGVRnk+NXDqybX44UHjCX2Uhjd1xpm60nRkfh0=
 github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=

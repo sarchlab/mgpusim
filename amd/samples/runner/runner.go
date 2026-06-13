@@ -8,8 +8,8 @@ import (
 	_ "net/http/pprof"
 	"sync"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
@@ -27,7 +27,7 @@ type verificationPreEnablingBenchmark interface {
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	simulation *simulation.Simulation
-	platform   *sim.Domain
+	gpuDriver  *driver.Driver
 	reporter   *reporter
 
 	Timing           bool
@@ -77,6 +77,12 @@ func (r *Runner) initSimulation() {
 		builder = builder.WithVisTracingOnStart()
 	}
 
+	// Only honor -metric-file-name when it is explicitly set, so the
+	// default output name stays the v4-compatible "akita_sim_<id>".
+	if metricFileNameFlagIsSet() {
+		builder = builder.WithOutputFileName(*filenameFlag)
+	}
+
 	r.simulation = builder.Build()
 }
 
@@ -90,7 +96,7 @@ func (r *Runner) buildEmuPlatform() {
 		b = b.WithDebugISA()
 	}
 
-	r.platform = b.Build()
+	r.gpuDriver = b.Build()
 }
 
 func (r *Runner) buildTimingPlatform() {
@@ -105,7 +111,7 @@ func (r *Runner) buildTimingPlatform() {
 		b = b.WithMagicMemoryCopy()
 	}
 
-	r.platform = b.Build()
+	r.gpuDriver = b.Build()
 	r.reporter = newReporter(r.simulation)
 }
 
@@ -114,8 +120,7 @@ func (r *Runner) createUnifiedGPUs() {
 		return
 	}
 
-	driver := r.simulation.GetComponentByName("Driver").(*driver.Driver)
-	unifiedGPUID := driver.CreateUnifiedGPU(nil, r.GPUIDs)
+	unifiedGPUID := r.gpuDriver.CreateUnifiedGPU(nil, r.GPUIDs)
 	r.GPUIDs = []int{unifiedGPUID}
 }
 
@@ -174,10 +179,10 @@ func (r *Runner) Run() {
 
 // Driver returns the GPU driver used by the current runner.
 func (r *Runner) Driver() *driver.Driver {
-	return r.simulation.GetComponentByName("Driver").(*driver.Driver)
+	return r.gpuDriver
 }
 
 // Engine returns the event-driven simulation engine used by the current runner.
-func (r *Runner) Engine() sim.Engine {
+func (r *Runner) Engine() timing.Engine {
 	return r.simulation.GetEngine()
 }
