@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
 	"github.com/sarchlab/akita/v5/messaging"
@@ -20,7 +21,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/mem/simplebankedmemory"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -550,14 +550,24 @@ func (b *Builder) buildDRAMControllers() {
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 
+		// Storage is global: all 16 DRAM controllers share one mem.Storage and
+		// read/write it at the request's address (no storage conversion).
+		//
+		// The L2->DRAM mapper interleaves addresses across the 16 controllers
+		// at log2MemoryBankInterleavingSize (128 B), so each controller sees a
+		// strided address. The bank selector is a contiguous-bit modulo, so to
+		// stripe finely across all 16 banks we first strip the inter-controller
+		// interleave with the bank-selection conversion (BankAddrConv*);
+		// BankSelectorLog2InterleaveSize=6 then stripes the resulting
+		// controller-local address at 64 B granularity. The conversion affects
+		// bank selection only — storage stays global.
 		spec := simplebankedmemory.DefaultSpec()
 		spec.Freq = 1 * timing.GHz
 		spec.NumBanks = 16
 		spec.BankPipelineWidth = 1
 		spec.BankPipelineDepth = 5
 		spec.StageLatency = 1
-		spec.RowBufferSizeLog2 = 11
-		spec.RowMissDelay = 52
+		spec.BankSelectorKind = "interleaved"
 		spec.BankSelectorLog2InterleaveSize = 6
 		spec.PostPipelineBufSize = 128
 		spec.BankAddrConvKind = "interleaving"
@@ -566,16 +576,13 @@ func (b *Builder) buildDRAMControllers() {
 		spec.BankAddrCurrentElementIndex = i
 		spec.Capacity = memBankSize
 
-		memBuilder := simplebankedmemory.MakeBuilder().
+		dramComp := simplebankedmemory.MakeBuilder().
 			WithRegistrar(b.simulation).
-			WithSpec(spec)
-
-		if b.globalStorage != nil {
-			memBuilder = memBuilder.WithResources(
-				simplebankedmemory.Resources{Storage: b.globalStorage})
-		}
-
-		dramComp := memBuilder.Build(dramName)
+			WithSpec(spec).
+			WithResources(simplebankedmemory.Resources{
+				Storage: b.globalStorage,
+			}).
+			Build(dramName)
 
 		b.buildPort(dramComp, "Top", dramTopPortBufSize)
 		b.buildPort(dramComp, "Control", ctrlPortBufSize)
