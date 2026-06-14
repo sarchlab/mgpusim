@@ -1,10 +1,11 @@
-package emu
+package gcn3
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"go.uber.org/mock/gomock"
 )
@@ -150,13 +151,13 @@ func (s *mockInstState) WriteOperandBytes(operand *insts.Operand, laneID int, da
 	s.WriteReg(operand.Register, operand.RegCount, laneID, data)
 }
 
-func (s *mockInstState) EXEC() uint64    { return s.exec }
+func (s *mockInstState) EXEC() uint64     { return s.exec }
 func (s *mockInstState) SetEXEC(v uint64) { s.exec = v }
-func (s *mockInstState) VCC() uint64     { return s.vcc }
+func (s *mockInstState) VCC() uint64      { return s.vcc }
 func (s *mockInstState) SetVCC(v uint64)  { s.vcc = v }
-func (s *mockInstState) SCC() byte       { return s.scc }
+func (s *mockInstState) SCC() byte        { return s.scc }
 func (s *mockInstState) SetSCC(v byte)    { s.scc = v }
-func (s *mockInstState) PC() uint64      { return s.pc }
+func (s *mockInstState) PC() uint64       { return s.pc }
 func (s *mockInstState) SetPC(v uint64)   { s.pc = v }
 
 var _ = Describe("ALU", func() {
@@ -165,11 +166,11 @@ var _ = Describe("ALU", func() {
 		mockCtrl  *gomock.Controller
 		pageTable *MockPageTable
 
-		alu           *ALUImpl
+		alu           *ALU
 		state         *mockInstState
 		storage       *mem.Storage
 		addrConverter *mem.InterleavingConverter
-		sAccessor     StorageAccessor
+		sAccessor     emu.StorageAccessor
 	)
 
 	BeforeEach(func() {
@@ -183,7 +184,7 @@ var _ = Describe("ALU", func() {
 			CurrentElementIndex: 0,
 			Offset:              0,
 		}
-		sAccessor = NewStorageAccessor(storage, pageTable, 12, addrConverter)
+		sAccessor = emu.NewStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
 		state = newMockInstState()

@@ -167,9 +167,13 @@ func (b *Benchmark) initMem() {
 	b.expandedKey = expandedKey
 	b.s = s
 
+	// Use a local random source so the input is reproducible. The global
+	// generator is seeded randomly at startup (rand.Seed is a no-op since
+	// Go 1.24), which made this benchmark's input differ on every run.
+	rng := rand.New(rand.NewSource(1))
 	b.input = make([]byte, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.input[i] = byte(rand.Uint32())
+		b.input[i] = byte(rng.Uint32())
 		//b.input[i] = byte(i)
 		// b.input[i] = 0
 	}

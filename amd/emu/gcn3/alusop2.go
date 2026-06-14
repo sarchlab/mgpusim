@@ -1,14 +1,15 @@
-package emu
+package gcn3
 
 import (
 	"log"
 	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runSOP2(state InstEmuState) {
+func (u *ALU) runSOP2(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -64,7 +65,7 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSADDU32(state InstEmuState) {
+func (u *ALU) runSADDU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -81,7 +82,7 @@ func (u *ALUImpl) runSADDU32(state InstEmuState) {
 	state.SetSCC(scc)
 }
 
-func (u *ALUImpl) runSSUBU32(state InstEmuState) {
+func (u *ALU) runSSUBU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -94,7 +95,7 @@ func (u *ALUImpl) runSSUBU32(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runSADDI32(state InstEmuState) {
+func (u *ALU) runSADDI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -111,7 +112,7 @@ func (u *ALUImpl) runSADDI32(state InstEmuState) {
 	state.SetSCC(scc)
 }
 
-func (u *ALUImpl) runSSUBI32(state InstEmuState) {
+func (u *ALU) runSSUBI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -128,7 +129,7 @@ func (u *ALUImpl) runSSUBI32(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, uint64(int32ToBits(dst)))
 }
 
-func (u *ALUImpl) runSADDCU32(state InstEmuState) {
+func (u *ALU) runSADDCU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))
@@ -145,7 +146,7 @@ func (u *ALUImpl) runSADDCU32(state InstEmuState) {
 	state.SetSCC(scc)
 }
 
-func (u *ALUImpl) runSSUBBU32(state InstEmuState) {
+func (u *ALU) runSSUBBU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -161,7 +162,7 @@ func (u *ALUImpl) runSSUBBU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMINI32(state InstEmuState) {
+func (u *ALU) runSMINI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -176,7 +177,7 @@ func (u *ALUImpl) runSMINI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMINU32(state InstEmuState) {
+func (u *ALU) runSMINU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -189,7 +190,7 @@ func (u *ALUImpl) runSMINU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMAXI32(state InstEmuState) {
+func (u *ALU) runSMAXI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -204,7 +205,7 @@ func (u *ALUImpl) runSMAXI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMAXU32(state InstEmuState) {
+func (u *ALU) runSMAXU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -217,7 +218,7 @@ func (u *ALUImpl) runSMAXU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCSELECTB32(state InstEmuState) {
+func (u *ALU) runSCSELECTB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -230,7 +231,7 @@ func (u *ALUImpl) runSCSELECTB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSANDB32(state InstEmuState) {
+func (u *ALU) runSANDB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -244,7 +245,7 @@ func (u *ALUImpl) runSANDB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSANDB64(state InstEmuState) {
+func (u *ALU) runSANDB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -258,7 +259,7 @@ func (u *ALUImpl) runSANDB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSORB64(state InstEmuState) {
+func (u *ALU) runSORB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -272,7 +273,7 @@ func (u *ALUImpl) runSORB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSXORB64(state InstEmuState) {
+func (u *ALU) runSXORB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -286,7 +287,7 @@ func (u *ALUImpl) runSXORB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSANDN2B64(state InstEmuState) {
+func (u *ALU) runSANDN2B64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -300,7 +301,7 @@ func (u *ALUImpl) runSANDN2B64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSLSHLB32(state InstEmuState) {
+func (u *ALU) runSLSHLB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := uint32(state.ReadOperand(inst.Src0, 0))
 	src1 := uint8(state.ReadOperand(inst.Src1, 0))
@@ -315,7 +316,7 @@ func (u *ALUImpl) runSLSHLB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
+func (u *ALU) runSLSHLB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := uint8(state.ReadOperand(inst.Src1, 0))
@@ -330,7 +331,7 @@ func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSLSHRB32(state InstEmuState) {
+func (u *ALU) runSLSHRB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -345,7 +346,7 @@ func (u *ALUImpl) runSLSHRB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSLSHRB64(state InstEmuState) {
+func (u *ALU) runSLSHRB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -360,7 +361,7 @@ func (u *ALUImpl) runSLSHRB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSASHRI32(state InstEmuState) {
+func (u *ALU) runSASHRI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := uint8(state.ReadOperand(inst.Src1, 0))
@@ -375,7 +376,7 @@ func (u *ALUImpl) runSASHRI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSBFMB32(state InstEmuState) {
+func (u *ALU) runSBFMB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := state.ReadOperand(inst.Src0, 0)
 	src1 := state.ReadOperand(inst.Src1, 0)
@@ -384,7 +385,7 @@ func (u *ALUImpl) runSBFMB32(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runSMULI32(state InstEmuState) {
+func (u *ALU) runSMULI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
@@ -397,7 +398,7 @@ func (u *ALUImpl) runSMULI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSBFEI32(state InstEmuState) {
+func (u *ALU) runSBFEI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
 	src1 := uint32(state.ReadOperand(inst.Src1, 0))

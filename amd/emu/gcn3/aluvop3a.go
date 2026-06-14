@@ -1,4 +1,4 @@
-package emu
+package gcn3
 
 import (
 	"log"
@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -44,7 +45,7 @@ func applyB32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
 }
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runVOP3A(state InstEmuState) {
+func (u *ALU) runVOP3A(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	u.vop3aPreprocess(state)
@@ -138,11 +139,11 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 	u.vop3aPostprocess(state)
 }
 
-func (u *ALUImpl) vop3aPreprocess(state InstEmuState) {
+func (u *ALU) vop3aPreprocess(state emu.InstEmuState) {
 	// No-op: modifiers are now applied inline via applyF32Modifier/applyF64Modifier/applyB32Modifier
 }
 
-func (u *ALUImpl) vop3aPostprocess(state InstEmuState) {
+func (u *ALU) vop3aPostprocess(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if inst.Omod != 0 {
@@ -150,7 +151,7 @@ func (u *ALUImpl) vop3aPostprocess(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLtF32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -167,7 +168,7 @@ func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpGtF32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpGtF32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -184,7 +185,7 @@ func (u *ALUImpl) runVCmpGtF32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpNltF32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpNltF32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -201,7 +202,7 @@ func (u *ALUImpl) runVCmpNltF32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLtI32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLtI32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -218,7 +219,7 @@ func (u *ALUImpl) runVCmpLtI32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLeI32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLeI32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -235,7 +236,7 @@ func (u *ALUImpl) runVCmpLeI32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpGtI32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpGtI32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -252,7 +253,7 @@ func (u *ALUImpl) runVCmpGtI32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpGEI32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpGEI32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -269,7 +270,7 @@ func (u *ALUImpl) runVCmpGEI32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLtU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLtU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -286,7 +287,7 @@ func (u *ALUImpl) runVCmpLtU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpEqU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -303,7 +304,7 @@ func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLeU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLeU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -320,7 +321,7 @@ func (u *ALUImpl) runVCmpLeU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpGtU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpGtU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -337,7 +338,7 @@ func (u *ALUImpl) runVCmpGtU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLgU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLgU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -354,7 +355,7 @@ func (u *ALUImpl) runVCmpLgU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpGeU32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -371,7 +372,7 @@ func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCmpLtU64VOP3a(state InstEmuState) {
+func (u *ALU) runVCmpLtU64VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var dst uint64
@@ -388,7 +389,7 @@ func (u *ALUImpl) runVCmpLtU64VOP3a(state InstEmuState) {
 	state.WriteOperand(inst.Dst, 0, dst)
 }
 
-func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
+func (u *ALU) runVCNDMASKB32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -406,7 +407,7 @@ func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBF32VOP3a(state InstEmuState) {
+func (u *ALU) runVSUBF32VOP3a(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -420,7 +421,7 @@ func (u *ALUImpl) runVSUBF32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMADF32(state InstEmuState) {
+func (u *ALU) runVMADF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -435,7 +436,7 @@ func (u *ALUImpl) runVMADF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMADI32I24(state InstEmuState) {
+func (u *ALU) runVMADI32I24(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -451,7 +452,7 @@ func (u *ALUImpl) runVMADI32I24(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMADU64U32(state InstEmuState) {
+func (u *ALU) runVMADU64U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -465,7 +466,7 @@ func (u *ALUImpl) runVMADU64U32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVBFEU32(state InstEmuState) {
+func (u *ALU) runVBFEU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -486,7 +487,7 @@ func (u *ALUImpl) runVBFEU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVBFEI32(state InstEmuState) {
+func (u *ALU) runVBFEI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -514,7 +515,7 @@ func (u *ALUImpl) runVBFEI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADD3U32(state InstEmuState) {
+func (u *ALU) runVADD3U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -528,7 +529,7 @@ func (u *ALUImpl) runVADD3U32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVLSHLADDU64(state InstEmuState) {
+func (u *ALU) runVLSHLADDU64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -542,7 +543,7 @@ func (u *ALUImpl) runVLSHLADDU64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMULLOU32(state InstEmuState) {
+func (u *ALU) runVMULLOU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -555,7 +556,7 @@ func (u *ALUImpl) runVMULLOU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMULHIU32(state InstEmuState) {
+func (u *ALU) runVMULHIU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -568,7 +569,7 @@ func (u *ALUImpl) runVMULHIU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVLSHLREVB64(state InstEmuState) {
+func (u *ALU) runVLSHLREVB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -581,7 +582,7 @@ func (u *ALUImpl) runVLSHLREVB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
+func (u *ALU) runVASHRREVI64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -594,7 +595,7 @@ func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADDF64(state InstEmuState) {
+func (u *ALU) runVADDF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -611,7 +612,7 @@ func (u *ALUImpl) runVADDF64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVFMAF64(state InstEmuState) {
+func (u *ALU) runVFMAF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -629,7 +630,7 @@ func (u *ALUImpl) runVFMAF64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMIN3F32(state InstEmuState) {
+func (u *ALU) runVMIN3F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -653,7 +654,7 @@ func (u *ALUImpl) runVMIN3F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMIN3I32(state InstEmuState) {
+func (u *ALU) runVMIN3I32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -677,7 +678,7 @@ func (u *ALUImpl) runVMIN3I32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMIN3U32(state InstEmuState) {
+func (u *ALU) runVMIN3U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -701,7 +702,7 @@ func (u *ALUImpl) runVMIN3U32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAX3F32(state InstEmuState) {
+func (u *ALU) runVMAX3F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -725,7 +726,7 @@ func (u *ALUImpl) runVMAX3F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAX3I32(state InstEmuState) {
+func (u *ALU) runVMAX3I32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -749,7 +750,7 @@ func (u *ALUImpl) runVMAX3I32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAX3U32(state InstEmuState) {
+func (u *ALU) runVMAX3U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -773,7 +774,7 @@ func (u *ALUImpl) runVMAX3U32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMED3F32(state InstEmuState) {
+func (u *ALU) runVMED3F32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -792,7 +793,7 @@ func (u *ALUImpl) runVMED3F32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMED3I32(state InstEmuState) {
+func (u *ALU) runVMED3I32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -812,7 +813,7 @@ func (u *ALUImpl) runVMED3I32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMED3U32(state InstEmuState) {
+func (u *ALU) runVMED3U32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -844,7 +845,7 @@ func median3Uint32(a, b, c uint32) uint32 {
 	return out
 }
 
-func (u *ALUImpl) runVMULF64(state InstEmuState) {
+func (u *ALU) runVMULF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -861,7 +862,7 @@ func (u *ALUImpl) runVMULF64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVDIVFMASF64(state InstEmuState) {
+func (u *ALU) runVDIVFMASF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
@@ -885,7 +886,7 @@ func (u *ALUImpl) runVDIVFMASF64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVDIVFIXUPF64(state InstEmuState) {
+func (u *ALU) runVDIVFIXUPF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	if inst.IsSdwa {
 		log.Panicf("SDWA for VOP3A instruction opcode %d not implemented \n", inst.Opcode)
@@ -903,7 +904,7 @@ func (u *ALUImpl) runVDIVFIXUPF64(state InstEmuState) {
 }
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) calculateDivFixUpF64(
+func (u *ALU) calculateDivFixUpF64(
 	src0Bits, src1Bits, src2Bits uint64,
 ) uint64 {
 	signS1 := src1Bits >> 63
@@ -958,14 +959,14 @@ func (u *ALUImpl) calculateDivFixUpF64(
 	return math.Float64bits(dst)
 }
 
-func (u *ALUImpl) isInfByInf(src1, src2 float64) bool {
+func (u *ALU) isInfByInf(src1, src2 float64) bool {
 	return (math.Abs(src1) == 0x7FF0000000000000 ||
 		math.Abs(src1) == 0xFFF0000000000000) &&
 		(math.Abs(src2) == 0x7FF0000000000000 ||
 			math.Abs(src2) == 0xFFF0000000000000)
 }
 
-func (u *ALUImpl) isDIVFIXUPF64Overflow(
+func (u *ALU) isDIVFIXUPF64Overflow(
 	exponentSrc1, exponentSrc2 uint64,
 ) bool {
 	return int64(exponentSrc2-exponentSrc1) < -1075 ||

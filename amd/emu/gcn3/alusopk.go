@@ -1,10 +1,12 @@
-package emu
+package gcn3
 
 import (
 	"log"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
-func (u *ALUImpl) runSOPK(state InstEmuState) {
+func (u *ALU) runSOPK(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -22,13 +24,13 @@ func (u *ALUImpl) runSOPK(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMOVKI32(state InstEmuState) {
+func (u *ALU) runSMOVKI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
 	state.WriteOperand(inst.Dst, 0, uint64(imm))
 }
 
-func (u *ALUImpl) runSCMOVKI32(state InstEmuState) {
+func (u *ALU) runSCMOVKI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if state.SCC() == 1 {
 		imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
@@ -36,7 +38,7 @@ func (u *ALUImpl) runSCMOVKI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPKEQI32(state InstEmuState) {
+func (u *ALU) runSCMPKEQI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
 	dst := state.ReadOperand(inst.Dst, 0)
@@ -47,7 +49,7 @@ func (u *ALUImpl) runSCMPKEQI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSCMPKLGI32(state InstEmuState) {
+func (u *ALU) runSCMPKLGI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
 	dst := state.ReadOperand(inst.Dst, 0)
@@ -58,7 +60,7 @@ func (u *ALUImpl) runSCMPKLGI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runSMULKI32(state InstEmuState) {
+func (u *ALU) runSMULKI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
 	dst := asInt32(uint32(state.ReadOperand(inst.Dst, 0)))

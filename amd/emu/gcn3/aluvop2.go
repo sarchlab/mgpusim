@@ -1,15 +1,16 @@
-package emu
+package gcn3
 
 import (
 	"log"
 	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 //nolint:gocyclo,funlen
-func (u *ALUImpl) runVOP2(state InstEmuState) {
+func (u *ALU) runVOP2(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -85,7 +86,7 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVCNDMASKB32(state InstEmuState) {
+func (u *ALU) runVCNDMASKB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -106,7 +107,7 @@ func (u *ALUImpl) runVCNDMASKB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADDF32(state InstEmuState) {
+func (u *ALU) runVADDF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -125,7 +126,7 @@ func (u *ALUImpl) runVADDF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBF32(state InstEmuState) {
+func (u *ALU) runVSUBF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -144,7 +145,7 @@ func (u *ALUImpl) runVSUBF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBREVF32(state InstEmuState) {
+func (u *ALU) runVSUBREVF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -163,7 +164,7 @@ func (u *ALUImpl) runVSUBREVF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMULF32(state InstEmuState) {
+func (u *ALU) runVMULF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -182,7 +183,7 @@ func (u *ALUImpl) runVMULF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMULI32I24(state InstEmuState) {
+func (u *ALU) runVMULI32I24(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -204,7 +205,7 @@ func (u *ALUImpl) runVMULI32I24(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMULU32U24(state InstEmuState) {
+func (u *ALU) runVMULU32U24(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 
@@ -220,7 +221,7 @@ func (u *ALUImpl) runVMULU32U24(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMINF32(state InstEmuState) {
+func (u *ALU) runVMINF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -243,7 +244,7 @@ func (u *ALUImpl) runVMINF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAXF32(state InstEmuState) {
+func (u *ALU) runVMAXF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -266,7 +267,7 @@ func (u *ALUImpl) runVMAXF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMINI32(state InstEmuState) {
+func (u *ALU) runVMINI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 
@@ -288,7 +289,7 @@ func (u *ALUImpl) runVMINI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAXI32(state InstEmuState) {
+func (u *ALU) runVMAXI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 
@@ -310,7 +311,7 @@ func (u *ALUImpl) runVMAXI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMINU32(state InstEmuState) {
+func (u *ALU) runVMINU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 
@@ -332,7 +333,7 @@ func (u *ALUImpl) runVMINU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMAXU32(state InstEmuState) {
+func (u *ALU) runVMAXU32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 
@@ -354,7 +355,7 @@ func (u *ALUImpl) runVMAXU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVLSHRREVB32(state InstEmuState) {
+func (u *ALU) runVLSHRREVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -372,7 +373,7 @@ func (u *ALUImpl) runVLSHRREVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
+func (u *ALU) runVASHRREVI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -390,7 +391,7 @@ func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVLSHLREVB32(state InstEmuState) {
+func (u *ALU) runVLSHLREVB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -408,7 +409,7 @@ func (u *ALUImpl) runVLSHLREVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVANDB32(state InstEmuState) {
+func (u *ALU) runVANDB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -437,7 +438,7 @@ func (u *ALUImpl) runVANDB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVORB32(state InstEmuState) {
+func (u *ALU) runVORB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -466,7 +467,7 @@ func (u *ALUImpl) runVORB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVXORB32(state InstEmuState) {
+func (u *ALU) runVXORB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -495,7 +496,7 @@ func (u *ALUImpl) runVXORB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMACF32(state InstEmuState) {
+func (u *ALU) runVMACF32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if !inst.IsSdwa {
@@ -516,7 +517,7 @@ func (u *ALUImpl) runVMACF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVMADAKF32(state InstEmuState) {
+func (u *ALU) runVMADAKF32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if !inst.IsSdwa {
@@ -536,7 +537,7 @@ func (u *ALUImpl) runVMADAKF32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADDI32(state InstEmuState) {
+func (u *ALU) runVADDI32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if inst.IsSdwa {
@@ -546,7 +547,7 @@ func (u *ALUImpl) runVADDI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADDI32SDWA(state InstEmuState) {
+func (u *ALU) runVADDI32SDWA(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -568,7 +569,7 @@ func (u *ALUImpl) runVADDI32SDWA(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVADDI32Regular(state InstEmuState) {
+func (u *ALU) runVADDI32Regular(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	var vcc uint64
@@ -590,7 +591,7 @@ func (u *ALUImpl) runVADDI32Regular(state InstEmuState) {
 	state.SetVCC(vcc)
 }
 
-func (u *ALUImpl) runVSUBI32(state InstEmuState) {
+func (u *ALU) runVSUBI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -615,7 +616,7 @@ func (u *ALUImpl) runVSUBI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBREVI32(state InstEmuState) {
+func (u *ALU) runVSUBREVI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()
@@ -640,7 +641,7 @@ func (u *ALUImpl) runVSUBREVI32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVADDCU32(state InstEmuState) {
+func (u *ALU) runVADDCU32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if !inst.IsSdwa {
@@ -669,7 +670,7 @@ func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBBU32(state InstEmuState) {
+func (u *ALU) runVSUBBU32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if !inst.IsSdwa {
@@ -696,7 +697,7 @@ func (u *ALUImpl) runVSUBBU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVSUBBREVU32(state InstEmuState) {
+func (u *ALU) runVSUBBREVU32(state emu.InstEmuState) {
 	inst := state.Inst()
 
 	if !inst.IsSdwa {
@@ -724,7 +725,7 @@ func (u *ALUImpl) runVSUBBREVU32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runVLSHLREVB16(state InstEmuState) {
+func (u *ALU) runVLSHLREVB16(state emu.InstEmuState) {
 	inst := state.Inst()
 	if !inst.IsSdwa {
 		exec := state.EXEC()

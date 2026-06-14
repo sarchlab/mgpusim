@@ -134,7 +134,7 @@ type Resources struct {
 	// insts.NewDisassembler() when nil at Build time.
 	Decoder emu.Decoder
 
-	// ALU executes the instructions. Defaults to emu.NewALU(nil) when nil at
+	// ALU executes the instructions. Defaults to gcn3.NewALU(nil) when nil at
 	// Build time.
 	ALU emu.ALU
 

@@ -1,10 +1,12 @@
-package emu
+package gcn3
 
 import (
 	"log"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
-func (u *ALUImpl) runDS(state InstEmuState) {
+func (u *ALU) runDS(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 13:
@@ -28,7 +30,7 @@ func (u *ALUImpl) runDS(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSWRITEB32(state InstEmuState) {
+func (u *ALU) runDSWRITEB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -44,7 +46,7 @@ func (u *ALUImpl) runDSWRITEB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSWRITE2B32(state InstEmuState) {
+func (u *ALU) runDSWRITE2B32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -64,7 +66,7 @@ func (u *ALUImpl) runDSWRITE2B32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSWRITEB8(state InstEmuState) {
+func (u *ALU) runDSWRITEB8(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -80,7 +82,7 @@ func (u *ALUImpl) runDSWRITEB8(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSREADB32(state InstEmuState) {
+func (u *ALU) runDSREADB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -97,7 +99,7 @@ func (u *ALUImpl) runDSREADB32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSREAD2B32(state InstEmuState) {
+func (u *ALU) runDSREAD2B32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -117,7 +119,7 @@ func (u *ALUImpl) runDSREAD2B32(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSWRITE2B64(state InstEmuState) {
+func (u *ALU) runDSWRITE2B64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -137,7 +139,7 @@ func (u *ALUImpl) runDSWRITE2B64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSREADB64(state InstEmuState) {
+func (u *ALU) runDSREADB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -154,7 +156,7 @@ func (u *ALUImpl) runDSREADB64(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runDSREAD2B64(state InstEmuState) {
+func (u *ALU) runDSREAD2B64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
