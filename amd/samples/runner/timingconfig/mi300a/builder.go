@@ -550,19 +550,17 @@ func (b *Builder) buildDRAMControllers() {
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 
-		// Akita's simplebankedmemory applies a single address conversion to
-		// the incoming address and uses that converted address for BOTH bank
-		// selection and storage access. mi300a shares ONE global storage
-		// across all 16 DRAM controllers with identity storage mapping, so
-		// AddrConvKind must be "" (identity): the converted address then
-		// equals the incoming global address and storage reads/writes hit the
-		// correct global offset of the shared storage. BankSelectorKind stays
-		// "interleaved" (with BankSelectorLog2InterleaveSize=6) so requests
-		// are spread across the 16 banks for timing distribution.
+		// Storage is global: all 16 DRAM controllers share one mem.Storage and
+		// read/write it at the request's address (no storage conversion).
 		//
-		// Compared to the dropped MGPUSim fork, this loses the row-buffer
-		// model (RowBufferSizeLog2/RowMissDelay) and the separate bank-address
-		// split (BankAddr* fields); those are intentionally not modeled.
+		// The L2->DRAM mapper interleaves addresses across the 16 controllers
+		// at log2MemoryBankInterleavingSize (128 B), so each controller sees a
+		// strided address. The bank selector is a contiguous-bit modulo, so to
+		// stripe finely across all 16 banks we first strip the inter-controller
+		// interleave with the bank-selection conversion (BankAddrConv*);
+		// BankSelectorLog2InterleaveSize=6 then stripes the resulting
+		// controller-local address at 64 B granularity. The conversion affects
+		// bank selection only — storage stays global.
 		spec := simplebankedmemory.DefaultSpec()
 		spec.Freq = 1 * timing.GHz
 		spec.NumBanks = 16
@@ -572,19 +570,19 @@ func (b *Builder) buildDRAMControllers() {
 		spec.BankSelectorKind = "interleaved"
 		spec.BankSelectorLog2InterleaveSize = 6
 		spec.PostPipelineBufSize = 128
-		spec.AddrConvKind = ""
+		spec.BankAddrConvKind = "interleaving"
+		spec.BankAddrInterleavingSize = 1 << b.log2MemoryBankInterleavingSize
+		spec.BankAddrTotalNumOfElements = b.numMemoryBank
+		spec.BankAddrCurrentElementIndex = i
 		spec.Capacity = memBankSize
 
-		memBuilder := simplebankedmemory.MakeBuilder().
+		dramComp := simplebankedmemory.MakeBuilder().
 			WithRegistrar(b.simulation).
-			WithSpec(spec)
-
-		if b.globalStorage != nil {
-			memBuilder = memBuilder.WithResources(
-				simplebankedmemory.Resources{Storage: b.globalStorage})
-		}
-
-		dramComp := memBuilder.Build(dramName)
+			WithSpec(spec).
+			WithResources(simplebankedmemory.Resources{
+				Storage: b.globalStorage,
+			}).
+			Build(dramName)
 
 		b.buildPort(dramComp, "Top", dramTopPortBufSize)
 		b.buildPort(dramComp, "Control", ctrlPortBufSize)
