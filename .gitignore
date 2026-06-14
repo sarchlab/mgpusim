@@ -26,7 +26,6 @@ _bench_*
 *.orig
 *.orig.bc
 .idea
-vendor
 .DS_Store
 *.json
 __debug_bin
