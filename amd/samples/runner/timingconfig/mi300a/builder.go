@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
 	"github.com/sarchlab/akita/v5/messaging"
@@ -20,7 +21,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/mem/simplebankedmemory"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -550,20 +550,29 @@ func (b *Builder) buildDRAMControllers() {
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
 
+		// Akita's simplebankedmemory applies a single address conversion to
+		// the incoming address and uses that converted address for BOTH bank
+		// selection and storage access. mi300a shares ONE global storage
+		// across all 16 DRAM controllers with identity storage mapping, so
+		// AddrConvKind must be "" (identity): the converted address then
+		// equals the incoming global address and storage reads/writes hit the
+		// correct global offset of the shared storage. BankSelectorKind stays
+		// "interleaved" (with BankSelectorLog2InterleaveSize=6) so requests
+		// are spread across the 16 banks for timing distribution.
+		//
+		// Compared to the dropped MGPUSim fork, this loses the row-buffer
+		// model (RowBufferSizeLog2/RowMissDelay) and the separate bank-address
+		// split (BankAddr* fields); those are intentionally not modeled.
 		spec := simplebankedmemory.DefaultSpec()
 		spec.Freq = 1 * timing.GHz
 		spec.NumBanks = 16
 		spec.BankPipelineWidth = 1
 		spec.BankPipelineDepth = 5
 		spec.StageLatency = 1
-		spec.RowBufferSizeLog2 = 11
-		spec.RowMissDelay = 52
+		spec.BankSelectorKind = "interleaved"
 		spec.BankSelectorLog2InterleaveSize = 6
 		spec.PostPipelineBufSize = 128
-		spec.BankAddrConvKind = "interleaving"
-		spec.BankAddrInterleavingSize = 1 << b.log2MemoryBankInterleavingSize
-		spec.BankAddrTotalNumOfElements = b.numMemoryBank
-		spec.BankAddrCurrentElementIndex = i
+		spec.AddrConvKind = ""
 		spec.Capacity = memBankSize
 
 		memBuilder := simplebankedmemory.MakeBuilder().

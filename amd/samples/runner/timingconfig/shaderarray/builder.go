@@ -6,6 +6,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
+	"github.com/sarchlab/akita/v5/mem/rob"
 	"github.com/sarchlab/akita/v5/mem/vm/addresstranslator"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
 	"github.com/sarchlab/akita/v5/messaging"
@@ -15,7 +16,6 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/rob"
 )
 
 // Port buffer sizes. The CU port sizes mirror the v4 CU builder; the other
