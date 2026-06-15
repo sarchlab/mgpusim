@@ -22,7 +22,7 @@ func TestSimulator(t *testing.T) {
 	RunSpecs(t, "GCN3 Timing Simulator")
 }
 
-func prepareGrid(co *insts.HsaCo) *kernels.Grid {
+func prepareGrid(co *insts.KernelCodeObject) *kernels.Grid {
 	// Prepare a mock grid that is expanded
 	grid := kernels.NewGrid()
 	grid.CodeObject = co

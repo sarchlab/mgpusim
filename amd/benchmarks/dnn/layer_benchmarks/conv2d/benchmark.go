@@ -2,6 +2,7 @@
 package conv2d
 
 import (
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
@@ -14,6 +15,8 @@ type Benchmark struct {
 	context          *driver.Context
 	gpus             []int
 	useUnifiedMemory bool
+
+	Arch arch.Type
 
 	N, C, H, W                               int
 	outputH, outputW                         int
@@ -63,6 +66,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Run runs the benchmark.
 func (b *Benchmark) Run() {
+	b.operator.Arch = b.Arch
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.calculateOutputSize()
 	b.initMem()

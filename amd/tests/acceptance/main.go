@@ -28,6 +28,12 @@ var onlyUnifiedGPU = flag.Bool("only-unified-gpu", false,
 	`Only run the unified GPU benchmark cases.`)
 var noUnifiedGPU = flag.Bool("no-unified-gpu", false,
 	`Skip the unified GPU benchmark cases.`)
+var onlyTiming = flag.Bool("only-timing", false,
+	`Only run the timing benchmark cases.`)
+var noTiming = flag.Bool("no-timing", false,
+	`Skip the timing benchmark cases.`)
+var archFilter = flag.String("arch", "",
+	`Only run benchmarks for specified architecture (gcn3 or cdna3). Empty means all.`)
 
 type benchmark struct {
 	benchmarkPath  string
@@ -43,6 +49,8 @@ type benchmarkCase struct {
 	unifiedGPU    bool
 	unifiedMemory bool
 	parallel      bool
+	arch          string // GPU architecture: "gcn3" (default) or "cdna3"
+	gpuType       string // GPU model: "r9nano" (default) or "mi300a"
 }
 
 func (b benchmark) compile() error {
@@ -146,6 +154,14 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 		args = append(args, "-use-unified-memory=false")
 	}
 
+	if c.arch != "" {
+		args = append(args, "-arch="+c.arch)
+	}
+
+	if c.gpuType != "" {
+		args = append(args, "-gpu="+c.gpuType)
+	}
+
 	return args
 }
 
@@ -205,6 +221,25 @@ func shouldRunBenchmarkCase(b benchmark, c benchmarkCase) bool {
 
 	if *noUnifiedMemory && c.unifiedMemory {
 		return false
+	}
+
+	if *onlyTiming && !c.timing {
+		return false
+	}
+
+	if *noTiming && c.timing {
+		return false
+	}
+
+	// Filter by architecture
+	if *archFilter != "" {
+		caseArch := c.arch
+		if caseArch == "" {
+			caseArch = "gcn3" // default architecture
+		}
+		if caseArch != *archFilter {
+			return false
+		}
 	}
 
 	return true

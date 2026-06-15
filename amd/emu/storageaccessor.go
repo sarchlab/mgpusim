@@ -1,20 +1,27 @@
 package emu
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
 )
 
-type storageAccessor struct {
+// StorageAccessor provides memory access for ALU operations.
+type StorageAccessor interface {
+	Read(pid vm.PID, vAddr, byteSize uint64) []byte
+	Write(pid vm.PID, vAddr uint64, data []byte)
+}
+
+type storageAccessorImpl struct {
 	storage       *mem.Storage
 	addrConverter mem.AddressConverter
 	pageTable     vm.PageTable
 	log2PageSize  uint64
 }
 
-func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
+func (a *storageAccessorImpl) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	data := make([]byte, byteSize)
 	sizeLeft := byteSize
 	offset := uint64(0)
@@ -30,7 +37,11 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 
 		page, found := a.pageTable.Find(pid, currVAddr)
 		if !found {
-			panic("page not found in page table")
+			panic(fmt.Sprintf(
+				"page not found in page table: "+
+					"pid=%d, vAddr=0x%x, origVAddr=0x%x, "+
+					"size=%d, offset=%d",
+				pid, currVAddr, vAddr, byteSize, offset))
 		}
 		pAddr := page.PAddr + (currVAddr - page.VAddr)
 
@@ -53,7 +64,7 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	return data
 }
 
-func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
+func (a *storageAccessorImpl) Write(pid vm.PID, vAddr uint64, data []byte) {
 	sizeLeft := uint64(len(data))
 	offset := uint64(0)
 
@@ -66,7 +77,7 @@ func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 			sizeToWrite = sizeLeft
 		}
 
-		page, found := a.pageTable.Find(pid, vAddr)
+		page, found := a.pageTable.Find(pid, currVAddr)
 		if !found {
 			panic("page not found in page table")
 		}
@@ -87,15 +98,15 @@ func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 	}
 }
 
-// NewStorageAccessor creates a storageAccessor, injecting dependencies
+// NewStorageAccessor creates a StorageAccessor, injecting dependencies
 // of the storage and mmu.
-func newStorageAccessor(
+func NewStorageAccessor(
 	storage *mem.Storage,
 	pageTable vm.PageTable,
 	log2PageSize uint64,
 	addrConverter mem.AddressConverter,
-) *storageAccessor {
-	a := new(storageAccessor)
+) StorageAccessor {
+	a := new(storageAccessorImpl)
 	a.storage = storage
 	a.addrConverter = addrConverter
 	a.pageTable = pageTable

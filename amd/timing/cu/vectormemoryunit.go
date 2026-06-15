@@ -23,12 +23,14 @@ func (i vectorMemInst) TaskID() string {
 type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	coalescer          coalescer
+	coalescer coalescer
 
 	numInstInFlight         uint64
 	numTransactionInFlight  uint64
 	maxInstructionsInFlight uint64
+
+	maxCoalescingPenalty    int
+	coalescingStallRemaining int
 
 	instructionPipeline           pipelining.Pipeline
 	postInstructionPipelineBuffer sim.Buffer
@@ -42,13 +44,10 @@ type VectorMemoryUnit struct {
 // NewVectorMemoryUnit creates a new Vector Memory Unit.
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	coalescer coalescer,
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
-
-	u.scratchpadPreparer = scratchpadPreparer
 	u.coalescer = coalescer
 
 	return u
@@ -85,22 +84,66 @@ func (u *VectorMemoryUnit) Run() bool {
 }
 
 func (u *VectorMemoryUnit) instToTransaction() bool {
-	if len(u.transactionsWaiting) > 0 {
-		return u.insertTransactionToPipeline()
+	madeProgress := false
+
+	madeProgress = u.insertTransactionToPipeline() || madeProgress
+
+	// Process up to 4 instructions per cycle (matching simdCount / inst pipeline width)
+	for i := 0; i < 4; i++ {
+		progress := u.execute()
+		madeProgress = progress || madeProgress
+		if !progress {
+			break
+		}
 	}
 
-	return u.execute()
+	return madeProgress
 }
 
 func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
-	if !u.transactionPipeline.CanAccept() {
+	madeProgress := false
+
+	if u.coalescingStallRemaining > 0 {
+		u.coalescingStallRemaining--
 		return false
 	}
 
-	u.transactionPipeline.Accept(u.transactionsWaiting[0])
-	u.transactionsWaiting = u.transactionsWaiting[1:]
+	for len(u.transactionsWaiting) > 0 {
+		if !u.transactionPipeline.CanAccept() {
+			break
+		}
 
-	return true
+		txn := u.transactionsWaiting[0]
+		u.transactionPipeline.Accept(txn)
+		u.transactionsWaiting = u.transactionsWaiting[1:]
+		madeProgress = true
+
+		penalty := u.computeCoalescingPenalty(txn)
+		if penalty > 0 {
+			u.coalescingStallRemaining = penalty
+			break
+		}
+	}
+
+	return madeProgress
+}
+
+func (u *VectorMemoryUnit) computeCoalescingPenalty(txn VectorMemAccessInfo) int {
+	if txn.Read == nil {
+		return 0
+	}
+
+	maxLanes := 64 / 4 // 64B cacheline / 4B elements = 16
+	usedLanes := len(txn.laneInfo)
+
+	if usedLanes >= maxLanes {
+		return 0
+	}
+
+	wastedFraction := float64(maxLanes-usedLanes) / float64(maxLanes)
+	penalty := int(wastedFraction * float64(u.maxCoalescingPenalty))
+
+	return penalty
 }
 
 func (u *VectorMemoryUnit) execute() (madeProgress bool) {
@@ -118,7 +161,8 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 			return false
 		}
 	default:
-		log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
+		log.Panicf("running inst %s in vector memory unit is not supported",
+			insts.NewInstPrinter(nil).Print(inst))
 	}
 
 	u.postInstructionPipelineBuffer.Pop()
@@ -147,7 +191,6 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 func (u *VectorMemoryUnit) executeFlatLoad(
 	wave *wavefront.Wavefront,
 ) bool {
-	u.scratchpadPreparer.Prepare(wave, wave)
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
@@ -186,7 +229,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 func (u *VectorMemoryUnit) executeFlatStore(
 	wave *wavefront.Wavefront,
 ) bool {
-	u.scratchpadPreparer.Prepare(wave, wave)
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
@@ -222,30 +264,32 @@ func (u *VectorMemoryUnit) executeFlatStore(
 }
 
 func (u *VectorMemoryUnit) sendRequest() bool {
-	item := u.postTransactionPipelineBuffer.Peek()
-	if item == nil {
-		return false
+	madeProgress := false
+	for i := 0; i < 16; i++ {
+		item := u.postTransactionPipelineBuffer.Peek()
+		if item == nil {
+			break
+		}
+
+		var req sim.Msg
+		info := item.(VectorMemAccessInfo)
+		if info.Read != nil {
+			req = info.Read
+		} else {
+			req = info.Write
+		}
+
+		err := u.cu.ToVectorMem.Send(req)
+		if err == nil {
+			u.postTransactionPipelineBuffer.Pop()
+			u.numTransactionInFlight--
+			tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
+			madeProgress = true
+		} else {
+			break
+		}
 	}
-
-	var req sim.Msg
-	info := item.(VectorMemAccessInfo)
-	if info.Read != nil {
-		req = info.Read
-	} else {
-		req = info.Write
-	}
-
-	err := u.cu.ToVectorMem.Send(req)
-	if err == nil {
-		u.postTransactionPipelineBuffer.Pop()
-		u.numTransactionInFlight--
-
-		tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
-
-		return true
-	}
-
-	return false
+	return madeProgress
 }
 
 // Flush flushes
@@ -257,4 +301,5 @@ func (u *VectorMemoryUnit) Flush() {
 	u.transactionsWaiting = nil
 	u.numInstInFlight = 0
 	u.numTransactionInFlight = 0
+	u.coalescingStallRemaining = 0
 }

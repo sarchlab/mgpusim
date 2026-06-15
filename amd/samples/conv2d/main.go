@@ -38,6 +38,7 @@ func main() {
 	benchmark.StrideX = *strideX
 	benchmark.StrideY = *strideY
 	benchmark.EnableBackward = *enableBackward
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

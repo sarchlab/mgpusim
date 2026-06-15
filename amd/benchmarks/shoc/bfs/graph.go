@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -19,19 +20,31 @@ type graph struct {
 }
 
 func (g *graph) generate(numNode, degree int) {
+	rng := rand.New(rand.NewSource(42))
+
 	g.nodes = make([]*node, 0, numNode)
 	for i := 0; i < numNode; i++ {
 		g.nodes = append(g.nodes, &node{index: int32(i)})
 	}
 
-	curr := 0
-	for i := 0; i < degree; i++ {
-		curr++
-		if curr >= numNode {
-			break
-		}
+	// Build spanning tree for connectivity
+	for i := 1; i < numNode; i++ {
+		parent := rng.Intn(i)
+		g.nodes[parent].neighbors = append(g.nodes[parent].neighbors, g.nodes[i])
+		g.nodes[i].neighbors = append(g.nodes[i].neighbors, g.nodes[parent])
+	}
 
-		g.nodes[i].neighbors = append(g.nodes[i].neighbors, g.nodes[curr])
+	// Add random edges to reach target average degree
+	targetEdges := numNode * degree / 2
+	currentEdges := numNode - 1
+	for currentEdges < targetEdges {
+		u := rng.Intn(numNode)
+		v := rng.Intn(numNode)
+		if u != v {
+			g.nodes[u].neighbors = append(g.nodes[u].neighbors, g.nodes[v])
+			g.nodes[v].neighbors = append(g.nodes[v].neighbors, g.nodes[u])
+			currentEdges++
+		}
 	}
 }
 

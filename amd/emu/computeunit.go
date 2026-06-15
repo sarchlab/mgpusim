@@ -25,10 +25,9 @@ type emulationEvent struct {
 type ComputeUnit struct {
 	*sim.TickingComponent
 
-	decoder            Decoder
-	scratchpadPreparer ScratchpadPreparer
-	alu                ALU
-	storageAccessor    *storageAccessor
+	decoder         Decoder
+	alu             ALU
+	storageAccessor StorageAccessor
 
 	nextTick    sim.VTimeInSec
 	queueingWGs []*protocol.MapWGReq
@@ -39,6 +38,7 @@ type ComputeUnit struct {
 
 	ToDispatcher sim.Port
 
+	instCache         map[uint64]*insts.Inst
 	finishedMapWGReqs []string
 }
 
@@ -185,67 +185,62 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	co := wf.CodeObject
 	pkt := wf.Packet
 
-	wf.PC = pkt.KernelObject + co.KernelCodeEntryByteOffset
-	wf.Exec = wf.InitExecMask
+	wf.SetPC(pkt.KernelObject + co.KernelCodeEntryByteOffset)
+	wf.SetEXEC(wf.InitExecMask)
 
 	SGPRPtr := 0
-	if co.EnableSgprPrivateSegmentBuffer() {
-		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
-		//fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
+	if co.EnableSgprPrivateSegmentBuffer {
 		SGPRPtr += 16
 	}
 
-	if co.EnableSgprDispatchPtr() {
+	if co.EnableSgprDispatchPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
-		//fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprQueuePtr() {
-		log.Printf("EnableSgprQueuePtr is not supported")
-		//fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
-		SGPRPtr += 8
+	if co.EnableSgprQueuePtr {
+		// Note: QueuePtr is not currently supported. For V5+ kernels, the kernel
+		// descriptor flags may be incorrect. We do NOT reserve space, as the
+		// kernel may not actually use this register.
 	}
 
-	if co.EnableSgprKernelArgSegmentPtr() {
+	if co.EnableSgprKernargSegmentPtr {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
-		//fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchID() {
+	if co.EnableSgprDispatchID {
 		log.Printf("EnableSgprDispatchID is not supported")
 		//fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprFlatScratchInit() {
+	if co.EnableSgprFlatScratchInit {
 		log.Printf("EnableSgprFlatScratchInit is not supported")
 		//fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprPrivateSegementSize() {
-		log.Printf("EnableSgprPrivateSegmentSize is not supported")
-		//fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
-		SGPRPtr += 4
+	if co.EnableSgprPrivateSegmentSize {
+		// Note: PrivateSegmentSize is not currently supported. For V5+ kernels,
+		// the kernel descriptor flags may be incorrect. We do NOT reserve space.
 	}
 
-	if co.EnableSgprGridWorkGroupCountX() {
+	if co.EnableSgprGridWorkgroupCountX {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeX+uint32(pkt.WorkgroupSizeX)-1)/uint32(pkt.WorkgroupSizeX))
 		//fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountY() {
+	if co.EnableSgprGridWorkgroupCountY {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeY+uint32(pkt.WorkgroupSizeY)-1)/uint32(pkt.WorkgroupSizeY))
 		//fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountZ() {
+	if co.EnableSgprGridWorkgroupCountZ {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeZ+uint32(pkt.WorkgroupSizeZ)-1)/uint32(pkt.WorkgroupSizeZ))
 		//fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
@@ -290,14 +285,22 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
+		if co.Version == insts.CodeObjectV5 {
+			// For V5 code objects (gfx942/CDNA3), pack work-item IDs into v0
+			// as: v0 = (z << 20) | (y << 10) | x
+			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
+			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(packed))
+		} else {
+			// For V2/V3 code objects (GCN3), use separate registers
+			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
-		if co.EnableVgprWorkItemID() > 0 {
-			wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
-		}
+			if co.EnableVgprWorkItemID() > 0 {
+				wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
+			}
 
-		if co.EnableVgprWorkItemID() > 1 {
-			wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
+			if co.EnableVgprWorkItemID() > 1 {
+				wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
+			}
 		}
 	}
 }
@@ -312,21 +315,33 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 }
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
-	for {
-		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
+	if wf.Completed {
+		return nil
+	}
 
-		inst, _ := cu.decoder.Decode(instBuf)
+	for {
+		pc := wf.PC()
+		inst, ok := cu.instCache[pc]
+		if !ok {
+			instBuf := cu.storageAccessor.Read(wf.pid, pc, 8)
+			var err error
+			inst, err = cu.decoder.Decode(instBuf)
+			if err != nil {
+				log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", pc, err, instBuf)
+			}
+			cu.instCache[pc] = inst
+		}
 		wf.inst = inst
 
-		wf.PC += uint64(inst.ByteSize)
+		wf.SetPC(wf.PC() + uint64(inst.ByteSize))
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
+		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_BARRIER
 			wf.AtBarrier = true
 			cu.logInst(wf, inst)
 			break
 		}
 
-		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
+		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_ENDPGM
 			wf.Completed = true
 			cu.logInst(wf, inst)
 			break
@@ -349,9 +364,7 @@ func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
 }
 
 func (cu *ComputeUnit) executeInst(wf *Wavefront) {
-	cu.scratchpadPreparer.Prepare(wf, wf)
 	cu.alu.Run(wf)
-	cu.scratchpadPreparer.Commit(wf, wf)
 }
 
 func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
@@ -407,28 +420,30 @@ func NewComputeUnit(
 	name string,
 	engine sim.Engine,
 	decoder Decoder,
-	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
-	sAccessor *storageAccessor,
+	sAccessor StorageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(name,
 		engine, 1*sim.GHz, cu)
 
 	cu.decoder = decoder
-	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
 	cu.storageAccessor = sAccessor
 
 	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
+	cu.instCache = make(map[uint64]*insts.Inst)
 
 	cu.ToDispatcher = sim.NewPort(cu, 1, 1, name+".ToDispatcher")
 
 	return cu
 }
 
-// BuildComputeUnit build a compute unit
+// ALUFactory is a function type that creates an ALU given a storage accessor.
+type ALUFactory func(StorageAccessor) ALU
+
+// BuildComputeUnit builds a compute unit with the default GCN3 ALU.
 func BuildComputeUnit(
 	name string,
 	engine sim.Engine,
@@ -438,11 +453,28 @@ func BuildComputeUnit(
 	storage *mem.Storage,
 	addrConverter mem.AddressConverter,
 ) *ComputeUnit {
-	scratchpadPreparer := NewScratchpadPreparerImpl()
-	sAccessor := newStorageAccessor(
+	return BuildComputeUnitWithALU(
+		name, engine, decoder, pageTable, log2PageSize,
+		storage, addrConverter, func(sa StorageAccessor) ALU {
+			return NewALU(sa)
+		}, false)
+}
+
+// BuildComputeUnitWithALU builds a compute unit with a custom ALU factory.
+func BuildComputeUnitWithALU(
+	name string,
+	engine sim.Engine,
+	decoder Decoder,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
+	storage *mem.Storage,
+	addrConverter mem.AddressConverter,
+	aluFactory ALUFactory,
+	isCDNA3 bool,
+) *ComputeUnit {
+	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
-	alu := NewALU(sAccessor)
-	cu := NewComputeUnit(name, engine, decoder,
-		scratchpadPreparer, alu, sAccessor)
+	alu := aluFactory(sAccessor)
+	cu := NewComputeUnit(name, engine, decoder, alu, sAccessor)
 	return cu
 }

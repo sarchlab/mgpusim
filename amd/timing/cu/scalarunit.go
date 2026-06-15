@@ -14,8 +14,7 @@ import (
 type ScalarUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
+	alu emu.ALU
 
 	toRead  *wavefront.Wavefront
 	toExec  *wavefront.Wavefront
@@ -33,12 +32,10 @@ type ScalarUnit struct {
 // the compute unit.
 func NewScalarUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.cu = cu
-	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 	u.readBufSize = 16
 	u.readBuf = make([]*mem.ReadReq, 0, u.readBufSize)
@@ -77,8 +74,6 @@ func (u *ScalarUnit) runReadStage() bool {
 	}
 
 	if u.toExec == nil {
-		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 		return true
@@ -126,9 +121,10 @@ func (u *ScalarUnit) executeSMEMInst() bool {
 
 func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 	inst := u.toExec.DynamicInst()
-	sp := u.toExec.Scratchpad().AsSMEM()
-
-	start := sp.Base + sp.Offset
+	rawInst := u.toExec.Inst()
+	baseVal := u.toExec.ReadOperand(rawInst.Base, 0)
+	offsetVal := u.toExec.ReadOperand(rawInst.Offset, 0)
+	start := baseVal + offsetVal
 	numCacheline := u.numCacheline(start, uint64(byteSize))
 
 	if len(u.readBuf)+numCacheline > u.readBufSize {
@@ -214,8 +210,6 @@ func (u *ScalarUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
-
 	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
@@ -225,15 +219,18 @@ func (u *ScalarUnit) runWriteStage() bool {
 }
 
 func (u *ScalarUnit) sendRequest() bool {
-	if len(u.readBuf) > 0 {
+	madeProgress := false
+	for i := 0; i < 4 && len(u.readBuf) > 0; i++ {
 		req := u.readBuf[0]
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
-			return true
+			madeProgress = true
+		} else {
+			break
 		}
 	}
-	return false
+	return madeProgress
 }
 
 // Flush clears the unit

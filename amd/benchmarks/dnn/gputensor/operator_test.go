@@ -23,7 +23,7 @@ var _ = Describe("Operator", func() {
 
 		emusystem.MakeBuilder().
 			WithSimulation(s).
-			// WithISADebugging().
+			// WithDebugISA().
 			Build()
 
 		gpuDriver = s.GetComponentByName("Driver").(*driver.Driver)

@@ -39,8 +39,7 @@ func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
 
-	grid.CodeObject = insts.NewHsaCo()
-	grid.CodeObject.HsaCoHeader = new(insts.HsaCoHeader)
+	grid.CodeObject = &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 
 	packet := new(kernels.HsaKernelDispatchPacket)
 	grid.Packet = packet
@@ -215,7 +214,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf = new(wavefront.Wavefront)
 			inst := wavefront.NewInst(nil)
 			wf.SetDynamicInst(inst)
-			wf.PC = 0x1000
+			wf.SetPC(0x1000)
 
 			req := mem.ReadReqBuilder{}.
 				WithSrc(cu.ToInstMem.AsRemote()).
@@ -255,7 +254,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(0x1000)))
+			Expect(wf.PC()).To(Equal(uint64(0x1000)))
 			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
 			Expect(madeProgress).To(BeTrue())
@@ -356,6 +355,7 @@ var _ = Describe("ComputeUnit", func() {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
 			toVectorMem.EXPECT().RetrieveIncoming().Return(dataReady)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
 		})
 
 		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
@@ -433,6 +433,7 @@ var _ = Describe("ComputeUnit", func() {
 				WithRspTo(writeReq.ID).
 				Build()
 			toVectorMem.EXPECT().RetrieveIncoming().Return(doneRsp)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(nil)
 		})
 
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {

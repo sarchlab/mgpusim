@@ -159,11 +159,11 @@ func (m *defaultMemoryCopyMiddleware) needFlushing(
 func memRangeOverlap(
 	start1, end1, start2, end2 uint64,
 ) bool {
-	if start1 <= start2 && end1 >= start2 {
+	if start1 <= start2 && end1 > start2 {
 		return true
 	}
 
-	if start1 <= end2 && end1 >= end2 {
+	if start1 < end2 && end1 >= end2 {
 		return true
 	}
 

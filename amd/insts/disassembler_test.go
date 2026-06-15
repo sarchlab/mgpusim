@@ -13,14 +13,16 @@ func TestDisassembler(t *testing.T) {
 	RunSpecs(t, "GCN3 Disassembler")
 }
 
-var _ = Describe("Disassembler", func() {
+var _ = Describe("GCN3 Disassembler", func() {
 
 	var (
 		disassembler *insts.Disassembler
+		printer      *insts.InstPrinter
 	)
 
 	BeforeEach(func() {
 		disassembler = insts.NewDisassembler()
+		printer = insts.NewInstPrinter(nil)
 	})
 
 	It("should decode BF8C0F70", func() {
@@ -29,7 +31,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("s_waitcnt vmcnt(0)"))
+		Expect(printer.Print(inst)).To(Equal("s_waitcnt vmcnt(0)"))
 	})
 
 	It("should decode BF8C0171", func() {
@@ -38,7 +40,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("s_waitcnt vmcnt(1) lgkmcnt(1)"))
+		Expect(printer.Print(inst)).To(Equal("s_waitcnt vmcnt(1) lgkmcnt(1)"))
 	})
 
 	It("should decode D81A0004 00000210", func() {
@@ -47,7 +49,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("ds_write_b32 v16, v2 offset:4"))
+		Expect(printer.Print(inst)).To(Equal("ds_write_b32 v16, v2 offset:4"))
 	})
 
 	It("should decode D86C0008 01000010", func() {
@@ -56,7 +58,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("ds_read_b32 v1, v16 offset:8"))
+		Expect(printer.Print(inst)).To(Equal("ds_read_b32 v1, v16 offset:8"))
 	})
 
 	It("should decode D2850001 00000503", func() {
@@ -65,7 +67,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_mul_lo_u32 v1, v3, s2"))
+		Expect(printer.Print(inst)).To(Equal("v_mul_lo_u32 v1, v3, s2"))
 	})
 
 	It("should decode D2860004 00000503", func() {
@@ -74,7 +76,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_mul_hi_u32 v4, v3, s2"))
+		Expect(printer.Print(inst)).To(Equal("v_mul_hi_u32 v4, v3, s2"))
 	})
 
 	It("should decode 041C0D0E", func() {
@@ -83,7 +85,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_sub_f32_e32 v14, v14, v6"))
+		Expect(printer.Print(inst)).To(Equal("v_sub_f32_e32 v14, v14, v6"))
 	})
 
 	It("should decode 7E224911", func() {
@@ -92,7 +94,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_rsq_f32_e32 v17, v17"))
+		Expect(printer.Print(inst)).To(Equal("v_rsq_f32_e32 v17, v17"))
 	})
 
 	It("should decode 7E540900", func() {
@@ -101,7 +103,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_cvt_f64_i32_e32 v[42:43], v0"))
+		Expect(printer.Print(inst)).To(Equal("v_cvt_f64_i32_e32 v[42:43], v0"))
 	})
 
 	It("should decode 7E221F0F", func() {
@@ -110,7 +112,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).To(Equal("v_cvt_f32_f64_e32 v17, v[15:16]"))
+		Expect(printer.Print(inst)).To(Equal("v_cvt_f32_f64_e32 v17, v[15:16]"))
 	})
 
 	It("should decode D281000F 0000012A", func() {
@@ -119,7 +121,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_mul_f64 v[15:16], v[42:43], s[0:1]"))
 	})
 
@@ -129,7 +131,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_cmp_nlt_f32_e64 s[0:1], |v17|, s0"))
 	})
 
@@ -139,7 +141,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_madak_f32 v79, v22, v79, 0xbe2aaa9d"))
 	})
 
@@ -149,7 +151,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("ds_write2_b32 v17, v20, v46 offset1:66"))
 	})
 
@@ -159,7 +161,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("ds_write_b32 v31, v33 offset:960"))
 	})
 
@@ -169,7 +171,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_subrev_u32_e64 v6, s[0:1], s13, v3"))
 	})
 
@@ -179,7 +181,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_sub_u32_e64 v34, s[2:3], 1, v0"))
 	})
 
@@ -189,7 +191,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_fma_f64 v[2:3], v[4:5], v[2:3], v[6:7]"))
 	})
 
@@ -199,7 +201,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_cvt_f64_f32_e32 v[6:7], v6"))
 	})
 
@@ -209,7 +211,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_add_f64 v[4:5], v[4:5], s[0:1]"))
 	})
 
@@ -219,7 +221,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_div_scale_f64 v[8:9], s[0:1], v[4:5], v[4:5], -1.0"))
 	})
 
@@ -229,7 +231,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_rcp_f64_e32 v[10:11], v[8:9]"))
 	})
 
@@ -239,7 +241,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_div_fmas_f64 v[8:9], v[8:9], v[10:11], v[14:15]"))
 	})
 
@@ -249,7 +251,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("v_div_fixup_f64 v[2:3], v[8:9], v[6:7], -1.0"))
 	})
 
@@ -259,7 +261,7 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("ds_write_b128 v9, v[13:16]"))
 	})
 
@@ -269,7 +271,69 @@ var _ = Describe("Disassembler", func() {
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
-		Expect(inst.String(nil)).
+		Expect(printer.Print(inst)).
 			To(Equal("ds_read_b128 v[17:20], v1 offset:128"))
+	})
+})
+
+var _ = Describe("CDNA3 Disassembler", func() {
+	var (
+		disassembler *insts.Disassembler
+		printer      *insts.InstPrinter
+	)
+
+	BeforeEach(func() {
+		disassembler = insts.NewDisassembler()
+		printer = insts.NewInstPrinter(nil)
+	})
+
+	It("should decode 68020203 as v_add_u32_e32", func() {
+		// v_add_u32_e32 v1, s3, v1
+		buf := []byte{0x03, 0x02, 0x02, 0x68}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("v_add_u32_e32 v1, s3, v1"))
+	})
+
+	It("should decode D1FF0000 04060002 as v_add3_u32", func() {
+		// v_add3_u32 v0, s2, v0, v1
+		buf := []byte{0x00, 0x00, 0xFF, 0xD1, 0x02, 0x00, 0x06, 0x04}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("v_add3_u32 v0, s2, v0, v1"))
+	})
+
+	It("should decode D2080002 04010002 as v_lshl_add_u64", func() {
+		// v_lshl_add_u64 v[2:3], s[2:3], 0, v[0:1]
+		buf := []byte{0x02, 0x00, 0x08, 0xD2, 0x02, 0x00, 0x01, 0x04}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("v_lshl_add_u64 v[2:3], s[2:3], 0, v[0:1]"))
+	})
+
+	It("should decode DC508000 067F0004 as global_load_dword", func() {
+		// global_load_dword v6, v[4:5], off
+		buf := []byte{0x00, 0x80, 0x50, 0xDC, 0x04, 0x00, 0x7F, 0x06}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("global_load_dword v6, v[4:5], off"))
+	})
+
+	It("should decode DC708000 007F0200 as global_store_dword", func() {
+		// global_store_dword v[0:1], v2, off
+		buf := []byte{0x00, 0x80, 0x70, 0xDC, 0x00, 0x02, 0x7F, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("global_store_dword v[0:1], v2, off"))
 	})
 })

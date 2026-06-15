@@ -12,8 +12,10 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/mgpusim/v4/amd/arch"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v4/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
 )
@@ -34,6 +36,7 @@ type Builder struct {
 	dmaEngine        *cp.DMAEngine
 	driver           *driver.Driver
 	storage          *mem.Storage
+	archType         arch.Type
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -86,6 +89,12 @@ func (b Builder) WithISADebugging() Builder {
 	return b
 }
 
+// WithArchitecture sets the GPU architecture for emulation.
+func (b Builder) WithArchitecture(archType arch.Type) Builder {
+	b.archType = archType
+	return b
+}
+
 // Build builds the GPU.
 func (b Builder) Build(name string) *sim.Domain {
 	b.gpuName = name
@@ -102,13 +111,17 @@ func (b Builder) Build(name string) *sim.Domain {
 }
 
 func (b *Builder) buildComputeUnits() {
+	isCDNA3 := b.archType == arch.CDNA3
 	disassembler := insts.NewDisassembler()
+	disassembler.IsCDNA3 = isCDNA3
+	aluFactory := b.getALUFactory()
 
 	for i := range 64 {
-		computeUnit := emu.BuildComputeUnit(
+		computeUnit := emu.BuildComputeUnitWithALU(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
-			b.log2PageSize, b.gpuMem.Storage, nil)
+			b.log2PageSize, b.gpuMem.Storage, nil, aluFactory,
+			isCDNA3)
 		b.simulation.RegisterComponent(computeUnit)
 
 		b.computeUnits = append(b.computeUnits, computeUnit)
@@ -121,6 +134,19 @@ func (b *Builder) buildComputeUnits() {
 			}
 			isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
 			computeUnit.AcceptHook(isaDebugger)
+		}
+	}
+}
+
+func (b *Builder) getALUFactory() emu.ALUFactory {
+	switch b.archType {
+	case arch.CDNA3:
+		return func(sa emu.StorageAccessor) emu.ALU {
+			return cdna3.NewALU(sa)
+		}
+	default:
+		return func(sa emu.StorageAccessor) emu.ALU {
+			return emu.NewALU(sa)
 		}
 	}
 }

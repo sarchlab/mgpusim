@@ -16,6 +16,7 @@ func main() {
 
 	benchmark := fastwalshtransform.NewBenchmark(runner.Driver())
 	benchmark.Length = uint32(*length)
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

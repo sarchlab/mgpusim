@@ -186,7 +186,7 @@ var _ = Describe("Scheduler", func() {
 		for i := 0; i < 5; i++ {
 			wf := new(wavefront.Wavefront)
 			wf.Wavefront = kernels.NewWavefront()
-			wf.PC = 0x120
+			wf.SetPC(0x120)
 			wf.InstBuffer = make([]byte, 256)
 			wf.InstBufferStartPC = 0x100
 			wf.State = wavefront.WfReady
@@ -195,7 +195,7 @@ var _ = Describe("Scheduler", func() {
 			wf.InstToIssue.ByteSize = 4
 			wfs = append(wfs, wf)
 		}
-		wfs[0].PC = 0x13C
+		wfs[0].SetPC(0x13C)
 		issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
 
 		scheduler.DoIssue()
@@ -226,7 +226,7 @@ var _ = Describe("Scheduler", func() {
 		wf.InstToIssue = wavefront.NewInst(insts.NewInst())
 		wf.InstToIssue.ExeUnit = insts.ExeUnitSpecial
 		wf.InstToIssue.ByteSize = 4
-		wf.PC = 10
+		wf.SetPC(10)
 		wf.State = wavefront.WfReady
 		wfs = append(wfs, wf)
 
@@ -237,7 +237,7 @@ var _ = Describe("Scheduler", func() {
 
 		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
-		Expect(wf.PC).To(Equal(uint64(10)))
+		Expect(wf.PC()).To(Equal(uint64(10)))
 		Expect(wf.InstToIssue).To(BeNil())
 	})
 
@@ -310,8 +310,7 @@ var _ = Describe("Scheduler", func() {
 		It("should be marked completed if other wfs are still "+
 			"running", func() {
 			wg := new(wavefront.WorkGroup)
-			co := new(insts.HsaCo)
-			co.HsaCoHeader = new(insts.HsaCoHeader)
+			co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 			for i := 0; i < 3; i++ {
 				wf := wavefront.NewWavefront(kernels.NewWavefront())
 				wf.CodeObject = co
@@ -350,8 +349,7 @@ var _ = Describe("Scheduler", func() {
 		Context("all other wavefronts are at barrier", func() {
 			It("should pass barrier", func() {
 				wg := new(wavefront.WorkGroup)
-				co := new(insts.HsaCo)
-				co.HsaCoHeader = new(insts.HsaCoHeader)
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -395,8 +393,7 @@ var _ = Describe("Scheduler", func() {
 				wg := new(wavefront.WorkGroup)
 				mapReq := protocol.MapWGReqBuilder{}.Build()
 				wg.MapReq = mapReq
-				co := new(insts.HsaCo)
-				co.HsaCoHeader = new(insts.HsaCoHeader)
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -431,8 +428,7 @@ var _ = Describe("Scheduler", func() {
 				wg := new(wavefront.WorkGroup)
 				mapReq := protocol.MapWGReqBuilder{}.Build()
 				wg.MapReq = mapReq
-				co := new(insts.HsaCo)
-				co.HsaCoHeader = new(insts.HsaCoHeader)
+				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co

@@ -11,7 +11,7 @@ type DecodeUnit struct {
 	cu        *ComputeUnit
 	ExecUnits []SubComponent // Execution units, index by SIMD number
 
-	toDecode *wavefront.Wavefront
+	toDecode []*wavefront.Wavefront
 	decoded  bool
 
 	isIdle bool
@@ -22,6 +22,7 @@ func NewDecodeUnit(cu *ComputeUnit) *DecodeUnit {
 	du := new(DecodeUnit)
 	du.cu = cu
 	du.decoded = false
+	du.toDecode = make([]*wavefront.Wavefront, 0, 4)
 	return du
 }
 
@@ -35,12 +36,12 @@ func (du *DecodeUnit) AddExecutionUnit(cuComponent SubComponent) {
 // CanAcceptWave checks if the DecodeUnit is ready to decode another
 // instruction
 func (du *DecodeUnit) CanAcceptWave() bool {
-	return du.toDecode == nil
+	return len(du.toDecode) < 4
 }
 
 // IsIdle checks idleness
 func (du *DecodeUnit) IsIdle() bool {
-	du.isIdle = (du.toDecode == nil) && (du.decoded == false)
+	du.isIdle = (len(du.toDecode) == 0) && (du.decoded == false)
 	return du.isIdle
 }
 
@@ -48,37 +49,42 @@ func (du *DecodeUnit) IsIdle() bool {
 func (du *DecodeUnit) AcceptWave(
 	wave *wavefront.Wavefront,
 ) {
-	if du.toDecode != nil {
+	if len(du.toDecode) >= 4 {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
 
-	du.toDecode = wave
+	du.toDecode = append(du.toDecode, wave)
 	du.decoded = false
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
 func (du *DecodeUnit) Run() bool {
-	if du.toDecode != nil {
-		simdID := du.toDecode.SIMDID
+	madeProgress := false
+
+	remaining := make([]*wavefront.Wavefront, 0, len(du.toDecode))
+	for _, wave := range du.toDecode {
+		simdID := wave.SIMDID
 		execUnit := du.ExecUnits[simdID]
 
 		if execUnit.CanAcceptWave() {
-			execUnit.AcceptWave(du.toDecode)
-			du.toDecode = nil
-			return true
+			execUnit.AcceptWave(wave)
+			madeProgress = true
+		} else {
+			remaining = append(remaining, wave)
 		}
 	}
+	du.toDecode = remaining
 
-	if du.toDecode != nil && !du.decoded {
+	if len(du.toDecode) > 0 && !du.decoded {
 		du.decoded = true
 		return true
 	}
 
-	return false
+	return madeProgress
 }
 
 // Flush clear the unit
 func (du *DecodeUnit) Flush() {
-	du.toDecode = nil
+	du.toDecode = du.toDecode[:0]
 }

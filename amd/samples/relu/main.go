@@ -15,6 +15,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := relu.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Length = *numData
 
 	runner.AddBenchmark(benchmark)

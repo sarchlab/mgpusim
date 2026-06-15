@@ -42,6 +42,8 @@ func newDecodeTable() *decodeTable {
 
 // Disassembler is the unit that can decode .hsaco file
 type Disassembler struct {
+	IsCDNA3 bool
+
 	formatList []*Format
 
 	// Maps from the format to table
@@ -226,10 +228,11 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 		switch dstUnused {
 		case 0:
+			inst.DstUnused = SDWAUnusedPad
 		case 1:
-			log.Panicf("DST_UNUSED SEXT is not implemented")
+			inst.DstUnused = SDWAUnusedSEXT
 		case 2:
-			log.Panicf("DST_UNUSED PRESERVE is not implemented")
+			inst.DstUnused = SDWAUnusedPreserve
 		}
 
 		switch clamp {
@@ -322,13 +325,43 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
-	inst.Src1 = NewVRegOperand(bits, bits, 0)
+	if inst.IsSdwa {
+		// In GFX9+ VOP_SDWA_B, bit 31 of the SDWA dword indicates whether
+		// VSRC1 is an SGPR (1) or VGPR (0). Bit 30 indicates whether SRC0
+		// is an SGPR (1) or VGPR (0).
+		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
+		src1IsSgpr := extractBits(sdwaBytes, 31, 31) != 0
+		src0IsSgpr := extractBits(sdwaBytes, 30, 30) != 0
+
+		if src1IsSgpr {
+			inst.Src1 = NewSRegOperand(bits, bits, 0)
+		} else {
+			inst.Src1 = NewVRegOperand(bits, bits, 0)
+		}
+
+		// Also fix SRC0 if it's an SGPR
+		if src0IsSgpr {
+			src0Bits := int(extractBits(sdwaBytes, 0, 7))
+			inst.Src0 = NewSRegOperand(src0Bits, src0Bits, 0)
+		}
+	} else {
+		inst.Src1 = NewVRegOperand(bits, bits, 0)
+	}
 
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 
 	switch inst.Opcode {
-	case 24, 37: // v_madak
+	case 23, 36: // v_madmk / v_fmamk: D = S0 * K + S1
+		inst.Imm = true
+		inst.ByteSize += 4
+		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
+
+		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
+	case 24, 37: // v_madak / v_fmaak: D = S0 * S1 + K
 		inst.Imm = true
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
@@ -346,6 +379,19 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
+	// Extract 13-bit signed offset from bits [12:0] of the first dword.
+	// In CDNA3 (GFX9+), FLAT/GLOBAL instructions support a signed 13-bit
+	// immediate offset added to the address. For example:
+	//   global_load_dword v11, v[64:65], off offset:4
+	// encodes offset=4 in bits [12:0].
+	rawOffset := extractBits(bytesLo, 0, 12)
+	// Sign-extend the 13-bit value
+	if rawOffset&(1<<12) != 0 {
+		inst.Offset0 = rawOffset | 0xFFFFE000 // sign extend to 32-bit
+	} else {
+		inst.Offset0 = rawOffset
+	}
+
 	if extractBits(bytesLo, 17, 17) != 0 {
 		inst.SystemLevelCoherent = true
 	}
@@ -359,7 +405,29 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	}
 
 	bits := int(extractBits(bytesHi, 0, 7))
-	inst.Addr = NewVRegOperand(bits, bits, 2)
+	// Decode SADDR (bits 16:22 of second dword)
+	// 0x7F = OFF (flat/global addressing with VGPR pair), otherwise scalar GPR pair
+	saddrBits := int(extractBits(bytesHi, 16, 22))
+	inst.SAddr = NewIntOperand(0, int64(saddrBits))
+
+	// SAddr handling is architecture-dependent:
+	// - CDNA3 (GFX9+): SAddr=0x7F means OFF mode, any other value (including 0
+	//   for s[0:1]) is a valid scalar base register.
+	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
+	if d.IsCDNA3 {
+		if saddrBits != 0x7F {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
+	} else {
+		if saddrBits != 0x7F && saddrBits != 0 {
+			inst.Addr = NewVRegOperand(bits, bits, 1)
+		} else {
+			inst.Addr = NewVRegOperand(bits, bits, 2)
+		}
+	}
+
 	bits = int(extractBits(bytesHi, 24, 31))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytesHi, 8, 15))
@@ -577,6 +645,19 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 	d.parseNeg(inst, inst.Neg)
 
+	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
+	if inst.Opcode == 944 {
+		// 3-source FMA: bits [13:11] = op_sel[2:0], bit [14] = op_sel_hi[2]
+		inst.OpSel = int(extractBits(bytesLo, 11, 13))
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28)) |
+			(int(extractBits(bytesLo, 14, 14)) << 2)
+	} else if inst.Opcode >= 945 && inst.Opcode <= 946 {
+		// 2-source MUL/ADD: bits [12:11] = op_sel[1:0],
+		// bits [14:13] = neg_hi[1:0] (ignored; neg_lo from Neg field applies to both halves)
+		inst.OpSel = int(extractBits(bytesLo, 11, 12))
+		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))
+	}
+
 	return nil
 }
 
@@ -750,7 +831,6 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 		err = d.decodeDS(inst, buf)
 	default:
 		log.Panicf("unabkle to decode instruction type %s", inst.FormatName)
-		break
 	}
 
 	if err != nil {
@@ -767,62 +847,105 @@ func (d *Disassembler) Disassemble(
 	filename string,
 	w io.Writer,
 ) {
-	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
-	fmt.Fprintf(w, "\n\nDisassembly of section .text:\n")
+	fmt.Fprintf(w, "\n%s:\tfile format elf64-amdgpu\n", filename)
+	fmt.Fprintf(w, "\nDisassembly of section .text:\n")
 
 	sec := file.Section(".text")
-	data, _ := sec.Data()
-	co := NewHsaCoFromData(data)
+	if sec == nil {
+		fmt.Fprintf(w, "Error: .text section not found\n")
+		return
+	}
 
-	buf := co.InstructionData()
-	pc := uint64(0x100)
-	d.tryPrintSymbol(file, sec.Offset, w)
+	// Read entire .text section for disassembly (unlike kernel loading which
+	// extracts specific kernels, disassembly shows everything including padding)
+	buf, err := sec.Data()
+	if err != nil {
+		fmt.Fprintf(w, "Error: could not read .text section: %v\n", err)
+		return
+	}
+
+	// Detect code object version for header handling
+	var kernelHeaderSize uint64
+	if len(buf) >= 256 && isV2V3Header(buf) {
+		kernelHeaderSize = 256
+	}
+	var pc uint64
+	printedSymbols := make(map[uint64]bool)
+
+	// Create printer once with ELF file for symbol resolution
+	printer := NewInstPrinter(file)
+
+	// Print symbol at start of section
+	d.tryPrintSymbol(file, pc, printedSymbols, w)
+
 	for len(buf) > 0 {
-		d.tryPrintSymbol(file, sec.Offset+pc, w)
+		d.tryPrintSymbol(file, pc, printedSymbols, w)
 
-		if d.isNewKenrelStart(file, sec.Offset+pc) {
-			buf = buf[0x100:]
-			pc += 0x100
+		// For V2/V3 format, each kernel has a 256-byte header
+		// For V5 format, there's no header between kernels
+		if kernelHeaderSize > 0 && d.isNewKernelStart(file, sec.Offset+pc) {
+			buf = buf[kernelHeaderSize:]
+			pc += kernelHeaderSize
 		}
 
 		inst, err := d.Decode(buf)
-		inst.PC = pc + sec.Offset
 		if err != nil {
 			fmt.Printf("Instruction not decodable\n")
 			buf = buf[4:]
 			pc += 4
-		} else {
-			instStr := inst.String(file)
-			fmt.Fprintf(w, "\t%s", instStr)
-			for i := len(instStr); i < 59; i++ {
-				fmt.Fprint(w, " ")
-			}
-
-			fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
-			fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
-			if inst.ByteSize == 8 {
-				fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
-			}
-			fmt.Fprintf(w, "\n")
-			buf = buf[inst.ByteSize:]
-			pc += uint64(inst.ByteSize)
+			continue
 		}
+
+		inst.PC = pc
+		d.printInstruction(inst, buf, printer, w)
+		buf = buf[inst.ByteSize:]
+		pc += uint64(inst.ByteSize)
 	}
+}
+
+func (d *Disassembler) printInstruction(
+	inst *Inst, buf []byte, printer *InstPrinter, w io.Writer,
+) {
+	instStr := printer.Print(inst)
+	fmt.Fprintf(w, "\t%s", instStr)
+	for i := len(instStr); i < 59; i++ {
+		fmt.Fprint(w, " ")
+	}
+
+	fmt.Fprintf(w, "// %012X: ", inst.PC)
+	fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
+	if inst.ByteSize == 8 {
+		fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
+	}
+
+	// Add branch target annotation if applicable
+	if annotation := printer.BranchTargetAnnotation(inst); annotation != "" {
+		fmt.Fprintf(w, " %s", annotation)
+	}
+
+	fmt.Fprintf(w, "\n")
 }
 
 func (d *Disassembler) tryPrintSymbol(
 	file *elf.File,
-	offset uint64,
+	pc uint64,
+	printed map[uint64]bool,
 	w io.Writer,
 ) {
+	if printed[pc] {
+		return
+	}
+
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
-		if symbol.Value == offset {
-			if d.isKernelSymbol(symbol) {
-				fmt.Fprintf(w, "\n%016x %s:\n", offset+0x100, symbol.Name)
-			} else {
-				fmt.Fprintf(w, "\n%016x %s:\n", offset, symbol.Name)
-			}
+		// Only print main kernel symbols (Size > 0, no suffix like .kd)
+		isMainSymbol := symbol.Value == pc && symbol.Size > 0
+		isMainSymbol = isMainSymbol && !strings.HasSuffix(symbol.Name, ".kd")
+		isMainSymbol = isMainSymbol && !strings.HasPrefix(symbol.Name, "__hip_cuid_")
+		if isMainSymbol {
+			fmt.Fprintf(w, "\n%016x <%s>:\n", pc, symbol.Name)
+			printed[pc] = true
+			return
 		}
 	}
 }
@@ -831,7 +954,7 @@ func (d *Disassembler) isKernelSymbol(symbol elf.Symbol) bool {
 	return symbol.Size > 0
 }
 
-func (d *Disassembler) isNewKenrelStart(file *elf.File, offset uint64) bool {
+func (d *Disassembler) isNewKernelStart(file *elf.File, offset uint64) bool {
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
 		if symbol.Value == offset && symbol.Size > 0 {

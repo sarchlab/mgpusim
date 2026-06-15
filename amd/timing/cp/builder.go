@@ -14,12 +14,18 @@ import (
 
 // Builder can build Command Processors
 type Builder struct {
-	freq           sim.Freq
-	engine         sim.Engine
-	visTracer      tracing.Tracer
-	monitor        *monitoring.Monitor
-	perfAnalyzer   *analysis.PerfAnalyzer
-	numDispatchers int
+	freq                         sim.Freq
+	engine                       sim.Engine
+	visTracer                    tracing.Tracer
+	monitor                      *monitoring.Monitor
+	perfAnalyzer                 *analysis.PerfAnalyzer
+	numDispatchers               int
+	driver                       sim.Port
+	cus                          []CUInterfaceForCP
+	constantKernelLaunchOverhead   int
+	constantKernelOverhead         int
+	subsequentKernelLaunchOverhead int
+	wgScalingThreshold             int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -65,6 +71,48 @@ func (b Builder) WithPerfAnalyzer(
 	return b
 }
 
+// WithDriver sets the driver port for the command processor.
+func (b Builder) WithDriver(driver sim.Port) Builder {
+	b.driver = driver
+	return b
+}
+
+// WithCU adds a compute unit to the command processor.
+func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
+	b.cus = append(b.cus, cu)
+	return b
+}
+
+// WithConstantKernelLaunchOverhead sets the kernel launch overhead cycles
+// for dispatchers. This models the fixed per-kernel launch latency.
+func (b Builder) WithConstantKernelLaunchOverhead(overhead int) Builder {
+	b.constantKernelLaunchOverhead = overhead
+	return b
+}
+
+// WithConstantKernelOverhead sets the post-completion kernel overhead cycles
+// for dispatchers. This models the fixed overhead after all WGs complete.
+func (b Builder) WithConstantKernelOverhead(overhead int) Builder {
+	b.constantKernelOverhead = overhead
+	return b
+}
+
+// WithSubsequentKernelLaunchOverhead sets the overhead cycles for kernel
+// launches after the first one. This models the reduced launch latency
+// when launching back-to-back kernels on real hardware.
+func (b Builder) WithSubsequentKernelLaunchOverhead(overhead int) Builder {
+	b.subsequentKernelLaunchOverhead = overhead
+	return b
+}
+
+// WithWGScalingThreshold sets the threshold for WG-count-based scaling of
+// subsequent kernel launch overhead. Kernels with more WGs than this threshold
+// will have proportionally reduced launch overhead.
+func (b Builder) WithWGScalingThreshold(n int) Builder {
+	b.wgScalingThreshold = n
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -80,6 +128,15 @@ func (b Builder) Build(name string) *CommandProcessor {
 		make(map[string]*protocol.MemCopyD2HReq)
 
 	b.buildDispatchers(cp)
+
+	if b.driver != nil {
+		cp.Driver = b.driver
+	}
+	for _, cu := range b.cus {
+		cp.RegisterCU(cu)
+	}
+	cp.middleware = &cpMiddleware{cp}
+	cp.ctrlMiddleware = &ctrlMiddleware{cp}
 
 	if b.perfAnalyzer != nil {
 		b.perfAnalyzer.RegisterComponent(cp)
@@ -98,9 +155,18 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	cp.ToAddressTranslators = sim.NewPort(cp, 4096, 4096,
 		name+".ToAddressTranslators")
 	cp.ToCaches = sim.NewPort(cp, 4096, 4096, name+".ToCaches")
+
+	cp.AddPort("ToDriver", cp.ToDriver)
+	cp.AddPort("ToDispatcher", cp.ToDMA)
+	cp.AddPort("ToCUs", cp.ToCUs)
+	cp.AddPort("ToTLBs", cp.ToTLBs)
+	cp.AddPort("ToRDMA", cp.ToRDMA)
+	cp.AddPort("ToPMC", cp.ToPMC)
+	cp.AddPort("ToAddressTranslators", cp.ToAddressTranslators)
+	cp.AddPort("ToCaches", cp.ToCaches)
 }
 
-func (b *Builder) buildDispatchers(cp *CommandProcessor) {
+func (b Builder) buildDispatchers(cp *CommandProcessor) {
 	cuResourcePool := resource.NewCUResourcePool()
 	builder := dispatching.MakeBuilder().
 		WithCP(cp).
@@ -108,7 +174,14 @@ func (b *Builder) buildDispatchers(cp *CommandProcessor) {
 		WithCUResourcePool(cuResourcePool).
 		WithDispatchingPort(cp.ToCUs).
 		WithRespondingPort(cp.ToDriver).
-		WithMonitor(b.monitor)
+		WithMonitor(b.monitor).
+		WithConstantKernelLaunchOverhead(b.constantKernelLaunchOverhead).
+		WithSubsequentKernelLaunchOverhead(b.subsequentKernelLaunchOverhead).
+		WithWGScalingThreshold(b.wgScalingThreshold)
+
+	if b.constantKernelOverhead > 0 {
+		builder = builder.WithConstantKernelOverhead(b.constantKernelOverhead)
+	}
 
 	for i := 0; i < b.numDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", cp.Name(), i))

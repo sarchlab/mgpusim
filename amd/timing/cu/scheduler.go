@@ -34,6 +34,8 @@ type SchedulerImpl struct {
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
 
+	scoreboardEnabled bool
+
 	isPaused bool
 }
 
@@ -61,6 +63,9 @@ func NewScheduler(
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
+		if s.scoreboardEnabled {
+			madeProgress = s.tickScoreboards() || madeProgress
+		}
 		madeProgress = s.EvaluateInternalInst() || madeProgress
 		madeProgress = s.DecodeNextInst() || madeProgress
 		madeProgress = s.DoIssue() || madeProgress
@@ -78,13 +83,29 @@ func (s *SchedulerImpl) Run() bool {
 	return true
 }
 
+func (s *SchedulerImpl) tickScoreboards() bool {
+	ticked := false
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.ScoreboardData != nil {
+				sb := wf.ScoreboardData.(*Scoreboard)
+				if sb.AnyBusy() {
+					sb.Tick()
+					ticked = true
+				}
+			}
+		}
+	}
+	return ticked
+}
+
 // DecodeNextInst checks
 func (s *SchedulerImpl) DecodeNextInst() bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
 			if len(wf.InstBuffer) == 0 {
-				wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+				wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 				continue
 			}
 
@@ -101,7 +122,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			}
 
 			inst, err := s.cu.Decoder.Decode(
-				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
+				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
 				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
@@ -113,20 +134,22 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 }
 
 func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 4
+	return len(wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]) >= 4
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
-// instruction memory
+// instruction memory. It fetches for up to 4 wavefronts per cycle to
+// reduce startup latency for streaming workloads.
 func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
-	if len(wfs) > 0 {
-		wf := wfs[0]
+	fetchLimit := min(4, len(wfs))
+	for idx := 0; idx < fetchLimit; idx++ {
+		wf := wfs[idx]
 
 		if len(wf.InstBuffer) == 0 {
-			wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+			wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
@@ -178,6 +201,14 @@ func (s *SchedulerImpl) DoIssue() bool {
 				wf.InstToIssue = nil
 
 				s.cu.logInstTask(wf, wf.DynamicInst(), false)
+
+				if s.scoreboardEnabled && wf.ScoreboardData != nil {
+					latency := GetScoreboardLatency(wf.DynamicInst().Inst)
+					if latency > 0 {
+						wf.ScoreboardData.(*Scoreboard).MarkBusy(
+							wf.DynamicInst().Inst, latency)
+					}
+				}
 
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
@@ -249,7 +280,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
 			// The program has to make progress
-			executing.State = wavefront.WfReady
+			s.cu.UpdatePCAndSetReady(executing)
 			instProgress = true
 			instCompleted = true
 		}

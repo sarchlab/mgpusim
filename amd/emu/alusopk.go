@@ -23,43 +23,45 @@ func (u *ALUImpl) runSOPK(state InstEmuState) {
 }
 
 func (u *ALUImpl) runSMOVKI32(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	sp.DST = uint64(imm)
+	inst := state.Inst()
+	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+	state.WriteOperand(inst.Dst, 0, uint64(imm))
 }
 
 func (u *ALUImpl) runSCMOVKI32(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	if sp.SCC == 1 {
-		imm := asInt16(uint16(sp.IMM & 0xffff))
-		sp.DST = uint64(imm)
+	inst := state.Inst()
+	if state.SCC() == 1 {
+		imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+		state.WriteOperand(inst.Dst, 0, uint64(imm))
 	}
 }
 
 func (u *ALUImpl) runSCMPKEQI32(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if asInt16(uint16(sp.DST)) == imm {
-		sp.SCC = 1
+	inst := state.Inst()
+	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+	dst := state.ReadOperand(inst.Dst, 0)
+	if asInt16(uint16(dst)) == imm {
+		state.SetSCC(1)
 	} else {
-		sp.SCC = 0
+		state.SetSCC(0)
 	}
 }
 
 func (u *ALUImpl) runSCMPKLGI32(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	if asInt16(uint16(sp.DST)) != imm {
-		sp.SCC = 1
+	inst := state.Inst()
+	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+	dst := state.ReadOperand(inst.Dst, 0)
+	if asInt16(uint16(dst)) != imm {
+		state.SetSCC(1)
 	} else {
-		sp.SCC = 0
+		state.SetSCC(0)
 	}
 }
 
 func (u *ALUImpl) runSMULKI32(state InstEmuState) {
-	sp := state.Scratchpad().AsSOPK()
-	imm := asInt16(uint16(sp.IMM & 0xffff))
-	dst := asInt32(uint32(sp.DST))
+	inst := state.Inst()
+	imm := asInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
+	dst := asInt32(uint32(state.ReadOperand(inst.Dst, 0)))
 
-	sp.DST = int64ToBits(int64(int32(imm) * dst))
+	state.WriteOperand(inst.Dst, 0, int64ToBits(int64(int32(imm)*dst)))
 }

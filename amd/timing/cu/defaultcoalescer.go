@@ -37,31 +37,20 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 	}
 }
 
-// func (c defaultCoalescer) executionMaskMustNotBeAllZero(
-// 	wf *wavefront.Wavefront,
-// ) {
-// 	sp := wf.Scratchpad().AsFlat()
-// 	exec := sp.EXEC
-// 	if exec == 0 {
-// 		panic("execution mask is all 0")
-// 	}
-// }
-
 func (c defaultCoalescer) generateReadReqs(
 	wf *wavefront.Wavefront,
 ) []*mem.ReadReq {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
+	exec := wf.EXEC()
+	inst := wf.Inst()
 	reqs := []*mem.ReadReq{}
-	regCount := c.instRegCount(wf.Inst())
+	regCount := c.instRegCount(inst)
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
 			continue
 		}
 
-		addr := addrs[i]
+		addr := c.readFlatAddr(wf, int(i))
 		for j := 0; j < regCount; j++ {
 			c.findOrCreateReadReq(&reqs, addr+uint64(4*j))
 		}
@@ -73,23 +62,26 @@ func (c defaultCoalescer) generateReadReqs(
 func (c defaultCoalescer) generateWriteReqs(
 	wf *wavefront.Wavefront,
 ) []*mem.WriteReq {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
+	exec := wf.EXEC()
+	inst := wf.Inst()
 	reqs := []*mem.WriteReq{}
-	data := sp.DATA
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
 			continue
 		}
 
-		addr := addrs[i]
-		regCount := uint(c.instRegCount(wf.Inst()))
+		addr := c.readFlatAddr(wf, int(i))
+		regCount := uint(c.instRegCount(inst))
 		for j := uint(0); j < regCount; j++ {
-			reqData := data[i*4+j]
+			dataReg := insts.NewVRegOperand(
+				inst.Data.Register.RegIndex()+int(j),
+				inst.Data.Register.RegIndex()+int(j),
+				1,
+			)
+			dataVal := uint32(wf.ReadOperand(dataReg, int(i)))
 			c.findOrCreateWriteReq(&reqs, addr+uint64(j*4),
-				insts.Uint32ToBytes(reqData))
+				insts.Uint32ToBytes(dataVal))
 		}
 	}
 
@@ -205,11 +197,10 @@ func (c defaultCoalescer) addLaneInfo(
 	transaction *VectorMemAccessInfo,
 	wf *wavefront.Wavefront,
 ) {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
+	exec := wf.EXEC()
+	inst := wf.Inst()
 	req := transaction.Read
-	regCount := c.instRegCount(wf.Inst())
+	regCount := c.instRegCount(inst)
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
@@ -217,8 +208,8 @@ func (c defaultCoalescer) addLaneInfo(
 		}
 
 		for j := 0; j < regCount; j++ {
-			addr := addrs[i] + uint64(j*4)
-			reg := insts.VReg(wf.Inst().Dst.Register.RegIndex() + j)
+			addr := c.readFlatAddr(wf, int(i)) + uint64(j*4)
+			reg := insts.VReg(inst.Dst.Register.RegIndex() + j)
 			if c.isInSameCacheLine(addr, req.Address) {
 				laneInfo := vectorMemAccessLaneInfo{
 					laneID:                int(i),
@@ -226,10 +217,48 @@ func (c defaultCoalescer) addLaneInfo(
 					regCount:              1,
 					addrOffsetInCacheLine: c.addrOffsetInCacheLine(addr),
 				}
-				transaction.laneInfo = append(transaction.laneInfo, laneInfo)
+				transaction.laneInfo = append(
+					transaction.laneInfo, laneInfo)
 			}
 		}
 	}
+}
+
+func (c defaultCoalescer) readFlatAddr(
+	wf *wavefront.Wavefront,
+	laneID int,
+) uint64 {
+	inst := wf.Inst()
+
+	// Handle SAddr mode
+	// Use inst.Addr.RegCount to determine mode (consistent with disassembler):
+	// RegCount=1 means SAddr mode (32-bit VGPR offset + scalar base)
+	// RegCount=2 means OFF mode (64-bit VGPR pair as full address)
+	hasSAddr := inst.Addr.RegCount == 1
+	var scalarBase uint64
+	if hasSAddr && inst.SAddr != nil {
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		scalarBase = wf.ReadOperand(sAddrOperand, 0)
+	}
+
+	var signedOffset int64
+	if inst.Offset0 != 0 {
+		signedOffset = int64(int32(inst.Offset0))
+	}
+
+	vgprAddr := wf.ReadOperand(inst.Addr, laneID)
+
+	var finalAddr uint64
+	if hasSAddr {
+		finalAddr = scalarBase + (vgprAddr & 0xFFFFFFFF)
+	} else {
+		finalAddr = vgprAddr
+	}
+
+	finalAddr = uint64(int64(finalAddr) + signedOffset)
+
+	return finalAddr
 }
 
 func (c defaultCoalescer) isInSameCacheLine(addr1, addr2 uint64) bool {
@@ -263,4 +292,8 @@ func (c defaultCoalescer) instRegCount(inst *insts.Inst) int {
 	default:
 		panic("not supported opcode")
 	}
+}
+
+func laneMasked(exec uint64, laneID uint) bool {
+	return exec&(1<<laneID) > 0
 }

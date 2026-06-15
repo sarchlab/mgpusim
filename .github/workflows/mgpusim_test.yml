@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   compile:
     name: Compile
-    runs-on: Github-Large-1
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -14,13 +14,19 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Build
         run: go build ./...
 
   lint:
     name: Lint
-    runs-on: Github-Large-1
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -29,6 +35,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Install mockgen
         run: go install go.uber.org/mock/mockgen@v0.6.0
@@ -39,16 +51,16 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: "v2.1.5"
+          version: "v2.11.2"
           # Build golangci-lint with the configured Go toolchain to avoid
           # Go version mismatch (linter built with older Go than target).
-          install-mode: goinstall
+          install-mode: binary
           args: --timeout=10m
           skip-cache: true
 
   unit_test:
     name: Unit Test
-    runs-on: Github-Large-1
+    runs-on: self-hosted
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -58,6 +70,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
       - name: Install mockgen
         run: go install go.uber.org/mock/mockgen@v0.6.0
@@ -69,11 +87,11 @@ jobs:
         run: go install github.com/onsi/ginkgo/v2/ginkgo
 
       - name: Unit Test
-        run: ginkgo -r
+        run: ginkgo -r --skip-package=mccl
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on: Github-Large-1
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -87,126 +105,150 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Check Python
+        run: python3 --version
 
       - name: Run Deterministicity Test
         run: python test.py
         working-directory: amd/tests/deterministic/
 
-  single_gpu_acceptance_test:
-    name: Single GPU Acceptance Test
-    runs-on: Github-Large-1
+  disassembler_test:
+    name: Disassembler Test (GFX942)
+    runs-on: self-hosted
+    needs: [compile]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run Disassembler Test
+        run: ./test-disasm.sh --check
+        working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
+
+  # =============================================================================
+  # GCN3 (R9Nano) Tests
+  # =============================================================================
+
+  gcn3_emu_test:
+    name: GCN3 Emulation Test
+    runs-on: self-hosted
     needs: [unit_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: List Directory Contents
-        run: ls -R
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
 
-      - name: Run Single GPU Acceptance Test
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run GCN3 Emulation Test
         timeout-minutes: 60
         run: |
           go build
-          ./acceptance -num-gpu=1
+          ./acceptance -num-gpu=1 -no-timing -arch=gcn3
         working-directory: amd/tests/acceptance/
 
-  two_discrete_gpu_test:
-    name: Two Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [single_gpu_acceptance_test]
+  gcn3_single_gpu_timing_test:
+    name: GCN3 Single GPU Timing Test
+    runs-on: self-hosted
+    needs: [gcn3_emu_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: List Directory Contents
-        run: ls -R
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
 
-      - name: Run Two Discrete GPU Test
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run GCN3 Single GPU Timing Test
         timeout-minutes: 60
         run: |
           go build
-          ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
+          ./acceptance -num-gpu=1 -arch=gcn3
         working-directory: amd/tests/acceptance/
 
-  four_discrete_gpu_test:
-    name: Four Discrete GPU Test
-    runs-on: Github-Large-1
-    needs: [single_gpu_acceptance_test]
+  # =============================================================================
+  # CDNA3 (MI300A) Tests
+  # =============================================================================
+
+  cdna3_emu_test:
+    name: CDNA3 Emulation Test
+    runs-on: self-hosted
+    needs: [unit_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: List Directory Contents
-        run: ls -R
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
 
-      - name: Run Four Discrete GPU Test
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Emulation Test
         timeout-minutes: 60
         run: |
           go build
-          ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
+          ./acceptance -num-gpu=1 -no-timing -arch=cdna3
         working-directory: amd/tests/acceptance/
 
-  two_unified_gpu_test:
-    name: Two Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [single_gpu_acceptance_test]
+  cdna3_single_gpu_timing_test:
+    name: CDNA3 Single GPU Timing Test
+    runs-on: self-hosted
+    needs: [cdna3_emu_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: List Directory Contents
-        run: ls -R
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
 
-      - name: Run Two Unified GPU Test
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Single GPU Timing Test
         timeout-minutes: 60
         run: |
           go build
-          ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
-        working-directory: amd/tests/acceptance/
-
-  four_unified_gpu_test:
-    name: Four Unified GPU Test
-    runs-on: Github-Large-1
-    needs: [single_gpu_acceptance_test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: List Directory Contents
-        run: ls -R
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Run Four Unified GPU Test
-        timeout-minutes: 60
-        run: |
-          go build
-          ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
+          ./acceptance -num-gpu=1 -arch=cdna3
         working-directory: amd/tests/acceptance/

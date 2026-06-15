@@ -9,8 +9,7 @@ import (
 type BranchUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
+	alu emu.ALU
 
 	toRead  *wavefront.Wavefront
 	toExec  *wavefront.Wavefront
@@ -23,12 +22,10 @@ type BranchUnit struct {
 // the compute unit.
 func NewBranchUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *BranchUnit {
 	u := new(BranchUnit)
 	u.cu = cu
-	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 	return u
 }
@@ -66,8 +63,6 @@ func (u *BranchUnit) runReadStage() bool {
 	}
 
 	if u.toExec == nil {
-		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 
@@ -96,13 +91,11 @@ func (u *BranchUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
-
 	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)
-	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
+	u.toWrite.InstBufferStartPC = u.toWrite.PC() & 0xffffffffffffffc0
 	u.toWrite = nil
 	u.isIdle = false
 	return true

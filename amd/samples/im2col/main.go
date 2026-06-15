@@ -38,6 +38,7 @@ func main() {
 	benchmark.StrideY = *strideY
 	benchmark.DilateX = *dilateX
 	benchmark.DilateY = *dilateY
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

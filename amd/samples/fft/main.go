@@ -8,7 +8,8 @@ import (
 )
 
 var mb = flag.Int("MB", 8, "data size (in megabytes)")
-var passes = flag.Int("passes", 2, "number of passes")
+var bytesFlag = flag.Int("bytes", 0, "data size in bytes (overrides -MB)")
+var passes = flag.Int("passes", 1, "number of passes")
 
 func main() {
 	flag.Parse()
@@ -16,7 +17,15 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := fft.NewBenchmark(runner.Driver())
-	benchmark.Bytes = int32(*mb)
+	benchmark.Arch = runner.ArchType
+
+	if *bytesFlag > 0 {
+		benchmark.Bytes = int64(*bytesFlag)
+		benchmark.BytesMode = true
+	} else {
+		benchmark.Bytes = int64(*mb)
+	}
+
 	benchmark.Passes = int32(*passes)
 
 	runner.AddBenchmark(benchmark)

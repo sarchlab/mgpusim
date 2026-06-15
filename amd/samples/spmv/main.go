@@ -22,6 +22,7 @@ func main() {
 	benchmark := spmv.NewBenchmark(runner.Driver())
 	benchmark.Dim = int32(*Dim)
 	benchmark.Sparsity = *Sparsity
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

@@ -4,7 +4,8 @@ import "github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {
-	lastSIMDID int
+	lastSIMDID        int
+	scoreboardEnabled bool
 }
 
 // NewIssueArbiter returns a newly created IssueArbiter
@@ -34,17 +35,21 @@ func (a *IssueArbiter) Arbitrate(
 				continue
 			}
 
+			if a.scoreboardEnabled && wf.ScoreboardData != nil {
+				sb := wf.ScoreboardData.(*Scoreboard)
+				if sb.HasHazard(wf.InstToIssue.Inst) {
+					continue
+				}
+			}
+
 			if typeMask[wf.InstToIssue.ExeUnit] == false {
 				wfToIssue = append(wfToIssue, wf)
 				typeMask[wf.InstToIssue.ExeUnit] = true
 			}
 		}
-
-		if len(wfToIssue) != 0 {
-			a.lastSIMDID = simdID
-			break
-		}
 	}
+
+	a.lastSIMDID = (a.lastSIMDID + 1) % len(wfPools)
 
 	return wfToIssue
 }

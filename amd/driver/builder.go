@@ -5,6 +5,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v4/amd/insts"
 )
 
 // A Builder can build a driver.
@@ -113,6 +114,7 @@ func (b Builder) Build(name string) *Driver {
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
+	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 
 	b.createCPU(driver)
 
