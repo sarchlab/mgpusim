@@ -42,6 +42,7 @@ type Driver struct {
 	enqueueSignal      chan bool
 	engineMutex        sync.Mutex
 	engineRunning      bool
+	rerunNeeded        bool
 	engineRunningMutex sync.Mutex
 	simulationID       uint64
 
@@ -87,17 +88,30 @@ func (d *Driver) runAsync() {
 		case <-d.driverStopped:
 			return
 		case <-d.enqueueSignal:
+			// Schedule the driver tick and decide whether to (re)start the
+			// engine goroutine. The whole decision is made under
+			// engineRunningMutex so it is atomic with respect to runEngine
+			// clearing engineRunning when the event queue drains. Without this,
+			// a wakeup that arrives in the window between engine.Run() returning
+			// and engineRunning being cleared would be lost: runAsync would see
+			// engineRunning==true and trust an engine that is already exiting,
+			// leaving the freshly scheduled tick stranded with no runner.
+			d.engineRunningMutex.Lock()
+
 			d.engine.Pause()
 			d.TickLater()
 			d.engine.Continue()
 
-			d.engineRunningMutex.Lock()
 			if d.engineRunning {
+				// An engine goroutine owns the queue. Record that more work
+				// arrived so it re-runs after draining instead of exiting.
+				d.rerunNeeded = true
 				d.engineRunningMutex.Unlock()
 				continue
 			}
 
 			d.engineRunning = true
+			d.rerunNeeded = false
 			go d.runEngine()
 			d.engineRunningMutex.Unlock()
 		}
@@ -113,16 +127,30 @@ func (d *Driver) runEngine() {
 		}
 	}()
 
-	d.engineMutex.Lock()
-	defer d.engineMutex.Unlock()
-	err := d.engine.Run()
-	if err != nil {
-		panic(err)
-	}
+	for {
+		d.engineMutex.Lock()
+		err := d.engine.Run()
+		d.engineMutex.Unlock()
+		if err != nil {
+			panic(err)
+		}
 
-	d.engineRunningMutex.Lock()
-	d.engineRunning = false
-	d.engineRunningMutex.Unlock()
+		// The queue drained. Re-check, under the same lock runAsync uses, for
+		// a wakeup that raced in while we were running. If one did, loop and
+		// run again; otherwise mark the engine stopped. This check and the
+		// engineRunning check in runAsync are mutually exclusive, so no tick is
+		// ever left behind without a running engine.
+		d.engineRunningMutex.Lock()
+		if d.rerunNeeded {
+			d.rerunNeeded = false
+			d.engineRunningMutex.Unlock()
+			continue
+		}
+		d.engineRunning = false
+		d.engineRunningMutex.Unlock()
+
+		return
+	}
 }
 
 // DeviceProperties defines the properties of a device
