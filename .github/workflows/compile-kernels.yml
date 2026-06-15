@@ -1,0 +1,53 @@
+name: Compile Kernels
+
+# Reproducible, Docker-free compilation of the benchmark GPU kernels using a
+# pinned clang/LLVM 18 toolchain + libclc. Compiles every OpenCL kernel source
+# to a gfx942 (MI300A / CDNA3) code object and decode-verifies each one with
+# MGPUSim's own disassembler.
+#
+# See amd/benchmarks/tools/README.md for the full rationale.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'amd/benchmarks/**/*.cl'
+      - 'amd/benchmarks/**/*.cl.clflags'
+      - 'amd/benchmarks/tools/**'
+      - '.github/workflows/compile-kernels.yml'
+  pull_request:
+    paths:
+      - 'amd/benchmarks/**/*.cl'
+      - 'amd/benchmarks/**/*.cl.clflags'
+      - 'amd/benchmarks/tools/**'
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04   # noble: clang-18 / libclc-18 / lld-18 == 1:18.1.3-1ubuntu1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned LLVM 18 toolchain + libclc
+        run: |
+          sudo apt-get update
+          # Versions are pinned by the ubuntu-24.04 image (LLVM 18.1.3).
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 lld-18 libclc-18
+          clang-18 --version
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Compile all kernels (gfx942) and decode-verify
+        run: |
+          chmod +x amd/benchmarks/tools/*.sh
+          CLANG=clang-18 amd/benchmarks/tools/compile_all_kernels.sh "$RUNNER_TEMP/kernel-build"
+
+      - name: Upload built code objects
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gfx942-kernels
+          path: ${{ runner.temp }}/kernel-build/*.hsaco
+          if-no-files-found: warn
