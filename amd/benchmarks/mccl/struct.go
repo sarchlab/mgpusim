@@ -1,6 +1,6 @@
 package mccl
 
-import "github.com/sarchlab/mgpusim/v4/amd/driver"
+import "github.com/sarchlab/mgpusim/v5/amd/driver"
 
 type pushKernelArgs struct {
 	Src                       driver.Ptr

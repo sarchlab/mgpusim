@@ -3,9 +3,9 @@ package cu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type taskType int
@@ -71,7 +71,7 @@ func (t taskType) ToString() string {
 }
 
 //nolint:gocyclo
-func taskTypeFromString(thisTask tracing.Task) (t taskType) {
+func taskTypeFromString(thisTask tracing.TaskStart) (t taskType) {
 	switch thisTask.What {
 	case "idle":
 		t = taskTypeIdle
@@ -100,7 +100,7 @@ func taskTypeFromString(thisTask tracing.Task) (t taskType) {
 	return
 }
 
-func separateScalarTask(thisTask tracing.Task) (t taskType) {
+func separateScalarTask(thisTask tracing.TaskStart) (t taskType) {
 	detail := thisTask.Detail.(map[string]interface{})
 	inst := detail["inst"].(*wavefront.Inst)
 
@@ -118,20 +118,19 @@ func separateScalarTask(thisTask tracing.Task) (t taskType) {
 // the following:
 //   - "idle": the wavefront is not doing anything
 //   - "fetch": the wavefront is fetching an instruction
-//   - "scalar-mem": the wavefront is fetching an instruction and is waiting for
-//     the scalar memory to be ready
-//   - "vector-mem": the wavefront is fetching an instruction and is waiting for
-//
-// the vector memory to be ready
-// - "lds": the wavefront is fetching an instruction and is waiting for the LDS
-// to be ready
-// - "scalar": the wavefront is executing a scalar instruction
-// - "vector": the wavefront is executing a vector instruction
+//   - "scalar-mem": the wavefront is fetching an instruction and is waiting
+//     for the scalar memory to be ready
+//   - "vector-mem": the wavefront is fetching an instruction and is waiting
+//     for the vector memory to be ready
+//   - "lds": the wavefront is fetching an instruction and is waiting for the
+//     LDS to be ready
+//   - "scalar": the wavefront is executing a scalar instruction
+//   - "vector": the wavefront is executing a vector instruction
 type CPIStackTracer struct {
-	timeTeller sim.TimeTeller
-	cu         *ComputeUnit
+	timeTeller timing.TimeTeller
+	cu         *Comp
 
-	inflightTasks        map[string]tracing.Task
+	inflightTasks        map[uint64]tracing.TaskStart
 	firstWFStarted       bool
 	firstWFStartTime     float64
 	lastWFEndTime        float64
@@ -145,14 +144,14 @@ type CPIStackTracer struct {
 
 // NewCPIStackInstHook creates a CPIStackInstHook object.
 func NewCPIStackInstHook(
-	cu *ComputeUnit,
-	timeTeller sim.TimeTeller,
+	cu *Comp,
+	timeTeller timing.TimeTeller,
 ) *CPIStackTracer {
 	h := &CPIStackTracer{
 		timeTeller: timeTeller,
 		cu:         cu,
 
-		inflightTasks: make(map[string]tracing.Task),
+		inflightTasks: make(map[uint64]tracing.TaskStart),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
 			taskTypeIdle:          0,
@@ -175,14 +174,15 @@ func NewCPIStackInstHook(
 func (h *CPIStackTracer) totalCycle() float64 {
 	endTime := h.lastWFEndTime
 	if h.runningWFCount > 0 {
-		endTime = float64(h.timeTeller.CurrentTime())
+		endTime = secondsOf(h.timeTeller.CurrentTime())
 	}
 
 	totalTime := endTime - h.firstWFStartTime
-	totalCycle := totalTime * float64(h.cu.Freq)
+	totalCycle := totalTime * float64(h.cu.Spec().Freq)
 	return totalCycle
 }
 
+// GetCPIStack returns the CPI stack considering all the instructions.
 func (h *CPIStackTracer) GetCPIStack() map[string]float64 {
 	totalCycle := h.totalCycle()
 
@@ -191,13 +191,15 @@ func (h *CPIStackTracer) GetCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.instCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Freq)
+		cycle := duration * float64(h.cu.Spec().Freq)
 		stack[taskType] = cycle / float64(h.instCount)
 	}
 
 	return stack
 }
 
+// GetSIMDCPIStack returns the CPI stack considering only the VALU
+// instructions.
 func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 	totalCycle := h.totalCycle()
 
@@ -206,7 +208,7 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.valuInstCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Freq)
+		cycle := duration * float64(h.cu.Spec().Freq)
 		stack[taskType] = cycle / float64(h.valuInstCount)
 	}
 
@@ -214,13 +216,13 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 }
 
 // StartTask is called when a task is started.
-func (h *CPIStackTracer) StartTask(task tracing.Task) {
+func (h *CPIStackTracer) StartTask(task tracing.TaskStart) {
 	h.inflightTasks[task.ID] = task
 	h.handleTaskStart(task)
 }
 
-// StepTask does nothing.
-func (h *CPIStackTracer) StepTask(task tracing.Task) {
+// AddTaskTag does nothing.
+func (h *CPIStackTracer) AddTaskTag(tag tracing.TaskTag) {
 	// Do nothing
 }
 
@@ -230,20 +232,20 @@ func (h *CPIStackTracer) AddMilestone(milestone tracing.Milestone) {
 }
 
 // EndTask is called when a task is ended.
-func (h *CPIStackTracer) EndTask(task tracing.Task) {
+func (h *CPIStackTracer) EndTask(task tracing.TaskEnd) {
 	originalTask, found := h.inflightTasks[task.ID]
 	if found {
 		delete(h.inflightTasks, task.ID)
-		h.handleTaskEnd(originalTask)
+		h.handleTaskEnd(originalTask, task.Time)
 	}
 }
 
-func (h *CPIStackTracer) handleTaskStart(task tracing.Task) {
+func (h *CPIStackTracer) handleTaskStart(task tracing.TaskStart) {
 	switch task.Kind {
 	case "wavefront":
 		if !h.firstWFStarted {
 			h.firstWFStarted = true
-			h.firstWFStartTime = float64(h.timeTeller.CurrentTime())
+			h.firstWFStartTime = secondsOf(task.Time)
 			h.lastRecordedTime = h.firstWFStartTime
 			h.runningWFCount++
 		}
@@ -258,45 +260,60 @@ func (h *CPIStackTracer) handleTaskStart(task tracing.Task) {
 	}
 }
 
-func (h *CPIStackTracer) handleRegularTaskStart(task tracing.Task) {
+func (h *CPIStackTracer) handleRegularTaskStart(task tracing.TaskStart) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
-	currentTime := h.timeTeller.CurrentTime()
-	duration := h.timeDiff()
+	currentTime := secondsOf(task.Time)
+	duration := currentTime - h.lastRecordedTime
 	h.timeStack[highestTaskType.ToString()] += duration
-	h.lastRecordedTime = float64(currentTime)
+	h.lastRecordedTime = currentTime
 
 	h.inFlightTaskCountMap[currentTaskType]++
 }
 
-func (h *CPIStackTracer) handleReqStart(task tracing.Task) {
-	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
-		parentTask, found := h.inflightTasks[task.ParentID]
+func (h *CPIStackTracer) handleReqStart(task tracing.TaskStart) {
+	if task.What != "ReadReq" && task.What != "WriteReq" {
+		return
+	}
 
-		if !found {
-			panic("Could not find parent task")
-		}
+	parentTask, found := h.inflightTasks[task.ParentID]
+	if !found {
+		// The parent instruction (or fetch) task has already ended. With
+		// coalesced vector-memory accesses, the requests for one instruction
+		// share its task as their parent, and the instruction is completed
+		// when the coalesce-terminating request returns. Because the memory
+		// system may return responses out of order, a sibling request can
+		// return after the instruction task has already ended. Such a
+		// request cannot be attributed, so skip it; handleReqEnd is
+		// symmetric and only accounts for requests classified here.
+		return
+	}
 
-		if parentTask.What == "VMem" {
-			task.What = "VectorMemTransaction"
-			h.handleRegularTaskStart(task)
-		} else if parentTask.What == "Scalar" {
-			task.What = "ScalarMemTransaction"
-			h.handleRegularTaskStart(task)
-		}
+	switch parentTask.What {
+	case "VMem":
+		task.What = "VectorMemTransaction"
+		h.inflightTasks[task.ID] = task
+		h.handleRegularTaskStart(task)
+	case "Scalar":
+		task.What = "ScalarMemTransaction"
+		h.inflightTasks[task.ID] = task
+		h.handleRegularTaskStart(task)
 	}
 }
 
-func (h *CPIStackTracer) handleRegularTaskEnd(task tracing.Task) {
+func (h *CPIStackTracer) handleRegularTaskEnd(
+	task tracing.TaskStart,
+	endTime timing.VTimeInPicoSec,
+) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
-	currentTime := h.timeTeller.CurrentTime()
-	duration := h.timeDiff()
+	currentTime := secondsOf(endTime)
+	duration := currentTime - h.lastRecordedTime
 
 	h.timeStack[highestTaskType.ToString()] += duration
-	h.lastRecordedTime = float64(currentTime)
+	h.lastRecordedTime = currentTime
 
 	if currentTaskType.isInst() {
 		h.instCount++
@@ -309,21 +326,19 @@ func (h *CPIStackTracer) handleRegularTaskEnd(task tracing.Task) {
 	h.inFlightTaskCountMap[currentTaskType]--
 }
 
-func (h *CPIStackTracer) handleReqEnd(task tracing.Task) {
-	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
-		parentTask, found := h.inflightTasks[task.ParentID]
-
-		if !found {
-			panic("Could not find parent task")
-		}
-
-		if parentTask.What == "VMem" {
-			task.What = "VectorMemTransaction"
-			h.handleRegularTaskEnd(task)
-		} else if parentTask.What == "Scalar" {
-			task.What = "ScalarMemTransaction"
-			h.handleRegularTaskEnd(task)
-		}
+func (h *CPIStackTracer) handleReqEnd(
+	task tracing.TaskStart,
+	endTime timing.VTimeInPicoSec,
+) {
+	// task is the request's own task, as persisted by handleReqStart. If the
+	// request was classified as a memory transaction under a VMem/Scalar
+	// instruction, its What was rewritten accordingly at start; account for
+	// it symmetrically here. Requests that were not classified (the parent
+	// instruction task was already gone at start) are skipped, exactly as at
+	// start, so the in-flight counters stay balanced.
+	switch task.What {
+	case "VectorMemTransaction", "ScalarMemTransaction":
+		h.handleRegularTaskEnd(task, endTime)
 	}
 }
 
@@ -337,32 +352,22 @@ func (h *CPIStackTracer) highestRunningTaskType() taskType {
 	return taskTypeIdle
 }
 
-func (h *CPIStackTracer) timeDiff() float64 {
-	return float64(h.timeTeller.CurrentTime()) - h.lastRecordedTime
-}
-
-func (h *CPIStackTracer) addStackTime(state string, time float64) {
-	_, ok := h.timeStack[state]
-	if !ok {
-		h.timeStack[state] = 0
-	}
-
-	h.timeStack[state] += time
-}
-
-func (h *CPIStackTracer) handleTaskEnd(task tracing.Task) {
+func (h *CPIStackTracer) handleTaskEnd(
+	task tracing.TaskStart,
+	endTime timing.VTimeInPicoSec,
+) {
 	switch task.Kind {
 	case "wavefront":
 		if h.firstWFStarted {
-			h.lastWFEndTime = float64(h.timeTeller.CurrentTime())
+			h.lastWFEndTime = secondsOf(endTime)
 			h.lastRecordedTime = h.lastWFEndTime
 			h.runningWFCount--
 		}
 	case "inst", "fetch":
-		h.handleRegularTaskEnd(task)
+		h.handleRegularTaskEnd(task, endTime)
 	case "req_out":
-		h.handleReqEnd(task)
+		h.handleReqEnd(task, endTime)
 	}
 
-	h.lastWFEndTime = float64(h.timeTeller.CurrentTime())
+	h.lastWFEndTime = secondsOf(endTime)
 }

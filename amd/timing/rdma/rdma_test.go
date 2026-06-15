@@ -6,12 +6,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"go.uber.org/mock/gomock"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 )
-
-//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/akita/v4/sim Port,Engine
 
 func TestRDMA(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
@@ -19,336 +20,349 @@ func TestRDMA(t *testing.T) {
 	RunSpecs(t, "RDMA")
 }
 
-var _ = Describe("Engine", func() {
-	var (
-		mockCtrl *gomock.Controller
+// noopConn is a minimal messaging.Connection used to drive a component's
+// real ports in isolation. Tests feed requests with Deliver and read
+// responses with RetrieveOutgoing; the port still needs a connection so its
+// send/retrieve notifications have somewhere to go.
+type noopConn struct {
+	hooking.HookableBase
+}
 
-		engine               *MockEngine
-		rdmaEngine           *Comp
-		RDMARequestInside    *MockPort
-		RDMADataInside       *MockPort
-		ctrlPort             *MockPort
-		RDMARequestOutside   *MockPort
-		RDMADataOutside      *MockPort
-		localModules         *mem.SinglePortMapper
-		remoteModules        *mem.SinglePortMapper
-		localCache           *MockPort
-		remoteGPU            *MockPort
-		controllingComponent *MockPort
+func (c *noopConn) Name() string                     { return "NoopConn" }
+func (c *noopConn) PlugIn(port messaging.Port)       { port.SetConnection(c) }
+func (c *noopConn) Unplug(_ messaging.Port)          {}
+func (c *noopConn) NotifyAvailable(_ messaging.Port) {}
+func (c *noopConn) NotifySend()                      {}
+
+var _ = Describe("RDMA Engine", func() {
+	var (
+		engine     timing.Engine
+		rdmaEngine *Comp
+
+		requestInside  messaging.Port
+		requestOutside messaging.Port
+		dataInside     messaging.Port
+		dataOutside    messaging.Port
+		ctrlPort       messaging.Port
+
+		localCache messaging.RemotePort
+		remoteGPU  messaging.RemotePort
+		cpCtrl     messaging.RemotePort
 	)
 
+	makePort := func(name string, bufSize int) messaging.Port {
+		port := messaging.NewPort(
+			rdmaEngine, bufSize, bufSize, rdmaEngine.Name()+"."+name)
+		rdmaEngine.AssignPort(name, port)
+
+		conn := &noopConn{}
+		conn.PlugIn(port)
+
+		return port
+	}
+
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
+		engine = timing.NewSerialEngine()
 
-		engine = NewMockEngine(mockCtrl)
-		localCache = NewMockPort(mockCtrl)
-		controllingComponent = NewMockPort(mockCtrl)
-		remoteGPU = NewMockPort(mockCtrl)
-		localCache.EXPECT().AsRemote().AnyTimes()
-		controllingComponent.EXPECT().AsRemote().AnyTimes()
-		remoteGPU.EXPECT().AsRemote().AnyTimes()
-		localModules = new(mem.SinglePortMapper)
-		localModules.Port = localCache.AsRemote()
-		remoteModules = new(mem.SinglePortMapper)
-		remoteModules.Port = remoteGPU.AsRemote()
+		localCache = messaging.RemotePort("LocalCache")
+		remoteGPU = messaging.RemotePort("RemoteGPU")
+		cpCtrl = messaging.RemotePort("CP.Ctrl")
 
-		// rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
 		rdmaEngine = MakeBuilder().
-			WithEngine(engine).
-			WithLocalModules(localModules).
-			WithRemoteModules(remoteModules).
+			WithRegistrar(modeling.NewStandaloneRegistrar(engine)).
+			WithResources(Resources{
+				LocalModules:           &mem.SinglePortMapper{Port: localCache},
+				RemoteRDMAAddressTable: &mem.SinglePortMapper{Port: remoteGPU},
+			}).
 			Build("RDMAEngine")
 
-		RDMARequestInside = NewMockPort(mockCtrl)
-		RDMADataInside = NewMockPort(mockCtrl)
-		ctrlPort = NewMockPort(mockCtrl)
-		RDMARequestOutside = NewMockPort(mockCtrl)
-		RDMADataOutside = NewMockPort(mockCtrl)
-		rdmaEngine.RDMARequestInside = RDMARequestInside
-		rdmaEngine.RDMADataInside = RDMADataInside
-		rdmaEngine.CtrlPort = ctrlPort
-		RDMARequestInside.EXPECT().AsRemote().AnyTimes()
-		RDMADataInside.EXPECT().AsRemote().AnyTimes()
-		ctrlPort.EXPECT().AsRemote().AnyTimes()
-		RDMARequestOutside.EXPECT().AsRemote().AnyTimes()
-		RDMADataOutside.EXPECT().AsRemote().AnyTimes()
-
-		rdmaEngine.RDMARequestOutside = RDMARequestOutside
-		rdmaEngine.RDMADataOutside = RDMADataOutside
+		requestInside = makePort("RDMARequestInside", 4)
+		requestOutside = makePort("RDMARequestOutside", 4)
+		dataInside = makePort("RDMADataInside", 4)
+		dataOutside = makePort("RDMADataOutside", 4)
+		ctrlPort = makePort("Ctrl", 4)
 	})
 
-	AfterEach(func() {
-		mockCtrl.Finish()
+	makeReadReq := func(src, dst messaging.RemotePort) memprotocol.ReadReq {
+		return memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: src,
+				Dst: dst,
+			},
+			Address:        0x100,
+			AccessByteSize: 64,
+		}
+	}
+
+	makeDataReadyRsp := func(
+		src, dst messaging.RemotePort,
+		rspTo uint64,
+	) memprotocol.DataReadyRsp {
+		return memprotocol.DataReadyRsp{
+			MsgMeta: messaging.MsgMeta{
+				ID:    timing.GetIDGenerator().Generate(),
+				Src:   src,
+				Dst:   dst,
+				RspTo: rspTo,
+			},
+			Data: []byte{1, 2, 3, 4},
+		}
+	}
+
+	// fillOutgoing exhausts the outgoing buffer of a port so that CanSend
+	// returns false.
+	fillOutgoing := func(port messaging.Port) {
+		for port.CanSend() {
+			port.Send(RestartRsp{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: port.AsRemote(),
+					Dst: "Elsewhere",
+				},
+			})
+		}
+	}
+
+	Context("read from inside", func() {
+		It("should forward the read to outside", func() {
+			read := makeReadReq(localCache, requestInside.AsRemote())
+			requestInside.Deliver(read)
+
+			madeProgress := rdmaEngine.Tick()
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(1))
+			Expect(rdmaEngine.State.TransactionsFromInside[0].OriginalReqID).
+				To(Equal(read.ID))
+			Expect(rdmaEngine.State.TransactionsFromInside[0].OriginalSrc).
+				To(Equal(localCache))
+
+			forwarded := requestOutside.RetrieveOutgoing()
+			Expect(forwarded).To(BeAssignableToTypeOf(memprotocol.ReadReq{}))
+			Expect(forwarded.Meta().Dst).To(Equal(remoteGPU))
+			Expect(forwarded.Meta().ID).To(Equal(
+				rdmaEngine.State.TransactionsFromInside[0].ForwardedReqID))
+			Expect(forwarded.(memprotocol.ReadReq).Address).
+				To(Equal(uint64(0x100)))
+		})
+
+		It("should wait if the outside port is busy", func() {
+			fillOutgoing(requestOutside)
+
+			read := makeReadReq(localCache, requestInside.AsRemote())
+			requestInside.Deliver(read)
+
+			rdmaEngine.Tick()
+
+			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(0))
+			Expect(requestInside.PeekIncoming()).NotTo(BeNil())
+		})
 	})
 
-	Context("Read from inside", func() {
-		var read *mem.ReadReq
+	Context("read from outside", func() {
+		It("should forward the read to inside", func() {
+			read := makeReadReq(remoteGPU, dataOutside.AsRemote())
+			dataOutside.Deliver(read)
+
+			madeProgress := rdmaEngine.Tick()
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(1))
+
+			forwarded := dataInside.RetrieveOutgoing()
+			Expect(forwarded).To(BeAssignableToTypeOf(memprotocol.ReadReq{}))
+			Expect(forwarded.Meta().Dst).To(Equal(localCache))
+		})
+
+		It("should wait if the inside port is busy", func() {
+			fillOutgoing(dataInside)
+
+			read := makeReadReq(remoteGPU, dataOutside.AsRemote())
+			dataOutside.Deliver(read)
+
+			rdmaEngine.Tick()
+
+			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(0))
+			Expect(dataOutside.PeekIncoming()).NotTo(BeNil())
+		})
+	})
+
+	Context("data-ready from outside", func() {
+		var trans transaction
 
 		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
+			trans = transaction{
+				OriginalReqID:  timing.GetIDGenerator().Generate(),
+				OriginalSrc:    localCache,
+				ForwardedReqID: timing.GetIDGenerator().Generate(),
+			}
+			rdmaEngine.State.TransactionsFromInside = append(
+				rdmaEngine.State.TransactionsFromInside, trans)
 		})
 
-		It("should send read to outside", func() {
-			RDMARequestInside.EXPECT().PeekIncoming().Return(read)
-			RDMARequestOutside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(nil)
-			RDMARequestInside.EXPECT().RetrieveIncoming().Return(read)
-			RDMARequestInside.EXPECT().PeekIncoming().Return(nil)
+		It("should forward the response to inside", func() {
+			rsp := makeDataReadyRsp(
+				remoteGPU, requestOutside.AsRemote(), trans.ForwardedReqID)
+			requestOutside.Deliver(rsp)
 
-			rdmaEngine.processFromL1()
+			madeProgress := rdmaEngine.Tick()
 
-			Expect(rdmaEngine.transactionsFromInside).To(HaveLen(1))
+			Expect(madeProgress).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(0))
+
+			forwarded := requestInside.RetrieveOutgoing()
+			Expect(forwarded).
+				To(BeAssignableToTypeOf(memprotocol.DataReadyRsp{}))
+			Expect(forwarded.Meta().Dst).To(Equal(localCache))
+			Expect(forwarded.Meta().RspTo).To(Equal(trans.OriginalReqID))
 		})
 
-		It("should wait if outside connection is busy", func() {
-			RDMARequestInside.EXPECT().PeekIncoming().Return(read)
-			RDMARequestOutside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(sim.NewSendError())
+		It("should wait if the inside port is busy", func() {
+			fillOutgoing(requestInside)
 
-			rdmaEngine.processFromL1()
+			rsp := makeDataReadyRsp(
+				remoteGPU, requestOutside.AsRemote(), trans.ForwardedReqID)
+			requestOutside.Deliver(rsp)
 
-			Expect(rdmaEngine.transactionsFromInside).To(HaveLen(0))
-		})
-	})
+			rdmaEngine.Tick()
 
-	Context("Read from outside", func() {
-		var read *mem.ReadReq
-
-		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-		})
-
-		It("should send read to outside", func() {
-			RDMADataOutside.EXPECT().PeekIncoming().Return(read)
-			RDMADataInside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(nil)
-			RDMADataOutside.EXPECT().RetrieveIncoming().Return(read)
-
-			rdmaEngine.processIncomingReq()
-
-			Expect(rdmaEngine.transactionsFromOutside).To(HaveLen(1))
-		})
-
-		It("should wait if outside connection is busy", func() {
-			RDMADataOutside.EXPECT().PeekIncoming().Return(read)
-			RDMADataInside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(sim.NewSendError())
-
-			rdmaEngine.processIncomingReq()
-
-			Expect(rdmaEngine.transactionsFromInside).To(HaveLen(0))
+			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(1))
+			Expect(requestOutside.PeekIncoming()).NotTo(BeNil())
 		})
 	})
 
-	Context("DataReady from outside", func() {
-		var (
-			readFromInside *mem.ReadReq
-			read           *mem.ReadReq
-			rsp            *mem.DataReadyRsp
-		)
+	Context("data-ready from inside", func() {
+		var trans transaction
 
 		BeforeEach(func() {
-			readFromInside = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestInside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithDst(remoteGPU.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithRspTo(read.ID).
-				Build()
-
-			rdmaEngine.transactionsFromInside = append(
-				rdmaEngine.transactionsFromInside,
-				transaction{
-					fromInside: readFromInside,
-					toOutside:  read,
-				})
+			trans = transaction{
+				OriginalReqID:  timing.GetIDGenerator().Generate(),
+				OriginalSrc:    remoteGPU,
+				ForwardedReqID: timing.GetIDGenerator().Generate(),
+			}
+			rdmaEngine.State.TransactionsFromOutside = append(
+				rdmaEngine.State.TransactionsFromOutside, trans)
 		})
 
-		It("should send rsp to inside", func() {
-			RDMARequestOutside.EXPECT().PeekIncoming().Return(rsp)
-			RDMARequestInside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(nil)
-			RDMARequestOutside.EXPECT().RetrieveIncoming().Return(read)
+		It("should forward the response to outside", func() {
+			rsp := makeDataReadyRsp(
+				localCache, dataInside.AsRemote(), trans.ForwardedReqID)
+			dataInside.Deliver(rsp)
 
-			rdmaEngine.processIncomingRsp()
+			madeProgress := rdmaEngine.Tick()
 
-			Expect(rdmaEngine.transactionsFromInside).To(HaveLen(0))
+			Expect(madeProgress).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(0))
+
+			forwarded := dataOutside.RetrieveOutgoing()
+			Expect(forwarded).
+				To(BeAssignableToTypeOf(memprotocol.DataReadyRsp{}))
+			Expect(forwarded.Meta().Dst).To(Equal(remoteGPU))
+			Expect(forwarded.Meta().RspTo).To(Equal(trans.OriginalReqID))
 		})
 
-		It("should not send rsp to inside if busy", func() {
-			RDMARequestOutside.EXPECT().PeekIncoming().Return(rsp)
-			RDMARequestInside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(sim.NewSendError())
+		It("should wait if the outside port is busy", func() {
+			fillOutgoing(dataOutside)
 
-			rdmaEngine.processIncomingRsp()
+			rsp := makeDataReadyRsp(
+				localCache, dataInside.AsRemote(), trans.ForwardedReqID)
+			dataInside.Deliver(rsp)
 
-			Expect(rdmaEngine.transactionsFromInside).To(HaveLen(1))
+			rdmaEngine.Tick()
+
+			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(1))
+			Expect(dataInside.PeekIncoming()).NotTo(BeNil())
 		})
 	})
 
-	Context("DataReady from inside", func() {
-		var (
-			readFromOutside *mem.ReadReq
-			read            *mem.ReadReq
-			rsp             *mem.DataReadyRsp
-		)
+	Context("drain and restart", func() {
+		makeDrainReq := func() DrainReq {
+			return DrainReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cpCtrl,
+					Dst: ctrlPort.AsRemote(),
+				},
+			}
+		}
 
-		BeforeEach(func() {
-			readFromOutside = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMADataInside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithDst(remoteGPU.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU.AsRemote()).
-				WithDst(rdmaEngine.RDMADataOutside.AsRemote()).
-				WithRspTo(read.ID).
-				Build()
-			rdmaEngine.transactionsFromOutside = append(
-				rdmaEngine.transactionsFromInside,
-				transaction{
-					fromOutside: readFromOutside,
-					toInside:    read,
-				})
+		makeRestartReq := func() RestartReq {
+			return RestartReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cpCtrl,
+					Dst: ctrlPort.AsRemote(),
+				},
+			}
+		}
+
+		It("should pause L1 requests and keep draining while busy", func() {
+			trans := transaction{
+				OriginalReqID:  timing.GetIDGenerator().Generate(),
+				OriginalSrc:    localCache,
+				ForwardedReqID: timing.GetIDGenerator().Generate(),
+			}
+			rdmaEngine.State.TransactionsFromInside = append(
+				rdmaEngine.State.TransactionsFromInside, trans)
+
+			drainReq := makeDrainReq()
+			ctrlPort.Deliver(drainReq)
+
+			rdmaEngine.Tick()
+
+			Expect(rdmaEngine.State.IsDraining).To(BeTrue())
+			Expect(rdmaEngine.State.PauseIncomingReqsFromL1).To(BeTrue())
+			Expect(rdmaEngine.State.CurrentDrainReqID).To(Equal(drainReq.ID))
+			Expect(rdmaEngine.State.CurrentDrainReqSrc).To(Equal(cpCtrl))
+			Expect(ctrlPort.PeekOutgoing()).To(BeNil())
 		})
 
-		It("should send rsp to outside", func() {
-			RDMADataInside.EXPECT().PeekIncoming().Return(rsp)
-			RDMADataOutside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(nil)
-			RDMADataInside.EXPECT().RetrieveIncoming().Return(read)
+		It("should not forward L1 requests while paused", func() {
+			rdmaEngine.State.PauseIncomingReqsFromL1 = true
 
-			rdmaEngine.processFromL2()
+			read := makeReadReq(localCache, requestInside.AsRemote())
+			requestInside.Deliver(read)
 
-			Expect(rdmaEngine.transactionsFromOutside).To(HaveLen(0))
+			rdmaEngine.Tick()
+
+			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(0))
+			Expect(requestOutside.PeekOutgoing()).To(BeNil())
 		})
 
-		It("should  not send rsp to outside", func() {
-			RDMADataInside.EXPECT().PeekIncoming().Return(rsp)
-			RDMADataOutside.EXPECT().
-				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(sim.NewSendError())
+		It("should send a drain-complete response when fully drained", func() {
+			drainReq := makeDrainReq()
+			ctrlPort.Deliver(drainReq)
 
-			rdmaEngine.processFromL2()
+			rdmaEngine.Tick()
 
-			Expect(rdmaEngine.transactionsFromOutside).To(HaveLen(1))
-		})
-	})
-	Context("Drain related handling", func() {
+			Expect(rdmaEngine.State.IsDraining).To(BeFalse())
+			Expect(rdmaEngine.State.PauseIncomingReqsFromL1).To(BeTrue())
 
-		var (
-			read       *mem.ReadReq
-			drainReq   *DrainReq
-			restartReq *RestartReq
-		)
-
-		BeforeEach(func() {
-			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache.AsRemote()).
-				WithDst(rdmaEngine.RDMARequestOutside.AsRemote()).
-				WithAddress(0x100).
-				WithByteSize(64).
-				Build()
-			drainReq = DrainReqBuilder{}.
-				WithSrc(controllingComponent.AsRemote()).
-				WithDst(rdmaEngine.CtrlPort.AsRemote()).Build()
-			restartReq = RestartReqBuilder{}.
-				WithSrc(controllingComponent.AsRemote()).
-				WithDst(rdmaEngine.CtrlPort.AsRemote()).Build()
-
+			rsp := ctrlPort.RetrieveOutgoing()
+			Expect(rsp).To(BeAssignableToTypeOf(DrainRsp{}))
+			Expect(rsp.Meta().Dst).To(Equal(cpCtrl))
+			Expect(rsp.Meta().RspTo).To(Equal(drainReq.ID))
 		})
 
-		It("should handle drain req", func() {
-			ctrlPort.EXPECT().PeekIncoming().Return(drainReq)
-			ctrlPort.EXPECT().RetrieveIncoming().Return(drainReq)
+		It("should handle a restart request", func() {
+			rdmaEngine.State.PauseIncomingReqsFromL1 = true
+			rdmaEngine.State.CurrentDrainReqID =
+				timing.GetIDGenerator().Generate()
+			rdmaEngine.State.CurrentDrainReqSrc = cpCtrl
 
-			rdmaEngine.processFromCtrlPort()
+			restartReq := makeRestartReq()
+			ctrlPort.Deliver(restartReq)
 
-			Expect(rdmaEngine.currentDrainReq).To(Equal(drainReq))
-			Expect(rdmaEngine.isDraining).To(BeTrue())
-			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeTrue())
+			rdmaEngine.Tick()
 
+			Expect(rdmaEngine.State.PauseIncomingReqsFromL1).To(BeFalse())
+			Expect(rdmaEngine.State.CurrentDrainReqID).To(Equal(uint64(0)))
+
+			rsp := ctrlPort.RetrieveOutgoing()
+			Expect(rsp).To(BeAssignableToTypeOf(RestartRsp{}))
+			Expect(rsp.Meta().Dst).To(Equal(cpCtrl))
+			Expect(rsp.Meta().RspTo).To(Equal(restartReq.ID))
 		})
-
-		It("should send a drain complete rsp", func() {
-			rdmaEngine.currentDrainReq = drainReq
-			rdmaEngine.isDraining = true
-
-			ctrlPort.EXPECT().
-				Send(gomock.AssignableToTypeOf(&DrainRsp{})).
-				Return(nil)
-			rdmaEngine.drainRDMA()
-
-			Expect(rdmaEngine.isDraining).To(BeFalse())
-
-		})
-
-		It("should not send a drain complete rsp if transactions pending", func() {
-			rdmaEngine.transactionsFromInside = append(
-				rdmaEngine.transactionsFromInside,
-				transaction{
-					fromInside: read,
-					toOutside:  read,
-				})
-			rdmaEngine.currentDrainReq = drainReq
-			rdmaEngine.isDraining = true
-
-			rdmaEngine.drainRDMA()
-
-			Expect(rdmaEngine.isDraining).To(BeTrue())
-
-		})
-
-		It("should handle drain restart req", func() {
-			rdmaEngine.currentDrainReq = drainReq
-			rdmaEngine.pauseIncomingReqsFromL1 = true
-
-			ctrlPort.EXPECT().PeekIncoming().Return(restartReq)
-			ctrlPort.EXPECT().RetrieveIncoming().Return(restartReq)
-			ctrlPort.EXPECT().
-				Send(gomock.AssignableToTypeOf(&RestartRsp{})).
-				Return(nil)
-
-			rdmaEngine.processFromCtrlPort()
-
-			Expect(rdmaEngine.currentDrainReq).To(BeNil())
-			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeFalse())
-
-		})
-
 	})
 })

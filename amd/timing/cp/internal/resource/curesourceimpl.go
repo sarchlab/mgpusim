@@ -3,15 +3,15 @@ package resource
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // CUResourceImpl implements CUResource
 type CUResourceImpl struct {
 	sync.Mutex
 
-	port sim.RemotePort
+	port messaging.RemotePort
 
 	wfPoolFreeCount []int
 
@@ -32,7 +32,7 @@ type CUResourceImpl struct {
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
-func (r *CUResourceImpl) DispatchingPort() sim.RemotePort {
+func (r *CUResourceImpl) DispatchingPort() messaging.RemotePort {
 	return r.port
 }
 

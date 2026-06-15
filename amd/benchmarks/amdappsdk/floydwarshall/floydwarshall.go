@@ -9,9 +9,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
@@ -122,7 +122,10 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	rand.Seed(1)
+	// Use a local random source so the input is reproducible. rand.Seed has
+	// been a no-op since Go 1.24, so seeding the global generator no longer
+	// produces a deterministic sequence.
+	rng := rand.New(rand.NewSource(1))
 
 	numNodes := b.NumNodes
 	b.hOutputPathMatrix = make([]uint32, numNodes*numNodes)
@@ -130,7 +133,7 @@ func (b *Benchmark) initMem() {
 
 	for i := uint32(0); i < numNodes; i++ {
 		for j := uint32(0); j < i; j++ {
-			temp := uint32(rand.Int31n(10))
+			temp := uint32(rng.Int31n(10))
 			b.hOutputPathDistanceMatrix[i*numNodes+j] = temp
 			b.hOutputPathDistanceMatrix[j*numNodes+i] = temp
 		}

@@ -8,10 +8,10 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 var nextPID uint64
@@ -223,7 +223,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 	src interface{},
 ) {
 	cmd := &MemCopyH2DCommand{
-		ID:  sim.GetIDGenerator().Generate(),
+		ID:  timing.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}
@@ -238,7 +238,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 	src Ptr,
 ) {
 	cmd := &MemCopyD2HCommand{
-		ID:  sim.GetIDGenerator().Generate(),
+		ID:  timing.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}

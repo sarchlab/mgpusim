@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("SIMD Unit", func() {
@@ -17,7 +17,7 @@ var _ = Describe("SIMD Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		alu = new(mockALU)
 		name = "simd"
 		bu = NewSIMDUnit(cu, name, alu)

@@ -1,13 +1,13 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
 // CommandHookInfo carries the information provided to hooks that are
 // triggered by Comands.
 type CommandHookInfo struct {
-	Now     sim.VTimeInSec
+	Now     timing.VTimeInPicoSec
 	IsStart bool
 	Queue   *CommandQueue
 }

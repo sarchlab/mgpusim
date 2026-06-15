@@ -8,9 +8,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // Float2 is two floats
@@ -249,11 +249,14 @@ func (b *Benchmark) fftCPU() int32 {
 }
 
 func (b *Benchmark) fill() {
-	rand.Seed(1)
+	// Use a local random source so the input is reproducible. rand.Seed has
+	// been a no-op since Go 1.24, so seeding the global generator no longer
+	// produces a deterministic sequence.
+	rng := rand.New(rand.NewSource(1))
 
 	for i := int64(0); i < b.halfNCmplx; i++ {
-		b.source[i].X = (rand.Float32())*2 - 1
-		b.source[i].Y = (rand.Float32())*2 - 1
+		b.source[i].X = (rng.Float32())*2 - 1
+		b.source[i].Y = (rng.Float32())*2 - 1
 		b.source[i+b.halfNCmplx].X = b.source[i].X
 		b.source[i+b.halfNCmplx].Y = b.source[i].Y
 	}

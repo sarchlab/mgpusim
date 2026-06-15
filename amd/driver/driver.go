@@ -6,65 +6,58 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/tebeka/atexit"
 )
 
-// Driver is an Akita component that controls the simulated GPUs
+// Driver is an Akita component that controls the simulated GPUs. It exposes
+// the host-facing API used by the benchmarks and forwards the resulting
+// commands to the GPUs' command processors through its "GPU" port.
 type Driver struct {
-	*sim.TickingComponent
+	*Comp
 
-	memAllocator  internal.MemoryAllocator
-	distributor   distributor
-	globalStorage *mem.Storage
+	// TODO(akita5): state purity. The fields below are complex runtime state
+	// (pointers, interfaces, channels, mutexes) that cannot live in the
+	// checkpointable State struct yet.
+	memAllocator internal.MemoryAllocator
+	distributor  distributor
 
-	GPUs        []sim.Port
+	GPUs        []messaging.RemotePort
 	devices     []*internal.Device
-	pageTable   vm.PageTable
 	middlewares []Middleware
 
-	requestsToSend []sim.Msg
+	requestsToSend []messaging.Msg
 
 	contextMutex sync.Mutex
 	contexts     []*Context
 
-	mmuPort sim.Port
-	gpuPort sim.Port
-
+	engine             timing.Engine
 	driverStopped      chan bool
 	enqueueSignal      chan bool
 	engineMutex        sync.Mutex
 	engineRunning      bool
+	rerunNeeded        bool
 	engineRunningMutex sync.Mutex
-	simulationID       string
+	simulationID       uint64
 
 	Log2PageSize uint64
-
-	currentPageMigrationReq         *vm.PageMigrationReqToDriver
-	toSendToMMU                     *vm.PageMigrationRspFromDriver
-	migrationReqToSendToCP          []*protocol.PageMigrationReqToCP
-	isCurrentlyHandlingMigrationReq bool
-	numRDMADrainACK                 uint64
-	numRDMARestartACK               uint64
-	numShootDownACK                 uint64
-	numRestartACK                   uint64
-	numPagesMigratingACK            uint64
-	isCurrentlyMigratingOnePage     bool
-
-	RemotePMCPorts []sim.Port
 
 	codeObjGPUAddrs map[*insts.KernelCodeObject]Ptr
 }
 
-// Run starts a new threads that handles all commands in the command queues
+// gpuPort returns the port that connects the driver to the GPUs' command
+// processors. The port instance is assigned externally after Build.
+func (d *Driver) gpuPort() messaging.Port {
+	return d.GetPortByName(GPUPortName)
+}
+
+// Run starts a new thread that handles all commands in the command queues.
 func (d *Driver) Run() {
 	d.logSimulationStart()
 	go d.runAsync()
@@ -77,18 +70,16 @@ func (d *Driver) Terminate() {
 }
 
 func (d *Driver) logSimulationStart() {
-	d.simulationID = xid.New().String()
-	tracing.StartTask(
-		d.simulationID,
-		"",
-		d,
-		"Simulation", "Simulation",
-		nil,
-	)
+	d.simulationID = timing.GetIDGenerator().Generate()
+	tracing.StartTask(d, tracing.TaskStart{
+		ID:   d.simulationID,
+		Kind: "Simulation",
+		What: "Simulation",
+	})
 }
 
 func (d *Driver) logSimulationTerminate() {
-	tracing.EndTask(d.simulationID, d)
+	tracing.EndTask(d, tracing.TaskEnd{ID: d.simulationID})
 }
 
 func (d *Driver) runAsync() {
@@ -97,17 +88,30 @@ func (d *Driver) runAsync() {
 		case <-d.driverStopped:
 			return
 		case <-d.enqueueSignal:
-			d.Engine.Pause()
-			d.TickLater()
-			d.Engine.Continue()
-
+			// Schedule the driver tick and decide whether to (re)start the
+			// engine goroutine. The whole decision is made under
+			// engineRunningMutex so it is atomic with respect to runEngine
+			// clearing engineRunning when the event queue drains. Without this,
+			// a wakeup that arrives in the window between engine.Run() returning
+			// and engineRunning being cleared would be lost: runAsync would see
+			// engineRunning==true and trust an engine that is already exiting,
+			// leaving the freshly scheduled tick stranded with no runner.
 			d.engineRunningMutex.Lock()
+
+			d.engine.Pause()
+			d.TickLater()
+			d.engine.Continue()
+
 			if d.engineRunning {
+				// An engine goroutine owns the queue. Record that more work
+				// arrived so it re-runs after draining instead of exiting.
+				d.rerunNeeded = true
 				d.engineRunningMutex.Unlock()
 				continue
 			}
 
 			d.engineRunning = true
+			d.rerunNeeded = false
 			go d.runEngine()
 			d.engineRunningMutex.Unlock()
 		}
@@ -123,16 +127,30 @@ func (d *Driver) runEngine() {
 		}
 	}()
 
-	d.engineMutex.Lock()
-	defer d.engineMutex.Unlock()
-	err := d.Engine.Run()
-	if err != nil {
-		panic(err)
-	}
+	for {
+		d.engineMutex.Lock()
+		err := d.engine.Run()
+		d.engineMutex.Unlock()
+		if err != nil {
+			panic(err)
+		}
 
-	d.engineRunningMutex.Lock()
-	d.engineRunning = false
-	d.engineRunningMutex.Unlock()
+		// The queue drained. Re-check, under the same lock runAsync uses, for
+		// a wakeup that raced in while we were running. If one did, loop and
+		// run again; otherwise mark the engine stopped. This check and the
+		// engineRunning check in runAsync are mutually exclusive, so no tick is
+		// ever left behind without a running engine.
+		d.engineRunningMutex.Lock()
+		if d.rerunNeeded {
+			d.rerunNeeded = false
+			d.engineRunningMutex.Unlock()
+			continue
+		}
+		d.engineRunning = false
+		d.engineRunningMutex.Unlock()
+
+		return
+	}
 }
 
 // DeviceProperties defines the properties of a device
@@ -141,9 +159,10 @@ type DeviceProperties struct {
 	DRAMSize uint64
 }
 
-// RegisterGPU tells the driver about the existence of a GPU
+// RegisterGPU tells the driver about the existence of a GPU. The port is the
+// command processor's driver-facing port.
 func (d *Driver) RegisterGPU(
-	commandProcessorPort sim.Port,
+	commandProcessorPort messaging.RemotePort,
 	properties DeviceProperties,
 ) {
 	d.GPUs = append(d.GPUs, commandProcessorPort)
@@ -163,21 +182,43 @@ func (d *Driver) RegisterGPU(
 	d.devices = append(d.devices, gpuDevice)
 }
 
-// Tick ticks
-func (d *Driver) Tick() bool {
+// sendMW sends the pending driver-to-GPU requests. It is the first
+// middleware in the tick order, mirroring the v4 tick function.
+type sendMW struct {
+	driver *Driver
+}
+
+func (m *sendMW) Tick() bool {
+	return m.driver.sendToGPUs()
+}
+
+// driverMiddlewaresMW ticks the driver-level middlewares (memory copy
+// handling). It runs after sending and before return/command processing,
+// mirroring the v4 tick order.
+type driverMiddlewaresMW struct {
+	driver *Driver
+}
+
+func (m *driverMiddlewaresMW) Tick() bool {
 	madeProgress := false
 
-	madeProgress = d.sendToGPUs() || madeProgress
-	madeProgress = d.sendToMMU() || madeProgress
-	madeProgress = d.sendMigrationReqToCP() || madeProgress
-
-	for _, mw := range d.middlewares {
+	for _, mw := range m.driver.middlewares {
 		madeProgress = mw.Tick() || madeProgress
 	}
 
-	madeProgress = d.processReturnReq() || madeProgress
-	madeProgress = d.processNewCommand() || madeProgress
-	madeProgress = d.parseFromMMU() || madeProgress
+	return madeProgress
+}
+
+// commandMW processes the responses returned from the GPUs and the new
+// commands in the command queues. It is the last middleware in the tick
+// order, mirroring the v4 tick function.
+type commandMW struct {
+	driver *Driver
+}
+
+func (m *commandMW) Tick() bool {
+	madeProgress := m.driver.processReturnReq()
+	madeProgress = m.driver.processNewCommand() || madeProgress
 
 	return madeProgress
 }
@@ -187,42 +228,28 @@ func (d *Driver) sendToGPUs() bool {
 		return false
 	}
 
-	req := d.requestsToSend[0]
-	err := d.gpuPort.Send(req)
-	if err == nil {
-		d.requestsToSend = d.requestsToSend[1:]
-		return true
+	port := d.gpuPort()
+	if !port.CanSend() {
+		return false
 	}
 
-	return false
+	req := d.requestsToSend[0]
+	port.Send(req)
+	d.requestsToSend = d.requestsToSend[1:]
+
+	return true
 }
 
-//nolint:gocyclo
 func (d *Driver) processReturnReq() bool {
-	req := d.gpuPort.PeekIncoming()
+	req := d.gpuPort().PeekIncoming()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
-	case *protocol.LaunchKernelRsp:
-		d.gpuPort.RetrieveIncoming()
+	case protocol.LaunchKernelRsp:
+		d.gpuPort().RetrieveIncoming()
 		return d.processLaunchKernelReturn(req)
-	case *protocol.RDMADrainRspToDriver:
-		d.gpuPort.RetrieveIncoming()
-		return d.processRDMADrainRsp(req)
-	case *protocol.ShootDownCompleteRsp:
-		d.gpuPort.RetrieveIncoming()
-		return d.processShootdownCompleteRsp(req)
-	case *protocol.PageMigrationRspToDriver:
-		d.gpuPort.RetrieveIncoming()
-		return d.processPageMigrationRspFromCP(req)
-	case *protocol.RDMARestartRspToDriver:
-		d.gpuPort.RetrieveIncoming()
-		return d.processRDMARestartRspToDriver(req)
-	case *protocol.GPURestartRsp:
-		d.gpuPort.RetrieveIncoming()
-		return d.handleGPURestartRsp(req)
 	}
 
 	return false
@@ -304,18 +331,16 @@ func (d *Driver) processCommandWithMiddleware(
 }
 
 func (d *Driver) logCmdStart(cmd Command) {
-	tracing.StartTask(
-		cmd.GetID(),
-		d.simulationID,
-		d,
-		"Driver Command",
-		reflect.TypeOf(cmd).String(),
-		nil,
-	)
+	tracing.StartTask(d, tracing.TaskStart{
+		ID:       cmd.GetID(),
+		ParentID: d.simulationID,
+		Kind:     "Driver Command",
+		What:     reflect.TypeOf(cmd).String(),
+	})
 }
 
 func (d *Driver) logCmdComplete(cmd Command) {
-	tracing.EndTask(cmd.GetID(), d)
+	tracing.EndTask(d, tracing.TaskEnd{ID: cmd.GetID()})
 }
 
 func (d *Driver) processNoopCommand(
@@ -328,28 +353,32 @@ func (d *Driver) processNoopCommand(
 
 func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
-	req sim.Msg,
+	req messaging.Msg,
 ) {
-	tracing.TraceReqInitiate(req, d, cmd.GetID())
+	tracing.TraceReqInitiate(d, req, cmd.GetID())
 }
 
 func (d *Driver) logTaskToGPUClear(
-	req sim.Msg,
+	req messaging.Msg,
 ) {
-	tracing.TraceReqFinalize(req, d)
+	tracing.TraceReqFinalize(d, req)
 }
 
 func (d *Driver) processLaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	req := protocol.NewLaunchKernelReq(d.gpuPort,
-		d.GPUs[queue.GPUID-1])
-	req.PID = queue.Context.pid
-	req.CodeObject = cmd.CodeObject
-
-	req.Packet = cmd.Packet
-	req.PacketAddress = uint64(cmd.DPacket)
+	req := protocol.LaunchKernelReq{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: d.gpuPort().AsRemote(),
+			Dst: d.GPUs[queue.GPUID-1],
+		},
+		PID:           queue.Context.pid,
+		CodeObject:    cmd.CodeObject,
+		Packet:        cmd.Packet,
+		PacketAddress: uint64(cmd.DPacket),
+	}
 
 	queue.IsRunning = true
 	cmd.Reqs = append(cmd.Reqs, req)
@@ -376,31 +405,36 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 			continue
 		}
 
-		req := protocol.NewLaunchKernelReq(d.gpuPort, d.GPUs[gpuID-1])
-		req.PID = queue.Context.pid
-		req.CodeObject = cmd.CodeObject
-		req.Packet = cmd.PacketArray[i]
-		req.PacketAddress = uint64(cmd.DPacketArray[i])
-
 		currentGPUIndex := i
-		req.WGFilter = func(
-			pkt *kernels.HsaKernelDispatchPacket,
-			wg *kernels.WorkGroup,
-		) bool {
-			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
-			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
+		req := protocol.LaunchKernelReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: d.gpuPort().AsRemote(),
+				Dst: d.GPUs[gpuID-1],
+			},
+			PID:           queue.Context.pid,
+			CodeObject:    cmd.CodeObject,
+			Packet:        cmd.PacketArray[i],
+			PacketAddress: uint64(cmd.DPacketArray[i]),
+			WGFilter: func(
+				pkt *kernels.HsaKernelDispatchPacket,
+				wg *kernels.WorkGroup,
+			) bool {
+				numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
+				numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
 
-			flattenedID :=
-				wg.IDZ*int(numWGX)*int(numWGY) +
-					wg.IDY*int(numWGX) +
-					wg.IDX
+				flattenedID :=
+					wg.IDZ*int(numWGX)*int(numWGY) +
+						wg.IDY*int(numWGX) +
+						wg.IDX
 
-			if flattenedID >= wgDist[currentGPUIndex] &&
-				flattenedID < wgDist[currentGPUIndex+1] {
-				return true
-			}
+				if flattenedID >= wgDist[currentGPUIndex] &&
+					flattenedID < wgDist[currentGPUIndex+1] {
+					return true
+				}
 
-			return false
+				return false
+			},
 		}
 
 		queue.IsRunning = true
@@ -452,7 +486,7 @@ func (d *Driver) distributeWGToGPUs(
 }
 
 func (d *Driver) processLaunchKernelReturn(
-	rsp *protocol.LaunchKernelRsp,
+	rsp protocol.LaunchKernelRsp,
 ) bool {
 	req, cmd, cmdQueue := d.findCommandByReqID(rsp.RspTo)
 	cmd.RemoveReq(req)
@@ -469,34 +503,8 @@ func (d *Driver) processLaunchKernelReturn(
 	return true
 }
 
-func (d *Driver) findCommandByReq(req sim.Msg) (Command, *CommandQueue) {
-	d.contextMutex.Lock()
-	defer d.contextMutex.Unlock()
-
-	for _, ctx := range d.contexts {
-		ctx.queueMutex.Lock()
-		for _, q := range ctx.queues {
-			cmd := q.Peek()
-			if cmd == nil {
-				continue
-			}
-
-			reqs := cmd.GetReqs()
-			for _, r := range reqs {
-				if r == req {
-					ctx.queueMutex.Unlock()
-					return cmd, q
-				}
-			}
-		}
-		ctx.queueMutex.Unlock()
-	}
-
-	panic("cannot find command")
-}
-
-func (d *Driver) findCommandByReqID(reqID string) (
-	sim.Msg,
+func (d *Driver) findCommandByReqID(reqID uint64) (
+	messaging.Msg,
 	Command,
 	*CommandQueue,
 ) {
@@ -525,295 +533,4 @@ func (d *Driver) findCommandByReqID(reqID string) (
 	}
 
 	panic("cannot find command")
-}
-
-func (d *Driver) parseFromMMU() bool {
-	if d.isCurrentlyHandlingMigrationReq {
-		return false
-	}
-
-	req := d.mmuPort.RetrieveIncoming()
-	if req == nil {
-		return false
-	}
-
-	switch req := req.(type) {
-	case *vm.PageMigrationReqToDriver:
-		d.currentPageMigrationReq = req
-		d.isCurrentlyHandlingMigrationReq = true
-		d.initiateRDMADrain()
-	default:
-		log.Panicf("Driver cannot handle request of type %s",
-			reflect.TypeOf(req))
-	}
-
-	return true
-}
-
-func (d *Driver) initiateRDMADrain() bool {
-	for i := 0; i < len(d.GPUs); i++ {
-		req := protocol.NewRDMADrainCmdFromDriver(d.gpuPort,
-			d.GPUs[i])
-		d.requestsToSend = append(d.requestsToSend, req)
-		d.numRDMADrainACK++
-	}
-
-	return true
-}
-
-func (d *Driver) processRDMADrainRsp(
-	req *protocol.RDMADrainRspToDriver,
-) bool {
-	d.numRDMADrainACK--
-
-	if d.numRDMADrainACK == 0 {
-		d.sendShootDownReqs()
-	}
-
-	return true
-}
-
-func (d *Driver) sendShootDownReqs() bool {
-	vAddr := make([]uint64, 0)
-	migrationInfo := d.currentPageMigrationReq.MigrationInfo
-
-	numReqsGPUInMap := 0
-	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		pages, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
-
-		if found {
-			numReqsGPUInMap++
-			for j := 0; j < len(pages); j++ {
-				vAddr = append(vAddr, pages[j])
-			}
-		}
-	}
-
-	accessingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
-	pid := d.currentPageMigrationReq.PID
-	d.numShootDownACK = uint64(len(accessingGPUs))
-
-	for i := 0; i < len(accessingGPUs); i++ {
-		toShootdownGPU := accessingGPUs[i] - 1
-		shootDownReq := protocol.NewShootdownCommand(
-			d.gpuPort, d.GPUs[toShootdownGPU],
-			vAddr, pid)
-		d.requestsToSend = append(d.requestsToSend, shootDownReq)
-	}
-
-	return true
-}
-
-func (d *Driver) processShootdownCompleteRsp(
-	req *protocol.ShootDownCompleteRsp,
-) bool {
-	d.numShootDownACK--
-
-	if d.numShootDownACK == 0 {
-		toRequestFromGPU := d.currentPageMigrationReq.CurrPageHostGPU
-		toRequestFromPMCPort := d.RemotePMCPorts[toRequestFromGPU-1]
-
-		migrationInfo := d.currentPageMigrationReq.MigrationInfo
-
-		requestingGPUs := d.findRequestingGPUs(migrationInfo)
-		context := d.findContext(d.currentPageMigrationReq.PID)
-
-		pageVaddrs := make(map[uint64][]uint64)
-
-		for i := 0; i < len(requestingGPUs); i++ {
-			pageVaddrs[requestingGPUs[i]] =
-				migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
-		}
-
-		for gpuID, vAddrs := range pageVaddrs {
-			for i := 0; i < len(vAddrs); i++ {
-				vAddr := vAddrs[i]
-				page, oldPAddr :=
-					d.preparePageForMigration(vAddr, context, gpuID)
-
-				req := protocol.NewPageMigrationReqToCP(d.gpuPort,
-					d.GPUs[gpuID])
-				req.DestinationPMCPort = toRequestFromPMCPort
-				req.ToReadFromPhysicalAddress = oldPAddr
-				req.ToWriteToPhysicalAddress = page.PAddr
-				req.PageSize = d.currentPageMigrationReq.PageSize
-
-				d.migrationReqToSendToCP = append(d.migrationReqToSendToCP, req)
-				d.numPagesMigratingACK++
-			}
-		}
-		return true
-	}
-
-	return false
-}
-
-func (d *Driver) findRequestingGPUs(
-	migrationInfo *vm.PageMigrationInfo,
-) []uint64 {
-	requestingGPUs := make([]uint64, 0)
-
-	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		_, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
-		if found {
-			requestingGPUs = append(requestingGPUs, uint64(i-1))
-		}
-	}
-	return requestingGPUs
-}
-
-func (d *Driver) findContext(pid vm.PID) *Context {
-	context := &Context{}
-	for i := 0; i < len(d.contexts); i++ {
-		if d.contexts[i].pid == d.currentPageMigrationReq.PID {
-			context = d.contexts[i]
-		}
-	}
-	if context == nil {
-		log.Panicf("Process does not exist")
-	}
-	return context
-}
-
-func (d *Driver) preparePageForMigration(
-	vAddr uint64,
-	context *Context,
-	gpuID uint64,
-) (*vm.Page, uint64) {
-	page, found := d.pageTable.Find(context.pid, vAddr)
-	if !found {
-		panic("page not founds")
-	}
-	oldPAddr := page.PAddr
-
-	newPage := d.memAllocator.AllocatePageWithGivenVAddr(
-		context.pid, int(gpuID+1), vAddr, true)
-	newPage.DeviceID = gpuID + 1
-
-	newPage.IsMigrating = true
-	d.pageTable.Update(newPage)
-
-	return &newPage, oldPAddr
-}
-
-func (d *Driver) sendMigrationReqToCP() bool {
-	if len(d.migrationReqToSendToCP) == 0 {
-		return false
-	}
-
-	if d.isCurrentlyMigratingOnePage {
-		return false
-	}
-
-	req := d.migrationReqToSendToCP[0]
-
-	err := d.gpuPort.Send(req)
-	if err == nil {
-		d.migrationReqToSendToCP = d.migrationReqToSendToCP[1:]
-		d.isCurrentlyMigratingOnePage = true
-		return true
-	}
-
-	return false
-}
-
-func (d *Driver) processPageMigrationRspFromCP(
-	rsp *protocol.PageMigrationRspToDriver,
-) bool {
-	d.numPagesMigratingACK--
-	d.isCurrentlyMigratingOnePage = false
-
-	if d.numPagesMigratingACK == 0 {
-		d.prepareGPURestartReqs()
-		d.preparePageMigrationRspToMMU()
-	}
-
-	return true
-}
-
-func (d *Driver) prepareGPURestartReqs() {
-	accessingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
-
-	for i := 0; i < len(accessingGPUs); i++ {
-		restartGPUID := accessingGPUs[i] - 1
-		restartReq := protocol.NewGPURestartReq(
-			d.gpuPort,
-			d.GPUs[restartGPUID])
-		d.requestsToSend = append(d.requestsToSend, restartReq)
-		d.numRestartACK++
-	}
-}
-
-func (d *Driver) preparePageMigrationRspToMMU() {
-	requestingGPUs := make([]uint64, 0)
-
-	migrationInfo := d.currentPageMigrationReq.MigrationInfo
-
-	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		_, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
-		if found {
-			requestingGPUs = append(requestingGPUs, uint64(i-1))
-		}
-	}
-
-	pageVaddrs := make(map[uint64][]uint64)
-
-	for i := 0; i < len(requestingGPUs); i++ {
-		pageVaddrs[requestingGPUs[i]] = migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
-	}
-
-	req := vm.NewPageMigrationRspFromDriver(d.mmuPort.AsRemote(),
-		d.currentPageMigrationReq.Src, d.currentPageMigrationReq)
-
-	for _, vAddrs := range pageVaddrs {
-		for j := 0; j < len(vAddrs); j++ {
-			req.VAddr = append(req.VAddr, vAddrs[j])
-		}
-	}
-	req.RspToTop = d.currentPageMigrationReq.RespondToTop
-	d.toSendToMMU = req
-}
-
-func (d *Driver) handleGPURestartRsp(
-	req *protocol.GPURestartRsp,
-) bool {
-	d.numRestartACK--
-	if d.numRestartACK == 0 {
-		d.prepareRDMARestartReqs()
-	}
-	return true
-}
-
-func (d *Driver) prepareRDMARestartReqs() {
-	for i := 0; i < len(d.GPUs); i++ {
-		req := protocol.NewRDMARestartCmdFromDriver(d.gpuPort, d.GPUs[i])
-		d.requestsToSend = append(d.requestsToSend, req)
-		d.numRDMARestartACK++
-	}
-}
-
-func (d *Driver) processRDMARestartRspToDriver(
-	rsp *protocol.RDMARestartRspToDriver) bool {
-	d.numRDMARestartACK--
-
-	if d.numRDMARestartACK == 0 {
-		d.currentPageMigrationReq = nil
-		d.isCurrentlyHandlingMigrationReq = false
-		return true
-	}
-	return true
-}
-
-func (d *Driver) sendToMMU() bool {
-	if d.toSendToMMU == nil {
-		return false
-	}
-	req := d.toSendToMMU
-	err := d.mmuPort.Send(req)
-	if err == nil {
-		d.toSendToMMU = nil
-		return true
-	}
-
-	return false
 }

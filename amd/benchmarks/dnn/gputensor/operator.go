@@ -9,11 +9,11 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 var sizeOfFloat32 = 4
@@ -29,7 +29,7 @@ type GPUOperator struct {
 	verification  bool
 	timerMutex    sync.Mutex
 	reportTime    bool
-	vStart, vEnd  sim.VTimeInSec
+	vStart, vEnd  timing.VTimeInPicoSec
 	start, end    time.Time
 	cpuOperator   *tensor.CPUOperator
 
@@ -1005,7 +1005,7 @@ func (o *GPUOperator) verifyIm2Col(
 func (o *GPUOperator) timerStart() {
 	if o.reportTime {
 		o.timerMutex.Lock()
-		o.vStart = o.driver.Engine.CurrentTime()
+		o.vStart = o.driver.CurrentTime()
 		o.start = time.Now()
 	}
 }
@@ -1014,11 +1014,12 @@ func (o *GPUOperator) timerEnd(
 	kernelName string,
 ) {
 	if o.reportTime {
-		o.vEnd = o.driver.Engine.CurrentTime()
+		o.vEnd = o.driver.CurrentTime()
 		o.end = time.Now()
 
 		fmt.Printf("Kernel %s, Start %.10f, Virtual Time: %v, Real Time: %v\n",
-			kernelName, o.vStart, o.vEnd-o.vStart, o.end.Sub(o.start))
+			kernelName, float64(o.vStart)*1e-12,
+			float64(o.vEnd-o.vStart)*1e-12, o.end.Sub(o.start))
 		o.timerMutex.Unlock()
 	}
 }

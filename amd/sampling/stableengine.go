@@ -1,42 +1,40 @@
 // Package sampling provides tools for performing sampling simulation
 package sampling
 
-import (
-	"github.com/sarchlab/akita/v4/sim"
-)
-
-// WFFeature is used for recording the runtime info
+// WFFeature is used for recording the runtime info. Times are in seconds, as
+// float64, because the stability analysis multiplies times together and the
+// products would overflow integer picoseconds.
 type WFFeature struct {
-	IssueTime  sim.VTimeInSec
-	FinishTime sim.VTimeInSec
+	IssueTime  float64
+	FinishTime float64
 }
 
 // StableEngine is used to detect if the feature detecting is stable or not
 type StableEngine struct {
-	issueTimeSum       sim.VTimeInSec
-	finishTimeSum      sim.VTimeInSec
-	intervalTimeSum    sim.VTimeInSec
-	mixSum             sim.VTimeInSec
-	issueTimeSquareSum sim.VTimeInSec
+	issueTimeSum       float64
+	finishTimeSum      float64
+	intervalTimeSum    float64
+	mixSum             float64
+	issueTimeSquareSum float64
 	rate               float64
 	granularity        int
 	WfFeatures         []WFFeature
 	boundary           float64
 	enableSampled      bool
-	predTime           sim.VTimeInSec
+	predTime           float64
 }
 
 // Analysis the data
 func (se *StableEngine) Analysis() {
-	rateBottom := sim.VTimeInSec(se.granularity)*se.issueTimeSquareSum -
+	rateBottom := float64(se.granularity)*se.issueTimeSquareSum -
 		se.issueTimeSum*se.issueTimeSum
-	rateTop := sim.VTimeInSec(se.granularity)*se.mixSum -
+	rateTop := float64(se.granularity)*se.mixSum -
 		se.issueTimeSum*se.finishTimeSum
-	rate := float64(rateTop / rateBottom)
+	rate := rateTop / rateBottom
 
 	se.rate = rate
 	boundary := se.boundary
-	se.predTime = se.intervalTimeSum / sim.VTimeInSec(se.granularity)
+	se.predTime = se.intervalTimeSum / float64(se.granularity)
 
 	if rate >= (1-boundary) && rate <= (1+boundary) {
 		se.enableSampled = true
@@ -58,7 +56,7 @@ func (se *StableEngine) Reset() {
 }
 
 // Collect data
-func (se *StableEngine) Collect(issueTime, finishTime sim.VTimeInSec) {
+func (se *StableEngine) Collect(issueTime, finishTime float64) {
 	wffeature := WFFeature{
 		IssueTime:  issueTime,
 		FinishTime: finishTime,

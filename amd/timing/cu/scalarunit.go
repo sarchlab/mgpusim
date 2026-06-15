@@ -3,11 +3,13 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -21,7 +23,7 @@ type ScalarUnit struct {
 	toWrite *wavefront.Wavefront
 
 	readBufSize int
-	readBuf     []*mem.ReadReq
+	readBuf     []memprotocol.ReadReq
 
 	log2CachelineSize uint64
 
@@ -38,7 +40,7 @@ func NewScalarUnit(
 	u.cu = cu
 	u.alu = alu
 	u.readBufSize = 16
-	u.readBuf = make([]*mem.ReadReq, 0, u.readBufSize)
+	u.readBuf = make([]memprotocol.ReadReq, 0, u.readBufSize)
 	return u
 }
 
@@ -49,7 +51,8 @@ func (u *ScalarUnit) CanAcceptWave() bool {
 
 // IsIdle checks idleness
 func (u *ScalarUnit) IsIdle() bool {
-	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil) && (len(u.readBuf) == 0)
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) &&
+		(u.toExec == nil) && (len(u.readBuf) == 0)
 	return u.isIdle
 }
 
@@ -138,13 +141,16 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
 
-		req := mem.ReadReqBuilder{}.
-			WithSrc(u.cu.ToScalarMem.AsRemote()).
-			WithDst(u.cu.ScalarMem.AsRemote()).
-			WithAddress(curr).
-			WithPID(u.toExec.PID()).
-			WithByteSize(bytesLeftInCacheline).
-			Build()
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: u.cu.scalarMemPort().AsRemote(),
+				Dst: u.cu.comp.State.ScalarMem,
+			},
+			Address:        curr,
+			AccessByteSize: bytesLeftInCacheline,
+			PID:            u.toExec.PID(),
+		}
 		if bytesLeft > 0 {
 			req.CanWaitForCoalesce = true
 		}
@@ -159,7 +165,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		u.cu.InFlightScalarMemAccess = append(
 			u.cu.InFlightScalarMemAccess, info)
 
-		tracing.TraceReqInitiate(req, u.cu, u.toExec.DynamicInst().ID)
+		tracing.TraceReqInitiate(u.cu.comp, req, u.toExec.DynamicInst().ID)
 
 		curr += bytesLeftInCacheline
 	}
@@ -222,13 +228,13 @@ func (u *ScalarUnit) sendRequest() bool {
 	madeProgress := false
 	for i := 0; i < 4 && len(u.readBuf) > 0; i++ {
 		req := u.readBuf[0]
-		err := u.cu.ToScalarMem.Send(req)
-		if err == nil {
-			u.readBuf = u.readBuf[1:]
-			madeProgress = true
-		} else {
+		if !u.cu.scalarMemPort().CanSend() {
 			break
 		}
+
+		u.cu.scalarMemPort().Send(req)
+		u.readBuf = u.readBuf[1:]
+		madeProgress = true
 	}
 	return madeProgress
 }

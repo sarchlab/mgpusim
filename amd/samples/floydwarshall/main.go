@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/amdappsdk/floydwarshall"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/floydwarshall"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var numNodes = flag.Int("node", 16, "The number of nodes in the graph")

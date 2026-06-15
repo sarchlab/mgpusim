@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later
@@ -130,7 +130,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket Ptr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         sim.GetIDGenerator().Generate(),
+		ID:         timing.GetIDGenerator().Generate(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,
@@ -145,7 +145,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	dPacket []Ptr,
 ) {
 	cmd := &LaunchUnifiedMultiGPUKernelCommand{
-		ID:           sim.GetIDGenerator().Generate(),
+		ID:           timing.GetIDGenerator().Generate(),
 		CodeObject:   co,
 		DPacketArray: dPacket,
 		PacketArray:  packet,

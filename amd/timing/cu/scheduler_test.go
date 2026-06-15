@@ -3,13 +3,13 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
-	"go.uber.org/mock/gomock"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type mockWfArbitor struct {
@@ -34,6 +34,7 @@ func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*wavefront.Wavefront {
 type mockCUComponent struct {
 	canAccept    bool
 	isIdle       bool
+	flushed      bool
 	acceptedWave []*wavefront.Wavefront
 }
 
@@ -54,13 +55,12 @@ func (c *mockCUComponent) IsIdle() bool {
 }
 
 func (c *mockCUComponent) Flush() {
-
+	c.flushed = true
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		mockCtrl         *gomock.Controller
-		engine           *MockEngine
+		engine           *fakeEngine
 		cu               *ComputeUnit
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
@@ -70,23 +70,14 @@ var _ = Describe("Scheduler", func() {
 		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
-		instMem          *MockPort
-		toInstMem        *MockPort
-		toACE            *MockPort
+		toInstMem        *fakePort
+		toACE            *fakePort
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
+		engine = newFakeEngine()
 
-		engine = NewMockEngine(mockCtrl)
-		engine.EXPECT().
-			CurrentTime().
-			AnyTimes().
-			Return(sim.VTimeInSec(0)).
-			AnyTimes()
-
-		cu = NewComputeUnit("CU", engine)
-		cu.Freq = 1
+		cu = newTestComputeUnit("CU", engine)
 		cu.WfPools = make([]*WavefrontPool, 1)
 		cu.WfPools[0] = NewWavefrontPool(10)
 
@@ -106,18 +97,13 @@ var _ = Describe("Scheduler", func() {
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
 		cu.SRegFile = NewSimpleRegisterFile(16384, 0)
 
-		instMem = NewMockPort(mockCtrl)
-		cu.InstMem = instMem
+		cu.comp.State.InstMem = "InstMem"
 
-		toInstMem = NewMockPort(mockCtrl)
+		toInstMem = newFakePort("CU.InstMem")
 		cu.ToInstMem = toInstMem
 
-		toACE = NewMockPort(mockCtrl)
+		toACE = newFakePort("CU.Top")
 		cu.ToACE = toACE
-
-		instMem.EXPECT().AsRemote().AnyTimes()
-		toInstMem.EXPECT().AsRemote().AnyTimes()
-		toACE.EXPECT().AsRemote().AnyTimes()
 
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
@@ -133,15 +119,14 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
-			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
-			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
-			Expect(req.Address).To(Equal(uint64(0x180)))
-			Expect(req.AccessByteSize).To(Equal(uint64(64)))
-		})
-
 		scheduler.DoFetch()
+
+		Expect(toInstMem.sent).To(HaveLen(1))
+		req := toInstMem.sent[0].(memprotocol.ReadReq)
+		Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
+		Expect(req.Dst).To(BeIdenticalTo(messaging.RemotePort("InstMem")))
+		Expect(req.Address).To(Equal(uint64(0x180)))
+		Expect(req.AccessByteSize).To(Equal(uint64(64)))
 
 		Expect(cu.InFlightInstFetch).To(HaveLen(1))
 		Expect(wf.IsFetching).To(BeTrue())
@@ -154,17 +139,11 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
-			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
-			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
-			Expect(req.Address).To(Equal(uint64(0x180)))
-			Expect(req.AccessByteSize).To(Equal(uint64(64)))
-		}).Return(&sim.SendError{})
+		toInstMem.full = true
 
 		scheduler.DoFetch()
 
-		//Expect(cu.inFlightMemAccess).To(HaveLen(0))
+		Expect(toInstMem.sent).To(HaveLen(0))
 		Expect(wf.IsFetching).To(BeFalse())
 	})
 
@@ -292,7 +271,8 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when running END_PGM", func() {
-		It("should not terminate wavefront if there are pending memory requests", func() {
+		It("should not terminate wavefront if there are pending memory "+
+			"requests", func() {
 			wf := new(wavefront.Wavefront)
 			wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
 			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
@@ -310,7 +290,9 @@ var _ = Describe("Scheduler", func() {
 		It("should be marked completed if other wfs are still "+
 			"running", func() {
 			wg := new(wavefront.WorkGroup)
-			co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
+			co := &insts.KernelCodeObject{
+				KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+			}
 			for i := 0; i < 3; i++ {
 				wf := wavefront.NewWavefront(kernels.NewWavefront())
 				wf.CodeObject = co
@@ -349,7 +331,9 @@ var _ = Describe("Scheduler", func() {
 		Context("all other wavefronts are at barrier", func() {
 			It("should pass barrier", func() {
 				wg := new(wavefront.WorkGroup)
-				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
+				co := &insts.KernelCodeObject{
+					KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+				}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -388,12 +372,18 @@ var _ = Describe("Scheduler", func() {
 
 		Context("all other wavefronts completed", func() {
 			It("should wait if cannot send msg", func() {
-				toACE.EXPECT().Send(gomock.Any()).Return(sim.NewSendError())
+				toACE.full = true
 
 				wg := new(wavefront.WorkGroup)
-				mapReq := protocol.MapWGReqBuilder{}.Build()
+				mapReq := protocol.MapWGReq{
+					MsgMeta: messaging.MsgMeta{
+						ID: timing.GetIDGenerator().Generate(),
+					},
+				}
 				wg.MapReq = mapReq
-				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
+				co := &insts.KernelCodeObject{
+					KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+				}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -423,12 +413,16 @@ var _ = Describe("Scheduler", func() {
 			})
 
 			It("should clear resources", func() {
-				toACE.EXPECT().Send(gomock.Any()).Return(nil)
-
 				wg := new(wavefront.WorkGroup)
-				mapReq := protocol.MapWGReqBuilder{}.Build()
+				mapReq := protocol.MapWGReq{
+					MsgMeta: messaging.MsgMeta{
+						ID: timing.GetIDGenerator().Generate(),
+					},
+				}
 				wg.MapReq = mapReq
-				co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
+				co := &insts.KernelCodeObject{
+					KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+				}
 				for i := 0; i < 3; i++ {
 					wf := wavefront.NewWavefront(kernels.NewWavefront())
 					wf.CodeObject = co
@@ -452,6 +446,7 @@ var _ = Describe("Scheduler", func() {
 				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 				scheduler.EvaluateInternalInst()
 
+				Expect(toACE.sent).To(HaveLen(1))
 				Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 				Expect(cu.WfPools[0].wfs).To(HaveLen(0))
 			})
@@ -481,7 +476,8 @@ var _ = Describe("Scheduler", func() {
 		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 	})
 
-	It("should continue execution if all wavefronts from a workgroup hits barrier", func() {
+	It("should continue execution if all wavefronts from a workgroup hits "+
+		"barrier", func() {
 		wg := new(wavefront.WorkGroup)
 		for i := 0; i < 3; i++ {
 			wf := wavefront.NewWavefront(kernels.NewWavefront())

@@ -4,16 +4,27 @@ package timingconfig
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/mem/vm/mmu"
-	"github.com/sarchlab/akita/v4/noc/networking/pcie"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/mi300a"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300a"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+)
+
+// Port buffer sizes. The driver port mirrors the emulation platform's
+// choice (v4 auto-created 40M-deep buffers; 4096 is plenty). The MMU top
+// port mirrors the 4096-deep port the v4 MMU builder created.
+const (
+	driverGPUPortBufSize = 4096
+	mmuTopPortBufSize    = 4096
+	ctrlPortBufSize      = 1
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -32,7 +43,6 @@ type Builder struct {
 	d2hCycles          int
 	h2dCycles          int
 
-	platform          *sim.Domain
 	globalStorage     *mem.Storage
 	rdmaAddressMapper *mem.BankedAddressPortMapper
 }
@@ -78,12 +88,11 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 	return b
 }
 
-// Build builds the hardware platform.
-func (b Builder) Build() *sim.Domain {
+// Build builds the hardware platform and returns the driver. The driver, the
+// GPUs, and all the connections register themselves with the simulation.
+func (b Builder) Build() *driver.Driver {
 	b.adjustConfigForGPUType()
 	b.cpuGPUMemSizeMustEqual()
-
-	b.platform = &sim.Domain{}
 
 	b.globalStorage = mem.NewStorage(
 		uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize)
@@ -91,23 +100,12 @@ func (b Builder) Build() *sim.Domain {
 	mmuComp, pageTable := b.createMMU()
 	gpuDriver := b.buildGPUDriver(pageTable)
 
-	gpuBuilder := b.createGPUBuilder(mmuComp)
-	pcieConnector, rootComplexID :=
-		b.createConnection(gpuDriver, mmuComp)
+	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
+	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
 
-	mmuComp.MigrationServiceProvider = gpuDriver.GetPortByName("MMU").AsRemote()
+	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
 
-	b.createRDMAAddrTable()
-	pmcAddressTable := b.createPMCPageTable()
-
-	b.createGPUs(
-		rootComplexID, pcieConnector,
-		gpuBuilder, gpuDriver,
-		pmcAddressTable)
-
-	pcieConnector.EstablishRoute()
-
-	return b.platform
+	return gpuDriver
 }
 
 func (b *Builder) cpuGPUMemSizeMustEqual() {
@@ -122,8 +120,8 @@ func (b *Builder) adjustConfigForGPUType() {
 		b.numCUPerSA = mi300a.NumCUPerShaderArray
 		b.numSAPerGPU = mi300a.NumShaderArray
 		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
-		b.d2hCycles = 150  // MI300A Infinity Fabric latency (~83ns)
-		b.h2dCycles = 250  // MI300A command processing (~139ns)
+		b.d2hCycles = 150    // MI300A Infinity Fabric latency (~83ns)
+		b.h2dCycles = 250    // MI300A command processing (~139ns)
 	default:
 		// Keep defaults for r9nano
 	}
@@ -131,16 +129,20 @@ func (b *Builder) adjustConfigForGPUType() {
 
 func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
 	pageTable := vm.NewPageTable(b.log2PageSize)
-	mmuBuilder := mmu.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(1 * sim.GHz).
-		WithPageWalkingLatency(100).
-		WithLog2PageSize(b.log2PageSize).
-		WithPageTable(pageTable)
 
-	mmuComponent := mmuBuilder.Build("MMU")
+	spec := mmu.DefaultSpec()
+	spec.Freq = 1 * timing.GHz
+	spec.Latency = 100 // v4: page walking latency
+	spec.Log2PageSize = b.log2PageSize
 
-	b.simulation.RegisterComponent(mmuComponent)
+	mmuComponent := mmu.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(mmu.Resources{PageTable: pageTable}).
+		Build("MMU")
+
+	b.buildPort(mmuComponent, "Top", mmuTopPortBufSize)
+	b.buildPort(mmuComponent, "Control", ctrlPortBufSize)
 
 	return mmuComponent, pageTable
 }
@@ -148,30 +150,55 @@ func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
 func (b *Builder) buildGPUDriver(
 	pageTable vm.PageTable,
 ) *driver.Driver {
-	gpuDriverBuilder := driver.MakeBuilder()
+	spec := driver.DefaultSpec()
+	spec.Log2PageSize = b.log2PageSize
+	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
+	spec.D2HCycles = b.d2hCycles
+	spec.H2DCycles = b.h2dCycles
 
-	if b.useMagicMemoryCopy {
-		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
-	}
-
-	gpuDriver := gpuDriverBuilder.
-		WithEngine(b.simulation.GetEngine()).
-		WithPageTable(pageTable).
-		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(b.globalStorage).
-		WithD2HCycles(b.d2hCycles).
-		WithH2DCycles(b.h2dCycles).
+	gpuDriver := driver.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(driver.Resources{
+			PageTable:     pageTable,
+			GlobalStorage: b.globalStorage,
+		}).
 		Build("Driver")
 
-	b.simulation.RegisterComponent(gpuDriver)
+	gpuPort := modeling.MakePortBuilder().
+		WithRegistrar(b.simulation).
+		WithComponent(gpuDriver.Comp).
+		WithSpec(modeling.PortSpec{BufSize: driverGPUPortBufSize}).
+		Build(driver.GPUPortName)
+	gpuDriver.AssignPort(driver.GPUPortName, gpuPort)
 
 	return gpuDriver
 }
 
+// buildPort creates a port instance for a declared port and assigns it to
+// the component.
+func (b *Builder) buildPort(
+	comp messaging.Component,
+	name string,
+	bufSize int,
+) messaging.Port {
+	port := modeling.MakePortBuilder().
+		WithRegistrar(b.simulation).
+		WithComponent(comp).
+		WithSpec(modeling.PortSpec{BufSize: bufSize}).
+		Build(name)
+	comp.AssignPort(name, port)
+
+	return port
+}
+
 func (b *Builder) createGPUBuilder(
 	mmuComponent *mmu.Comp,
+	gpuDriver *driver.Driver,
 ) gpubuilder.GPUBuilder {
 	b.createRDMAAddressMapper()
+
+	driverPort := gpuDriver.GetPortByName(driver.GPUPortName).AsRemote()
 
 	switch b.gpuType {
 	case "mi300a":
@@ -179,87 +206,65 @@ func (b *Builder) createGPUBuilder(
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
-			WithGlobalStorage(b.globalStorage)
+			WithGlobalStorage(b.globalStorage).
+			WithDriverPort(driverPort)
 	default:
 		return r9nano.MakeBuilder().
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
-			WithGlobalStorage(b.globalStorage)
+			WithGlobalStorage(b.globalStorage).
+			WithDriverPort(driverPort)
 	}
 }
 
 func (b *Builder) createGPUs(
-	rootComplexID int,
-	pcieConnector *pcie.Connector,
+	interDeviceConn *directconnection.Comp,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	pmcAddressTable *mem.BankedAddressPortMapper,
 ) {
-	lastSwitchID := rootComplexID
 	for i := 1; i < b.numGPUs+1; i++ {
-		if i%2 == 1 {
-			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
-		}
-
-		b.createGPU(i, gpuBuilder, gpuDriver, pmcAddressTable,
-			pcieConnector, lastSwitchID)
+		b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn)
 	}
 }
 
-func (b *Builder) createPMCPageTable() *mem.BankedAddressPortMapper {
-	pmcAddressTable := new(mem.BankedAddressPortMapper)
-	pmcAddressTable.BankSize = b.gpuMemSize
-	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, "")
-	return pmcAddressTable
-}
-
-func (b *Builder) createRDMAAddrTable() *mem.BankedAddressPortMapper {
-	rdmaAddressTable := new(mem.BankedAddressPortMapper)
-	rdmaAddressTable.BankSize = b.gpuMemSize
-	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, "")
-	return rdmaAddressTable
-}
-
+// createConnection creates the inter-device connection that links the
+// driver, the MMU, and the GPUs' external ports.
+//
+// NOTE(akita5): v4 used the PCIe network here. The Akita v5.0.0-beta.2
+// switching network (pcie included) is traffic-only — endpoints deliver
+// metadata-only packetization.AssembledMsg values instead of the original
+// messages — so it cannot carry MGPUSim's protocol messages. Until upstream
+// provides payload delivery, the platform uses a direct connection, which
+// delivers real messages but does not model PCIe/switch latency.
 func (b *Builder) createConnection(
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.Comp,
-) (*pcie.Connector, int) {
-	// connection := sim.NewDirectConnection(engine)
-	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
-	// connection.SrcBufferCapacity = 40960000
-	pcieConnector := pcie.NewConnector().
-		WithEngine(b.simulation.GetEngine()).
-		WithVersion(4, 16).
-		WithSwitchLatency(b.switchLatency)
+) *directconnection.Comp {
+	conn := directconnection.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: 1 * timing.GHz}).
+		Build("InterDeviceConn")
 
-	pcieConnector.CreateNetwork("PCIe")
-	rootComplexID := pcieConnector.AddRootComplex(
-		[]sim.Port{
-			gpuDriver.GetPortByName("GPU"),
-			gpuDriver.GetPortByName("MMU"),
-			mmuComponent.GetPortByName("Migration"),
-			mmuComponent.GetPortByName("Top"),
-		})
+	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
+	conn.PlugIn(mmuComponent.GetPortByName("Top"))
 
-	return pcieConnector, rootComplexID
+	return conn
 }
 
 func (b *Builder) createRDMAAddressMapper() {
 	b.rdmaAddressMapper = new(mem.BankedAddressPortMapper)
 	b.rdmaAddressMapper.BankSize = b.gpuMemSize
 	b.rdmaAddressMapper.LowModules = append(b.rdmaAddressMapper.LowModules,
-		sim.RemotePort("CPU"))
+		messaging.RemotePort("CPU"))
 }
 
 func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	pmcAddressTable *mem.BankedAddressPortMapper,
-	pcieConnector *pcie.Connector,
-	pcieSwitchID int,
-) *sim.Domain {
+	interDeviceConn *directconnection.Comp,
+) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * b.gpuMemSize
 	gpu := gpuBuilder.
@@ -269,41 +274,26 @@ func (b *Builder) createGPU(
 		Build(name)
 
 	gpuDriver.RegisterGPU(
-		gpu.GetPortByName("CommandProcessor"),
+		gpu.CommandProcessorPort.AsRemote(),
 		driver.DeviceProperties{
 			CUCount:  b.numCUPerSA * b.numSAPerGPU,
 			DRAMSize: b.gpuMemSize,
 		},
 	)
-	// gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu)
-	// b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
-	pcieConnector.PlugInDevice(pcieSwitchID, gpu.Ports())
-
-	// b.gpus = append(b.gpus, gpu)
+	for _, port := range gpu.ExternalPorts() {
+		interDeviceConn.PlugIn(port)
+	}
 
 	return gpu
 }
 
 func (b *Builder) configRDMAEngine(
-	gpu *sim.Domain,
+	gpu *gpubuilder.GPU,
 ) {
 	b.rdmaAddressMapper.LowModules = append(
 		b.rdmaAddressMapper.LowModules,
-		gpu.GetPortByName("RDMAData").AsRemote())
+		gpu.RDMADataPort.AsRemote())
 }
-
-// func (b *Builder) configPMC(
-// 	gpu *GPU,
-// 	gpuDriver *driver.Driver,
-// 	addrTable *mem.BankedAddressPortMapper,
-// ) {
-// 	gpu.PMC.RemotePMCAddressTable = addrTable
-// 	addrTable.LowModules = append(
-// 		addrTable.LowModules,
-// 		gpu.PMC.GetPortByName("Remote").AsRemote())
-// 	gpuDriver.RemotePMCPorts = append(
-// 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
-// }

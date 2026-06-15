@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v4/amd/bitops"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 func applyF32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {

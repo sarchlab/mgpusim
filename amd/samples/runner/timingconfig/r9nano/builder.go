@@ -5,20 +5,36 @@ package r9nano
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writeback"
-	"github.com/sarchlab/akita/v4/mem/dram"
-	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/mmu"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/dram"
+	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	"github.com/sarchlab/akita/v5/mem/vm/tlb"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
+)
+
+// Port buffer sizes. The CP and DMA-to-CP ports mirror the v4 4096-deep
+// buffers (v4 used 40M for DMA ToCP; 4096 is plenty). The other sizes mirror
+// the v4 component builders' internal port sizes.
+const (
+	cpPortBufSize      = 4096
+	dmaToCPBufSize     = 4096
+	dmaToMemBufSize    = 64
+	rdmaPortBufSize    = 128
+	memCtrlPortBufSize = 16
+	l2TLBPortBufSize   = 1024
+	ctrlPortBufSize    = 1
+	l2CachePortBufSize = 32 // v4 writeback: 2 * NumReqPerCycle(16)
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -27,7 +43,7 @@ type Builder struct {
 
 	gpuID                          uint64
 	name                           string
-	freq                           sim.Freq
+	freq                           timing.Freq
 	numCUPerShaderArray            int
 	numShaderArray                 int
 	l2CacheSize                    uint64
@@ -40,27 +56,27 @@ type Builder struct {
 	globalStorage                  *mem.Storage
 	mmu                            *mmu.Comp
 	rdmaAddressMapper              mem.AddressToPortMapper
+	driverPort                     messaging.RemotePort
 
-	gpu                *sim.Domain
-	cp                 *cp.CommandProcessor
+	gpu                *gpubuilder.GPU
+	cp                 *cp.Comp
 	rdmaEngine         *rdma.Comp
-	pmc                *pagemigrationcontroller.PageMigrationController
-	dmaEngine          *cp.DMAEngine
-	sas                []*sim.Domain
+	dmaEngine          *cp.DMAComp
+	sas                []*shaderarray.ShaderArray
 	l2Caches           []*writeback.Comp
 	l2TLBs             []*tlb.Comp
-	drams              []sim.Component
+	drams              []messaging.Component
 	internalConn       *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
 	l1TLBAddressMapper *mem.SinglePortMapper
-	pmcAddressMapper   mem.AddressToPortMapper
+	dmaLocalDataSource *mem.InterleavedAddressPortMapper
 }
 
 // MakeBuilder creates a new builder.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1 * sim.GHz,
+		freq:                           1 * timing.GHz,
 		numCUPerShaderArray:            4,
 		numShaderArray:                 16,
 		l2CacheSize:                    2 * mem.MB,
@@ -86,7 +102,7 @@ func (b Builder) WithGPUID(id uint64) gpubuilder.GPUBuilder {
 }
 
 // WithFreq sets the frequency that the GPU works at.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
+func (b Builder) WithFreq(freq timing.Freq) Builder {
 	b.freq = freq
 	return b
 }
@@ -152,7 +168,8 @@ func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
 	return b
 }
 
-// WithGlobalStorage sets the global storage that can provide the ultimate address translation.
+// WithGlobalStorage sets the global storage that backs the memories of all
+// the devices.
 func (b Builder) WithGlobalStorage(
 	globalStorage *mem.Storage,
 ) Builder {
@@ -168,10 +185,18 @@ func (b Builder) WithRDMAAddressMapper(
 	return b
 }
 
+// WithDriverPort sets the driver port that the command processor responds
+// to.
+func (b Builder) WithDriverPort(
+	port messaging.RemotePort,
+) gpubuilder.GPUBuilder {
+	b.driverPort = port
+	return b
+}
+
 // Build builds the hardware platform.
-func (b Builder) Build(name string) *sim.Domain {
+func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.name = name
-	b.gpu = sim.NewDomain(name)
 
 	b.l1AddressMapper = mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize,
@@ -182,77 +207,195 @@ func (b Builder) Build(name string) *sim.Domain {
 
 	b.l1TLBAddressMapper = &mem.SinglePortMapper{}
 
-	b.buildSAs()
+	// Build order is bottom-up so the mappers the shader arrays snapshot at
+	// build time (the v5 caches inline the mapper contents into their Spec)
+	// are fully populated before the shader arrays are built.
 	b.buildDRAMControllers()
 	b.buildL2Caches()
 	b.buildCP()
 	b.buildL2TLB()
+	b.buildSAs()
 
 	b.connectCP()
 	b.connectL2AndDRAM()
 	b.connectL1ToL2()
 	b.connectL1TLBToL2TLB()
 
-	b.populateExternalPorts()
+	b.populateGPU()
 
 	return b.gpu
 }
 
-func (b *Builder) populateExternalPorts() {
-	b.gpu.AddPort("CommandProcessor", b.cp.ToDriver)
-	b.gpu.AddPort("RDMARequest", b.rdmaEngine.RDMARequestOutside)
-	b.gpu.AddPort("RDMAData", b.rdmaEngine.RDMADataOutside)
+// buildPort creates a port instance for a declared port and assigns it to
+// the component.
+func (b *Builder) buildPort(
+	comp messaging.Component,
+	name string,
+	bufSize int,
+) messaging.Port {
+	port := modeling.MakePortBuilder().
+		WithRegistrar(b.simulation).
+		WithComponent(comp).
+		WithSpec(modeling.PortSpec{BufSize: bufSize}).
+		Build(name)
+	comp.AssignPort(name, port)
 
-	b.gpu.AddPort("PageMigrationController",
-		b.pmc.GetPortByName("Remote"))
+	return port
+}
 
-	for i, l2TLB := range b.l2TLBs {
-		name := fmt.Sprintf("Translation_%02d", i)
-		b.gpu.AddPort(name, l2TLB.GetPortByName("Bottom"))
+func (b *Builder) populateGPU() {
+	b.gpu = &gpubuilder.GPU{
+		Name:                 b.name,
+		CommandProcessor:     b.cp,
+		CommandProcessorPort: b.cp.GetPortByName("ToDriver"),
+		RDMARequestPort:      b.rdmaEngine.GetPortByName("RDMARequestOutside"),
+		RDMADataPort:         b.rdmaEngine.GetPortByName("RDMADataOutside"),
+	}
+
+	for _, l2TLB := range b.l2TLBs {
+		b.gpu.TranslationPorts = append(b.gpu.TranslationPorts,
+			l2TLB.GetPortByName("Bottom"))
 	}
 }
 
 func (b *Builder) connectCP() {
 	b.internalConn = directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".InternalConn")
-	b.simulation.RegisterComponent(b.internalConn)
 
-	b.internalConn.PlugIn(b.cp.ToDMA)
-	b.internalConn.PlugIn(b.cp.ToCaches)
-	b.internalConn.PlugIn(b.cp.ToCUs)
-	b.internalConn.PlugIn(b.cp.ToTLBs)
-	b.internalConn.PlugIn(b.cp.ToAddressTranslators)
-	b.internalConn.PlugIn(b.cp.ToRDMA)
-	b.internalConn.PlugIn(b.cp.ToPMC)
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToDMA"))
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToCaches"))
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToCUs"))
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToTLBs"))
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToAddressTranslators"))
+	b.internalConn.PlugIn(b.cp.GetPortByName("ToRDMA"))
 
-	b.cp.RDMA = b.rdmaEngine.CtrlPort
-	b.internalConn.PlugIn(b.cp.RDMA)
+	rdmaCtrlPort := b.rdmaEngine.GetPortByName("Ctrl")
+	b.cp.State.RDMA = rdmaCtrlPort.AsRemote()
+	b.internalConn.PlugIn(rdmaCtrlPort)
 
-	b.cp.DMAEngine = b.dmaEngine.ToCP
-	b.internalConn.PlugIn(b.dmaEngine.ToCP)
-
-	pmcControlPort := b.pmc.GetPortByName("Control")
-	b.cp.PMC = pmcControlPort
-	b.internalConn.PlugIn(pmcControlPort)
+	dmaToCPPort := b.dmaEngine.GetPortByName("ToCP")
+	b.cp.State.DMAEngine = dmaToCPPort.AsRemote()
+	b.internalConn.PlugIn(dmaToCPPort)
 
 	b.connectCPWithCUs()
 	b.connectCPWithAddressTranslators()
 	b.connectCPWithTLBs()
 	b.connectCPWithCaches()
+	b.connectCPWithDRAMControllers()
+}
+
+func (b *Builder) connectCPWithCUs() {
+	for _, sa := range b.sas {
+		for _, cuComp := range sa.CUs {
+			cp.RegisterCU(b.cp, cu.DispatcherView{CU: cuComp})
+
+			b.internalConn.PlugIn(cuComp.GetPortByName(cu.DispatchPortName))
+			b.internalConn.PlugIn(cuComp.GetPortByName(cu.CtrlPortName))
+		}
+	}
+}
+
+// connectCPWithAddressTranslators wires the Control ports of the address
+// translators and the reorder buffers to the CP. The ROB list is new in v5:
+// the CP requires the ROB control ports split from the AT control ports
+// (v4 mixed them into the AT list).
+func (b *Builder) connectCPWithAddressTranslators() {
+	addAT := func(at messaging.Component) {
+		ctrlPort := at.GetPortByName("Control")
+		b.cp.State.AddressTranslators = append(
+			b.cp.State.AddressTranslators, ctrlPort.AsRemote())
+		b.internalConn.PlugIn(ctrlPort)
+	}
+	addROB := func(robComp messaging.Component) {
+		ctrlPort := robComp.GetPortByName("Control")
+		b.cp.State.ROBs = append(b.cp.State.ROBs, ctrlPort.AsRemote())
+		b.internalConn.PlugIn(ctrlPort)
+	}
+
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			addAT(sa.L1VATs[i])
+			addROB(sa.L1VROBs[i])
+		}
+
+		addAT(sa.L1SAT)
+		addROB(sa.L1SROB)
+
+		addAT(sa.L1IAT)
+		addROB(sa.L1IROB)
+	}
+}
+
+func (b *Builder) connectCPWithTLBs() {
+	addTLB := func(tlbComp messaging.Component) {
+		ctrlPort := tlbComp.GetPortByName("Control")
+		b.cp.State.TLBs = append(b.cp.State.TLBs, ctrlPort.AsRemote())
+		b.internalConn.PlugIn(ctrlPort)
+	}
+
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			addTLB(sa.L1VTLBs[i])
+		}
+
+		addTLB(sa.L1STLB)
+		addTLB(sa.L1ITLB)
+	}
+
+	for _, l2TLB := range b.l2TLBs {
+		addTLB(l2TLB)
+	}
+}
+
+func (b *Builder) connectCPWithCaches() {
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			ctrlPort := sa.L1VCaches[i].GetPortByName("Control")
+			b.cp.State.L1VCaches = append(
+				b.cp.State.L1VCaches, ctrlPort.AsRemote())
+			b.internalConn.PlugIn(ctrlPort)
+		}
+
+		l1sCtrlPort := sa.L1SCache.GetPortByName("Control")
+		b.cp.State.L1SCaches = append(
+			b.cp.State.L1SCaches, l1sCtrlPort.AsRemote())
+		b.internalConn.PlugIn(l1sCtrlPort)
+
+		l1iCtrlPort := sa.L1ICache.GetPortByName("Control")
+		b.cp.State.L1ICaches = append(
+			b.cp.State.L1ICaches, l1iCtrlPort.AsRemote())
+		b.internalConn.PlugIn(l1iCtrlPort)
+	}
+
+	for _, c := range b.l2Caches {
+		ctrlPort := c.GetPortByName("Control")
+		b.cp.State.L2Caches = append(b.cp.State.L2Caches, ctrlPort.AsRemote())
+		b.internalConn.PlugIn(ctrlPort)
+	}
+}
+
+// connectCPWithDRAMControllers records the Control ports of the DRAM
+// controllers in the CP state. The CP currently sends no commands to them,
+// but the ports must be connected so the control protocol is reachable.
+func (b *Builder) connectCPWithDRAMControllers() {
+	for _, dramComp := range b.drams {
+		ctrlPort := dramComp.GetPortByName("Control")
+		b.cp.State.DRAMControllers = append(
+			b.cp.State.DRAMControllers, ctrlPort.AsRemote())
+		b.internalConn.PlugIn(ctrlPort)
+	}
 }
 
 func (b *Builder) connectL1ToL2() {
 	l1ToL2Conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".L1ToL2")
 
-	b.rdmaEngine.SetLocalModuleFinder(b.l1AddressMapper)
-	b.l1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.RDMARequestInside.AsRemote()
-	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMARequestInside)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMADataInside)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.GetPortByName("RDMARequestInside"))
+	l1ToL2Conn.PlugIn(b.rdmaEngine.GetPortByName("RDMADataInside"))
 
 	for _, l2 := range b.l2Caches {
 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
@@ -260,185 +403,51 @@ func (b *Builder) connectL1ToL2() {
 
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			l1ToL2Conn.PlugIn(
-				sa.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i)))
+			l1ToL2Conn.PlugIn(sa.L1VCaches[i].GetPortByName("Bottom"))
 		}
 
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1SCacheBottom"))
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1ICacheBottom"))
+		l1ToL2Conn.PlugIn(sa.L1SCache.GetPortByName("Bottom"))
+		// The instruction path egress to L2 is the L1I address translator's
+		// bottom port (the L1I cache sits above its AT).
+		l1ToL2Conn.PlugIn(sa.L1IAT.GetPortByName("Bottom"))
 	}
 }
 
 func (b *Builder) connectL2AndDRAM() {
 	b.l2ToDramConnection = directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".L2ToDRAM")
-	b.simulation.RegisterComponent(b.l2ToDramConnection)
 
-	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
-		1 << b.log2MemoryBankInterleavingSize)
-
-	for i, l2 := range b.l2Caches {
+	for _, l2 := range b.l2Caches {
 		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
-		l2.SetAddressToPortMapper(&mem.SinglePortMapper{
-			Port: b.drams[i].GetPortByName("Top").AsRemote(),
-		})
 	}
 
-	for _, dram := range b.drams {
-		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"))
-		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			dram.GetPortByName("Top").AsRemote())
+	for _, dramComp := range b.drams {
+		topPort := dramComp.GetPortByName("Top")
+		b.l2ToDramConnection.PlugIn(topPort)
+		b.dmaLocalDataSource.LowModules = append(
+			b.dmaLocalDataSource.LowModules, topPort.AsRemote())
 	}
 
-	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
-	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem)
-
-	b.pmc.MemCtrlFinder = lowModuleFinder
-	b.l2ToDramConnection.PlugIn(
-		b.pmc.GetPortByName("LocalMem"))
+	b.l2ToDramConnection.PlugIn(b.dmaEngine.GetPortByName("ToMem"))
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
 	tlbConn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".L1TLBToL2TLB")
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"))
 
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			tlbConn.PlugIn(
-				sa.GetPortByName(fmt.Sprintf("L1VTLBBottom[%d]", i)))
+			tlbConn.PlugIn(sa.L1VTLBs[i].GetPortByName("Bottom"))
 		}
 
-		tlbConn.PlugIn(sa.GetPortByName("L1STLBBottom"))
-		tlbConn.PlugIn(sa.GetPortByName("L1ITLBBottom"))
-	}
-}
-
-type cuInterfaceForCP struct {
-	ctrlPort        sim.RemotePort
-	dispatchingPort sim.RemotePort
-	wfPoolSizes     []int
-	vRegCounts      []int
-	sRegCount       int
-	ldsBytes        int
-}
-
-func (cu cuInterfaceForCP) ControlPort() sim.RemotePort {
-	return cu.ctrlPort
-}
-
-func (cu cuInterfaceForCP) DispatchingPort() sim.RemotePort {
-	return cu.dispatchingPort
-}
-
-func (cu cuInterfaceForCP) WfPoolSizes() []int {
-	return cu.wfPoolSizes
-}
-
-func (cu cuInterfaceForCP) VRegCounts() []int {
-	return cu.vRegCounts
-}
-
-func (cu cuInterfaceForCP) SRegCount() int {
-	return cu.sRegCount
-}
-
-func (cu cuInterfaceForCP) LDSBytes() int {
-	return cu.ldsBytes
-}
-
-func (b *Builder) connectCPWithCUs() {
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			cuDispatchingPort := sa.GetPortByName(
-				fmt.Sprintf("CU[%d]", i))
-			cuCtrlPort := sa.GetPortByName(
-				fmt.Sprintf("CUCtrl[%d]", i))
-			cu := cuInterfaceForCP{
-				ctrlPort:        cuCtrlPort.AsRemote(),
-				dispatchingPort: cuDispatchingPort.AsRemote(),
-				wfPoolSizes:     []int{10, 10, 10, 10},
-				vRegCounts:      []int{16384, 16384, 16384, 16384},
-				sRegCount:       3200,
-				ldsBytes:        64 * 1024,
-			}
-
-			b.cp.RegisterCU(cu)
-
-			b.internalConn.PlugIn(cuDispatchingPort)
-			b.internalConn.PlugIn(cuCtrlPort)
-		}
-	}
-}
-
-func (b *Builder) connectCPWithAddressTranslators() {
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			at := sa.GetPortByName(fmt.Sprintf("L1VAddrTransCtrl[%d]", i))
-			b.cp.AddressTranslators = append(b.cp.AddressTranslators, at)
-			b.internalConn.PlugIn(at)
-		}
-
-		l1sAT := sa.GetPortByName("L1SAddrTransCtrl")
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1sAT)
-		b.internalConn.PlugIn(l1sAT)
-
-		l1iAT := sa.GetPortByName("L1IAddrTransCtrl")
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1iAT)
-		b.internalConn.PlugIn(l1iAT)
-	}
-}
-
-func (b *Builder) connectCPWithTLBs() {
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			tlb := sa.GetPortByName(fmt.Sprintf("L1VTLBCtrl[%d]", i))
-			b.cp.TLBs = append(b.cp.TLBs, tlb)
-			b.internalConn.PlugIn(tlb)
-		}
-
-		l1sTLB := sa.GetPortByName("L1STLBCtrl")
-		b.cp.TLBs = append(b.cp.TLBs, l1sTLB)
-		b.internalConn.PlugIn(l1sTLB)
-
-		l1iTLB := sa.GetPortByName("L1ITLBCtrl")
-		b.cp.TLBs = append(b.cp.TLBs, l1iTLB)
-		b.internalConn.PlugIn(l1iTLB)
-	}
-
-	for _, tlb := range b.l2TLBs {
-		ctrlPort := tlb.GetPortByName("Control")
-		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
-}
-
-func (b *Builder) connectCPWithCaches() {
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			cache := sa.GetPortByName(fmt.Sprintf("L1VCacheCtrl[%d]", i))
-			b.cp.L1VCaches = append(b.cp.L1VCaches, cache)
-			b.internalConn.PlugIn(cache)
-		}
-
-		l1sCache := sa.GetPortByName("L1SCacheCtrl")
-		b.cp.L1SCaches = append(b.cp.L1SCaches, l1sCache)
-		b.internalConn.PlugIn(l1sCache)
-
-		l1iCache := sa.GetPortByName("L1ICacheCtrl")
-		b.cp.L1ICaches = append(b.cp.L1ICaches, l1iCache)
-		b.internalConn.PlugIn(l1iCache)
-	}
-
-	for _, c := range b.l2Caches {
-		ctrlPort := c.GetPortByName("Control")
-		b.cp.L2Caches = append(b.cp.L2Caches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
+		tlbConn.PlugIn(sa.L1STLB.GetPortByName("Bottom"))
+		tlbConn.PlugIn(sa.L1ITLB.GetPortByName("Bottom"))
 	}
 }
 
@@ -453,14 +462,6 @@ func (b *Builder) buildSAs() {
 		WithL1AddressMapper(b.l1AddressMapper).
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper)
 
-	// if b.enableISADebugging {
-	// 	saBuilder = saBuilder.withIsaDebugging()
-	// }
-
-	// if b.enableMemTracing {
-	// 	saBuilder = saBuilder.withMemTracer(b.memTracer)
-	// }
-
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
 		sa := saBuilder.Build(saName)
@@ -471,60 +472,79 @@ func (b *Builder) buildSAs() {
 
 func (b *Builder) buildL2Caches() {
 	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
-	l2Builder := writeback.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(16).
-		WithByteSize(byteSize).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(16)
+
+	spec := writeback.DefaultSpec()
+	spec.Freq = b.freq
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 16
+	spec.TotalByteSize = byteSize
+	spec.NumMSHREntry = 64
+	spec.NumReqPerCycle = 16
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
-		l2 := l2Builder.WithInterleaving(
-			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
-			b.numMemoryBank,
-			i).
-			WithAddressMapperType("single").
-			WithRemotePorts(b.drams[i].GetPortByName("Top").AsRemote()).
+		l2 := writeback.MakeBuilder().
+			WithRegistrar(b.simulation).
+			WithSpec(spec).
+			WithResources(writeback.Resources{
+				AddressToPortMapper: &mem.SinglePortMapper{
+					Port: b.drams[i].GetPortByName("Top").AsRemote(),
+				},
+			}).
 			Build(cacheName)
 
-		b.simulation.RegisterComponent(l2)
+		b.buildPort(l2, "Top", l2CachePortBufSize)
+		b.buildPort(l2, "Bottom", l2CachePortBufSize)
+		b.buildPort(l2, "Control", l2CachePortBufSize)
+
 		b.l2Caches = append(b.l2Caches, l2)
 
 		b.l1AddressMapper.LowModules = append(
 			b.l1AddressMapper.LowModules,
 			l2.GetPortByName("Top").AsRemote(),
 		)
-
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(l2, b.memTracer)
-		// }
 	}
 }
 
+// buildDRAMControllers builds the memory controllers. Like the v4
+// configuration, the active model is the ideal memory controller with a
+// fixed 100-cycle latency; hbmDRAMSpec provides the detailed
+// HBM timing model for experiments (v4 kept the same alternative as dead
+// code in createDramControllerBuilder).
 func (b *Builder) buildDRAMControllers() {
-	// memCtrlBuilder := b.createDramControllerBuilder()
+	b.dmaLocalDataSource = mem.NewInterleavedAddressPortMapper(
+		1 << b.log2MemoryBankInterleavingSize)
+
+	spec := idealmemcontroller.DefaultSpec()
+	spec.Freq = b.freq
+	spec.Latency = 100
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
-		dram := idealmemcontroller.MakeBuilder().
-			WithEngine(b.simulation.GetEngine()).
-			WithFreq(b.freq).
-			WithLatency(100).
-			WithStorage(b.globalStorage).
+		dramComp := idealmemcontroller.MakeBuilder().
+			WithRegistrar(b.simulation).
+			WithSpec(spec).
+			WithResources(idealmemcontroller.Resources{
+				Storage: b.globalStorage,
+			}).
 			Build(dramName)
-		b.simulation.RegisterComponent(dram)
-		b.drams = append(b.drams, dram)
 
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(dram, b.memTracer)
-		// }
+		b.buildPort(dramComp, "Top", memCtrlPortBufSize)
+		b.buildPort(dramComp, "Control", memCtrlPortBufSize)
+
+		b.drams = append(b.drams, dramComp)
 	}
 }
 
-func (b *Builder) createDramControllerBuilder() dram.Builder {
+// hbmDRAMSpec returns the spec of a detailed HBM memory controller that
+// matches the v4 dram.HBM configuration. It starts from the v5 HBM2Spec
+// preset (the closest preset to v4's dram.HBM protocol) and applies the
+// exact geometry and timing numbers the v4 configuration used. It is not
+// used by default (the v4 configuration used the ideal memory controller),
+// but is kept so the detailed model can be swapped in.
+//
+//nolint:unused
+func (b *Builder) hbmDRAMSpec() dram.Spec {
 	memBankSize := 4 * mem.GB / uint64(b.numMemoryBank)
 	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
 		panic("GPU memory size is not a multiple of the number of memory banks")
@@ -541,116 +561,135 @@ func (b *Builder) createDramControllerBuilder() dram.Builder {
 	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
 	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
 
-	memCtrlBuilder := dram.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(500 * sim.MHz).
-		WithProtocol(dram.HBM).
-		WithBurstLength(4).
-		WithDeviceWidth(dramDeviceWidth).
-		WithBusWidth(dramBusWidth).
-		WithNumChannel(1).
-		WithNumRank(dramRank).
-		WithNumBankGroup(dramBankGroup).
-		WithNumBank(dramBank).
-		WithNumCol(dramCol).
-		WithNumRow(dramRow).
-		WithCommandQueueSize(8).
-		WithTransactionQueueSize(32).
-		WithTCL(7).
-		WithTCWL(2).
-		WithTRCDRD(7).
-		WithTRCDWR(7).
-		WithTRP(7).
-		WithTRAS(17).
-		WithTREFI(1950).
-		WithTRRDS(2).
-		WithTRRDL(3).
-		WithTWTRS(3).
-		WithTWTRL(4).
-		WithTWR(8).
-		WithTCCDS(1).
-		WithTCCDL(1).
-		WithTRTRS(0).
-		WithTRTP(3).
-		WithTPPD(2)
+	spec := dram.HBM2Spec
+	spec.Freq = 500 * timing.MHz
+	spec.BurstLength = 4
+	spec.DeviceWidth = dramDeviceWidth
+	spec.BusWidth = dramBusWidth
+	spec.NumChannel = 1
+	spec.NumRank = dramRank
+	spec.NumBankGroup = dramBankGroup
+	spec.NumBank = dramBank
+	spec.NumCol = dramCol
+	spec.NumRow = dramRow
+	spec.CommandQueueCapacity = 8
+	spec.TransactionQueueSize = 32
+	applyHBMTimings(&spec)
 
-	if b.globalStorage != nil {
-		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
-	}
+	return spec
+}
 
-	return memCtrlBuilder
+// applyHBMTimings applies the v4 dram.HBM timing parameters onto spec.
+//
+//nolint:unused
+func applyHBMTimings(spec *dram.Spec) {
+	spec.TCL = 7
+	spec.TCWL = 2
+	spec.TRCDRD = 7
+	spec.TRCDWR = 7
+	spec.TRP = 7
+	spec.TRAS = 17
+	spec.TREFI = 1950
+	spec.TRRDS = 2
+	spec.TRRDL = 3
+	spec.TWTRS = 3
+	spec.TWTRL = 4
+	spec.TWR = 8
+	spec.TCCDS = 1
+	spec.TCCDL = 1
+	spec.TRTRS = 0
+	spec.TRTP = 3
+	spec.TPPD = 2
 }
 
 func (b *Builder) buildRDMAEngine() {
 	name := fmt.Sprintf("%s.RDMA", b.name)
+
+	spec := rdma.DefaultSpec()
+	spec.Freq = 1 * timing.GHz
+
 	b.rdmaEngine = rdma.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(1 * sim.GHz).
-		WithLocalModules(b.l1AddressMapper).
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(rdma.Resources{
+			LocalModules:           b.l1AddressMapper,
+			RemoteRDMAAddressTable: b.rdmaAddressMapper,
+		}).
 		Build(name)
 
-	b.rdmaEngine.RemoteRDMAAddressTable = b.rdmaAddressMapper
+	b.buildPort(b.rdmaEngine, "RDMARequestInside", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "RDMARequestOutside", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "RDMADataInside", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "RDMADataOutside", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "Ctrl", rdmaPortBufSize)
 
-	b.simulation.RegisterComponent(b.rdmaEngine)
-}
-
-func (b *Builder) buildPageMigrationController() {
-	b.pmc = pagemigrationcontroller.NewPageMigrationController(
-		fmt.Sprintf("%s.PMC", b.name),
-		b.simulation.GetEngine(),
-		b.pmcAddressMapper,
-		nil)
-
-	b.simulation.RegisterComponent(b.pmc)
+	b.l1AddressMapper.ModuleForOtherAddresses =
+		b.rdmaEngine.GetPortByName("RDMARequestInside").AsRemote()
 }
 
 func (b *Builder) buildDMAEngine() {
-	b.dmaEngine = cp.NewDMAEngine(
-		fmt.Sprintf("%s.DMA", b.name),
-		b.simulation.GetEngine(),
-		nil)
+	b.dmaEngine = cp.MakeDMAEngineBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(cp.DefaultDMASpec()).
+		WithResources(cp.DMAResources{
+			LocalDataSource: b.dmaLocalDataSource,
+		}).
+		Build(fmt.Sprintf("%s.DMA", b.name))
 
-	b.simulation.RegisterComponent(b.dmaEngine)
+	b.buildPort(b.dmaEngine, "ToCP", dmaToCPBufSize)
+	b.buildPort(b.dmaEngine, "ToMem", dmaToMemBufSize)
 }
 
 func (b *Builder) buildCP() {
+	spec := cp.DefaultSpec()
+	spec.Freq = b.freq
+
 	b.cp = cp.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
 		WithVisTracer(b.simulation.GetVisTracer()).
-		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
+		WithDriver(b.driverPort).
 		Build(b.name + ".CommandProcessor")
 
-	b.simulation.RegisterComponent(b.cp)
+	b.buildPort(b.cp, "ToDriver", cpPortBufSize)
+	b.buildPort(b.cp, "ToDMA", cpPortBufSize)
+	b.buildPort(b.cp, "ToCUs", cpPortBufSize)
+	b.buildPort(b.cp, "ToTLBs", cpPortBufSize)
+	b.buildPort(b.cp, "ToAddressTranslators", cpPortBufSize)
+	b.buildPort(b.cp, "ToCaches", cpPortBufSize)
+	b.buildPort(b.cp, "ToRDMA", cpPortBufSize)
 
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
-	b.buildPageMigrationController()
 }
 
 func (b *Builder) buildL2TLB() {
-    numWays := 64
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumWays(numWays).
-        WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
-        WithNumMSHREntry(64).
-        WithNumReqPerCycle(1024).
-        WithPageSize(1 << b.log2PageSize).
-        WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-        WithTranslationProviderMapper(&mem.SinglePortMapper{
-            Port: b.mmu.GetPortByName("Top").AsRemote(),
-        })
+	numWays := 64
 
-	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
+	spec := tlb.DefaultSpec()
+	spec.Freq = b.freq
+	spec.NumWays = numWays
+	spec.NumSets = int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))
+	spec.MSHRSize = 64
+	spec.NumReqPerCycle = 1024
+	spec.Log2PageSize = b.log2PageSize
 
-	b.simulation.RegisterComponent(l2TLB)
+	l2TLB := tlb.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(tlb.Resources{
+			TranslationProviderMapper: &mem.SinglePortMapper{
+				Port: b.mmu.GetPortByName("Top").AsRemote(),
+			},
+		}).
+		Build(fmt.Sprintf("%s.L2TLB", b.name))
+
+	b.buildPort(l2TLB, "Top", l2TLBPortBufSize)
+	b.buildPort(l2TLB, "Bottom", l2TLBPortBufSize)
+	b.buildPort(l2TLB, "Control", ctrlPortBufSize)
+
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
 
 	b.l1TLBAddressMapper.Port = l2TLB.GetPortByName("Top").AsRemote()
-}
-
-func (b *Builder) numCU() int {
-	return b.numCUPerShaderArray * b.numShaderArray
 }

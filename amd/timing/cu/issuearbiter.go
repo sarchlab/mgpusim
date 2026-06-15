@@ -1,6 +1,6 @@
 package cu
 
-import "github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+import "github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {

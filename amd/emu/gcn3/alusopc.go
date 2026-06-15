@@ -1,0 +1,124 @@
+package gcn3
+
+import (
+	"log"
+
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+)
+
+//nolint:gocyclo,funlen
+func (u *ALU) runSOPC(state emu.InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 0:
+		u.runSCMPEQU32(state)
+	case 1:
+		u.runSCMPLGU32(state)
+	case 2:
+		u.runSCMPGTI32(state)
+	case 3:
+		u.runSCMPGEI32(state)
+	case 4:
+		u.runSCMPLTI32(state)
+	case 5:
+		u.runSCMPLEI32(state)
+	case 6:
+		u.runSCMPEQU32(state)
+	case 7:
+		u.runSCMPLGU32(state)
+	case 8:
+		u.runSCMPGTU32(state)
+	case 10:
+		u.runSCMPLTU32(state)
+	default:
+		log.Panicf("Opcode %d for SOPC format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runSCMPGTI32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
+	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
+	if src0 > src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPLTI32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
+	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
+	if src0 < src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPLEI32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
+	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
+	if src0 <= src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPGEI32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := asInt32(uint32(state.ReadOperand(inst.Src0, 0)))
+	src1 := asInt32(uint32(state.ReadOperand(inst.Src1, 0)))
+	if src0 >= src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPEQU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	src1 := uint32(state.ReadOperand(inst.Src1, 0))
+	if src0 == src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPLGU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	src1 := uint32(state.ReadOperand(inst.Src1, 0))
+	if src0 != src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPGTU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	src1 := uint32(state.ReadOperand(inst.Src1, 0))
+	if src0 > src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSCMPLTU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	src1 := uint32(state.ReadOperand(inst.Src1, 0))
+	if src0 < src1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}

@@ -3,74 +3,88 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
-	"go.uber.org/mock/gomock"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/queueing"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
+
+type fakeCoalescer struct {
+	toReturn []VectorMemAccessInfo
+	received []*wavefront.Wavefront
+}
+
+func (c *fakeCoalescer) generateMemTransactions(
+	wf *wavefront.Wavefront,
+) []VectorMemAccessInfo {
+	c.received = append(c.received, wf)
+	return c.toReturn
+}
 
 var _ = Describe("Vector Memory Unit", func() {
 
 	var (
-		mockCtrl            *gomock.Controller
-		cu                  *ComputeUnit
-		coalescer           *Mockcoalescer
-		vecMemUnit          *VectorMemoryUnit
-		vectorMem           *MockPort
-		toVectorMem         *MockPort
-		instPipeline        *MockPipeline
-		instBuffer          *MockBuffer
-		transactionPipeline *MockPipeline
-		transactionBuffer   *MockBuffer
+		cu          *ComputeUnit
+		coalescer   *fakeCoalescer
+		vecMemUnit  *VectorMemoryUnit
+		toVectorMem *fakePort
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		cu = NewComputeUnit("CU", nil)
-		coalescer = NewMockcoalescer(mockCtrl)
-		vecMemUnit = NewVectorMemoryUnit(cu, coalescer)
-		toVectorMem = NewMockPort(mockCtrl)
-		instPipeline = NewMockPipeline(mockCtrl)
-		instBuffer = NewMockBuffer(mockCtrl)
-		transactionPipeline = NewMockPipeline(mockCtrl)
-		transactionBuffer = NewMockBuffer(mockCtrl)
-		cu.ToVectorMem = toVectorMem
-		cu.VectorMemModules = new(mem.SinglePortMapper)
+		engine := newFakeEngine()
+		comp := modeling.NewBuilder[Spec, State, Resources]().
+			WithEngine(engine).
+			WithFreq(1 * timing.GHz).
+			WithSpec(DefaultSpec()).
+			WithResources(Resources{
+				VectorMemModules: &mem.SinglePortMapper{Port: "VectorMem"},
+			}).
+			Build("CU")
+
+		cu = &ComputeUnit{
+			comp:   comp,
+			engine: engine,
+			wftime: make(map[uint64]timing.VTimeInPicoSec),
+		}
 		cu.InFlightVectorMemAccessLimit = 128
-		vectorMem = NewMockPort(mockCtrl)
 
-		vecMemUnit.instructionPipeline = instPipeline
-		vecMemUnit.postInstructionPipelineBuffer = instBuffer
-		vecMemUnit.transactionPipeline = transactionPipeline
-		vecMemUnit.postTransactionPipelineBuffer = transactionBuffer
+		coalescer = new(fakeCoalescer)
+		vecMemUnit = NewVectorMemoryUnit(cu, coalescer)
+		toVectorMem = newFakePort("CU.VectorMem")
+		cu.ToVectorMem = toVectorMem
 
-		toVectorMem.EXPECT().AsRemote().AnyTimes()
-		vectorMem.EXPECT().AsRemote().AnyTimes()
-	})
-
-	AfterEach(func() {
-		mockCtrl.Finish()
+		vecMemUnit.instructionPipeline =
+			queueing.NewPipeline[vectorMemInst](1, 6)
+		vecMemUnit.postInstructionPipelineBuffer =
+			queueing.NewBuffer[vectorMemInst]("CU.PostInstBuf", 16)
+		vecMemUnit.transactionPipeline =
+			queueing.NewPipeline[VectorMemAccessInfo](2, 10)
+		vecMemUnit.postTransactionPipelineBuffer =
+			queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
 	})
 
 	It("should allow accepting wavefront", func() {
-		instPipeline.EXPECT().CanAccept().Return(true)
 		Expect(vecMemUnit.CanAcceptWave()).To(BeTrue())
 	})
 
-	It("should not allow accepting wavefront if the read stage buffer is occupied", func() {
-		instPipeline.EXPECT().CanAccept().Return(false)
+	It("should not allow accepting wavefront if the instruction pipeline "+
+		"entry stage is occupied", func() {
+		vecMemUnit.instructionPipeline.Accept(vectorMemInst{})
 		Expect(vecMemUnit.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
 
-		instPipeline.EXPECT().Accept(gomock.Any())
-
 		vecMemUnit.AcceptWave(wave)
 
 		Expect(vecMemUnit.numInstInFlight).To(Equal(uint64(1)))
+		Expect(vecMemUnit.instructionPipeline.Stages()).To(HaveLen(1))
 	})
 
 	It("should run flat_load_dword", func() {
@@ -84,22 +98,25 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			read := mem.ReadReqBuilder{}.
-				WithAddress(0x100).
-				WithByteSize(4).
-				Build()
+			read := &memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				Address:        0x100,
+				AccessByteSize: 4,
+			}
 			transactions[i].Read = read
 		}
-		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		gomock.InOrder(
-			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
-			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
-			instBuffer.EXPECT().Peek().Return(nil),
-		)
+		coalescer.toReturn = transactions
+
+		vecMemUnit.postInstructionPipelineBuffer.PushTyped(
+			vectorMemInst{wavefront: wave})
+		vecMemUnit.numInstInFlight = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
+		Expect(coalescer.received).To(ContainElement(wave))
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
@@ -107,6 +124,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(cu.InFlightVectorMemAccess[3].Read.CanWaitForCoalesce).
 			To(BeFalse())
 		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(4))
+		Expect(vecMemUnit.postInstructionPipelineBuffer.Size()).To(Equal(0))
+		Expect(vecMemUnit.numInstInFlight).To(Equal(uint64(0)))
 	})
 
 	It("should run flat_store_dword", func() {
@@ -120,17 +139,19 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			write := mem.WriteReqBuilder{}.
-				WithAddress(0x100).
-				Build()
+			write := &memprotocol.WriteReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				Address: 0x100,
+			}
 			transactions[i].Write = write
 		}
-		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
-		gomock.InOrder(
-			instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave}),
-			instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave}),
-			instBuffer.EXPECT().Peek().Return(nil),
-		)
+		coalescer.toReturn = transactions
+
+		vecMemUnit.postInstructionPipelineBuffer.PushTyped(
+			vectorMemInst{wavefront: wave})
+		vecMemUnit.numInstInFlight = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
 
@@ -147,52 +168,50 @@ var _ = Describe("Vector Memory Unit", func() {
 	It("should add transactions to pipeline", func() {
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			write := mem.WriteReqBuilder{}.
-				WithAddress(0x100).
-				Build()
+			write := &memprotocol.WriteReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				Address: 0x100,
+			}
 			transactions[i].Write = write
 		}
 		vecMemUnit.transactionsWaiting = transactions
 
-		// The loop inserts as many as the pipeline can accept.
-		// After 2 accepts, pipeline reports full.
-		gomock.InOrder(
-			transactionPipeline.EXPECT().CanAccept().Return(true),
-			transactionPipeline.EXPECT().Accept(gomock.Any()),
-			transactionPipeline.EXPECT().CanAccept().Return(true),
-			transactionPipeline.EXPECT().Accept(gomock.Any()),
-			transactionPipeline.EXPECT().CanAccept().Return(false),
-		)
-		instBuffer.EXPECT().Peek().Return(nil)
-
+		// The transaction pipeline has width 2, so only 2 transactions can
+		// enter stage 0 in one cycle.
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(2))
+		Expect(vecMemUnit.transactionPipeline.Stages()).To(HaveLen(2))
 	})
 
 	It("should send memory access requests", func() {
 		inst := wavefront.NewInst(nil)
-		loadReq := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToVectorMem.AsRemote()).
-			WithDst(vectorMem.AsRemote()).
-			WithAddress(0).
-			WithByteSize(4).
-			Build()
+		loadReq := &memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: cu.ToVectorMem.AsRemote(),
+				Dst: "VectorMem",
+			},
+			Address:        0,
+			AccessByteSize: 4,
+		}
 		trans := VectorMemAccessInfo{
 			Read: loadReq,
 			Inst: inst,
 		}
 		vecMemUnit.numTransactionInFlight = 1
 
-		transactionBuffer.EXPECT().Peek().Return(trans)
-		transactionBuffer.EXPECT().Pop()
-		toVectorMem.EXPECT().Send(loadReq)
-		transactionBuffer.EXPECT().Peek().Return(nil)
+		vecMemUnit.postTransactionPipelineBuffer.PushTyped(trans)
 
 		vecMemUnit.sendRequest()
 
+		Expect(toVectorMem.sent).To(HaveLen(1))
+		Expect(toVectorMem.sent[0]).To(Equal(*loadReq))
 		Expect(vecMemUnit.numTransactionInFlight).To(Equal(uint64(0)))
+		Expect(vecMemUnit.postTransactionPipelineBuffer.Size()).To(Equal(0))
 	})
 
 	It("should flush the vector memory unit", func() {
@@ -200,16 +219,15 @@ var _ = Describe("Vector Memory Unit", func() {
 		vecMemUnit.numTransactionInFlight = 1
 		vecMemUnit.transactionsWaiting = append(vecMemUnit.transactionsWaiting,
 			VectorMemAccessInfo{})
-
-		instPipeline.EXPECT().Clear()
-		instBuffer.EXPECT().Clear()
-		transactionPipeline.EXPECT().Clear()
-		transactionBuffer.EXPECT().Clear()
+		vecMemUnit.instructionPipeline.Accept(vectorMemInst{})
+		vecMemUnit.postInstructionPipelineBuffer.PushTyped(vectorMemInst{})
 
 		vecMemUnit.Flush()
 
 		Expect(vecMemUnit.numInstInFlight).To(Equal(uint64(0)))
 		Expect(vecMemUnit.numTransactionInFlight).To(Equal(uint64(0)))
 		Expect(vecMemUnit.transactionsWaiting).To(BeEmpty())
+		Expect(vecMemUnit.instructionPipeline.Stages()).To(BeEmpty())
+		Expect(vecMemUnit.postInstructionPipelineBuffer.Size()).To(Equal(0))
 	})
 })

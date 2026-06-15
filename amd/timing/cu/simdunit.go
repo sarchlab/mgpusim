@@ -3,21 +3,23 @@ package cu
 import (
 	"strings"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // simdPipelineSlot represents one in-flight wavefront in the SIMD pipeline.
 type simdPipelineSlot struct {
 	wf        *wavefront.Wavefront
 	cycleLeft int
+	taskID    uint64
 }
 
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
-	sim.HookableBase
+	hooking.HookableBase
 
 	cu *ComputeUnit
 
@@ -25,8 +27,9 @@ type SIMDUnit struct {
 
 	alu emu.ALU
 
-	toExec    *wavefront.Wavefront
-	cycleLeft int
+	toExec     *wavefront.Wavefront
+	cycleLeft  int
+	execTaskID uint64
 
 	// Pipeline mode fields (used when scoreboardEnabled)
 	pipelineSlots    []*simdPipelineSlot
@@ -87,13 +90,13 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
 			cycleLeft: cycleLeft,
 		}
 		u.pipelineSlots = append(u.pipelineSlots, slot)
-		u.logPipelineTask(wave.DynamicInst(), false)
+		slot.taskID = u.logPipelineTaskStart(wave.DynamicInst())
 		return
 	}
 
 	u.toExec = wave
 	u.cycleLeft = cycleLeft
-	u.logPipelineTask(u.toExec.DynamicInst(), false)
+	u.execTaskID = u.logPipelineTaskStart(u.toExec.DynamicInst())
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -120,7 +123,7 @@ func (u *SIMDUnit) runPipelined() bool {
 			u.alu.Run(slot.wf)
 			u.cu.UpdatePCAndSetReady(slot.wf)
 
-			u.logPipelineTask(slot.wf.DynamicInst(), true)
+			u.logPipelineTaskEnd(slot.taskID)
 			u.cu.logInstTask(slot.wf, slot.wf.DynamicInst(), true)
 		} else {
 			remaining = append(remaining, slot)
@@ -144,7 +147,7 @@ func (u *SIMDUnit) runExecStage() bool {
 	u.alu.Run(u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
 
-	u.logPipelineTask(u.toExec.DynamicInst(), true)
+	u.logPipelineTaskEnd(u.execTaskID)
 	u.cu.logInstTask(u.toExec, u.toExec.DynamicInst(), true)
 
 	u.toExec = nil
@@ -157,30 +160,33 @@ func (u *SIMDUnit) Flush() {
 	u.pipelineSlots = u.pipelineSlots[:0]
 }
 
-func (u *SIMDUnit) logPipelineTask(
-	inst *wavefront.Inst,
-	completed bool,
-) {
-	if completed {
-		tracing.EndTask(
-			inst.ID+"_simd_exec",
-			u,
-		)
-		return
-	}
+// logPipelineTaskStart starts the per-SIMD pipeline task for the given
+// instruction and returns the task ID (v4 used the string ID
+// inst.ID+"_simd_exec").
+func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
+	taskID := timing.GetIDGenerator().Generate()
 
-	tracing.StartTask(
-		inst.ID+"_simd_exec",
-		inst.ID,
-		u,
-		"pipeline",
-		u.cu.execUnitToString(inst.ExeUnit),
-		// inst.InstName,
-		nil,
-	)
+	tracing.StartTask(u, tracing.TaskStart{
+		ID:       taskID,
+		ParentID: inst.ID,
+		Kind:     "pipeline",
+		What:     u.cu.execUnitToString(inst.ExeUnit),
+	})
+
+	return taskID
+}
+
+func (u *SIMDUnit) logPipelineTaskEnd(taskID uint64) {
+	tracing.EndTask(u, tracing.TaskEnd{ID: taskID})
 }
 
 // Name names the unit
 func (u *SIMDUnit) Name() string {
 	return u.name
+}
+
+// CurrentTime returns the current time of the compute unit the SIMD unit
+// belongs to. It makes the SIMD unit a tracing domain.
+func (u *SIMDUnit) CurrentTime() timing.VTimeInPicoSec {
+	return u.cu.comp.CurrentTime()
 }

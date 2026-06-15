@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // flatPrecomputeScalarBase reads the scalar base register once (lane-invariant).

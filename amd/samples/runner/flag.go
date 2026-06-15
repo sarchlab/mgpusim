@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -79,6 +79,19 @@ var visTraceStartTime = flag.Float64("trace-vis-start", -1,
 var visTraceEndTime = flag.Float64("trace-vis-end", -1,
 	"The end time of collecting visualization traces. A negative number"+
 		"means that the trace will be collected to the end of the simulation.")
+
+// metricFileNameFlagIsSet tells whether the user explicitly passed
+// -metric-file-name on the command line.
+func metricFileNameFlagIsSet() bool {
+	isSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "metric-file-name" {
+			isSet = true
+		}
+	})
+
+	return isSet
+}
 
 // parseFlag applies the runner flag to runner object
 func (r *Runner) parseFlag() *Runner {

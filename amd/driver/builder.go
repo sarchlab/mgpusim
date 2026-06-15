@@ -1,122 +1,115 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
+
+// defaultSpec provides the default configuration of the driver.
+var defaultSpec = Spec{
+	Freq:         1 * timing.GHz,
+	Log2PageSize: 12,
+}
+
+// DefaultSpec returns a copy of the default configuration. Callers obtain it,
+// tweak the fields they care about, and pass it to WithSpec.
+func DefaultSpec() Spec {
+	return defaultSpec
+}
 
 // A Builder can build a driver.
 type Builder struct {
-	engine              sim.Engine
-	freq                sim.Freq
-	log2PageSize        uint64
-	pageTable           vm.PageTable
-	globalStorage       *mem.Storage
-	useMagicMemoryCopy  bool
-	middlewareD2HCycles int
-	middlewareH2DCycles int
+	spec      Spec
+	resources Resources
+	registrar modeling.Registrar
 }
 
-// MakeBuilder creates a driver builder with some default configuration
-// parameters.
+// MakeBuilder creates a driver builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{
-		freq: 1 * sim.GHz,
-	}
+	return Builder{spec: defaultSpec}
 }
 
-// WithEngine sets the engine to use.
-func (b Builder) WithEngine(e sim.Engine) Builder {
-	b.engine = e
+// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
+func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+	b.registrar = reg
 	return b
 }
 
-// WithFreq sets the frequency to use.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
-	b.freq = freq
+// WithSpec sets the entire configuration. Start from DefaultSpec() and tweak.
+func (b Builder) WithSpec(spec Spec) Builder {
+	b.spec = spec
 	return b
 }
 
-// WithPageTable sets the global page table.
-func (b Builder) WithPageTable(pt vm.PageTable) Builder {
-	b.pageTable = pt
+// WithResources sets the shared resources (page table, global storage) the
+// driver uses.
+func (b Builder) WithResources(resources Resources) Builder {
+	b.resources = resources
 	return b
 }
 
-// WithLog2PageSize sets the page size used by all the devices in the system
-// as a power of 2.
-func (b Builder) WithLog2PageSize(log2PageSize uint64) Builder {
-	b.log2PageSize = log2PageSize
-	return b
-}
-
-// WithGlobalStorage sets the global storage that the driver uses.
-func (b Builder) WithGlobalStorage(storage *mem.Storage) Builder {
-	b.globalStorage = storage
-	return b
-}
-
-// WithMagicMemoryCopyMiddleware uses global storage as memory components
-func (b Builder) WithMagicMemoryCopyMiddleware() Builder {
-	b.useMagicMemoryCopy = true
-	return b
-}
-
-func (b Builder) WithD2HCycles(d2hCycles int) Builder {
-	b.middlewareD2HCycles = d2hCycles
-	return b
-}
-
-func (b Builder) WithH2DCycles(h2dCycles int) Builder {
-	b.middlewareH2DCycles = h2dCycles
-	return b
-}
-
-// Build creates a driver.
+// Build creates a driver. It declares the driver's "GPU" port; the port
+// instance is created externally and supplied with AssignPort.
 func (b Builder) Build(name string) *Driver {
+	if b.registrar == nil {
+		panic("driver: WithRegistrar is required")
+	}
+
 	driver := new(Driver)
-	driver.TickingComponent = sim.NewTickingComponent(
-		"Driver", b.engine, b.freq, driver)
+	driver.Comp = modeling.NewBuilder[Spec, State, Resources]().
+		WithEngine(b.registrar.GetEngine()).
+		WithFreq(b.spec.Freq).
+		WithSpec(b.spec).
+		WithResources(b.resources).
+		Build(name)
+	driver.Comp.State = State{}
 
-	driver.Log2PageSize = b.log2PageSize
+	driver.engine = b.registrar.GetEngine()
+	driver.Log2PageSize = b.spec.Log2PageSize
 
-	memAllocatorImpl := internal.NewMemoryAllocator(b.pageTable, b.log2PageSize)
+	memAllocatorImpl := internal.NewMemoryAllocator(
+		b.resources.PageTable, b.spec.Log2PageSize)
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)
-	distributorImpl.pageSizeAsPowerOf2 = b.log2PageSize
+	distributorImpl.pageSizeAsPowerOf2 = b.spec.Log2PageSize
 	driver.distributor = distributorImpl
 
-	driver.pageTable = b.pageTable
-	driver.globalStorage = b.globalStorage
-
-	if b.useMagicMemoryCopy {
+	if b.spec.UseMagicMemoryCopy {
 		globalStorageMemoryCopyMiddleware := &globalStorageMemoryCopyMiddleware{
 			driver: driver,
 		}
-		driver.middlewares = append(driver.middlewares, globalStorageMemoryCopyMiddleware)
+		driver.middlewares = append(driver.middlewares,
+			globalStorageMemoryCopyMiddleware)
 	} else {
 		defaultMemoryCopyMiddleware := &defaultMemoryCopyMiddleware{
 			driver:       driver,
-			cyclesPerD2H: b.middlewareD2HCycles,
-			cyclesPerH2D: b.middlewareH2DCycles,
+			cyclesPerD2H: b.spec.D2HCycles,
+			cyclesPerH2D: b.spec.H2DCycles,
 		}
-		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
+		driver.middlewares = append(driver.middlewares,
+			defaultMemoryCopyMiddleware)
 	}
 
-	driver.gpuPort = sim.NewPort(driver, 40960000, 40960000, "Driver.ToGPUs")
-	driver.AddPort("GPU", driver.gpuPort)
-	driver.mmuPort = sim.NewPort(driver, 1, 1, "Driver.ToMMU")
-	driver.AddPort("MMU", driver.mmuPort)
+	// The middleware order mirrors the v4 tick order: send, memory-copy
+	// middleware ticks, then return/command processing.
+	driver.Comp.AddMiddleware(&sendMW{driver: driver})
+	driver.Comp.AddMiddleware(&driverMiddlewaresMW{driver: driver})
+	driver.Comp.AddMiddleware(&commandMW{driver: driver})
+
+	driver.Comp.DeclarePort(GPUPortName)
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
 	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 
 	b.createCPU(driver)
+
+	b.registrar.RegisterComponent(driver.Comp)
 
 	return driver
 }

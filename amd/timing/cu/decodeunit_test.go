@@ -3,7 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("DecodeUnit", func() {
@@ -14,7 +14,7 @@ var _ = Describe("DecodeUnit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", nil)
 		du = NewDecodeUnit(cu)
 		execUnits = make([]*mockCUComponent, 4)
 		for i := 0; i < 4; i++ {

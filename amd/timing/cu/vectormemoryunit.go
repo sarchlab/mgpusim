@@ -3,19 +3,15 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/pipelining"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/queueing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemInst struct {
 	wavefront *wavefront.Wavefront
-}
-
-func (i vectorMemInst) TaskID() string {
-	return i.wavefront.DynamicInst().ID
 }
 
 // A VectorMemoryUnit is the block in a compute unit that can performs vector
@@ -29,14 +25,14 @@ type VectorMemoryUnit struct {
 	numTransactionInFlight  uint64
 	maxInstructionsInFlight uint64
 
-	maxCoalescingPenalty    int
+	maxCoalescingPenalty     int
 	coalescingStallRemaining int
 
-	instructionPipeline           pipelining.Pipeline
-	postInstructionPipelineBuffer sim.Buffer
+	instructionPipeline           queueing.Pipeline[vectorMemInst]
+	postInstructionPipelineBuffer queueing.Buffer[vectorMemInst]
 	transactionsWaiting           []VectorMemAccessInfo
-	transactionPipeline           pipelining.Pipeline
-	postTransactionPipelineBuffer sim.Buffer
+	transactionPipeline           queueing.Pipeline[VectorMemAccessInfo]
+	postTransactionPipelineBuffer queueing.Buffer[VectorMemAccessInfo]
 
 	isIdle bool
 }
@@ -77,9 +73,11 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 func (u *VectorMemoryUnit) Run() bool {
 	madeProgress := false
 	madeProgress = u.sendRequest() || madeProgress
-	madeProgress = u.transactionPipeline.Tick() || madeProgress
+	madeProgress = u.transactionPipeline.Tick(
+		&u.postTransactionPipelineBuffer) || madeProgress
 	madeProgress = u.instToTransaction() || madeProgress
-	madeProgress = u.instructionPipeline.Tick() || madeProgress
+	madeProgress = u.instructionPipeline.Tick(
+		&u.postInstructionPipelineBuffer) || madeProgress
 	return madeProgress
 }
 
@@ -88,7 +86,8 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 
 	madeProgress = u.insertTransactionToPipeline() || madeProgress
 
-	// Process up to 4 instructions per cycle (matching simdCount / inst pipeline width)
+	// Process up to 4 instructions per cycle (matching simdCount / inst
+	// pipeline width)
 	for i := 0; i < 4; i++ {
 		progress := u.execute()
 		madeProgress = progress || madeProgress
@@ -128,7 +127,9 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 	return madeProgress
 }
 
-func (u *VectorMemoryUnit) computeCoalescingPenalty(txn VectorMemAccessInfo) int {
+func (u *VectorMemoryUnit) computeCoalescingPenalty(
+	txn VectorMemAccessInfo,
+) int {
 	if txn.Read == nil {
 		return 0
 	}
@@ -147,12 +148,13 @@ func (u *VectorMemoryUnit) computeCoalescingPenalty(txn VectorMemAccessInfo) int
 }
 
 func (u *VectorMemoryUnit) execute() (madeProgress bool) {
-	item := u.postInstructionPipelineBuffer.Peek()
-	if item == nil {
+	if u.postInstructionPipelineBuffer.Size() == 0 {
 		return false
 	}
 
-	wave := item.(vectorMemInst).wavefront
+	item := u.postInstructionPipelineBuffer.Peek()
+
+	wave := item.wavefront
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:
@@ -216,9 +218,10 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 			t.Read.CanWaitForCoalesce = true
 		}
 
-		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
+		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
+			t.Read.Address)
 		t.Read.Dst = lowModule
-		t.Read.Src = u.cu.ToVectorMem.AsRemote()
+		t.Read.Src = u.cu.vectorMemPort().AsRemote()
 		t.Read.PID = wave.PID()
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}
@@ -253,9 +256,10 @@ func (u *VectorMemoryUnit) executeFlatStore(
 		if i != len(transactions)-1 {
 			t.Write.CanWaitForCoalesce = true
 		}
-		lowModule := u.cu.VectorMemModules.Find(t.Write.Address)
+		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
+			t.Write.Address)
 		t.Write.Dst = lowModule
-		t.Write.Src = u.cu.ToVectorMem.AsRemote()
+		t.Write.Src = u.cu.vectorMemPort().AsRemote()
 		t.Write.PID = wave.PID()
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}
@@ -266,28 +270,28 @@ func (u *VectorMemoryUnit) executeFlatStore(
 func (u *VectorMemoryUnit) sendRequest() bool {
 	madeProgress := false
 	for i := 0; i < 16; i++ {
-		item := u.postTransactionPipelineBuffer.Peek()
-		if item == nil {
+		if u.postTransactionPipelineBuffer.Size() == 0 {
 			break
 		}
 
-		var req sim.Msg
-		info := item.(VectorMemAccessInfo)
+		info := u.postTransactionPipelineBuffer.Peek()
+
+		var req messaging.Msg
 		if info.Read != nil {
-			req = info.Read
+			req = *info.Read
 		} else {
-			req = info.Write
+			req = *info.Write
 		}
 
-		err := u.cu.ToVectorMem.Send(req)
-		if err == nil {
-			u.postTransactionPipelineBuffer.Pop()
-			u.numTransactionInFlight--
-			tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
-			madeProgress = true
-		} else {
+		if !u.cu.vectorMemPort().CanSend() {
 			break
 		}
+
+		u.cu.vectorMemPort().Send(req)
+		u.postTransactionPipelineBuffer.Pop()
+		u.numTransactionInFlight--
+		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
+		madeProgress = true
 	}
 	return madeProgress
 }

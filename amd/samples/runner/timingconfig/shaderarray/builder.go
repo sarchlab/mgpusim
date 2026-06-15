@@ -4,72 +4,85 @@ package shaderarray
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writearound"
-	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rob"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
+	"github.com/sarchlab/akita/v5/mem/rob"
+	"github.com/sarchlab/akita/v5/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v5/mem/vm/tlb"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 )
+
+// Port buffer sizes. The CU port sizes mirror the v4 CU builder; the other
+// sizes mirror the buffer sizes the v4 Akita component builders used when
+// they created their ports internally (caches/ATs/TLBs: NumReqPerCycle;
+// ROBs: 2*NumReqPerCycle; control ports: 1).
+const (
+	cuTopBufSize       = 4
+	cuCtrlBufSize      = 4
+	cuInstMemBufSize   = 4
+	cuScalarMemBufSize = 32
+	cuVectorMemBufSize = 64
+
+	ctrlPortBufSize = 1
+)
+
+// ShaderArray is the externally visible handle of a built shader array. It
+// replaces the v4 sim.Domain: the GPU builders reach the components directly
+// and fetch the ports they need with GetPortByName.
+type ShaderArray struct {
+	Name string
+
+	CUs []*cu.Comp
+
+	L1VROBs   []*rob.Comp
+	L1VATs    []*addresstranslator.Comp
+	L1VCaches []*writethroughcache.Comp
+	L1VTLBs   []*tlb.Comp
+
+	L1SROB   *rob.Comp
+	L1SAT    *addresstranslator.Comp
+	L1SCache *writethroughcache.Comp
+	L1STLB   *tlb.Comp
+
+	L1IROB   *rob.Comp
+	L1IAT    *addresstranslator.Comp
+	L1ICache *writethroughcache.Comp
+	L1ITLB   *tlb.Comp
+}
 
 // Builder builds a shader array.
 type Builder struct {
 	simulation *simulation.Simulation
 
-	gpuID              uint64
-	name               string
-	numCUs             int
-	freq               sim.Freq
-	log2CacheLineSize  uint64
-	log2PageSize       uint64
+	gpuID                     uint64
+	name                      string
+	numCUs                    int
+	freq                      timing.Freq
+	log2CacheLineSize         uint64
+	log2PageSize              uint64
 	wfPoolSize                int
 	vgprCount                 []int
 	numSinglePrecisionUnits   int
-	vecMemInstPipelineStages   int
-	vecMemTransPipelineStages  int
-	vecMemTransPipelineWidth   int
-	cuMemPipelineBufferSize    int
-	l1vCacheSize               uint64
+	vecMemInstPipelineStages  int
+	vecMemTransPipelineStages int
+	vecMemTransPipelineWidth  int
+	cuMemPipelineBufferSize   int
+	l1vCacheSize              uint64
 	l1vBankLatency            int
 	memPipelineBufferSize     int
 	maxCoalescingPenalty      int
 	registerScoreboard        bool
 	l1AddressMapper           mem.AddressToPortMapper
 	l1TLBAddressMapper        mem.AddressToPortMapper
-	aluFactory                emu.ALUFactory
+	aluBuilder                func() emu.ALU
 
-	sa        *sim.Domain
-	cus       []*cu.ComputeUnit
-	l1vROBs   []*rob.ReorderBuffer
-	l1sROB    *rob.ReorderBuffer
-	l1iROB    *rob.ReorderBuffer
-	l1vATs    []*addresstranslator.Comp
-	l1sAT     *addresstranslator.Comp
-	l1iAT     *addresstranslator.Comp
-	l1vCaches []*writearound.Comp
-	l1sCache  *writethrough.Comp
-	l1iCache  *writethrough.Comp
-	l1vTLBs   []*tlb.Comp
-	l1sTLB    *tlb.Comp
-	l1iTLB    *tlb.Comp
-
-	// Mapper pointers to allow left-to-right component build order
-	// Vector path: ROB -> AT -(mem)-> L1V Cache, AT -(xlate)-> L1V TLB
-	l1vMemMappers   []*mem.SinglePortMapper
-	l1vTransMappers []*mem.SinglePortMapper
-
-	// Scalar path: ROB -> AT -(mem)-> L1S Cache, AT -(xlate)-> L1S TLB
-	l1sMemMapper   *mem.SinglePortMapper
-	l1sTransMapper *mem.SinglePortMapper
-
-	// Instruction path: ROB -> L1I Cache -(mem)-> AT -(xlate)-> L1I TLB
-	l1iCacheMapper *mem.SinglePortMapper
-	l1iTransMapper *mem.SinglePortMapper
+	sa *ShaderArray
 
 	connectionCount int
 }
@@ -78,7 +91,7 @@ type Builder struct {
 func MakeBuilder() Builder {
 	return Builder{
 		numCUs:            4,
-		freq:              1 * sim.GHz,
+		freq:              1 * timing.GHz,
 		log2CacheLineSize: 6,
 		log2PageSize:      12,
 	}
@@ -103,7 +116,7 @@ func (b Builder) WithNumCUs(numCUs int) Builder {
 }
 
 // WithFreq sets the frequency to use.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
+func (b Builder) WithFreq(freq timing.Freq) Builder {
 	b.freq = freq
 	return b
 }
@@ -120,7 +133,9 @@ func (b Builder) WithLog2PageSize(log2PageSize uint64) Builder {
 	return b
 }
 
-// WithL1AddressMapper sets the L1 address mapper to use.
+// WithL1AddressMapper sets the L1 address mapper to use. The mapper must be
+// fully populated before Build is called: the v5 caches snapshot the mapper
+// contents at build time.
 func (b Builder) WithL1AddressMapper(
 	l1AddressMapper mem.AddressToPortMapper,
 ) Builder {
@@ -148,10 +163,11 @@ func (b Builder) WithVGPRCount(counts []int) Builder {
 	return b
 }
 
-// WithALUFactory sets the ALU factory for creating compute unit ALUs.
-// This allows using different ALU implementations (e.g., GCN3 vs CDNA3).
-func (b Builder) WithALUFactory(factory emu.ALUFactory) Builder {
-	b.aluFactory = factory
+// WithALUBuilder sets the function used to create the ALU of each compute
+// unit. This allows using different ALU implementations (e.g., GCN3 vs
+// CDNA3). It replaces the v4 WithALUFactory option.
+func (b Builder) WithALUBuilder(f func() emu.ALU) Builder {
+	b.aluBuilder = f
 	return b
 }
 
@@ -225,9 +241,9 @@ func (b Builder) WithRegisterScoreboard(enabled bool) Builder {
 }
 
 // Build builds the shader array.
-func (b Builder) Build(name string) *sim.Domain {
+func (b Builder) Build(name string) *ShaderArray {
 	b.name = name
-	b.sa = sim.NewDomain(name)
+	b.sa = &ShaderArray{Name: name}
 
 	b.buildComponents()
 	b.connectComponents()
@@ -235,62 +251,43 @@ func (b Builder) Build(name string) *sim.Domain {
 	return b.sa
 }
 
-func (b *Builder) buildComponents() {
-	b.buildCUs()
+// buildPort creates a port instance for a declared port and assigns it to the
+// component.
+func (b *Builder) buildPort(
+	comp messaging.Component,
+	name string,
+	bufSize int,
+) messaging.Port {
+	port := modeling.MakePortBuilder().
+		WithRegistrar(b.simulation).
+		WithComponent(comp).
+		WithSpec(modeling.PortSpec{BufSize: bufSize}).
+		Build(name)
+	comp.AssignPort(name, port)
 
-	// Build in dataflow order
-	b.buildL1VReorderBuffers()
-	b.buildL1VAddressTranslators()
-	b.buildL1VCaches()
-	b.buildL1VTLBs()
-
-	b.buildL1SReorderBuffer()
-	b.buildL1SAddressTranslator()
-	b.buildL1SCache()
-	b.buildL1STLB()
-
-	b.buildL1IReorderBuffer()
-	b.buildL1ICache()
-	b.buildL1IAddressTranslator()
-	b.buildL1ITLB()
-
-	b.populateExternalPorts()
+	return port
 }
 
-func (b *Builder) populateExternalPorts() {
-	for i := range b.numCUs {
-		cu := b.cus[i]
+// buildComponents builds the components in bottom-up dataflow order so that
+// every mapper and Spec destination is known at build time (the v5 caches
+// and reorder buffers resolve their downstream targets at Build).
+func (b *Builder) buildComponents() {
+	b.buildL1VCaches()
+	b.buildL1VTLBs()
+	b.buildL1VAddressTranslators()
+	b.buildL1VReorderBuffers()
 
-		b.sa.AddPort(fmt.Sprintf("CU[%d]", i), cu.GetPortByName("Top"))
-		b.sa.AddPort(fmt.Sprintf("CUCtrl[%d]", i), cu.GetPortByName("Ctrl"))
-		b.sa.AddPort(fmt.Sprintf("L1VROBCtrl[%d]", i), b.l1vROBs[i].
-			GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VAddrTransCtrl[%d]", i),
-			b.l1vATs[i].GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VTLBCtrl[%d]", i),
-			b.l1vTLBs[i].GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VCacheCtrl[%d]", i),
-			b.l1vCaches[i].GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
-			b.l1vCaches[i].GetPortByName("Bottom"))
-		b.sa.AddPort(fmt.Sprintf("L1VTLBBottom[%d]", i),
-			b.l1vTLBs[i].GetPortByName("Bottom"))
-	}
+	b.buildL1SCache()
+	b.buildL1STLB()
+	b.buildL1SAddressTranslator()
+	b.buildL1SReorderBuffer()
 
-	b.sa.AddPort("L1SROBCtrl", b.l1sROB.GetPortByName("Control"))
-	b.sa.AddPort("L1SAddrTransCtrl", b.l1sAT.GetPortByName("Control"))
-	b.sa.AddPort("L1STLBCtrl", b.l1sTLB.GetPortByName("Control"))
-	b.sa.AddPort("L1SCacheCtrl", b.l1sCache.GetPortByName("Control"))
-	b.sa.AddPort("L1SCacheBottom", b.l1sCache.GetPortByName("Bottom"))
-	b.sa.AddPort("L1STLBBottom", b.l1sTLB.GetPortByName("Bottom"))
+	b.buildL1ITLB()
+	b.buildL1IAddressTranslator()
+	b.buildL1ICache()
+	b.buildL1IReorderBuffer()
 
-	b.sa.AddPort("L1IROBCtrl", b.l1iROB.GetPortByName("Control"))
-	b.sa.AddPort("L1IAddrTransCtrl", b.l1iAT.GetPortByName("Control"))
-	b.sa.AddPort("L1ITLBCtrl", b.l1iTLB.GetPortByName("Control"))
-	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Control"))
-	// Expose instruction memory egress to L2 via AT bottom
-	b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
-	b.sa.AddPort("L1ITLBBottom", b.l1iTLB.GetPortByName("Bottom"))
+	b.buildCUs()
 }
 
 func (b *Builder) connectComponents() {
@@ -300,258 +297,309 @@ func (b *Builder) connectComponents() {
 }
 
 func (b *Builder) connectVectorMem() {
-	bufSize := 8
-	if b.memPipelineBufferSize > 0 {
-		bufSize = b.memPipelineBufferSize
-	}
-
 	for i := range b.numCUs {
-		cu := b.cus[i]
-		rob := b.l1vROBs[i]
-		at := b.l1vATs[i]
-		l1v := b.l1vCaches[i]
-		tlb := b.l1vTLBs[i]
+		cuComp := b.sa.CUs[i]
+		robComp := b.sa.L1VROBs[i]
+		atComp := b.sa.L1VATs[i]
+		tlbComp := b.sa.L1VTLBs[i]
+		l1v := b.sa.L1VCaches[i]
 
-		// Set mapper targets now that cache/TLB are built
-		if b.l1vMemMappers != nil && i < len(b.l1vMemMappers) && b.l1vMemMappers[i] != nil {
-			b.l1vMemMappers[i].Port = l1v.GetPortByName("Top").AsRemote()
-		}
-		if b.l1vTransMappers != nil && i < len(b.l1vTransMappers) && b.l1vTransMappers[i] != nil {
-			b.l1vTransMappers[i].Port = tlb.GetPortByName("Top").AsRemote()
-		}
-
-		cu.VectorMemModules = &mem.SinglePortMapper{
-			Port: rob.GetPortByName("Top").AsRemote(),
-		}
-		b.connectWithDirectConnection(cu.ToVectorMem,
-			rob.GetPortByName("Top"), bufSize)
-
-		atTopPort := at.GetPortByName("Top")
-		rob.BottomUnit = atTopPort.AsRemote()
 		b.connectWithDirectConnection(
-			rob.GetPortByName("Bottom"), atTopPort, bufSize)
+			cuComp.GetPortByName(cu.VectorMemPortName),
+			robComp.GetPortByName("Top"))
 
-		tlbTopPort := tlb.GetPortByName("Top")
 		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, bufSize)
+			robComp.GetPortByName("Bottom"), atComp.GetPortByName("Top"))
 
-		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-			at.GetPortByName("Bottom"), bufSize)
+		b.connectWithDirectConnection(
+			atComp.GetPortByName("Translation"), tlbComp.GetPortByName("Top"))
+
+		b.connectWithDirectConnection(
+			l1v.GetPortByName("Top"), atComp.GetPortByName("Bottom"))
 	}
 }
 
 func (b *Builder) connectScalarMem() {
-	rob := b.l1sROB
-	at := b.l1sAT
-	tlb := b.l1sTLB
-	l1s := b.l1sCache
+	robComp := b.sa.L1SROB
+	atComp := b.sa.L1SAT
+	tlbComp := b.sa.L1STLB
+	l1s := b.sa.L1SCache
 
-	// Set mapper targets now that cache/TLB are built
-	if b.l1sMemMapper != nil {
-		b.l1sMemMapper.Port = l1s.GetPortByName("Top").AsRemote()
-	}
-	if b.l1sTransMapper != nil {
-		b.l1sTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
-	}
-
-	atTopPort := at.GetPortByName("Top")
-	rob.BottomUnit = atTopPort.AsRemote()
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 32)
-
-	tlbTopPort := tlb.GetPortByName("Top")
 	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 32)
+		robComp.GetPortByName("Bottom"), atComp.GetPortByName("Top"))
 	b.connectWithDirectConnection(
-		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 32)
+		atComp.GetPortByName("Translation"), tlbComp.GetPortByName("Top"))
+	b.connectWithDirectConnection(
+		l1s.GetPortByName("Top"), atComp.GetPortByName("Bottom"))
 
 	conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".ScalarMemConn")
-	b.simulation.RegisterComponent(conn)
 
-	conn.PlugIn(rob.GetPortByName("Top"))
+	robTopPort := robComp.GetPortByName("Top")
+	conn.PlugIn(robTopPort)
+
 	for i := range b.numCUs {
-		cu := b.cus[i]
-		cu.ScalarMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToScalarMem)
+		cuComp := b.sa.CUs[i]
+		cuComp.State.ScalarMem = robTopPort.AsRemote()
+		conn.PlugIn(cuComp.GetPortByName(cu.ScalarMemPortName))
 	}
 }
 
 func (b *Builder) connectInstMem() {
-	rob := b.l1iROB
-	at := b.l1iAT
-	tlb := b.l1iTLB
-	l1i := b.l1iCache
+	robComp := b.sa.L1IROB
+	atComp := b.sa.L1IAT
+	tlbComp := b.sa.L1ITLB
+	l1i := b.sa.L1ICache
 
-	// Set mapper targets now that AT/TLB are built
-	if b.l1iCacheMapper != nil {
-		b.l1iCacheMapper.Port = at.GetPortByName("Top").AsRemote()
-	}
-	if b.l1iTransMapper != nil {
-		b.l1iTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
-	}
-
-	l1iTopPort := l1i.GetPortByName("Top")
-	rob.BottomUnit = l1iTopPort.AsRemote()
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
-
-	atTopPort := at.GetPortByName("Top")
-	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
-
-	tlbTopPort := tlb.GetPortByName("Top")
 	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		robComp.GetPortByName("Bottom"), l1i.GetPortByName("Top"))
+	b.connectWithDirectConnection(
+		l1i.GetPortByName("Bottom"), atComp.GetPortByName("Top"))
+	b.connectWithDirectConnection(
+		atComp.GetPortByName("Translation"), tlbComp.GetPortByName("Top"))
 
-	robTopPort := rob.GetPortByName("Top")
 	conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".InstMemConn")
-	b.simulation.RegisterComponent(conn)
 
+	robTopPort := robComp.GetPortByName("Top")
 	conn.PlugIn(robTopPort)
+
 	for i := range b.numCUs {
-		cu := b.cus[i]
-		cu.InstMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToInstMem)
+		cuComp := b.sa.CUs[i]
+		cuComp.State.InstMem = robTopPort.AsRemote()
+		conn.PlugIn(cuComp.GetPortByName(cu.InstMemPortName))
 	}
 }
 
-func (b *Builder) connectWithDirectConnection(
-	port1, port2 sim.Port,
-	bufferSize int,
-) {
+func (b *Builder) connectWithDirectConnection(port1, port2 messaging.Port) {
 	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
 	b.connectionCount++
 
 	conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(name)
-
-	b.simulation.RegisterComponent(conn)
 
 	conn.PlugIn(port1)
 	conn.PlugIn(port2)
 }
 
-func (b *Builder) buildCUs() {
-	cuBuilder := cu.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithLog2CachelineSize(b.log2CacheLineSize)
-
-	if b.aluFactory != nil {
-		cuBuilder = cuBuilder.WithALUFactory(b.aluFactory)
-	}
+func (b *Builder) cuSpec() cu.Spec {
+	spec := cu.DefaultSpec()
+	spec.Freq = b.freq
+	spec.Log2CachelineSize = b.log2CacheLineSize
 
 	if b.wfPoolSize > 0 {
-		cuBuilder = cuBuilder.WithWfPoolSize(b.wfPoolSize)
+		spec.WfPoolSize = b.wfPoolSize
 	}
 
 	if b.vgprCount != nil {
-		cuBuilder = cuBuilder.WithVGPRCount(b.vgprCount)
+		spec.VGPRCounts = b.vgprCount
 	}
 
 	if b.numSinglePrecisionUnits > 0 {
-		cuBuilder = cuBuilder.WithNumSinglePrecisionUnits(b.numSinglePrecisionUnits)
+		spec.NumSinglePrecisionUnits = b.numSinglePrecisionUnits
 	}
 
 	if b.vecMemInstPipelineStages > 0 {
-		cuBuilder = cuBuilder.WithVecMemInstPipelineStages(b.vecMemInstPipelineStages)
+		spec.VecMemInstPipelineStages = b.vecMemInstPipelineStages
 	}
 
 	if b.vecMemTransPipelineStages > 0 {
-		cuBuilder = cuBuilder.WithVecMemTransPipelineStages(b.vecMemTransPipelineStages)
+		spec.VecMemTransPipelineStages = b.vecMemTransPipelineStages
 	}
 
 	if b.vecMemTransPipelineWidth > 0 {
-		cuBuilder = cuBuilder.WithVecMemTransPipelineWidth(b.vecMemTransPipelineWidth)
+		spec.VecMemTransPipelineWidth = b.vecMemTransPipelineWidth
 	}
 
 	if b.cuMemPipelineBufferSize > 0 {
-		cuBuilder = cuBuilder.WithMemPipelineBufferSize(b.cuMemPipelineBufferSize)
+		spec.MemPipelineBufferSize = b.cuMemPipelineBufferSize
 	}
 
 	if b.maxCoalescingPenalty > 0 {
-		cuBuilder = cuBuilder.WithMaxCoalescingPenalty(b.maxCoalescingPenalty)
+		spec.MaxCoalescingPenalty = b.maxCoalescingPenalty
 	}
 
-	if b.registerScoreboard {
-		cuBuilder = cuBuilder.WithRegisterScoreboard(true)
-	}
+	spec.RegisterScoreboard = b.registerScoreboard
+
+	return spec
+}
+
+func (b *Builder) buildCUs() {
+	spec := b.cuSpec()
 
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
-		computeUnit := cuBuilder.Build(cuName)
-		b.cus = append(b.cus, computeUnit)
-		b.simulation.RegisterComponent(computeUnit)
+
+		resources := cu.Resources{
+			VectorMemModules: &mem.SinglePortMapper{
+				Port: b.sa.L1VROBs[i].GetPortByName("Top").AsRemote(),
+			},
+		}
+		if b.aluBuilder != nil {
+			resources.ALU = b.aluBuilder()
+		}
+
+		computeUnit := cu.MakeBuilder().
+			WithRegistrar(b.simulation).
+			WithSpec(spec).
+			WithResources(resources).
+			Build(cuName)
+
+		b.buildPort(computeUnit, cu.DispatchPortName, cuTopBufSize)
+		b.buildPort(computeUnit, cu.CtrlPortName, cuCtrlBufSize)
+		b.buildPort(computeUnit, cu.InstMemPortName, cuInstMemBufSize)
+		b.buildPort(computeUnit, cu.ScalarMemPortName, cuScalarMemBufSize)
+		b.buildPort(computeUnit, cu.VectorMemPortName, cuVectorMemBufSize)
+
+		b.sa.CUs = append(b.sa.CUs, computeUnit)
 	}
+}
+
+func (b *Builder) buildROB(
+	name string,
+	bufferSize, numReqPerCycle int,
+	bottomUnit messaging.RemotePort,
+) *rob.Comp {
+	spec := rob.DefaultSpec()
+	spec.Freq = b.freq
+	spec.BufferSize = bufferSize
+	spec.NumReqPerCycle = numReqPerCycle
+	spec.BottomUnit = bottomUnit
+
+	robComp := rob.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		Build(name)
+
+	// v4 ROB ports were 2*NumReqPerCycle deep; the control port was 1 deep.
+	b.buildPort(robComp, "Top", 2*numReqPerCycle)
+	b.buildPort(robComp, "Bottom", 2*numReqPerCycle)
+	b.buildPort(robComp, "Control", ctrlPortBufSize)
+
+	return robComp
 }
 
 func (b *Builder) buildL1VReorderBuffers() {
-	builder := rob.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBufferSize(512).
-		WithNumReqPerCycle(32)
-
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
-		rob := builder.Build(name)
-		b.l1vROBs = append(b.l1vROBs, rob)
-		b.simulation.RegisterComponent(rob)
-
-		// if b.visTracer != nil {
-		// 	tracing.CollectTrace(rob, b.visTracer)
-		// }
+		robComp := b.buildROB(name, 512, 32,
+			b.sa.L1VATs[i].GetPortByName("Top").AsRemote())
+		b.sa.L1VROBs = append(b.sa.L1VROBs, robComp)
 	}
+}
+
+func (b *Builder) buildAT(
+	name string,
+	numReqPerCycle int,
+	memMapper, transMapper mem.AddressToPortMapper,
+) *addresstranslator.Comp {
+	spec := addresstranslator.DefaultSpec()
+	spec.Freq = b.freq
+	spec.DeviceID = b.gpuID
+	spec.Log2PageSize = b.log2PageSize
+	spec.NumReqPerCycle = numReqPerCycle
+
+	at := addresstranslator.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(addresstranslator.Resources{
+			MemProviderMapper:         memMapper,
+			TranslationProviderMapper: transMapper,
+		}).
+		Build(name)
+
+	// v4 AT data ports were NumReqPerCycle deep; the control port was 1 deep.
+	b.buildPort(at, "Top", numReqPerCycle)
+	b.buildPort(at, "Bottom", numReqPerCycle)
+	b.buildPort(at, "Translation", numReqPerCycle)
+	b.buildPort(at, "Control", ctrlPortBufSize)
+
+	return at
 }
 
 func (b *Builder) buildL1VAddressTranslators() {
-	base := addresstranslator.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize).
-		WithNumReqPerCycle(32)
-
-	b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
-	b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
-
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
-		memMapper := &mem.SinglePortMapper{}
-		xlateMapper := &mem.SinglePortMapper{}
-		curr := base.
-			WithMemoryProviderMapper(memMapper).
-			WithTranslationProviderMapper(xlateMapper)
-		at := curr.Build(name)
-		b.l1vATs = append(b.l1vATs, at)
-		b.l1vMemMappers = append(b.l1vMemMappers, memMapper)
-		b.l1vTransMappers = append(b.l1vTransMappers, xlateMapper)
-		b.simulation.RegisterComponent(at)
+		at := b.buildAT(name, 32,
+			&mem.SinglePortMapper{
+				Port: b.sa.L1VCaches[i].GetPortByName("Top").AsRemote(),
+			},
+			&mem.SinglePortMapper{
+				Port: b.sa.L1VTLBs[i].GetPortByName("Top").AsRemote(),
+			})
+		b.sa.L1VATs = append(b.sa.L1VATs, at)
 	}
 }
 
-func (b *Builder) buildL1VTLBs() {
-	builder := tlb.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithNumMSHREntry(64).
-		WithNumSets(4).
-		WithNumWays(64).
-		WithNumReqPerCycle(32).
-		WithLatency(1).
-		WithTranslationProviderMapper(b.l1TLBAddressMapper)
+func (b *Builder) buildTLB(
+	name string,
+	numSets, numWays, numMSHREntry, numReqPerCycle, latency int,
+) *tlb.Comp {
+	spec := tlb.DefaultSpec()
+	spec.Freq = b.freq
+	spec.NumSets = numSets
+	spec.NumWays = numWays
+	spec.MSHRSize = numMSHREntry
+	spec.NumReqPerCycle = numReqPerCycle
+	spec.Latency = latency
+	spec.Log2PageSize = b.log2PageSize
 
+	tlbComp := tlb.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(tlb.Resources{
+			TranslationProviderMapper: b.l1TLBAddressMapper,
+		}).
+		Build(name)
+
+	// v4 TLB data ports were NumReqPerCycle deep; the control port was 1
+	// deep.
+	b.buildPort(tlbComp, "Top", numReqPerCycle)
+	b.buildPort(tlbComp, "Bottom", numReqPerCycle)
+	b.buildPort(tlbComp, "Control", ctrlPortBufSize)
+
+	return tlbComp
+}
+
+func (b *Builder) buildL1VTLBs() {
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
-		tlb := builder.Build(name)
-		b.l1vTLBs = append(b.l1vTLBs, tlb)
-		b.simulation.RegisterComponent(tlb)
+		// v4 used a 1-cycle TLB. The v5 TLB inserts requests into its
+		// lookup pipeline with a 1-cycle dwell at stage 0; with a
+		// single-stage pipeline (Latency=1) the dwell counter of items
+		// already at the last stage is never decremented (akita
+		// v5.0.0-beta.2 queueing.Pipeline), so the request deadlocks.
+		// Latency=2 is the minimum functional value.
+		tlbComp := b.buildTLB(name, 4, 64, 64, 32, 2)
+		b.sa.L1VTLBs = append(b.sa.L1VTLBs, tlbComp)
 	}
+}
+
+func (b *Builder) buildL1Cache(
+	name string,
+	spec writethroughcache.Spec,
+	mapper mem.AddressToPortMapper,
+) *writethroughcache.Comp {
+	cache := writethroughcache.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(writethroughcache.Resources{
+			AddressMapper: mapper,
+		}).
+		Build(name)
+
+	// v4 writethrough/writearound cache ports were NumReqPerCycle deep.
+	b.buildPort(cache, "Top", spec.NumReqPerCycle)
+	b.buildPort(cache, "Bottom", spec.NumReqPerCycle)
+	b.buildPort(cache, "Control", spec.NumReqPerCycle)
+
+	return cache
 }
 
 func (b *Builder) buildL1VCaches() {
@@ -565,175 +613,109 @@ func (b *Builder) buildL1VCaches() {
 		l1vBankLatency = b.l1vBankLatency
 	}
 
-	builder := writearound.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBankLatency(l1vBankLatency).
-		WithNumBanks(4).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(4).
-		WithNumMSHREntry(128).
-		WithNumReqsPerCycle(8).
-		WithMaxNumConcurrentTrans(128).
-		WithTotalByteSize(l1vSize).
-		WithAddressToPortMapper(b.l1AddressMapper)
+	spec := writethroughcache.DefaultSpec()
+	spec.Freq = b.freq
+	spec.WritePolicyType = "write-around" // v4: writearound package
+	spec.BankLatency = l1vBankLatency
+	spec.NumBanks = 4
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 4
+	spec.NumMSHREntry = 128
+	spec.NumReqPerCycle = 8
+	spec.MaxNumConcurrentTrans = 128
+	spec.TotalByteSize = l1vSize
+	spec.DirLatency = 2 // v4 writearound default
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-		cache := builder.Build(name)
-		b.l1vCaches = append(b.l1vCaches, cache)
-		b.simulation.RegisterComponent(cache)
-
-		// if b.memTracer != nil {
-		// 	tracing.CollectTrace(cache, b.memTracer)
-		// }
+		cache := b.buildL1Cache(name, spec, b.l1AddressMapper)
+		b.sa.L1VCaches = append(b.sa.L1VCaches, cache)
 	}
 }
 
 func (b *Builder) buildL1SReorderBuffer() {
-	builder := rob.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBufferSize(512).
-		WithNumReqPerCycle(32)
-
 	name := fmt.Sprintf("%s.L1SROB", b.name)
-	rob := builder.Build(name)
-	b.l1sROB = rob
-	b.simulation.RegisterComponent(rob)
+	b.sa.L1SROB = b.buildROB(name, 512, 32,
+		b.sa.L1SAT.GetPortByName("Top").AsRemote())
 }
 
 func (b *Builder) buildL1SAddressTranslator() {
-	// Prepare mappers and set ports later when cache/TLB are ready
-	if b.l1sMemMapper == nil {
-		b.l1sMemMapper = &mem.SinglePortMapper{}
-	}
-	if b.l1sTransMapper == nil {
-		b.l1sTransMapper = &mem.SinglePortMapper{}
-	}
-	builder := addresstranslator.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize).
-		WithNumReqPerCycle(32).
-		WithMemoryProviderMapper(b.l1sMemMapper).
-		WithTranslationProviderMapper(b.l1sTransMapper)
-
 	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
-	at := builder.Build(name)
-	b.l1sAT = at
-	b.simulation.RegisterComponent(at)
+	b.sa.L1SAT = b.buildAT(name, 32,
+		&mem.SinglePortMapper{
+			Port: b.sa.L1SCache.GetPortByName("Top").AsRemote(),
+		},
+		&mem.SinglePortMapper{
+			Port: b.sa.L1STLB.GetPortByName("Top").AsRemote(),
+		})
 }
 
 func (b *Builder) buildL1STLB() {
-	builder := tlb.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithNumMSHREntry(64).
-		WithNumSets(1).
-		WithNumWays(64).
-		WithNumReqPerCycle(32).
-		WithTranslationProviderMapper(b.l1TLBAddressMapper)
-
 	name := fmt.Sprintf("%s.L1STLB", b.name)
-	tlb := builder.Build(name)
-	b.l1sTLB = tlb
-	b.simulation.RegisterComponent(tlb)
+	b.sa.L1STLB = b.buildTLB(name, 1, 64, 64, 32, 4)
 }
 
 func (b *Builder) buildL1SCache() {
-	builder := writethrough.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBankLatency(1).
-		WithNumBanks(1).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(4).
-		WithNumMSHREntry(128).
-		WithNumReqsPerCycle(32).
-		WithTotalByteSize(16 * mem.KB).
-		WithAddressToPortMapper(b.l1AddressMapper)
+	spec := writethroughcache.DefaultSpec()
+	spec.Freq = b.freq
+	spec.WritePolicyType = "write-through" // v4: writethrough package
+	spec.BankLatency = 1
+	spec.NumBanks = 1
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 4
+	spec.NumMSHREntry = 128
+	spec.NumReqPerCycle = 32
+	spec.TotalByteSize = 16 * mem.KB
+	spec.MaxNumConcurrentTrans = 16 // v4 writethrough default
+	// v4 writethrough had a 0-cycle directory stage. The v5 directory
+	// pipeline needs at least 1 stage (a 0-stage pipeline never releases
+	// items), so this adds one cycle of directory latency vs v4.
+	spec.DirLatency = 1
 
 	name := fmt.Sprintf("%s.L1SCache", b.name)
-	cache := builder.Build(name)
-	b.l1sCache = cache
-	b.simulation.RegisterComponent(cache)
-
-	// if b.memTracer != nil {
-	// 	tracing.CollectTrace(cache, b.memTracer)
-	// }
+	b.sa.L1SCache = b.buildL1Cache(name, spec, b.l1AddressMapper)
 }
 
 func (b *Builder) buildL1IReorderBuffer() {
-	builder := rob.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBufferSize(128).
-		WithNumReqPerCycle(4)
-
 	name := fmt.Sprintf("%s.L1IROB", b.name)
-	rob := builder.Build(name)
-	b.l1iROB = rob
-	b.simulation.RegisterComponent(rob)
+	b.sa.L1IROB = b.buildROB(name, 128, 4,
+		b.sa.L1ICache.GetPortByName("Top").AsRemote())
 }
 
 func (b *Builder) buildL1IAddressTranslator() {
-	if b.l1iTransMapper == nil {
-		b.l1iTransMapper = &mem.SinglePortMapper{}
-	}
-	builder := addresstranslator.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize).
-		WithNumReqPerCycle(16).
-		WithMemoryProviderMapper(b.l1AddressMapper).
-		WithTranslationProviderMapper(b.l1iTransMapper)
-
 	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
-	at := builder.Build(name)
-	b.l1iAT = at
-	b.simulation.RegisterComponent(at)
+	b.sa.L1IAT = b.buildAT(name, 16,
+		b.l1AddressMapper,
+		&mem.SinglePortMapper{
+			Port: b.sa.L1ITLB.GetPortByName("Top").AsRemote(),
+		})
 }
 
 func (b *Builder) buildL1ITLB() {
-	builder := tlb.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithNumMSHREntry(4).
-		WithNumSets(1).
-		WithNumWays(64).
-		WithNumReqPerCycle(4).
-		WithTranslationProviderMapper(b.l1TLBAddressMapper)
-
 	name := fmt.Sprintf("%s.L1ITLB", b.name)
-	tlb := builder.Build(name)
-	b.l1iTLB = tlb
-	b.simulation.RegisterComponent(tlb)
+	b.sa.L1ITLB = b.buildTLB(name, 1, 64, 4, 4, 4)
 }
 
 func (b *Builder) buildL1ICache() {
-	if b.l1iCacheMapper == nil {
-		b.l1iCacheMapper = &mem.SinglePortMapper{}
-	}
-	builder := writethrough.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithBankLatency(1).
-		WithNumBanks(1).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
-		WithTotalByteSize(32 * mem.KB).
-		WithNumReqsPerCycle(4).
-		WithAddressToPortMapper(b.l1iCacheMapper)
+	spec := writethroughcache.DefaultSpec()
+	spec.Freq = b.freq
+	spec.WritePolicyType = "write-through" // v4: writethrough package
+	spec.BankLatency = 1
+	spec.NumBanks = 1
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 4
+	spec.NumMSHREntry = 16
+	spec.NumReqPerCycle = 4
+	spec.TotalByteSize = 32 * mem.KB
+	spec.MaxNumConcurrentTrans = 16 // v4 writethrough default
+	// v4 writethrough had a 0-cycle directory stage. The v5 directory
+	// pipeline needs at least 1 stage (a 0-stage pipeline never releases
+	// items), so this adds one cycle of directory latency vs v4.
+	spec.DirLatency = 1
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
-	cache := builder.Build(name)
-	b.l1iCache = cache
-	b.simulation.RegisterComponent(cache)
-	// if b.memTracer != nil {
-	// 	tracing.CollectTrace(cache, b.memTracer)
-	// }
+	b.sa.L1ICache = b.buildL1Cache(name, spec,
+		&mem.SinglePortMapper{
+			Port: b.sa.L1IAT.GetPortByName("Top").AsRemote(),
+		})
 }

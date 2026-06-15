@@ -1,9 +1,9 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
 // roundRobinAlgorithm can dispatch workgroups to CUs in a round robin

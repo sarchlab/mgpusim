@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/shoc/stencil2d"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/stencil2d"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var numRow = flag.Int("row", 64, "The number of rows in the input matrix.")

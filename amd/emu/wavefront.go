@@ -5,9 +5,9 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront

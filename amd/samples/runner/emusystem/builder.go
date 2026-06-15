@@ -4,15 +4,21 @@ package emusystem
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem/emugpu"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem/emugpu"
 )
+
+// driverGPUPortBufSize is the buffer size of the driver's "GPU" port. The v4
+// driver auto-created 40M-deep buffers; 4096 is plenty for the emulation
+// platform's per-cycle traffic.
+const driverGPUPortBufSize = 4096
 
 // Builder builds a hardware platform for emulation.
 type Builder struct {
@@ -21,11 +27,6 @@ type Builder struct {
 	log2PageSize uint64
 	debugISA     bool
 	archType     arch.Type
-
-	storage    *mem.Storage
-	pageTable  vm.PageTable
-	driver     *driver.Driver
-	connection *directconnection.Comp
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -37,8 +38,8 @@ func MakeBuilder() Builder {
 }
 
 // WithSimulation sets the simulation to use.
-func (b Builder) WithSimulation(sim *simulation.Simulation) Builder {
-	b.simulation = sim
+func (b Builder) WithSimulation(s *simulation.Simulation) Builder {
+	b.simulation = s
 	return b
 }
 
@@ -67,52 +68,42 @@ func (b Builder) WithArchitecture(archType arch.Type) Builder {
 	return b
 }
 
-// Build builds the hardware platform.
-func (b Builder) Build() *sim.Domain {
-	domain := &sim.Domain{}
+// Build builds the hardware platform and returns the driver. The driver, the
+// GPUs, and all the connections register themselves with the simulation.
+func (b Builder) Build() *driver.Driver {
+	storage := mem.NewStorage(uint64(b.numGPUs+1) * 4 * mem.GB)
+	pageTable := vm.NewPageTable(b.log2PageSize)
 
-	b.storage = mem.NewStorage(uint64(b.numGPUs+1) * 4 * mem.GB)
-	b.pageTable = vm.NewPageTable(b.log2PageSize)
-	b.driver = b.buildDriver(b.simulation.GetEngine(), b.pageTable, b.storage)
+	gpuDriver := b.buildDriver(storage, pageTable)
 
-	b.connection = directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(1 * sim.GHz).
+	externalConn := directconnection.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: 1 * timing.GHz}).
 		Build("ExternalConn")
-	b.simulation.RegisterComponent(b.connection)
+	externalConn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
 
-	b.connection.PlugIn(b.driver.GetPortByName("GPU"))
-
-	gpuBuilder := b.createGPUBuilder(
-		b.simulation.GetEngine(),
-		b.driver,
-		b.pageTable,
-		b.storage,
-	)
+	gpuBuilder := b.createGPUBuilder(pageTable, storage)
 
 	for i := 0; i < b.numGPUs; i++ {
 		gpu := gpuBuilder.Build(fmt.Sprintf("GPU[%d]", i+1))
 
-		cpPort := gpu.GetPortByName("CommandProcessor")
-		b.driver.RegisterGPU(cpPort, driver.DeviceProperties{
+		cpPort := gpu.CommandProcessorPort
+		gpuDriver.RegisterGPU(cpPort.AsRemote(), driver.DeviceProperties{
 			DRAMSize: 4 * mem.GB,
 			CUCount:  64,
 		})
-		b.connection.PlugIn(cpPort)
+		externalConn.PlugIn(cpPort)
 	}
 
-	return domain
+	return gpuDriver
 }
 
-func (b *Builder) createGPUBuilder(
-	engine sim.Engine,
-	gpuDriver *driver.Driver,
+func (b Builder) createGPUBuilder(
 	pageTable vm.PageTable,
 	storage *mem.Storage,
 ) emugpu.Builder {
 	gpuBuilder := emugpu.MakeBuilder().
 		WithSimulation(b.simulation).
-		WithDriver(gpuDriver).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithStorage(storage).
@@ -125,22 +116,29 @@ func (b *Builder) createGPUBuilder(
 	return gpuBuilder
 }
 
-func (b *Builder) buildDriver(
-	engine sim.Engine,
-	pageTable vm.PageTable,
+func (b Builder) buildDriver(
 	storage *mem.Storage,
+	pageTable vm.PageTable,
 ) *driver.Driver {
-	gpuDriverBuilder := driver.MakeBuilder().
-		WithMagicMemoryCopyMiddleware()
+	spec := driver.DefaultSpec()
+	spec.Log2PageSize = b.log2PageSize
+	spec.UseMagicMemoryCopy = true
 
-	gpuDriver := gpuDriverBuilder.
-		WithEngine(engine).
-		WithPageTable(pageTable).
-		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(storage).
+	gpuDriver := driver.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(driver.Resources{
+			PageTable:     pageTable,
+			GlobalStorage: storage,
+		}).
 		Build("Driver")
 
-	b.simulation.RegisterComponent(gpuDriver)
+	gpuPort := modeling.MakePortBuilder().
+		WithRegistrar(b.simulation).
+		WithComponent(gpuDriver.Comp).
+		WithSpec(modeling.PortSpec{BufSize: driverGPUPortBufSize}).
+		Build(driver.GPUPortName)
+	gpuDriver.AssignPort(driver.GPUPortName, gpuPort)
 
 	return gpuDriver
 }

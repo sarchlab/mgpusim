@@ -1,4 +1,4 @@
-module github.com/sarchlab/mgpusim/v4
+module github.com/sarchlab/mgpusim/v5
 
 require (
 	github.com/disintegration/imaging v1.6.2
@@ -6,12 +6,22 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.1
-	github.com/rs/xid v1.6.0
-	github.com/sarchlab/akita/v4 v4.9.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sarchlab/akita/v5 v5.0.0-beta.5
 	github.com/tebeka/atexit v0.3.0
 	go.uber.org/mock v0.6.0
 	gonum.org/v1/gonum v0.15.1
+)
+
+require (
+	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/glebarez/go-sqlite v1.22.0 // indirect
+	github.com/google/uuid v1.5.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	modernc.org/libc v1.37.6 // indirect
+	modernc.org/mathutil v1.6.0 // indirect
+	modernc.org/memory v1.7.2 // indirect
+	modernc.org/sqlite v1.28.0 // indirect
 )
 
 require (
@@ -24,7 +34,6 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/syifan/goseth v0.1.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
@@ -41,6 +50,6 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-// replace github.com/sarchlab/akita/v4 => ../akita
+// replace github.com/sarchlab/akita/v5 => ../../../../akita
 
-go 1.25.0
+go 1.26.0

@@ -1,8 +1,8 @@
 package cu
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations

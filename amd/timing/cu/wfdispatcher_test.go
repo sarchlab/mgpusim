@@ -3,10 +3,10 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("WfDispatcher", func() {
@@ -16,8 +16,7 @@ var _ = Describe("WfDispatcher", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("CU", nil)
-		cu.Freq = 1
+		cu = newTestComputeUnit("CU", nil)
 
 		sRegFile := NewSimpleRegisterFile(uint64(3200*4), 0)
 		cu.SRegFile = sRegFile
@@ -51,7 +50,7 @@ var _ = Describe("WfDispatcher", func() {
 		packet.KernelObject = 65536
 
 		wf := wavefront.NewWavefront(rawWf)
-		wg := wavefront.NewWorkGroup(rawWG, nil)
+		wg := wavefront.NewWorkGroup(rawWG, protocol.MapWGReq{})
 		wf.WG = wg
 		wf.CodeObject = co
 		wf.Packet = packet

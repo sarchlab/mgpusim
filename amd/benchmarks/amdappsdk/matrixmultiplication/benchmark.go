@@ -7,8 +7,8 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v4/amd/arch"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
 // Benchmark defines a benchmark
@@ -17,7 +17,7 @@ type Benchmark struct {
 	context *driver.Context
 	gpus    []int
 
-	Arch                       arch.Type
+	Arch                      arch.Type
 	X, Y, Z                   uint32
 	MatrixA, MatrixB, MatrixC *Matrix
 	useUnifiedMemory          bool
@@ -49,12 +49,15 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) initMem() {
-	rand.Seed(0)
+	// Use a local random source so the input is reproducible. rand.Seed has
+	// been a no-op since Go 1.24, so seeding the global generator no longer
+	// produces a deterministic sequence.
+	rng := rand.New(rand.NewSource(0))
 
 	b.MatrixA = NewMatrix(b.X, b.Y)
 	for i := uint32(0); i < b.X; i++ {
 		for j := uint32(0); j < b.Y; j++ {
-			b.MatrixA.Data[j*b.X+i] = rand.Float32()
+			b.MatrixA.Data[j*b.X+i] = rng.Float32()
 			//b.MatrixA.Data[j*b.X+i] = float32(j*b.X + i)
 		}
 	}
@@ -62,7 +65,7 @@ func (b *Benchmark) initMem() {
 	b.MatrixB = NewMatrix(b.Z, b.X)
 	for i := uint32(0); i < b.Z; i++ {
 		for j := uint32(0); j < b.X; j++ {
-			b.MatrixB.Data[j*b.Z+i] = rand.Float32()
+			b.MatrixB.Data[j*b.Z+i] = rng.Float32()
 			//b.MatrixB.Data[j*b.Z+i] = float32(j*b.Z + i)
 		}
 	}

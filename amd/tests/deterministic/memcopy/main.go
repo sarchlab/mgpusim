@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 // Benchmark defines a benchmark
@@ -73,7 +73,7 @@ func (b *Benchmark) Verify() {
 	log.Printf("Passed!")
 }
 
-func run() sim.VTimeInSec {
+func run() timing.VTimeInPicoSec {
 	runner := new(runner.Runner).Init()
 
 	benchmark := NewBenchmark(runner.Driver())

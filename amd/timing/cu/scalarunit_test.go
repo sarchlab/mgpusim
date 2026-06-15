@@ -3,12 +3,12 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
-	"go.uber.org/mock/gomock"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type mockALU struct {
@@ -42,7 +42,8 @@ func newMockRegFileAccessor() *mockRegFileAccessor {
 }
 
 func regKey(reg *insts.Reg, regCount int, laneID int, waveOffset int) string {
-	return reg.Name + ":" + string(rune(regCount)) + ":" + string(rune(laneID)) + ":" + string(rune(waveOffset))
+	return reg.Name + ":" + string(rune(regCount)) + ":" +
+		string(rune(laneID)) + ":" + string(rune(waveOffset))
 }
 
 func (m *mockRegFileAccessor) ReadReg(
@@ -78,42 +79,31 @@ func (m *mockRegFileAccessor) setRegValue(
 var _ = Describe("Scalar Unit", func() {
 
 	var (
-		mockCtrl    *gomock.Controller
 		cu          *ComputeUnit
 		bu          *ScalarUnit
 		alu         *mockALU
-		scalarMem   *MockPort
-		toScalarMem *MockPort
+		toScalarMem *fakePort
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		cu = NewComputeUnit("CU", nil)
+		cu = newTestComputeUnit("CU", newFakeEngine())
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, alu)
 		bu.log2CachelineSize = 6
 
-		scalarMem = NewMockPort(mockCtrl)
-		cu.ScalarMem = scalarMem
+		cu.comp.State.ScalarMem = "ScalarMem"
 
-		toScalarMem = NewMockPort(mockCtrl)
+		toScalarMem = newFakePort("CU.ScalarMem")
 		cu.ToScalarMem = toScalarMem
-
-		scalarMem.EXPECT().AsRemote().AnyTimes()
-		toScalarMem.EXPECT().AsRemote().AnyTimes()
-	})
-
-	AfterEach(func() {
-		mockCtrl.Finish()
 	})
 
 	It("should allow accepting wavefront", func() {
-		// wave := new(Wavefront)
 		bu.toRead = nil
 		Expect(bu.CanAcceptWave()).To(BeTrue())
 	})
 
-	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
+	It("should not allow accepting wavefront is the read stage buffer "+
+		"is occupied", func() {
 		bu.toRead = new(wavefront.Wavefront)
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
@@ -241,48 +231,49 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should send request out", func() {
-		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem.AsRemote()).
-			WithDst(scalarMem.AsRemote()).
-			WithAddress(1024).
-			WithByteSize(4).
-			Build()
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: cu.ToScalarMem.AsRemote(),
+				Dst: cu.comp.State.ScalarMem,
+			},
+			Address:        1024,
+			AccessByteSize: 4,
+		}
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
-			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
-			Expect(req.Dst).To(BeIdenticalTo(scalarMem.AsRemote()))
-			Expect(req.Address).To(Equal(uint64(1024)))
-			Expect(req.AccessByteSize).To(Equal(uint64(4)))
-		})
-
 		bu.Run()
+
+		Expect(toScalarMem.sent).To(HaveLen(1))
+		sentReq := toScalarMem.sent[0].(memprotocol.ReadReq)
+		Expect(sentReq.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
+		Expect(sentReq.Dst).To(
+			BeIdenticalTo(messaging.RemotePort("ScalarMem")))
+		Expect(sentReq.Address).To(Equal(uint64(1024)))
+		Expect(sentReq.AccessByteSize).To(Equal(uint64(4)))
 
 		Expect(bu.readBuf).To(HaveLen(0))
 	})
 
 	It("should retry if send request failed", func() {
-		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem.AsRemote()).
-			WithDst(scalarMem.AsRemote()).
-			WithAddress(1024).
-			WithByteSize(4).
-			Build()
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: cu.ToScalarMem.AsRemote(),
+				Dst: cu.comp.State.ScalarMem,
+			},
+			Address:        1024,
+			AccessByteSize: 4,
+		}
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
-			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
-			Expect(req.Dst).To(BeIdenticalTo(scalarMem.AsRemote()))
-			Expect(req.Address).To(Equal(uint64(1024)))
-			Expect(req.AccessByteSize).To(Equal(uint64(4)))
-		}).Return(&sim.SendError{})
+		toScalarMem.full = true
 
 		bu.Run()
 
 		Expect(bu.readBuf).To(HaveLen(1))
 	})
+
 	It("should flush the scalar unit", func() {
 		wave := wavefront.NewWavefront(nil)
 		inst := wavefront.NewInst(insts.NewInst())

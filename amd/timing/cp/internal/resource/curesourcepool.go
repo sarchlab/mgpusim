@@ -1,14 +1,14 @@
 package resource
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // DispatchableCU handles dispatch resource
 type DispatchableCU interface {
 	// DispatchingPort returns the port that the dispatcher can dispatch workgroups to.
-	DispatchingPort() sim.RemotePort
+	DispatchingPort() messaging.RemotePort
 
 	// WfPoolSizes returns an array of how many wavefront each wavefront pool
 	// can hold. -1 is unlimited.
@@ -36,14 +36,14 @@ type CUResourcePool interface {
 
 // CUResourcePoolImpl centralizes the resources of CUs.
 type CUResourcePoolImpl struct {
-	registeredCUs map[sim.RemotePort]bool
+	registeredCUs map[messaging.RemotePort]bool
 	cus           []CUResource
 }
 
 // NewCUResourcePool returns a CUResourcePoll
 func NewCUResourcePool() *CUResourcePoolImpl {
 	p := &CUResourcePoolImpl{
-		registeredCUs: make(map[sim.RemotePort]bool),
+		registeredCUs: make(map[messaging.RemotePort]bool),
 	}
 	return p
 }

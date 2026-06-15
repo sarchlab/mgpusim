@@ -3,7 +3,7 @@ package emu
 import (
 	"testing"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // BenchmarkNewWavefront measures the time to allocate a new Wavefront.
@@ -37,10 +37,11 @@ func BenchmarkExecuteInst_VOP2(b *testing.B) {
 	// Set EXEC mask
 	wf.SetEXEC(0xFFFFFFFFFFFFFFFF)
 
-	cu := &ComputeUnit{alu: &mockBenchALU{}}
+	p := &cuProcessor{}
+	alu := &mockBenchALU{}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cu.executeInst(wf)
+		p.executeInst(alu, wf)
 	}
 }

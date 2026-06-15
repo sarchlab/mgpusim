@@ -3,7 +3,7 @@ package layers
 import (
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 )
 
 // A FullyConnectedLayer implements a fully connected layer.

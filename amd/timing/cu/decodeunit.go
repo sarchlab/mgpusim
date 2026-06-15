@@ -3,7 +3,7 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode

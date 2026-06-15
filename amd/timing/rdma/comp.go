@@ -2,471 +2,66 @@
 package rdma
 
 import (
-	"log"
-	"reflect"
-
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
+// Spec contains the immutable configuration of the RDMA engine.
+type Spec struct {
+	Freq                timing.Freq `json:"freq"`
+	BufferSize          int         `json:"buffer_size"`
+	IncomingReqPerCycle int         `json:"incoming_req_per_cycle"`
+	IncomingRspPerCycle int         `json:"incoming_rsp_per_cycle"`
+	OutgoingReqPerCycle int         `json:"outgoing_req_per_cycle"`
+	OutgoingRspPerCycle int         `json:"outgoing_rsp_per_cycle"`
+}
+
+// transaction records one memory request that the RDMA engine has forwarded
+// and whose response has not yet been delivered back to the requester.
 type transaction struct {
-	fromInside  sim.Msg
-	fromOutside sim.Msg
-	toInside    sim.Msg
-	toOutside   sim.Msg
+	// OriginalReqID is the ID of the request received by the RDMA engine.
+	OriginalReqID uint64 `json:"original_req_id"`
+
+	// OriginalSrc is where the original request came from. The response is
+	// sent back to this port.
+	OriginalSrc messaging.RemotePort `json:"original_src"`
+
+	// ForwardedReqID is the ID of the cloned request sent onward. Responses
+	// are matched against this ID through their RspTo field.
+	ForwardedReqID uint64 `json:"forwarded_req_id"`
+
+	// RecvTaskID is the tracing task ID at the receiver side for the
+	// original request. Zero when tracing is disabled.
+	RecvTaskID uint64 `json:"recv_task_id"`
 }
 
-// An Comp is a component that helps one GPU to access the memory on
-// another GPU
-type Comp struct {
-	*sim.TickingComponent
+// State contains the mutable runtime data of the RDMA engine.
+type State struct {
+	IsDraining              bool                 `json:"is_draining"`
+	PauseIncomingReqsFromL1 bool                 `json:"pause_incoming_reqs_from_l1"`
+	CurrentDrainReqID       uint64               `json:"current_drain_req_id"`
+	CurrentDrainReqSrc      messaging.RemotePort `json:"current_drain_req_src"`
 
-	RDMARequestInside  sim.Port
-	RDMARequestOutside sim.Port
+	TransactionsFromInside  []transaction `json:"transactions_from_inside"`
+	TransactionsFromOutside []transaction `json:"transactions_from_outside"`
+}
 
-	RDMADataInside  sim.Port
-	RDMADataOutside sim.Port
+// Resources holds the shared references used by the RDMA engine to route
+// memory requests.
+type Resources struct {
+	// LocalModules finds the local module (e.g., an L2 cache or a memory
+	// controller) that serves requests arriving from other GPUs.
+	LocalModules mem.AddressToPortMapper
 
-	CtrlPort sim.Port
-
-	isDraining              bool
-	pauseIncomingReqsFromL1 bool
-	currentDrainReq         *DrainReq
-
-	localModules           mem.AddressToPortMapper
+	// RemoteRDMAAddressTable finds the RDMA engine of the GPU that owns a
+	// given address.
 	RemoteRDMAAddressTable mem.AddressToPortMapper
-
-	transactionsFromOutside []transaction
-	transactionsFromInside  []transaction
-
-	incomingReqPerCycle int
-	incomingRspPerCycle int
-	outgoingReqPerCycle int
-	outgoingRspPerCycle int
 }
 
-// SetLocalModuleFinder sets the table to lookup for local data.
-func (c *Comp) SetLocalModuleFinder(lmf mem.AddressToPortMapper) {
-	c.localModules = lmf
-}
-
-// Tick checks if make progress
-func (c *Comp) Tick() bool {
-	madeProgress := false
-
-	madeProgress = c.processFromCtrlPort() || madeProgress
-	if c.isDraining {
-		madeProgress = c.drainRDMA() || madeProgress
-	}
-
-	for i := 0; i < c.outgoingReqPerCycle; i++ {
-		madeProgress = c.processFromL1() || madeProgress
-	}
-
-	for i := 0; i < c.outgoingRspPerCycle; i++ {
-		madeProgress = c.processFromL2() || madeProgress
-	}
-
-	for i := 0; i < c.incomingReqPerCycle; i++ {
-		madeProgress = c.processIncomingReq() || madeProgress
-	}
-
-	for i := 0; i < c.incomingRspPerCycle; i++ {
-		madeProgress = c.processIncomingRsp() || madeProgress
-	}
-
-	return madeProgress
-}
-
-func (c *Comp) processFromCtrlPort() bool {
-	req := c.CtrlPort.PeekIncoming()
-	if req == nil {
-		return false
-	}
-
-	req = c.CtrlPort.RetrieveIncoming()
-	switch req := req.(type) {
-	case *DrainReq:
-		c.currentDrainReq = req
-		c.isDraining = true
-		c.pauseIncomingReqsFromL1 = true
-		return true
-	case *RestartReq:
-		return c.processRDMARestartReq()
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
-	}
-}
-
-func (c *Comp) processRDMARestartReq() bool {
-	restartCompleteRsp := RestartRspBuilder{}.
-		WithSrc(c.CtrlPort.AsRemote()).
-		WithDst(c.currentDrainReq.Src).
-		Build()
-	err := c.CtrlPort.Send(restartCompleteRsp)
-
-	if err != nil {
-		return false
-	}
-	c.currentDrainReq = nil
-	c.pauseIncomingReqsFromL1 = false
-
-	return true
-}
-
-func (c *Comp) drainRDMA() bool {
-	if c.fullyDrained() {
-		drainCompleteRsp := DrainRspBuilder{}.
-			WithSrc(c.CtrlPort.AsRemote()).
-			WithDst(c.currentDrainReq.Src).
-			Build()
-
-		err := c.CtrlPort.Send(drainCompleteRsp)
-		if err != nil {
-			return false
-		}
-		c.isDraining = false
-		return true
-	}
-	return false
-}
-
-func (c *Comp) fullyDrained() bool {
-	return len(c.transactionsFromOutside) == 0 &&
-		len(c.transactionsFromInside) == 0
-}
-
-func (c *Comp) processFromL1() bool {
-	if c.pauseIncomingReqsFromL1 {
-		return false
-	}
-
-	madeProgress := false
-	for {
-		req := c.RDMARequestInside.PeekIncoming()
-		if req == nil {
-			return madeProgress
-		}
-
-		switch req := req.(type) {
-		case mem.AccessReq:
-			ret := c.processReqFromL1(req)
-			if !ret {
-				return madeProgress
-			}
-
-			madeProgress = true
-		default:
-			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-			return false
-		}
-	}
-}
-
-func (c *Comp) processReqFromL1(
-	req mem.AccessReq,
-) bool {
-	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
-
-	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.RDMARequestOutside.AsRemote()
-	cloned.Meta().Dst = dst
-
-	err := c.RDMARequestOutside.Send(cloned)
-	if err == nil {
-		c.RDMARequestInside.RetrieveIncoming()
-
-		c.traceInsideOutStart(req, cloned)
-
-		trans := transaction{
-			fromInside: req,
-			toOutside:  cloned,
-		}
-		c.transactionsFromInside = append(c.transactionsFromInside, trans)
-
-		return true
-	}
-
-	return false
-}
-
-func (c *Comp) processFromL2() bool {
-	for {
-		req := c.RDMADataInside.PeekIncoming()
-		if req == nil {
-			return false
-		}
-		switch req := req.(type) {
-		case mem.AccessRsp:
-			ret := c.processRspFromL2(req)
-			if !ret {
-				return false
-			}
-			return true
-		default:
-			panic("unknown req type")
-		}
-	}
-}
-
-func (c *Comp) processRspFromL2(
-	rsp mem.AccessRsp,
-) bool {
-	transactionIndex := c.findTransactionByRspToID(
-		rsp.GetRspTo(), c.transactionsFromOutside)
-	trans := c.transactionsFromOutside[transactionIndex]
-
-	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().Src = c.RDMADataOutside.AsRemote()
-	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
-
-	err := c.RDMADataOutside.Send(rspToOutside)
-	if err == nil {
-		c.RDMADataInside.RetrieveIncoming()
-
-		c.traceOutsideInEnd(trans)
-
-		c.transactionsFromOutside =
-			append(c.transactionsFromOutside[:transactionIndex],
-				c.transactionsFromOutside[transactionIndex+1:]...)
-		return true
-	}
-	return false
-}
-
-func (c *Comp) processIncomingRsp() bool {
-	madeProgress := false
-
-	req := c.RDMARequestOutside.PeekIncoming()
-	if req == nil {
-		return madeProgress
-	}
-
-	switch req := req.(type) {
-	case mem.AccessRsp:
-		ret := c.processRspFromRDMARequestOutside(req)
-		if !ret {
-			return madeProgress
-		}
-		madeProgress = true
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
-	}
-
-	return madeProgress
-}
-
-func (c *Comp) processRspFromRDMARequestOutside(
-	rsp mem.AccessRsp,
-) bool {
-	transactionIndex := c.findTransactionByRspToID(
-		rsp.GetRspTo(), c.transactionsFromInside)
-	trans := c.transactionsFromInside[transactionIndex]
-
-	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
-	rspToInside.Meta().Src = c.RDMARequestInside.AsRemote()
-	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
-
-	err := c.RDMARequestInside.Send(rspToInside)
-	if err == nil {
-		c.RDMARequestOutside.RetrieveIncoming()
-
-		c.traceInsideOutEnd(trans)
-
-		c.transactionsFromInside =
-			append(c.transactionsFromInside[:transactionIndex],
-				c.transactionsFromInside[transactionIndex+1:]...)
-
-		return true
-	}
-
-	return false
-}
-
-func (c *Comp) processIncomingReq() bool {
-	req := c.RDMADataOutside.PeekIncoming()
-	if req == nil {
-		return false
-	}
-
-	switch req := req.(type) {
-	case mem.AccessReq:
-		ret := c.processReqFromRDMADataOutside(req)
-		if !ret {
-			return false
-		}
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
-	}
-
-	return true
-}
-
-func (c *Comp) processReqFromRDMADataOutside(
-	req mem.AccessReq,
-) bool {
-	dst := c.localModules.Find(req.GetAddress())
-
-	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.RDMADataInside.AsRemote()
-	cloned.Meta().Dst = dst
-
-	err := c.RDMADataInside.Send(cloned)
-	if err == nil {
-		c.RDMADataOutside.RetrieveIncoming()
-
-		c.traceOutsideInStart(req, cloned)
-
-		trans := transaction{
-			fromOutside: req,
-			toInside:    cloned,
-		}
-		c.transactionsFromOutside =
-			append(c.transactionsFromOutside, trans)
-		return true
-	}
-	return false
-}
-
-func (c *Comp) findTransactionByRspToID(
-	rspTo string,
-	transactions []transaction,
-) int {
-	for i, trans := range transactions {
-		if trans.toOutside != nil && trans.toOutside.Meta().ID == rspTo {
-			return i
-		}
-
-		if trans.toInside != nil && trans.toInside.Meta().ID == rspTo {
-			return i
-		}
-	}
-
-	log.Panicf("transaction %s not found", rspTo)
-	return 0
-}
-
-func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
-	switch origin := origin.(type) {
-	case *mem.ReadReq:
-		read := mem.ReadReqBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithAddress(origin.Address).
-			WithByteSize(origin.AccessByteSize).
-			Build()
-		return read
-	case *mem.WriteReq:
-		write := mem.WriteReqBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithAddress(origin.Address).
-			WithData(origin.Data).
-			WithDirtyMask(origin.DirtyMask).
-			Build()
-		return write
-	default:
-		log.Panicf("cannot clone request of type %s",
-			reflect.TypeOf(origin))
-	}
-	return nil
-}
-
-func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
-	switch origin := origin.(type) {
-	case *mem.DataReadyRsp:
-		rsp := mem.DataReadyRspBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithRspTo(rspTo).
-			WithData(origin.Data).
-			Build()
-		return rsp
-	case *mem.WriteDoneRsp:
-		rsp := mem.WriteDoneRspBuilder{}.
-			WithSrc(origin.Src).
-			WithDst(origin.Dst).
-			WithRspTo(rspTo).
-			Build()
-		return rsp
-	default:
-		log.Panicf("cannot clone request of type %s",
-			reflect.TypeOf(origin))
-	}
-	return nil
-}
-
-// SetFreq sets freq
-func (c *Comp) SetFreq(freq sim.Freq) {
-	c.TickingComponent.Freq = freq
-}
-
-func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
-	if len(c.Hooks()) == 0 {
-		return
-	}
-
-	tracing.StartTaskWithSpecificLocation(
-		tracing.MsgIDAtReceiver(req, c),
-		req.Meta().ID+"_req_out",
-		c,
-		"req_in",
-		reflect.TypeOf(req).String(),
-		c.Name()+".InsideOut",
-		req,
-	)
-
-	tracing.StartTaskWithSpecificLocation(
-		cloned.Meta().ID+"_req_out",
-		tracing.MsgIDAtReceiver(req, c),
-		c,
-		"req_out",
-		reflect.TypeOf(req).String(),
-		c.Name()+".InsideOut",
-		cloned,
-	)
-}
-
-func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
-	if len(c.Hooks()) == 0 {
-		return
-	}
-
-	tracing.StartTaskWithSpecificLocation(
-		tracing.MsgIDAtReceiver(req, c),
-		req.Meta().ID+"_req_out",
-		c,
-		"req_in",
-		reflect.TypeOf(req).String(),
-		c.Name()+".OutsideIn",
-		req,
-	)
-
-	tracing.StartTaskWithSpecificLocation(
-		cloned.Meta().ID+"_req_out",
-		tracing.MsgIDAtReceiver(req, c),
-		c,
-		"req_out",
-		reflect.TypeOf(req).String(),
-		c.Name()+".OutsideIn",
-		cloned,
-	)
-}
-
-func (c *Comp) traceInsideOutEnd(trans transaction) {
-	if len(c.Hooks()) == 0 {
-		return
-	}
-
-	tracing.TraceReqFinalize(trans.toOutside, c)
-	tracing.TraceReqComplete(trans.fromInside, c)
-}
-
-func (c *Comp) traceOutsideInEnd(trans transaction) {
-	tracing.TraceReqFinalize(trans.toInside, c)
-	tracing.TraceReqComplete(trans.fromOutside, c)
-}
+// Comp is an RDMA engine, a component that helps one GPU access the memory on
+// another GPU. It forwards memory requests received on its inside ports to
+// remote GPUs, and requests received from remote GPUs to local memory
+// modules.
+type Comp = modeling.Component[Spec, State, Resources]

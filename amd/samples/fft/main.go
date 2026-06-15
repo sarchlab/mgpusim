@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/shoc/fft"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/fft"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var mb = flag.Int("MB", 8, "data size (in megabytes)")

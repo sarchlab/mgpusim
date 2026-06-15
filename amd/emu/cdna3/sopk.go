@@ -3,7 +3,7 @@ package cdna3
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
 func (u *ALU) runSOPK(state emu.InstEmuState) {

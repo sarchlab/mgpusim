@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 )
 
 type buffer struct {

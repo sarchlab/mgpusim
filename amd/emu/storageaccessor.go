@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm"
 )
 
 // StorageAccessor provides memory access for ALU operations.
