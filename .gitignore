@@ -9,6 +9,8 @@
 *.out
 debug
 *.csv
+# Committed MI300A calibration ground truth (summarized from the ~9 MB DB).
+!gpu_perf_scripts/calibration/mi300a_ground_truth.csv
 *.sqlite3-journal
 *.sqlite3
 *~
