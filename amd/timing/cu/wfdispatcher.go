@@ -211,26 +211,42 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-			0, insts.VReg(0), 1, laneID, wf.VRegOffset,
-			insts.Uint32ToBytes(uint32(x)),
-			false,
-		})
-
-		if co.EnableVgprWorkItemID() > 0 {
+		if co.Version == insts.CodeObjectV5 {
+			// For V5 code objects (gfx942/CDNA3), the work-item IDs are
+			// packed into v0 as v0 = (z << 20) | (y << 10) | x. This mirrors
+			// the functional emulator (amd/emu/computeunit.go). Without this,
+			// gfx942 kernels read threadIdx.y/z as 0, breaking every kernel
+			// that uses a 2D/3D workgroup.
+			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(1), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(y)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(packed),
 				false,
 			})
-		}
-
-		if co.EnableVgprWorkItemID() > 1 {
+		} else {
+			// For V2/V3 code objects (GCN3), the work-item IDs use separate
+			// registers v0=x, v1=y, v2=z.
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(2), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(z)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(uint32(x)),
 				false,
 			})
+
+			if co.EnableVgprWorkItemID() > 0 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(1), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(y)),
+					false,
+				})
+			}
+
+			if co.EnableVgprWorkItemID() > 1 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(2), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(z)),
+					false,
+				})
+			}
 		}
 	}
 }
