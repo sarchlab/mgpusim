@@ -651,7 +651,7 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 		inst.OpSel = int(extractBits(bytesLo, 11, 13))
 		inst.OpSelHi = int(extractBits(bytesHi, 27, 28)) |
 			(int(extractBits(bytesLo, 14, 14)) << 2)
-	} else if inst.Opcode >= 945 && inst.Opcode <= 946 {
+	} else if (inst.Opcode >= 945 && inst.Opcode <= 946) || inst.Opcode == 929 {
 		// 2-source MUL/ADD: bits [12:11] = op_sel[1:0],
 		// bits [14:13] = neg_hi[1:0] (ignored; neg_lo from Neg field applies to both halves)
 		inst.OpSel = int(extractBits(bytesLo, 11, 12))
