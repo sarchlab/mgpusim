@@ -232,7 +232,7 @@ func (b *Benchmark) exec() {
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same two-phase SRAD iteration exactly.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	n := b.ImageSize
 	total := n * n
 

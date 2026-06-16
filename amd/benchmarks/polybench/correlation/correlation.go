@@ -182,7 +182,7 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.gData, b.data)
 }
 
-func (b *Benchmark) exec() {
+func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	n := b.N
 	m := n // M == N
 
@@ -257,7 +257,7 @@ func (b *Benchmark) exec() {
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the exact four-kernel pipeline (in float32) on the host.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	n := b.N
 	m := n
 

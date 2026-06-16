@@ -153,7 +153,7 @@ func randFloat(state *uint32, lo, hi float32) float32 {
 	return lo + float32(lcgRand(state)&0xFFFF)/65535.0*(hi-lo)
 }
 
-func (b *Benchmark) initMem() {
+func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	if b.N <= 0 {
 		b.N = 256
 	}
@@ -304,7 +304,7 @@ func fabs32(a float32) float32 {
 
 // cpuFlux computes the Rusanov flux for a single cell, identical to the
 // device kernel, for verification.
-func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) {
+func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) { //nolint:funlen,gocognit
 	rhoI := b.hRho[idx]
 	mxI := b.hMx[idx]
 	myI := b.hMy[idx]

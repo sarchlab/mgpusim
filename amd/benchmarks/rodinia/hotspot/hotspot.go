@@ -219,7 +219,7 @@ func (b *Benchmark) exec() {
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same iterative stencil exactly.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	n := b.GridSize
 	total := n * n
 

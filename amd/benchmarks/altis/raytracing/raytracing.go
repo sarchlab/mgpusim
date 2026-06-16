@@ -189,7 +189,7 @@ func (b *Benchmark) exec() {
 
 // cpuShadePixel computes the RGBA bytes for a single pixel using the exact
 // same float32 math as the kernel, so the result is bit-reproducible.
-func (b *Benchmark) cpuShadePixel(px, py int) [4]byte {
+func (b *Benchmark) cpuShadePixel(px, py int) [4]byte { //nolint:funlen,gocognit
 	width := b.Width
 	height := b.Height
 

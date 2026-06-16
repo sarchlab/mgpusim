@@ -235,7 +235,7 @@ func (b *Benchmark) exec() {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	n := b.N
 	numElem := n * n
 

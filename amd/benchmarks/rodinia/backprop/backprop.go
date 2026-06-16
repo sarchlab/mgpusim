@@ -190,7 +190,7 @@ func pseudoRand(seed *uint32) float32 {
 	return float32(*seed>>8) / float32(1<<24)
 }
 
-func (b *Benchmark) initMem() {
+func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	if b.InputN <= 0 {
 		b.InputN = 64
 	}
@@ -262,7 +262,7 @@ func grid1D(n int) uint32 {
 	return uint32((n + blockSz - 1) / blockSz * blockSz)
 }
 
-func (b *Benchmark) exec() {
+func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	in := b.InputN
 	hid := b.HiddenN
 	out := b.OutputN
@@ -345,7 +345,7 @@ func sigmoid(x float64) float64 {
 
 // Verify recomputes the full epoch on the CPU and compares the updated weight
 // matrices (w1, w2) against the GPU results.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	in := b.InputN
 	hid := b.HiddenN
 	out := b.OutputN

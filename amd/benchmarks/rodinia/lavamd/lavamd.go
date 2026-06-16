@@ -152,7 +152,7 @@ func randFloat(state *uint32, lo, hi float32) float32 {
 // initHostData builds the deterministic input arrays (positions, neighbor
 // lists, neighbor counts). It is shared by initMem and Verify so the reference
 // uses the exact same inputs.
-func (b *Benchmark) initHostData() {
+func (b *Benchmark) initHostData() { //nolint:funlen,gocognit
 	nb := b.NumBoxes
 	ppb := b.ParticlesPerBox
 
