@@ -6,13 +6,24 @@ name: MI300A Calibration
 # markdown calibration report -- both as a downloadable artifact and rendered in
 # the job summary.
 #
-# Manual trigger only: each run is a set of full cycle-accurate simulations, so
-# we don't want it firing on every push. Launch it from the Actions tab.
+# Triggered manually (workflow_dispatch, once this file reaches the default
+# branch) and on pushes to the mi300a-calibration branch that touch the
+# calibration harness or the fp32 benchmark. Each run is a set of full
+# cycle-accurate simulations, so the path filter keeps it from firing on
+# unrelated pushes.
 #
 # cache_latency is deferred (panics in timing mode) and will be added later.
 
 on:
   workflow_dispatch:
+  push:
+    branches: [mi300a-calibration]
+    paths:
+      - '.github/workflows/mi300a_calibration.yml'
+      - 'gpu_perf_scripts/calibration/**'
+      - 'amd/benchmarks/microbench/fp32throughput/**'
+      - 'amd/samples/fp32_throughput/**'
+      - 'amd/samples/runner/timingconfig/mi300a/**'
 
 jobs:
   calibration:
