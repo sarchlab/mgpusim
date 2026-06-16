@@ -1,0 +1,65 @@
+name: MI300A Calibration
+
+# Runs the MI300A (CDNA3) timing model on the fp32_throughput microbenchmark,
+# compares the simulated GFLOPS against the real-hardware ground-truth summary
+# CSV (gpu_perf_scripts/calibration/mi300a_ground_truth.csv), and publishes a
+# markdown calibration report -- both as a downloadable artifact and rendered in
+# the job summary.
+#
+# Manual trigger only: each run is a set of full cycle-accurate simulations, so
+# we don't want it firing on every push. Launch it from the Actions tab.
+#
+# cache_latency is deferred (panics in timing mode) and will be added later.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  calibration:
+    name: fp32_throughput vs ground truth
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          fi
+
+      - name: Tool versions
+        run: |
+          go version
+          python3 --version
+          sqlite3 --version
+
+      - name: Run simulator sweep
+        run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh sim_results.csv
+
+      - name: Compare against ground truth and render report
+        run: |
+          python3 gpu_perf_scripts/calibration/compare_to_ground_truth.py \
+            --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
+            --sim sim_results.csv \
+            --template gpu_perf_scripts/calibration/report_template.md \
+            --out calibration_report.md
+
+      - name: Render report in job summary
+        if: always()
+        run: cat calibration_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report and raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mi300a-calibration-report
+          path: |
+            calibration_report.md
+            sim_results.csv
