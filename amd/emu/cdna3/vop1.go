@@ -268,7 +268,7 @@ func float16ToFloat32(h uint16) float32 {
 			e--
 		}
 		m &= 0x03FF
-		exp32 := uint32(127-15+e+1) << 23
+		exp32 := uint32(127-15+e+2) << 23
 		return math.Float32frombits(sign | exp32 | (m << 13))
 	default:
 		exp32 := (exp + (127 - 15)) << 23

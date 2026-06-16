@@ -244,6 +244,9 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	state.inst.Src1 = &insts.Operand{}
 	state.inst.Dst = &insts.Operand{}
 	state.exec = 0x1
+	// A plain packed add decodes op_sel = 0b00, op_sel_hi = 0b11, so the high
+	// result word reads the high f16 halves: hi = s0.hi + s1.hi.
+	state.inst.OpSelHi = 3
 
 	// src0 = {lo=1.0, hi=2.0}, src1 = {lo=0.5, hi=3.0}
 	src0 := uint64(float32ToFloat16(1.0)) | (uint64(float32ToFloat16(2.0)) << 16)
@@ -260,6 +263,18 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	}
 	if hi != 5.0 {
 		t.Fatalf("v_pk_add_f16 hi expected 5.0, got %v", hi)
+	}
+}
+
+func TestFloat16ToFloat32Subnormal(t *testing.T) {
+	// Half subnormals (exp field 0) must decode with the correct exponent.
+	// 0x0200 (mant 0x200) is 2^-15, and 0x0001 is the smallest positive
+	// subnormal 2^-24.
+	if got := float16ToFloat32(0x0200); got != float32(1.0)/32768 {
+		t.Fatalf("float16ToFloat32(0x0200) = %v, want 2^-15", got)
+	}
+	if got := float16ToFloat32(0x0001); got != float32(1.0)/16777216 {
+		t.Fatalf("float16ToFloat32(0x0001) = %v, want 2^-24", got)
 	}
 }
 

@@ -494,7 +494,7 @@ func (u *ALU) runVCmpLgF32VOP3a(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
 		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
-		if src0 != src1 {
+		if src0 < src1 || src0 > src1 {
 			dst |= 1 << uint(i)
 		}
 	}
@@ -946,9 +946,9 @@ func (u *ALU) runVLDEXPF32(state emu.InstEmuState) {
 // For 16-bit packed VOP3P ops each operand is a single 32-bit register holding
 // two f16 values. op_sel selects the source half feeding the LOW result word
 // (0 = low half, 1 = high half) and op_sel_hi selects the source half feeding
-// the HIGH result word. The natural/default packed encoding (op_sel = 0,
-// op_sel_hi = 0) computes low = s0.lo + s1.lo and high = s0.hi + s1.hi, so
-// op_sel_hi bit = 0 selects the HIGH half and bit = 1 selects the LOW half.
+// the HIGH result word with the same convention (matching the packed-f32
+// handlers). A plain packed add decodes op_sel = 0b00 and op_sel_hi = 0b11,
+// computing low = s0.lo + s1.lo and high = s0.hi + s1.hi.
 func (u *ALU) runVPKADDF16(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -983,16 +983,16 @@ func (u *ALU) runVPKADDF16(state emu.InstEmuState) {
 			bLo = src1Lo
 		}
 
-		// Upper result word: op_sel_hi (0 = high half, the natural default).
+		// Upper result word: op_sel_hi bit 0 = src0, bit 1 = src1 (0 = low half).
 		if opSelHi&1 != 0 {
-			aHi = src0Lo
-		} else {
 			aHi = src0Hi
+		} else {
+			aHi = src0Lo
 		}
 		if opSelHi&2 != 0 {
-			bHi = src1Lo
-		} else {
 			bHi = src1Hi
+		} else {
+			bHi = src1Lo
 		}
 
 		// Apply neg modifiers (neg_lo applies to both halves for VOP3P).

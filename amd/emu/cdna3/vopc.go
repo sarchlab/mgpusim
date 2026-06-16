@@ -258,7 +258,7 @@ func (u *ALU) runVCmpNlgF32(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
-		if !(src0 != src1) {
+		if !(src0 < src1 || src0 > src1) {
 			vcc |= 1 << uint(i)
 		}
 	}
