@@ -1,4 +1,4 @@
-DOCKER_IMAGE = rocm/dev-ubuntu-24.04:7.1.1
+DOCKER_IMAGE = rocm/dev-ubuntu-24.04:7.2.4
 GPU_TARGET = gfx942
 SRC = spmv.cpp
 GPU_OBJ = spmv-hip-amdgcn-amd-amdhsa-$(GPU_TARGET).o
