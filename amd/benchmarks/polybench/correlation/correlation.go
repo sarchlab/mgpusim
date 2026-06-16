@@ -5,10 +5,10 @@
 // Given an N-by-N data matrix (M = N samples, N features) it computes the
 // N-by-N correlation matrix in four steps:
 //
-//	1. mean_kernel        - column means
-//	2. stddev_kernel      - column standard deviations
-//	3. normalize_kernel   - normalize each element by mean/stddev/sqrt(M)
-//	4. correlation_kernel - tiled matmul of normalized^T * normalized
+//  1. mean_kernel        - column means
+//  2. stddev_kernel      - column standard deviations
+//  3. normalize_kernel   - normalize each element by mean/stddev/sqrt(M)
+//  4. correlation_kernel - tiled matmul of normalized^T * normalized
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
 // benchmark must be run with `-arch cdna3` (the MI300A configuration).

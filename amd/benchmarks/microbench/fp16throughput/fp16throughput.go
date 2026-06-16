@@ -252,7 +252,7 @@ func float32ToFloat16(f float32) uint16 {
 	exp := int32((bits>>23)&0xFF) - 127 + 15
 	mant := bits & 0x7FFFFF
 
-	if (bits&0x7FFFFFFF) == 0 {
+	if (bits & 0x7FFFFFFF) == 0 {
 		return sign
 	}
 	if ((bits >> 23) & 0xFF) == 0xFF {

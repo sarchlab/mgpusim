@@ -41,9 +41,9 @@ type KernelArgs struct {
 	In0 driver.Ptr // offset 0  (A / C / E)
 	In1 driver.Ptr // offset 8  (B / D / F)
 	Out driver.Ptr // offset 16 (E / F / G)
-	D0  int32       // offset 24 (NI / NJ / NI)
-	D1  int32       // offset 28 (NK / NM / NJ)
-	D2  int32       // offset 32 (NJ / NL / NL)
+	D0  int32      // offset 24 (NI / NJ / NI)
+	D1  int32      // offset 28 (NK / NM / NJ)
+	D2  int32      // offset 32 (NJ / NL / NL)
 }
 
 // Benchmark defines the 3MM benchmark.

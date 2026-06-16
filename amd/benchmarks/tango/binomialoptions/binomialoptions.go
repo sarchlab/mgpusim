@@ -67,7 +67,7 @@ type Benchmark struct {
 	NumOptions int
 	NumSteps   int
 
-	options []optionData
+	options  []optionData
 	gOptions driver.Ptr
 	gPrices  driver.Ptr
 
@@ -150,7 +150,7 @@ func (b *Benchmark) initMem() {
 		b.options[i].Sigma = randRange(&seed, 0.1, 1.0)
 	}
 
-	optBytes := uint64(b.NumOptions * 20)   // 5 float32 per option
+	optBytes := uint64(b.NumOptions * 20) // 5 float32 per option
 	priceBytes := uint64(b.NumOptions * 4)
 
 	if b.useUnifiedMemory {

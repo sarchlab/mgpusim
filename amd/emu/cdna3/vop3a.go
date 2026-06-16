@@ -414,16 +414,16 @@ func matchesF32Class(src0 float32, classMask uint32) bool {
 	isNorm := !isNaN && !isInf && !isDenorm && !isZero
 
 	classChecks := [10]bool{
-		isNaN && frac&(1<<22) == 0,  // 0: signaling NaN
-		isNaN && frac&(1<<22) != 0,  // 1: quiet NaN
-		isInf && sign,               // 2: negative infinity
-		isNorm && sign,              // 3: negative normal
-		isDenorm && sign,            // 4: negative denormal
-		isZero && sign,              // 5: negative zero
-		isZero && !sign,             // 6: positive zero
-		isDenorm && !sign,           // 7: positive denormal
-		isNorm && !sign,             // 8: positive normal
-		isInf && !sign,              // 9: positive infinity
+		isNaN && frac&(1<<22) == 0, // 0: signaling NaN
+		isNaN && frac&(1<<22) != 0, // 1: quiet NaN
+		isInf && sign,              // 2: negative infinity
+		isNorm && sign,             // 3: negative normal
+		isDenorm && sign,           // 4: negative denormal
+		isZero && sign,             // 5: negative zero
+		isZero && !sign,            // 6: positive zero
+		isDenorm && !sign,          // 7: positive denormal
+		isNorm && !sign,            // 8: positive normal
+		isInf && !sign,             // 9: positive infinity
 	}
 	for bit, check := range classChecks {
 		if classMask&(1<<uint(bit)) != 0 && check {
@@ -1562,21 +1562,54 @@ func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 		var b_lo, b_hi float32
 		var c_lo, c_hi float32
 
-		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
-		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
-		if op_sel&4 != 0 { c_lo = src2_hi } else { c_lo = src2_lo }
+		if op_sel&1 != 0 {
+			a_lo = src0_hi
+		} else {
+			a_lo = src0_lo
+		}
+		if op_sel&2 != 0 {
+			b_lo = src1_hi
+		} else {
+			b_lo = src1_lo
+		}
+		if op_sel&4 != 0 {
+			c_lo = src2_hi
+		} else {
+			c_lo = src2_lo
+		}
 
-		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
-		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
-		if op_sel_hi&4 != 0 { c_hi = src2_hi } else { c_hi = src2_lo }
+		if op_sel_hi&1 != 0 {
+			a_hi = src0_hi
+		} else {
+			a_hi = src0_lo
+		}
+		if op_sel_hi&2 != 0 {
+			b_hi = src1_hi
+		} else {
+			b_hi = src1_lo
+		}
+		if op_sel_hi&4 != 0 {
+			c_hi = src2_hi
+		} else {
+			c_hi = src2_lo
+		}
 
 		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
-		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
-		if inst.Src2Neg { c_lo = -c_lo; c_hi = -c_hi }
+		if inst.Src0Neg {
+			a_lo = -a_lo
+			a_hi = -a_hi
+		}
+		if inst.Src1Neg {
+			b_lo = -b_lo
+			b_hi = -b_hi
+		}
+		if inst.Src2Neg {
+			c_lo = -c_lo
+			c_hi = -c_hi
+		}
 
-		res_lo := a_lo * b_lo + c_lo
-		res_hi := a_hi * b_hi + c_hi
+		res_lo := a_lo*b_lo + c_lo
+		res_hi := a_hi*b_hi + c_hi
 
 		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
 		state.WriteOperand(inst.Dst, i, dstBits)
@@ -1613,16 +1646,38 @@ func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
 		var a_hi, b_hi float32
 
 		// Lower result word select
-		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
-		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+		if op_sel&1 != 0 {
+			a_lo = src0_hi
+		} else {
+			a_lo = src0_lo
+		}
+		if op_sel&2 != 0 {
+			b_lo = src1_hi
+		} else {
+			b_lo = src1_lo
+		}
 
 		// Upper result word select
-		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
-		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+		if op_sel_hi&1 != 0 {
+			a_hi = src0_hi
+		} else {
+			a_hi = src0_lo
+		}
+		if op_sel_hi&2 != 0 {
+			b_hi = src1_hi
+		} else {
+			b_hi = src1_lo
+		}
 
 		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
-		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
+		if inst.Src0Neg {
+			a_lo = -a_lo
+			a_hi = -a_hi
+		}
+		if inst.Src1Neg {
+			b_lo = -b_lo
+			b_hi = -b_hi
+		}
 
 		res_lo := a_lo * b_lo
 		res_hi := a_hi * b_hi
@@ -1662,16 +1717,38 @@ func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 		var b_lo, b_hi float32
 
 		// Lower result word select
-		if op_sel&1 != 0 { a_lo = src0_hi } else { a_lo = src0_lo }
-		if op_sel&2 != 0 { b_lo = src1_hi } else { b_lo = src1_lo }
+		if op_sel&1 != 0 {
+			a_lo = src0_hi
+		} else {
+			a_lo = src0_lo
+		}
+		if op_sel&2 != 0 {
+			b_lo = src1_hi
+		} else {
+			b_lo = src1_lo
+		}
 
 		// Upper result word select
-		if op_sel_hi&1 != 0 { a_hi = src0_hi } else { a_hi = src0_lo }
-		if op_sel_hi&2 != 0 { b_hi = src1_hi } else { b_hi = src1_lo }
+		if op_sel_hi&1 != 0 {
+			a_hi = src0_hi
+		} else {
+			a_hi = src0_lo
+		}
+		if op_sel_hi&2 != 0 {
+			b_hi = src1_hi
+		} else {
+			b_hi = src1_lo
+		}
 
 		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg { a_lo = -a_lo; a_hi = -a_hi }
-		if inst.Src1Neg { b_lo = -b_lo; b_hi = -b_hi }
+		if inst.Src0Neg {
+			a_lo = -a_lo
+			a_hi = -a_hi
+		}
+		if inst.Src1Neg {
+			b_lo = -b_lo
+			b_hi = -b_hi
+		}
 
 		res_lo := a_lo + b_lo
 		res_hi := a_hi + b_hi
