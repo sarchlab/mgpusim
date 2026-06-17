@@ -77,7 +77,7 @@ Multi-kernel ELFs: Each kernel is a symbol pointing to its code object. Loading 
 
 For LLVM/ROCm compiler tasks (compiling HIP code to HSACO), use the Docker image:
 ```bash
-docker run -it rocm/dev-ubuntu-24.04:7.1.1
+docker run -it rocm/dev-ubuntu-24.04:7.2.4
 ```
 
 ## Timing Expectations

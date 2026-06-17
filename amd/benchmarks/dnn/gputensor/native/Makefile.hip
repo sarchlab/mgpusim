@@ -1,7 +1,7 @@
 # Docker-based HIP compilation for gputensor kernels
 # Uses ROCm Docker image - no local ROCm installation required
 
-DOCKER_IMAGE = rocm/dev-ubuntu-24.04:7.1.1
+DOCKER_IMAGE = rocm/dev-ubuntu-24.04:7.2.4
 GPU_TARGET = gfx942
 
 # Run hipcc inside Docker container

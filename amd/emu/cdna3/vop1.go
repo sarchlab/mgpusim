@@ -201,42 +201,79 @@ func (u *ALU) runVCVTF16F32(state emu.InstEmuState) {
 	}
 }
 
+// float32ToFloat16 converts a float32 to IEEE-754 half precision using
+// round-to-nearest-even, matching the CPU reference used by the benchmarks.
 func float32ToFloat16(f float32) uint16 {
 	bits := math.Float32bits(f)
-	sign := (bits >> 31) & 1
-	exp := (bits >> 23) & 0xFF
-	frac := bits & 0x7FFFFF
+	sign := uint16((bits >> 16) & 0x8000)
+	exp := int32((bits>>23)&0xFF) - 127 + 15
+	mant := bits & 0x7FFFFF
 
-	var f16exp, f16frac uint16
-
-	if exp == 0 {
-		// Zero or denormal
-		f16exp = 0
-		f16frac = 0
-	} else if exp == 0xFF {
-		// Inf or NaN
-		f16exp = 31
-		if frac != 0 {
-			f16frac = 1 // NaN
-		} else {
-			f16frac = 0 // Inf
+	if (bits & 0x7FFFFFFF) == 0 {
+		return sign
+	}
+	if ((bits >> 23) & 0xFF) == 0xFF {
+		// Inf / NaN
+		if mant != 0 {
+			return sign | 0x7E00 // NaN
 		}
-	} else {
-		// Normal number
-		newExp := int(exp) - 127 + 15
-		if newExp >= 31 {
-			f16exp = 31
-			f16frac = 0 // Inf
-		} else if newExp <= 0 {
-			f16exp = 0
-			f16frac = 0 // Zero
-		} else {
-			f16exp = uint16(newExp)
-			f16frac = uint16(frac >> 13)
-		}
+		return sign | 0x7C00 // Inf
 	}
 
-	return (uint16(sign) << 15) | (f16exp << 10) | f16frac
+	if exp >= 0x1F {
+		return sign | 0x7C00 // overflow -> Inf
+	}
+	if exp <= 0 {
+		if exp < -10 {
+			return sign // underflow to zero
+		}
+		// Subnormal half.
+		mant |= 0x800000
+		shift := uint32(14 - exp)
+		half := mant >> shift
+		rem := mant & ((1 << shift) - 1)
+		halfway := uint32(1) << (shift - 1)
+		if rem > halfway || (rem == halfway && (half&1) == 1) {
+			half++
+		}
+		return sign | uint16(half)
+	}
+
+	half := uint16(exp<<10) | uint16(mant>>13)
+	rem := mant & 0x1FFF
+	if rem > 0x1000 || (rem == 0x1000 && (half&1) == 1) {
+		half++
+	}
+	return sign | half
+}
+
+// float16ToFloat32 converts an IEEE-754 half-precision value to float32.
+func float16ToFloat32(h uint16) float32 {
+	sign := uint32(h&0x8000) << 16
+	exp := uint32(h>>10) & 0x1F
+	mant := uint32(h & 0x03FF)
+
+	switch {
+	case exp == 0 && mant == 0:
+		return math.Float32frombits(sign)
+	case exp == 0x1F:
+		// Inf / NaN
+		return math.Float32frombits(sign | 0x7F800000 | (mant << 13))
+	case exp == 0:
+		// Subnormal half: normalize.
+		e := -1
+		m := mant
+		for (m & 0x0400) == 0 {
+			m <<= 1
+			e--
+		}
+		m &= 0x03FF
+		exp32 := uint32(127-15+e+2) << 23
+		return math.Float32frombits(sign | exp32 | (m << 13))
+	default:
+		exp32 := (exp + (127 - 15)) << 23
+		return math.Float32frombits(sign | exp32 | (mant << 13))
+	}
 }
 
 func (u *ALU) runVCVTF32F64(state emu.InstEmuState) {
