@@ -1,27 +1,36 @@
 name: MI300A Calibration
 
-# Runs the MI300A (CDNA3) timing model on the fp32_throughput microbenchmark,
-# sweeping num_blocks x threads_per_block x fmas_per_thread, compares the
-# simulated GFLOPS against the real-hardware ground-truth summary CSV
+# Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks, compares
+# the simulated results against the real-hardware ground-truth summary CSV
 # (gpu_perf_scripts/calibration/mi300a_ground_truth.csv), and publishes a
-# markdown calibration report plus per-configuration execution-time figures
-# (sim vs real) -- as downloadable artifacts and rendered in the job summary.
+# markdown calibration report plus per-configuration figures -- as downloadable
+# artifacts and rendered in the job summary.
 #
-# Manual trigger only (workflow_dispatch). Each run is a long set of full
-# cycle-accurate simulations (sweep budget up to 120 min), so it is never fired
-# automatically -- launch it from the Actions tab / `gh workflow run`.
+# Structure: each benchmark sweep is its OWN job so they run in parallel and a
+# failure in one cannot block the others; a single `report` job runs after all
+# sweeps finish, downloads their CSV artifacts, and renders the combined report.
 #
-# cache_latency is deferred (panics in timing mode) and will be added later.
+#   fp32_sweep ----\
+#                   >--> report (needs both; if: always())
+#   cache_latency --/
+#
+# Manual trigger only (workflow_dispatch). Each sweep is a long set of full
+# cycle-accurate simulations, so it is never fired automatically -- launch it
+# from the Actions tab / `gh workflow run`.
+#
+# fp32_throughput is calibrated against committed ground truth. cache_latency
+# has no committed ground truth yet, so its results are reported sim-only.
+# Keeping each benchmark in its own parallel job means a failure in one (build,
+# timeout, infra) cannot block the report for the others.
 
 on:
   workflow_dispatch:
 
 jobs:
-  calibration:
-    name: fp32_throughput vs ground truth
+  fp32_sweep:
+    name: fp32_throughput sweep
     runs-on: self-hosted
-    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build, compare,
-    # and figure generation.
+    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build.
     timeout-minutes: 150
     steps:
       - name: Checkout
@@ -41,17 +50,84 @@ jobs:
       - name: Tool versions
         run: |
           go version
-          python3 --version
           sqlite3 --version
 
-      - name: Run simulator sweep
-        run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh sim_results.csv
+      - name: Run fp32_throughput sweep
+        run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
+
+      - name: Upload fp32 sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp32-sim-results
+          path: fp32_sim_results.csv
+
+  cache_latency_sweep:
+    name: cache_latency sweep
+    runs-on: self-hosted
+    # Sweep budget is 60 min (SWEEP_TIMEOUT); add headroom for build.
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          fi
+
+      - name: Tool versions
+        run: |
+          go version
+          sqlite3 --version
+
+      - name: Run cache_latency sweep
+        run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
+
+      - name: Upload cache_latency sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-latency-sim-results
+          path: cache_latency_sim_results.csv
+
+  report:
+    name: Compare and report
+    runs-on: self-hosted
+    needs: [fp32_sweep, cache_latency_sweep]
+    # Run even if a sweep job failed, so the fp32 report is still produced.
+    if: always()
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download fp32 sweep results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: fp32-sim-results
+          path: .
+
+      - name: Download cache_latency sweep results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cache-latency-sim-results
+          path: .
 
       - name: Compare against ground truth and render report
         run: |
           python3 gpu_perf_scripts/calibration/compare_to_ground_truth.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
-            --sim sim_results.csv \
+            --sim fp32_sim_results.csv \
+            --cache-sim cache_latency_sim_results.csv \
             --template gpu_perf_scripts/calibration/report_template.md \
             --out calibration_report.md
 
@@ -63,7 +139,7 @@ jobs:
         run: |
           python3 gpu_perf_scripts/calibration/plot_calibration.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
-            --sim sim_results.csv \
+            --sim fp32_sim_results.csv \
             --out figures
 
       - name: Render report in job summary
@@ -77,5 +153,6 @@ jobs:
           name: mi300a-calibration-report
           path: |
             calibration_report.md
-            sim_results.csv
+            fp32_sim_results.csv
+            cache_latency_sim_results.csv
             figures/

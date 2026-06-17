@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Compare MGPUSim (MI300A) fp32_throughput results against real-hardware ground truth.
+"""Compare MGPUSim (MI300A) microbenchmark results against real-hardware ground truth.
 
 Reads the ground-truth summary CSV and the simulator sweep CSV, derives GFLOPS
-for each simulated point, and reports the ABSOLUTE error (sim - real, in GFLOPS)
-per point plus the mean absolute error (MAE). Renders the markdown report from
-report_template.md. Stdlib only.
+for each simulated fp32_throughput point, and reports the ABSOLUTE error
+(sim - real, in GFLOPS) per point plus the mean absolute error (MAE). Renders
+the markdown report from report_template.md. Stdlib only.
 
-  --ref  ground-truth summary CSV (summarize_ground_truth.py output)
-  --sim  simulator sweep CSV (run_sim_sweep.sh output)
+  --ref        ground-truth summary CSV (summarize_ground_truth.py output)
+  --sim        fp32_throughput simulator sweep CSV (run_sim_sweep.sh output)
+  --cache-sim  cache_latency simulator sweep CSV (run_cache_latency_sweep.sh
+               output); optional. Rendered sim-only (no ground truth yet).
 
 Sim GFLOPS = num_blocks * threads_per_block * fmas_per_thread * 2 / kernel_time.
 Points are matched on (num_blocks, threads_per_block, fmas_per_thread).
 
-NOTE: cache_latency is deferred (panics in timing mode), so this only handles
-fp32_throughput today.
+cache_latency has no committed ground truth yet, so its section is sim-only; it
+renders an explanatory note when the sweep produced no successful points.
 """
 
 import argparse
@@ -38,6 +40,42 @@ def read_ref(path):
 def read_sim(path):
     with open(path, newline="") as f:
         return [r for r in csv.DictReader(f) if r["benchmark"] == "fp32_throughput"]
+
+
+def read_cache_sim(path):
+    """Rows from run_cache_latency_sweep.sh; [] if the file is missing/empty."""
+    if not path or not os.path.exists(path):
+        return []
+    with open(path, newline="") as f:
+        return [r for r in csv.DictReader(f) if r["benchmark"] == "cache_latency"]
+
+
+def classify_level(array_bytes):
+    """Match the HIP microbenchmark's cache-level buckets (by array size)."""
+    kb = array_bytes / 1024.0
+    if kb <= 16:
+        return "L1"
+    if kb <= 8192:
+        return "L2"
+    return "DRAM"
+
+
+def render_cache_rows(cache_rows):
+    """sim-only rows: array size, cache level, accesses, ns/access."""
+    if not cache_rows:
+        return ("| _no successful points — the cache_latency sweep produced no "
+                "data (check the sweep job log)_ |  |  |  |  |")
+    rows = []
+    for r in sorted(cache_rows, key=lambda r: (int(r["num_accesses"]),
+                                               int(r["array_bytes"]))):
+        ab = int(r["array_bytes"])
+        na = int(r["num_accesses"])
+        ns = float(r["ns_per_access"])
+        kib = ab / 1024.0
+        size = f"{kib:,.0f} KB" if kib < 1024 else f"{kib / 1024:,.0f} MB"
+        rows.append(f"| {size} | {classify_level(ab)} | {na} | "
+                    f"{ns:,.2f} | {float(r['kernel_time_s']) * 1e3:,.4f} |")
+    return "\n".join(rows)
 
 
 def build_points(ref, sim_rows):
@@ -94,6 +132,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="gpu_perf_scripts/calibration/mi300a_ground_truth.csv")
     ap.add_argument("--sim", default="sim_results.csv")
+    ap.add_argument("--cache-sim", default="",
+                    help="cache_latency sweep CSV (optional, sim-only)")
     ap.add_argument("--template",
                     default="gpu_perf_scripts/calibration/report_template.md")
     ap.add_argument("--out", default="calibration_report.md")
@@ -104,6 +144,7 @@ def main():
 
     points = build_points(read_ref(args.ref), read_sim(args.sim))
     agg = aggregate(points)
+    cache_rows = read_cache_sim(args.cache_sim)
 
     with open(args.template) as f:
         report = f.read()
@@ -118,8 +159,12 @@ def main():
         "FP32_MAXAE_AT": agg["max_at"],
         "FP32_N": str(agg["n"]),
         "SUMMARY_ROWS": (f"| fp32_throughput | GFLOPS | {agg['n']} | "
-                         f"{g(agg['mae'])} | {g(agg['max_ae'])} |"),
+                         f"{g(agg['mae'])} | {g(agg['max_ae'])} |\n"
+                         f"| cache_latency | ns/access | {len(cache_rows)} | "
+                         f"— | — |"),
         "FP32_ROWS": render_rows(points),
+        "CACHE_N": str(len(cache_rows)),
+        "CACHE_ROWS": render_cache_rows(cache_rows),
     }
     for k, v in repl.items():
         report = report.replace("{{" + k + "}}", v)
@@ -129,6 +174,7 @@ def main():
 
     print(f"fp32_throughput: n={agg['n']} MAE={g(agg['mae'])} GFLOPS "
           f"max|err|={g(agg['max_ae'])} GFLOPS")
+    print(f"cache_latency: n={len(cache_rows)} sim points (sim-only)")
     print(f"wrote {args.out}")
 
 

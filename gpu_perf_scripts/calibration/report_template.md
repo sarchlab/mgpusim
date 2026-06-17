@@ -44,6 +44,26 @@ Per-configuration execution-time curves (sim vs real) are in the `figures/` arti
 
 ---
 
+## cache_latency — metric: ns/access
+
+Single-thread pointer-chasing latency probe. One work-item performs
+`num_accesses` dependent loads over a randomly shuffled chain filling an array
+of `array_bytes`; the per-access latency is `kernel_time / num_accesses`.
+Sweeping `array_bytes` across the cache hierarchy exposes L1 / L2 / DRAM latency.
+
+**Sim-only for now** — there is no committed cache_latency ground truth yet, so
+only simulated latencies are shown. It runs as its own parallel CI job (kept
+separate so a failure can't block fp32 reporting); once real-hardware latencies
+land in the ground-truth CSV, an error column can be added here.
+
+- **Sim points:** {{CACHE_N}}
+
+| Array size | Level | Accesses | Sim ns/access | Sim kernel (ms) |
+|-----------:|:------|---------:|--------------:|----------------:|
+{{CACHE_ROWS}}
+
+---
+
 ## Calibration knobs
 
 If the errors above are large, tune these in
@@ -62,5 +82,4 @@ If the errors above are large, tune these in
 
 ---
 
-_cache_latency is deferred (panics in timing mode); it will be added here once fixed._
 _Template: `gpu_perf_scripts/calibration/report_template.md` · numbers filled by CI._
