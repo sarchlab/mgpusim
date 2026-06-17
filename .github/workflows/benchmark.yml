@@ -226,9 +226,10 @@ jobs:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: "stable"
+          go-version: "1.26.0"
+          cache: false
 
       - name: Install gcc (Fedora self-hosted runners)
         run: |
@@ -409,9 +410,10 @@ jobs:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: "stable"
+          go-version: "1.26.0"
+          cache: false
 
       - name: Install build dependencies
         run: |
