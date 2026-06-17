@@ -1,0 +1,12 @@
+# hipcc --save-temps intermediates
+*.o
+*.out
+*.out.resolution.txt
+*.hipfb
+*.hipi
+*.ll
+*.bc
+*.s
+*.cui
+*.fatbin
+host-*
