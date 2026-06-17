@@ -238,13 +238,17 @@ func (c defaultCoalescer) readFlatAddr(
 ) uint64 {
 	inst := wf.Inst()
 
-	// Handle SAddr mode
-	// Use inst.Addr.RegCount to determine mode (consistent with disassembler):
-	// RegCount=1 means SAddr mode (32-bit VGPR offset + scalar base)
-	// RegCount=2 means OFF mode (64-bit VGPR pair as full address)
-	hasSAddr := inst.Addr.RegCount == 1
+	// Determine SAddr mode the same way the CDNA3 emulator does
+	// (see amd/emu/cdna3/flat.go): SAddr addressing is active whenever an SAddr
+	// operand is present and is not the 0x7F "OFF" sentinel. In SAddr mode the
+	// scalar register pair holds the 64-bit base and the VGPR holds a 32-bit
+	// offset; otherwise the VGPR pair is the full 64-bit address. Keying off
+	// inst.Addr.RegCount is wrong: gfx942 emits SAddr global loads/stores whose
+	// address operand still has RegCount==2, which would be misread as a full
+	// 64-bit VGPR address and produce a bogus translation ("page not found").
+	hasSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
 	var scalarBase uint64
-	if hasSAddr && inst.SAddr != nil {
+	if hasSAddr {
 		sAddrReg := int(inst.SAddr.IntValue)
 		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
 		scalarBase = wf.ReadOperand(sAddrOperand, 0)
