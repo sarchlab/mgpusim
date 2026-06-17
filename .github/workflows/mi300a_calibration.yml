@@ -65,8 +65,8 @@ jobs:
   cache_latency_sweep:
     name: cache_latency sweep
     runs-on: self-hosted
-    # Sweep budget is 60 min (SWEEP_TIMEOUT); add headroom for build.
-    timeout-minutes: 90
+    # Sweep budget is 100 min (SWEEP_TIMEOUT); add headroom for build.
+    timeout-minutes: 110
     steps:
       - name: Checkout
         uses: actions/checkout@v2

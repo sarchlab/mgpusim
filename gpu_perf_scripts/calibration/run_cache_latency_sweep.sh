@@ -30,15 +30,22 @@ OUT="${1:-cache_latency_sim_results.csv}"
 export CGO_ENABLED=1   # timing mode records metrics via the SQLite (CGO) recorder
 
 # ---- sweep configuration (EDIT ME) ------------------------------------------
-# Array sizes (bytes) spanning the cache hierarchy. Classification (matching the
-# HIP microbenchmark): <=16 KB -> L1, <=8 MB -> L2, else DRAM.
-CL_ARRAY_BYTES=(8192 16384 65536 262144 1048576 4194304 8388608 16777216 67108864)
-# Dependent loads per run. Kept small: a single thread chasing N dependent loads
-# in cycle-accurate mode costs ~N memory round-trips of wall time.
+# Array sizes (bytes) spanning the cache hierarchy, sampled densely enough to
+# resolve the latency plateaus AND the transitions between levels (extra points
+# clustered around the L1~=32 KB and L2~=4-8 MB boundaries). Classification
+# (matching the HIP microbenchmark): <=16 KB -> L1, <=8 MB -> L2, else DRAM.
+CL_ARRAY_BYTES=(
+  4096 8192 16384 24576 32768 49152 65536 131072 262144 524288
+  1048576 2097152 3145728 4194304 6291456 8388608 12582912 16777216 33554432
+  67108864 134217728
+)
+# Dependent loads per run. A single thread chasing N dependent loads in
+# cycle-accurate mode costs ~N memory round-trips of wall time; both values are
+# run at every array size (256 = quick, 1024 = better-amortized cross-check).
 CL_NUM_ACCESSES=(256 1024)
 CL_SEED=42
-PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-600}    # 10 min per individual simulation
-SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-3600}       # 60 min for the whole cache sweep
+PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-900}    # 15 min per individual simulation
+SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-6000}       # 100 min for the whole cache sweep
 COMMON_FLAGS=(-timing -arch cdna3 -gpu mi300a -disable-rtm)
 # -----------------------------------------------------------------------------
 
