@@ -20,10 +20,9 @@ import csv
 import sqlite3
 
 # benchmark -> ground-truth metric stored in the `metrics` table.
-# cache_latency is deferred (panics in timing mode); add it here once fixed:
-#   "cache_latency": "latency_ns",
 SPECS = {
     "fp32_throughput": "GFLOPS",
+    "cache_latency": "latency_ns",
 }
 
 COLUMNS = [

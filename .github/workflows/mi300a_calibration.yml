@@ -1,14 +1,15 @@
 name: MI300A Calibration
 
-# Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks, compares
-# the simulated results against the real-hardware ground-truth summary CSV
-# (gpu_perf_scripts/calibration/mi300a_ground_truth.csv), and publishes a
-# markdown calibration report plus per-configuration figures -- as downloadable
-# artifacts and rendered in the job summary.
+# Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks at the same
+# configurations measured on real hardware, and plots simulated vs real KERNEL
+# EXECUTION TIME. The report is figures only (one PNG per non-scaling-parameter
+# combination: x = scaling factor, y = kernel time, two lines sim + real) plus
+# the average error; the per-figure and overall average error land in the job
+# summary. Ground truth: gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
 #
 # Structure: each benchmark sweep is its OWN job so they run in parallel and a
 # failure in one cannot block the others; a single `report` job runs after all
-# sweeps finish, downloads their CSV artifacts, and renders the combined report.
+# sweeps finish, downloads their CSV artifacts, and renders the figures.
 #
 #   fp32_sweep ----\
 #                   >--> report (needs both; if: always())
@@ -18,10 +19,11 @@ name: MI300A Calibration
 # cycle-accurate simulations, so it is never fired automatically -- launch it
 # from the Actions tab / `gh workflow run`.
 #
-# fp32_throughput is calibrated against committed ground truth. cache_latency
-# has no committed ground truth yet, so its results are reported sim-only.
-# Keeping each benchmark in its own parallel job means a failure in one (build,
-# timeout, infra) cannot block the report for the others.
+# Both benchmarks are compared against committed ground truth. cache_latency
+# runs the real benchmark's 2,000,000 dependent loads, so its large
+# DRAM-footprint arrays are expensive and may hit the per-run timeout; keeping
+# each benchmark in its own parallel job means such a skip cannot block the
+# report for the other.
 
 on:
   workflow_dispatch:
@@ -65,8 +67,9 @@ jobs:
   cache_latency_sweep:
     name: cache_latency sweep
     runs-on: self-hosted
-    # Sweep budget is 100 min (SWEEP_TIMEOUT); add headroom for build.
-    timeout-minutes: 110
+    # 90 min to launch new configs (SWEEP_TIMEOUT) + up to 20 min for the last
+    # launched run (PER_RUN_TIMEOUT) + build headroom.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -98,10 +101,11 @@ jobs:
           path: cache_latency_sim_results.csv
 
   report:
-    name: Compare and report
+    name: Plot kernel time vs ground truth
     runs-on: self-hosted
     needs: [fp32_sweep, cache_latency_sweep]
-    # Run even if a sweep job failed, so the fp32 report is still produced.
+    # Run even if a sweep job failed, so figures are still produced from whatever
+    # results are available.
     if: always()
     timeout-minutes: 30
     steps:
@@ -122,37 +126,24 @@ jobs:
           name: cache-latency-sim-results
           path: .
 
-      - name: Compare against ground truth and render report
-        run: |
-          python3 gpu_perf_scripts/calibration/compare_to_ground_truth.py \
-            --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
-            --sim fp32_sim_results.csv \
-            --cache-sim cache_latency_sim_results.csv \
-            --template gpu_perf_scripts/calibration/report_template.md \
-            --out calibration_report.md
-
       - name: Install plotting dependencies
         run: python3 -m pip install --user --quiet matplotlib seaborn
 
-      - name: Generate per-configuration figures
-        continue-on-error: true
+      - name: Plot kernel-time figures (sim vs real) and average error
         run: |
           python3 gpu_perf_scripts/calibration/plot_calibration.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
-            --sim fp32_sim_results.csv \
-            --out figures
+            --fp32-sim fp32_sim_results.csv \
+            --cache-sim cache_latency_sim_results.csv \
+            --out figures \
+            --summary "$GITHUB_STEP_SUMMARY"
 
-      - name: Render report in job summary
-        if: always()
-        run: cat calibration_report.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload report, results, and figures
+      - name: Upload figures and results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mi300a-calibration-report
           path: |
-            calibration_report.md
+            figures/
             fp32_sim_results.csv
             cache_latency_sim_results.csv
-            figures/
