@@ -17,6 +17,7 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
@@ -480,6 +481,14 @@ func (b *Builder) buildSAs() {
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
 		// Use the CDNA3 ALU for MI300A timing simulation.
 		WithALUBuilder(func() emu.ALU { return cdna3.NewALU(nil) }).
+		// Decode with CDNA3 semantics so FLAT/GLOBAL SADDR addressing is
+		// resolved correctly (the default disassembler decodes as GCN3, which
+		// mis-handles SADDR=0 -> wrong address / "page not found").
+		WithDecoderBuilder(func() emu.Decoder {
+			d := insts.NewDisassembler()
+			d.IsCDNA3 = true
+			return d
+		}).
 		WithWfPoolSize(8).
 		WithVGPRCount([]int{32768, 32768, 32768, 32768}).
 		WithNumSinglePrecisionUnits(16).

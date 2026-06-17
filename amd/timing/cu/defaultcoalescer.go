@@ -238,17 +238,17 @@ func (c defaultCoalescer) readFlatAddr(
 ) uint64 {
 	inst := wf.Inst()
 
-	// Determine SAddr mode the same way the CDNA3 emulator does
-	// (see amd/emu/cdna3/flat.go): SAddr addressing is active whenever an SAddr
-	// operand is present and is not the 0x7F "OFF" sentinel. In SAddr mode the
-	// scalar register pair holds the 64-bit base and the VGPR holds a 32-bit
-	// offset; otherwise the VGPR pair is the full 64-bit address. Keying off
-	// inst.Addr.RegCount is wrong: gfx942 emits SAddr global loads/stores whose
-	// address operand still has RegCount==2, which would be misread as a full
-	// 64-bit VGPR address and produce a bogus translation ("page not found").
-	hasSAddr := inst.SAddr != nil && inst.SAddr.IntValue != 0x7F
+	// Handle SAddr mode.
+	// Use inst.Addr.RegCount to determine the addressing mode. The disassembler
+	// already resolves the architecture-dependent SADDR/OFF rule at decode time
+	// (see amd/insts/disassembler.go decodeFLAT, keyed on IsCDNA3), so:
+	//   RegCount=1 -> SAddr mode (scalar base + 32-bit VGPR offset)
+	//   RegCount=2 -> OFF mode   (64-bit VGPR pair as the full address)
+	// This requires the timing CU to decode with the correct arch; the MI300A
+	// timing config wires a CDNA3 disassembler via WithDecoderBuilder.
+	hasSAddr := inst.Addr.RegCount == 1
 	var scalarBase uint64
-	if hasSAddr {
+	if hasSAddr && inst.SAddr != nil {
 		sAddrReg := int(inst.SAddr.IntValue)
 		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
 		scalarBase = wf.ReadOperand(sAddrOperand, 0)

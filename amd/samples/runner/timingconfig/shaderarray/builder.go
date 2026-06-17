@@ -81,6 +81,7 @@ type Builder struct {
 	l1AddressMapper           mem.AddressToPortMapper
 	l1TLBAddressMapper        mem.AddressToPortMapper
 	aluBuilder                func() emu.ALU
+	decoderBuilder            func() emu.Decoder
 
 	sa *ShaderArray
 
@@ -168,6 +169,16 @@ func (b Builder) WithVGPRCount(counts []int) Builder {
 // CDNA3). It replaces the v4 WithALUFactory option.
 func (b Builder) WithALUBuilder(f func() emu.ALU) Builder {
 	b.aluBuilder = f
+	return b
+}
+
+// WithDecoderBuilder sets the function used to create the instruction decoder
+// of each compute unit. This allows using an architecture-specific decoder
+// (e.g. one with IsCDNA3 set) instead of the default GCN3 disassembler, so that
+// architecture-dependent decoding such as FLAT/GLOBAL SADDR addressing is
+// resolved correctly in timing mode.
+func (b Builder) WithDecoderBuilder(f func() emu.Decoder) Builder {
+	b.decoderBuilder = f
 	return b
 }
 
@@ -443,6 +454,9 @@ func (b *Builder) buildCUs() {
 		}
 		if b.aluBuilder != nil {
 			resources.ALU = b.aluBuilder()
+		}
+		if b.decoderBuilder != nil {
+			resources.Decoder = b.decoderBuilder()
 		}
 
 		computeUnit := cu.MakeBuilder().
