@@ -50,10 +50,10 @@ def build_points(ref, sim_rows):
         sim = nb * tpb * fmas * 2.0 / kt / 1e9  # GFLOPS
         real = ref.get((nb, tpb, fmas))
         points.append({
-            "num_blocks": nb, "fmas": fmas, "sim": sim, "real": real,
+            "num_blocks": nb, "tpb": tpb, "fmas": fmas, "sim": sim, "real": real,
             "abs_err": None if real is None else sim - real,
         })
-    points.sort(key=lambda p: (p["num_blocks"], p["fmas"]))
+    points.sort(key=lambda p: (p["num_blocks"], p["tpb"], p["fmas"]))
     return points
 
 
@@ -68,7 +68,8 @@ def aggregate(points):
         "n": n,
         "mae": sum(abs_errs) / n,
         "max_ae": max(abs_errs),
-        "max_at": f"num_blocks={worst['num_blocks']}, fmas={worst['fmas']}",
+        "max_at": (f"num_blocks={worst['num_blocks']}, "
+                   f"tpb={worst['tpb']}, fmas={worst['fmas']}"),
     }
 
 
@@ -84,9 +85,9 @@ def render_rows(points):
         else:
             err = f"{p['abs_err']:+,.2f}"
             note = "sim high" if p["abs_err"] > 0 else "sim low"
-        out.append(f"| {p['num_blocks']} | {p['fmas']} | "
+        out.append(f"| {p['num_blocks']} | {p['tpb']} | {p['fmas']} | "
                    f"{g(p['real'])} | {g(p['sim'])} | {err} | {note} |")
-    return "\n".join(out) if out else "| _no fp32 points_ |  |  |  |  |  |"
+    return "\n".join(out) if out else "| _no fp32 points_ |  |  |  |  |  |  |"
 
 
 def main():

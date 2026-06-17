@@ -1,35 +1,28 @@
 name: MI300A Calibration
 
 # Runs the MI300A (CDNA3) timing model on the fp32_throughput microbenchmark,
-# compares the simulated GFLOPS against the real-hardware ground-truth summary
-# CSV (gpu_perf_scripts/calibration/mi300a_ground_truth.csv), and publishes a
-# markdown calibration report -- both as a downloadable artifact and rendered in
-# the job summary.
+# sweeping num_blocks x threads_per_block x fmas_per_thread, compares the
+# simulated GFLOPS against the real-hardware ground-truth summary CSV
+# (gpu_perf_scripts/calibration/mi300a_ground_truth.csv), and publishes a
+# markdown calibration report plus per-configuration execution-time figures
+# (sim vs real) -- as downloadable artifacts and rendered in the job summary.
 #
-# Triggered manually (workflow_dispatch, once this file reaches the default
-# branch) and on pushes to the mi300a-calibration branch that touch the
-# calibration harness or the fp32 benchmark. Each run is a set of full
-# cycle-accurate simulations, so the path filter keeps it from firing on
-# unrelated pushes.
+# Manual trigger only (workflow_dispatch). Each run is a long set of full
+# cycle-accurate simulations (sweep budget up to 120 min), so it is never fired
+# automatically -- launch it from the Actions tab / `gh workflow run`.
 #
 # cache_latency is deferred (panics in timing mode) and will be added later.
 
 on:
   workflow_dispatch:
-  push:
-    branches: [mi300a-calibration]
-    paths:
-      - '.github/workflows/mi300a_calibration.yml'
-      - 'gpu_perf_scripts/calibration/**'
-      - 'amd/benchmarks/microbench/fp32throughput/**'
-      - 'amd/samples/fp32_throughput/**'
-      - 'amd/samples/runner/timingconfig/mi300a/**'
 
 jobs:
   calibration:
     name: fp32_throughput vs ground truth
     runs-on: self-hosted
-    timeout-minutes: 60
+    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build, compare,
+    # and figure generation.
+    timeout-minutes: 150
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -62,11 +55,22 @@ jobs:
             --template gpu_perf_scripts/calibration/report_template.md \
             --out calibration_report.md
 
+      - name: Install plotting dependencies
+        run: python3 -m pip install --user --quiet matplotlib seaborn
+
+      - name: Generate per-configuration figures
+        continue-on-error: true
+        run: |
+          python3 gpu_perf_scripts/calibration/plot_calibration.py \
+            --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
+            --sim sim_results.csv \
+            --out figures
+
       - name: Render report in job summary
         if: always()
         run: cat calibration_report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload report and raw results
+      - name: Upload report, results, and figures
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -74,3 +78,4 @@ jobs:
           path: |
             calibration_report.md
             sim_results.csv
+            figures/

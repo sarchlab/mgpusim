@@ -35,8 +35,11 @@ Each point is matched against ground-truth runs with the **same** `(num_blocks, 
 
 - **MAE:** {{FP32_MAE}} GFLOPS · **Max |err|:** {{FP32_MAXAE}} GFLOPS ({{FP32_MAXAE_AT}}) · **Points:** {{FP32_N}}
 
-| num_blocks | fmas/thread | Real GFLOPS | Sim GFLOPS | Abs err (GFLOPS) | Note |
-|-----------:|------------:|------------:|-----------:|-----------------:|:-----|
+Per-configuration execution-time curves (sim vs real) are in the `figures/` artifact
+(one PNG per `num_blocks` × `threads_per_block`, x = fmas, y = execution time).
+
+| num_blocks | threads/block | fmas/thread | Real GFLOPS | Sim GFLOPS | Abs err (GFLOPS) | Note |
+|-----------:|--------------:|------------:|------------:|-----------:|-----------------:|:-----|
 {{FP32_ROWS}}
 
 ---
