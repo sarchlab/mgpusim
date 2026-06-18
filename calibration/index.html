@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MI300A Calibration Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+<style>
+  :root { --fg:#1b1f23; --muted:#57606a; --line:#d0d7de; --bg:#ffffff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+         color:var(--fg); background:#f6f8fa; }
+  header { background:var(--bg); border-bottom:1px solid var(--line); padding:16px 24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; }
+  .controls { margin-top:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  select { font-size:14px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .meta { color:var(--muted); font-size:13px; }
+  .meta b { color:var(--fg); }
+  main { padding:16px 24px 48px; }
+  h2 { font-size:16px; margin:24px 0 8px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:12px; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; }
+  .plot { width:100%; height:340px; }
+  .note { color:var(--muted); padding:24px 0; }
+  a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MI300A Calibration Dashboard</h1>
+  <div class="sub">Simulated vs. real-hardware kernel execution time (CDNA3 timing model). Log-log axes.</div>
+  <div class="controls">
+    <label>Run: <select id="runPicker"></select></label>
+    <span class="meta" id="runMeta"></span>
+  </div>
+</header>
+<main>
+  <div id="status" class="note">Loading run index&hellip;</div>
+  <div id="figures"></div>
+</main>
+
+<script>
+const SIM_COLOR = "#1f77b4", REAL_COLOR = "#d62728";
+
+async function getJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  return r.json();
+}
+
+function fmtMae(v) { return (v === null || v === undefined) ? "n/a" : `${v.toFixed(3)} ms`; }
+
+function optionLabel(run) {
+  const when = run.generated_at ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
+  return `${run.run_id} — ${when} — avg|err| ${fmtMae(run.overall_mae)}`;
+}
+
+function trace(points, name, color, symbol) {
+  return {
+    x: points.map(p => p[0]), y: points.map(p => p[1]),
+    mode: "lines+markers", name, marker: { symbol, size: 7, color },
+    line: { color, width: 2 },
+  };
+}
+
+function renderRun(d) {
+  const meta = document.getElementById("runMeta");
+  const link = d.run_url ? `<a href="${d.run_url}" target="_blank" rel="noopener">run ${d.run_id}</a>` : `run ${d.run_id}`;
+  meta.innerHTML = `${link} &middot; overall avg|err| <b>${fmtMae(d.overall_mae)}</b> &middot; ${d.metric}`;
+
+  const root = document.getElementById("figures");
+  root.innerHTML = "";
+  for (const bench of d.benchmarks) {
+    if (!bench.figures.length) continue;
+    const h = document.createElement("h2");
+    h.textContent = bench.name;
+    root.appendChild(h);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    root.appendChild(grid);
+
+    for (const fig of bench.figures) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const div = document.createElement("div");
+      div.className = "plot";
+      card.appendChild(div);
+      grid.appendChild(card);
+
+      const err = (fig.mae === null || fig.mae === undefined)
+        ? "avg|err| n/a (no matched points)"
+        : `avg|err| = ${fig.mae.toFixed(3)} ms (n=${fig.n})`;
+      Plotly.newPlot(div, [
+        trace(fig.sim, "simulation", SIM_COLOR, "circle"),
+        trace(fig.real, "real hardware", REAL_COLOR, "square"),
+      ], {
+        title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
+        xaxis: { type: "log", title: { text: bench.xlabel, font: { size: 11 } }, automargin: true },
+        yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true },
+        legend: { orientation: "h", y: -0.25 },
+        margin: { l: 56, r: 12, t: 48, b: 40 },
+      }, { displayModeBar: false, responsive: true });
+    }
+  }
+  if (!root.children.length) {
+    root.innerHTML = '<div class="note">This run produced no figures.</div>';
+  }
+}
+
+async function main() {
+  const status = document.getElementById("status");
+  const picker = document.getElementById("runPicker");
+  let index;
+  try {
+    index = await getJSON("index.json");
+  } catch (e) {
+    status.textContent = `Could not load index.json (${e.message}).`;
+    return;
+  }
+  if (!index.runs || !index.runs.length) {
+    status.textContent = "No published runs yet.";
+    return;
+  }
+  status.style.display = "none";
+
+  index.runs.forEach((run, i) => {
+    const o = document.createElement("option");
+    o.value = run.data; o.textContent = optionLabel(run); o.dataset.idx = i;
+    picker.appendChild(o);
+  });
+
+  async function load(dataPath) {
+    document.getElementById("figures").innerHTML = '<div class="note">Loading run&hellip;</div>';
+    try {
+      renderRun(await getJSON(dataPath));
+    } catch (e) {
+      document.getElementById("figures").innerHTML = `<div class="note">Could not load ${dataPath} (${e.message}).</div>`;
+    }
+  }
+  picker.addEventListener("change", () => load(picker.value));
+  load(picker.value);   // newest run (first option)
+}
+
+main();
+</script>
+</body>
+</html>
