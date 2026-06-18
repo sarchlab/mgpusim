@@ -1,0 +1,4 @@
+# compiled OpenCL harness binaries
+run_matrixmultiplication
+run_matrixtranspose
+*.sqlite3

@@ -2,9 +2,9 @@
 # Build and run the OpenCL matrix-multiplication harness on the local GPU
 # (intended for the H100 server). Run this ON the H100 server.
 #
-# Usage: ./build_and_run.sh <X> <Y> <Z> [iterations]
+# Usage: ./build_and_run_matrixmultiplication.sh <X> <Y> <Z> [iterations]
 # Example (matches mgpusim's default -x 64 -y 64 -z 64):
-#   ./build_and_run.sh 64 64 64 20
+#   ./build_and_run_matrixmultiplication.sh 64 64 64 20
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
