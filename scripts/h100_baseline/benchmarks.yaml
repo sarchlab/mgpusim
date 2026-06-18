@@ -1,0 +1,14 @@
+# Registry of benchmarks to run through the H100-vs-mgpusim pipeline.
+# Add an entry here, plus a matching .cl-based host harness under
+# h100_harnesses/<name>.c, to extend step (4) to a new benchmark.
+#
+# sample:    directory name under amd/samples/
+# sim_args:  extra flags passed to the mgpusim sample binary
+# h100_args: <X> <Y> <Z> ... passed positionally to the H100 harness binary
+#            (must match sim_args' problem size so the two runs are comparable)
+benchmarks:
+  - name: matrixmultiplication
+    sample: matrixmultiplication
+    sim_args: ["-x", "64", "-y", "64", "-z", "64"]
+    h100_harness: run_matrixmultiplication
+    h100_args: ["64", "64", "64", "20"]
