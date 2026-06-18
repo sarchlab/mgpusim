@@ -231,6 +231,7 @@ function renderLive(runId) {
 let archivedRuns = [];          // from index.json (permanent history)
 const liveRuns = new Map();     // run_id -> firestore run doc (live/recent)
 let current = null;             // selected run_id or null (landing)
+let pendingDeepLink = null;     // ?run=<id> awaiting its run to appear (Firestore loads async)
 
 function tsIso(t) { return (t && t.toDate) ? t.toDate().toISOString() : (t || ""); }
 
@@ -281,6 +282,9 @@ function rebuildPicker() {
     o.textContent = `${r.run_id} — ${when} — ${m}`;
     picker.appendChild(o);
   }
+  if (pendingDeepLink && !current && runs.some((x) => x.run_id === String(pendingDeepLink))) {
+    const id = pendingDeepLink; pendingDeepLink = null; selectRun(id); return;
+  }
   picker.value = current || sel || "";
   if (!current) showLanding(runs);
 }
@@ -316,6 +320,7 @@ async function selectRun(runId) {
   const r = runs.find((x) => x.run_id === String(runId));
   if (!r) { showLanding(runs); return; }
   current = r.run_id;
+  pendingDeepLink = null;
   $("runPicker").value = r.run_id;
   $("status").style.display = "none";
   setUrlRun(r.run_id);
@@ -332,6 +337,7 @@ async function selectRun(runId) {
 
 async function main() {
   $("runPicker").addEventListener("change", () => {
+    pendingDeepLink = null;   // explicit user choice overrides any pending deep link
     const v = $("runPicker").value;
     if (v === "") showLanding(mergedRuns()); else selectRun(v);
   });
@@ -348,8 +354,10 @@ async function main() {
     // (points subscription handles the figures themselves).
   }, () => {});
 
-  // Initial render + deep link.
+  // Initial render + deep link. A live run may not be in Firestore yet (loads
+  // async), so remember the request and let the runs snapshot resolve it.
   const wanted = new URLSearchParams(location.search).get("run");
+  pendingDeepLink = wanted || null;
   if (wanted) selectRun(wanted); else showLanding(mergedRuns());
 }
 
