@@ -32,8 +32,8 @@ export CGO_ENABLED=1   # timing mode records metrics via the SQLite (CGO) record
 # The grid is EVERY fp32_throughput config in the ground-truth CSV (one sim per
 # committed data point) -- see build_combos below. Only the cost knobs are tunable;
 # raise these to cover the most expensive corners (they are run last, cheapest first).
-PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-600}    # 10 min per individual simulation
-SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-7200}       # 120 min for the whole fp32 sweep
+PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-1800}   # 30 min per individual simulation
+SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-86400}      # 24 h for the whole fp32 sweep
 COMMON_FLAGS=(-timing -arch cdna3 -gpu mi300a -disable-rtm)
 # -----------------------------------------------------------------------------
 

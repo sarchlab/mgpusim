@@ -32,8 +32,9 @@ jobs:
   fp32_sweep:
     name: fp32_throughput sweep
     runs-on: self-hosted
-    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build.
-    timeout-minutes: 150
+    # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
+    # run (PER_RUN_TIMEOUT) + build/setup headroom. Self-hosted: no 6 h cap.
+    timeout-minutes: 1500
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -67,9 +68,9 @@ jobs:
   cache_latency_sweep:
     name: cache_latency sweep
     runs-on: self-hosted
-    # 90 min to launch new configs (SWEEP_TIMEOUT) + up to 20 min for the last
-    # launched run (PER_RUN_TIMEOUT) + build headroom.
-    timeout-minutes: 120
+    # 24 h to launch new configs (SWEEP_TIMEOUT) + up to 30 min for the last
+    # launched run (PER_RUN_TIMEOUT) + build headroom. Self-hosted: no 6 h cap.
+    timeout-minutes: 1500
     steps:
       - name: Checkout
         uses: actions/checkout@v2

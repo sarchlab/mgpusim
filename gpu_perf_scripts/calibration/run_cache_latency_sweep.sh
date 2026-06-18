@@ -46,8 +46,8 @@ CL_ARRAY_BYTES=(
 # smallest-first so the cache-resident points always complete.
 CL_NUM_ACCESSES=(2000000)
 CL_SEED=42
-PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-1200}   # 20 min per individual simulation
-SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-5400}       # 90 min budget to launch new configs
+PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-1800}   # 30 min per individual simulation
+SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-86400}      # 24 h budget to launch new configs
 COMMON_FLAGS=(-timing -arch cdna3 -gpu mi300a -disable-rtm)
 # -----------------------------------------------------------------------------
 
