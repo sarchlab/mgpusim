@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 #
-# Build the MI300A sample runner for fp32_throughput, sweep a grid of
-# configurations under the CDNA3 / MI300A timing config, and collect each run's
-# kernel_time into a CSV consumed by compare_to_ground_truth.py / plot_calibration.py.
+# Build the MI300A sample runner for fp32_throughput, run it under the CDNA3 /
+# MI300A timing config at EVERY fp32_throughput configuration measured on real
+# hardware (read straight from the ground-truth CSV -- no hand-picked subset), and
+# collect each run's kernel_time into a CSV consumed by plot_calibration.py.
 #
 # Usage:  run_sim_sweep.sh [output.csv]
 #
-# The fp32 kernel takes the work-group size as an explicit argument, so the sweep
-# varies all three ground-truth dimensions: num_blocks, threads_per_block, and
-# fmas_per_thread (the scaling factor).
+# The fp32 kernel takes the work-group size as an explicit argument, so each
+# committed (num_blocks, threads_per_block, fmas_per_thread) row in the ground
+# truth becomes exactly one simulated point.
 #
 # COST: every run is a full cycle-accurate simulation whose wall time scales with
 # the total FMA work (num_blocks * threads_per_block * fmas_per_thread); the most
@@ -27,10 +28,10 @@ set -euo pipefail
 OUT="${1:-sim_results.csv}"
 export CGO_ENABLED=1   # timing mode records metrics via the SQLite (CGO) recorder
 
-# ---- sweep configuration (EDIT ME) ------------------------------------------
-FP32_NUM_BLOCKS=(1 32 1024)
-FP32_THREADS_PER_BLOCK=(1 32 64 256 1024)
-FP32_FMAS=(256 1024 4096 16384 65536 262144 1048576)
+# ---- sweep configuration -----------------------------------------------------
+# The grid is EVERY fp32_throughput config in the ground-truth CSV (one sim per
+# committed data point) -- see build_combos below. Only the cost knobs are tunable;
+# raise these to cover the most expensive corners (they are run last, cheapest first).
 PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-600}    # 10 min per individual simulation
 SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-7200}       # 120 min for the whole fp32 sweep
 COMMON_FLAGS=(-timing -arch cdna3 -gpu mi300a -disable-rtm)
@@ -82,20 +83,17 @@ run_and_extract() {  # $1=binary  $2=tag  ...rest=extra flags
   else echo "fail"; fi
 }
 
-# Order configs by real-hardware execution time (shortest first). Join the
-# cartesian product of the sweep arrays against the ground-truth CSV (awk reads
-# the CSV in BEGIN, then annotates each combo with its real kernel_ms_mean), then
-# numeric-sort ascending. Configs with no ground-truth entry get +inf -> run last.
+# Order configs by real-hardware execution time (shortest first) so the budget
+# completes the cheap-to-simulate configs first. build_combos already emits the
+# CSV's fp32 configs; awk re-reads the CSV to annotate each with its real
+# kernel_ms_mean (col 9), then numeric-sort ascending.
 REF_CSV="$SCRIPT_DIR/mi300a_ground_truth.csv"
-[[ -f "$REF_CSV" ]] || echo "NOTE: ground-truth CSV not found ($REF_CSV); sweep will be unordered." >&2
+[[ -f "$REF_CSV" ]] || { echo "ERROR: ground-truth CSV not found ($REF_CSV); nothing to sweep." >&2; exit 1; }
 
 build_combos() {
-  local nb tpb fmas
-  for nb in "${FP32_NUM_BLOCKS[@]}"; do
-    for tpb in "${FP32_THREADS_PER_BLOCK[@]}"; do
-      for fmas in "${FP32_FMAS[@]}"; do echo "$nb,$tpb,$fmas"; done
-    done
-  done
+  # One "nb,tpb,fmas" line per fp32_throughput config in the ground-truth CSV:
+  # num_blocks (col 4), threads_per_block (col 5), fmas_per_thread (scaling, col 3).
+  awk -F, '$1=="fp32_throughput" && $4!="" && $5!="" {print $4","$5","$3}' "$REF_CSV" | sort -u
 }
 
 # Lines: "<real_ms> <nb> <tpb> <fmas>", ascending by real_ms.

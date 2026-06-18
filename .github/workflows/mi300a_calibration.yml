@@ -108,6 +108,9 @@ jobs:
     # results are available.
     if: always()
     timeout-minutes: 30
+    # contents:write lets the publish step push the dashboard data to gh-pages.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -136,6 +139,11 @@ jobs:
             --fp32-sim fp32_sim_results.csv \
             --cache-sim cache_latency_sim_results.csv \
             --out figures \
+            --report report.md \
+            --json data.json \
+            --run-id "${{ github.run_id }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Upload figures and results
@@ -143,7 +151,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mi300a-calibration-report
+          # report.md embeds the figures via relative paths, so it renders with
+          # plots when the artifact is downloaded (figures/ ships alongside it).
           path: |
+            report.md
+            data.json
             figures/
             fp32_sim_results.csv
             cache_latency_sim_results.csv
+
+      # Publish this run's data to the gh-pages dashboard (accumulates history).
+      # Served at https://<owner>.github.io/<repo>/calibration/ once Pages is
+      # enabled (Settings -> Pages -> Deploy from branch -> gh-pages). Best-effort:
+      # a publish failure must not fail the report job.
+      - name: Publish to gh-pages dashboard
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gpu_perf_scripts/calibration/publish_gh_pages.sh \
+            --data data.json --run-id "${{ github.run_id }}"
