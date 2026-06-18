@@ -4,7 +4,8 @@
   "run_url": "",
   "generated_at": "2026-06-17T19:51:23Z",
   "metric": "kernel execution time (ms)",
-  "overall_mae": 6.555529291666667,
+  "overall_mape": 0.10896113409879128,
+  "overall_smape": 0.17929201159356098,
   "benchmarks": [
     {
       "name": "fp32_throughput",
@@ -13,7 +14,8 @@
         {
           "label": "num_blocks=1, threads_per_block=1",
           "slug": "nb1_tpb1",
-          "mae": 0.05341149999999999,
+          "mape": 0.09157926013264941,
+          "smape": 0.10431493989190531,
           "n": 4,
           "offset": 0.458706,
           "anchor_x": 256,
@@ -97,7 +99,8 @@
         {
           "label": "num_blocks=1, threads_per_block=32",
           "slug": "nb1_tpb32",
-          "mae": 0.03375975000000006,
+          "mape": 0.05384056742548003,
+          "smape": 0.05431772044171654,
           "n": 4,
           "offset": 0.5494770000000001,
           "anchor_x": 256,
@@ -181,7 +184,8 @@
         {
           "label": "num_blocks=1, threads_per_block=64",
           "slug": "nb1_tpb64",
-          "mae": 0.09734799999999996,
+          "mape": 0.09085679376473124,
+          "smape": 0.10148924076355162,
           "n": 5,
           "offset": 0.501029,
           "anchor_x": 256,
@@ -269,7 +273,8 @@
         {
           "label": "num_blocks=1, threads_per_block=256",
           "slug": "nb1_tpb256",
-          "mae": 0.05855875000000002,
+          "mape": 0.08237119717685663,
+          "smape": 0.0961661955477809,
           "n": 4,
           "offset": 0.510726,
           "anchor_x": 256,
@@ -353,7 +358,8 @@
         {
           "label": "num_blocks=1, threads_per_block=1024",
           "slug": "nb1_tpb1024",
-          "mae": 0.06339575,
+          "mape": 0.11956629784459732,
+          "smape": 0.11964262765311667,
           "n": 4,
           "offset": 0.5700230000000001,
           "anchor_x": 256,
@@ -437,7 +443,8 @@
         {
           "label": "num_blocks=32, threads_per_block=1",
           "slug": "nb32_tpb1",
-          "mae": 0.032639000000000015,
+          "mape": 0.04228154583253627,
+          "smape": 0.043740889967555915,
           "n": 5,
           "offset": 0.49215400000000004,
           "anchor_x": 256,
@@ -525,7 +532,8 @@
         {
           "label": "num_blocks=32, threads_per_block=32",
           "slug": "nb32_tpb32",
-          "mae": 0.027036000000000004,
+          "mape": 0.04029912181056006,
+          "smape": 0.04303857874290136,
           "n": 4,
           "offset": 0.49712300000000004,
           "anchor_x": 256,
@@ -609,7 +617,8 @@
         {
           "label": "num_blocks=32, threads_per_block=64",
           "slug": "nb32_tpb64",
-          "mae": 0.07745774999999998,
+          "mape": 0.10731691843077047,
+          "smape": 0.15178725752364025,
           "n": 4,
           "offset": 0.47705000000000003,
           "anchor_x": 256,
@@ -693,7 +702,8 @@
         {
           "label": "num_blocks=32, threads_per_block=256",
           "slug": "nb32_tpb256",
-          "mae": 0.019882750000000005,
+          "mape": 0.03034179844316573,
+          "smape": 0.031242413888497904,
           "n": 4,
           "offset": 0.504513,
           "anchor_x": 256,
@@ -777,7 +787,8 @@
         {
           "label": "num_blocks=32, threads_per_block=1024",
           "slug": "nb32_tpb1024",
-          "mae": 0.07699249999999998,
+          "mape": 0.11023595736090097,
+          "smape": 0.11023595736090097,
           "n": 4,
           "offset": 0.507394,
           "anchor_x": 256,
@@ -861,7 +872,8 @@
         {
           "label": "num_blocks=1024, threads_per_block=1",
           "slug": "nb1024_tpb1",
-          "mae": 0.19351774999999996,
+          "mape": 0.1474719628018375,
+          "smape": 0.24234507369795405,
           "n": 4,
           "offset": 0.510332,
           "anchor_x": 256,
@@ -945,7 +957,8 @@
         {
           "label": "num_blocks=1024, threads_per_block=32",
           "slug": "nb1024_tpb32",
-          "mae": 0.28725675,
+          "mape": 0.19239703003432607,
+          "smape": 0.3645131654876049,
           "n": 4,
           "offset": 0.504043,
           "anchor_x": 256,
@@ -1029,7 +1042,8 @@
         {
           "label": "num_blocks=1024, threads_per_block=64",
           "slug": "nb1024_tpb64",
-          "mae": 0.042222000000000016,
+          "mape": 0.07097043046474996,
+          "smape": 0.07805403071417723,
           "n": 3,
           "offset": 0.48663,
           "anchor_x": 256,
@@ -1109,7 +1123,8 @@
         {
           "label": "num_blocks=1024, threads_per_block=256",
           "slug": "nb1024_tpb256",
-          "mae": 0.0005654999999999966,
+          "mape": 0.0010994268233511814,
+          "smape": 0.001101388715095675,
           "n": 2,
           "offset": 0.482001,
           "anchor_x": 256,
@@ -1185,7 +1200,8 @@
         {
           "label": "num_blocks=1024, threads_per_block=1024",
           "slug": "nb1024_tpb1024",
-          "mae": 0.04138299999999995,
+          "mape": 0.08115252548824266,
+          "smape": 0.08115252548824266,
           "n": 1,
           "offset": 0.47404399999999997,
           "anchor_x": 256,
@@ -1263,7 +1279,8 @@
         {
           "label": "num_accesses=2000000",
           "slug": "na2000000",
-          "mae": 103.78304191666666,
+          "mape": 0.48159731174590464,
+          "smape": 1.2455301796123337,
           "n": 12,
           "offset": 5.743304000000002,
           "anchor_x": 4096,

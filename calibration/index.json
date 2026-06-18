@@ -5,7 +5,8 @@
       "run_id": "27708217340",
       "run_url": "",
       "generated_at": "2026-06-17T19:51:23Z",
-      "overall_mae": 6.555529291666667,
+      "overall_mape": 0.10896113409879128,
+      "overall_smape": 0.17929201159356098,
       "n_figures": 16,
       "data": "runs/27708217340/data.json"
     }

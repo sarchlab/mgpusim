@@ -55,12 +55,12 @@ async function getJSON(url) {
   return r.json();
 }
 
-function fmtMae(v) { return (v === null || v === undefined) ? "n/a" : `${v.toFixed(3)} ms`; }
+function fmtPct(v) { return (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`; }
 function fmtOffset(v) { return (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`; }
 
 function optionLabel(run) {
   const when = run.generated_at ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
-  return `${run.run_id} — ${when} — avg|err| ${fmtMae(run.overall_mae)}`;
+  return `${run.run_id} — ${when} — MAPE ${fmtPct(run.overall_mape)} / sMAPE ${fmtPct(run.overall_smape)}`;
 }
 
 function trace(points, name, color, symbol) {
@@ -74,7 +74,8 @@ function trace(points, name, color, symbol) {
 function renderRun(d) {
   const meta = document.getElementById("runMeta");
   const link = d.run_url ? `<a href="${d.run_url}" target="_blank" rel="noopener">run ${d.run_id}</a>` : `run ${d.run_id}`;
-  meta.innerHTML = `${link} &middot; overall avg|err| <b>${fmtMae(d.overall_mae)}</b> &middot; ${d.metric}`;
+  meta.innerHTML = `${link} &middot; overall <b>MAPE ${fmtPct(d.overall_mape)}</b> / ` +
+    `<b>sMAPE ${fmtPct(d.overall_smape)}</b> &middot; ${d.metric}`;
 
   const root = document.getElementById("figures");
   root.innerHTML = "";
@@ -96,12 +97,14 @@ function renderRun(d) {
       grid.appendChild(card);
 
       let err;
-      if (fig.mae === null || fig.mae === undefined) {
-        err = (fig.offset === null || fig.offset === undefined)
-          ? "avg|err| n/a (no matched points)"
-          : `offset ${fmtOffset(fig.offset)} &middot; avg|err| n/a (only anchor matched)`;
+      if (fig.offset === null || fig.offset === undefined) {
+        err = "MAPE / sMAPE n/a (no matched points)";
+      } else if ((fig.mape === null || fig.mape === undefined) &&
+                 (fig.smape === null || fig.smape === undefined)) {
+        err = `offset ${fmtOffset(fig.offset)} &middot; err n/a (only anchor matched)`;
       } else {
-        err = `offset ${fmtOffset(fig.offset)} &middot; avg|err| = ${fig.mae.toFixed(3)} ms (n=${fig.n}, anchor excl.)`;
+        err = `offset ${fmtOffset(fig.offset)} &middot; MAPE ${fmtPct(fig.mape)}` +
+              ` &middot; sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
       }
       const traces = [
         trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
@@ -177,8 +180,8 @@ async function main() {
       card.href = "?run=" + encodeURIComponent(run.run_id);   // real link: open-in-new-tab works
       card.innerHTML =
         `<span class="rc-id">Run ${run.run_id}</span>` +
-        `<span class="rc-meta">${when} &middot; overall avg|err| <b>${fmtMae(run.overall_mae)}</b>` +
-        ` &middot; ${run.n_figures} figures</span>`;
+        `<span class="rc-meta">${when} &middot; MAPE <b>${fmtPct(run.overall_mape)}</b>` +
+        ` / sMAPE <b>${fmtPct(run.overall_smape)}</b> &middot; ${run.n_figures} figures</span>`;
       card.addEventListener("click", (e) => { e.preventDefault(); selectRun(i); });
       list.appendChild(card);
     });
