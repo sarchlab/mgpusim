@@ -80,13 +80,7 @@ const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toF
 const fmtOffset = (v) => (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`;
 const mean = (a) => a.length ? a.reduce((p, c) => p + c, 0) / a.length : null;
 
-async function getJSON(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
-  return r.json();
-}
-
-// Client-side equivalent of plot_calibration.align_sim_to_real (for live data).
+// Client-side equivalent of plot_calibration.align_sim_to_real.
 function alignSeries(simPts, realPts) {
   const real = new Map(realPts), sim = new Map(simPts);
   const shared = [...sim.keys()].filter((x) => real.has(x)).sort((a, b) => a - b);
@@ -165,22 +159,7 @@ function renderGroups(groups, metaHTML) {
     }
 }
 
-// ---- archived runs (gh-pages data.json) ------------------------------------
-function renderArchived(d) {
-  const link = d.run_url ? `<a href="${d.run_url}" target="_blank" rel="noopener">run ${d.run_id}</a>` : `run ${d.run_id}`;
-  const meta = `${link} &middot; <span class="badge b-done">completed</span> overall <b>MAPE ${fmtPct(d.overall_mape)}</b>`
-    + ` / <b>sMAPE ${fmtPct(d.overall_smape)}</b>`;
-  const groups = d.benchmarks.map((b) => ({
-    benchmark: b.name, xlabel: b.xlabel,
-    figures: b.figures.map((f) => ({
-      slug: f.slug, label: f.label, sim: f.sim, real: f.real,
-      offset: f.offset, anchorX: f.anchor_x, mape: f.mape, smape: f.smape, n: f.n,
-    })),
-  }));
-  renderGroups(groups, meta);
-}
-
-// ---- live runs (Firestore points) ------------------------------------------
+// ---- render a run from its Firestore points (live or completed) ------------
 function pointsToGroups(points) {
   const byBench = new Map();
   for (const p of points) {
@@ -229,30 +208,21 @@ function renderLive(runId) {
   }, (err) => { $("figures").innerHTML = `<div class="note">Live read failed: ${err.message}</div>`; });
 }
 
-// ---- run list (merge gh-pages archive + Firestore live) --------------------
-let archivedRuns = [];          // from index.json (permanent history)
-const liveRuns = new Map();     // run_id -> firestore run doc (live/recent)
+// ---- run list (all runs from Firestore) ------------------------------------
+const liveRuns = new Map();     // run_id -> firestore run doc (the only data source)
 let current = null;             // selected run_id or null (landing)
-let pendingDeepLink = null;     // ?run=<id> awaiting its run to appear (Firestore loads async)
+let pendingDeepLink = null;     // run id awaiting its doc to appear (Firestore loads async)
 
 function tsIso(t) { return (t && t.toDate) ? t.toDate().toISOString() : (t || ""); }
 
 function mergedRuns() {
-  const m = new Map();
-  for (const r of archivedRuns) m.set(String(r.run_id), {
-    run_id: String(r.run_id), source: "archive", status: "completed",
-    when: r.generated_at, mape: r.overall_mape, smape: r.overall_smape, n_figures: r.n_figures, data: r.data,
+  const arr = [];
+  for (const [id, doc] of liveRuns) arr.push({
+    run_id: id, status: doc.status || "in_progress", run_url: doc.run_url,
+    when: tsIso(doc.started_at) || doc.generated_at || "",
+    mape: doc.overall_mape, smape: doc.overall_smape,
   });
-  for (const [id, doc] of liveRuns) {
-    const e = m.get(id) || { run_id: id, source: "live", n_figures: null, data: null };
-    e.status = doc.status || e.status || "in_progress";
-    e.run_url = doc.run_url || e.run_url;
-    e.when = e.when || tsIso(doc.started_at);
-    if (doc.overall_mape != null) e.mape = doc.overall_mape;
-    if (doc.overall_smape != null) e.smape = doc.overall_smape;
-    m.set(id, e);
-  }
-  return [...m.values()].sort((a, b) =>
+  return arr.sort((a, b) =>
     String(b.when || "").localeCompare(String(a.when || "")) || String(b.run_id).localeCompare(String(a.run_id)));
 }
 
@@ -324,8 +294,7 @@ function showLanding(runs) {
     const a = document.createElement("a");
     a.className = "runcard"; a.href = BASE + "run/" + encodeURIComponent(r.run_id);
     const metrics = r.status === "in_progress" ? "in progress"
-      : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`
-        + (r.n_figures != null ? ` &middot; ${r.n_figures} figures` : "");
+      : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`;
     a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(r.status)}</span>`
       + `<span class="rc-meta">${when} &middot; ${metrics}</span>`;
     a.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(r.run_id); });
@@ -334,23 +303,14 @@ function showLanding(runs) {
   root.innerHTML = ""; root.appendChild(list);
 }
 
-async function selectRun(runId) {
-  const runs = mergedRuns();
-  const r = runs.find((x) => x.run_id === String(runId));
-  if (!r) { showLanding(runs); return; }
+function selectRun(runId) {
+  const r = mergedRuns().find((x) => x.run_id === String(runId));
+  if (!r) { showLanding(mergedRuns()); return; }
   current = r.run_id;
   pendingDeepLink = null;
   $("runPicker").value = r.run_id;
   $("status").style.display = "none";
-  if (r.source === "archive" && r.data) {
-    if (unsubPoints) { unsubPoints(); unsubPoints = null; }
-    $("figures").innerHTML = '<div class="note">Loading run&hellip;</div>';
-    $("figures").dataset.sig = "";
-    try { renderArchived(await getJSON(r.data)); }
-    catch (e) { $("figures").innerHTML = `<div class="note">Could not load ${r.data} (${e.message}).</div>`; }
-  } else {
-    renderLive(r.run_id);   // live or not-yet-archived
-  }
+  renderLive(r.run_id);   // subscribe to its points (live or completed)
 }
 
 async function main() {
@@ -362,10 +322,7 @@ async function main() {
   home.setAttribute("href", BASE);
   home.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(null); });
 
-  // gh-pages archive (permanent history) — tolerate absence (Firestore may have runs).
-  try { archivedRuns = (await getJSON("index.json")).runs || []; } catch (e) { archivedRuns = []; }
-
-  // Firestore live runs — realtime.
+  // All runs come from Firestore (realtime).
   onSnapshot(collection(db, "runs"), (snap) => {
     liveRuns.clear();
     snap.forEach((d) => liveRuns.set(d.id, d.data()));
