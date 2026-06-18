@@ -96,15 +96,17 @@ function renderRun(d) {
       card.appendChild(div);
       grid.appendChild(card);
 
+      // NB: this string goes into a Plotly title (SVG text), which does not
+      // decode HTML entities -- use the literal "·", not &middot;.
       let err;
       if (fig.offset === null || fig.offset === undefined) {
         err = "MAPE / sMAPE n/a (no matched points)";
       } else if ((fig.mape === null || fig.mape === undefined) &&
                  (fig.smape === null || fig.smape === undefined)) {
-        err = `offset ${fmtOffset(fig.offset)} &middot; err n/a (only anchor matched)`;
+        err = `offset ${fmtOffset(fig.offset)} · err n/a (only anchor matched)`;
       } else {
-        err = `offset ${fmtOffset(fig.offset)} &middot; MAPE ${fmtPct(fig.mape)}` +
-              ` &middot; sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
+        err = `offset ${fmtOffset(fig.offset)} · MAPE ${fmtPct(fig.mape)}` +
+              ` · sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
       }
       const traces = [
         trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
