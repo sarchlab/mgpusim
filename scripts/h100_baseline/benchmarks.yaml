@@ -18,3 +18,23 @@ benchmarks:
     sim_args: ["-width", "256"]
     h100_harness: run_matrixtranspose
     h100_args: ["256", "20"]
+  - name: simpleconvolution
+    sample: simpleconvolution
+    sim_args: ["-width", "254", "-height", "254", "-mask-size", "3"]
+    h100_harness: run_simpleconvolution
+    h100_args: ["254", "254", "3", "20"]
+  - name: bitonicsort
+    sample: bitonicsort
+    sim_args: ["-length", "1024", "-order-asc"]
+    h100_harness: run_bitonicsort
+    h100_args: ["1024", "1", "20"]
+  - name: floydwarshall
+    sample: floydwarshall
+    sim_args: ["-node", "16", "-iter", "0"]
+    h100_harness: run_floydwarshall
+    h100_args: ["16", "0", "20"]
+  - name: fastwalshtransform
+    sample: fastwalshtransform
+    sim_args: ["-length", "1024"]
+    h100_harness: run_fastwalshtransform
+    h100_args: ["1024", "20"]

@@ -8,33 +8,45 @@ All scripts referenced below live in this directory: `scripts/h100_baseline/`.
 
 ## Benchmarks covered so far
 
-| Benchmark | `.cl` kernel | mgpusim sample | H100 harness | Args (positional) |
-|---|---|---|---|---|
-| matrixmultiplication | `amd/benchmarks/amdappsdk/matrixmultiplication/MatrixMultiplication_Kernels.cl` | `amd/samples/matrixmultiplication` | `run_matrixmultiplication.c` / `build_and_run_matrixmultiplication.sh` | `X Y Z [iterations]` — e.g. `64 64 64 20`; mgpusim flags: `-x 64 -y 64 -z 64` |
-| matrixtranspose | `amd/benchmarks/amdappsdk/matrixtranspose/native/MatrixTranspose_Kernels.cl` | `amd/samples/matrixtranspose` | `run_matrixtranspose.c` / `build_and_run_matrixtranspose.sh` | `Width [iterations]` — e.g. `256 20`; mgpusim flag: `-width 256` |
+| Benchmark | `.cl` kernel | mgpusim sample |
+|---|---|---|
+| matrixmultiplication | `amd/benchmarks/amdappsdk/matrixmultiplication/MatrixMultiplication_Kernels.cl` | `amd/samples/matrixmultiplication` |
+| matrixtranspose | `amd/benchmarks/amdappsdk/matrixtranspose/native/MatrixTranspose_Kernels.cl` | `amd/samples/matrixtranspose` |
+| simpleconvolution | `amd/benchmarks/amdappsdk/simpleconvolution/SimpleConvolution_Kernels.cl` | `amd/samples/simpleconvolution` |
+| bitonicsort | `amd/benchmarks/amdappsdk/bitonicsort/kernels.cl` | `amd/samples/bitonicsort` |
+| floydwarshall | `amd/benchmarks/amdappsdk/floydwarshall/native/FloydWarshall_Kernels.cl` | `amd/samples/floydwarshall` |
+| fastwalshtransform | `amd/benchmarks/amdappsdk/fastwalshtransform/native/FastWalshTransform_Kernels.cl` | `amd/samples/fastwalshtransform` |
 
-To add a new benchmark, append a row here and an entry in `benchmarks.yaml`
-(see Step 4).
+To add a new benchmark, append a row to every table in this guidebook and an
+entry in `benchmarks.yaml` (see Step 4).
+
+**Multi-pass benchmarks:** bitonicsort, floydwarshall, and fastwalshtransform
+each launch the kernel many times in a single run (one launch per
+stage/pass/butterfly-step), not just once. Their H100 harnesses replicate
+mgpusim's exact launch sequence (same loop structure, same per-launch
+synchronization or lack thereof) and report the *summed* wall-clock time
+across the whole sequence, matching what mgpusim's `Driver`/`kernel_time`
+metric accumulates over the whole run.
 
 ## Step 1 — Run the kernel on real H100 hardware
 
-On the H100 server, for matrixmultiplication:
+On the H100 server, one of:
 
-```bash
-sudo apt install ocl-icd-opencl-dev   # OpenCL headers/loader, if missing
-./build_and_run_matrixmultiplication.sh 64 64 64 20   # X Y Z iterations
-```
+| Benchmark | Command |
+|---|---|
+| matrixmultiplication | `./build_and_run_matrixmultiplication.sh 64 64 64 20` (X Y Z iterations) |
+| matrixtranspose | `./build_and_run_matrixtranspose.sh 256 20` (Width iterations) |
+| simpleconvolution | `./build_and_run_simpleconvolution.sh 254 254 3 20` (Width Height MaskSize iterations) |
+| bitonicsort | `./build_and_run_bitonicsort.sh 1024 1 20` (Length OrderAscending[0\|1] iterations) |
+| floydwarshall | `./build_and_run_floydwarshall.sh 16 0 20` (NumNodes NumIterations[0=NumNodes] iterations) |
+| fastwalshtransform | `./build_and_run_fastwalshtransform.sh 1024 20` (Length iterations) |
 
-or for matrixtranspose:
-
-```bash
-./build_and_run_matrixtranspose.sh 256 20             # Width iterations
-```
+(install `ocl-icd-opencl-dev`, or your distro's OpenCL headers/loader, first
+if `CL/cl.h` is missing)
 
 Each prints a line like:
 ```
 device=NVIDIA H100 80GB HBM3 X=64 Y=64 Z=64 iterations=20 avg_kernel_seconds=0.0000XXXXX
-device=NVIDIA H100 80GB HBM3 Width=256 iterations=20 avg_kernel_seconds=0.0000XXXXX
 ```
 Save this line — it's the real-hardware ground truth for step 3.
 
@@ -51,20 +63,26 @@ pass to `compare.py --freq_mhz` in step 3.
 
 ## Step 2 — Run the same problem size through mgpusim
 
-```bash
-./run_mgpusim.sh matrixmultiplication mm_64 -x 64 -y 64 -z 64
-./run_mgpusim.sh matrixtranspose mt_256 -width 256
-```
+| Benchmark | Command |
+|---|---|
+| matrixmultiplication | `./run_mgpusim.sh matrixmultiplication mm_64 -x 64 -y 64 -z 64` |
+| matrixtranspose | `./run_mgpusim.sh matrixtranspose mt_256 -width 256` |
+| simpleconvolution | `./run_mgpusim.sh simpleconvolution sc_254 -width 254 -height 254 -mask-size 3` |
+| bitonicsort | `./run_mgpusim.sh bitonicsort bs_1024 -length 1024 -order-asc` |
+| floydwarshall | `./run_mgpusim.sh floydwarshall fw_16 -node 16 -iter 0` |
+| fastwalshtransform | `./run_mgpusim.sh fastwalshtransform fwt_1024 -length 1024` |
+
 This builds the given `amd/samples/<name>` sample and runs it in timing
 mode, writing `<out-name>.sqlite3` (table `mgpusim_metrics`, columns
 `Location, What, Value, Unit`). The row `Location='Driver', What='kernel_time'`
-is the simulated end-to-end kernel time in seconds.
+is the simulated end-to-end kernel time in seconds (summed across all
+launches, for the multi-pass benchmarks).
 
 **Note on problem size:** with the default matrixmultiplication 64x64x64
 matrices, only 1 of 64 CUs is ever active (global size 16x16 / work-group
-8x8 = 4 work-groups total). Use a larger `-x -y -z` (or `-width` for
-matrixtranspose) if you want the simulated config to actually be saturated
-rather than dominated by fixed overhead.
+8x8 = 4 work-groups total). Use a larger problem size if you want the
+simulated config to actually be saturated rather than dominated by fixed
+overhead — this applies to the other small-default benchmarks too.
 
 ### Where the "SM-like" config is hard-coded (not exposed as a CLI flag)
 
@@ -115,11 +133,21 @@ why multiple simultaneous knob changes can spuriously cancel out.
 
 ## Step 3 — Compare
 
+| Benchmark | `--sim-db` |
+|---|---|
+| matrixmultiplication | `mm_64.sqlite3` |
+| matrixtranspose | `mt_256.sqlite3` |
+| simpleconvolution | `sc_254.sqlite3` |
+| bitonicsort | `bs_1024.sqlite3` |
+| floydwarshall | `fw_16.sqlite3` |
+| fastwalshtransform | `fwt_1024.sqlite3` |
+
 ```bash
 python3 compare.py \
   --h100-line "device=... avg_kernel_seconds=0.0000XXXXX" \
   --sim-db mm_64.sqlite3 \
-  --freq_mhz 1755
+  --freq_mhz 1755 \
+  --benchmark matrixmultiplication
 ```
 Prints a 6-row breakdown:
 1. GPU frequency (MHz) — the value you passed in.
@@ -129,16 +157,34 @@ Prints a 6-row breakdown:
 5. mgpusim simulated cycle count (calculated) — `simulated kernel time x freq_hz`.
 6. simulated-time / real-time ratio.
 
+### Recording results
+
+Every `compare.py` run appends one row to `toy_recording.csv` (next to this
+script; override with `--record-csv`), creating the header row on first
+use. No de-duplication — every run adds a new row, even repeats. Columns:
+```
+gpu_model,gpu_frequency_mhz,benchmark,gpu_kernel_time_real_s,gpu_cycle_count_calculated,mgpusim_simulated_kernel_time_real_s,mgpusim_simulated_cycle_count_calculated,simulated_real_ratio
+```
+e.g.
+```
+H100,1755.0,matrixtranspose,1.162600000e-05,20403.6,4.742000000e-06,8322.2,0.412345
+```
+`--gpu-model` defaults to `"H100"`; `--benchmark` is required so each row is
+identifiable.
+
 ## Step 4 — Generalize to other benchmarks
 
-1. Add a row to the table at the top of this guidebook, and an entry to
+1. Add a row to every table in this guidebook, and an entry to
    `benchmarks.yaml` (sample dir, sim args, H100 harness name/args).
-2. Copy `run_matrixmultiplication.c` or `run_matrixtranspose.c` (whichever
-   argument shape is closer) to a new harness for the new kernel, matching
-   its actual argument signature and launch dimensions — read the
-   benchmark's `.go` file under `amd/benchmarks/amdappsdk/<name>/` to see
-   exactly how it computes global/local work sizes and local-memory
-   buffer sizes, and mirror that math in the harness.
+2. Copy whichever existing harness's argument/launch shape is closest
+   (`run_matrixmultiplication.c` for a single launch with a simple grid, or
+   `run_bitonicsort.c`/`run_floydwarshall.c`/`run_fastwalshtransform.c` for a
+   multi-pass loop) to a new harness for the new kernel, matching its actual
+   argument signature and launch dimensions — read the benchmark's `.go`
+   file under `amd/benchmarks/amdappsdk/<name>/` to see exactly how it
+   computes global/local work sizes, local-memory buffer sizes, and
+   per-pass argument values, and mirror that math (and the
+   drain-per-pass-vs-enqueue-all-then-drain-once pattern) in the harness.
 3. Write a matching `build_and_run_<name>.sh`.
 4. Collect H100 results into a text file, one line per benchmark:
    ```
@@ -156,12 +202,15 @@ Prints a 6-row breakdown:
 
 | File | Purpose |
 |---|---|
-| `run_matrixmultiplication.c` | OpenCL host harness for matrixmultiplication, runs the real `.cl` kernel on whatever GPU OpenCL finds |
-| `build_and_run_matrixmultiplication.sh` | Builds and runs the matrixmultiplication harness (run on the H100 server) |
-| `run_matrixtranspose.c` | OpenCL host harness for matrixtranspose |
-| `build_and_run_matrixtranspose.sh` | Builds and runs the matrixtranspose harness (run on the H100 server) |
+| `run_matrixmultiplication.c` / `build_and_run_matrixmultiplication.sh` | OpenCL host harness + runner for matrixmultiplication |
+| `run_matrixtranspose.c` / `build_and_run_matrixtranspose.sh` | OpenCL host harness + runner for matrixtranspose |
+| `run_simpleconvolution.c` / `build_and_run_simpleconvolution.sh` | OpenCL host harness + runner for simpleconvolution |
+| `run_bitonicsort.c` / `build_and_run_bitonicsort.sh` | OpenCL host harness + runner for bitonicsort (multi-pass) |
+| `run_floydwarshall.c` / `build_and_run_floydwarshall.sh` | OpenCL host harness + runner for floydwarshall (multi-pass) |
+| `run_fastwalshtransform.c` / `build_and_run_fastwalshtransform.sh` | OpenCL host harness + runner for fastwalshtransform (multi-pass) |
 | `run_mgpusim.sh` | Builds and runs an `amd/samples/<name>` binary in timing mode |
-| `compare.py` | Computes H100-vs-mgpusim gap for one benchmark |
+| `compare.py` | Computes H100-vs-mgpusim gap for one benchmark, appends a row to `toy_recording.csv` |
+| `toy_recording.csv` | Append-only log of every `compare.py` run (created on first run) |
 | `benchmarks.yaml` | Registry of benchmarks for the batch pipeline |
 | `batch_compare.py` | Runs the mgpusim side and prints a summary table for all registered benchmarks |
 | `toy_guidebook.md` | This file |
