@@ -2,6 +2,15 @@
   "schema": 1,
   "runs": [
     {
+      "run_id": "27793644314",
+      "run_url": "https://github.com/sarchlab/mgpusim/actions/runs/27793644314",
+      "generated_at": "2026-06-18T22:47:55Z",
+      "overall_mape": 0.02866721969395907,
+      "overall_smape": 0.02866721969395907,
+      "n_figures": 13,
+      "data": "runs/27793644314/data.json"
+    },
+    {
       "run_id": "27762736104",
       "run_url": "https://github.com/sarchlab/mgpusim/actions/runs/27762736104",
       "generated_at": "2026-06-18T15:30:12Z",
