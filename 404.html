@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MI300A Calibration Dashboard</title>
+<script>
+// SPA fallback for GitHub Pages: a clean deep link like
+//   /mgpusim/calibration/run/<id>
+// has no backing file, so Pages serves this 404 page. Re-encode the route into a
+// query on the dashboard's index (/mgpusim/calibration/?/run/<id>) and redirect;
+// index.html restores the clean URL. Works at any mount depth by anchoring on the
+// "calibration" path segment (so it also works at /calibration/ in local preview).
+(function () {
+  var l = window.location;
+  var parts = l.pathname.split("/");
+  var i = parts.indexOf("calibration");
+  if (i === -1) return;                       // not the dashboard; show default 404
+  var base = parts.slice(0, i + 1).join("/"); // ".../calibration"
+  var rest = parts.slice(i + 1).join("/");    // "run/<id>" (or "")
+  l.replace(l.origin + base + "/?/" + rest + l.search.replace(/^\?/, "&") + l.hash);
+})();
+</script>
+</head>
+<body></body>
+</html>

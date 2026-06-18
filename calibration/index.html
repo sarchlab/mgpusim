@@ -24,6 +24,8 @@
   .plot { width:100%; height:340px; }
   .note { color:var(--muted); padding:24px 0; }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
+  header a#home { color:inherit; text-decoration:none; cursor:pointer; }
+  header a#home:hover h1 { text-decoration:underline; }
   .runlist { display:flex; flex-direction:column; gap:8px; max-width:760px; margin-top:8px; }
   .runcard { display:flex; flex-direction:column; gap:2px; padding:12px 14px; background:var(--bg);
              border:1px solid var(--line); border-radius:8px; color:var(--fg); }
@@ -40,7 +42,7 @@
 </head>
 <body>
 <header>
-  <h1>MI300A Calibration Dashboard</h1>
+  <a id="home"><h1>MI300A Calibration Dashboard</h1></a>
   <div class="sub">Simulated vs. real-hardware kernel execution time (CDNA3 timing model). Log-log axes.</div>
   <div class="controls">
     <label>Run: <select id="runPicker"></select></label>
@@ -260,12 +262,30 @@ function badgeHTML(s) {
     : s === "in_progress" ? '<span class="badge b-run">running</span>' : "";
 }
 
-function setUrlRun(runId) {
-  const qs = new URLSearchParams(location.search);
-  if (runId === null) qs.delete("run"); else qs.set("run", runId);
-  const s = qs.toString();
-  history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
+// ---- routing: clean paths  …/calibration/run/<id>  (SPA on GitHub Pages) -----
+// 404.html re-encodes a deep link as "?/run/<id>"; restore the clean URL here.
+if (location.search.startsWith("?/")) {
+  const rest = location.search.slice(2).split("&")[0];
+  history.replaceState(null, "", location.pathname.replace(/\/+$/, "") + "/" + rest + location.hash);
 }
+const BASE = (() => {
+  const p = location.pathname.split("/"), i = p.indexOf("calibration");
+  return i === -1 ? location.pathname.replace(/[^/]*$/, "") : p.slice(0, i + 1).join("/") + "/";
+})();
+function routeRunId() {
+  const after = location.pathname.startsWith(BASE) ? location.pathname.slice(BASE.length) : "";
+  const m = after.match(/^run\/([^/]+)\/?$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function navigate(runId) {   // user action -> push a history entry, then render
+  history.pushState(null, "", runId ? BASE + "run/" + encodeURIComponent(runId) : BASE);
+  renderRoute();
+}
+function renderRoute() {     // render whatever the current URL points at (no history change)
+  const id = routeRunId();
+  if (id) selectRun(id); else showLanding(mergedRuns());
+}
+window.addEventListener("popstate", renderRoute);
 
 function rebuildPicker() {
   const runs = mergedRuns();
@@ -292,7 +312,6 @@ function rebuildPicker() {
 function showLanding(runs) {
   current = null;
   if (unsubPoints) { unsubPoints(); unsubPoints = null; }
-  setUrlRun(null);
   $("runPicker").value = "";
   $("status").style.display = "none";
   const n = runs.length;
@@ -303,13 +322,13 @@ function showLanding(runs) {
   for (const r of runs) {
     const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "(undated)";
     const a = document.createElement("a");
-    a.className = "runcard"; a.href = "?run=" + encodeURIComponent(r.run_id);
+    a.className = "runcard"; a.href = BASE + "run/" + encodeURIComponent(r.run_id);
     const metrics = r.status === "in_progress" ? "in progress"
       : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`
         + (r.n_figures != null ? ` &middot; ${r.n_figures} figures` : "");
     a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(r.status)}</span>`
       + `<span class="rc-meta">${when} &middot; ${metrics}</span>`;
-    a.addEventListener("click", (e) => { e.preventDefault(); selectRun(r.run_id); });
+    a.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(r.run_id); });
     list.appendChild(a);
   }
   root.innerHTML = ""; root.appendChild(list);
@@ -323,7 +342,6 @@ async function selectRun(runId) {
   pendingDeepLink = null;
   $("runPicker").value = r.run_id;
   $("status").style.display = "none";
-  setUrlRun(r.run_id);
   if (r.source === "archive" && r.data) {
     if (unsubPoints) { unsubPoints(); unsubPoints = null; }
     $("figures").innerHTML = '<div class="note">Loading run&hellip;</div>';
@@ -338,9 +356,11 @@ async function selectRun(runId) {
 async function main() {
   $("runPicker").addEventListener("change", () => {
     pendingDeepLink = null;   // explicit user choice overrides any pending deep link
-    const v = $("runPicker").value;
-    if (v === "") showLanding(mergedRuns()); else selectRun(v);
+    navigate($("runPicker").value || null);
   });
+  const home = $("home");
+  home.setAttribute("href", BASE);
+  home.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(null); });
 
   // gh-pages archive (permanent history) — tolerate absence (Firestore may have runs).
   try { archivedRuns = (await getJSON("index.json")).runs || []; } catch (e) { archivedRuns = []; }
@@ -354,11 +374,10 @@ async function main() {
     // (points subscription handles the figures themselves).
   }, () => {});
 
-  // Initial render + deep link. A live run may not be in Firestore yet (loads
-  // async), so remember the request and let the runs snapshot resolve it.
-  const wanted = new URLSearchParams(location.search).get("run");
-  pendingDeepLink = wanted || null;
-  if (wanted) selectRun(wanted); else showLanding(mergedRuns());
+  // Initial render from the URL path. A live run may not be in Firestore yet
+  // (loads async), so remember the request and let the runs snapshot resolve it.
+  pendingDeepLink = routeRunId();
+  renderRoute();
 }
 
 main();
