@@ -3,9 +3,9 @@
   "runs": [
     {
       "run_id": "27708217340",
-      "run_url": "https://github.com/sarchlab/mgpusim/actions/runs/27708217340",
+      "run_url": "",
       "generated_at": "2026-06-17T19:51:23Z",
-      "overall_mae": 6.846235976442307,
+      "overall_mae": 6.555529291666667,
       "n_figures": 16,
       "data": "runs/27708217340/data.json"
     }

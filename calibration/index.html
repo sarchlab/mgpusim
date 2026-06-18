@@ -56,6 +56,7 @@ async function getJSON(url) {
 }
 
 function fmtMae(v) { return (v === null || v === undefined) ? "n/a" : `${v.toFixed(3)} ms`; }
+function fmtOffset(v) { return (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`; }
 
 function optionLabel(run) {
   const when = run.generated_at ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
@@ -94,13 +95,24 @@ function renderRun(d) {
       card.appendChild(div);
       grid.appendChild(card);
 
-      const err = (fig.mae === null || fig.mae === undefined)
-        ? "avg|err| n/a (no matched points)"
-        : `avg|err| = ${fig.mae.toFixed(3)} ms (n=${fig.n})`;
-      Plotly.newPlot(div, [
-        trace(fig.sim, "simulation", SIM_COLOR, "circle"),
+      let err;
+      if (fig.mae === null || fig.mae === undefined) {
+        err = (fig.offset === null || fig.offset === undefined)
+          ? "avg|err| n/a (no matched points)"
+          : `offset ${fmtOffset(fig.offset)} &middot; avg|err| n/a (only anchor matched)`;
+      } else {
+        err = `offset ${fmtOffset(fig.offset)} &middot; avg|err| = ${fig.mae.toFixed(3)} ms (n=${fig.n}, anchor excl.)`;
+      }
+      const traces = [
+        trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
         trace(fig.real, "real hardware", REAL_COLOR, "square"),
-      ], {
+      ];
+      if (fig.anchor_x !== null && fig.anchor_x !== undefined) {
+        const ap = fig.real.find(p => p[0] === fig.anchor_x);
+        if (ap) traces.push({ x: [ap[0]], y: [ap[1]], mode: "markers",
+          name: "anchor (excl.)", marker: { symbol: "star", size: 13, color: "#111" } });
+      }
+      Plotly.newPlot(div, traces, {
         title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
         xaxis: { type: "log", title: { text: bench.xlabel, font: { size: 11 } }, automargin: true },
         yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true },
