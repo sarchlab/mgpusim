@@ -134,16 +134,17 @@ echo "Report  : $REPORT  (figures embedded -> open in a markdown viewer)"
 
 if [[ "$DO_WEB" == "1" ]]; then
   cp "$WEB_DIR/index.html" "$CAL/index.html"
+  cp "$WEB_DIR/404.html" "$SITE/404.html"   # SPA fallback (devserver also handles it)
   python3 "$WEB_DIR/build_index.py" "$CAL/runs" -o "$CAL/index.json"
-  URL="http://localhost:${PORT}/calibration/?run=${RUN_ID}"
+  URL="http://localhost:${PORT}/calibration/run/${RUN_ID}"
   echo "Dashboard: $URL"
-  echo "(serving $SITE ; press Ctrl-C to stop)"
+  echo "(serving $SITE with SPA fallback ; press Ctrl-C to stop)"
   if [[ "$DO_OPEN" == "1" ]]; then
     if command -v open >/dev/null 2>&1; then open "$URL" || true
     elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" || true
     fi
   fi
-  exec python3 -m http.server "$PORT" --directory "$SITE"
+  exec python3 "$WEB_DIR/devserver.py" --dir "$SITE" --port "$PORT"
 fi
 
 if [[ "$DO_OPEN" == "1" ]]; then

@@ -49,7 +49,7 @@ REMOTE="https://x-access-token:${TOKEN}@${SERVER#https://}/${GITHUB_REPOSITORY}.
 # Deep link to THIS run on the published dashboard (Pages project-site URL).
 OWNER="${GITHUB_REPOSITORY%%/*}"
 REPO_NAME="${GITHUB_REPOSITORY##*/}"
-DASH_URL="https://${OWNER}.github.io/${REPO_NAME}/${SUBDIR}/?run=${RUN_ID}"
+DASH_URL="https://${OWNER}.github.io/${REPO_NAME}/${SUBDIR}/run/${RUN_ID}"
 
 announce_url() {  # print the run's dashboard link (and add it to the CI summary)
   echo "Dashboard: $DASH_URL"
@@ -76,6 +76,8 @@ fi
 SITE="$WORK/$SUBDIR"
 mkdir -p "$SITE/runs/$RUN_ID"
 cp "$WEB_DIR/index.html" "$SITE/index.html"
+# SPA fallback at the Pages site root so clean deep links (…/run/<id>) resolve.
+cp "$WEB_DIR/404.html" "$WORK/404.html"
 cp "$DATA" "$SITE/runs/$RUN_ID/data.json"
 python3 "$WEB_DIR/build_index.py" "$SITE/runs" -o "$SITE/index.json"
 
