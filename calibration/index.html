@@ -374,6 +374,9 @@ async function main() {
     // (points subscription handles the figures themselves).
   }, () => {});
 
+  // Upgrade legacy ?run=<id> links (older job summaries) to the clean path.
+  const legacy = new URLSearchParams(location.search).get("run");
+  if (legacy && !routeRunId()) history.replaceState(null, "", BASE + "run/" + encodeURIComponent(legacy));
   // Initial render from the URL path. A live run may not be in Firestore yet
   // (loads async), so remember the request and let the runs snapshot resolve it.
   pendingDeepLink = routeRunId();
