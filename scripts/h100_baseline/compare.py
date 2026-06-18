@@ -14,10 +14,13 @@ Inputs:
   --h100-line  stdout line from run_matrixmultiplication, e.g.:
                "device=NVIDIA H100 80GB HBM3 X=64 Y=64 Z=64 iterations=20 avg_kernel_seconds=0.000123456"
   --sim-db     mgpusim sqlite3 metrics file (default: metrics.sqlite3)
-  --freq-hz    CU clock frequency used in the simulated config, to convert
-               kernel_time (seconds) into a raw cycle count (default: 1e9,
-               matching r9nano's default 1 GHz; check the platform builder
-               you actually used)
+  --freq-mhz   GPU clock frequency in MHz, used for both sides of the
+               comparison: it should match both (a) the frequency you set
+               in the mgpusim platform builder (e.g. r9nano's `freq` field)
+               and (b) the real GPU's clock as reported by
+               `nvidia-smi -q -d CLOCK` (e.g. 1755 for the H100 PCIe's SM
+               clock). Required, since cycle counts are meaningless without
+               a specific frequency to convert from/to seconds.
 """
 import argparse
 import re
@@ -50,19 +53,26 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--h100-line", required=True)
     ap.add_argument("--sim-db", default="metrics.sqlite3")
-    ap.add_argument("--freq-hz", type=float, default=1e9)
+    ap.add_argument("--freq-mhz", "--freq_mhz", dest="freq_mhz", type=float, required=True)
     args = ap.parse_args()
 
+    freq_hz = args.freq_mhz * 1e6
+
     h100_seconds = parse_h100_line(args.h100_line)
+    h100_cycles = h100_seconds * freq_hz
+
     sim_seconds = parse_sim_kernel_time(args.sim_db)
-    sim_cycles = sim_seconds * args.freq_hz
+    sim_cycles = sim_seconds * freq_hz
 
     ratio = sim_seconds / h100_seconds if h100_seconds else float("inf")
 
-    print(f"H100 real kernel time:           {h100_seconds:.9e} s")
-    print(f"mgpusim simulated kernel time:   {sim_seconds:.9e} s")
-    print(f"mgpusim simulated cycle count:   {sim_cycles:.1f} cycles (at {args.freq_hz:.3g} Hz)")
-    print(f"simulated-time / real-time ratio: {ratio:.1f}x")
+    label_w = 48
+    print(f"{'(1) GPU frequency (MHz)':<{label_w}}{args.freq_mhz:.1f}")
+    print(f"{'(2) H100 kernel time (real)':<{label_w}}{h100_seconds:.9e} s")
+    print(f"{'(3) H100 cycle count (calculated)':<{label_w}}{h100_cycles:.1f} cycles")
+    print(f"{'(4) mgpusim simulated kernel time (real)':<{label_w}}{sim_seconds:.9e} s")
+    print(f"{'(5) mgpusim simulated cycle count (calculated)':<{label_w}}{sim_cycles:.1f} cycles")
+    print(f"{'(6) simulated-time / real-time ratio':<{label_w}}{ratio:.1f}x")
 
 
 if __name__ == "__main__":
