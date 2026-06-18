@@ -125,6 +125,8 @@ def mark_run(run_id, status, run_url=None, from_json=None):
     data = {"status": status, "updated_at": server_ts()}
     if status == "in_progress":
         data["started_at"] = server_ts()
+    if status == "completed":
+        data["completed_at"] = server_ts()
     if run_url:
         data["run_url"] = run_url
     if from_json and os.path.exists(from_json):
@@ -132,6 +134,11 @@ def mark_run(run_id, status, run_url=None, from_json=None):
             j = json.load(open(from_json))
             data["overall_mape"] = j.get("overall_mape")
             data["overall_smape"] = j.get("overall_smape")
+            # generated_at gives a stable ordering key for runs that were never
+            # marked in_progress live (e.g. backfilled history), where started_at
+            # is absent.
+            if j.get("generated_at"):
+                data["generated_at"] = j["generated_at"]
         except (OSError, ValueError) as e:
             warn(f"could not read {from_json}: {e}")
     get_db().collection("runs").document(run_id).set(data, merge=True)

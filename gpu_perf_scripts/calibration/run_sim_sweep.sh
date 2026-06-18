@@ -108,6 +108,16 @@ SORTED="$(build_combos | awk -F, -v ref="$REF_CSV" '
   { k = $1"|"$2"|"$3; ms = (k in real) ? real[k] : 1e18; printf "%s %s %s %s\n", ms, $1, $2, $3 }
 ' | sort -g -k1,1)"
 
+# Stream results to Firestore for the live dashboard (best-effort): active only
+# when FB_RUN_ID is set (CI) and credentials are present. Publishes the new CSV
+# rows every FB_EVERY points and once at the end; failures never affect the sweep.
+FB_RUN_ID="${FB_RUN_ID:-}"; FB_PY="${FB_PY:-python3}"; FB_EVERY="${FB_EVERY:-5}"
+fb_stream() {
+  [[ -n "$FB_RUN_ID" ]] || return 0
+  "$FB_PY" "$SCRIPT_DIR/fb_publish.py" publish-points --run-id "$FB_RUN_ID" \
+    --benchmark fp32_throughput --csv "$OUT_ABS" --ref "$REF_CSV" >/dev/null 2>&1 || true
+}
+
 echo "Sweeping fp32_throughput (per-run ${PER_RUN_TIMEOUT}s, sweep ${SWEEP_TIMEOUT}s), shortest ground-truth time first..."
 SWEEP_START=$(date +%s)
 ran=0; timed_out=0; failed=0
@@ -124,12 +134,14 @@ while read -r real_ms nb tpb fmas; do
   status="${result%% *}"; kt="${result#* }"
   case "$status" in
     ok) echo "fp32_throughput,fmas_per_thread,${fmas},${nb},${tpb},${fmas},,${kt}" >> "$OUT_ABS"
-        ran=$((ran+1)); echo "  ok      nb=$nb tpb=$tpb fmas=$fmas (real ${real_ms}ms, sim ${kt}s)";;
+        ran=$((ran+1)); echo "  ok      nb=$nb tpb=$tpb fmas=$fmas (real ${real_ms}ms, sim ${kt}s)"
+        if (( ran % FB_EVERY == 0 )); then fb_stream; fi ;;
     timeout) timed_out=$((timed_out+1)); echo "  timeout nb=$nb tpb=$tpb fmas=$fmas (> ${PER_RUN_TIMEOUT}s, skipped)";;
     *) failed=$((failed+1)); echo "  FAIL    nb=$nb tpb=$tpb fmas=$fmas";;
   esac
 done <<< "$SORTED"
 
+fb_stream   # final flush of any remaining points to Firestore
 echo "Done: $ran ok, $timed_out timed out, $failed failed. Wrote $OUT_ABS"
 
 # Timeouts and the budget cutoff are BY DESIGN (the expensive corners are meant to

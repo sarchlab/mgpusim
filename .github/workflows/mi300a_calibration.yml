@@ -1,15 +1,17 @@
 name: MI300A Calibration
 
 # Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks at the same
-# configurations measured on real hardware, and plots simulated vs real KERNEL
-# EXECUTION TIME. The report is figures only (one PNG per non-scaling-parameter
-# combination: x = scaling factor, y = kernel time, two lines sim + real) plus
-# the average error; the per-figure and overall average error land in the job
-# summary. Ground truth: gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
+# configurations measured on real hardware, and compares simulated vs real KERNEL
+# EXECUTION TIME. Each sweep STREAMS its results to Firestore as configs finish,
+# so the live dashboard (https://sarchlab.github.io/mgpusim/calibration/) shows
+# the run filling in; relative error (MAPE/sMAPE) is computed against the ground
+# truth in gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
 #
-# Structure: each benchmark sweep is its OWN job so they run in parallel and a
-# failure in one cannot block the others; a single `report` job runs after all
-# sweeps finish, downloads their CSV artifacts, and renders the figures.
+# Structure: each benchmark sweep is its OWN job (parallel; a failure in one can't
+# block the other), marks the run in_progress, and streams points to Firestore. A
+# single `report` job runs after all sweeps, renders the PNG/markdown artifact, and
+# marks the run completed. Run data lives ONLY in Firestore -- the dashboard reads
+# it directly (the static dashboard page itself is hosted on gh-pages).
 #
 #   fp32_sweep ----\
 #                   >--> report (needs both; if: always())
@@ -55,6 +57,26 @@ jobs:
           go version
           sqlite3 --version
 
+      # Best-effort: set up the Firestore credentials + mark the run in_progress so
+      # the live dashboard shows it immediately. If this fails, FB_RUN_ID is never
+      # exported and the sweep simply runs without streaming.
+      - name: Set up Firestore streaming
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          {
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
+            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_RUN_ID=${{ github.run_id }}"
+          } >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "${{ github.run_id }}" --status in_progress \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Run fp32_throughput sweep
         run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
 
@@ -91,6 +113,23 @@ jobs:
           go version
           sqlite3 --version
 
+      - name: Set up Firestore streaming
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          {
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
+            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_RUN_ID=${{ github.run_id }}"
+          } >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "${{ github.run_id }}" --status in_progress \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Run cache_latency sweep
         run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
 
@@ -109,9 +148,6 @@ jobs:
     # results are available.
     if: always()
     timeout-minutes: 30
-    # contents:write lets the publish step push the dashboard data to gh-pages.
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -161,15 +197,22 @@ jobs:
             fp32_sim_results.csv
             cache_latency_sim_results.csv
 
-      # Publish this run's data to the gh-pages dashboard (accumulates history).
-      # Served at https://<owner>.github.io/<repo>/calibration/ once Pages is
-      # enabled (Settings -> Pages -> Deploy from branch -> gh-pages). Best-effort:
-      # a publish failure must not fail the report job.
-      - name: Publish to gh-pages dashboard
+      # Finalize the run in Firestore (the dashboard's data source) with the
+      # overall metrics, and post the live dashboard link to the job summary.
+      # Best-effort: a Firestore failure must not fail the report job.
+      - name: Mark run completed in Firestore
         if: always()
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          gpu_perf_scripts/calibration/publish_gh_pages.sh \
-            --data data.json --run-id "${{ github.run_id }}"
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "${{ github.run_id }}" --status completed \
+            --from-json data.json \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/${{ github.run_id }}"
+          printf '\n**📊 [View this run in the calibration dashboard](%s)**\n' "$DASH" >> "$GITHUB_STEP_SUMMARY"
