@@ -126,20 +126,36 @@ async function main() {
 
   index.runs.forEach((run, i) => {
     const o = document.createElement("option");
-    o.value = run.data; o.textContent = optionLabel(run); o.dataset.idx = i;
+    o.value = String(i); o.textContent = optionLabel(run);
     picker.appendChild(o);
   });
 
-  async function load(dataPath) {
+  async function load(i) {
+    const run = index.runs[i];
+    picker.value = String(i);
+    // Keep the URL shareable / deep-linkable: ?run=<run_id>. CI prints this URL
+    // so a run links straight to its own charts.
+    const qs = new URLSearchParams(location.search);
+    qs.set("run", run.run_id);
+    history.replaceState(null, "", location.pathname + "?" + qs.toString());
     document.getElementById("figures").innerHTML = '<div class="note">Loading run&hellip;</div>';
     try {
-      renderRun(await getJSON(dataPath));
+      renderRun(await getJSON(run.data));
     } catch (e) {
-      document.getElementById("figures").innerHTML = `<div class="note">Could not load ${dataPath} (${e.message}).</div>`;
+      document.getElementById("figures").innerHTML = `<div class="note">Could not load ${run.data} (${e.message}).</div>`;
     }
   }
-  picker.addEventListener("change", () => load(picker.value));
-  load(picker.value);   // newest run (first option)
+  picker.addEventListener("change", () => load(Number(picker.value)));
+
+  // Initial selection: ?run=<id> when it matches a published run, else newest.
+  const wanted = new URLSearchParams(location.search).get("run");
+  let start = 0;
+  if (wanted) {
+    const j = index.runs.findIndex(r => String(r.run_id) === wanted);
+    if (j >= 0) start = j;
+    else console.warn(`run ${wanted} not in index; showing newest`);
+  }
+  load(start);
 }
 
 main();
