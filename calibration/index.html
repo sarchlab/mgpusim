@@ -24,6 +24,12 @@
   .plot { width:100%; height:340px; }
   .note { color:var(--muted); padding:24px 0; }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
+  .runlist { display:flex; flex-direction:column; gap:8px; max-width:760px; margin-top:8px; }
+  .runcard { display:flex; flex-direction:column; gap:2px; padding:12px 14px; background:var(--bg);
+             border:1px solid var(--line); border-radius:8px; color:var(--fg); }
+  .runcard:hover { border-color:#0969da; background:#f6f8fa; text-decoration:none; }
+  .rc-id { font-weight:600; }
+  .rc-meta { color:var(--muted); font-size:13px; }
 </style>
 </head>
 <body>
@@ -111,6 +117,8 @@ function renderRun(d) {
 async function main() {
   const status = document.getElementById("status");
   const picker = document.getElementById("runPicker");
+  const meta = document.getElementById("runMeta");
+  const root = document.getElementById("figures");
   let index;
   try {
     index = await getJSON("index.json");
@@ -124,38 +132,72 @@ async function main() {
   }
   status.style.display = "none";
 
+  // Placeholder first, then one option per run.
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "Select a run…";
+  picker.appendChild(ph);
   index.runs.forEach((run, i) => {
     const o = document.createElement("option");
     o.value = String(i); o.textContent = optionLabel(run);
     picker.appendChild(o);
   });
 
-  async function load(i) {
+  function setUrlRun(runId) {  // null -> drop ?run= (landing); else deep-link
+    const qs = new URLSearchParams(location.search);
+    if (runId === null) qs.delete("run"); else qs.set("run", runId);
+    const s = qs.toString();
+    history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
+  }
+
+  function showLanding() {
+    picker.value = "";
+    setUrlRun(null);
+    const n = index.runs.length;
+    meta.innerHTML = `${n} published run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
+    root.innerHTML = "";
+    const list = document.createElement("div");
+    list.className = "runlist";
+    index.runs.forEach((run, i) => {
+      const when = run.generated_at
+        ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
+      const card = document.createElement("a");
+      card.className = "runcard";
+      card.href = "?run=" + encodeURIComponent(run.run_id);   // real link: open-in-new-tab works
+      card.innerHTML =
+        `<span class="rc-id">Run ${run.run_id}</span>` +
+        `<span class="rc-meta">${when} &middot; overall avg|err| <b>${fmtMae(run.overall_mae)}</b>` +
+        ` &middot; ${run.n_figures} figures</span>`;
+      card.addEventListener("click", (e) => { e.preventDefault(); selectRun(i); });
+      list.appendChild(card);
+    });
+    root.appendChild(list);
+  }
+
+  async function selectRun(i) {
     const run = index.runs[i];
     picker.value = String(i);
-    // Keep the URL shareable / deep-linkable: ?run=<run_id>. CI prints this URL
-    // so a run links straight to its own charts.
-    const qs = new URLSearchParams(location.search);
-    qs.set("run", run.run_id);
-    history.replaceState(null, "", location.pathname + "?" + qs.toString());
-    document.getElementById("figures").innerHTML = '<div class="note">Loading run&hellip;</div>';
+    setUrlRun(run.run_id);   // shareable / CI-printed deep link
+    root.innerHTML = '<div class="note">Loading run&hellip;</div>';
     try {
       renderRun(await getJSON(run.data));
     } catch (e) {
-      document.getElementById("figures").innerHTML = `<div class="note">Could not load ${run.data} (${e.message}).</div>`;
+      root.innerHTML = `<div class="note">Could not load ${run.data} (${e.message}).</div>`;
     }
   }
-  picker.addEventListener("change", () => load(Number(picker.value)));
 
-  // Initial selection: ?run=<id> when it matches a published run, else newest.
+  picker.addEventListener("change", () => {
+    if (picker.value === "") showLanding();
+    else selectRun(Number(picker.value));
+  });
+
+  // ?run=<id> deep-links straight to that run; otherwise show the selector.
   const wanted = new URLSearchParams(location.search).get("run");
-  let start = 0;
   if (wanted) {
     const j = index.runs.findIndex(r => String(r.run_id) === wanted);
-    if (j >= 0) start = j;
-    else console.warn(`run ${wanted} not in index; showing newest`);
+    if (j >= 0) { selectRun(j); return; }
+    console.warn(`run ${wanted} not in index; showing selector`);
   }
-  load(start);
+  showLanding();
 }
 
 main();
