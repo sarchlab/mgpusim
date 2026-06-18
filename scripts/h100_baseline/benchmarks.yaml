@@ -7,34 +7,45 @@
 # sim_args:  extra flags passed to the mgpusim sample binary
 # h100_args: <X> <Y> <Z> ... passed positionally to the H100 harness binary
 #            (must match sim_args' problem size so the two runs are comparable)
+# Problem sizes below were chosen by empirically increasing each
+# benchmark's small AMDAPPSDK-style default until mgpusim's *own timing
+# simulation* (not the H100 run) approached, but stayed under, ~1 minute of
+# wall-clock time on the dev machine used to pick these. See
+# toy_guidebook.md's "Problem sizes" section for the measured wall-clock
+# time and the actual simulated-kernel-time scale factor achieved for each
+# benchmark (most land far below the 100-1000x originally hoped for --
+# mgpusim's CU-level parallelism absorbs extra threads, so simulated
+# kernel_time saturates much faster than problem size grows, while the
+# emulator's own wall-clock cost keeps scaling close to linearly with
+# thread count).
 benchmarks:
   - name: matrixmultiplication
     sample: matrixmultiplication
-    sim_args: ["-x", "64", "-y", "64", "-z", "64"]
+    sim_args: ["-x", "320", "-y", "320", "-z", "320"]
     h100_harness: run_matrixmultiplication
-    h100_args: ["64", "64", "64", "20"]
+    h100_args: ["320", "320", "320", "20"]
   - name: matrixtranspose
     sample: matrixtranspose
-    sim_args: ["-width", "256"]
+    sim_args: ["-width", "1024"]
     h100_harness: run_matrixtranspose
-    h100_args: ["256", "20"]
+    h100_args: ["1024", "20"]
   - name: simpleconvolution
     sample: simpleconvolution
-    sim_args: ["-width", "254", "-height", "254", "-mask-size", "3"]
+    sim_args: ["-width", "510", "-height", "510", "-mask-size", "3"]
     h100_harness: run_simpleconvolution
-    h100_args: ["254", "254", "3", "20"]
+    h100_args: ["510", "510", "3", "20"]
   - name: bitonicsort
     sample: bitonicsort
-    sim_args: ["-length", "1024", "-order-asc"]
+    sim_args: ["-length", "32768", "-order-asc"]
     h100_harness: run_bitonicsort
-    h100_args: ["1024", "1", "20"]
+    h100_args: ["32768", "1", "20"]
   - name: floydwarshall
     sample: floydwarshall
-    sim_args: ["-node", "16", "-iter", "0"]
+    sim_args: ["-node", "96", "-iter", "0"]
     h100_harness: run_floydwarshall
-    h100_args: ["16", "0", "20"]
+    h100_args: ["96", "0", "20"]
   - name: fastwalshtransform
     sample: fastwalshtransform
-    sim_args: ["-length", "1024"]
+    sim_args: ["-length", "65536"]
     h100_harness: run_fastwalshtransform
-    h100_args: ["1024", "20"]
+    h100_args: ["65536", "20"]

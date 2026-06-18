@@ -28,18 +28,58 @@ synchronization or lack thereof) and report the *summed* wall-clock time
 across the whole sequence, matching what mgpusim's `Driver`/`kernel_time`
 metric accumulates over the whole run.
 
+## Problem sizes
+
+Sizes were scaled up from each benchmark's tiny AMDAPPSDK-style default,
+**not** to hit a fixed multiplier, but empirically increased until
+mgpusim's own timing simulation (step 2) approached, but stayed under, a
+~1-minute wall-clock budget on the machine used to pick them (a slower or
+faster machine will shift these numbers). The H100 side runs essentially
+instantly at any of these sizes — the budget only binds on the mgpusim
+side, since it's a software emulator executing every instruction of every
+simulated wavefront.
+
+| Benchmark | Default -> chosen size | mgpusim wall-clock @ chosen size | Simulated `kernel_time` scale factor vs. default |
+|---|---|---|---|
+| matrixmultiplication | 64x64x64 -> 320x320x320 | ~18s | ~4.1x |
+| matrixtranspose | 256 -> 1024 | ~40s | ~2.7x |
+| simpleconvolution | 254x254 -> 510x510 | ~34s | ~3.5x |
+| bitonicsort | 1024 -> 32768 | ~45s | ~2.8x |
+| floydwarshall | 16 -> 96 | ~21s | ~6.0x |
+| fastwalshtransform | 1024 -> 65536 | ~38s | ~1.9x |
+
+**These scale factors are far below the 100-1000x originally targeted, and
+that gap is itself informative, not a tuning failure to fix.** mgpusim's
+timing model spreads extra work-items across the simulated CUs/shader
+arrays, so once enough CUs are occupied, *simulated* `kernel_time` grows
+much more slowly than raw problem size (e.g. going 5x bigger in each
+matrixmultiplication dimension, 125x more raw work, only grew simulated
+time ~4x). Meanwhile the *emulator's own wall-clock cost* to compute that
+simulation keeps growing close to linearly with total thread/wavefront
+count, since it's still executing every instruction of every wavefront in
+software. Concretely: pushing matrixmultiplication from 320 to 448
+(scale 4.1x -> 6.0x) took wall-clock from 18s to 57s — a small gain in
+simulated scale for a 3x wall-clock cost. That asymmetry is why these
+sizes stop well short of 100x: going further is a wall-clock, not a
+modeling, problem on this machine. If you have more time/CPU budget (or
+run this on a faster machine), you can push these higher — anything above
+the values below took over a minute when tested here:
+matrixmultiplication 448 (57s), matrixtranspose 2560 (~4 min),
+simpleconvolution 1022 (~2m25s), floydwarshall 144 (~67s),
+fastwalshtransform 131072 (~83s).
+
 ## Step 1 — Run the kernel on real H100 hardware
 
 On the H100 server, one of:
 
 | Benchmark | Command |
 |---|---|
-| matrixmultiplication | `./build_and_run_matrixmultiplication.sh 64 64 64 20` (X Y Z iterations) |
-| matrixtranspose | `./build_and_run_matrixtranspose.sh 256 20` (Width iterations) |
-| simpleconvolution | `./build_and_run_simpleconvolution.sh 254 254 3 20` (Width Height MaskSize iterations) |
-| bitonicsort | `./build_and_run_bitonicsort.sh 1024 1 20` (Length OrderAscending[0\|1] iterations) |
-| floydwarshall | `./build_and_run_floydwarshall.sh 16 0 20` (NumNodes NumIterations[0=NumNodes] iterations) |
-| fastwalshtransform | `./build_and_run_fastwalshtransform.sh 1024 20` (Length iterations) |
+| matrixmultiplication | `./build_and_run_matrixmultiplication.sh 320 320 320 20` (X Y Z iterations) |
+| matrixtranspose | `./build_and_run_matrixtranspose.sh 1024 20` (Width iterations) |
+| simpleconvolution | `./build_and_run_simpleconvolution.sh 510 510 3 20` (Width Height MaskSize iterations) |
+| bitonicsort | `./build_and_run_bitonicsort.sh 32768 1 20` (Length OrderAscending[0\|1] iterations) |
+| floydwarshall | `./build_and_run_floydwarshall.sh 96 0 20` (NumNodes NumIterations[0=NumNodes] iterations) |
+| fastwalshtransform | `./build_and_run_fastwalshtransform.sh 65536 20` (Length iterations) |
 
 (install `ocl-icd-opencl-dev`, or your distro's OpenCL headers/loader, first
 if `CL/cl.h` is missing)
@@ -65,24 +105,20 @@ pass to `compare.py --freq_mhz` in step 3.
 
 | Benchmark | Command |
 |---|---|
-| matrixmultiplication | `./run_mgpusim.sh matrixmultiplication mm_64 -x 64 -y 64 -z 64` |
-| matrixtranspose | `./run_mgpusim.sh matrixtranspose mt_256 -width 256` |
-| simpleconvolution | `./run_mgpusim.sh simpleconvolution sc_254 -width 254 -height 254 -mask-size 3` |
-| bitonicsort | `./run_mgpusim.sh bitonicsort bs_1024 -length 1024 -order-asc` |
-| floydwarshall | `./run_mgpusim.sh floydwarshall fw_16 -node 16 -iter 0` |
-| fastwalshtransform | `./run_mgpusim.sh fastwalshtransform fwt_1024 -length 1024` |
+| matrixmultiplication | `./run_mgpusim.sh matrixmultiplication mm_320 -x 320 -y 320 -z 320` |
+| matrixtranspose | `./run_mgpusim.sh matrixtranspose mt_1024 -width 1024` |
+| simpleconvolution | `./run_mgpusim.sh simpleconvolution sc_510 -width 510 -height 510 -mask-size 3` |
+| bitonicsort | `./run_mgpusim.sh bitonicsort bs_32768 -length 32768 -order-asc` |
+| floydwarshall | `./run_mgpusim.sh floydwarshall fw_96 -node 96 -iter 0` |
+| fastwalshtransform | `./run_mgpusim.sh fastwalshtransform fwt_65536 -length 65536` |
 
 This builds the given `amd/samples/<name>` sample and runs it in timing
 mode, writing `<out-name>.sqlite3` (table `mgpusim_metrics`, columns
 `Location, What, Value, Unit`). The row `Location='Driver', What='kernel_time'`
 is the simulated end-to-end kernel time in seconds (summed across all
-launches, for the multi-pass benchmarks).
-
-**Note on problem size:** with the default matrixmultiplication 64x64x64
-matrices, only 1 of 64 CUs is ever active (global size 16x16 / work-group
-8x8 = 4 work-groups total). Use a larger problem size if you want the
-simulated config to actually be saturated rather than dominated by fixed
-overhead — this applies to the other small-default benchmarks too.
+launches, for the multi-pass benchmarks). Expect each of these to take on
+the order of 20-45 seconds wall-clock to simulate (see the "Problem sizes"
+section above) — that's the simulator computing the result, not a hang.
 
 ### Where the "SM-like" config is hard-coded (not exposed as a CLI flag)
 
@@ -135,17 +171,17 @@ why multiple simultaneous knob changes can spuriously cancel out.
 
 | Benchmark | `--sim-db` |
 |---|---|
-| matrixmultiplication | `mm_64.sqlite3` |
-| matrixtranspose | `mt_256.sqlite3` |
-| simpleconvolution | `sc_254.sqlite3` |
-| bitonicsort | `bs_1024.sqlite3` |
-| floydwarshall | `fw_16.sqlite3` |
-| fastwalshtransform | `fwt_1024.sqlite3` |
+| matrixmultiplication | `mm_320.sqlite3` |
+| matrixtranspose | `mt_1024.sqlite3` |
+| simpleconvolution | `sc_510.sqlite3` |
+| bitonicsort | `bs_32768.sqlite3` |
+| floydwarshall | `fw_96.sqlite3` |
+| fastwalshtransform | `fwt_65536.sqlite3` |
 
 ```bash
 python3 compare.py \
   --h100-line "device=... avg_kernel_seconds=0.0000XXXXX" \
-  --sim-db mm_64.sqlite3 \
+  --sim-db mm_320.sqlite3 \
   --freq_mhz 1755 \
   --benchmark matrixmultiplication
 ```
