@@ -1,0 +1,174 @@
+name: MI300A Calibration
+
+# Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks at the same
+# configurations measured on real hardware, and plots simulated vs real KERNEL
+# EXECUTION TIME. The report is figures only (one PNG per non-scaling-parameter
+# combination: x = scaling factor, y = kernel time, two lines sim + real) plus
+# the average error; the per-figure and overall average error land in the job
+# summary. Ground truth: gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
+#
+# Structure: each benchmark sweep is its OWN job so they run in parallel and a
+# failure in one cannot block the others; a single `report` job runs after all
+# sweeps finish, downloads their CSV artifacts, and renders the figures.
+#
+#   fp32_sweep ----\
+#                   >--> report (needs both; if: always())
+#   cache_latency --/
+#
+# Manual trigger only (workflow_dispatch). Each sweep is a long set of full
+# cycle-accurate simulations, so it is never fired automatically -- launch it
+# from the Actions tab / `gh workflow run`.
+#
+# Both benchmarks are compared against committed ground truth. cache_latency
+# runs the real benchmark's 2,000,000 dependent loads, so its large
+# DRAM-footprint arrays are expensive and may hit the per-run timeout; keeping
+# each benchmark in its own parallel job means such a skip cannot block the
+# report for the other.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fp32_sweep:
+    name: fp32_throughput sweep
+    runs-on: self-hosted
+    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build.
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          fi
+
+      - name: Tool versions
+        run: |
+          go version
+          sqlite3 --version
+
+      - name: Run fp32_throughput sweep
+        run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
+
+      - name: Upload fp32 sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp32-sim-results
+          path: fp32_sim_results.csv
+
+  cache_latency_sweep:
+    name: cache_latency sweep
+    runs-on: self-hosted
+    # 90 min to launch new configs (SWEEP_TIMEOUT) + up to 20 min for the last
+    # launched run (PER_RUN_TIMEOUT) + build headroom.
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          fi
+
+      - name: Tool versions
+        run: |
+          go version
+          sqlite3 --version
+
+      - name: Run cache_latency sweep
+        run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
+
+      - name: Upload cache_latency sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-latency-sim-results
+          path: cache_latency_sim_results.csv
+
+  report:
+    name: Plot kernel time vs ground truth
+    runs-on: self-hosted
+    needs: [fp32_sweep, cache_latency_sweep]
+    # Run even if a sweep job failed, so figures are still produced from whatever
+    # results are available.
+    if: always()
+    timeout-minutes: 30
+    # contents:write lets the publish step push the dashboard data to gh-pages.
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download fp32 sweep results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: fp32-sim-results
+          path: .
+
+      - name: Download cache_latency sweep results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cache-latency-sim-results
+          path: .
+
+      - name: Install plotting dependencies
+        run: python3 -m pip install --user --quiet matplotlib seaborn
+
+      - name: Plot kernel-time figures (sim vs real) and average error
+        run: |
+          python3 gpu_perf_scripts/calibration/plot_calibration.py \
+            --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
+            --fp32-sim fp32_sim_results.csv \
+            --cache-sim cache_latency_sim_results.csv \
+            --out figures \
+            --report report.md \
+            --json data.json \
+            --run-id "${{ github.run_id }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload figures and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mi300a-calibration-report
+          # report.md embeds the figures via relative paths, so it renders with
+          # plots when the artifact is downloaded (figures/ ships alongside it).
+          path: |
+            report.md
+            data.json
+            figures/
+            fp32_sim_results.csv
+            cache_latency_sim_results.csv
+
+      # Publish this run's data to the gh-pages dashboard (accumulates history).
+      # Served at https://<owner>.github.io/<repo>/calibration/ once Pages is
+      # enabled (Settings -> Pages -> Deploy from branch -> gh-pages). Best-effort:
+      # a publish failure must not fail the report job.
+      - name: Publish to gh-pages dashboard
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gpu_perf_scripts/calibration/publish_gh_pages.sh \
+            --data data.json --run-id "${{ github.run_id }}"

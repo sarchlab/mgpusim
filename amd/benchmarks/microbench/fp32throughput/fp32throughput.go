@@ -22,11 +22,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// threadsPerBlock is the (compile-time-known) work-group size. The HIP source
-// uses 256 (a multiple of 64). The kernel does not read blockDim, so this
-// value only matters for the launch geometry and emits no hidden ABI args.
-const threadsPerBlock = 256
-
 // FMA multiplier / addend constants, kept identical to the HIP kernel so the
 // CPU reference in Verify() matches the GPU result bit-for-bit in spirit.
 const (
@@ -36,14 +31,16 @@ const (
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 12): one 8-byte global_buffer pointer followed by
-// one 4-byte by_value scalar, packed with no padding (mgpusim serializes args
-// with binary.Write, which does not insert alignment padding). The kernel
-// reads only blockIdx.x / threadIdx.x, so no hidden ABI arguments are emitted.
+// One 8-byte global_buffer pointer followed by two 4-byte by_value scalars,
+// packed with no padding (mgpusim serializes args with binary.Write, which does
+// not insert alignment padding; all fields are naturally aligned here so
+// kernarg_segment_size = 16). The kernel reads only blockIdx.x / threadIdx.x
+// plus these explicit args -- block size is passed as ThreadsPerBlock rather
+// than read from blockDim.x, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Out           driver.Ptr // offset 0, size 8 (global_buffer)
-	FmasPerThread int32      // offset 8, size 4 (by_value)
+	Out             driver.Ptr // offset 0, size 8 (global_buffer)
+	FmasPerThread   int32      // offset 8, size 4 (by_value)
+	ThreadsPerBlock int32      // offset 12, size 4 (by_value)
 }
 
 // Benchmark defines the fp32_throughput benchmark.
@@ -61,6 +58,11 @@ type Benchmark struct {
 	// FmasPerThread is the number of FMA iterations per thread. It is rounded
 	// down to a multiple of 4 to match the kernel's 4-way unrolled loop.
 	FmasPerThread int
+	// ThreadsPerBlock is the work-group (block) size. Defaults to 256; must be
+	// <= 1024 (the gfx942 hardware maximum). The kernel reads blockDim.x, so any
+	// value launches correctly and the sweep can match the ground-truth
+	// threads_per_block dimension.
+	ThreadsPerBlock int
 
 	gOut driver.Ptr
 
@@ -134,8 +136,15 @@ func (b *Benchmark) numBlocks() int {
 	return b.NumBlocks
 }
 
+func (b *Benchmark) threadsPerBlock() int {
+	if b.ThreadsPerBlock <= 0 {
+		return 256
+	}
+	return b.ThreadsPerBlock
+}
+
 func (b *Benchmark) numThreads() int {
-	return b.numBlocks() * threadsPerBlock
+	return b.numBlocks() * b.threadsPerBlock()
 }
 
 func (b *Benchmark) initMem() {
@@ -154,18 +163,20 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 	numBlocks := b.numBlocks()
-	globalX := uint32(numBlocks) * threadsPerBlock
+	tpb := b.threadsPerBlock()
+	globalX := uint32(numBlocks * tpb)
 
 	args := KernelArgs{
-		Out:           b.gOut,
-		FmasPerThread: b.fmasPerThread(),
+		Out:             b.gOut,
+		FmasPerThread:   b.fmasPerThread(),
+		ThreadsPerBlock: int32(tpb),
 	}
 
 	b.driver.EnqueueLaunchKernel(
 		b.queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
-		[3]uint16{threadsPerBlock, 1, 1},
+		[3]uint16{uint16(tpb), 1, 1},
 		&args,
 	)
 
@@ -185,11 +196,12 @@ func (b *Benchmark) Verify() {
 	b.driver.MemCopyD2H(b.context, gpu, b.gOut)
 
 	iters := int(b.fmasPerThread()) / 4
+	tpb := b.threadsPerBlock()
 
 	// The result for a thread depends only on threadIdx.x (== tid % block size),
 	// so precompute one reference value per lane.
-	ref := make([]float32, threadsPerBlock)
-	for lane := 0; lane < threadsPerBlock; lane++ {
+	ref := make([]float32, tpb)
+	for lane := 0; lane < tpb; lane++ {
 		a0 := float32(1.0) + float32(lane)*0.001
 		a1 := a0 + 0.1
 		a2 := a0 + 0.2
@@ -205,7 +217,7 @@ func (b *Benchmark) Verify() {
 	}
 
 	for tid := 0; tid < numElem; tid++ {
-		want := float64(ref[tid%threadsPerBlock])
+		want := float64(ref[tid%tpb])
 		got := float64(gpu[tid])
 
 		denom := math.Abs(want)

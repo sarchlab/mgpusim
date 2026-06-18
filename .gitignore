@@ -9,6 +9,8 @@
 *.out
 debug
 *.csv
+# Committed MI300A calibration ground truth (summarized from the ~9 MB DB).
+!gpu_perf_scripts/calibration/mi300a_ground_truth.csv
 *.sqlite3-journal
 *.sqlite3
 *~
@@ -18,6 +20,8 @@ debug
 .ropeproject
 __pycache__
 *.html
+# Committed MI300A calibration dashboard template (served from gh-pages).
+!gpu_perf_scripts/calibration/web/index.html
 _bench_*
 *.atp
 *.swo

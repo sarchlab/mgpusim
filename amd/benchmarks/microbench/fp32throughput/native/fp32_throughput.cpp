@@ -5,20 +5,20 @@
  * Each thread runs a chain of fused multiply-add (FMA) operations on
  * register-resident floats, using four independent accumulators (UNROLL=4)
  * to keep the FP32 pipelines busy. The kernel is memory-traffic free except
- * for a single checksum write from thread (0,0) so the work is not elided.
+ * for one checksum write per thread so the work is not elided.
  *
- * The kernel references only threadIdx.x / blockIdx.x (no blockDim), so the
- * compiler emits no hidden ABI arguments.
+ * The work-group size is passed as an explicit `threads_per_block` argument
+ * (rather than read from blockDim.x) so the output index is correct for any
+ * launch geometry. This keeps the kernel free of implicit/hidden ABI args --
+ * the MGPUSim model does not populate the hidden group-size kernarg, so a
+ * blockDim.x read would come back as 0 for multi-block launches.
  */
 #include "hip/hip_runtime.h"
 
-/* Block size is compile-time known (256) so the kernel needs no blockDim and
-   emits no hidden ABI arguments. */
-#define THREADS_PER_BLOCK 256
-
-extern "C" __global__ void fp32_fma_kernel(float* out, int fmas_per_thread)
+extern "C" __global__ void fp32_fma_kernel(float* out, int fmas_per_thread,
+                                           int threads_per_block)
 {
-    int tid = blockIdx.x * THREADS_PER_BLOCK + threadIdx.x;
+    int tid = blockIdx.x * threads_per_block + threadIdx.x;
 
     /* Four independent accumulators so the compiler can interleave FMAs and
        hide FP32 latency on the throughput path. */
