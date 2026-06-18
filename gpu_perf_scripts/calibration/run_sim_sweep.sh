@@ -131,3 +131,14 @@ while read -r real_ms nb tpb fmas; do
 done <<< "$SORTED"
 
 echo "Done: $ran ok, $timed_out timed out, $failed failed. Wrote $OUT_ABS"
+
+# Timeouts and the budget cutoff are BY DESIGN (the expensive corners are meant to
+# be skippable), so they do not fail the job -- the report tolerates partial data.
+# But a config that was actually attempted and crashed/produced no metric is a real
+# regression for fp32 (every committed config should run), so surface it: fail the
+# sweep job. The report job still runs (it is `if: always()`), so the figures from
+# whatever completed are still published while CI flags the failure.
+if (( failed > 0 )); then
+  echo "ERROR: $failed fp32 config(s) produced no metric (crash/non-timeout) -- failing the sweep." >&2
+  exit 1
+fi

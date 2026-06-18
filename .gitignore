@@ -20,6 +20,8 @@ debug
 .ropeproject
 __pycache__
 *.html
+# Committed MI300A calibration dashboard template (served from gh-pages).
+!gpu_perf_scripts/calibration/web/index.html
 _bench_*
 *.atp
 *.swo
