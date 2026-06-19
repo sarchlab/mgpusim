@@ -167,3 +167,31 @@ jobs:
             mark-run --run-id "$RID" --status "$STATUS" --from-json data.json --run-url "$RURL"
           DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
           printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
+
+  # First-level cleanup: if the run is CANCELLED, the report job above is skipped,
+  # leaving the Firestore doc stuck at in_progress. This job runs only on
+  # cancellation and marks it failed so the dashboard stops showing it as running.
+  # (If even this can't run -- e.g. cancelled before a runner is assigned, or the
+  # machine dies -- the dashboard's Actions-status cross-check is the backstop.)
+  finalize_cancelled:
+    name: Mark run failed (cancelled)
+    needs: [sweep]
+    if: ${{ cancelled() }}
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Mark run failed in Firestore
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status failed --run-url "$RURL"
