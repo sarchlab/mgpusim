@@ -93,7 +93,10 @@ def publish_points(run_id, benchmark, csv_path, ref_path):
         except (KeyError, ValueError) as e:
             warn(f"skipping row {r}: {e}")
             continue
-        batch.set(coll.document(f"{slug}__x{x}"), {
+        # Include benchmark in the id: several throughput benchmarks share the
+        # same (slug, x), so a bare slug__x would let them overwrite each other in
+        # the shared runs/{run_id}/points collection.
+        batch.set(coll.document(f"{benchmark}__{slug}__x{x}"), {
             "benchmark": benchmark, "label": label, "slug": slug,
             "scaling": r.get("scaling_param_name", ""),
             "x": x, "sim_ms": sim_ms, "real_ms": real.get((slug, x)),

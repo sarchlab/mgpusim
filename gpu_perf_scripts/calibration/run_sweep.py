@@ -41,8 +41,10 @@ SPECS = {
                              "params": {"num_blocks": "-num-blocks"}},
     "int32_throughput":     {"sample": "int32_throughput",     "scaling_flag": "-mads",
                              "params": {"num_blocks": "-blocks"}},
+    # -size is a float32 ELEMENT count; ground truth scales by buffer_size_mb, so
+    # convert MiB -> float32 elements (1 MiB / 4 bytes).
     "memory_bandwidth":     {"sample": "memory_bandwidth",     "scaling_flag": "-size",
-                             "params": {}},
+                             "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
@@ -68,8 +70,14 @@ def load_configs(ref, benchmark):
 
 
 def sample_args(spec, scaling_value, ns):
-    """CLI args the sample supports for this config (unsupported gt params dropped)."""
-    args = [spec["scaling_flag"], str(scaling_value)]
+    """CLI args the sample supports for this config (unsupported gt params dropped).
+
+    The recorded scaling_param_value stays the ground-truth value (for matching);
+    only the CLI flag value is transformed via the spec's optional scaling_xform.
+    """
+    xform = spec.get("scaling_xform")
+    sval = xform(scaling_value) if xform else scaling_value
+    args = [spec["scaling_flag"], str(sval)]
     for gt_param, flag in spec["params"].items():
         if gt_param in ns:
             args += [flag, str(ns[gt_param])]
@@ -174,6 +182,12 @@ def main():
     writer_f.close()
     fb_stream(args.benchmark, out_abs, args.ref)  # final flush
     print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")
+    # Surface a wholly-broken sweep (e.g. a sample that panics for every config) so
+    # the matrix child fails and the run isn't silently marked completed with no
+    # points for this benchmark.
+    if ran == 0:
+        sys.exit(f"ERROR: {args.benchmark} produced no metric for any config "
+                 f"({timed_out} timed out, {failed} failed).")
 
 
 if __name__ == "__main__":
