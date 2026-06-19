@@ -208,6 +208,20 @@ H100,1755.0,matrixtranspose,1.162600000e-05,20403.6,4.742000000e-06,8322.2,0.412
 `--gpu-model` defaults to `"H100"`; `--benchmark` is required so each row is
 identifiable.
 
+### Plotting results across GPU models
+
+Once `toy_recording.csv` has rows for more than one `gpu_model` (e.g. H100
+and A100), plot a side-by-side comparison:
+```bash
+python3 plot_sim_vs_real_ratio.py --gpu-models H100 A100
+```
+Produces `sim_vs_real_ratio.png`: one subplot per GPU model, each with one
+bar group per benchmark (sorted alphabetically) — a "Hardware" bar fixed at
+1.0 and a hatched "Simulator" bar at that benchmark's
+`simulated_real_ratio`, labeled with its value. If a benchmark/GPU pair has
+multiple rows (re-runs), the most recent row is used. Use `--csv`/`--out` to
+point at a different recording file or output path.
+
 ## Step 4 — Generalize to other benchmarks
 
 1. Add a row to every table in this guidebook, and an entry to
@@ -247,6 +261,7 @@ identifiable.
 | `run_mgpusim.sh` | Builds and runs an `amd/samples/<name>` binary in timing mode |
 | `compare.py` | Computes H100-vs-mgpusim gap for one benchmark, appends a row to `toy_recording.csv` |
 | `toy_recording.csv` | Append-only log of every `compare.py` run (created on first run) |
+| `plot_sim_vs_real_ratio.py` | Plots Hardware-vs-Simulator ratio bars per benchmark, one subplot per GPU model, from `toy_recording.csv` |
 | `benchmarks.yaml` | Registry of benchmarks for the batch pipeline |
 | `batch_compare.py` | Runs the mgpusim side and prints a summary table for all registered benchmarks |
 | `toy_guidebook.md` | This file |
