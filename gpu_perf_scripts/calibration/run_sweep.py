@@ -25,7 +25,7 @@ import sys
 import tempfile
 import time
 
-from calib_common import parse_ns
+from calib_common import parse_ns, xparse
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -52,8 +52,28 @@ SPECS = {
 }
 
 
+def sim_cost(scaling_value, ns):
+    """Rough proxy for how expensive a config is to SIMULATE: total dynamic work
+    ~= grid size x per-thread iterations = num_blocks * threads_per_block * scaling.
+
+    Ordering by real HARDWARE time is work-blind -- HW kernel time floors at
+    ~0.5 ms regardless of size, so the "cheapest real" configs include ones that
+    are enormous to cycle-accurately simulate (e.g. 4096 blocks x 64 threads).
+    Those burn the full PER_RUN_TIMEOUT producing nothing and starve the sweep
+    (the dashboard stays empty). Ordering by simulated work instead streams the
+    genuinely fast configs first; the expensive tail (which may time out) runs
+    last. Benchmarks that don't pass threads_per_block collapse those configs via
+    memoization, so the proxy still orders the distinct sims correctly.
+    """
+    try:
+        s = abs(xparse(scaling_value))
+    except (ValueError, TypeError):
+        s = 1
+    return s * ns.get("num_blocks", 1) * ns.get("threads_per_block", 1)
+
+
 def load_configs(ref, benchmark):
-    """[(real_ms, scaling_name, scaling_value, non_scaling_dict)] cheapest-first."""
+    """[(real_ms, scaling_name, scaling_value, non_scaling_dict)] cheapest-to-SIMULATE first."""
     out = []
     with open(ref, newline="") as f:
         for r in csv.DictReader(f):
@@ -65,7 +85,7 @@ def load_configs(ref, benchmark):
                 real = float("inf")
             out.append((real, r["scaling_param_name"], r["scaling_param_value"],
                         parse_ns(r.get("non_scaling_json", "{}"))))
-    out.sort(key=lambda c: c[0])
+    out.sort(key=lambda c: sim_cost(c[2], c[3]))
     return out
 
 
@@ -151,7 +171,7 @@ def main():
         f.write("benchmark,scaling_param_name,scaling_param_value,non_scaling_json,kernel_time_s\n")
 
     print(f"Sweeping {args.benchmark}: {len(configs)} configs "
-          f"(per-run {per_run}s, budget {budget}s), cheapest-first...")
+          f"(per-run {per_run}s, budget {budget}s), cheapest-to-simulate first...")
     start = time.time()
     import json as _json
     cache = {}
