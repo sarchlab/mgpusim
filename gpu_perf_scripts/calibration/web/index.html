@@ -70,10 +70,6 @@ const firebaseConfig = {
 const db = getFirestore(initializeApp(firebaseConfig));
 
 const SIM_COLOR = "#1f77b4", REAL_COLOR = "#d62728";
-const XLABEL = {
-  fp32_throughput: "fmas_per_thread (scaling factor)",
-  cache_latency: "array_bytes (scaling factor)",
-};
 
 const $ = (id) => document.getElementById(id);
 const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`;
@@ -165,8 +161,10 @@ function renderGroups(groups, metaHTML) {
 // ---- render a run from its Firestore points (live or completed) ------------
 function pointsToGroups(points) {
   const byBench = new Map();
+  const scalingOf = new Map();   // benchmark -> scaling param name (for the x-axis label)
   for (const p of points) {
     if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, new Map());
+    if (p.scaling) scalingOf.set(p.benchmark, p.scaling);
     const g = byBench.get(p.benchmark);
     if (!g.has(p.slug)) g.set(p.slug, { label: p.label, sim: [], real: [] });
     const fig = g.get(p.slug);
@@ -186,7 +184,8 @@ function pointsToGroups(points) {
         offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n });
     }
     figures.sort((x, y) => x.label < y.label ? -1 : 1);
-    groups.push({ benchmark, xlabel: XLABEL[benchmark] || "scaling factor", figures });
+    const sc = scalingOf.get(benchmark);
+    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures });
   }
   return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
 }
