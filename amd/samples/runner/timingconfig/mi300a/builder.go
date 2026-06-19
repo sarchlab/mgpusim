@@ -484,8 +484,20 @@ func (b *Builder) connectL2AndMALL() {
 	}
 
 	for _, mall := range b.malls {
-		b.l2ToMALLConnection.PlugIn(mall.GetPortByName("Top"))
+		topPort := mall.GetPortByName("Top")
+		b.l2ToMALLConnection.PlugIn(topPort)
+
+		// The MALL is a memory-side cache: it fronts DRAM for ALL memory
+		// traffic, not just GPU L2 misses. So the DMA engine (host MemCopy)
+		// targets the MALL too, via the same interleaving the L1->L2 path
+		// uses. This keeps the MALL coherent with host copies and lets an
+		// H2D copy populate it (write-through), so a subsequent kernel reads
+		// resident data instead of always missing to DRAM.
+		b.dmaLocalDataSource.LowModules = append(
+			b.dmaLocalDataSource.LowModules, topPort.AsRemote())
 	}
+
+	b.l2ToMALLConnection.PlugIn(b.dmaEngine.GetPortByName("ToMem"))
 }
 
 func (b *Builder) connectMALLAndDRAM() {
@@ -494,22 +506,17 @@ func (b *Builder) connectMALLAndDRAM() {
 		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".MALLToDRAM")
 
+	// MALL is the sole front end for DRAM: the only things on this connection
+	// are the MALL bottoms and the DRAM tops. GPU L2 misses and host DMA both
+	// reach DRAM through the MALL (wired in connectL2AndMALL), so the MALL is a
+	// true proxy of DRAM for every memory access.
 	for _, mall := range b.malls {
 		b.mallToDramConnection.PlugIn(mall.GetPortByName("Bottom"))
 	}
 
 	for _, dramComp := range b.drams {
-		topPort := dramComp.GetPortByName("Top")
-		b.mallToDramConnection.PlugIn(topPort)
-		b.dmaLocalDataSource.LowModules = append(
-			b.dmaLocalDataSource.LowModules, topPort.AsRemote())
+		b.mallToDramConnection.PlugIn(dramComp.GetPortByName("Top"))
 	}
-
-	// The DMA engine writes host-copied data straight to DRAM, bypassing the
-	// L2/MALL caches (so a fresh kernel sees a cold hierarchy). The CP
-	// invalidates the caches between kernels to keep them coherent with these
-	// direct writes.
-	b.mallToDramConnection.PlugIn(b.dmaEngine.GetPortByName("ToMem"))
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -619,23 +626,22 @@ func (b *Builder) buildL2Caches() {
 // each backing its own DRAM controller), so the banks together form a single
 // device-wide last-level cache striped across the channels.
 //
-// The MALL is modeled as a read-allocating write-around cache (like the L1
-// vector caches) rather than a write-back cache. The benchmarks we calibrate
-// against are read-latency probes, and on the read path write-around and
-// write-back are identical; using write-around keeps DRAM authoritative for
-// writes so the MALL needs no flush. That matters because stacking two
-// write-back caches (L2 over MALL) and flushing both at every kernel boundary
-// deadlocks the flusher (the L2 writes back into a MALL that is itself
-// flushing) and would require an O(256 MB) write-back scan per kernel. The
-// MALL is therefore left out of the CP control list; DRAM stays current via
-// write-around, so cold-start reads (the case these microbenchmarks measure)
-// are always correct.
+// The MALL is modeled as a read- and write-allocating write-through cache
+// rather than a write-back cache. As a memory-side cache it fronts DRAM for
+// every memory access (GPU L2 misses AND host DMA), so write-through (write
+// allocates the line and also writes DRAM) keeps DRAM authoritative while
+// letting host copies populate the MALL — a key behavior for the DRAM-proxy
+// model. Write-through also means the MALL never holds dirty data, so it needs
+// no flush and stays out of the CP control list; this avoids the deadlock that
+// stacking two write-back caches (L2 over MALL) and flushing both at every
+// kernel boundary would cause (the L2 writes back into a MALL that is itself
+// flushing), and the O(256 MB) write-back scan per kernel.
 func (b *Builder) buildMALL() {
 	byteSize := b.mallCacheSize / uint64(b.numMemoryBank)
 
 	spec := writethroughcache.DefaultSpec()
 	spec.Freq = b.freq
-	spec.WritePolicyType = "write-around"
+	spec.WritePolicyType = "write-through"
 	spec.Log2BlockSize = b.log2CacheLineSize
 	spec.WayAssociativity = 16
 	spec.TotalByteSize = byteSize
