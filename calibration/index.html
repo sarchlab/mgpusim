@@ -56,7 +56,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot }
+import { getFirestore, collection, doc, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -191,14 +191,18 @@ function pointsToGroups(points) {
   return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
 }
 
-let unsubPoints = null;
-function renderLive(runId) {
+let unsubPoints = null, unsubRun = null;
+function unsubCurrent() {
   if (unsubPoints) { unsubPoints(); unsubPoints = null; }
-  $("figures").innerHTML = '<div class="note">Connecting to live run&hellip;</div>';
+  if (unsubRun) { unsubRun(); unsubRun = null; }
+}
+function renderLive(runId) {
+  unsubCurrent();
+  $("figures").innerHTML = '<div class="note">Connecting to run&hellip;</div>';
   $("figures").dataset.sig = "";
-  unsubPoints = onSnapshot(collection(db, "runs", runId, "points"), (snap) => {
-    const points = snap.docs.map((d) => d.data());
-    const run = liveRuns.get(runId) || {};
+  let run = liveRuns.get(runId) || {};
+  let points = [];
+  const render = () => {
     const { groups, overallMape, overallSmape } = pointsToGroups(points);
     const badge = run.status === "completed" ? '<span class="badge b-done">completed</span>'
       : run.status === "failed" ? '<span class="badge b-fail">failed</span>'
@@ -208,6 +212,12 @@ function renderLive(runId) {
       + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
     if (!points.length) { $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
     renderGroups(groups, meta);
+  };
+  // Re-render on status changes (run doc) AND on new points, so a run that
+  // completes/fails while being viewed updates its badge without a reload.
+  unsubRun = onSnapshot(doc(db, "runs", runId), (s) => { if (s.exists()) run = s.data(); render(); }, () => {});
+  unsubPoints = onSnapshot(collection(db, "runs", runId, "points"), (snap) => {
+    points = snap.docs.map((d) => d.data()); render();
   }, (err) => { $("figures").innerHTML = `<div class="note">Live read failed: ${err.message}</div>`; });
 }
 
@@ -284,7 +294,7 @@ function rebuildPicker() {
 
 function showLanding(runs) {
   current = null;
-  if (unsubPoints) { unsubPoints(); unsubPoints = null; }
+  unsubCurrent();
   $("runPicker").value = "";
   $("status").style.display = "none";
   const n = runs.length;
