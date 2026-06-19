@@ -122,6 +122,14 @@ func (b *Builder) adjustConfigForGPUType() {
 		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
 		b.d2hCycles = 150    // MI300A Infinity Fabric latency (~83ns)
 		b.h2dCycles = 250    // MI300A command processing (~139ns)
+		// The ROCm/HIP runtime backs large device allocations with 2 MB
+		// huge pages, so a pointer chase over hundreds of MB stays
+		// TLB-resident and the latency curve is pure cache hierarchy (the
+		// real MI300A cache_latency shows no TLB wall). Modeling 4 KB pages
+		// would make the L1/L2 TLBs thrash at ~1 MB working sets and inject
+		// page-walk latency the hardware never pays. This sets the page size
+		// for the MMU/page table and every TLB consistently.
+		b.log2PageSize = 21 // 2 MB huge pages
 	default:
 		// Keep defaults for r9nano
 	}
