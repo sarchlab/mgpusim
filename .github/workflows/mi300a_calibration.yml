@@ -69,14 +69,17 @@ jobs:
           "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
+          # Include run_attempt so a re-run gets its own Firestore run + points
+          # (re-runs reuse github.run_id, which would otherwise mix attempts).
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
           {
             echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
             echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
-            echo "FB_RUN_ID=${{ github.run_id }}"
+            echo "FB_RUN_ID=$RID"
           } >> "$GITHUB_ENV"
           "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            mark-run --run-id "${{ github.run_id }}" --status in_progress \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run fp32_throughput sweep
         run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
@@ -123,14 +126,17 @@ jobs:
           "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
+          # Include run_attempt so a re-run gets its own Firestore run + points
+          # (re-runs reuse github.run_id, which would otherwise mix attempts).
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
           {
             echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
             echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
-            echo "FB_RUN_ID=${{ github.run_id }}"
+            echo "FB_RUN_ID=$RID"
           } >> "$GITHUB_ENV"
           "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            mark-run --run-id "${{ github.run_id }}" --status in_progress \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run cache_latency sweep
         run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
@@ -172,6 +178,7 @@ jobs:
         run: python3 -m pip install --user --quiet matplotlib seaborn
 
       - name: Plot kernel-time figures (sim vs real) and average error
+        id: plot
         run: |
           python3 gpu_perf_scripts/calibration/plot_calibration.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
@@ -180,8 +187,8 @@ jobs:
             --out figures \
             --report report.md \
             --json data.json \
-            --run-id "${{ github.run_id }}" \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}" \
             --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --summary "$GITHUB_STEP_SUMMARY"
 
@@ -212,9 +219,15 @@ jobs:
           "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          # Report the true outcome: a failed sweep or a failed plot => failed, not completed.
+          STATUS=completed
+          if [[ "${{ needs.fp32_sweep.result }}" != "success" || "${{ needs.cache_latency_sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
+            STATUS=failed
+          fi
           "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            mark-run --run-id "${{ github.run_id }}" --status completed \
-            --from-json data.json \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/${{ github.run_id }}"
-          printf '\n**📊 [View this run in the calibration dashboard](%s)**\n' "$DASH" >> "$GITHUB_STEP_SUMMARY"
+            mark-run --run-id "$RID" --status "$STATUS" \
+            --from-json data.json --run-url "$RURL"
+          DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
+          printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
