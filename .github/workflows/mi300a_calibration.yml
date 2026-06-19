@@ -43,9 +43,14 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: "stable"
+          go-version-file: go.mod
+          # Self-hosted runners persist ~/go/pkg/mod and ~/.cache/go-build on disk
+          # between jobs, so setup-go's remote module cache is redundant -- it was
+          # restoring ~1.7 GB (~6.5 min) over modules already present, then failing
+          # the tar extract with "File exists". Disable it.
+          cache: false
 
       - name: Install build dependencies
         run: |
