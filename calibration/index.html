@@ -36,6 +36,7 @@
   .b-run  { background:#fff3cd; color:#7a5d00; }
   .b-done { background:#d4edda; color:#155724; }
   .b-fail { background:#f8d7da; color:#721c24; }
+  .b-stale { background:#e1e4e8; color:#57606a; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   .b-run::before { content:"\25CF "; animation:pulse 1.2s infinite; }
 </style>
@@ -70,10 +71,6 @@ const firebaseConfig = {
 const db = getFirestore(initializeApp(firebaseConfig));
 
 const SIM_COLOR = "#1f77b4", REAL_COLOR = "#d62728";
-const XLABEL = {
-  fp32_throughput: "fmas_per_thread (scaling factor)",
-  cache_latency: "array_bytes (scaling factor)",
-};
 
 const $ = (id) => document.getElementById(id);
 const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`;
@@ -165,8 +162,10 @@ function renderGroups(groups, metaHTML) {
 // ---- render a run from its Firestore points (live or completed) ------------
 function pointsToGroups(points) {
   const byBench = new Map();
+  const scalingOf = new Map();   // benchmark -> scaling param name (for the x-axis label)
   for (const p of points) {
     if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, new Map());
+    if (p.scaling) scalingOf.set(p.benchmark, p.scaling);
     const g = byBench.get(p.benchmark);
     if (!g.has(p.slug)) g.set(p.slug, { label: p.label, sim: [], real: [] });
     const fig = g.get(p.slug);
@@ -186,7 +185,8 @@ function pointsToGroups(points) {
         offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n });
     }
     figures.sort((x, y) => x.label < y.label ? -1 : 1);
-    groups.push({ benchmark, xlabel: XLABEL[benchmark] || "scaling factor", figures });
+    const sc = scalingOf.get(benchmark);
+    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures });
   }
   return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
 }
@@ -204,9 +204,9 @@ function renderLive(runId) {
   let points = [];
   const render = () => {
     const { groups, overallMape, overallSmape } = pointsToGroups(points);
-    const badge = run.status === "completed" ? '<span class="badge b-done">completed</span>'
-      : run.status === "failed" ? '<span class="badge b-fail">failed</span>'
-      : '<span class="badge b-run">running</span>';
+    const rawStatus = run.status || "in_progress";
+    checkActions({ run_id: runId, status: rawStatus, run_url: run.run_url });
+    const badge = badgeHTML(displayStatus({ run_id: runId, status: rawStatus }));
     const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
     const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
       + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
@@ -228,6 +228,27 @@ let pendingDeepLink = null;     // run id awaiting its doc to appear (Firestore 
 
 function tsIso(t) { return (t && t.toDate) ? t.toDate().toISOString() : (t || ""); }
 
+// ---- guard (a): an in_progress doc whose GitHub Actions run has actually finished
+// (cancelled / machine died before the cleanup job could mark it) is shown as
+// "ended", not "running". The page can't fix the DB (read-only) -- display only;
+// the workflow's cancel-finalize job is what actually repairs the record.
+const actionsDone = new Set();      // run ids whose Actions run reports completed
+const actionsChecked = new Set();   // run ids already queried (one fetch each)
+function displayStatus(r) {
+  return (r.status === "in_progress" && actionsDone.has(r.run_id)) ? "ended" : r.status;
+}
+function checkActions(run) {
+  if (run.status !== "in_progress" || actionsChecked.has(run.run_id)) return;
+  const m = (run.run_url || "").match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+  if (!m) return;
+  actionsChecked.add(run.run_id);
+  fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/actions/runs/${m[3]}`,
+        { headers: { Accept: "application/vnd.github+json" } })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.status === "completed") { actionsDone.add(run.run_id); rebuildPicker(); } })
+    .catch(() => {});   // rate-limited / offline: leave it showing in_progress
+}
+
 function mergedRuns() {
   const arr = [];
   for (const [id, doc] of liveRuns) arr.push({
@@ -235,6 +256,7 @@ function mergedRuns() {
     when: tsIso(doc.started_at) || doc.generated_at || "",
     mape: doc.overall_mape, smape: doc.overall_smape,
   });
+  arr.forEach(checkActions);   // verify in_progress runs against the Actions API (once each)
   return arr.sort((a, b) =>
     String(b.when || "").localeCompare(String(a.when || "")) || String(b.run_id).localeCompare(String(a.run_id)));
 }
@@ -242,6 +264,7 @@ function mergedRuns() {
 function badgeHTML(s) {
   return s === "completed" ? '<span class="badge b-done">completed</span>'
     : s === "failed" ? '<span class="badge b-fail">failed</span>'
+    : s === "ended" ? '<span class="badge b-stale">ended</span>'
     : s === "in_progress" ? '<span class="badge b-run">running</span>' : "";
 }
 
@@ -281,7 +304,9 @@ function rebuildPicker() {
     const o = document.createElement("option");
     o.value = r.run_id;
     const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "";
-    const m = r.status === "in_progress" ? "running" : `MAPE ${fmtPct(r.mape)} / sMAPE ${fmtPct(r.smape)}`;
+    const st = displayStatus(r);
+    const m = st === "in_progress" ? "running" : st === "ended" ? "ended (not finalized)"
+      : `MAPE ${fmtPct(r.mape)} / sMAPE ${fmtPct(r.smape)}`;
     o.textContent = `${r.run_id} — ${when} — ${m}`;
     picker.appendChild(o);
   }
@@ -306,9 +331,11 @@ function showLanding(runs) {
     const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "(undated)";
     const a = document.createElement("a");
     a.className = "runcard"; a.href = BASE + "run/" + encodeURIComponent(r.run_id);
-    const metrics = r.status === "in_progress" ? "in progress"
+    const st = displayStatus(r);
+    const metrics = st === "in_progress" ? "in progress"
+      : st === "ended" ? "ended without finalizing"
       : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`;
-    a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(r.status)}</span>`
+    a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(st)}</span>`
       + `<span class="rc-meta">${when} &middot; ${metrics}</span>`;
     a.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(r.run_id); });
     list.appendChild(a);
