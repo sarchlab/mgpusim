@@ -164,7 +164,7 @@ func (b *gridBuilderImpl) spawnWorkItems(wg *WorkGroup) {
 
 func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 	var wf *Wavefront
-	wavefrontSize := 64
+	wavefrontSize := 32 // 64
 	for i, wi := range wg.WorkItems {
 		wg := wi.WG
 		inWGID := wi.IDZ*wg.SizeX*wg.SizeY + wi.IDY*wg.SizeX + wi.IDX

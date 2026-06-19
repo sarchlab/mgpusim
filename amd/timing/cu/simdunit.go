@@ -79,9 +79,9 @@ func (u *SIMDUnit) IsIdle() bool {
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
-	cycleLeft := 64 / u.NumSinglePrecisionUnit
+	cycleLeft := 32 / u.NumSinglePrecisionUnit // 64 / u.NumSinglePrecisionUnit
 	if strings.Contains(wave.Inst().InstName, "f64") {
-		cycleLeft = 64 / (u.NumSinglePrecisionUnit / 2)
+		cycleLeft = 32 / (u.NumSinglePrecisionUnit / 2) // 64 / (u.NumSinglePrecisionUnit / 2)
 	}
 
 	if u.scoreboardEnabled {

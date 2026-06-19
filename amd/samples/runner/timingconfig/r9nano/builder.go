@@ -76,9 +76,9 @@ type Builder struct {
 // MakeBuilder creates a new builder.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                           1 * timing.GHz,
+		freq:                           1755 * timing.MHz, // 1 * timing.GHz,
 		numCUPerShaderArray:            4,
-		numShaderArray:                 16,
+		numShaderArray:                 114, // 16,
 		l2CacheSize:                    2 * mem.MB,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
