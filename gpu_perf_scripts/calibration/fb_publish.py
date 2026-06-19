@@ -28,6 +28,8 @@ import json
 import os
 import sys
 
+from calib_common import parse_ns, ns_label, ns_slug, xparse
+
 
 def warn(msg):
     print(f"WARNING (fb_publish): {msg}", file=sys.stderr)
@@ -46,45 +48,24 @@ def server_ts():
     return firestore.SERVER_TIMESTAMP
 
 
-# Per-benchmark mapping from a sweep CSV row -> (label, slug, x, real_key).
-# real_key matches the ground-truth lookup built in load_real().
-def _fp32(r):
-    nb, tpb, x = int(r["num_blocks"]), int(r["threads_per_block"]), int(r["fmas_per_thread"])
-    return (f"num_blocks={nb}, threads_per_block={tpb}", f"nb{nb}_tpb{tpb}", x, (nb, tpb, x))
-
-
-def _cache(r):
-    na, x = int(r["num_accesses"]), int(r["array_bytes"])
-    return (f"num_accesses={na}", f"na{na}", x, (x, na))
-
-
-SPECS = {"fp32_throughput": _fp32, "cache_latency": _cache}
-
-
 def load_real(ref_path, benchmark):
-    """(real_key) -> kernel_ms_mean, from the committed ground-truth CSV."""
+    """(slug, x) -> kernel_ms_mean from the ground-truth CSV; slug from non_scaling_json."""
     real = {}
+    if not os.path.exists(ref_path):
+        return real
     with open(ref_path, newline="") as f:
         for r in csv.DictReader(f):
             if r["benchmark"] != benchmark:
                 continue
             try:
-                if benchmark == "fp32_throughput":
-                    key = (int(r["num_blocks"]), int(r["threads_per_block"]),
-                           int(r["scaling_param_value"]))
-                else:  # cache_latency: (array_bytes, num_accesses)
-                    key = (int(r["scaling_param_value"]), int(r["num_accesses"]))
-                real[key] = float(r["kernel_ms_mean"])
+                slug = ns_slug(parse_ns(r.get("non_scaling_json", "{}")))
+                real[(slug, xparse(r["scaling_param_value"]))] = float(r["kernel_ms_mean"])
             except (KeyError, ValueError):
                 continue
     return real
 
 
 def publish_points(run_id, benchmark, csv_path, ref_path):
-    spec = SPECS.get(benchmark)
-    if spec is None:
-        warn(f"unknown benchmark {benchmark}")
-        return
     if not os.path.exists(csv_path):
         return
     rows = list(csv.DictReader(open(csv_path, newline="")))
@@ -98,21 +79,27 @@ def publish_points(run_id, benchmark, csv_path, ref_path):
     new = rows[start:]
     if not new:
         return
-    real = load_real(ref_path, benchmark) if os.path.exists(ref_path) else {}
+    real = load_real(ref_path, benchmark)
     db = get_db()
     coll = db.collection("runs").document(run_id).collection("points")
     batch = db.batch()
     n = 0
     for r in new:
         try:
-            label, slug, x, rkey = spec(r)
+            ns = parse_ns(r.get("non_scaling_json", "{}"))
+            label, slug = ns_label(ns), ns_slug(ns)
+            x = xparse(r["scaling_param_value"])
             sim_ms = float(r["kernel_time_s"]) * 1000.0
         except (KeyError, ValueError) as e:
             warn(f"skipping row {r}: {e}")
             continue
-        batch.set(coll.document(f"{slug}__x{x}"), {
+        # Include benchmark in the id: several throughput benchmarks share the
+        # same (slug, x), so a bare slug__x would let them overwrite each other in
+        # the shared runs/{run_id}/points collection.
+        batch.set(coll.document(f"{benchmark}__{slug}__x{x}"), {
             "benchmark": benchmark, "label": label, "slug": slug,
-            "x": x, "sim_ms": sim_ms, "real_ms": real.get(rkey),
+            "scaling": r.get("scaling_param_name", ""),
+            "x": x, "sim_ms": sim_ms, "real_ms": real.get((slug, x)),
         })
         n += 1
     batch.commit()

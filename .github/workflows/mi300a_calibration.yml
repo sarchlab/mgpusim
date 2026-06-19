@@ -2,49 +2,57 @@ name: MI300A Calibration
 
 # Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks at the same
 # configurations measured on real hardware, and compares simulated vs real KERNEL
-# EXECUTION TIME. Each sweep STREAMS its results to Firestore as configs finish,
-# so the live dashboard (https://sarchlab.github.io/mgpusim/calibration/) shows
-# the run filling in; relative error (MAPE/sMAPE) is computed against the ground
-# truth in gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
+# EXECUTION TIME. Each benchmark is swept in its own matrix job that STREAMS its
+# results to Firestore as configs finish, so the live dashboard
+# (https://sarchlab.github.io/mgpusim/calibration/) fills in; relative error
+# (MAPE/sMAPE) is computed against gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
 #
-# Structure: each benchmark sweep is its OWN job (parallel; a failure in one can't
-# block the other), marks the run in_progress, and streams points to Firestore. A
-# single `report` job runs after all sweeps, renders the PNG/markdown artifact, and
-# marks the run completed. Run data lives ONLY in Firestore -- the dashboard reads
-# it directly (the static dashboard page itself is hosted on gh-pages).
+# Structure: one matrix `sweep` job per benchmark (parallel; fail-fast off so one
+# benchmark can't cancel the others), each marking the run in_progress and
+# streaming points to Firestore via the generic run_sweep.py. A single `report`
+# job runs after all sweeps, renders the PNG/markdown artifact, backfills any
+# missed points, and marks the run completed/failed. Run data lives ONLY in
+# Firestore -- the dashboard reads it directly (the static page is on gh-pages).
 #
-#   fp32_sweep ----\
-#                   >--> report (needs both; if: always())
-#   cache_latency --/
-#
-# Manual trigger only (workflow_dispatch). Each sweep is a long set of full
-# cycle-accurate simulations, so it is never fired automatically -- launch it
-# from the Actions tab / `gh workflow run`.
-#
-# Both benchmarks are compared against committed ground truth. cache_latency
-# runs the real benchmark's 2,000,000 dependent loads, so its large
-# DRAM-footprint arrays are expensive and may hit the per-run timeout; keeping
-# each benchmark in its own parallel job means such a skip cannot block the
-# report for the other.
+# Manual trigger only (workflow_dispatch): each sweep is a long set of full
+# cycle-accurate simulations, launched from the Actions tab / `gh workflow run`.
 
 on:
   workflow_dispatch:
 
 jobs:
-  fp32_sweep:
-    name: fp32_throughput sweep
+  sweep:
+    name: ${{ matrix.benchmark }} sweep
     runs-on: self-hosted
     # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
     # run (PER_RUN_TIMEOUT) + build/setup headroom. Self-hosted: no 6 h cap.
     timeout-minutes: 1500
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark:
+          - fp32_throughput
+          # fp16_throughput dropped for now: its timing-sim path is far slower
+          # than the others (even the smallest configs lag), so it produced no
+          # points while tying up a runner. Re-add once that's investigated.
+          - fp64_throughput
+          - int32_throughput
+          - memory_bandwidth
+          - shared_mem_bandwidth
+          - cache_latency
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: "stable"
+          go-version-file: go.mod
+          # Self-hosted runners persist ~/go/pkg/mod and ~/.cache/go-build on disk
+          # between jobs, so setup-go's remote module cache is redundant -- it was
+          # restoring ~1.7 GB (~6.5 min) over modules already present, then failing
+          # the tar extract with "File exists". Disable it.
+          cache: false
 
       - name: Install build dependencies
         run: |
@@ -55,135 +63,72 @@ jobs:
       - name: Tool versions
         run: |
           go version
-          sqlite3 --version
+          python3 --version
 
-      # Best-effort: set up the Firestore credentials + mark the run in_progress so
-      # the live dashboard shows it immediately. If this fails, FB_RUN_ID is never
+      # Best-effort: set up Firestore credentials + mark the run in_progress so the
+      # live dashboard shows it immediately. If this fails, FB_RUN_ID is never
       # exported and the sweep simply runs without streaming.
       - name: Set up Firestore streaming
         continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
-          # Include run_attempt so a re-run gets its own Firestore run + points
-          # (re-runs reuse github.run_id, which would otherwise mix attempts).
-          RID="${{ github.run_id }}-${{ github.run_attempt }}"
-          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
-          {
-            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
-            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
-            echo "FB_RUN_ID=$RID"
-          } >> "$GITHUB_ENV"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
-
-      - name: Run fp32_throughput sweep
-        run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
-
-      - name: Upload fp32 sweep results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fp32-sim-results
-          path: fp32_sim_results.csv
-
-  cache_latency_sweep:
-    name: cache_latency sweep
-    runs-on: self-hosted
-    # 24 h to launch new configs (SWEEP_TIMEOUT) + up to 30 min for the last
-    # launched run (PER_RUN_TIMEOUT) + build headroom. Self-hosted: no 6 h cap.
-    timeout-minutes: 1500
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Install build dependencies
-        run: |
-          if command -v dnf &>/dev/null; then
-            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore streaming DISABLED (firebase-admin unavailable on this runner)"
+            exit 0
           fi
-
-      - name: Tool versions
-        run: |
-          go version
-          sqlite3 --version
-
-      - name: Set up Firestore streaming
-        continue-on-error: true
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
-          # Include run_attempt so a re-run gets its own Firestore run + points
-          # (re-runs reuse github.run_id, which would otherwise mix attempts).
+          # run_attempt so a re-run gets its own Firestore run + points.
           RID="${{ github.run_id }}-${{ github.run_attempt }}"
           RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
           {
             echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
-            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_PY=$FB_PY"
             echo "FB_RUN_ID=$RID"
           } >> "$GITHUB_ENV"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+          echo "Firestore streaming ENABLED (FB_PY=$FB_PY)"
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
             mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
-      - name: Run cache_latency sweep
-        run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
+      - name: Run sweep
+        run: |
+          python3 gpu_perf_scripts/calibration/run_sweep.py \
+            ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv
 
-      - name: Upload cache_latency sweep results
+      - name: Upload sweep results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cache-latency-sim-results
-          path: cache_latency_sim_results.csv
+          name: ${{ matrix.benchmark }}-sim-results
+          path: ${{ matrix.benchmark }}_sim_results.csv
 
   report:
-    name: Plot kernel time vs ground truth
+    name: Render report + finalize run
     runs-on: self-hosted
-    needs: [fp32_sweep, cache_latency_sweep]
-    # Run even if a sweep job failed, so figures are still produced from whatever
-    # results are available.
-    if: always()
+    needs: [sweep]
+    if: always()      # render from whatever sweeps produced, even if some failed
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Download fp32 sweep results
+      - name: Download all sweep results
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: fp32-sim-results
-          path: .
-
-      - name: Download cache_latency sweep results
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: cache-latency-sim-results
-          path: .
+          path: sim       # each artifact lands in sim/<benchmark>-sim-results/
 
       - name: Install plotting dependencies
         run: python3 -m pip install --user --quiet matplotlib seaborn
 
-      - name: Plot kernel-time figures (sim vs real) and average error
+      - name: Plot figures (sim vs real) + relative error
         id: plot
         run: |
           python3 gpu_perf_scripts/calibration/plot_calibration.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
-            --fp32-sim fp32_sim_results.csv \
-            --cache-sim cache_latency_sim_results.csv \
+            --sim-dir sim \
             --out figures \
             --report report.md \
             --json data.json \
@@ -192,22 +137,19 @@ jobs:
             --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --summary "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload figures and results
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mi300a-calibration-report
-          # report.md embeds the figures via relative paths, so it renders with
-          # plots when the artifact is downloaded (figures/ ships alongside it).
           path: |
             report.md
             data.json
             figures/
-            fp32_sim_results.csv
-            cache_latency_sim_results.csv
 
-      # Finalize the run in Firestore (the dashboard's data source) with the
-      # overall metrics, and post the live dashboard link to the job summary.
+      # Finalize in Firestore (the dashboard's data source): backfill every point
+      # from the CSV artifacts (idempotent) so a dropped best-effort sweep-side
+      # publish can't leave a completed run missing points, then mark the run.
       # Best-effort: a Firestore failure must not fail the report job.
       - name: Mark run completed in Firestore
         if: always()
@@ -215,27 +157,55 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore unavailable on this runner; skipping finalize/backfill"
+            exit 0
+          fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
           RID="${{ github.run_id }}-${{ github.run_attempt }}"
           RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
-          # Report the true outcome: a failed sweep or a failed plot => failed, not completed.
           STATUS=completed
-          if [[ "${{ needs.fp32_sweep.result }}" != "success" || "${{ needs.cache_latency_sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
+          if [[ "${{ needs.sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
             STATUS=failed
           fi
-          # Backfill every point from the CSV artifacts before finalizing, so a
-          # dropped best-effort sweep-side publish can't leave a completed run with
-          # missing points (idempotent: deterministic doc ids).
           REF=gpu_perf_scripts/calibration/mi300a_ground_truth.csv
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            publish-points --run-id "$RID" --benchmark fp32_throughput --csv fp32_sim_results.csv --ref "$REF"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            publish-points --run-id "$RID" --benchmark cache_latency --csv cache_latency_sim_results.csv --ref "$REF"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
-            mark-run --run-id "$RID" --status "$STATUS" \
-            --from-json data.json --run-url "$RURL"
+          for csv in sim/*/*_sim_results.csv; do
+            [ -f "$csv" ] || continue
+            bench=$(basename "$csv" _sim_results.csv)
+            "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+              publish-points --run-id "$RID" --benchmark "$bench" --csv "$csv" --ref "$REF"
+          done
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status "$STATUS" --from-json data.json --run-url "$RURL"
           DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
           printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
+
+  # First-level cleanup: if the run is CANCELLED, the report job above is skipped,
+  # leaving the Firestore doc stuck at in_progress. This job runs only on
+  # cancellation and marks it failed so the dashboard stops showing it as running.
+  # (If even this can't run -- e.g. cancelled before a runner is assigned, or the
+  # machine dies -- the dashboard's Actions-status cross-check is the backstop.)
+  finalize_cancelled:
+    name: Mark run failed (cancelled)
+    needs: [sweep]
+    if: ${{ cancelled() }}
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Mark run failed in Firestore
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then echo "Firestore unavailable on this runner"; exit 0; fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status failed --run-url "$RURL"
