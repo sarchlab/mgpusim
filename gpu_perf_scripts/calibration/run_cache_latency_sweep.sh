@@ -46,8 +46,8 @@ CL_ARRAY_BYTES=(
 # smallest-first so the cache-resident points always complete.
 CL_NUM_ACCESSES=(2000000)
 CL_SEED=42
-PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-1200}   # 20 min per individual simulation
-SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-5400}       # 90 min budget to launch new configs
+PER_RUN_TIMEOUT=${PER_RUN_TIMEOUT:-1800}   # 30 min per individual simulation
+SWEEP_TIMEOUT=${SWEEP_TIMEOUT:-86400}      # 24 h budget to launch new configs
 COMMON_FLAGS=(-timing -arch cdna3 -gpu mi300a -disable-rtm)
 # -----------------------------------------------------------------------------
 
@@ -97,6 +97,17 @@ run_and_extract() {  # $1=binary  $2=tag  ...rest=extra flags
   else echo "fail"; fi
 }
 
+# Stream results to Firestore for the live dashboard (best-effort): active only
+# when FB_RUN_ID is set (CI) and credentials are present; failures never affect
+# the sweep. REF_CSV provides the real_ms join (the ground truth lives next to us).
+REF_CSV="$SCRIPT_DIR/mi300a_ground_truth.csv"
+FB_RUN_ID="${FB_RUN_ID:-}"; FB_PY="${FB_PY:-python3}"; FB_EVERY="${FB_EVERY:-3}"
+fb_stream() {
+  [[ -n "$FB_RUN_ID" ]] || return 0
+  "$FB_PY" "$SCRIPT_DIR/fb_publish.py" publish-points --run-id "$FB_RUN_ID" \
+    --benchmark cache_latency --csv "$OUT_ABS" --ref "$REF_CSV" >/dev/null 2>&1 || true
+}
+
 echo "Sweeping cache_latency (per-run ${PER_RUN_TIMEOUT}s, sweep ${SWEEP_TIMEOUT}s), smallest array first..."
 SWEEP_START=$(date +%s)
 ran=0; timed_out=0; failed=0
@@ -113,11 +124,13 @@ for na in "${CL_NUM_ACCESSES[@]}"; do
     status="${result%% *}"; kt="${result#* }"
     case "$status" in
       ok) echo "cache_latency,array_bytes,${ab},${ab},${na},${kt}" >> "$OUT_ABS"
-          ran=$((ran+1)); echo "  ok      array_bytes=$ab num_accesses=$na (sim kernel ${kt}s)";;
+          ran=$((ran+1)); echo "  ok      array_bytes=$ab num_accesses=$na (sim kernel ${kt}s)"
+          if (( ran % FB_EVERY == 0 )); then fb_stream; fi ;;
       timeout) timed_out=$((timed_out+1)); echo "  timeout array_bytes=$ab num_accesses=$na (> ${PER_RUN_TIMEOUT}s, skipped)";;
       *) failed=$((failed+1)); echo "  FAIL    array_bytes=$ab num_accesses=$na (no metric)";;
     esac
   done
 done
 
+fb_stream   # final flush of any remaining points to Firestore
 echo "Done: $ran ok, $timed_out timed out, $failed failed. Wrote $OUT_ABS"

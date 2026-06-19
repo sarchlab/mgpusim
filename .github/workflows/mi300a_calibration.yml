@@ -1,15 +1,17 @@
 name: MI300A Calibration
 
 # Runs the MI300A (CDNA3) timing model on the Tier-1 microbenchmarks at the same
-# configurations measured on real hardware, and plots simulated vs real KERNEL
-# EXECUTION TIME. The report is figures only (one PNG per non-scaling-parameter
-# combination: x = scaling factor, y = kernel time, two lines sim + real) plus
-# the average error; the per-figure and overall average error land in the job
-# summary. Ground truth: gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
+# configurations measured on real hardware, and compares simulated vs real KERNEL
+# EXECUTION TIME. Each sweep STREAMS its results to Firestore as configs finish,
+# so the live dashboard (https://sarchlab.github.io/mgpusim/calibration/) shows
+# the run filling in; relative error (MAPE/sMAPE) is computed against the ground
+# truth in gpu_perf_scripts/calibration/mi300a_ground_truth.csv.
 #
-# Structure: each benchmark sweep is its OWN job so they run in parallel and a
-# failure in one cannot block the others; a single `report` job runs after all
-# sweeps finish, downloads their CSV artifacts, and renders the figures.
+# Structure: each benchmark sweep is its OWN job (parallel; a failure in one can't
+# block the other), marks the run in_progress, and streams points to Firestore. A
+# single `report` job runs after all sweeps, renders the PNG/markdown artifact, and
+# marks the run completed. Run data lives ONLY in Firestore -- the dashboard reads
+# it directly (the static dashboard page itself is hosted on gh-pages).
 #
 #   fp32_sweep ----\
 #                   >--> report (needs both; if: always())
@@ -32,8 +34,9 @@ jobs:
   fp32_sweep:
     name: fp32_throughput sweep
     runs-on: self-hosted
-    # Sweep budget is 120 min (SWEEP_TIMEOUT); add headroom for build.
-    timeout-minutes: 150
+    # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
+    # run (PER_RUN_TIMEOUT) + build/setup headroom. Self-hosted: no 6 h cap.
+    timeout-minutes: 1500
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -53,6 +56,30 @@ jobs:
         run: |
           go version
           sqlite3 --version
+
+      # Best-effort: set up the Firestore credentials + mark the run in_progress so
+      # the live dashboard shows it immediately. If this fails, FB_RUN_ID is never
+      # exported and the sweep simply runs without streaming.
+      - name: Set up Firestore streaming
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
+          # Include run_attempt so a re-run gets its own Firestore run + points
+          # (re-runs reuse github.run_id, which would otherwise mix attempts).
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          {
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
+            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_RUN_ID=$RID"
+          } >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run fp32_throughput sweep
         run: ./gpu_perf_scripts/calibration/run_sim_sweep.sh fp32_sim_results.csv
@@ -67,9 +94,9 @@ jobs:
   cache_latency_sweep:
     name: cache_latency sweep
     runs-on: self-hosted
-    # 90 min to launch new configs (SWEEP_TIMEOUT) + up to 20 min for the last
-    # launched run (PER_RUN_TIMEOUT) + build headroom.
-    timeout-minutes: 120
+    # 24 h to launch new configs (SWEEP_TIMEOUT) + up to 30 min for the last
+    # launched run (PER_RUN_TIMEOUT) + build headroom. Self-hosted: no 6 h cap.
+    timeout-minutes: 1500
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -89,6 +116,27 @@ jobs:
         run: |
           go version
           sqlite3 --version
+
+      - name: Set up Firestore streaming
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
+          # Include run_attempt so a re-run gets its own Firestore run + points
+          # (re-runs reuse github.run_id, which would otherwise mix attempts).
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          {
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
+            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_RUN_ID=$RID"
+          } >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run cache_latency sweep
         run: ./gpu_perf_scripts/calibration/run_cache_latency_sweep.sh cache_latency_sim_results.csv
@@ -108,9 +156,6 @@ jobs:
     # results are available.
     if: always()
     timeout-minutes: 30
-    # contents:write lets the publish step push the dashboard data to gh-pages.
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -133,6 +178,7 @@ jobs:
         run: python3 -m pip install --user --quiet matplotlib seaborn
 
       - name: Plot kernel-time figures (sim vs real) and average error
+        id: plot
         run: |
           python3 gpu_perf_scripts/calibration/plot_calibration.py \
             --ref gpu_perf_scripts/calibration/mi300a_ground_truth.csv \
@@ -141,8 +187,8 @@ jobs:
             --out figures \
             --report report.md \
             --json data.json \
-            --run-id "${{ github.run_id }}" \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}" \
             --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --summary "$GITHUB_STEP_SUMMARY"
 
@@ -160,15 +206,36 @@ jobs:
             fp32_sim_results.csv
             cache_latency_sim_results.csv
 
-      # Publish this run's data to the gh-pages dashboard (accumulates history).
-      # Served at https://<owner>.github.io/<repo>/calibration/ once Pages is
-      # enabled (Settings -> Pages -> Deploy from branch -> gh-pages). Best-effort:
-      # a publish failure must not fail the report job.
-      - name: Publish to gh-pages dashboard
+      # Finalize the run in Firestore (the dashboard's data source) with the
+      # overall metrics, and post the live dashboard link to the job summary.
+      # Best-effort: a Firestore failure must not fail the report job.
+      - name: Mark run completed in Firestore
         if: always()
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          gpu_perf_scripts/calibration/publish_gh_pages.sh \
-            --data data.json --run-id "${{ github.run_id }}"
+          python3 -m venv "$RUNNER_TEMP/fbvenv"
+          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          # Report the true outcome: a failed sweep or a failed plot => failed, not completed.
+          STATUS=completed
+          if [[ "${{ needs.fp32_sweep.result }}" != "success" || "${{ needs.cache_latency_sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
+            STATUS=failed
+          fi
+          # Backfill every point from the CSV artifacts before finalizing, so a
+          # dropped best-effort sweep-side publish can't leave a completed run with
+          # missing points (idempotent: deterministic doc ids).
+          REF=gpu_perf_scripts/calibration/mi300a_ground_truth.csv
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            publish-points --run-id "$RID" --benchmark fp32_throughput --csv fp32_sim_results.csv --ref "$REF"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            publish-points --run-id "$RID" --benchmark cache_latency --csv cache_latency_sim_results.csv --ref "$REF"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status "$STATUS" \
+            --from-json data.json --run-url "$RURL"
+          DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
+          printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
