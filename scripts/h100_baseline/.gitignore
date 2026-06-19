@@ -1,4 +1,5 @@
 # compiled OpenCL harness binaries
+!toy_recording.csv
 run_matrixmultiplication
 run_matrixtranspose
 *.sqlite3
