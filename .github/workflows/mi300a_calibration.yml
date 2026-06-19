@@ -226,6 +226,14 @@ jobs:
           if [[ "${{ needs.fp32_sweep.result }}" != "success" || "${{ needs.cache_latency_sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
             STATUS=failed
           fi
+          # Backfill every point from the CSV artifacts before finalizing, so a
+          # dropped best-effort sweep-side publish can't leave a completed run with
+          # missing points (idempotent: deterministic doc ids).
+          REF=gpu_perf_scripts/calibration/mi300a_ground_truth.csv
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            publish-points --run-id "$RID" --benchmark fp32_throughput --csv fp32_sim_results.csv --ref "$REF"
+          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            publish-points --run-id "$RID" --benchmark cache_latency --csv cache_latency_sim_results.csv --ref "$REF"
           "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
             mark-run --run-id "$RID" --status "$STATUS" \
             --from-json data.json --run-url "$RURL"
