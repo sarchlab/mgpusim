@@ -24,17 +24,25 @@
   .plot { width:100%; height:340px; }
   .note { color:var(--muted); padding:24px 0; }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
+  header a#home { color:inherit; text-decoration:none; cursor:pointer; }
+  header a#home:hover h1 { text-decoration:underline; }
   .runlist { display:flex; flex-direction:column; gap:8px; max-width:760px; margin-top:8px; }
   .runcard { display:flex; flex-direction:column; gap:2px; padding:12px 14px; background:var(--bg);
              border:1px solid var(--line); border-radius:8px; color:var(--fg); }
   .runcard:hover { border-color:#0969da; background:#f6f8fa; text-decoration:none; }
   .rc-id { font-weight:600; }
   .rc-meta { color:var(--muted); font-size:13px; }
+  .badge { font-size:11px; font-weight:600; padding:1px 8px; border-radius:10px; margin-left:8px; vertical-align:middle; }
+  .b-run  { background:#fff3cd; color:#7a5d00; }
+  .b-done { background:#d4edda; color:#155724; }
+  .b-fail { background:#f8d7da; color:#721c24; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .b-run::before { content:"\25CF "; animation:pulse 1.2s infinite; }
 </style>
 </head>
 <body>
 <header>
-  <h1>MI300A Calibration Dashboard</h1>
+  <a id="home"><h1>MI300A Calibration Dashboard</h1></a>
   <div class="sub">Simulated vs. real-hardware kernel execution time (CDNA3 timing model). Log-log axes.</div>
   <div class="controls">
     <label>Run: <select id="runPicker"></select></label>
@@ -42,179 +50,297 @@
   </div>
 </header>
 <main>
-  <div id="status" class="note">Loading run index&hellip;</div>
+  <div id="status" class="note">Loading runs&hellip;</div>
   <div id="figures"></div>
 </main>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDqeN1HbzzbVz6FkwQCoMr6wEnvoZSW24g",
+  authDomain: "mgpusim-calibration.firebaseapp.com",
+  projectId: "mgpusim-calibration",
+  storageBucket: "mgpusim-calibration.firebasestorage.app",
+  messagingSenderId: "720226769969",
+  appId: "1:720226769969:web:8570a2774d9a8226210910",
+};
+const db = getFirestore(initializeApp(firebaseConfig));
+
 const SIM_COLOR = "#1f77b4", REAL_COLOR = "#d62728";
+const XLABEL = {
+  fp32_throughput: "fmas_per_thread (scaling factor)",
+  cache_latency: "array_bytes (scaling factor)",
+};
 
-async function getJSON(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
-  return r.json();
-}
+const $ = (id) => document.getElementById(id);
+const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`;
+const fmtOffset = (v) => (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`;
+const mean = (a) => a.length ? a.reduce((p, c) => p + c, 0) / a.length : null;
 
-function fmtPct(v) { return (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`; }
-function fmtOffset(v) { return (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`; }
-
-function optionLabel(run) {
-  const when = run.generated_at ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
-  return `${run.run_id} — ${when} — MAPE ${fmtPct(run.overall_mape)} / sMAPE ${fmtPct(run.overall_smape)}`;
+// Client-side equivalent of plot_calibration.align_sim_to_real.
+function alignSeries(simPts, realPts) {
+  const real = new Map(realPts), sim = new Map(simPts);
+  const shared = [...sim.keys()].filter((x) => real.has(x)).sort((a, b) => a - b);
+  if (!shared.length) return { sim: simPts.slice(), offset: null, anchorX: null, mape: null, smape: null, n: 0 };
+  const x0 = shared[0], offset = real.get(x0) - sim.get(x0);
+  const simAdj = simPts.map(([x, y]) => [x, y + offset]);
+  const mapeArr = [], smapeArr = [];
+  for (const x of shared.slice(1)) {
+    const s = sim.get(x) + offset, h = real.get(x);
+    if (h !== 0) mapeArr.push(Math.abs(s - h) / h);
+    if (Math.min(s, h) !== 0) smapeArr.push(Math.abs(s - h) / Math.min(s, h));
+  }
+  return { sim: simAdj, offset, anchorX: x0, mape: mean(mapeArr), smape: mean(smapeArr), n: shared.length - 1 };
 }
 
 function trace(points, name, color, symbol) {
   return {
-    x: points.map(p => p[0]), y: points.map(p => p[1]),
-    mode: "lines+markers", name, marker: { symbol, size: 7, color },
-    line: { color, width: 2 },
+    x: points.map((p) => p[0]), y: points.map((p) => p[1]),
+    mode: "lines+markers", name, marker: { symbol, size: 7, color }, line: { color, width: 2 },
   };
 }
 
-function renderRun(d) {
-  const meta = document.getElementById("runMeta");
-  const link = d.run_url ? `<a href="${d.run_url}" target="_blank" rel="noopener">run ${d.run_id}</a>` : `run ${d.run_id}`;
-  meta.innerHTML = `${link} &middot; overall <b>MAPE ${fmtPct(d.overall_mape)}</b> / ` +
-    `<b>sMAPE ${fmtPct(d.overall_smape)}</b> &middot; ${d.metric}`;
+// fig: {benchmark, xlabel, label, sim(aligned [[x,y]]), real([[x,y]]), offset, anchorX, mape, smape, n}
+function drawFigure(div, fig) {
+  // NB: Plotly titles are SVG text -> use the literal "·", not the &middot; entity.
+  let err;
+  if (fig.offset === null || fig.offset === undefined) err = "MAPE / sMAPE n/a (no matched points)";
+  else if ((fig.mape == null) && (fig.smape == null))
+    err = `offset ${fmtOffset(fig.offset)} · err n/a (only anchor matched)`;
+  else
+    err = `offset ${fmtOffset(fig.offset)} · MAPE ${fmtPct(fig.mape)} · sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
+  const traces = [
+    trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
+    trace(fig.real, "real hardware", REAL_COLOR, "square"),
+  ];
+  if (fig.anchorX !== null && fig.anchorX !== undefined) {
+    const ap = fig.real.find((p) => p[0] === fig.anchorX);
+    if (ap) traces.push({ x: [ap[0]], y: [ap[1]], mode: "markers", name: "anchor (excl.)",
+      marker: { symbol: "star", size: 13, color: "#111" } });
+  }
+  Plotly.react(div, traces, {
+    title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
+    // fixedrange disables zoom/pan on each axis (drag, scroll, double-click) while
+    // keeping hover tooltips.
+    xaxis: { type: "log", title: { text: fig.xlabel, font: { size: 11 } }, automargin: true, fixedrange: true },
+    yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true, fixedrange: true },
+    legend: { orientation: "h", y: -0.25 },
+    margin: { l: 56, r: 12, t: 48, b: 40 },
+    dragmode: false,
+  }, { displayModeBar: false, responsive: true, scrollZoom: false, doubleClick: false });
+}
 
-  const root = document.getElementById("figures");
-  root.innerHTML = "";
-  for (const bench of d.benchmarks) {
-    if (!bench.figures.length) continue;
-    const h = document.createElement("h2");
-    h.textContent = bench.name;
-    root.appendChild(h);
-    const grid = document.createElement("div");
-    grid.className = "grid";
-    root.appendChild(grid);
-
-    for (const fig of bench.figures) {
-      const card = document.createElement("div");
-      card.className = "card";
-      const div = document.createElement("div");
-      div.className = "plot";
-      card.appendChild(div);
-      grid.appendChild(card);
-
-      // NB: this string goes into a Plotly title (SVG text), which does not
-      // decode HTML entities -- use the literal "·", not &middot;.
-      let err;
-      if (fig.offset === null || fig.offset === undefined) {
-        err = "MAPE / sMAPE n/a (no matched points)";
-      } else if ((fig.mape === null || fig.mape === undefined) &&
-                 (fig.smape === null || fig.smape === undefined)) {
-        err = `offset ${fmtOffset(fig.offset)} · err n/a (only anchor matched)`;
-      } else {
-        err = `offset ${fmtOffset(fig.offset)} · MAPE ${fmtPct(fig.mape)}` +
-              ` · sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
-      }
-      const traces = [
-        trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
-        trace(fig.real, "real hardware", REAL_COLOR, "square"),
-      ];
-      if (fig.anchor_x !== null && fig.anchor_x !== undefined) {
-        const ap = fig.real.find(p => p[0] === fig.anchor_x);
-        if (ap) traces.push({ x: [ap[0]], y: [ap[1]], mode: "markers",
-          name: "anchor (excl.)", marker: { symbol: "star", size: 13, color: "#111" } });
-      }
-      Plotly.newPlot(div, traces, {
-        title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
-        xaxis: { type: "log", title: { text: bench.xlabel, font: { size: 11 } }, automargin: true },
-        yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true },
-        legend: { orientation: "h", y: -0.25 },
-        margin: { l: 56, r: 12, t: 48, b: 40 },
-      }, { displayModeBar: false, responsive: true });
+// Render a list of benchmark groups into #figures, reusing existing plot divs by id
+// (so live re-renders update in place instead of flickering).
+function renderGroups(groups, metaHTML) {
+  $("runMeta").innerHTML = metaHTML;
+  const root = $("figures");
+  const wanted = new Set();
+  let html = "";
+  for (const g of groups) {
+    if (!g.figures.length) continue;
+    html += `<h2>${g.benchmark}</h2><div class="grid">`;
+    for (const fig of g.figures) {
+      const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
+      wanted.add(pid);
+      html += `<div class="card"><div class="plot" id="${pid}"></div></div>`;
     }
+    html += `</div>`;
   }
-  if (!root.children.length) {
-    root.innerHTML = '<div class="note">This run produced no figures.</div>';
+  // Rebuild DOM only when the set of figures changed (keeps Plotly.react stable).
+  if (root.dataset.sig !== [...wanted].sort().join("|")) {
+    root.innerHTML = html || '<div class="note">No figures yet.</div>';
+    root.dataset.sig = [...wanted].sort().join("|");
   }
+  for (const g of groups)
+    for (const fig of g.figures) {
+      const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
+      drawFigure($(pid), { ...fig, xlabel: g.xlabel });
+    }
+}
+
+// ---- render a run from its Firestore points (live or completed) ------------
+function pointsToGroups(points) {
+  const byBench = new Map();
+  for (const p of points) {
+    if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, new Map());
+    const g = byBench.get(p.benchmark);
+    if (!g.has(p.slug)) g.set(p.slug, { label: p.label, sim: [], real: [] });
+    const fig = g.get(p.slug);
+    fig.sim.push([Number(p.x), Number(p.sim_ms)]);
+    if (p.real_ms !== null && p.real_ms !== undefined) fig.real.push([Number(p.x), Number(p.real_ms)]);
+  }
+  const groups = [];
+  const allMape = [], allSmape = [];
+  for (const [benchmark, g] of [...byBench].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+    const figures = [];
+    for (const [slug, fig] of g) {
+      fig.sim.sort((a, b) => a[0] - b[0]); fig.real.sort((a, b) => a[0] - b[0]);
+      const a = alignSeries(fig.sim, fig.real);
+      if (a.mape != null) allMape.push(a.mape);
+      if (a.smape != null) allSmape.push(a.smape);
+      figures.push({ slug, label: fig.label, sim: a.sim, real: fig.real,
+        offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n });
+    }
+    figures.sort((x, y) => x.label < y.label ? -1 : 1);
+    groups.push({ benchmark, xlabel: XLABEL[benchmark] || "scaling factor", figures });
+  }
+  return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
+}
+
+let unsubPoints = null;
+function renderLive(runId) {
+  if (unsubPoints) { unsubPoints(); unsubPoints = null; }
+  $("figures").innerHTML = '<div class="note">Connecting to live run&hellip;</div>';
+  $("figures").dataset.sig = "";
+  unsubPoints = onSnapshot(collection(db, "runs", runId, "points"), (snap) => {
+    const points = snap.docs.map((d) => d.data());
+    const run = liveRuns.get(runId) || {};
+    const { groups, overallMape, overallSmape } = pointsToGroups(points);
+    const badge = run.status === "completed" ? '<span class="badge b-done">completed</span>'
+      : run.status === "failed" ? '<span class="badge b-fail">failed</span>'
+      : '<span class="badge b-run">running</span>';
+    const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
+    const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
+      + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
+    if (!points.length) { $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    renderGroups(groups, meta);
+  }, (err) => { $("figures").innerHTML = `<div class="note">Live read failed: ${err.message}</div>`; });
+}
+
+// ---- run list (all runs from Firestore) ------------------------------------
+const liveRuns = new Map();     // run_id -> firestore run doc (the only data source)
+let current = null;             // selected run_id or null (landing)
+let pendingDeepLink = null;     // run id awaiting its doc to appear (Firestore loads async)
+
+function tsIso(t) { return (t && t.toDate) ? t.toDate().toISOString() : (t || ""); }
+
+function mergedRuns() {
+  const arr = [];
+  for (const [id, doc] of liveRuns) arr.push({
+    run_id: id, status: doc.status || "in_progress", run_url: doc.run_url,
+    when: tsIso(doc.started_at) || doc.generated_at || "",
+    mape: doc.overall_mape, smape: doc.overall_smape,
+  });
+  return arr.sort((a, b) =>
+    String(b.when || "").localeCompare(String(a.when || "")) || String(b.run_id).localeCompare(String(a.run_id)));
+}
+
+function badgeHTML(s) {
+  return s === "completed" ? '<span class="badge b-done">completed</span>'
+    : s === "failed" ? '<span class="badge b-fail">failed</span>'
+    : s === "in_progress" ? '<span class="badge b-run">running</span>' : "";
+}
+
+// ---- routing: clean paths  …/calibration/run/<id>  (SPA on GitHub Pages) -----
+// 404.html re-encodes a deep link as "?/run/<id>"; restore the clean URL here.
+if (location.search.startsWith("?/")) {
+  const rest = location.search.slice(2).split("&")[0];
+  history.replaceState(null, "", location.pathname.replace(/\/+$/, "") + "/" + rest + location.hash);
+}
+const BASE = (() => {
+  const p = location.pathname.split("/"), i = p.indexOf("calibration");
+  return i === -1 ? location.pathname.replace(/[^/]*$/, "") : p.slice(0, i + 1).join("/") + "/";
+})();
+function routeRunId() {
+  const after = location.pathname.startsWith(BASE) ? location.pathname.slice(BASE.length) : "";
+  const m = after.match(/^run\/([^/]+)\/?$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function navigate(runId) {   // user action -> push a history entry, then render
+  history.pushState(null, "", runId ? BASE + "run/" + encodeURIComponent(runId) : BASE);
+  renderRoute();
+}
+function renderRoute() {     // render whatever the current URL points at (no history change)
+  const id = routeRunId();
+  if (id) selectRun(id); else showLanding(mergedRuns());
+}
+window.addEventListener("popstate", renderRoute);
+
+function rebuildPicker() {
+  const runs = mergedRuns();
+  const picker = $("runPicker");
+  const sel = picker.value;
+  picker.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "Select a run…"; picker.appendChild(ph);
+  for (const r of runs) {
+    const o = document.createElement("option");
+    o.value = r.run_id;
+    const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "";
+    const m = r.status === "in_progress" ? "running" : `MAPE ${fmtPct(r.mape)} / sMAPE ${fmtPct(r.smape)}`;
+    o.textContent = `${r.run_id} — ${when} — ${m}`;
+    picker.appendChild(o);
+  }
+  if (pendingDeepLink && !current && runs.some((x) => x.run_id === String(pendingDeepLink))) {
+    const id = pendingDeepLink; pendingDeepLink = null; selectRun(id); return;
+  }
+  picker.value = current || sel || "";
+  if (!current) showLanding(runs);
+}
+
+function showLanding(runs) {
+  current = null;
+  if (unsubPoints) { unsubPoints(); unsubPoints = null; }
+  $("runPicker").value = "";
+  $("status").style.display = "none";
+  const n = runs.length;
+  $("runMeta").innerHTML = `${n} run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
+  const root = $("figures"); root.dataset.sig = "";
+  if (!n) { root.innerHTML = '<div class="note">No runs yet.</div>'; return; }
+  const list = document.createElement("div"); list.className = "runlist";
+  for (const r of runs) {
+    const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "(undated)";
+    const a = document.createElement("a");
+    a.className = "runcard"; a.href = BASE + "run/" + encodeURIComponent(r.run_id);
+    const metrics = r.status === "in_progress" ? "in progress"
+      : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`;
+    a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(r.status)}</span>`
+      + `<span class="rc-meta">${when} &middot; ${metrics}</span>`;
+    a.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(r.run_id); });
+    list.appendChild(a);
+  }
+  root.innerHTML = ""; root.appendChild(list);
+}
+
+function selectRun(runId) {
+  const r = mergedRuns().find((x) => x.run_id === String(runId));
+  if (!r) { showLanding(mergedRuns()); return; }
+  current = r.run_id;
+  pendingDeepLink = null;
+  $("runPicker").value = r.run_id;
+  $("status").style.display = "none";
+  renderLive(r.run_id);   // subscribe to its points (live or completed)
 }
 
 async function main() {
-  const status = document.getElementById("status");
-  const picker = document.getElementById("runPicker");
-  const meta = document.getElementById("runMeta");
-  const root = document.getElementById("figures");
-  let index;
-  try {
-    index = await getJSON("index.json");
-  } catch (e) {
-    status.textContent = `Could not load index.json (${e.message}).`;
-    return;
-  }
-  if (!index.runs || !index.runs.length) {
-    status.textContent = "No published runs yet.";
-    return;
-  }
-  status.style.display = "none";
-
-  // Placeholder first, then one option per run.
-  const ph = document.createElement("option");
-  ph.value = ""; ph.textContent = "Select a run…";
-  picker.appendChild(ph);
-  index.runs.forEach((run, i) => {
-    const o = document.createElement("option");
-    o.value = String(i); o.textContent = optionLabel(run);
-    picker.appendChild(o);
+  $("runPicker").addEventListener("change", () => {
+    pendingDeepLink = null;   // explicit user choice overrides any pending deep link
+    navigate($("runPicker").value || null);
   });
+  const home = $("home");
+  home.setAttribute("href", BASE);
+  home.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(null); });
 
-  function setUrlRun(runId) {  // null -> drop ?run= (landing); else deep-link
-    const qs = new URLSearchParams(location.search);
-    if (runId === null) qs.delete("run"); else qs.set("run", runId);
-    const s = qs.toString();
-    history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
-  }
+  // All runs come from Firestore (realtime).
+  onSnapshot(collection(db, "runs"), (snap) => {
+    liveRuns.clear();
+    snap.forEach((d) => liveRuns.set(d.id, d.data()));
+    rebuildPicker();
+    // If currently viewing a live run, refresh its status badge in the meta line
+    // (points subscription handles the figures themselves).
+  }, () => {});
 
-  function showLanding() {
-    picker.value = "";
-    setUrlRun(null);
-    const n = index.runs.length;
-    meta.innerHTML = `${n} published run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
-    root.innerHTML = "";
-    const list = document.createElement("div");
-    list.className = "runlist";
-    index.runs.forEach((run, i) => {
-      const when = run.generated_at
-        ? run.generated_at.replace("T", " ").replace("Z", " UTC") : "(undated)";
-      const card = document.createElement("a");
-      card.className = "runcard";
-      card.href = "?run=" + encodeURIComponent(run.run_id);   // real link: open-in-new-tab works
-      card.innerHTML =
-        `<span class="rc-id">Run ${run.run_id}</span>` +
-        `<span class="rc-meta">${when} &middot; MAPE <b>${fmtPct(run.overall_mape)}</b>` +
-        ` / sMAPE <b>${fmtPct(run.overall_smape)}</b> &middot; ${run.n_figures} figures</span>`;
-      card.addEventListener("click", (e) => { e.preventDefault(); selectRun(i); });
-      list.appendChild(card);
-    });
-    root.appendChild(list);
-  }
-
-  async function selectRun(i) {
-    const run = index.runs[i];
-    picker.value = String(i);
-    setUrlRun(run.run_id);   // shareable / CI-printed deep link
-    root.innerHTML = '<div class="note">Loading run&hellip;</div>';
-    try {
-      renderRun(await getJSON(run.data));
-    } catch (e) {
-      root.innerHTML = `<div class="note">Could not load ${run.data} (${e.message}).</div>`;
-    }
-  }
-
-  picker.addEventListener("change", () => {
-    if (picker.value === "") showLanding();
-    else selectRun(Number(picker.value));
-  });
-
-  // ?run=<id> deep-links straight to that run; otherwise show the selector.
-  const wanted = new URLSearchParams(location.search).get("run");
-  if (wanted) {
-    const j = index.runs.findIndex(r => String(r.run_id) === wanted);
-    if (j >= 0) { selectRun(j); return; }
-    console.warn(`run ${wanted} not in index; showing selector`);
-  }
-  showLanding();
+  // Upgrade legacy ?run=<id> links (older job summaries) to the clean path.
+  const legacy = new URLSearchParams(location.search).get("run");
+  if (legacy && !routeRunId()) history.replaceState(null, "", BASE + "run/" + encodeURIComponent(legacy));
+  // Initial render from the URL path. A live run may not be in Firestore yet
+  // (loads async), so remember the request and let the runs snapshot resolve it.
+  pendingDeepLink = routeRunId();
+  renderRoute();
 }
 
 main();
