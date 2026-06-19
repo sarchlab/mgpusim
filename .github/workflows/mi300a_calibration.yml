@@ -66,8 +66,11 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore streaming DISABLED (firebase-admin unavailable on this runner)"
+            exit 0
+          fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
           # run_attempt so a re-run gets its own Firestore run + points.
@@ -75,10 +78,11 @@ jobs:
           RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
           {
             echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
-            echo "FB_PY=$RUNNER_TEMP/fbvenv/bin/python"
+            echo "FB_PY=$FB_PY"
             echo "FB_RUN_ID=$RID"
           } >> "$GITHUB_ENV"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+          echo "Firestore streaming ENABLED (FB_PY=$FB_PY)"
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
             mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run sweep
@@ -146,8 +150,11 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore unavailable on this runner; skipping finalize/backfill"
+            exit 0
+          fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
           RID="${{ github.run_id }}-${{ github.run_attempt }}"
@@ -160,10 +167,10 @@ jobs:
           for csv in sim/*/*_sim_results.csv; do
             [ -f "$csv" ] || continue
             bench=$(basename "$csv" _sim_results.csv)
-            "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+            "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
               publish-points --run-id "$RID" --benchmark "$bench" --csv "$csv" --ref "$REF"
           done
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
             mark-run --run-id "$RID" --status "$STATUS" --from-json data.json --run-url "$RURL"
           DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
           printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
@@ -187,11 +194,11 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          python3 -m venv "$RUNNER_TEMP/fbvenv"
-          "$RUNNER_TEMP/fbvenv/bin/pip" install --quiet firebase-admin
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then echo "Firestore unavailable on this runner"; exit 0; fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
           RID="${{ github.run_id }}-${{ github.run_attempt }}"
           RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
-          "$RUNNER_TEMP/fbvenv/bin/python" gpu_perf_scripts/calibration/fb_publish.py \
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
             mark-run --run-id "$RID" --status failed --run-url "$RURL"
