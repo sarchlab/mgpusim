@@ -58,14 +58,12 @@ def plot(rows: list, gpu_models: list, out_path: str) -> None:
         hw_x = [i - bar_width / 2 for i in x]
         sim_x = [i + bar_width / 2 for i in x]
 
-        ax.bar(hw_x, hardware_vals, width=bar_width, color="white",
-               edgecolor="black", label="Hardware")
-        bars = ax.bar(sim_x, sim_vals, width=bar_width, color="white",
-                       edgecolor="black", hatch="//", label="Simulator")
+        ax.bar(hw_x, hardware_vals, width=bar_width, label="Hardware")
+        bars = ax.bar(sim_x, sim_vals, width=bar_width, label="Simulator")
 
         for bar, val in zip(bars, sim_vals):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                     f"{val:.1f}", ha="center", va="bottom", fontsize=9)
+                     f"{val:.2f}", ha="center", va="bottom", fontsize=9)
 
         ax.axhline(1.0, color="black", linewidth=0.8, linestyle="--")
         ax.set_xticks(list(x))
