@@ -32,7 +32,9 @@ jobs:
       matrix:
         benchmark:
           - fp32_throughput
-          - fp16_throughput
+          # fp16_throughput dropped for now: its timing-sim path is far slower
+          # than the others (even the smallest configs lag), so it produced no
+          # points while tying up a runner. Re-add once that's investigated.
           - fp64_throughput
           - int32_throughput
           - memory_bandwidth
