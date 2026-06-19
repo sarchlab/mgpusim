@@ -153,32 +153,34 @@ def main():
     print(f"Sweeping {args.benchmark}: {len(configs)} configs "
           f"(per-run {per_run}s, budget {budget}s), cheapest-first...")
     start = time.time()
+    import json as _json
     cache = {}
     ran = timed_out = failed = 0
     writer_f = open(out_abs, "a", newline="")
     writer = csv.writer(writer_f)
-    for real_ms, sname, sval, ns in configs:
+    for i, (real_ms, sname, sval, ns) in enumerate(configs, 1):
         if time.time() - start >= budget:
-            print(f"  budget {budget}s reached; stopping early.")
+            print(f"  budget {budget}s reached after {i - 1} configs; stopping early.", flush=True)
             break
         sargs = sample_args(spec, sval, ns)
         key = tuple(sargs)
-        if key in cache:
-            kt = cache[key]
-        else:
-            kt = run_one(binary, sargs, work_dir, per_run)
-            cache[key] = kt
+        cached = key in cache
+        kt = cache[key] if cached else run_one(binary, sargs, work_dir, per_run)
+        cache[key] = kt
+        tag = f"[{i}/{len(configs)}] {sname}={sval} {_json.dumps(ns, separators=(',', ':'))}"
         if isinstance(kt, float):
-            import json as _json
             writer.writerow([args.benchmark, sname, sval, _json.dumps(ns, separators=(",", ":")), kt])
             writer_f.flush()
             ran += 1
+            print(f"  ok      {tag}  sim={kt}s{' (cached)' if cached else ''}", flush=True)
             if ran % every == 0:
                 fb_stream(args.benchmark, out_abs, args.ref)
         elif kt == "timeout":
             timed_out += 1
+            print(f"  timeout {tag}  (> {per_run}s)", flush=True)
         else:
             failed += 1
+            print(f"  FAIL    {tag}", flush=True)
     writer_f.close()
     fb_stream(args.benchmark, out_abs, args.ref)  # final flush
     print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")
