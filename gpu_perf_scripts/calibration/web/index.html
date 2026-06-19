@@ -123,11 +123,14 @@ function drawFigure(div, fig) {
   }
   Plotly.react(div, traces, {
     title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
-    xaxis: { type: "log", title: { text: fig.xlabel, font: { size: 11 } }, automargin: true },
-    yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true },
+    // fixedrange disables zoom/pan on each axis (drag, scroll, double-click) while
+    // keeping hover tooltips.
+    xaxis: { type: "log", title: { text: fig.xlabel, font: { size: 11 } }, automargin: true, fixedrange: true },
+    yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true, fixedrange: true },
     legend: { orientation: "h", y: -0.25 },
     margin: { l: 56, r: 12, t: 48, b: 40 },
-  }, { displayModeBar: false, responsive: true });
+    dragmode: false,
+  }, { displayModeBar: false, responsive: true, scrollZoom: false, doubleClick: false });
 }
 
 // Render a list of benchmark groups into #figures, reusing existing plot divs by id
