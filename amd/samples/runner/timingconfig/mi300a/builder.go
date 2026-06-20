@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
 	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
@@ -58,6 +59,8 @@ type Builder struct {
 	numShaderArray                 int
 	l2CacheSize                    uint64
 	l2BankLatency                  int
+	mallCacheSize                  uint64
+	mallBankLatency                int
 	numMemoryBank                  int
 	log2CacheLineSize              uint64
 	log2PageSize                   uint64
@@ -69,19 +72,21 @@ type Builder struct {
 	rdmaAddressMapper              mem.AddressToPortMapper
 	driverPort                     messaging.RemotePort
 
-	gpu                *gpubuilder.GPU
-	cp                 *cp.Comp
-	rdmaEngine         *rdma.Comp
-	dmaEngine          *cp.DMAComp
-	sas                []*shaderarray.ShaderArray
-	l2Caches           []*writeback.Comp
-	l2TLBs             []*tlb.Comp
-	drams              []*simplebankedmemory.Comp
-	internalConn       *directconnection.Comp
-	l2ToDramConnection *directconnection.Comp
-	l1AddressMapper    *mem.InterleavedAddressPortMapper
-	l1TLBAddressMapper *mem.SinglePortMapper
-	dmaLocalDataSource *mem.InterleavedAddressPortMapper
+	gpu                  *gpubuilder.GPU
+	cp                   *cp.Comp
+	rdmaEngine           *rdma.Comp
+	dmaEngine            *cp.DMAComp
+	sas                  []*shaderarray.ShaderArray
+	l2Caches             []*writeback.Comp
+	malls                []*writethroughcache.Comp
+	l2TLBs               []*tlb.Comp
+	drams                []*simplebankedmemory.Comp
+	internalConn         *directconnection.Comp
+	l2ToMALLConnection   *directconnection.Comp
+	mallToDramConnection *directconnection.Comp
+	l1AddressMapper      *mem.InterleavedAddressPortMapper
+	l1TLBAddressMapper   *mem.SinglePortMapper
+	dmaLocalDataSource   *mem.InterleavedAddressPortMapper
 }
 
 // MakeBuilder creates a new builder with MI300A default configuration.
@@ -90,9 +95,20 @@ func MakeBuilder() Builder {
 		freq:                1700 * timing.MHz, // 1.70 GHz (MI300A effective clock)
 		numCUPerShaderArray: NumCUPerShaderArray,
 		numShaderArray:      NumShaderArray,
-		l2CacheSize:         32 * mem.MB, // 32 MB L2 cache
-		// L2 bank latency in cycles (MI300A L2 access ~5ns incl overhead)
-		l2BankLatency:                  14,
+		// MI300A L2 is a per-XCD 4 MB cache (16-way, 16x256 KB channels). A
+		// single work-item touches only its own XCD's L2, so the cache_latency
+		// pointer chase sees 4 MB here, not the device-wide aggregate.
+		l2CacheSize: 4 * mem.MB,
+		// L2 bank latency in cycles. Tuned so an L1-miss/L2-hit dependent load
+		// lands near the ~60-100 ns the real MI300A L2 shows in cache_latency.
+		l2BankLatency: 100,
+		// MI300A adds a 256 MB MALL (Memory-Attached Last-Level / Infinity
+		// Cache) on the IODs between the L2 and HBM. Modeling it gives the
+		// cache_latency curve its third plateau (8 MB-256 MB working sets).
+		mallCacheSize: 256 * mem.MB,
+		// MALL bank latency in cycles. Tuned so an L2-miss/MALL-hit dependent
+		// load lands near the ~170-330 ns the real MI300A MALL shows.
+		mallBankLatency:                300,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -169,6 +185,19 @@ func (b Builder) WithL2BankLatency(latency int) Builder {
 	return b
 }
 
+// WithMALLCacheSize sets the size of the MALL (Infinity Cache) last-level
+// cache.
+func (b Builder) WithMALLCacheSize(size uint64) Builder {
+	b.mallCacheSize = size
+	return b
+}
+
+// WithMALLBankLatency sets the MALL cache bank latency in cycles.
+func (b Builder) WithMALLBankLatency(latency int) Builder {
+	b.mallBankLatency = latency
+	return b
+}
+
 // WithNumMemoryBank sets the number of memory banks.
 func (b Builder) WithNumMemoryBank(numMemoryBank int) Builder {
 	b.numMemoryBank = numMemoryBank
@@ -229,13 +258,15 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	// build time (the v5 caches inline the mapper contents into their Spec)
 	// are fully populated before the shader arrays are built.
 	b.buildDRAMControllers()
+	b.buildMALL()
 	b.buildL2Caches()
 	b.buildCP()
 	b.buildL2TLB()
 	b.buildSAs()
 
 	b.connectCP()
-	b.connectL2AndDRAM()
+	b.connectL2AndMALL()
+	b.connectMALLAndDRAM()
 	b.connectL1ToL2()
 	b.connectL1TLBToL2TLB()
 
@@ -392,6 +423,14 @@ func (b *Builder) connectCPWithCaches() {
 		b.cp.State.L2Caches = append(b.cp.State.L2Caches, ctrlPort.AsRemote())
 		b.internalConn.PlugIn(ctrlPort)
 	}
+
+	// The MALL is deliberately NOT registered in the CP control list: it is a
+	// write-around cache backing authoritative DRAM, so it never needs draining
+	// or flushing. Its Control port is still plugged into the internal
+	// connection so the control protocol topology stays fully connected.
+	for _, c := range b.malls {
+		b.internalConn.PlugIn(c.GetPortByName("Control"))
+	}
 }
 
 // connectCPWithDRAMControllers records the Control ports of the DRAM
@@ -431,24 +470,50 @@ func (b *Builder) connectL1ToL2() {
 	}
 }
 
-func (b *Builder) connectL2AndDRAM() {
-	b.l2ToDramConnection = directconnection.MakeBuilder().
+func (b *Builder) connectL2AndMALL() {
+	b.l2ToMALLConnection = directconnection.MakeBuilder().
 		WithRegistrar(b.simulation).
 		WithSpec(directconnection.Spec{Freq: b.freq}).
-		Build(b.name + ".L2ToDRAM")
+		Build(b.name + ".L2ToMALL")
 
 	for _, l2 := range b.l2Caches {
-		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
+		b.l2ToMALLConnection.PlugIn(l2.GetPortByName("Bottom"))
 	}
 
-	for _, dramComp := range b.drams {
-		topPort := dramComp.GetPortByName("Top")
-		b.l2ToDramConnection.PlugIn(topPort)
+	for _, mall := range b.malls {
+		topPort := mall.GetPortByName("Top")
+		b.l2ToMALLConnection.PlugIn(topPort)
+
+		// The MALL is a memory-side cache: it fronts DRAM for ALL memory
+		// traffic, not just GPU L2 misses. So the DMA engine (host MemCopy)
+		// targets the MALL too, via the same interleaving the L1->L2 path
+		// uses. This keeps the MALL coherent with host copies and lets an
+		// H2D copy populate it (write-through), so a subsequent kernel reads
+		// resident data instead of always missing to DRAM.
 		b.dmaLocalDataSource.LowModules = append(
 			b.dmaLocalDataSource.LowModules, topPort.AsRemote())
 	}
 
-	b.l2ToDramConnection.PlugIn(b.dmaEngine.GetPortByName("ToMem"))
+	b.l2ToMALLConnection.PlugIn(b.dmaEngine.GetPortByName("ToMem"))
+}
+
+func (b *Builder) connectMALLAndDRAM() {
+	b.mallToDramConnection = directconnection.MakeBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
+		Build(b.name + ".MALLToDRAM")
+
+	// MALL is the sole front end for DRAM: the only things on this connection
+	// are the MALL bottoms and the DRAM tops. GPU L2 misses and host DMA both
+	// reach DRAM through the MALL (wired in connectL2AndMALL), so the MALL is a
+	// true proxy of DRAM for every memory access.
+	for _, mall := range b.malls {
+		b.mallToDramConnection.PlugIn(mall.GetPortByName("Bottom"))
+	}
+
+	for _, dramComp := range b.drams {
+		b.mallToDramConnection.PlugIn(dramComp.GetPortByName("Top"))
+	}
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -527,12 +592,14 @@ func (b *Builder) buildL2Caches() {
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
+		// L2 bank i misses fetch from MALL bank i (which in turn backs DRAM
+		// controller i), inserting the Infinity Cache between L2 and HBM.
 		l2 := writeback.MakeBuilder().
 			WithRegistrar(b.simulation).
 			WithSpec(spec).
 			WithResources(writeback.Resources{
 				AddressToPortMapper: &mem.SinglePortMapper{
-					Port: b.drams[i].GetPortByName("Top").AsRemote(),
+					Port: b.malls[i].GetPortByName("Top").AsRemote(),
 				},
 			}).
 			Build(cacheName)
@@ -547,6 +614,58 @@ func (b *Builder) buildL2Caches() {
 			b.l1AddressMapper.LowModules,
 			l2.GetPortByName("Top").AsRemote(),
 		)
+	}
+}
+
+// buildMALL builds the 256 MB MALL (Memory-Attached Last-Level cache, a.k.a.
+// Infinity Cache) that MI300A places on the IODs between the per-XCD L2 caches
+// and HBM. It is banked the same way as the L2 (one bank per memory channel,
+// each backing its own DRAM controller), so the banks together form a single
+// device-wide last-level cache striped across the channels.
+//
+// The MALL is modeled as a read- and write-allocating write-through cache
+// rather than a write-back cache. As a memory-side cache it fronts DRAM for
+// every memory access (GPU L2 misses AND host DMA), so write-through (write
+// allocates the line and also writes DRAM) keeps DRAM authoritative while
+// letting host copies populate the MALL — a key behavior for the DRAM-proxy
+// model. Write-through also means the MALL never holds dirty data, so it needs
+// no flush and stays out of the CP control list; this avoids the deadlock that
+// stacking two write-back caches (L2 over MALL) and flushing both at every
+// kernel boundary would cause (the L2 writes back into a MALL that is itself
+// flushing), and the O(256 MB) write-back scan per kernel.
+func (b *Builder) buildMALL() {
+	byteSize := b.mallCacheSize / uint64(b.numMemoryBank)
+
+	spec := writethroughcache.DefaultSpec()
+	spec.Freq = b.freq
+	spec.WritePolicyType = "write-through"
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 16
+	spec.TotalByteSize = byteSize
+	spec.NumMSHREntry = 512
+	spec.NumReqPerCycle = 64
+	spec.NumBanks = 16
+	spec.BankLatency = b.mallBankLatency
+	spec.DirLatency = 2
+	spec.MaxNumConcurrentTrans = 512
+
+	for i := 0; i < b.numMemoryBank; i++ {
+		cacheName := fmt.Sprintf("%s.MALL[%d]", b.name, i)
+		mall := writethroughcache.MakeBuilder().
+			WithRegistrar(b.simulation).
+			WithSpec(spec).
+			WithResources(writethroughcache.Resources{
+				AddressMapper: &mem.SinglePortMapper{
+					Port: b.drams[i].GetPortByName("Top").AsRemote(),
+				},
+			}).
+			Build(cacheName)
+
+		b.buildPort(mall, "Top", l2CachePortBufSize)
+		b.buildPort(mall, "Bottom", l2CachePortBufSize)
+		b.buildPort(mall, "Control", l2CachePortBufSize)
+
+		b.malls = append(b.malls, mall)
 	}
 }
 

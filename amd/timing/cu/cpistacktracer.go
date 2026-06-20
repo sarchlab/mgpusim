@@ -1,7 +1,7 @@
 package cu
 
 import (
-	"fmt"
+	"sync"
 
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
@@ -130,6 +130,12 @@ type CPIStackTracer struct {
 	timeTeller timing.TimeTeller
 	cu         *Comp
 
+	// mu guards the tracer's state. Under the parallel engine, akita's
+	// incoming-queue tracing can invoke StartTask/EndTask from a connection's
+	// goroutine (which delivers messages to this CU's ports), concurrently with
+	// this CU's own goroutine, so the maps below must not be touched unlocked.
+	mu sync.Mutex
+
 	inflightTasks        map[uint64]tracing.TaskStart
 	firstWFStarted       bool
 	firstWFStartTime     float64
@@ -217,6 +223,20 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 
 // StartTask is called when a task is started.
 func (h *CPIStackTracer) StartTask(task tracing.TaskStart) {
+	// Only track the task kinds the CPI stack models. Other kinds — notably the
+	// port-level "incoming_queue" tasks akita emits — are hooked in from a
+	// different component's goroutine under the parallel engine; dropping them
+	// before touching any state keeps the accounting unchanged and avoids
+	// retaining tasks that EndTask would otherwise have to match.
+	switch task.Kind {
+	case "wavefront", "inst", "fetch", "req_out", "req_in":
+	default:
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	h.inflightTasks[task.ID] = task
 	h.handleTaskStart(task)
 }
@@ -232,7 +252,15 @@ func (h *CPIStackTracer) AddMilestone(milestone tracing.Milestone) {
 }
 
 // EndTask is called when a task is ended.
+//
+// TaskEnd carries only the task ID, not its kind, so the map lookup is the only
+// way to tell whether this is a task we track. The lock makes that lookup safe
+// against StartTask running on another goroutine; untracked tasks (e.g.
+// incoming_queue, never stored by StartTask) are simply not found and ignored.
 func (h *CPIStackTracer) EndTask(task tracing.TaskEnd) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	originalTask, found := h.inflightTasks[task.ID]
 	if found {
 		delete(h.inflightTasks, task.ID)
@@ -256,7 +284,11 @@ func (h *CPIStackTracer) handleTaskStart(task tracing.TaskStart) {
 	case "req_in":
 		return
 	default:
-		fmt.Println("Unknown task kind:", task.Kind, task.What)
+		// The CPI stack does not model every task kind (e.g. queueing tasks
+		// such as "incoming_queue"); silently ignore the ones it doesn't track
+		// rather than logging them, which otherwise floods stdout on
+		// --report-all runs.
+		return
 	}
 }
 
