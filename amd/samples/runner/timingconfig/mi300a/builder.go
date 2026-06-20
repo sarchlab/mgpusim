@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/cache/writeback"
+	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
 	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
@@ -22,11 +24,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
-	// writeback (L2) and writethroughcache (MALL) are vendored from akita with a
-	// cache set-index fix (see third_party/akita); these caches sit behind the
-	// per-channel interleaver and need the fix to reach their full capacity.
-	"github.com/sarchlab/mgpusim/v5/third_party/akita/mem/cache/writeback"
-	"github.com/sarchlab/mgpusim/v5/third_party/akita/mem/cache/writethroughcache"
 )
 
 // MI300A hardware configuration constants.
