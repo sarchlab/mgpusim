@@ -1,8 +1,6 @@
 package cu
 
 import (
-	"fmt"
-
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -256,7 +254,11 @@ func (h *CPIStackTracer) handleTaskStart(task tracing.TaskStart) {
 	case "req_in":
 		return
 	default:
-		fmt.Println("Unknown task kind:", task.Kind, task.What)
+		// The CPI stack does not model every task kind (e.g. queueing tasks
+		// such as "incoming_queue"); silently ignore the ones it doesn't track
+		// rather than logging them, which otherwise floods stdout on
+		// --report-all runs.
+		return
 	}
 }
 
