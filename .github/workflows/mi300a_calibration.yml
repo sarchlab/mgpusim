@@ -56,10 +56,9 @@ jobs:
           # Tier-2: altis
           - altis_cfd
           - altis_raytracing
-          # Tier-2: heteromark
-          - heteromark_aes
-          - heteromark_fir
-          - heteromark_pagerank
+          # Tier-2: heteromark (aes/fir/pagerank) intentionally omitted -- the
+          # MGPUSim ports run different kernels than the gpu_benchmarks ground
+          # truth (pagerank is a different algorithm); see run_sweep.py SPECS.
           # Tier-2: npb
           - npb_ep
           # Tier-2: parboil (parboil_stencil omitted: hangs in CDNA3 timing mode)

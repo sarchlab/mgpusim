@@ -44,6 +44,20 @@ COMMON = ["-timing", "-arch", "cdna3", "-gpu", "mi300x", "-disable-rtm"]
 # Most samples expose only their scaling dimension; unsupported ground-truth
 # params (block_size, precision, ...) are simply not passed (the sim curve then
 # repeats across that dimension -- the honest result).
+#
+# KERNEL-FIDELITY CAVEATS (from diffing MGPUSim native kernels vs current
+# gpu_benchmarks .hip; the recent gpu_benchmarks updates are harness-only, so
+# these are pre-existing port divergences, not staleness):
+#  - heteromark_{aes,fir,pagerank}: GENUINE kernel drift -> DISABLED above.
+#  - memory_bandwidth: ground truth is host hipMemcpy D2D (no kernel); the sim
+#    proxies it with a copy kernel -- same D2D direction, different mechanism.
+#  - fp64_throughput, polybench_gramschmidt, rodinia_hotspot3d, npb_ep,
+#    parboil_cutcp: intentional, documented CDNA3/gfx942 emulator workarounds
+#    (memory-sourced operands / serial-reduction-instead-of-atomics / z-loop /
+#    per-thread-output / dropped-unused-param). Numerically equivalent, but the
+#    timing profile of the adapted step is not a faithful match -- read with care.
+#  - shared_mem_bandwidth: kernel logic matches but LDS footprint differs
+#    (gpu_benchmarks 48 KB vs sim 2 KB) -> different occupancy; consider aligning.
 SPECS = {
     # --- Tier-1 microbenchmarks ---
     "fp32_throughput":      {"sample": "fp32_throughput",      "scaling_flag": "-fmas",
@@ -68,10 +82,18 @@ SPECS = {
     "altis_raytracing":     {"sample": "altis_raytracing",    "scaling_flag": "-width",
                              "params": {"height": "-height", "spheres": "-spheres"}},
 
-    # --- Tier-2: heteromark (sim samples aes/fir/pagerank are the heteromark ports) ---
-    "heteromark_aes":       {"sample": "aes",                 "scaling_flag": "-length", "params": {}},
-    "heteromark_fir":       {"sample": "fir",                 "scaling_flag": "-length", "params": {"num_taps": "-taps"}},
-    "heteromark_pagerank":  {"sample": "pagerank",            "scaling_flag": "-node",   "params": {"pr_iterations": "-iterations"}},
+    # --- Tier-2: heteromark --- DISABLED pending re-port.
+    # The MGPUSim aes/fir/pagerank ports run materially DIFFERENT kernel code than
+    # the current gpu_benchmarks ground truth (verified by kernel diff): pagerank
+    # is CSR SpMV warp-per-row in the sim vs thread-per-vertex power-method
+    # upstream (different algorithm); aes uses a different AES-256 formulation; fir
+    # uses a history buffer vs shared-mem coefficients. Calibrating against these
+    # would compare different kernels. Re-extract the kernels from current
+    # gpu_benchmarks tier2/{heteromark_aes,heteromark_fir,heteromark_pagerank}.hip
+    # and recompile the HSACO before re-enabling. Mappings kept for that work:
+    #   "heteromark_aes":      {"sample": "aes",      "scaling_flag": "-length", "params": {}},
+    #   "heteromark_fir":      {"sample": "fir",      "scaling_flag": "-length", "params": {"num_taps": "-taps"}},
+    #   "heteromark_pagerank": {"sample": "pagerank", "scaling_flag": "-node",   "params": {"pr_iterations": "-iterations"}},
 
     # --- Tier-2: npb ---
     "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
