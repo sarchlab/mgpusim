@@ -1,5 +1,5 @@
 // Package srad implements the Rodinia SRAD benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/rodinia_srad) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/rodinia_srad) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // SRAD (Speckle-Reducing Anisotropic Diffusion) is an iterative 2D image
@@ -12,7 +12,7 @@
 //
 // Both kernels are launched NumIterations times. The kernel binary is
 // compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300A configuration).
+// `-arch cdna3` (the MI300X configuration).
 package srad
 
 import (
@@ -135,7 +135,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia srad benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

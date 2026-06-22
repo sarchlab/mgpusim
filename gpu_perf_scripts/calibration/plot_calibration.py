@@ -175,8 +175,8 @@ def build_summary_table(rows):
 
 def build_report_md(rows, report_path):
     report_dir = os.path.dirname(os.path.abspath(report_path))
-    out = ["# MI300A Calibration Report", "",
-           "Simulated vs. real-hardware **kernel execution time** for the MI300A "
+    out = ["# MI300X Calibration Report", "",
+           "Simulated vs. real-hardware **kernel execution time** for the MI300X "
            "(CDNA3) timing model. One figure per (benchmark, non-scaling combo); "
            "x axis is the scaling factor, y axis is kernel time (log-log). The sim "
            "is **aligned** to real HW with a constant `offset` (= real − sim at the "
@@ -200,7 +200,7 @@ def build_report_md(rows, report_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ref", default="gpu_perf_scripts/calibration/mi300a_ground_truth.csv")
+    ap.add_argument("--ref", default="gpu_perf_scripts/calibration/mi300x_ground_truth.csv")
     ap.add_argument("--sim-dir", default=".", help="dir searched for *_sim_results.csv")
     ap.add_argument("--out", default="figures")
     ap.add_argument("--summary", default="")

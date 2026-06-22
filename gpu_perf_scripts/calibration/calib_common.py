@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for the benchmark-agnostic MI300A calibration pipeline.
+"""Shared helpers for the benchmark-agnostic MI300X calibration pipeline.
 
 A run is identified by (benchmark, scaling point, non-scaling combo). The
 non-scaling combo is carried verbatim as a JSON string (`non_scaling_json`) in

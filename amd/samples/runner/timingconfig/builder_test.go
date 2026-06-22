@@ -50,6 +50,6 @@ func TestBuildR9NanoMultiGPUPlatform(t *testing.T) {
 	buildPlatform(t, "r9nano", 2)
 }
 
-func TestBuildMI300APlatform(t *testing.T) {
-	buildPlatform(t, "mi300a", 1)
+func TestBuildMI300XPlatform(t *testing.T) {
+	buildPlatform(t, "mi300x", 1)
 }

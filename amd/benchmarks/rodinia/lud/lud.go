@@ -1,6 +1,6 @@
 // Package lud implements the Rodinia LUD (LU decomposition) benchmark,
 // ported from sarchlab/gpu_benchmarks (tier2/rodinia_lud) for the MGPUSim
-// MI300A (CDNA3 / gfx942) model.
+// MI300X (CDNA3 / gfx942) model.
 //
 // It performs a blocked LU factorization (no pivoting) of a dense NxN matrix
 // using three shared-memory kernels (BSIZE = 16):
@@ -131,7 +131,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia lud benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

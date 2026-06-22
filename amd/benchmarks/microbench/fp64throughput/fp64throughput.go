@@ -1,6 +1,6 @@
 // Package fp64throughput implements the fp64_throughput microbenchmark,
 // ported from sarchlab/gpu_benchmarks (tier1/fp64_throughput) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Each work-item runs a long chain of FP64 fused multiply-adds (FMA) over
 // four independent accumulators, then stores the sum of its accumulators
@@ -8,7 +8,7 @@
 // multiplier/addend) are read from a per-thread slice of an input buffer,
 // so the kernel measures FP64 arithmetic throughput. The kernel binary is
 // compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300A config).
+// `-arch cdna3` (the MI300X config).
 package fp64throughput
 
 import (
@@ -120,7 +120,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp64_throughput benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

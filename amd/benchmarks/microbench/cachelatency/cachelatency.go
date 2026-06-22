@@ -1,5 +1,5 @@
 // Package cachelatency implements the cache_latency microbenchmark, ported
-// from sarchlab/gpu_benchmarks (tier1/cache_latency) for the MGPUSim MI300A
+// from sarchlab/gpu_benchmarks (tier1/cache_latency) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // A single thread walks a linked-list-style index chain where each array
@@ -9,7 +9,7 @@
 // The thread writes its final index to result[0].
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package cachelatency
 
 import (
@@ -101,7 +101,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the cache_latency benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

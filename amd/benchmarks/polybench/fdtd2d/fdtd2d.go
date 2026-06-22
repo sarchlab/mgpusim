@@ -1,12 +1,12 @@
 // Package fdtd2d implements the PolyBench FDTD-2D benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/polybench_fdtd2d) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/polybench_fdtd2d) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // FDTD-2D is a 2D Finite Difference Time Domain electromagnetic simulation
 // over three NX x NY field arrays (ex, ey, hz). Each time step launches three
 // kernels (update ex, update ey, update hz). The kernel binary is compiled for
 // gfx942 only (see native/), so the benchmark must be run with `-arch cdna3`
-// (the MI300A configuration).
+// (the MI300X configuration).
 //
 // The kernels use a constant 16x16 block dimension, so no hidden ABI arguments
 // are emitted (kernarg_segment_size = 24 for ex/ey, 32 for hz).
@@ -129,7 +129,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench fdtd2d benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

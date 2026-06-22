@@ -1,6 +1,6 @@
 // Package sharedmembandwidth implements the shared-memory (LDS) bandwidth
 // microbenchmark, ported from sarchlab/gpu_benchmarks
-// (tier1/shared_mem_bandwidth) for the MGPUSim MI300A (CDNA3 / gfx942) model.
+// (tier1/shared_mem_bandwidth) for the MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Two kernels exercise a block-local __shared__ buffer:
 //   - smem_bw_no_conflict : stride-1 per lane (bank-conflict free)
@@ -12,7 +12,7 @@
 // The block size (64) and the shared-buffer length (512 floats) are
 // compile-time constants in the kernel, so the gfx942 binary carries NO
 // hidden ABI arguments (kernarg_segment_size = 12). The benchmark must be
-// run with `-arch cdna3` (the MI300A configuration).
+// run with `-arch cdna3` (the MI300X configuration).
 //
 // Verify() reproduces the deterministic smem_bw_no_conflict result on the
 // CPU. In that pattern each thread owns a disjoint set of cells, so the
@@ -120,7 +120,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the shared_mem_bandwidth benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

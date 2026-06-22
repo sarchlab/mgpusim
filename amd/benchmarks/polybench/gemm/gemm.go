@@ -1,11 +1,11 @@
 // Package gemm implements the PolyBench GEMM benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/polybench_gemm) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/polybench_gemm) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // It computes C = alpha*A*B + beta*C for NxN square matrices, using a
 // shared-memory tiled kernel (TILE_SIZE = 16). The kernel binary is
 // compiled for gfx942 only (see native/), so the benchmark must be run
-// with `-arch cdna3` (the MI300A configuration).
+// with `-arch cdna3` (the MI300X configuration).
 package gemm
 
 import (
@@ -101,7 +101,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench gemm benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

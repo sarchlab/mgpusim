@@ -1,12 +1,12 @@
 // Package binomialoptions implements the Tango Binomial Options benchmark,
 // ported from sarchlab/gpu_benchmarks (tier2/tango_binomial_options) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // It prices American put options with the Cox-Ross-Rubinstein (CRR) binomial
 // tree model. One work-group (threadblock) prices one option; work-items
 // collaborate via LDS (shared memory) on the backward induction through the
 // tree. The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 //
 // The native kernel uses a constant compile-time block size (BLOCK_SIZE=256)
 // and a statically-sized LDS array (MAX_NODES=256) instead of the original's
@@ -110,7 +110,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the tango binomial options benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

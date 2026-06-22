@@ -1,6 +1,6 @@
-// Package mi300a contains the configuration of GPUs similar to AMD Instinct
-// MI300A.
-package mi300a
+// Package mi300x contains the configuration of GPUs similar to AMD Instinct
+// MI300X.
+package mi300x
 
 import (
 	"fmt"
@@ -26,12 +26,21 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
-// MI300A hardware configuration constants.
+// MI300X hardware configuration constants.
+//
+// The MI300X has 304 active compute units (8 XCDs x 38 CUs). We model that
+// total as 38 shader arrays of 8 CUs each (38 x 8 = 304). The CU count is the
+// only topology change from the MI300A config: both are CDNA3 and share the
+// same per-XCD memory hierarchy (a single work-item sees a 4 MB per-XCD L2
+// backed by a 256 MB device-wide MALL/Infinity Cache), which the builder models
+// via numMemoryBank (independent of the shader-array count), so the calibrated
+// cache hierarchy is preserved. Clock and interconnect latencies are inherited
+// from the MI300A baseline and tuned for MI300X separately.
 const (
 	// NumCUPerShaderArray is the number of compute units per shader array.
-	NumCUPerShaderArray = 6
-	// NumShaderArray is the number of shader arrays in the GPU.
-	NumShaderArray = 20
+	NumCUPerShaderArray = 8
+	// NumShaderArray is the number of shader arrays in the GPU (38 x 8 = 304 CUs).
+	NumShaderArray = 38
 )
 
 // Port buffer sizes. The CP and DMA-to-CP ports mirror the v4 4096-deep
@@ -89,25 +98,25 @@ type Builder struct {
 	dmaLocalDataSource   *mem.InterleavedAddressPortMapper
 }
 
-// MakeBuilder creates a new builder with MI300A default configuration.
+// MakeBuilder creates a new builder with MI300X default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                1700 * timing.MHz, // 1.70 GHz (MI300A effective clock)
+		freq:                1700 * timing.MHz, // inherited from MI300A baseline; tune for MI300X
 		numCUPerShaderArray: NumCUPerShaderArray,
 		numShaderArray:      NumShaderArray,
-		// MI300A L2 is a per-XCD 4 MB cache (16-way, 16x256 KB channels). A
+		// MI300X L2 is a per-XCD 4 MB cache (16-way, 16x256 KB channels). A
 		// single work-item touches only its own XCD's L2, so the cache_latency
 		// pointer chase sees 4 MB here, not the device-wide aggregate.
 		l2CacheSize: 4 * mem.MB,
 		// L2 bank latency in cycles. Tuned so an L1-miss/L2-hit dependent load
-		// lands near the ~60-100 ns the real MI300A L2 shows in cache_latency.
+		// lands near the ~60-100 ns the real MI300X L2 shows in cache_latency.
 		l2BankLatency: 100,
-		// MI300A adds a 256 MB MALL (Memory-Attached Last-Level / Infinity
+		// MI300X adds a 256 MB MALL (Memory-Attached Last-Level / Infinity
 		// Cache) on the IODs between the L2 and HBM. Modeling it gives the
 		// cache_latency curve its third plateau (8 MB-256 MB working sets).
 		mallCacheSize: 256 * mem.MB,
 		// MALL bank latency in cycles. Tuned so an L2-miss/MALL-hit dependent
-		// load lands near the ~170-330 ns the real MI300A MALL shows.
+		// load lands near the ~170-330 ns the real MI300X MALL shows.
 		mallBankLatency:                300,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
@@ -544,7 +553,7 @@ func (b *Builder) buildSAs() {
 		WithLog2PageSize(b.log2PageSize).
 		WithL1AddressMapper(b.l1AddressMapper).
 		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
-		// Use the CDNA3 ALU for MI300A timing simulation.
+		// Use the CDNA3 ALU for MI300X timing simulation.
 		WithALUBuilder(func() emu.ALU { return cdna3.NewALU(nil) }).
 		// Decode with CDNA3 semantics so FLAT/GLOBAL SADDR addressing is
 		// resolved correctly (the default disassembler decodes as GCN3, which
@@ -618,7 +627,7 @@ func (b *Builder) buildL2Caches() {
 }
 
 // buildMALL builds the 256 MB MALL (Memory-Attached Last-Level cache, a.k.a.
-// Infinity Cache) that MI300A places on the IODs between the per-XCD L2 caches
+// Infinity Cache) that MI300X places on the IODs between the per-XCD L2 caches
 // and HBM. It is banked the same way as the L2 (one bank per memory channel,
 // each backing its own DRAM controller), so the banks together form a single
 // device-wide last-level cache striped across the channels.

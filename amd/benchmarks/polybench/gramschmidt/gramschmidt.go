@@ -1,6 +1,6 @@
 // Package gramschmidt implements the PolyBench Gram-Schmidt benchmark,
 // ported from sarchlab/gpu_benchmarks (tier2/polybench_gramschmidt) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // It computes the QR factorization of an M x N matrix A via Gram-Schmidt
 // orthogonalization, A = Q * R, where Q (M x N) has orthonormal columns and
@@ -19,7 +19,7 @@
 // (numerically identical to a serial reduction).
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package gramschmidt
 
 import (
@@ -143,7 +143,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench gramschmidt benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

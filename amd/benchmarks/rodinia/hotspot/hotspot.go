@@ -1,5 +1,5 @@
 // Package hotspot implements the Rodinia Hotspot benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/rodinia_hotspot) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/rodinia_hotspot) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // Hotspot is an iterative 2D stencil thermal simulation: each grid cell's
@@ -7,7 +7,7 @@
 // density, and thermal resistances. The kernel is launched NumIterations
 // times with ping-pong source/destination buffers. The kernel binary is
 // compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300A configuration).
+// `-arch cdna3` (the MI300X configuration).
 package hotspot
 
 import (
@@ -116,7 +116,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia hotspot benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

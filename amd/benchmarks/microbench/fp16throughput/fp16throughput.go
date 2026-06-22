@@ -1,6 +1,6 @@
 // Package fp16throughput implements the fp16_throughput microbenchmark,
 // ported from sarchlab/gpu_benchmarks (tier1/fp16_throughput) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Each work-item runs a long chain of packed half2 fused-multiply-add (FMA)
 // operations entirely in registers. Only work-item (0,0) of work-group 0
@@ -8,7 +8,7 @@
 // benchmark reads back and verifies against a CPU reference.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package fp16throughput
 
 import (
@@ -94,7 +94,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp16_throughput benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

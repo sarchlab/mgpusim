@@ -1,11 +1,11 @@
 # =============================================================================
-# benchmark.yml — MI300A Simulation Benchmark Workflow
+# benchmark.yml — MI300X Simulation Benchmark Workflow
 # =============================================================================
 #
 # Runs MGPUSim benchmarks in parallel using matrix strategy, extracts kernel
-# timing from SQLite metrics, and compares against MI300A hardware reference.
+# timing from SQLite metrics, and compares against MI300X hardware reference.
 #
-# Strategy: Include ALL reference sizes from mi300a.csv for runnable benchmarks.
+# Strategy: Include ALL reference sizes from mi300x.csv for runnable benchmarks.
 # Each size gets a 55s timeout — sizes that exceed it are skipped gracefully.
 # A 6GB virtual memory ulimit prevents OOM kills.
 # The workflow NEVER fails due to individual size timeouts/crashes.
@@ -22,7 +22,7 @@
 # Runner: self-hosted (Marin runners)
 # =============================================================================
 
-name: MI300A Benchmark
+name: MI300X Benchmark
 
 on:
   workflow_dispatch:
@@ -258,7 +258,7 @@ jobs:
           SIZES="${{ matrix.sizes }}"
           FLAG_TEMPLATE='${{ matrix.flag_template }}'
           LABEL_TEMPLATE='${{ matrix.size_label_template }}'
-          COMMON_FLAGS="-timing -arch cdna3 -gpu mi300a -disable-rtm"
+          COMMON_FLAGS="-timing -arch cdna3 -gpu mi300x -disable-rtm"
           BINARY="./_bench_${BENCHMARK}"
           TIMEOUT_SEC=${{ matrix.timeout_sec || '150' }}
           OUTPUT="results_${BENCHMARK}.csv"
@@ -398,7 +398,7 @@ jobs:
   # Comparison job: collect all results and compare against reference
   # ===========================================================================
   compare:
-    name: Compare vs MI300A Reference
+    name: Compare vs MI300X Reference
     runs-on: self-hosted
     timeout-minutes: 10
     needs: [benchmark]
@@ -450,23 +450,23 @@ jobs:
           echo ""
           cat sim_results_ci.csv
 
-      - name: Run comparison against MI300A reference
+      - name: Run comparison against MI300X reference
         run: |
           python3 gpu_perf_scripts/compare_sim_vs_real.py \
-            --ref gpu_perf_scripts/mi300a.csv \
+            --ref gpu_perf_scripts/mi300x.csv \
             --sim sim_results_ci.csv \
             --output comparison_ci.csv
 
       - name: Run regression-based comparison
         run: |
           python3 gpu_perf_scripts/compare_regression.py \
-            --ref gpu_perf_scripts/mi300a.csv \
+            --ref gpu_perf_scripts/mi300x.csv \
             --sim sim_results_ci.csv \
             --output regression_ci.csv
 
       - name: Generate summary
         run: |
-          echo "## MI300A Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "## MI300X Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.event.inputs.ref || github.ref }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
@@ -475,7 +475,7 @@ jobs:
 
           # Count matched data points
           DATA_LINES=$(tail -n +2 sim_results_ci.csv | wc -l | tr -d ' ')
-          REF_LINES=$(tail -n +2 gpu_perf_scripts/mi300a.csv | wc -l | tr -d ' ')
+          REF_LINES=$(tail -n +2 gpu_perf_scripts/mi300x.csv | wc -l | tr -d ' ')
           UNIQUE_REF=438  # unique reference keys
           echo "**Simulation data points:** ${DATA_LINES}" >> $GITHUB_STEP_SUMMARY
           echo "**Reference data points:** ${REF_LINES} rows (${UNIQUE_REF} unique keys)" >> $GITHUB_STEP_SUMMARY
@@ -484,7 +484,7 @@ jobs:
           # Show coverage info
           echo "### Coverage Strategy" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ALL reference sizes from mi300a.csv are attempted for runnable benchmarks." >> $GITHUB_STEP_SUMMARY
+          echo "ALL reference sizes from mi300x.csv are attempted for runnable benchmarks." >> $GITHUB_STEP_SUMMARY
           echo "Sizes that exceed the 55s per-size timeout or crash are gracefully skipped." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Structurally unreachable (66 points, 3 benchmarks):**" >> $GITHUB_STEP_SUMMARY

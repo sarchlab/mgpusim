@@ -1,6 +1,6 @@
 // Package ep implements the NAS Parallel Benchmarks Embarrassingly Parallel
 // (EP) benchmark, ported from sarchlab/gpu_benchmarks (tier2/npb_ep) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Each work-item generates one pair of uniform random deviates with a
 // per-thread integer LCG, applies the Box-Muller transform, and computes an
@@ -12,7 +12,7 @@
 // the same bin histogram as the original benchmark.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package ep
 
 import (
@@ -99,7 +99,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the npb ep benchmark ships only a gfx942 kernel; " +
-			"run with -arch cdna3 -gpu mi300a")
+			"run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

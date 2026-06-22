@@ -14,7 +14,7 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300a"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
 )
 
@@ -82,7 +82,7 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 	return b
 }
 
-// WithGPUType sets the GPU type for timing simulation (r9nano or mi300a).
+// WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
 	return b
@@ -116,16 +116,21 @@ func (b *Builder) cpuGPUMemSizeMustEqual() {
 
 func (b *Builder) adjustConfigForGPUType() {
 	switch b.gpuType {
-	case "mi300a":
-		b.numCUPerSA = mi300a.NumCUPerShaderArray
-		b.numSAPerGPU = mi300a.NumShaderArray
-		b.switchLatency = 15 // MI300A uses on-die Infinity Fabric, not PCIe
-		b.d2hCycles = 150    // MI300A Infinity Fabric latency (~83ns)
-		b.h2dCycles = 250    // MI300A command processing (~139ns)
+	case "mi300x":
+		b.numCUPerSA = mi300x.NumCUPerShaderArray
+		b.numSAPerGPU = mi300x.NumShaderArray
+		// Host-transfer latencies are inherited from the MI300A baseline. MI300X
+		// is a DISCRETE GPU (host link is PCIe Gen5, not the APU's on-die Infinity
+		// Fabric), so these want re-tuning for MI300X -- but the platform
+		// currently uses a direct connection that models no link latency anyway
+		// (see createConnection), so they have no effect until that is restored.
+		b.switchLatency = 15
+		b.d2hCycles = 150
+		b.h2dCycles = 250
 		// The ROCm/HIP runtime backs large device allocations with 2 MB
 		// huge pages, so a pointer chase over hundreds of MB stays
 		// TLB-resident and the latency curve is pure cache hierarchy (the
-		// real MI300A cache_latency shows no TLB wall). Modeling 4 KB pages
+		// real MI300X cache_latency shows no TLB wall). Modeling 4 KB pages
 		// would make the L1/L2 TLBs thrash at ~1 MB working sets and inject
 		// page-walk latency the hardware never pays. This sets the page size
 		// for the MMU/page table and every TLB consistently.
@@ -209,8 +214,8 @@ func (b *Builder) createGPUBuilder(
 	driverPort := gpuDriver.GetPortByName(driver.GPUPortName).AsRemote()
 
 	switch b.gpuType {
-	case "mi300a":
-		return mi300a.MakeBuilder().
+	case "mi300x":
+		return mi300x.MakeBuilder().
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).

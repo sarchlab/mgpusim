@@ -1,5 +1,5 @@
 // Package backprop implements the Rodinia Backpropagation benchmark, ported
-// from sarchlab/gpu_benchmarks (tier2/rodinia_backprop) for the MGPUSim MI300A
+// from sarchlab/gpu_benchmarks (tier2/rodinia_backprop) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // It runs one forward + backward training epoch over a two-layer
@@ -7,7 +7,7 @@
 // kernels: forward_hidden, forward_output, backward_output_delta,
 // backward_hidden_delta, update_w1 (2D grid) and update_w2.  The kernel binary
 // is compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300A configuration).
+// `-arch cdna3` (the MI300X configuration).
 package backprop
 
 import (
@@ -172,7 +172,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia backprop benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

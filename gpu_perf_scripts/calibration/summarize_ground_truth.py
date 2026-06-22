@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize mi300a_ground_truth.db into a compact, committable CSV.
+"""Summarize mi300x_ground_truth.db into a compact, committable CSV.
 
 The full SQLite DB stores every individual repetition across all benchmarks plus
 large indexes. Calibration only needs the per-configuration aggregate (mean
@@ -16,17 +16,19 @@ The DB itself is NOT committed; keep it wherever you collect ground truth and
 re-run this script to refresh the CSV when new measurements land.
 
 Usage:
-    summarize_ground_truth.py --db /path/to/mi300a_ground_truth.db \
-        --out gpu_perf_scripts/calibration/mi300a_ground_truth.csv
+    summarize_ground_truth.py --db /path/to/mi300x_ground_truth.db \
+        --out gpu_perf_scripts/calibration/mi300x_ground_truth.csv
 """
 
 import argparse
 import csv
 import sqlite3
 
-# Benchmarks intentionally left out of calibration (no usable sim runner and/or
-# explicitly excluded). Everything else in the DB is summarized.
-EXCLUDE = {"atomic_operations", "shoc_scan", "shoc_triad"}
+# The committed CSV is the COMPLETE real-hardware record: every benchmark in the
+# DB is summarized, including ones with no sim runner yet. Which benchmarks are
+# actually simulated/calibrated is decided by run_sweep.py's SPECS and the CI
+# matrix, not here.
+EXCLUDE = set()
 
 COLUMNS = [
     "benchmark", "scaling_param_name", "scaling_param_value",
@@ -77,7 +79,7 @@ def _scale_key(v):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", required=True)
-    ap.add_argument("--out", default="gpu_perf_scripts/calibration/mi300a_ground_truth.csv")
+    ap.add_argument("--out", default="gpu_perf_scripts/calibration/mi300x_ground_truth.csv")
     args = ap.parse_args()
 
     conn = sqlite3.connect(args.db)

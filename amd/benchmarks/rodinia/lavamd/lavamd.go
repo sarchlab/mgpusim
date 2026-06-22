@@ -1,5 +1,5 @@
 // Package lavamd implements the Rodinia LavaMD benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/rodinia_lavamd) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/rodinia_lavamd) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // LavaMD is a short-range molecular dynamics benchmark using cell-list
@@ -7,7 +7,7 @@
 // particle interacts (Lennard-Jones type potential) with all particles in
 // its box and its (up to 26) neighboring boxes. One workgroup processes one
 // box. The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package lavamd
 
 import (
@@ -129,7 +129,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia lavamd benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

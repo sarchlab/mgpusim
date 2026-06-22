@@ -27,7 +27,7 @@ matter for parity validation.
 
 ## amd/timing/rdma (ported)
 
-Dependents: timingconfig builders (r9nano, mi300a), CP ctrlMiddleware.
+Dependents: timingconfig builders (r9nano, mi300x), CP ctrlMiddleware.
 
 | Old (v4) | New (v5) |
 |---|---|
@@ -85,7 +85,7 @@ Dependents: emusystem/emugpu config, CP resource pool.
 
 ## amd/timing/mem (ported)
 
-Dependents: mi300a config (simplebankedmemory), shaderarray config (note:
+Dependents: mi300x config (simplebankedmemory), shaderarray config (note:
 shaderarray currently uses AKITA's addresstranslator, not mgpusim's — the
 config porter chooses; mgpusim's adds TLB-request coalescing).
 
@@ -100,7 +100,7 @@ addresstranslator:
   (memcontrolprotocol). v4 flush → CmdPause+CmdReset; restart → CmdEnable.
 - `Info` no longer propagated onto bottom-side requests.
 
-simplebankedmemory (affects mi300a buildDRAMControllers):
+simplebankedmemory (affects mi300x buildDRAMControllers):
 - All per-field With* options → Spec fields (NumBanks, BankPipelineWidth,
   BankPipelineDepth, StageLatency, PostPipelineBufSize,
   BankSelectorLog2InterleaveSize, RowBufferSizeLog2, RowMissDelay,
@@ -157,7 +157,7 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
 
 ## amd/timing/cp (ported)
 
-Dependents: timingconfig core + r9nano/mi300a/shaderarray configs.
+Dependents: timingconfig core + r9nano/mi300x/shaderarray configs.
 
 - `cp.MakeBuilder()`: `WithRegistrar(reg)` + `WithSpec(cp.DefaultSpec())`
   (Freq, NumDispatchers, ConstantKernelLaunchOverhead,

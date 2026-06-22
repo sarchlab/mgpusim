@@ -1,5 +1,5 @@
 // Package twomm implements the PolyBench 2MM benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/polybench_2mm) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/polybench_2mm) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // 2MM computes two chained matrix multiplications:
@@ -10,7 +10,7 @@
 // for NxN square matrices. Both multiplications use the same shared-memory
 // tiled GEMM kernel (mm_kernel, TILE_SIZE = 16), launched twice. The kernel
 // binary is compiled for gfx942 only (see native/), so the benchmark must be
-// run with `-arch cdna3` (the MI300A configuration).
+// run with `-arch cdna3` (the MI300X configuration).
 package twomm
 
 import (
@@ -111,7 +111,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 2mm benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

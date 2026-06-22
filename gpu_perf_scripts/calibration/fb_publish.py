@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish MI300A calibration run status + per-point results to Firestore, for the
+"""Publish MI300X calibration run status + per-point results to Firestore, for the
 live dashboard.
 
 BEST-EFFORT BY DESIGN: any Firestore/credential error prints a warning and exits 0,

@@ -1,5 +1,5 @@
 // Package babelstream implements the BabelStream benchmark, ported from
-// sarchlab/gpu_benchmarks (tier4/babelstream) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier4/babelstream) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // BabelStream measures memory bandwidth via four elementwise vector
@@ -16,7 +16,7 @@
 //
 // The kernels are compiled for gfx942 only (see native/) with a constant
 // block size of 256, so they emit no hidden ABI arguments. The benchmark
-// must be run with `-arch cdna3` (the MI300A configuration).
+// must be run with `-arch cdna3` (the MI300X configuration).
 package babelstream
 
 import (
@@ -142,7 +142,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the babelstream benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()
