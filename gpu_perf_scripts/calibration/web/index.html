@@ -25,6 +25,15 @@
   .note { color:var(--muted); padding:24px 0; }
   .gmetrics { font-weight:400; font-size:12px; color:var(--muted); }
   .gmetrics b { color:var(--fg); }
+  .pbar { height:8px; background:#e1e4e8; border-radius:5px; overflow:hidden; flex:1 1 auto; }
+  .pfill { height:100%; background:#2da44e; transition:width .35s ease; }
+  .pfill.done { background:#0969da; }
+  .ptxt { font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #gprogress { margin-top:10px; display:none; align-items:center; gap:10px; max-width:680px; }
+  #gprogress .ptxt { font-size:13px; }
+  .h2row { display:flex; align-items:center; gap:10px; }
+  .h2row > span:first-child { flex:0 0 auto; }
+  .h2row .pbar { max-width:200px; }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
   header a#home { color:inherit; text-decoration:none; cursor:pointer; }
   header a#home:hover h1 { text-decoration:underline; }
@@ -50,6 +59,11 @@
   <div class="controls">
     <label>Run: <select id="runPicker"></select></label>
     <span class="meta" id="runMeta"></span>
+  </div>
+  <div id="gprogress">
+    <span class="ptxt"><b>Progress</b></span>
+    <div class="pbar"><div class="pfill" id="gpfill" style="width:0%"></div></div>
+    <span class="ptxt" id="gptxt"></span>
   </div>
 </header>
 <main>
@@ -261,6 +275,26 @@ function drawFigure(div, fig) {
 
 // Render a list of benchmark groups into #figures, reusing existing plot divs by id
 // (so live re-renders update in place instead of flickering).
+// progress bar (points published / expected configs); total from runs/{id}.totals
+function pbarHTML(done, total) {
+  const pct = total > 0 ? Math.min(100, Math.round(100 * done / total)) : 0;
+  const cls = (total > 0 && done >= total) ? "pfill done" : "pfill";
+  return `<div class="pbar"><div class="${cls}" style="width:${pct}%"></div></div>`
+    + `<span class="ptxt">${done}/${total} (${pct}%)</span>`;
+}
+function updateGlobalProgress(groups) {
+  const el = $("gprogress");
+  let done = 0, total = 0, nb = 0;
+  for (const g of (groups || [])) if (g.total > 0) { done += Math.min(g.done, g.total); total += g.total; nb++; }
+  if (!total) { el.style.display = "none"; return; }
+  const pct = Math.min(100, Math.round(100 * done / total));
+  el.style.display = "flex";
+  const fill = $("gpfill");
+  fill.style.width = pct + "%";
+  fill.classList.toggle("done", done >= total);
+  $("gptxt").textContent = `${done} / ${total} configs (${pct}%) across ${nb} benchmark${nb === 1 ? "" : "s"}`;
+}
+
 function renderGroups(groups, metaHTML) {
   $("runMeta").innerHTML = metaHTML;
   const root = $("figures");
@@ -268,7 +302,9 @@ function renderGroups(groups, metaHTML) {
   let html = "";
   for (const g of groups) {
     if (!g.figures.length) continue;
-    html += `<h2>${g.benchmark}</h2><div class="grid">`;
+    html += (g.total > 0
+      ? `<h2 class="h2row"><span>${g.benchmark}</span>${pbarHTML(g.done, g.total)}</h2>`
+      : `<h2>${g.benchmark}</h2>`) + `<div class="grid">`;
     for (const fig of g.figures) {
       const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
       wanted.add(pid);
@@ -289,7 +325,7 @@ function renderGroups(groups, metaHTML) {
 }
 
 // ---- render a run from its Firestore points (live or completed) ------------
-function pointsToGroups(points) {
+function pointsToGroups(points, totals) {
   const byBench = new Map();
   const scalingOf = new Map();   // benchmark -> scaling param name (for the x-axis label)
   for (const p of points) {
@@ -305,7 +341,9 @@ function pointsToGroups(points) {
   const allMape = [], allSmape = [];
   for (const [benchmark, g] of [...byBench].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
     const figures = [];
+    let done = 0;
     for (const [slug, fig] of g) {
+      done += fig.sim.length;   // streamed points for this benchmark
       fig.sim.sort((a, b) => a[0] - b[0]); fig.real.sort((a, b) => a[0] - b[0]);
       const a = alignSeries(fig.sim, fig.real);
       if (a.mape != null) allMape.push(a.mape);
@@ -315,7 +353,8 @@ function pointsToGroups(points) {
     }
     figures.sort((x, y) => x.label < y.label ? -1 : 1);
     const sc = scalingOf.get(benchmark);
-    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures });
+    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures,
+      done, total: (totals && totals[benchmark]) || 0 });
   }
   return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
 }
@@ -328,21 +367,23 @@ function unsubCurrent() {
 function renderLive(runId) {
   unsubCurrent();
   $("global").innerHTML = "";
+  updateGlobalProgress(null);
   $("figures").innerHTML = '<div class="note">Connecting to run&hellip;</div>';
   $("figures").dataset.sig = "";
   let run = liveRuns.get(runId) || {};
   let points = [];
   const render = () => {
-    const { groups, overallMape, overallSmape } = pointsToGroups(points);
+    const { groups, overallMape, overallSmape } = pointsToGroups(points, run.totals);
     const rawStatus = run.status || "in_progress";
     checkActions({ run_id: runId, status: rawStatus, run_url: run.run_url });
     const badge = badgeHTML(displayStatus({ run_id: runId, status: rawStatus }));
     const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
     const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
       + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
-    if (!points.length) { $("global").innerHTML = ""; $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    if (!points.length) { $("global").innerHTML = ""; updateGlobalProgress(null); $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
     renderGlobal(points);
     renderGroups(groups, meta);
+    updateGlobalProgress(groups);
   };
   // Re-render on status changes (run doc) AND on new points, so a run that
   // completes/fails while being viewed updates its badge without a reload.
@@ -454,6 +495,7 @@ function showLanding(runs) {
   $("runPicker").value = "";
   $("status").style.display = "none";
   $("global").innerHTML = "";
+  updateGlobalProgress(null);
   const n = runs.length;
   $("runMeta").innerHTML = `${n} run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
   const root = $("figures"); root.dataset.sig = "";
