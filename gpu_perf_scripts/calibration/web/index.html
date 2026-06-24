@@ -25,15 +25,6 @@
   .note { color:var(--muted); padding:24px 0; }
   .gmetrics { font-weight:400; font-size:12px; color:var(--muted); }
   .gmetrics b { color:var(--fg); }
-  .pbar { height:8px; background:#e1e4e8; border-radius:5px; overflow:hidden; flex:1 1 auto; }
-  .pfill { height:100%; background:#2da44e; transition:width .35s ease; }
-  .pfill.done { background:#0969da; }
-  .ptxt { font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  #gprogress { margin-top:10px; display:none; align-items:center; gap:10px; max-width:680px; }
-  #gprogress .ptxt { font-size:13px; }
-  .h2row { display:flex; align-items:center; gap:10px; }
-  .h2row > span:first-child { flex:0 0 auto; }
-  .h2row .pbar { max-width:200px; }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
   header a#home { color:inherit; text-decoration:none; cursor:pointer; }
   header a#home:hover h1 { text-decoration:underline; }
@@ -59,11 +50,6 @@
   <div class="controls">
     <label>Run: <select id="runPicker"></select></label>
     <span class="meta" id="runMeta"></span>
-  </div>
-  <div id="gprogress">
-    <span class="ptxt"><b>Progress</b></span>
-    <div class="pbar"><div class="pfill" id="gpfill" style="width:0%"></div></div>
-    <span class="ptxt" id="gptxt"></span>
   </div>
 </header>
 <main>
@@ -132,20 +118,22 @@ function computeGlobal(points) {
   const wsum = weights.reduce((a, b) => a + b, 0);
   const withinFactor = Math.exp(Math.sqrt(withinVars.reduce((a, v, i) => a + v * weights[i], 0) / wsum));
   const betweenFactor = Math.exp(std(perBenchMean));
-  // ---- ordering over ALL shared (benchmark, config) measurements ----
-  // Every data point is ranked together (not one representative per benchmark).
-  // With many benchmarks x short sweeps, within-benchmark pairs are a small
-  // fraction, so this measures cross-workload ordering AND uses all the data.
-  const rrk = ranksOf(scatter.map((p) => p.real)), srk = ranksOf(scatter.map((p) => p.sim));
-  scatter.forEach((p, i) => { p.rr = rrk[i]; p.rs = srk[i]; });
-  const rv = scatter.map((p) => p.real), sv = scatter.map((p) => p.sim);
-  const m = scatter.length; let C = 0, D = 0;
-  for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) {
-    const s = (rv[i] - rv[j]) * (sv[i] - sv[j]); if (s > 0) C++; else if (s < 0) D++;
+  const reps = [];
+  for (const [benchmark, pts] of byBench) {   // representative = largest shared config
+    const xmax = Math.max(...pts.map((q) => q.x)), at = pts.filter((q) => q.x === xmax);
+    reps.push({ benchmark, hw: mean(at.map((q) => q.real)), sim: mean(at.map((q) => q.sim)),
+                k: Math.exp(mean(pts.map((q) => q.lr))) });
+  }
+  const hw = reps.map((r) => r.hw), sm = reps.map((r) => r.sim);
+  const rh = ranksOf(hw), rs = ranksOf(sm);
+  reps.forEach((r, i) => { r.rh = rh[i]; r.rs = rs[i]; });
+  const n = reps.length; let C = 0, D = 0;
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const s = (hw[i] - hw[j]) * (sm[i] - sm[j]); if (s > 0) C++; else if (s < 0) D++;
   }
   return { geomeanK, geoStd, withinFactor, betweenFactor,
-           spearman: pearson(rrk, srk), kendall: (C + D) ? (C - D) / (C + D) : null,
-           scatter, nBench: byBench.size, nPts: logr.length };
+           spearman: pearson(rh, rs), kendall: (C + D) ? (C - D) / (n * (n - 1) / 2) : null,
+           reps, scatter, nBench: n, nPts: logr.length };
 }
 
 function globalMetricsHTML(g) {
@@ -158,21 +146,19 @@ function globalMetricsHTML(g) {
 
 // Plotly text is SVG -> use literal unicode glyphs, NOT HTML entities.
 function drawRankFig(div, g) {
-  const n = g.nPts;
-  const pts = {
-    x: g.scatter.map((p) => p.rr), y: g.scatter.map((p) => p.rs),
-    text: g.scatter.map((p) => `${p.benchmark}<br>${p.sim < p.real ? (p.real / p.sim).toFixed(1) + "× too fast" : (p.sim / p.real).toFixed(1) + "× too slow"}`),
+  const n = g.nBench, off = g.reps.map((r) => Math.abs(r.rh - r.rs) >= 5);
+  const tr = {
+    x: g.reps.map((r) => r.rh), y: g.reps.map((r) => r.rs),
+    text: g.reps.map((r) => `${r.benchmark} · k=${fmtX(r.k)}`),
     mode: "markers", type: "scatter",
-    marker: { size: 5, opacity: 0.75, color: g.scatter.map((p) => p.logr / Math.LN10),
-              colorscale: "RdBu", reversescale: true, cmid: 0,
-              colorbar: { title: { text: "log10(sim/real)", side: "right" }, thickness: 10, len: 0.9 } },
+    marker: { size: 9, color: off.map((o) => o ? REAL_COLOR : SIM_COLOR) },
     hovertemplate: "%{text}<br>HW rank %{x}, sim rank %{y}<extra></extra>",
   };
   const diag = { x: [1, n], y: [1, n], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
-  Plotly.react(div, [diag, pts], {
-    title: { text: `ranking of all ${n} measurements: sim vs HW (on the diagonal = correct order)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} · ${g.nPts} points across ${g.nBench} benchmarks · off-diagonal = mis-ranked</sub>`, font: { size: 13 } },
-    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0, n + 1], fixedrange: true, automargin: true },
-    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0, n + 1], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
+  Plotly.react(div, [diag, tr], {
+    title: { text: `benchmark ranking: sim vs HW (on the diagonal = correct ordering)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} over ${n} benchmarks · red = sim mis-ranks cost</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0.5, n + 0.5], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0.5, n + 0.5], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
     margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
   }, { displayModeBar: false, responsive: true });
 }
@@ -275,26 +261,6 @@ function drawFigure(div, fig) {
 
 // Render a list of benchmark groups into #figures, reusing existing plot divs by id
 // (so live re-renders update in place instead of flickering).
-// progress bar (points published / expected configs); total from runs/{id}.totals
-function pbarHTML(done, total) {
-  const pct = total > 0 ? Math.min(100, Math.round(100 * done / total)) : 0;
-  const cls = (total > 0 && done >= total) ? "pfill done" : "pfill";
-  return `<div class="pbar"><div class="${cls}" style="width:${pct}%"></div></div>`
-    + `<span class="ptxt">${done}/${total} (${pct}%)</span>`;
-}
-function updateGlobalProgress(groups) {
-  const el = $("gprogress");
-  let done = 0, total = 0, nb = 0;
-  for (const g of (groups || [])) if (g.total > 0) { done += Math.min(g.done, g.total); total += g.total; nb++; }
-  if (!total) { el.style.display = "none"; return; }
-  const pct = Math.min(100, Math.round(100 * done / total));
-  el.style.display = "flex";
-  const fill = $("gpfill");
-  fill.style.width = pct + "%";
-  fill.classList.toggle("done", done >= total);
-  $("gptxt").textContent = `${done} / ${total} configs (${pct}%) across ${nb} benchmark${nb === 1 ? "" : "s"}`;
-}
-
 function renderGroups(groups, metaHTML) {
   $("runMeta").innerHTML = metaHTML;
   const root = $("figures");
@@ -302,9 +268,7 @@ function renderGroups(groups, metaHTML) {
   let html = "";
   for (const g of groups) {
     if (!g.figures.length) continue;
-    html += (g.total > 0
-      ? `<h2 class="h2row"><span>${g.benchmark}</span>${pbarHTML(g.done, g.total)}</h2>`
-      : `<h2>${g.benchmark}</h2>`) + `<div class="grid">`;
+    html += `<h2>${g.benchmark}</h2><div class="grid">`;
     for (const fig of g.figures) {
       const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
       wanted.add(pid);
@@ -325,7 +289,7 @@ function renderGroups(groups, metaHTML) {
 }
 
 // ---- render a run from its Firestore points (live or completed) ------------
-function pointsToGroups(points, totals) {
+function pointsToGroups(points) {
   const byBench = new Map();
   const scalingOf = new Map();   // benchmark -> scaling param name (for the x-axis label)
   for (const p of points) {
@@ -341,9 +305,7 @@ function pointsToGroups(points, totals) {
   const allMape = [], allSmape = [];
   for (const [benchmark, g] of [...byBench].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
     const figures = [];
-    let done = 0;
     for (const [slug, fig] of g) {
-      done += fig.sim.length;   // streamed points for this benchmark
       fig.sim.sort((a, b) => a[0] - b[0]); fig.real.sort((a, b) => a[0] - b[0]);
       const a = alignSeries(fig.sim, fig.real);
       if (a.mape != null) allMape.push(a.mape);
@@ -353,8 +315,7 @@ function pointsToGroups(points, totals) {
     }
     figures.sort((x, y) => x.label < y.label ? -1 : 1);
     const sc = scalingOf.get(benchmark);
-    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures,
-      done, total: (totals && totals[benchmark]) || 0 });
+    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures });
   }
   return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
 }
@@ -367,23 +328,21 @@ function unsubCurrent() {
 function renderLive(runId) {
   unsubCurrent();
   $("global").innerHTML = "";
-  updateGlobalProgress(null);
   $("figures").innerHTML = '<div class="note">Connecting to run&hellip;</div>';
   $("figures").dataset.sig = "";
   let run = liveRuns.get(runId) || {};
   let points = [];
   const render = () => {
-    const { groups, overallMape, overallSmape } = pointsToGroups(points, run.totals);
+    const { groups, overallMape, overallSmape } = pointsToGroups(points);
     const rawStatus = run.status || "in_progress";
     checkActions({ run_id: runId, status: rawStatus, run_url: run.run_url });
     const badge = badgeHTML(displayStatus({ run_id: runId, status: rawStatus }));
     const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
     const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
       + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
-    if (!points.length) { $("global").innerHTML = ""; updateGlobalProgress(null); $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    if (!points.length) { $("global").innerHTML = ""; $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
     renderGlobal(points);
     renderGroups(groups, meta);
-    updateGlobalProgress(groups);
   };
   // Re-render on status changes (run doc) AND on new points, so a run that
   // completes/fails while being viewed updates its badge without a reload.
@@ -495,7 +454,6 @@ function showLanding(runs) {
   $("runPicker").value = "";
   $("status").style.display = "none";
   $("global").innerHTML = "";
-  updateGlobalProgress(null);
   const n = runs.length;
   $("runMeta").innerHTML = `${n} run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
   const root = $("figures"); root.dataset.sig = "";

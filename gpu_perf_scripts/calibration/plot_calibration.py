@@ -222,34 +222,37 @@ def global_metrics(ref, sim, out_dir, report_dir):
     bm = sum(per_mean) / len(per_mean)
     between = math.exp(math.sqrt(sum((v - bm) ** 2 for v in per_mean) / len(per_mean)))
 
-    # ordering over ALL shared (benchmark, config) measurements -- every point is
-    # ranked together, not one representative per benchmark
-    hw = [p[0] for p in scatter]
-    sm = [p[1] for p in scatter]
+    reps = []  # (benchmark, hw_ms, sim_ms) at each benchmark's largest shared config
+    for bench, pts in by_bench.items():
+        xmax = max(q[0] for q in pts)
+        at = [q for q in pts if q[0] == xmax]
+        reps.append((bench, sum(q[2] for q in at) / len(at), sum(q[1] for q in at) / len(at)))
+    hw = [r[1] for r in reps]
+    sm = [r[2] for r in reps]
     rh, rs = _ranks(hw), _ranks(sm)
     spearman = _pearson(rh, rs)
-    m = len(scatter)
+    n = len(reps)
     cc = dd = 0
-    for i in range(m):
-        for j in range(i + 1, m):
+    for i in range(n):
+        for j in range(i + 1, n):
             sgn = (hw[i] - hw[j]) * (sm[i] - sm[j])
             cc += sgn > 0
             dd += sgn < 0
-    kendall = (cc - dd) / (cc + dd) if (cc + dd) else None
-    n = len(by_bench)
+    kendall = (cc - dd) / (n * (n - 1) / 2) if n > 1 else None
 
     rank_png = os.path.join(out_dir, "_global_rank.png")
     scat_png = os.path.join(out_dir, "_global_scatter.png")
-    fig, ax = plt.subplots(figsize=(6.5, 6))
-    cmax_r = max(abs(p[2] / math.log(10)) for p in scatter) or 1.0
-    sc = ax.scatter(rh, rs, c=[p[2] / math.log(10) for p in scatter], cmap="RdBu_r",
-                    vmin=-cmax_r, vmax=cmax_r, s=14)
-    ax.plot([1, m], [1, m], "--", color="#888", lw=1, zorder=1)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    for (bench, _, _), a, c in zip(reps, rh, rs):
+        offd = abs(a - c) >= 5
+        ax.scatter([a], [c], color=(REAL_COLOR if offd else SIM_COLOR), s=45, zorder=3)
+        if offd:
+            ax.annotate(bench, (a, c), fontsize=7, xytext=(3, 3), textcoords="offset points")
+    ax.plot([1, n], [1, n], "--", color="#888", lw=1, zorder=1)
     ax.set_xlabel("real-HW time rank (1 = fastest)")
     ax.set_ylabel("simulation time rank")
-    ax.set_title(f"ranking of all {m} measurements: sim vs HW (diagonal = correct order)\n"
-                 f"Spearman ρ={spearman:.2f} · {m} points across {n} benchmarks", fontsize=11)
-    fig.colorbar(sc, ax=ax, label="log10(sim/real)")
+    ax.set_title(f"benchmark ranking: sim vs HW (diagonal = correct order)\n"
+                 f"Spearman ρ={spearman:.2f} over {n} benchmarks", fontsize=11)
     fig.tight_layout()
     fig.savefig(rank_png, dpi=120)
     plt.close(fig)
@@ -284,8 +287,7 @@ def global_metrics(ref, sim, out_dir, report_dir):
     md = "\n".join([
         "## Global calibration", "",
         "Cross-benchmark view, immune to per-benchmark fitting. **Rank correlation** "
-        "(over every measured run, ranked together) grades whether the sim orders runs "
-        "by cost like real HW (scale-invariant); "
+        "grades whether the sim orders workloads by cost like real HW (scale-invariant); "
         "**geo-σ** is the typical multiplicative error left after the single global "
         "constant `k` (so it can't be lowered by per-benchmark fudging). `k` is a "
         "reference, not a score.", "",
