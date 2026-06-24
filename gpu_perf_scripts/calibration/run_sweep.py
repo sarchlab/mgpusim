@@ -74,17 +74,8 @@ SPECS = {
                              "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
-    # Pass the real benchmark's params so the sim builds the same cacheline-strided
-    # chain and derives the same timed-access count (measure_laps x lines, clamped).
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
-                             "params": {"cacheline_bytes": "-cacheline-bytes",
-                                        "measure_laps": "-measure-laps", "rng_seed": "-seed"}},
-    # Launch-overhead microbench. The GT's kernel_ms_mean for empty_kernel is the
-    # real launch_sync_us (per-launch round-trip; see summarize_ground_truth.py),
-    # so the sim's single empty launch (kernel_time = the model's per-launch
-    # overhead) is the comparable quantity.
-    "empty_kernel":         {"sample": "empty_kernel",         "scaling_flag": "-num-blocks",
-                             "params": {"block_size": "-block-size"}},
+                             "params": {"num_accesses": "-num-accesses", "rng_seed": "-seed"}},
 
     # --- Tier-2: altis ---
     "altis_cfd":            {"sample": "altis_cfd",            "scaling_flag": "-size",  "params": {}},
@@ -105,13 +96,7 @@ SPECS = {
     #   "heteromark_pagerank": {"sample": "pagerank", "scaling_flag": "-node",   "params": {"pr_iterations": "-iterations"}},
 
     # --- Tier-2: npb ---
-    # npb_ep DISABLED: real ep_kernel is atomic-contention-bound
-    # (atomicAdd into a ~10-bin histogram -> serializes -> scales ~linearly with
-    # N). The CDNA3/gfx942 emulator has no global atomics, so the port uses
-    # per-thread output (zero contention) and the sim is flat across the whole
-    # size sweep -- the trend is unrecoverable here. Re-enable once atomics land.
-    # See https://github.com/sarchlab/mgpusim/issues/278
-    # "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
+    "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
 
     # --- Tier-2: parboil ---
     "parboil_cutcp":        {"sample": "parboil_cutcp",       "scaling_flag": "-num-atoms",
@@ -134,10 +119,7 @@ SPECS = {
     "polybench_gemm":        {"sample": "polybench_gemm",        "scaling_flag": "-size", "params": {}},
     # gramschmidt HANGS in CDNA3 timing mode (stalls even at n=1, in
     # gram_norm_finish/gram_normalize -- a timing-core stall, not the serial
-    # reduction). Excluded from the CI matrix. ALSO atomic-dependent: the real
-    # gram_norm does atomicAdd(nrm_buf, ...), which the CDNA3 emulator can't model
-    # (see https://github.com/sarchlab/mgpusim/issues/278), so it stays dropped on
-    # both counts. Kept here only for manual runs.
+    # reduction). Kept here for manual runs but excluded from the CI matrix.
     "polybench_gramschmidt": {"sample": "polybench_gramschmidt", "scaling_flag": "-m",    "params": {"n": "-n"}},
     "polybench_jacobi2d":    {"sample": "polybench_jacobi2d",    "scaling_flag": "-size", "params": {"tsteps": "-tsteps"}},
     "polybench_mvt":         {"sample": "polybench_mvt",         "scaling_flag": "-size", "params": {}},
