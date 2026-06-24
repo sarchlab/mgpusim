@@ -73,7 +73,10 @@ jobs:
           - polybench_correlation
           - polybench_fdtd2d
           - polybench_gemm
-          - polybench_gramschmidt
+          # polybench_gramschmidt omitted: HANGS in CDNA3 timing mode (stalls even
+          # at n=1, in gram_norm_finish/gram_normalize) -- not a slow serial
+          # reduction as first thought, a timing-core stall. Re-add once fixed so
+          # it can't burn a runner for the whole sweep budget.
           - polybench_jacobi2d
           - polybench_mvt
           - polybench_syr2k

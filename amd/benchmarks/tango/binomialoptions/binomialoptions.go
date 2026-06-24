@@ -9,10 +9,12 @@
 // benchmark must be run with `-arch cdna3` (the MI300X configuration).
 //
 // The native kernel uses a constant compile-time block size (BLOCK_SIZE=256)
-// and a statically-sized LDS array (MAX_NODES=256) instead of the original's
+// and a statically-sized LDS array (MAX_NODES=1025) instead of the original's
 // blockDim.x stride bound and dynamic shared memory. As a result the compiler
 // emits no hidden ABI arguments (kernarg_segment_size = 20) and the launch
-// must use block dim {256,1,1} with NumSteps+1 <= 256.
+// must use block dim {256,1,1} with NumSteps+1 <= 1025. MAX_NODES is sized to
+// the ground truth's steps=1024 (1025 nodes); its ~4 KB LDS footprint matches
+// the real kernel's dynamic per-option shared memory.
 package binomialoptions
 
 import (
@@ -30,7 +32,7 @@ import (
 // blockSize and maxNodes must match the native kernel (BLOCK_SIZE, MAX_NODES).
 const (
 	blockSize = 256
-	maxNodes  = 256
+	maxNodes  = 1025
 )
 
 // optionData mirrors the kernel's OptionData struct (5 contiguous float32s).

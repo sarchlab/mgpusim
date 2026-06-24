@@ -18,7 +18,10 @@
 #include "hip/hip_runtime.h"
 
 #define BLOCK_SIZE 256
-#define MAX_NODES  256
+// Sized to the ground truth's steps=1024 (numSteps+1 = 1025 tree nodes). LDS
+// footprint (1025*4 ~= 4 KB) matches the real kernel's dynamic per-option shared
+// memory, so occupancy stays representative.
+#define MAX_NODES  1025
 
 struct OptionData {
     float S;      // stock price

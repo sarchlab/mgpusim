@@ -13,6 +13,8 @@ func (u *ALU) runDS(state emu.InstEmuState) {
 		u.runDSWRITEB32(state)
 	case 14:
 		u.runDSWRITE2B32(state)
+	case 15:
+		u.runDSWRITE2ST64B32(state)
 	case 30:
 		u.runDSWRITEB8(state)
 	case 54:
@@ -72,6 +74,40 @@ func (u *ALU) runDSWRITE2B32(state emu.InstEmuState) {
 		}
 		if addr1+4 > uint32(len(lds)) {
 			log.Panicf("DS_WRITE2_B32: LDS address 0x%x + 4 exceeds LDS size %d (lane %d)", addr1, len(lds), i)
+		}
+
+		data0 := state.ReadOperandBytes(inst.Data, i, 4)
+		data1 := state.ReadOperandBytes(inst.Data1, i, 4)
+
+		copy(lds[addr0:addr0+4], data0)
+		copy(lds[addr1:addr1+4], data1)
+	}
+}
+
+// runDSWRITE2ST64B32 implements ds_write2st64_b32: two b32 stores whose
+// addresses are ADDR + OFFSETn * 64 * 4 (the "st64" stride is 64 dwords = 256
+// bytes), versus ds_write2_b32's 4-byte stride. The compiler emits this for
+// strided LDS writes, e.g. a `for (j = tid; j < N; j += BLOCK_SIZE)` loop where
+// the LDS array is larger than one block.
+func (u *ALU) runDSWRITE2ST64B32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	lds := u.LDS()
+
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+
+		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
+		addr0 := baseAddr + inst.Offset0*256
+		addr1 := baseAddr + inst.Offset1*256
+
+		if addr0+4 > uint32(len(lds)) {
+			log.Panicf("DS_WRITE2ST64_B32: LDS address 0x%x + 4 exceeds LDS size %d (lane %d)", addr0, len(lds), i)
+		}
+		if addr1+4 > uint32(len(lds)) {
+			log.Panicf("DS_WRITE2ST64_B32: LDS address 0x%x + 4 exceeds LDS size %d (lane %d)", addr1, len(lds), i)
 		}
 
 		data0 := state.ReadOperandBytes(inst.Data, i, 4)

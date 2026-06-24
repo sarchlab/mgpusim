@@ -117,6 +117,9 @@ SPECS = {
     "polybench_correlation": {"sample": "polybench_correlation", "scaling_flag": "-size", "params": {}},
     "polybench_fdtd2d":      {"sample": "polybench_fdtd2d",      "scaling_flag": "-size", "params": {"tmax": "-tmax"}},
     "polybench_gemm":        {"sample": "polybench_gemm",        "scaling_flag": "-size", "params": {}},
+    # gramschmidt HANGS in CDNA3 timing mode (stalls even at n=1, in
+    # gram_norm_finish/gram_normalize -- a timing-core stall, not the serial
+    # reduction). Kept here for manual runs but excluded from the CI matrix.
     "polybench_gramschmidt": {"sample": "polybench_gramschmidt", "scaling_flag": "-m",    "params": {"n": "-n"}},
     "polybench_jacobi2d":    {"sample": "polybench_jacobi2d",    "scaling_flag": "-size", "params": {"tsteps": "-tsteps"}},
     "polybench_mvt":         {"sample": "polybench_mvt",         "scaling_flag": "-size", "params": {}},
