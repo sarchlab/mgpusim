@@ -209,6 +209,14 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 		return false
 	}
 
+	// The in-flight vector-memory-access budget admitted this instruction's
+	// transactions: mark the resolution of any wait for a free slot.
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: wave.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "vmem-inflight",
+	})
+
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++
 
@@ -247,6 +255,14 @@ func (u *VectorMemoryUnit) executeFlatStore(
 		u.cu.InFlightVectorMemAccessLimit {
 		return false
 	}
+
+	// The in-flight vector-memory-access budget admitted this instruction's
+	// transactions: mark the resolution of any wait for a free slot.
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: wave.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "vmem-inflight",
+	})
 
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++

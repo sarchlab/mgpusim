@@ -319,6 +319,14 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
+	// The wavefront's outstanding memory accesses have all returned, so
+	// S_ENDPGM can retire: mark the end of that drain wait.
+	tracing.AddMilestone(s.cu.comp, tracing.Milestone{
+		TaskID: wf.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindData,
+		What:   "s_endpgm",
+	})
+
 	// sampling
 	now := s.cu.CurrentTime()
 	if *sampling.SampledRunnerFlag {
@@ -552,6 +560,13 @@ func (s *SchedulerImpl) evalSWaitCnt(
 	}
 
 	if done {
+		// The outstanding memory accesses the S_WAITCNT was waiting on have
+		// drained to the requested counts: mark the end of that wait.
+		tracing.AddMilestone(s.cu.comp, tracing.Milestone{
+			TaskID: wf.DynamicInst().ID,
+			Kind:   tracing.MilestoneKindData,
+			What:   "s_waitcnt",
+		})
 		s.cu.UpdatePCAndSetReady(wf)
 		return true, true
 	}
