@@ -74,8 +74,11 @@ SPECS = {
                              "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
+    # Pass the real benchmark's params so the sim builds the same cacheline-strided
+    # chain and derives the same timed-access count (measure_laps x lines, clamped).
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
-                             "params": {"num_accesses": "-num-accesses", "rng_seed": "-seed"}},
+                             "params": {"cacheline_bytes": "-cacheline-bytes",
+                                        "measure_laps": "-measure-laps", "rng_seed": "-seed"}},
 
     # --- Tier-2: altis ---
     "altis_cfd":            {"sample": "altis_cfd",            "scaling_flag": "-size",  "params": {}},
