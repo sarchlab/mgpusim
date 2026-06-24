@@ -118,22 +118,20 @@ function computeGlobal(points) {
   const wsum = weights.reduce((a, b) => a + b, 0);
   const withinFactor = Math.exp(Math.sqrt(withinVars.reduce((a, v, i) => a + v * weights[i], 0) / wsum));
   const betweenFactor = Math.exp(std(perBenchMean));
-  const reps = [];
-  for (const [benchmark, pts] of byBench) {   // representative = largest shared config
-    const xmax = Math.max(...pts.map((q) => q.x)), at = pts.filter((q) => q.x === xmax);
-    reps.push({ benchmark, hw: mean(at.map((q) => q.real)), sim: mean(at.map((q) => q.sim)),
-                k: Math.exp(mean(pts.map((q) => q.lr))) });
-  }
-  const hw = reps.map((r) => r.hw), sm = reps.map((r) => r.sim);
-  const rh = ranksOf(hw), rs = ranksOf(sm);
-  reps.forEach((r, i) => { r.rh = rh[i]; r.rs = rs[i]; });
-  const n = reps.length; let C = 0, D = 0;
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-    const s = (hw[i] - hw[j]) * (sm[i] - sm[j]); if (s > 0) C++; else if (s < 0) D++;
+  // ---- ordering over ALL shared (benchmark, config) measurements ----
+  // Every data point is ranked together (not one representative per benchmark).
+  // With many benchmarks x short sweeps, within-benchmark pairs are a small
+  // fraction, so this measures cross-workload ordering AND uses all the data.
+  const rrk = ranksOf(scatter.map((p) => p.real)), srk = ranksOf(scatter.map((p) => p.sim));
+  scatter.forEach((p, i) => { p.rr = rrk[i]; p.rs = srk[i]; });
+  const rv = scatter.map((p) => p.real), sv = scatter.map((p) => p.sim);
+  const m = scatter.length; let C = 0, D = 0;
+  for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) {
+    const s = (rv[i] - rv[j]) * (sv[i] - sv[j]); if (s > 0) C++; else if (s < 0) D++;
   }
   return { geomeanK, geoStd, withinFactor, betweenFactor,
-           spearman: pearson(rh, rs), kendall: (C + D) ? (C - D) / (n * (n - 1) / 2) : null,
-           reps, scatter, nBench: n, nPts: logr.length };
+           spearman: pearson(rrk, srk), kendall: (C + D) ? (C - D) / (C + D) : null,
+           scatter, nBench: byBench.size, nPts: logr.length };
 }
 
 function globalMetricsHTML(g) {
@@ -146,19 +144,21 @@ function globalMetricsHTML(g) {
 
 // Plotly text is SVG -> use literal unicode glyphs, NOT HTML entities.
 function drawRankFig(div, g) {
-  const n = g.nBench, off = g.reps.map((r) => Math.abs(r.rh - r.rs) >= 5);
-  const tr = {
-    x: g.reps.map((r) => r.rh), y: g.reps.map((r) => r.rs),
-    text: g.reps.map((r) => `${r.benchmark} · k=${fmtX(r.k)}`),
+  const n = g.nPts;
+  const pts = {
+    x: g.scatter.map((p) => p.rr), y: g.scatter.map((p) => p.rs),
+    text: g.scatter.map((p) => `${p.benchmark}<br>${p.sim < p.real ? (p.real / p.sim).toFixed(1) + "× too fast" : (p.sim / p.real).toFixed(1) + "× too slow"}`),
     mode: "markers", type: "scatter",
-    marker: { size: 9, color: off.map((o) => o ? REAL_COLOR : SIM_COLOR) },
+    marker: { size: 5, opacity: 0.75, color: g.scatter.map((p) => p.logr / Math.LN10),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "log10(sim/real)", side: "right" }, thickness: 10, len: 0.9 } },
     hovertemplate: "%{text}<br>HW rank %{x}, sim rank %{y}<extra></extra>",
   };
   const diag = { x: [1, n], y: [1, n], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
-  Plotly.react(div, [diag, tr], {
-    title: { text: `benchmark ranking: sim vs HW (on the diagonal = correct ordering)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} over ${n} benchmarks · red = sim mis-ranks cost</sub>`, font: { size: 13 } },
-    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0.5, n + 0.5], fixedrange: true, automargin: true },
-    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0.5, n + 0.5], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
+  Plotly.react(div, [diag, pts], {
+    title: { text: `ranking of all ${n} measurements: sim vs HW (on the diagonal = correct order)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} · ${g.nPts} points across ${g.nBench} benchmarks · off-diagonal = mis-ranked</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0, n + 1], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0, n + 1], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
     margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
   }, { displayModeBar: false, responsive: true });
 }
