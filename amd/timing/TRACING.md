@@ -47,8 +47,14 @@ reason. Admission waits hang on the port's incoming-buffer task (via
 | CP | `ToDMA` | network_busy | waited for the downstream DMA port (buffer task) |
 | RDMA | `remote` | data | waited for the round trip to the other side (req_in) |
 | CU | `vmem-inflight` | hardware_resource | waited for an in-flight vector-mem slot (inst) |
+| CU | `vmem` / `smem` | data | waited for the vector/scalar memory response (inst) |
 | CU | `s_waitcnt` | data | S_WAITCNT waited for outstanding memory (inst) |
 | CU | `s_endpgm` | data | S_ENDPGM drained outstanding memory (inst) |
+
+A memory instruction's `inst` task ends when its last response returns; the
+`vmem`/`smem` `data` milestone lands at that moment, so the round-trip interval
+between the request leaving and the data returning is attributed rather than
+left as an unexplained gap at the end of the bar.
 
 Each component package has a `milestone_tracing_test.go` (or equivalent)
 asserting its milestones with a recording tracer.

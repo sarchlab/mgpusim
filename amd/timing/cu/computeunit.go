@@ -633,12 +633,26 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	if cu.isLastRead(req) {
 		wf.OutstandingScalarMemAccess--
+		cu.markInstDataReturned(info.Inst, "smem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }
 
 func (cu *ComputeUnit) isLastRead(req memprotocol.ReadReq) bool {
 	return !req.CanWaitForCoalesce
+}
+
+// markInstDataReturned records a "data" milestone on a memory instruction's
+// task when its last memory response returns. The instruction's task ends at
+// that same moment, so this closes the otherwise-unattributed gap between the
+// memory request going out (or the in-flight slot being acquired) and the data
+// coming back.
+func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
+	tracing.AddMilestone(cu.comp, tracing.Milestone{
+		TaskID: inst.ID,
+		Kind:   tracing.MilestoneKindData,
+		What:   what,
+	})
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
@@ -717,6 +731,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 			wf.OutstandingScalarMemAccess--
 		}
 
+		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }
@@ -747,6 +762,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
+		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }

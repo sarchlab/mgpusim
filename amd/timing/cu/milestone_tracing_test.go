@@ -3,6 +3,9 @@ package cu
 import (
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
@@ -54,6 +57,39 @@ func TestSWaitCntRecordsDataMilestone(t *testing.T) {
 	}
 	if !rec.has(inst.ID, tracing.MilestoneKindData, "s_waitcnt") {
 		t.Fatalf("expected a data milestone for s_waitcnt, got %+v",
+			rec.milestones)
+	}
+}
+
+// When a vector-memory load's last response returns, the CU must record a
+// "data" milestone on the instruction's task so its lifetime is fully
+// attributed — without it the bar shows an unexplained gap between the
+// in-flight admission and the task end (the memory round trip).
+func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	inst := wavefront.NewInst(insts.NewInst())
+	inst.ExeUnit = insts.ExeUnitVMem
+	wf.SetDynamicInst(inst)
+
+	read := memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess,
+		VectorMemAccessInfo{Read: &read, Inst: inst, Wavefront: wf})
+
+	cu.handleVectorDataLoadReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: read.ID,
+		},
+	})
+
+	if !rec.has(inst.ID, tracing.MilestoneKindData, "vmem") {
+		t.Fatalf("expected a data milestone for the vmem return, got %+v",
 			rec.milestones)
 	}
 }
