@@ -7,6 +7,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -191,6 +192,10 @@ func (m *ctrlMiddleware) sendPendingDriverRsps() bool {
 		meta.Dst = state.CurrFlushReq.Src
 		meta.RspTo = state.CurrFlushReq.ID
 		m.toDriver().Send(protocol.GeneralRsp{MsgMeta: meta})
+		// Complete the req_in opened for the FlushReq in
+		// cpMiddleware.processFlushReq; otherwise it leaks (the flush is
+		// handled entirely on the control path, which opens no task of its own).
+		tracing.TraceReqComplete(m.comp, state.CurrFlushReq)
 		state.CurrFlushReq = protocol.FlushReq{}
 	case driverRspShootdownDone:
 		m.toDriver().Send(protocol.ShootDownCompleteRsp{MsgMeta: meta})

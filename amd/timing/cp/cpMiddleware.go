@@ -141,6 +141,16 @@ func (m *cpMiddleware) processLaunchKernelReq(
 		sampling.SampledEngineInstance.Reset()
 	}
 	d.StartDispatching(req)
+
+	// A dispatcher was free, so the kernel launch is admitted now. If it had to
+	// wait in the incoming buffer for a free dispatcher, this marks the
+	// resolution of that wait on the buffer task.
+	tracing.AddMilestone(m.comp, tracing.Milestone{
+		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "dispatcher",
+	})
+
 	m.toDriver().RetrieveIncoming()
 
 	tracing.TraceReqReceive(m.comp, req)
@@ -217,6 +227,16 @@ func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 	}
 
 	m.toDMA().Send(cloned)
+
+	// The downstream port to the DMA engine was free, so the copy is admitted
+	// now. If it had to wait in the incoming buffer for the port to drain, this
+	// marks the resolution of that wait on the buffer task.
+	tracing.AddMilestone(m.comp, tracing.Milestone{
+		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
+		Kind:   tracing.MilestoneKindNetworkBusy,
+		What:   "ToDMA",
+	})
+
 	m.toDriver().RetrieveIncoming()
 
 	tracing.TraceReqReceive(m.comp, req)
