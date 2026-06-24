@@ -10,7 +10,8 @@ which bypasses security rules, so the dashboard rules can stay public-read/no-wr
 
 Firestore layout:
   runs/{run_id}                      {status, started_at, updated_at, run_url,
-                                      overall_mape, overall_smape}
+                                      overall_mape, overall_smape,
+                                      totals:{benchmark: expected_config_count}}
   runs/{run_id}/points/{slug__xN}    {benchmark, label, slug, x, sim_ms, real_ms}
 
 Subcommands:
@@ -82,6 +83,12 @@ def publish_points(run_id, benchmark, csv_path, ref_path):
     real = load_real(ref_path, benchmark)
     db = get_db()
     coll = db.collection("runs").document(run_id).collection("points")
+    # On this benchmark's first publish, record its expected config count so the
+    # dashboard can render a progress bar (points published / total). merge=True
+    # preserves the totals other benchmarks' sweep jobs write to the same doc.
+    if start == 0 and real:
+        db.collection("runs").document(run_id).set(
+            {"totals": {benchmark: len(real)}}, merge=True)
     batch = db.batch()
     n = 0
     for r in new:
