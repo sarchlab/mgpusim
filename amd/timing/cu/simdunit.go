@@ -156,6 +156,16 @@ func (u *SIMDUnit) runExecStage() bool {
 
 // Flush flushes
 func (u *SIMDUnit) Flush() {
+	// End the per-SIMD "pipeline" tasks of the instructions dropped from the
+	// pipeline, so they do not leak as started-never-ended. (The instructions'
+	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
+	if u.toExec != nil {
+		tracing.EndTaskOnReset(u, u.execTaskID)
+	}
+	for _, slot := range u.pipelineSlots {
+		tracing.EndTaskOnReset(u, slot.taskID)
+	}
+
 	u.toExec = nil
 	u.pipelineSlots = u.pipelineSlots[:0]
 }

@@ -291,6 +291,7 @@ func (cu *ComputeUnit) flushPipeline() bool {
 	cu.shadowInFlightVectorMemAccess = nil
 
 	cu.populateShadowBuffers()
+	cu.endInflightTracingTasks()
 	cu.setWavesToReady()
 	cu.Scheduler.Flush()
 	cu.flushInternalComponents()
@@ -321,6 +322,35 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.LDSDecoder.Flush()
 	cu.VectorMemDecoder.Flush()
 	cu.VectorMemUnit.Flush()
+}
+
+// endInflightTracingTasks ends the tracing tasks that a pipeline flush drops,
+// so they do not leak as started-never-ended. A flush resets every running
+// wavefront to WfReady (setWavesToReady) and clears the sub-unit pipeline
+// stages and the scheduler's internalExecuting slice; an instruction sitting in
+// one of those stages is re-issued from scratch (with a new ID) after the
+// restart, so its "inst" task would otherwise never end. Such a wavefront is in
+// the WfRunning state, so ending the inst task of every running wavefront
+// covers all sub-unit stages and internalExecuting uniformly.
+//
+// In-flight memory accesses are not dropped: they are preserved in the shadow
+// buffers and re-sent, and their inst tasks end when the (shadowed) response
+// returns. Those wavefronts have already advanced past the issuing instruction
+// and sit in WfReady, so the WfRunning filter correctly skips them and the inst
+// task is not double-ended. The shadowed accesses' req_out tasks are ended in
+// populateShadowBuffers, where the re-send regenerates the message ID.
+func (cu *ComputeUnit) endInflightTracingTasks() {
+	for _, wfPool := range cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.State != wavefront.WfRunning {
+				continue
+			}
+
+			if inst := wf.DynamicInst(); inst != nil {
+				tracing.EndTaskOnReset(cu.comp, inst.ID)
+			}
+		}
+	}
 }
 
 func (cu *ComputeUnit) processInputFromACE() bool {
@@ -388,7 +418,14 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 
 	s.resetRegisterValue(wf)
 	cu.clearWGResource(wf.WG)
-	tracing.EndTask(cu.comp, tracing.TaskEnd{ID: wf.UID})
+
+	// This path only runs for sampled wavefronts, each of which opened its own
+	// "wavefront" task in handleMapWGReq. The work-group completes as a unit
+	// here, so end every wavefront's task, not just the one whose completion
+	// event fired — otherwise the other wavefronts' tasks leak.
+	for _, wgWf := range wf.WG.Wfs {
+		tracing.EndTask(cu.comp, tracing.TaskEnd{ID: wgWf.UID})
+	}
 	tracing.TraceReqComplete(cu.comp, wf.WG.MapReq)
 }
 
@@ -886,19 +923,33 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 }
 
 func (cu *ComputeUnit) populateShadowBuffers() {
+	// The shadowed accesses are re-sent after the restart with freshly
+	// generated message IDs (see sendOutShadowBufferReqs) and are not
+	// re-initiated, so their original req_out tasks — keyed on the old message
+	// ID — would never be finalized. End them here. EndTaskOnReset is a no-op
+	// for an access that was buffered but never sent (no req_out was opened).
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
+		tracing.EndTaskOnReset(cu.comp, cu.InFlightInstFetch[i].Req.ID)
 		cu.shadowInFlightInstFetch = append(
 			cu.shadowInFlightInstFetch, cu.InFlightInstFetch[i])
 	}
 
 	for i := 0; i < len(cu.InFlightScalarMemAccess); i++ {
+		tracing.EndTaskOnReset(cu.comp, cu.InFlightScalarMemAccess[i].Req.ID)
 		cu.shadowInFlightScalarMemAccess = append(
 			cu.shadowInFlightScalarMemAccess, cu.InFlightScalarMemAccess[i])
 	}
 
 	for i := 0; i < len(cu.InFlightVectorMemAccess); i++ {
+		info := cu.InFlightVectorMemAccess[i]
+		if info.Read != nil {
+			tracing.EndTaskOnReset(cu.comp, info.Read.ID)
+		}
+		if info.Write != nil {
+			tracing.EndTaskOnReset(cu.comp, info.Write.ID)
+		}
 		cu.shadowInFlightVectorMemAccess = append(
-			cu.shadowInFlightVectorMemAccess, cu.InFlightVectorMemAccess[i])
+			cu.shadowInFlightVectorMemAccess, info)
 	}
 
 	cu.InFlightScalarMemAccess = nil
