@@ -95,11 +95,12 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 	}
 }
 
-// When a vector-memory transaction is sent, the CU must record a "coalesce"
-// milestone on the instruction's task, so the data wait is attributed only
-// from the moment a request is actually outstanding — not from the earlier
-// in-flight admission, which would mislabel the coalescing/issue phase.
-func TestVectorMemSendRecordsCoalesceMilestone(t *testing.T) {
+// Sending the first vector-memory transaction closes the issue subtask and
+// records a "work" milestone (not a hardware_resource one): the coalescing /
+// transaction-issue phase is the unit doing work, and it is backed by the
+// pipeline subtask opened at admission. The data wait is attributed only from
+// this point, once a request is actually outstanding.
+func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
 	rec := &cuMilestoneRecorder{}
 	tracing.CollectTrace(cu.comp, rec)
@@ -110,6 +111,8 @@ func TestVectorMemSendRecordsCoalesceMilestone(t *testing.T) {
 		queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
 
 	inst := wavefront.NewInst(nil)
+	vmu.startIssueSubtask(inst) // as the in-flight admission would
+
 	read := &memprotocol.ReadReq{
 		MsgMeta: messaging.MsgMeta{
 			ID:  timing.GetIDGenerator().Generate(),
@@ -123,8 +126,11 @@ func TestVectorMemSendRecordsCoalesceMilestone(t *testing.T) {
 
 	vmu.sendRequest()
 
-	if !rec.has(inst.ID, tracing.MilestoneKindHardwareResource, "coalesce") {
-		t.Fatalf("expected a coalesce milestone on transaction send, got %+v",
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "coalesce") {
+		t.Fatalf("expected a work milestone at transaction send, got %+v",
 			rec.milestones)
+	}
+	if _, ok := vmu.issueTaskIDs[inst.ID]; ok {
+		t.Fatal("the issue subtask should be closed after the first send")
 	}
 }
