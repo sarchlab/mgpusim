@@ -23,6 +23,8 @@
   .card { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; }
   .plot { width:100%; height:340px; }
   .note { color:var(--muted); padding:24px 0; }
+  .gmetrics { font-weight:400; font-size:12px; color:var(--muted); }
+  .gmetrics b { color:var(--fg); }
   a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
   header a#home { color:inherit; text-decoration:none; cursor:pointer; }
   header a#home:hover h1 { text-decoration:underline; }
@@ -52,6 +54,7 @@
 </header>
 <main>
   <div id="status" class="note">Loading runs&hellip;</div>
+  <div id="global"></div>
   <div id="figures"></div>
 </main>
 
@@ -76,21 +79,146 @@ const $ = (id) => document.getElementById(id);
 const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`;
 const fmtOffset = (v) => (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`;
 const mean = (a) => a.length ? a.reduce((p, c) => p + c, 0) / a.length : null;
+const fmtX = (v) => (v === null || v === undefined) ? "n/a" : `${v.toFixed(v < 10 ? 2 : 1)}×`;
+const std = (a) => { const m = mean(a); return Math.sqrt(mean(a.map((x) => (x - m) ** 2))); };
+function ranksOf(vals) {   // ordinal ranks, 1 = smallest
+  const order = [...vals.keys()].sort((i, j) => vals[i] - vals[j]);
+  const r = new Array(vals.length);
+  order.forEach((idx, k) => { r[idx] = k + 1; });
+  return r;
+}
+function pearson(a, b) {
+  const ma = mean(a), mb = mean(b); let cov = 0, va = 0, vb = 0;
+  for (let i = 0; i < a.length; i++) { cov += (a[i] - ma) * (b[i] - mb); va += (a[i] - ma) ** 2; vb += (b[i] - mb) ** 2; }
+  return (va && vb) ? cov / Math.sqrt(va * vb) : null;
+}
+
+// Global calibration metrics for a run, computed ONLY from its per-run points, so
+// any past run renders these with no re-run or schema change. Rank correlation
+// grades cross-benchmark ORDERING (scale-invariant); geo-sigma is the magnitude
+// spread the single global constant (geomean k) can't remove -- neither can be
+// gamed by per-benchmark fitting (see the calibration metric notes).
+function computeGlobal(points) {
+  const logr = [], byBench = new Map(), scatter = [];
+  for (const p of points) {
+    const s = Number(p.sim_ms), h = (p.real_ms == null) ? null : Number(p.real_ms);
+    if (h == null || !(s > 0) || !(h > 0)) continue;
+    const lr = Math.log(s / h);
+    logr.push(lr); scatter.push({ real: h, sim: s, benchmark: p.benchmark, logr: lr });
+    if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, []);
+    byBench.get(p.benchmark).push({ x: Number(p.x), sim: s, real: h, lr });
+  }
+  if (logr.length < 2 || byBench.size < 2) return null;
+  const geomeanK = Math.exp(mean(logr)), geoStd = Math.exp(std(logr));
+  const perBenchMean = [], withinVars = [], weights = [];
+  for (const [, pts] of byBench) {
+    const lrs = pts.map((q) => q.lr);
+    perBenchMean.push(mean(lrs)); withinVars.push(lrs.length > 1 ? std(lrs) ** 2 : 0); weights.push(lrs.length);
+  }
+  const wsum = weights.reduce((a, b) => a + b, 0);
+  const withinFactor = Math.exp(Math.sqrt(withinVars.reduce((a, v, i) => a + v * weights[i], 0) / wsum));
+  const betweenFactor = Math.exp(std(perBenchMean));
+  const reps = [];
+  for (const [benchmark, pts] of byBench) {   // representative = largest shared config
+    const xmax = Math.max(...pts.map((q) => q.x)), at = pts.filter((q) => q.x === xmax);
+    reps.push({ benchmark, hw: mean(at.map((q) => q.real)), sim: mean(at.map((q) => q.sim)),
+                k: Math.exp(mean(pts.map((q) => q.lr))) });
+  }
+  const hw = reps.map((r) => r.hw), sm = reps.map((r) => r.sim);
+  const rh = ranksOf(hw), rs = ranksOf(sm);
+  reps.forEach((r, i) => { r.rh = rh[i]; r.rs = rs[i]; });
+  const n = reps.length; let C = 0, D = 0;
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const s = (hw[i] - hw[j]) * (sm[i] - sm[j]); if (s > 0) C++; else if (s < 0) D++;
+  }
+  return { geomeanK, geoStd, withinFactor, betweenFactor,
+           spearman: pearson(rh, rs), kendall: (C + D) ? (C - D) / (n * (n - 1) / 2) : null,
+           reps, scatter, nBench: n, nPts: logr.length };
+}
+
+function globalMetricsHTML(g) {
+  const pairs = g.kendall == null ? "" : ` (&asymp;${Math.round((g.kendall + 1) / 2 * 100)}% of pairs ordered correctly)`;
+  return `Spearman &rho; <b>${g.spearman.toFixed(2)}</b> &middot; Kendall &tau; <b>${g.kendall.toFixed(2)}</b>${pairs}`
+    + ` &middot; geomean k <b>${fmtX(g.geomeanK)}</b> <span title="the single global constant you are allowed to tune; reference, not a score">(global constant, ref)</span>`
+    + ` &middot; geo-&sigma; <b>${fmtX(g.geoStd)}</b> <span title="typical factor still off after the one global constant; ideal 1x; cannot be removed by per-benchmark fitting">(ideal 1&times;)</span>`
+    + ` &mdash; shape <b>${fmtX(g.withinFactor)}</b> / level <b>${fmtX(g.betweenFactor)}</b>`;
+}
+
+// Plotly text is SVG -> use literal unicode glyphs, NOT HTML entities.
+function drawRankFig(div, g) {
+  const n = g.nBench, off = g.reps.map((r) => Math.abs(r.rh - r.rs) >= 5);
+  const tr = {
+    x: g.reps.map((r) => r.rh), y: g.reps.map((r) => r.rs),
+    text: g.reps.map((r) => `${r.benchmark} · k=${fmtX(r.k)}`),
+    mode: "markers", type: "scatter",
+    marker: { size: 9, color: off.map((o) => o ? REAL_COLOR : SIM_COLOR) },
+    hovertemplate: "%{text}<br>HW rank %{x}, sim rank %{y}<extra></extra>",
+  };
+  const diag = { x: [1, n], y: [1, n], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [diag, tr], {
+    title: { text: `benchmark ranking: sim vs HW (on the diagonal = correct ordering)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} over ${n} benchmarks · red = sim mis-ranks cost</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0.5, n + 0.5], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0.5, n + 0.5], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
+    margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
+function drawScatterFig(div, g) {
+  const xs = g.scatter.map((p) => p.real), ys = g.scatter.map((p) => p.sim);
+  const lo = Math.min(...xs, ...ys), hi = Math.max(...xs, ...ys);
+  const pts = {
+    x: xs, y: ys,
+    text: g.scatter.map((p) => `${p.benchmark}<br>${p.sim < p.real ? (p.real / p.sim).toFixed(1) + "× too fast" : (p.sim / p.real).toFixed(1) + "× too slow"}`),
+    mode: "markers", type: "scatter",
+    marker: { size: 6, opacity: 0.8, color: g.scatter.map((p) => p.logr / Math.LN10),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "log10(sim/real)", side: "right" }, thickness: 10, len: 0.9 } },
+    hovertemplate: "%{text}<br>real %{x:.4f} ms · sim %{y:.4f} ms<extra></extra>",
+  };
+  const diag = { x: [lo, hi], y: [lo, hi], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [diag, pts], {
+    title: { text: `absolute kernel time: sim vs real (y = x is ideal)<br><sub>geo-σ = ${fmtX(g.geoStd)} after one global constant · ${g.nPts} points · above line = sim slower</sub>`, font: { size: 13 } },
+    xaxis: { type: "log", title: { text: "real-HW kernel time (ms)", font: { size: 11 } }, fixedrange: true, automargin: true },
+    yaxis: { type: "log", title: { text: "simulation kernel time (ms)", font: { size: 11 } }, fixedrange: true, automargin: true },
+    margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
+function renderGlobal(points) {
+  const root = $("global");
+  const g = computeGlobal(points);
+  if (!g) { root.innerHTML = ""; return; }
+  if (!$("gfig_rank")) {
+    root.innerHTML = `<h2>Global calibration <span id="gmetrics" class="gmetrics"></span></h2>`
+      + `<div class="grid">`
+      + `<div class="card"><div class="plot" id="gfig_rank"></div></div>`
+      + `<div class="card"><div class="plot" id="gfig_scatter"></div></div>`
+      + `</div>`;
+  }
+  $("gmetrics").innerHTML = globalMetricsHTML(g);
+  drawRankFig($("gfig_rank"), g);
+  drawScatterFig($("gfig_scatter"), g);
+}
 
 // Client-side equivalent of plot_calibration.align_sim_to_real.
 function alignSeries(simPts, realPts) {
   const real = new Map(realPts), sim = new Map(simPts);
   const shared = [...sim.keys()].filter((x) => real.has(x)).sort((a, b) => a - b);
-  if (!shared.length) return { sim: simPts.slice(), offset: null, anchorX: null, mape: null, smape: null, n: 0 };
+  if (!shared.length) return { sim: simPts.slice(), offset: null, anchorX: null, mape: null, smape: null, n: 0, geomeanK: null };
   const x0 = shared[0], offset = real.get(x0) - sim.get(x0);
   const simAdj = simPts.map(([x, y]) => [x, y + offset]);
-  const mapeArr = [], smapeArr = [];
+  const mapeArr = [], smapeArr = [], logr = [];
+  for (const x of shared) {   // multiplicative ratio (RAW sim vs real); reference only, never the score
+    const s0 = sim.get(x), h = real.get(x);
+    if (s0 > 0 && h > 0) logr.push(Math.log(s0 / h));
+  }
   for (const x of shared.slice(1)) {
     const s = sim.get(x) + offset, h = real.get(x);
     if (h !== 0) mapeArr.push(Math.abs(s - h) / h);
     if (Math.min(s, h) !== 0) smapeArr.push(Math.abs(s - h) / Math.min(s, h));
   }
-  return { sim: simAdj, offset, anchorX: x0, mape: mean(mapeArr), smape: mean(smapeArr), n: shared.length - 1 };
+  return { sim: simAdj, offset, anchorX: x0, mape: mean(mapeArr), smape: mean(smapeArr),
+           n: shared.length - 1, geomeanK: logr.length ? Math.exp(mean(logr)) : null };
 }
 
 function trace(points, name, color, symbol) {
@@ -109,6 +237,7 @@ function drawFigure(div, fig) {
     err = `offset ${fmtOffset(fig.offset)} · err n/a (only anchor matched)`;
   else
     err = `offset ${fmtOffset(fig.offset)} · MAPE ${fmtPct(fig.mape)} · sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
+  if (fig.geomeanK != null) err += ` · k≈${fmtX(fig.geomeanK)} (ref)`;
   const traces = [
     trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
     trace(fig.real, "real hardware", REAL_COLOR, "square"),
@@ -182,7 +311,7 @@ function pointsToGroups(points) {
       if (a.mape != null) allMape.push(a.mape);
       if (a.smape != null) allSmape.push(a.smape);
       figures.push({ slug, label: fig.label, sim: a.sim, real: fig.real,
-        offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n });
+        offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n, geomeanK: a.geomeanK });
     }
     figures.sort((x, y) => x.label < y.label ? -1 : 1);
     const sc = scalingOf.get(benchmark);
@@ -198,6 +327,7 @@ function unsubCurrent() {
 }
 function renderLive(runId) {
   unsubCurrent();
+  $("global").innerHTML = "";
   $("figures").innerHTML = '<div class="note">Connecting to run&hellip;</div>';
   $("figures").dataset.sig = "";
   let run = liveRuns.get(runId) || {};
@@ -210,7 +340,8 @@ function renderLive(runId) {
     const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
     const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
       + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
-    if (!points.length) { $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    if (!points.length) { $("global").innerHTML = ""; $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    renderGlobal(points);
     renderGroups(groups, meta);
   };
   // Re-render on status changes (run doc) AND on new points, so a run that
@@ -322,6 +453,7 @@ function showLanding(runs) {
   unsubCurrent();
   $("runPicker").value = "";
   $("status").style.display = "none";
+  $("global").innerHTML = "";
   const n = runs.length;
   $("runMeta").innerHTML = `${n} run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
   const root = $("figures"); root.dataset.sig = "";
