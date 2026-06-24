@@ -3,14 +3,15 @@
 
 The full SQLite DB stores every individual repetition across all benchmarks plus
 large indexes. Calibration only needs the per-configuration aggregate (mean
-kernel time over the reps), which is a few thousand rows -- so this emits that
-summary and the repo commits the small CSV instead of the multi-megabyte DB.
+per-run TOTAL kernel time over the reps), which is a few thousand rows -- so this
+emits that summary and the repo commits the small CSV instead of the multi-MB DB.
 
 The CSV is benchmark-agnostic: the per-config non-scaling parameters are kept
 verbatim as a JSON column (`non_scaling_json`), so any benchmark's parameter set
 is captured without bespoke columns. One row per (benchmark, scaling point,
-non-scaling combo); `kernel_ms_mean` (mean real kernel time, from kernel_results)
-is what the sweep calibrates the simulator against.
+non-scaling combo); `kernel_ms_mean` is the mean over reps of each run's TOTAL
+kernel time (sum of all kernel launches), matching the simulator's cumulative
+`kernel_time` -- this is what the sweep calibrates against.
 
 The DB itself is NOT committed; keep it wherever you collect ground truth and
 re-run this script to refresh the CSV when new measurements land.
@@ -37,21 +38,31 @@ COLUMNS = [
 
 
 def summarize(conn):
-    """One aggregated row per distinct (benchmark, scaling point, non-scaling combo);
-    kernel_ms_mean is the mean real kernel time over the ok repetitions."""
+    """One aggregated row per distinct (benchmark, scaling point, non-scaling combo).
+
+    kernel_ms_mean is the mean, over the ok repetitions, of each run's TOTAL kernel
+    time -- the SUM of every kernel launch in that run. This matches the simulator's
+    `kernel_time` metric (cumulative GPU busy time across all launches). The earlier
+    AVG(kr.time_ms) averaged individual kernel times, which understated the real
+    value for multi-kernel benchmarks by ~the kernel count -- and averaging across
+    what are often DIFFERENT kernels has no physical meaning."""
     rows = conn.execute(
         """
-        SELECT r.benchmark,
-               r.scaling_param_name,
-               r.scaling_param_value,
-               r.non_scaling_params_json,
-               AVG(kr.time_ms),
-               COUNT(DISTINCT r.id)
-        FROM runs r
-        JOIN kernel_results kr ON kr.run_id = r.id
-        WHERE r.status = 'ok'
-        GROUP BY r.benchmark, r.scaling_param_name, r.scaling_param_value,
-                 r.non_scaling_params_json
+        SELECT benchmark, scaling_param_name, scaling_param_value,
+               non_scaling_params_json,
+               AVG(run_total_ms),   -- mean over reps of each run's total kernel time
+               COUNT(*)             -- number of ok reps
+        FROM (
+            SELECT r.benchmark, r.scaling_param_name, r.scaling_param_value,
+                   r.non_scaling_params_json,
+                   SUM(kr.time_ms) AS run_total_ms
+            FROM runs r
+            JOIN kernel_results kr ON kr.run_id = r.id
+            WHERE r.status = 'ok'
+            GROUP BY r.id
+        )
+        GROUP BY benchmark, scaling_param_name, scaling_param_value,
+                 non_scaling_params_json
         """
     ).fetchall()
     out = []
