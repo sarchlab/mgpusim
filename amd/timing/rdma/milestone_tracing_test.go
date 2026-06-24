@@ -21,34 +21,37 @@ func (r *milestoneRecorder) AddMilestone(m tracing.Milestone) {
 	r.milestones = append(r.milestones, m)
 }
 
-// When a forwarded request's response returns, the RDMA engine must record a
-// "data" milestone on the req_in task, attributing the time spent waiting on
-// the round trip to the other side.
-func TestRDMARecordsDataMilestoneOnResponse(t *testing.T) {
-	engine := timing.NewSerialEngine()
-	localCache := messaging.RemotePort("LocalCache")
-	remoteGPU := messaging.RemotePort("RemoteGPU")
+const localCache = messaging.RemotePort("LocalCache")
+const remoteGPU = messaging.RemotePort("RemoteGPU")
+
+// buildTracedRDMA builds an RDMA engine with all five ports plugged into a
+// noop connection and a milestone recorder attached, returning the engine, its
+// forward middleware, the outside request port, and the recorder.
+func buildTracedRDMA(t *testing.T) (
+	*Comp, *forwardMiddleware, messaging.Port, *milestoneRecorder,
+) {
+	t.Helper()
 
 	rdmaEngine := MakeBuilder().
-		WithRegistrar(modeling.NewStandaloneRegistrar(engine)).
+		WithRegistrar(modeling.NewStandaloneRegistrar(timing.NewSerialEngine())).
 		WithResources(Resources{
 			LocalModules:           &mem.SinglePortMapper{Port: localCache},
 			RemoteRDMAAddressTable: &mem.SinglePortMapper{Port: remoteGPU},
 		}).
 		Build("RDMAEngine")
 
-	makePort := func(name string) messaging.Port {
-		port := messaging.NewPort(
-			rdmaEngine, 4, 4, rdmaEngine.Name()+"."+name)
+	var requestOutside messaging.Port
+	for _, name := range []string{
+		"RDMARequestInside", "RDMARequestOutside",
+		"RDMADataInside", "RDMADataOutside", "Ctrl",
+	} {
+		port := messaging.NewPort(rdmaEngine, 4, 4, rdmaEngine.Name()+"."+name)
 		rdmaEngine.AssignPort(name, port)
 		(&noopConn{}).PlugIn(port)
-		return port
+		if name == "RDMARequestOutside" {
+			requestOutside = port
+		}
 	}
-	makePort("RDMARequestInside")
-	requestOutside := makePort("RDMARequestOutside")
-	makePort("RDMADataInside")
-	makePort("RDMADataOutside")
-	makePort("Ctrl")
 
 	rec := &milestoneRecorder{}
 	tracing.CollectTrace(rdmaEngine, rec)
@@ -62,6 +65,15 @@ func TestRDMARecordsDataMilestoneOnResponse(t *testing.T) {
 	if mw == nil {
 		t.Fatal("forwardMiddleware not found")
 	}
+
+	return rdmaEngine, mw, requestOutside, rec
+}
+
+// When a forwarded request's response returns, the RDMA engine must record a
+// "data" milestone on the req_in task, attributing the time spent waiting on
+// the round trip to the other side.
+func TestRDMARecordsDataMilestoneOnResponse(t *testing.T) {
+	rdmaEngine, mw, requestOutside, rec := buildTracedRDMA(t)
 
 	forwardedID := timing.GetIDGenerator().Generate()
 	recvTaskID := timing.GetIDGenerator().Generate()
