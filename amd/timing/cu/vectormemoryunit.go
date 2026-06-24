@@ -306,6 +306,19 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.cu.vectorMemPort().Send(req)
 		u.postTransactionPipelineBuffer.Pop()
 		u.numTransactionInFlight--
+
+		// The first transaction for this instruction is leaving the unit: mark
+		// the end of the coalescing / transaction-issue phase. The DBTracer
+		// keeps the first such milestone per task, so it lands at the first
+		// send — separating the issue phase from the data wait, which only
+		// begins once a request is actually outstanding. Without it the time
+		// between the in-flight admission and the first send is mis-attributed
+		// to the data wait (the subtask bars start only here).
+		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+			TaskID: info.Inst.ID,
+			Kind:   tracing.MilestoneKindHardwareResource,
+			What:   "coalesce",
+		})
 		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
 		madeProgress = true
 	}

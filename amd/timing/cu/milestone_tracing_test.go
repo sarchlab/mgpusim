@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/queueing"
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -90,6 +91,40 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 
 	if !rec.has(inst.ID, tracing.MilestoneKindData, "vmem") {
 		t.Fatalf("expected a data milestone for the vmem return, got %+v",
+			rec.milestones)
+	}
+}
+
+// When a vector-memory transaction is sent, the CU must record a "coalesce"
+// milestone on the instruction's task, so the data wait is attributed only
+// from the moment a request is actually outstanding — not from the earlier
+// in-flight admission, which would mislabel the coalescing/issue phase.
+func TestVectorMemSendRecordsCoalesceMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	cu.ToVectorMem = newFakePort("CU.ToVectorMem")
+	vmu := NewVectorMemoryUnit(cu, nil)
+	vmu.postTransactionPipelineBuffer =
+		queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
+
+	inst := wavefront.NewInst(nil)
+	read := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: cu.ToVectorMem.AsRemote(),
+			Dst: "VectorMem",
+		},
+	}
+	vmu.numTransactionInFlight = 1
+	vmu.postTransactionPipelineBuffer.PushTyped(
+		VectorMemAccessInfo{Read: read, Inst: inst})
+
+	vmu.sendRequest()
+
+	if !rec.has(inst.ID, tracing.MilestoneKindHardwareResource, "coalesce") {
+		t.Fatalf("expected a coalesce milestone on transaction send, got %+v",
 			rec.milestones)
 	}
 }
