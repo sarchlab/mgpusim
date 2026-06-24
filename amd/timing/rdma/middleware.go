@@ -207,6 +207,14 @@ func (m *forwardMiddleware) endTransaction(trans transaction) {
 		return
 	}
 
+	// The forwarded request's response has arrived: mark the end of the time
+	// the req_in spent waiting on the round trip to the other side.
+	tracing.AddMilestone(m.comp, tracing.Milestone{
+		TaskID: trans.RecvTaskID,
+		Kind:   tracing.MilestoneKindData,
+		What:   "remote",
+	})
+
 	tracing.EndTask(m.comp, tracing.TaskEnd{ID: trans.ForwardedReqID})
 	tracing.EndTask(m.comp, tracing.TaskEnd{ID: trans.RecvTaskID})
 	tracing.ForgetMsgIDAtReceiver(trans.OriginalReqID, m.comp)
