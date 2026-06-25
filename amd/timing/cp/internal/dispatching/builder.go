@@ -27,10 +27,14 @@ type Builder struct {
 func MakeBuilder() Builder {
 	b := Builder{
 		alg: "partition",
-		// Default to no fixed kernel overhead. A platform sets a real value via
-		// the CP spec (cp/builder.go only applies ConstantKernelOverhead when >0,
-		// so this default is what spec==0 falls through to).
-		constantKernelOverhead:         0,
+		// Per-kernel constant overhead. cp/builder.go only applies the CP spec's
+		// ConstantKernelOverhead when it is >0, so a spec that leaves it 0 falls
+		// through to THIS default. Keep it non-zero: it staggers per-kernel events
+		// and a value of 0 makes otherwise-separated events coincide, exposing a
+		// latent tie-break ordering in the instruction-cache latency accounting
+		// (the deterministic test then sees run-to-run differences). Platforms that
+		// want a different value set spec.ConstantKernelOverhead (>0).
+		constantKernelOverhead:         3600,
 		subsequentKernelLaunchOverhead: 1800,
 		wgScalingThreshold:             128,
 	}

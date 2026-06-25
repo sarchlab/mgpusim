@@ -769,15 +769,19 @@ func (b *Builder) buildDMAEngine() {
 func (b *Builder) buildCP() {
 	spec := cp.DefaultSpec()
 	spec.Freq = b.freq
-	// Per-launch overhead calibrated against empty_kernel: with overhead=0 the sim
+	// Per-launch overhead calibrated against empty_kernel: with no overhead the sim
 	// floor was ~0.37 us vs the real launch_sync_us floor of ~8.66 us, so ~8.3 us
-	// (= ~14000 cycles at 1.7 GHz) of fixed launch latency is missing. NOTE:
-	// launch_sync_us is a host round-trip (CPU launch + device sync) that the sim
-	// doesn't otherwise model, so this slightly over-attributes host cost to the
-	// GPU; refine once a GPU-side launch measurement exists.
-	spec.ConstantKernelLaunchOverhead = 14000
-	spec.SubsequentKernelLaunchOverhead = 14000
-	spec.ConstantKernelOverhead = 0
+	// (~14000 cycles at 1.7 GHz) of fixed per-launch latency is missing. Each kernel
+	// pays launch-overhead + ConstantKernelOverhead, so the floor is split to total
+	// ~14000 cyc per kernel (10400 launch + 3600 constant). ConstantKernelOverhead
+	// is set explicitly (not left 0) so it does NOT fall through to the dispatcher's
+	// global default and so mi300x stays independent of it. NOTE: launch_sync_us is
+	// a host round-trip (CPU launch + device sync) the sim doesn't otherwise model,
+	// so this slightly over-attributes host cost to the GPU; refine once a GPU-side
+	// launch measurement exists.
+	spec.ConstantKernelLaunchOverhead = 10400
+	spec.SubsequentKernelLaunchOverhead = 10400
+	spec.ConstantKernelOverhead = 3600
 
 	b.cp = cp.MakeBuilder().
 		WithRegistrar(b.simulation).
