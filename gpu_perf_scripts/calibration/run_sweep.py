@@ -79,6 +79,12 @@ SPECS = {
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
                              "params": {"cacheline_bytes": "-cacheline-bytes",
                                         "measure_laps": "-measure-laps", "rng_seed": "-seed"}},
+    # Launch-overhead microbench. The GT's kernel_ms_mean for empty_kernel is the
+    # real launch_sync_us (per-launch round-trip; see summarize_ground_truth.py),
+    # so the sim's single empty launch (kernel_time = the model's per-launch
+    # overhead) is the comparable quantity.
+    "empty_kernel":         {"sample": "empty_kernel",         "scaling_flag": "-num-blocks",
+                             "params": {"block_size": "-block-size"}},
 
     # --- Tier-2: altis ---
     "altis_cfd":            {"sample": "altis_cfd",            "scaling_flag": "-size",  "params": {}},
