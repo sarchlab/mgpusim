@@ -348,3 +348,64 @@ func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
 		t.Fatal("the issue subtask should be cleared on flush")
 	}
 }
+
+func countVMemData(rec *cuMilestoneRecorder, instID uint64) int {
+	count := 0
+	for _, m := range rec.milestones {
+		if m.TaskID == instID && m.Kind == tracing.MilestoneKindData &&
+			m.What == "vmem" {
+			count++
+		}
+	}
+
+	return count
+}
+
+// Coalesced responses can return out of order: the last request generated
+// (CanWaitForCoalesce==false) may return before its siblings. The vmem data
+// milestone must wait for the actual last response, gated on no remaining
+// in-flight transactions for the instruction.
+func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	inst := wavefront.NewInst(insts.NewInst())
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+
+	readSibling := &memprotocol.ReadReq{
+		MsgMeta:            messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+		CanWaitForCoalesce: true,
+	}
+	readLastGenerated := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.InFlightVectorMemAccess = []VectorMemAccessInfo{
+		{Read: readSibling, Inst: inst, Wavefront: wf},
+		{Read: readLastGenerated, Inst: inst, Wavefront: wf},
+	}
+
+	// The last-generated transaction returns first (out of order); its sibling
+	// is still in flight, so no data milestone yet.
+	cu.handleVectorDataLoadReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: readLastGenerated.ID,
+		},
+	})
+	if countVMemData(rec, inst.ID) != 0 {
+		t.Fatal("data milestone must not fire while a sibling is still in flight")
+	}
+
+	// The actual last response returns: the milestone fires exactly once.
+	cu.handleVectorDataLoadReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: readSibling.ID,
+		},
+	})
+	if got := countVMemData(rec, inst.ID); got != 1 {
+		t.Fatalf("expected one data milestone after the last response; got %d",
+			got)
+	}
+}

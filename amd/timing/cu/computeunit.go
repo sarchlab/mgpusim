@@ -633,6 +633,13 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	if cu.isLastRead(req) {
 		wf.OutstandingScalarMemAccess--
+	}
+
+	// Coalesced responses can return out of order, so isLastRead (the last
+	// request generated) is not necessarily the last received. End the inst
+	// task and mark the data wait only once no access for this instruction is
+	// still in flight.
+	if !cu.hasInFlightScalarMemFor(info.Inst) {
 		cu.markInstDataReturned(info.Inst, "smem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
@@ -653,6 +660,30 @@ func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
 		Kind:   tracing.MilestoneKindData,
 		What:   what,
 	})
+}
+
+// hasInFlightVectorMemFor reports whether any vector-memory transaction for the
+// given instruction is still in flight.
+func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
+	for _, info := range cu.InFlightVectorMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hasInFlightScalarMemFor reports whether any scalar-memory access for the given
+// instruction is still in flight.
+func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
+	for _, info := range cu.InFlightScalarMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
@@ -730,7 +761,13 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
+	}
 
+	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
+	// last request generated) is not necessarily the last received. End the
+	// inst task and mark the data wait only once no transaction for this
+	// instruction is still in flight.
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
@@ -762,6 +799,12 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
+	}
+
+	// Coalesced responses can return out of order; end the inst task and mark
+	// the data wait only once no transaction for this instruction remains in
+	// flight (see handleVectorDataLoadReturn).
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
