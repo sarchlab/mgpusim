@@ -44,7 +44,13 @@ type Driver struct {
 	engineRunning      bool
 	rerunNeeded        bool
 	engineRunningMutex sync.Mutex
-	simulationID       uint64
+	// engineIdle is signalled (under engineRunningMutex) whenever the engine
+	// goroutine finishes draining and clears engineRunning. WaitForEngineIdle
+	// blocks on it so callers can read simulation results only after every
+	// event -- including the trailing tracing EndTask hooks -- has been
+	// processed, avoiding a data race with the background engine goroutine.
+	engineIdle   *sync.Cond
+	simulationID uint64
 
 	Log2PageSize uint64
 
@@ -147,10 +153,26 @@ func (d *Driver) runEngine() {
 			continue
 		}
 		d.engineRunning = false
+		d.engineIdle.Broadcast()
 		d.engineRunningMutex.Unlock()
 
 		return
 	}
+}
+
+// WaitForEngineIdle blocks until the background engine goroutine has fully
+// drained the event queue and exited (engineRunning is false). It is meant to
+// be called after all work has been submitted and the submitting goroutines
+// have returned (e.g. before reading metrics): without it the main goroutine
+// can read tracer/component state while the engine goroutine is still
+// processing the final events, which is a data race and makes order-sensitive
+// metrics non-deterministic.
+func (d *Driver) WaitForEngineIdle() {
+	d.engineRunningMutex.Lock()
+	for d.engineRunning {
+		d.engineIdle.Wait()
+	}
+	d.engineRunningMutex.Unlock()
 }
 
 // DeviceProperties defines the properties of a device
