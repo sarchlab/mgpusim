@@ -117,6 +117,68 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	}
 }
 
+// orderedEndRecorder records, in order, the s_endpgm milestone and the end of a
+// specific task, so a test can assert the milestone is emitted before the task
+// is closed.
+type orderedEndRecorder struct {
+	tracing.NopTracer
+
+	instID uint64
+	events []string
+}
+
+func (r *orderedEndRecorder) AddMilestone(m tracing.Milestone) {
+	if m.TaskID == r.instID && m.What == "s_endpgm" {
+		r.events = append(r.events, "milestone")
+	}
+}
+
+func (r *orderedEndRecorder) EndTask(e tracing.TaskEnd) {
+	if e.ID == r.instID {
+		r.events = append(r.events, "endTask")
+	}
+}
+
+// When S_ENDPGM retires while other wavefronts are still executing, the branch
+// closes the inst task via logInstTask. The s_endpgm milestone must be emitted
+// before that, so it attributes the instruction's lifetime rather than landing
+// on an already-ended task.
+func TestSEndPgmMilestoneEmittedBeforeInstTaskEnds(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(10)}
+	s := NewScheduler(cu, nil, nil)
+
+	wg := new(wavefront.WorkGroup)
+	co := &insts.KernelCodeObject{
+		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
+	}
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.CodeObject = co
+	wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+	wf.WG = wg
+	wf.State = wavefront.WfRunning
+
+	other := wavefront.NewWavefront(kernels.NewWavefront())
+	other.CodeObject = co
+	other.WG = wg
+	other.State = wavefront.WfRunning // still executing -> the "executing" branch
+	wg.Wfs = []*wavefront.Wavefront{wf, other}
+
+	rec := &orderedEndRecorder{instID: wf.DynamicInst().ID}
+	tracing.CollectTrace(cu.comp, rec)
+
+	if _, completed := s.evalSEndPgm(wf); !completed {
+		t.Fatal("S_ENDPGM should retire on the executing branch")
+	}
+
+	if len(rec.events) != 2 ||
+		rec.events[0] != "milestone" || rec.events[1] != "endTask" {
+		t.Fatalf("s_endpgm milestone must be emitted before the inst task "+
+			"ends; got %v", rec.events)
+	}
+}
+
 // When a vector-memory load's last response returns, the CU must record a
 // "data" milestone on the instruction's task so its lifetime is fully
 // attributed — without it the bar shows an unexplained gap between the

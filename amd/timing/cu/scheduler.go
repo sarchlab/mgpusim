@@ -331,11 +331,22 @@ func (s *SchedulerImpl) evalSEndPgm(
 		}
 	}
 
-	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
-		done := s.sendWGCompletionMessage(wf.WG)
-		if !done {
-			return false, false
-		}
+	allCompleted := s.areAllOtherWfsInWGCompleted(wf.WG, wf)
+
+	// The only path that cannot retire this tick is the work-group-completing
+	// one when the ACE port is full. Decide that here, before emitting the
+	// milestone, so a retry does not re-emit it.
+	if allCompleted && !s.cu.acePort().CanSend() {
+		return false, false
+	}
+
+	// S_ENDPGM will retire this tick: mark the end of the drain wait exactly
+	// once, before any branch below ends the inst task (the barrier and
+	// executing paths close it via logInstTask).
+	s.markMemDrained(wf, "s_endpgm")
+
+	if allCompleted {
+		s.sendWGCompletionMessage(wf.WG)
 
 		wf.State = wavefront.WfCompleted
 
@@ -361,11 +372,6 @@ func (s *SchedulerImpl) evalSEndPgm(
 	} else {
 		panic("never")
 	}
-
-	// S_ENDPGM has retired: mark the end of the drain wait exactly once, here,
-	// where the path can no longer return false and retry. An ACE-port-full
-	// retry returns above before reaching this point, so it does not re-emit.
-	s.markMemDrained(wf, "s_endpgm")
 
 	return true, true
 }
