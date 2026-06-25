@@ -319,10 +319,6 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
-	// The wavefront's outstanding memory accesses have all returned, so
-	// S_ENDPGM can retire: mark the end of that drain wait.
-	s.markMemDrained(wf, "s_endpgm")
-
 	// sampling
 	now := s.cu.CurrentTime()
 	if *sampling.SampledRunnerFlag {
@@ -334,6 +330,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 			delete(s.cu.wftime, wf.UID)
 		}
 	}
+
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
 		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {
@@ -347,33 +344,30 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
 		tracing.TraceReqComplete(s.cu.comp, wf.WG.MapReq)
-
-		return true, true
-	}
-
-	if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
+	} else if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
 		s.passBarrier(wf.WG)
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
-
-		return true, true
-	}
-
-	if s.atLeaseOneWfIsExecuting(wf.WG) {
+	} else if s.atLeaseOneWfIsExecuting(wf.WG) {
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		s.cu.logInstTask(wf, wf.DynamicInst(), true)
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
-
-		return true, true
+	} else {
+		panic("never")
 	}
 
-	panic("never")
+	// S_ENDPGM has retired: mark the end of the drain wait exactly once, here,
+	// where the path can no longer return false and retry. An ACE-port-full
+	// retry returns above before reaching this point, so it does not re-emit.
+	s.markMemDrained(wf, "s_endpgm")
+
+	return true, true
 }
 
 func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
