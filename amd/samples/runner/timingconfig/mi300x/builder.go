@@ -769,14 +769,14 @@ func (b *Builder) buildDMAEngine() {
 func (b *Builder) buildCP() {
 	spec := cp.DefaultSpec()
 	spec.Freq = b.freq
-	// Kernel-launch overheads zeroed (were 5400 / 1800 / 1800 cycles, inherited
-	// from the MI300A baseline). They imposed a fixed per-launch floor (~4-9 us)
-	// that dominated short kernels (e.g. npb_ep stayed flat regardless of grid
-	// size). Removed so the timing reflects actual work; the real per-launch cost
-	// will be recalibrated against the empty_kernel microbenchmark (which reports
-	// launch_sync_us, the real launch+sync round-trip).
-	spec.ConstantKernelLaunchOverhead = 0
-	spec.SubsequentKernelLaunchOverhead = 0
+	// Per-launch overhead calibrated against empty_kernel: with overhead=0 the sim
+	// floor was ~0.37 us vs the real launch_sync_us floor of ~8.66 us, so ~8.3 us
+	// (= ~14000 cycles at 1.7 GHz) of fixed launch latency is missing. NOTE:
+	// launch_sync_us is a host round-trip (CPU launch + device sync) that the sim
+	// doesn't otherwise model, so this slightly over-attributes host cost to the
+	// GPU; refine once a GPU-side launch measurement exists.
+	spec.ConstantKernelLaunchOverhead = 14000
+	spec.SubsequentKernelLaunchOverhead = 14000
 	spec.ConstantKernelOverhead = 0
 
 	b.cp = cp.MakeBuilder().

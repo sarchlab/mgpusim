@@ -105,7 +105,13 @@ SPECS = {
     #   "heteromark_pagerank": {"sample": "pagerank", "scaling_flag": "-node",   "params": {"pr_iterations": "-iterations"}},
 
     # --- Tier-2: npb ---
-    "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
+    # npb_ep DISABLED: real ep_kernel is atomic-contention-bound
+    # (atomicAdd into a ~10-bin histogram -> serializes -> scales ~linearly with
+    # N). The CDNA3/gfx942 emulator has no global atomics, so the port uses
+    # per-thread output (zero contention) and the sim is flat across the whole
+    # size sweep -- the trend is unrecoverable here. Re-enable once atomics land.
+    # See https://github.com/sarchlab/mgpusim/issues/278
+    # "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
 
     # --- Tier-2: parboil ---
     "parboil_cutcp":        {"sample": "parboil_cutcp",       "scaling_flag": "-num-atoms",
@@ -128,7 +134,10 @@ SPECS = {
     "polybench_gemm":        {"sample": "polybench_gemm",        "scaling_flag": "-size", "params": {}},
     # gramschmidt HANGS in CDNA3 timing mode (stalls even at n=1, in
     # gram_norm_finish/gram_normalize -- a timing-core stall, not the serial
-    # reduction). Kept here for manual runs but excluded from the CI matrix.
+    # reduction). Excluded from the CI matrix. ALSO atomic-dependent: the real
+    # gram_norm does atomicAdd(nrm_buf, ...), which the CDNA3 emulator can't model
+    # (see https://github.com/sarchlab/mgpusim/issues/278), so it stays dropped on
+    # both counts. Kept here only for manual runs.
     "polybench_gramschmidt": {"sample": "polybench_gramschmidt", "scaling_flag": "-m",    "params": {"n": "-n"}},
     "polybench_jacobi2d":    {"sample": "polybench_jacobi2d",    "scaling_flag": "-size", "params": {"tsteps": "-tsteps"}},
     "polybench_mvt":         {"sample": "polybench_mvt",         "scaling_flag": "-size", "params": {}},
