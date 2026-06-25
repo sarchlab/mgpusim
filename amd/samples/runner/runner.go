@@ -168,6 +168,15 @@ func (r *Runner) Run() {
 	}
 	wg.Wait()
 
+	// The benchmark goroutines return as soon as their kernels report
+	// completion, but the driver runs the Akita engine on a background
+	// goroutine that may still be draining the final events (including the
+	// trailing tracing EndTask hooks). Wait for that goroutine to go idle
+	// before reading any results, otherwise report() races it and
+	// order-sensitive metrics (e.g. cache req_average_latency) come out
+	// non-deterministic.
+	r.Driver().WaitForEngineIdle()
+
 	if r.reporter != nil {
 		r.reporter.report()
 		r.reporter.dataRecorder.Flush()
