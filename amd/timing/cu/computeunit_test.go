@@ -604,14 +604,21 @@ var _ = Describe("ComputeUnit", func() {
 			cu.shadowInFlightInstFetch = append(
 				cu.shadowInFlightInstFetch, info)
 
+			// Mem accesses always carry their instruction in production (set
+			// in executeSMEMLoad / the coalescer); the shadow resend parents
+			// the replacement req_out task on it.
+			inst := wavefront.NewInst(insts.NewInst())
+
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			scalarMemInfo.Req = req
+			scalarMemInfo.Inst = inst
 			cu.shadowInFlightScalarMemAccess = append(
 				cu.shadowInFlightScalarMemAccess, scalarMemInfo)
 
 			vectorMemInfo := VectorMemAccessInfo{}
 			readCopy := req
 			vectorMemInfo.Read = &readCopy
+			vectorMemInfo.Inst = inst
 			cu.shadowInFlightVectorMemAccess = append(
 				cu.shadowInFlightVectorMemAccess, vectorMemInfo)
 

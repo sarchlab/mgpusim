@@ -885,6 +885,10 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 		info.Req.ID = timing.GetIDGenerator().Generate()
 		if cu.scalarMemPort().CanSend() {
 			cu.scalarMemPort().Send(info.Req)
+			// The resend has a fresh message ID; open a replacement req_out
+			// task (the original was ended in populateShadowBuffers) so the
+			// post-flush round trip is traced and TraceReqFinalize matches.
+			tracing.TraceReqInitiate(cu.comp, info.Req, info.Inst.ID)
 			cu.InFlightScalarMemAccess =
 				append(cu.InFlightScalarMemAccess, info)
 			cu.shadowInFlightScalarMemAccess =
@@ -903,6 +907,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 			info.Read.ID = timing.GetIDGenerator().Generate()
 			if cu.vectorMemPort().CanSend() {
 				cu.vectorMemPort().Send(*info.Read)
+				tracing.TraceReqInitiate(cu.comp, *info.Read, info.Inst.ID)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
@@ -913,6 +918,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 			info.Write.ID = timing.GetIDGenerator().Generate()
 			if cu.vectorMemPort().CanSend() {
 				cu.vectorMemPort().Send(*info.Write)
+				tracing.TraceReqInitiate(cu.comp, *info.Write, info.Inst.ID)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
@@ -930,6 +936,7 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 		info.Req.ID = timing.GetIDGenerator().Generate()
 		if cu.instMemPort().CanSend() {
 			cu.instMemPort().Send(info.Req)
+			tracing.TraceReqInitiate(cu.comp, info.Req, info.FetchTaskID)
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 			cu.shadowInFlightInstFetch = cu.shadowInFlightInstFetch[1:]
 			return true
@@ -940,10 +947,11 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 
 func (cu *ComputeUnit) populateShadowBuffers() {
 	// The shadowed accesses are re-sent after the restart with freshly
-	// generated message IDs (see sendOutShadowBufferReqs) and are not
-	// re-initiated, so their original req_out tasks — keyed on the old message
-	// ID — would never be finalized. End them here. EndTaskOnReset is a no-op
-	// for an access that was buffered but never sent (no req_out was opened).
+	// generated message IDs (see sendOutShadowBufferReqs), and the resend opens
+	// a fresh req_out task for the new ID. End the original req_out tasks —
+	// keyed on the old message ID — here, so they are not left unfinalized
+	// across the flush. EndTaskOnReset is a no-op for an access that was
+	// buffered but never sent (no req_out was opened).
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
 		tracing.EndTaskOnReset(cu.comp, cu.InFlightInstFetch[i].Req.ID)
 		cu.shadowInFlightInstFetch = append(

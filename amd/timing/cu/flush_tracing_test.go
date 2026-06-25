@@ -100,6 +100,41 @@ func TestPopulateShadowBuffersEndsReqOutTasks(t *testing.T) {
 	}
 }
 
+// The shadow resend assigns a fresh message ID, so it must open a replacement
+// req_out task (the original was ended in populateShadowBuffers); otherwise the
+// post-flush memory round trip has no task and TraceReqFinalize finds nothing.
+func TestShadowResendOpensReplacementReqOut(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.ToInstMem = newFakePort("CU.ToInstMem")
+	rec := &tracingtest.LeakRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	cu.shadowInFlightInstFetch = []*InstFetchReqInfo{
+		{
+			Req: memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+			},
+			FetchTaskID: timing.GetIDGenerator().Generate(),
+		},
+	}
+
+	cu.sendInstFetchShadowBufferAccesses()
+
+	resentID := cu.InFlightInstFetch[0].Req.ID
+	found := false
+	for _, open := range rec.OpenTasks() {
+		if open.Kind == tracing.ReqOutTaskKind && open.ID == resentID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("shadow resend should open a req_out task for the resent "+
+			"fetch; open=%s", rec.OpenSummary())
+	}
+}
+
 // The per-SIMD "pipeline" tasks live on the SIMD-unit tracing domain (so the
 // per-SIMD busy-time tracer can measure them). A flush drops the instructions
 // in the SIMD pipeline, so those pipeline tasks must be ended too.
