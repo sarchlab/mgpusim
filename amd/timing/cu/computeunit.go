@@ -291,6 +291,7 @@ func (cu *ComputeUnit) flushPipeline() bool {
 	cu.shadowInFlightVectorMemAccess = nil
 
 	cu.populateShadowBuffers()
+	cu.endInflightTracingTasks()
 	cu.setWavesToReady()
 	cu.Scheduler.Flush()
 	cu.flushInternalComponents()
@@ -321,6 +322,35 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.LDSDecoder.Flush()
 	cu.VectorMemDecoder.Flush()
 	cu.VectorMemUnit.Flush()
+}
+
+// endInflightTracingTasks ends the tracing tasks that a pipeline flush drops,
+// so they do not leak as started-never-ended. A flush resets every running
+// wavefront to WfReady (setWavesToReady) and clears the sub-unit pipeline
+// stages and the scheduler's internalExecuting slice; an instruction sitting in
+// one of those stages is re-issued from scratch (with a new ID) after the
+// restart, so its "inst" task would otherwise never end. Such a wavefront is in
+// the WfRunning state, so ending the inst task of every running wavefront
+// covers all sub-unit stages and internalExecuting uniformly.
+//
+// In-flight memory accesses are not dropped: they are preserved in the shadow
+// buffers and re-sent, and their inst tasks end when the (shadowed) response
+// returns. Those wavefronts have already advanced past the issuing instruction
+// and sit in WfReady, so the WfRunning filter correctly skips them and the inst
+// task is not double-ended. The shadowed accesses' req_out tasks are ended in
+// populateShadowBuffers, where the re-send regenerates the message ID.
+func (cu *ComputeUnit) endInflightTracingTasks() {
+	for _, wfPool := range cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.State != wavefront.WfRunning {
+				continue
+			}
+
+			if inst := wf.DynamicInst(); inst != nil {
+				tracing.EndTaskOnReset(cu.comp, inst.ID)
+			}
+		}
+	}
 }
 
 func (cu *ComputeUnit) processInputFromACE() bool {
@@ -388,7 +418,14 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 
 	s.resetRegisterValue(wf)
 	cu.clearWGResource(wf.WG)
-	tracing.EndTask(cu.comp, tracing.TaskEnd{ID: wf.UID})
+
+	// This path only runs for sampled wavefronts, each of which opened its own
+	// "wavefront" task in handleMapWGReq. The work-group completes as a unit
+	// here, so end every wavefront's task, not just the one whose completion
+	// event fired — otherwise the other wavefronts' tasks leak.
+	for _, wgWf := range wf.WG.Wfs {
+		tracing.EndTask(cu.comp, tracing.TaskEnd{ID: wgWf.UID})
+	}
 	tracing.TraceReqComplete(cu.comp, wf.WG.MapReq)
 }
 
@@ -596,12 +633,71 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	if cu.isLastRead(req) {
 		wf.OutstandingScalarMemAccess--
+	}
+
+	// Coalesced responses can return out of order, so isLastRead (the last
+	// request generated) is not necessarily the last received. End the inst
+	// task and mark the data wait only once no access for this instruction is
+	// still in flight.
+	if !cu.hasInFlightScalarMemFor(info.Inst) {
+		cu.markInstDataReturned(info.Inst, "smem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }
 
 func (cu *ComputeUnit) isLastRead(req memprotocol.ReadReq) bool {
 	return !req.CanWaitForCoalesce
+}
+
+// markInstDataReturned records a "data" milestone on a memory instruction's
+// task when its last memory response returns. The instruction's task ends at
+// that same moment, so this closes the otherwise-unattributed gap between the
+// memory request going out (or the in-flight slot being acquired) and the data
+// coming back.
+func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
+	tracing.AddMilestone(cu.comp, tracing.Milestone{
+		TaskID: inst.ID,
+		Kind:   tracing.MilestoneKindData,
+		What:   what,
+	})
+}
+
+// hasInFlightVectorMemFor reports whether any vector-memory transaction for the
+// given instruction is still in flight — including siblings parked in the
+// shadow buffer during a flush resend but not yet re-sent.
+func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
+	for _, info := range cu.InFlightVectorMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	for _, info := range cu.shadowInFlightVectorMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hasInFlightScalarMemFor reports whether any scalar-memory access for the given
+// instruction is still in flight — including shadow-buffered siblings that have
+// not been re-sent yet.
+func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
+	for _, info := range cu.InFlightScalarMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	for _, info := range cu.shadowInFlightScalarMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
@@ -679,7 +775,14 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
+	}
 
+	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
+	// last request generated) is not necessarily the last received. End the
+	// inst task and mark the data wait only once no transaction for this
+	// instruction is still in flight.
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
+		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }
@@ -710,6 +813,13 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
+	}
+
+	// Coalesced responses can return out of order; end the inst task and mark
+	// the data wait only once no transaction for this instruction remains in
+	// flight (see handleVectorDataLoadReturn).
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
+		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
 }
@@ -832,6 +942,10 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 		info.Req.ID = timing.GetIDGenerator().Generate()
 		if cu.scalarMemPort().CanSend() {
 			cu.scalarMemPort().Send(info.Req)
+			// The resend has a fresh message ID; open a replacement req_out
+			// task (the original was ended in populateShadowBuffers) so the
+			// post-flush round trip is traced and TraceReqFinalize matches.
+			tracing.TraceReqInitiate(cu.comp, info.Req, info.Inst.ID)
 			cu.InFlightScalarMemAccess =
 				append(cu.InFlightScalarMemAccess, info)
 			cu.shadowInFlightScalarMemAccess =
@@ -850,6 +964,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 			info.Read.ID = timing.GetIDGenerator().Generate()
 			if cu.vectorMemPort().CanSend() {
 				cu.vectorMemPort().Send(*info.Read)
+				tracing.TraceReqInitiate(cu.comp, *info.Read, info.Inst.ID)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
@@ -860,6 +975,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 			info.Write.ID = timing.GetIDGenerator().Generate()
 			if cu.vectorMemPort().CanSend() {
 				cu.vectorMemPort().Send(*info.Write)
+				tracing.TraceReqInitiate(cu.comp, *info.Write, info.Inst.ID)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
@@ -877,6 +993,7 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 		info.Req.ID = timing.GetIDGenerator().Generate()
 		if cu.instMemPort().CanSend() {
 			cu.instMemPort().Send(info.Req)
+			tracing.TraceReqInitiate(cu.comp, info.Req, info.FetchTaskID)
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 			cu.shadowInFlightInstFetch = cu.shadowInFlightInstFetch[1:]
 			return true
@@ -886,19 +1003,34 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 }
 
 func (cu *ComputeUnit) populateShadowBuffers() {
+	// The shadowed accesses are re-sent after the restart with freshly
+	// generated message IDs (see sendOutShadowBufferReqs), and the resend opens
+	// a fresh req_out task for the new ID. End the original req_out tasks —
+	// keyed on the old message ID — here, so they are not left unfinalized
+	// across the flush. EndTaskOnReset is a no-op for an access that was
+	// buffered but never sent (no req_out was opened).
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
+		tracing.EndTaskOnReset(cu.comp, cu.InFlightInstFetch[i].Req.ID)
 		cu.shadowInFlightInstFetch = append(
 			cu.shadowInFlightInstFetch, cu.InFlightInstFetch[i])
 	}
 
 	for i := 0; i < len(cu.InFlightScalarMemAccess); i++ {
+		tracing.EndTaskOnReset(cu.comp, cu.InFlightScalarMemAccess[i].Req.ID)
 		cu.shadowInFlightScalarMemAccess = append(
 			cu.shadowInFlightScalarMemAccess, cu.InFlightScalarMemAccess[i])
 	}
 
 	for i := 0; i < len(cu.InFlightVectorMemAccess); i++ {
+		info := cu.InFlightVectorMemAccess[i]
+		if info.Read != nil {
+			tracing.EndTaskOnReset(cu.comp, info.Read.ID)
+		}
+		if info.Write != nil {
+			tracing.EndTaskOnReset(cu.comp, info.Write.ID)
+		}
 		cu.shadowInFlightVectorMemAccess = append(
-			cu.shadowInFlightVectorMemAccess, cu.InFlightVectorMemAccess[i])
+			cu.shadowInFlightVectorMemAccess, info)
 	}
 
 	cu.InFlightScalarMemAccess = nil

@@ -330,11 +330,23 @@ func (s *SchedulerImpl) evalSEndPgm(
 			delete(s.cu.wftime, wf.UID)
 		}
 	}
-	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
-		done := s.sendWGCompletionMessage(wf.WG)
-		if !done {
-			return false, false
-		}
+
+	allCompleted := s.areAllOtherWfsInWGCompleted(wf.WG, wf)
+
+	// The only path that cannot retire this tick is the work-group-completing
+	// one when the ACE port is full. Decide that here, before emitting the
+	// milestone, so a retry does not re-emit it.
+	if allCompleted && !s.cu.acePort().CanSend() {
+		return false, false
+	}
+
+	// S_ENDPGM will retire this tick: mark the end of the drain wait exactly
+	// once, before any branch below ends the inst task (the barrier and
+	// executing paths close it via logInstTask).
+	s.markMemDrained(wf, "s_endpgm")
+
+	if allCompleted {
+		s.sendWGCompletionMessage(wf.WG)
 
 		wf.State = wavefront.WfCompleted
 
@@ -343,33 +355,25 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
 		tracing.TraceReqComplete(s.cu.comp, wf.WG.MapReq)
-
-		return true, true
-	}
-
-	if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
+	} else if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
 		s.passBarrier(wf.WG)
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
-
-		return true, true
-	}
-
-	if s.atLeaseOneWfIsExecuting(wf.WG) {
+	} else if s.atLeaseOneWfIsExecuting(wf.WG) {
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		s.cu.logInstTask(wf, wf.DynamicInst(), true)
 		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
-
-		return true, true
+	} else {
+		panic("never")
 	}
 
-	panic("never")
+	return true, true
 }
 
 func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
@@ -552,11 +556,24 @@ func (s *SchedulerImpl) evalSWaitCnt(
 	}
 
 	if done {
+		// The outstanding memory accesses the S_WAITCNT was waiting on have
+		// drained to the requested counts: mark the end of that wait.
+		s.markMemDrained(wf, "s_waitcnt")
 		s.cu.UpdatePCAndSetReady(wf)
 		return true, true
 	}
 
 	return false, false
+}
+
+// markMemDrained records a "data" milestone on a wavefront's instruction task,
+// marking the moment the memory accesses it was waiting on have drained.
+func (s *SchedulerImpl) markMemDrained(wf *wavefront.Wavefront, what string) {
+	tracing.AddMilestone(s.cu.comp, tracing.Milestone{
+		TaskID: wf.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindData,
+		What:   what,
+	})
 }
 
 // Pause pauses

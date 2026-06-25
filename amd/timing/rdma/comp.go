@@ -35,6 +35,11 @@ type transaction struct {
 	// RecvTaskID is the tracing task ID at the receiver side for the
 	// original request. Zero when tracing is disabled.
 	RecvTaskID uint64 `json:"recv_task_id"`
+
+	// RemoteMilestoneEmitted records whether the "remote" data milestone has
+	// been emitted (when the response first arrived), so that egress-port
+	// backpressure retries do not emit it again.
+	RemoteMilestoneEmitted bool `json:"remote_milestone_emitted"`
 }
 
 // State contains the mutable runtime data of the RDMA engine.

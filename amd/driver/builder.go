@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"sync"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/modeling"
 	"github.com/sarchlab/akita/v5/timing"
@@ -105,6 +107,7 @@ func (b Builder) Build(name string) *Driver {
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
+	driver.engineIdle = sync.NewCond(&driver.engineRunningMutex)
 	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 
 	b.createCPU(driver)

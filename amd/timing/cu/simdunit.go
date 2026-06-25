@@ -156,6 +156,16 @@ func (u *SIMDUnit) runExecStage() bool {
 
 // Flush flushes
 func (u *SIMDUnit) Flush() {
+	// End the per-SIMD "pipeline" tasks of the instructions dropped from the
+	// pipeline, so they do not leak as started-never-ended. (The instructions'
+	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
+	if u.toExec != nil {
+		tracing.EndTaskOnReset(u, u.execTaskID)
+	}
+	for _, slot := range u.pipelineSlots {
+		tracing.EndTaskOnReset(u, slot.taskID)
+	}
+
 	u.toExec = nil
 	u.pipelineSlots = u.pipelineSlots[:0]
 }
@@ -163,6 +173,14 @@ func (u *SIMDUnit) Flush() {
 // logPipelineTaskStart starts the per-SIMD pipeline task for the given
 // instruction and returns the task ID (v4 used the string ID
 // inst.ID+"_simd_exec").
+//
+// The task is emitted on the SIMD unit itself (domain u), not on cu.comp, on
+// purpose: report.go attaches a per-SIMD BusyTimeTracer to each SIMD unit
+// filtered to Kind=="pipeline" to measure per-SIMD busy time, which requires
+// the task to live on that unit's own tracing domain. Its parent ("inst")
+// lives on cu.comp; that cross-domain parent link still resolves because the
+// vis DBTracer is the same instance on both domains. Do not move this to
+// cu.comp — it would collapse the per-SIMD busy-time metric.
 func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
 	taskID := timing.GetIDGenerator().Generate()
 
