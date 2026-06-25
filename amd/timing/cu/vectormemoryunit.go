@@ -373,9 +373,18 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 
 // Flush flushes
 func (u *VectorMemoryUnit) Flush() {
-	// End any open issue subtasks so they do not leak as started-never-ended
-	// (their parent inst tasks are ended by ComputeUnit.endInflightTracingTasks).
-	for _, id := range u.issueTaskIDs {
+	// An instruction flushed between admission and its first send keeps its
+	// parent inst task — it is WfReady, so endInflightTracingTasks leaves it
+	// open for the shadow response — but the shadow resend bypasses this unit
+	// and never calls endIssueSubtask. Emit the coalesce work milestone and end
+	// its subtask here, so the issue work is still attributed (and the subtask
+	// does not leak) rather than folding into the post-flush data wait.
+	for instID, id := range u.issueTaskIDs {
+		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+			TaskID: instID,
+			Kind:   tracing.MilestoneKindWork,
+			What:   "coalesce",
+		})
 		tracing.EndTaskOnReset(u.cu.comp, id)
 	}
 	u.issueTaskIDs = make(map[uint64]uint64)

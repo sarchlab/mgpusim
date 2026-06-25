@@ -317,3 +317,34 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 		t.Fatal("the transaction should be sent once the port frees")
 	}
 }
+
+// A vector-memory instruction flushed after admission but before its first send
+// must keep its coalesce work milestone. Its parent inst task survives the
+// flush (for the shadow response) and the resend bypasses the unit, so Flush
+// itself must emit the milestone and end the subtask.
+func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	vmu := NewVectorMemoryUnit(cu, nil)
+	vmu.instructionPipeline = queueing.NewPipeline[vectorMemInst](1, 6)
+	vmu.postInstructionPipelineBuffer =
+		queueing.NewBuffer[vectorMemInst]("CU.PostInstBuf", 16)
+	vmu.transactionPipeline = queueing.NewPipeline[VectorMemAccessInfo](2, 10)
+	vmu.postTransactionPipelineBuffer =
+		queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
+
+	inst := wavefront.NewInst(nil)
+	vmu.startIssueSubtask(inst) // admitted; issue work not yet done
+
+	vmu.Flush()
+
+	if got := countCoalesceWork(rec, inst.ID); got != 1 {
+		t.Fatalf("flush must preserve the coalesce work milestone for an "+
+			"in-issue instruction; got %d", got)
+	}
+	if _, ok := vmu.issueTaskIDs[inst.ID]; ok {
+		t.Fatal("the issue subtask should be cleared on flush")
+	}
+}
