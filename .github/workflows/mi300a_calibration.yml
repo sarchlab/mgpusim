@@ -60,8 +60,8 @@ jobs:
           # Tier-2: heteromark (aes/fir/pagerank) intentionally omitted -- the
           # MGPUSim ports run different kernels than the gpu_benchmarks ground
           # truth (pagerank is a different algorithm); see run_sweep.py SPECS.
-          # Tier-2: npb
-          - npb_ep
+          # Tier-2: npb (npb_ep dropped: atomic-contention-bound, unsupported by
+          # the CDNA3 emulator -- https://github.com/sarchlab/mgpusim/issues/278)
           # Tier-2: parboil (parboil_stencil omitted: hangs in CDNA3 timing mode)
           - parboil_cutcp
           - parboil_lbm
