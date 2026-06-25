@@ -769,9 +769,15 @@ func (b *Builder) buildDMAEngine() {
 func (b *Builder) buildCP() {
 	spec := cp.DefaultSpec()
 	spec.Freq = b.freq
-	spec.ConstantKernelLaunchOverhead = 5400
-	spec.SubsequentKernelLaunchOverhead = 1800
-	spec.ConstantKernelOverhead = 1800
+	// Kernel-launch overheads zeroed (were 5400 / 1800 / 1800 cycles, inherited
+	// from the MI300A baseline). They imposed a fixed per-launch floor (~4-9 us)
+	// that dominated short kernels (e.g. npb_ep stayed flat regardless of grid
+	// size). Removed so the timing reflects actual work; the real per-launch cost
+	// will be recalibrated against the empty_kernel microbenchmark (which reports
+	// launch_sync_us, the real launch+sync round-trip).
+	spec.ConstantKernelLaunchOverhead = 0
+	spec.SubsequentKernelLaunchOverhead = 0
+	spec.ConstantKernelOverhead = 0
 
 	b.cp = cp.MakeBuilder().
 		WithRegistrar(b.simulation).

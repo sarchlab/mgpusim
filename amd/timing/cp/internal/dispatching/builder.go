@@ -26,8 +26,11 @@ type Builder struct {
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg:                            "partition",
-		constantKernelOverhead:         3600,
+		alg: "partition",
+		// Default to no fixed kernel overhead. A platform sets a real value via
+		// the CP spec (cp/builder.go only applies ConstantKernelOverhead when >0,
+		// so this default is what spec==0 falls through to).
+		constantKernelOverhead:         0,
 		subsequentKernelLaunchOverhead: 1800,
 		wgScalingThreshold:             128,
 	}

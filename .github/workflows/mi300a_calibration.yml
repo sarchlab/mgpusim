@@ -53,6 +53,7 @@ jobs:
           - memory_bandwidth
           - shared_mem_bandwidth
           - cache_latency
+          - empty_kernel
           # Tier-2: altis
           - altis_cfd
           - altis_raytracing

@@ -31,6 +31,12 @@ import sqlite3
 # matrix, not here.
 EXCLUDE = set()
 
+# Benchmarks whose meaningful real value is a per-launch METRIC, not the total
+# kernel time. empty_kernel reports launch_sync_us (the real launch+synchronize
+# round-trip per launch); the sim's single-launch kernel_time is the model's
+# per-launch overhead, directly comparable. Value: (metric_name, scale_to_ms).
+METRIC_AS_KERNEL_MS = {"empty_kernel": ("launch_sync_us", 1e-3)}
+
 COLUMNS = [
     "benchmark", "scaling_param_name", "scaling_param_value",
     "non_scaling_json", "kernel_ms_mean", "n_reps",
@@ -46,8 +52,10 @@ def summarize(conn):
     AVG(kr.time_ms) averaged individual kernel times, which understated the real
     value for multi-kernel benchmarks by ~the kernel count -- and averaging across
     what are often DIFFERENT kernels has no physical meaning."""
+    metric_benches = tuple(METRIC_AS_KERNEL_MS)
+    placeholders = ",".join("?" * len(metric_benches)) or "''"
     rows = conn.execute(
-        """
+        f"""
         SELECT benchmark, scaling_param_name, scaling_param_value,
                non_scaling_params_json,
                AVG(run_total_ms),   -- mean over reps of each run's total kernel time
@@ -58,12 +66,13 @@ def summarize(conn):
                    SUM(kr.time_ms) AS run_total_ms
             FROM runs r
             JOIN kernel_results kr ON kr.run_id = r.id
-            WHERE r.status = 'ok'
+            WHERE r.status = 'ok' AND r.benchmark NOT IN ({placeholders})
             GROUP BY r.id
         )
         GROUP BY benchmark, scaling_param_name, scaling_param_value,
                  non_scaling_params_json
-        """
+        """,
+        metric_benches,
     ).fetchall()
     out = []
     for bench, spn, spv, ns_json, kms, n in rows:
@@ -77,6 +86,32 @@ def summarize(conn):
             "kernel_ms_mean": round(kms, 6) if kms is not None else "",
             "n_reps": n,
         })
+
+    # Per-launch-metric benchmarks (e.g. empty_kernel): kernel_ms_mean is the mean
+    # of a recorded metric (e.g. launch_sync_us), scaled to ms, not a kernel total.
+    for bench, (metric_name, scale) in METRIC_AS_KERNEL_MS.items():
+        if bench in EXCLUDE:
+            continue
+        for spn, spv, ns_json, val, n in conn.execute(
+            """
+            SELECT r.scaling_param_name, r.scaling_param_value,
+                   r.non_scaling_params_json, AVG(m.metric_value), COUNT(*)
+            FROM runs r
+            JOIN metrics m ON m.run_id = r.id
+            WHERE r.status = 'ok' AND r.benchmark = ? AND m.metric_name = ?
+            GROUP BY r.scaling_param_name, r.scaling_param_value,
+                     r.non_scaling_params_json
+            """,
+            (bench, metric_name),
+        ).fetchall():
+            out.append({
+                "benchmark": bench,
+                "scaling_param_name": spn,
+                "scaling_param_value": spv,
+                "non_scaling_json": ns_json or "{}",
+                "kernel_ms_mean": round(val * scale, 6) if val is not None else "",
+                "n_reps": n,
+            })
     return out
 
 
