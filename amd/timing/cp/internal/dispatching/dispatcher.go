@@ -336,6 +336,12 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 		d.progressBar.IncrementInProgress(1)
 	}
 
+	// The MapWGReq req_out is opened on the dispatcher domain (d), while its
+	// parent — the LaunchKernelReq req_in — lives on the Command Processor
+	// domain (d.cp). This cross-domain parent link is intentional and resolves
+	// correctly: the vis DBTracer is the same instance attached to both d (via
+	// report.go / the CP builder) and d.cp (via RegisterComponent), so both
+	// tasks land in one trace database keyed by task ID.
 	tracing.TraceReqInitiate(d, req,
 		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 

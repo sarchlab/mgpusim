@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/akita/v5/queueing"
+	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -34,6 +35,11 @@ type VectorMemoryUnit struct {
 	transactionPipeline           queueing.Pipeline[VectorMemAccessInfo]
 	postTransactionPipelineBuffer queueing.Buffer[VectorMemAccessInfo]
 
+	// issueTaskIDs maps an instruction's task ID to the "pipeline" subtask
+	// that records its coalescing / transaction-issue work — opened when its
+	// transactions are admitted and closed when the first one is sent.
+	issueTaskIDs map[uint64]uint64
+
 	isIdle bool
 }
 
@@ -45,8 +51,45 @@ func NewVectorMemoryUnit(
 	u := new(VectorMemoryUnit)
 	u.cu = cu
 	u.coalescer = coalescer
+	u.issueTaskIDs = make(map[uint64]uint64)
 
 	return u
+}
+
+// startIssueSubtask opens the "pipeline" subtask that spans an instruction's
+// coalescing / transaction-issue work (from the in-flight admission to the
+// first transaction send), parented to the instruction's task. It is the child
+// subtask that backs the "work" milestone emitted at first send.
+func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
+	taskID := timing.GetIDGenerator().Generate()
+	tracing.StartTask(u.cu.comp, tracing.TaskStart{
+		ID:       taskID,
+		ParentID: inst.ID,
+		Kind:     "pipeline",
+		What:     "coalesce",
+	})
+	u.issueTaskIDs[inst.ID] = taskID
+}
+
+// endIssueSubtask closes an instruction's issue subtask (if still open) when
+// its first transaction reaches the head of the send buffer (the issue work is
+// done), and emits the "work" milestone the subtask backs. Later transactions
+// of the same instruction — and port-full retries on the same one — find no
+// open subtask and are no-ops, so the milestone lands once, at the moment the
+// transaction is ready to send rather than when it actually leaves.
+func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
+	taskID, ok := u.issueTaskIDs[inst.ID]
+	if !ok {
+		return
+	}
+
+	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: inst.ID,
+		Kind:   tracing.MilestoneKindWork,
+		What:   "coalesce",
+	})
+	delete(u.issueTaskIDs, inst.ID)
 }
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
@@ -209,6 +252,17 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 		return false
 	}
 
+	// The in-flight vector-memory-access budget admitted this instruction's
+	// transactions: mark the resolution of any wait for a free slot, then open
+	// the subtask that records the coalescing / transaction-issue work until
+	// the first transaction is sent.
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: wave.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "vmem-inflight",
+	})
+	u.startIssueSubtask(wave.DynamicInst())
+
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++
 
@@ -248,6 +302,17 @@ func (u *VectorMemoryUnit) executeFlatStore(
 		return false
 	}
 
+	// The in-flight vector-memory-access budget admitted this instruction's
+	// transactions: mark the resolution of any wait for a free slot, then open
+	// the subtask that records the coalescing / transaction-issue work until
+	// the first transaction is sent.
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: wave.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "vmem-inflight",
+	})
+	u.startIssueSubtask(wave.DynamicInst())
+
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++
 
@@ -276,6 +341,15 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 
 		info := u.postTransactionPipelineBuffer.Peek()
 
+		// The transaction has reached the head of the send buffer: the
+		// coalescing / transaction-issue work is done. Close the issue subtask
+		// and emit the "coalesce" work milestone now — before the CanSend check
+		// below — so that port backpressure (cycles spent waiting to send) is
+		// not counted as coalescing work. It is idempotent (only the first
+		// transaction per instruction finds an open subtask), so a port-full
+		// retry on the same transaction does not re-emit it.
+		u.endIssueSubtask(info.Inst)
+
 		var req messaging.Msg
 		if info.Read != nil {
 			req = *info.Read
@@ -290,6 +364,7 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.cu.vectorMemPort().Send(req)
 		u.postTransactionPipelineBuffer.Pop()
 		u.numTransactionInFlight--
+
 		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
 		madeProgress = true
 	}
@@ -298,6 +373,22 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 
 // Flush flushes
 func (u *VectorMemoryUnit) Flush() {
+	// An instruction flushed between admission and its first send keeps its
+	// parent inst task — it is WfReady, so endInflightTracingTasks leaves it
+	// open for the shadow response — but the shadow resend bypasses this unit
+	// and never calls endIssueSubtask. Emit the coalesce work milestone and end
+	// its subtask here, so the issue work is still attributed (and the subtask
+	// does not leak) rather than folding into the post-flush data wait.
+	for instID, id := range u.issueTaskIDs {
+		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+			TaskID: instID,
+			Kind:   tracing.MilestoneKindWork,
+			What:   "coalesce",
+		})
+		tracing.EndTaskOnReset(u.cu.comp, id)
+	}
+	u.issueTaskIDs = make(map[uint64]uint64)
+
 	u.instructionPipeline.Clear()
 	u.transactionPipeline.Clear()
 	u.postInstructionPipelineBuffer.Clear()

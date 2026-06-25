@@ -196,6 +196,12 @@ func (m *dmaMiddleware) processDataReadyRsp(
 	copy(processing.DstBuffer[offset:], rsp.Data)
 
 	if result.isFinished() {
+		// All bottom reads have returned: mark the end of the wait for memory.
+		tracing.AddMilestone(m.comp, tracing.Milestone{
+			TaskID: tracing.MsgIDAtReceiver(processing, m.comp),
+			Kind:   tracing.MilestoneKindData,
+			What:   "ToMem",
+		})
 		tracing.TraceReqComplete(m.comp, processing)
 		m.removeReqFromProcessingReqList(processing.Meta().ID)
 
@@ -232,6 +238,12 @@ func (m *dmaMiddleware) processDoneRsp(
 
 	if result.isFinished() {
 		processing := result.getSuperior().(protocol.MemCopyH2DReq)
+		// All bottom writes have completed: mark the end of the wait for memory.
+		tracing.AddMilestone(m.comp, tracing.Milestone{
+			TaskID: tracing.MsgIDAtReceiver(processing, m.comp),
+			Kind:   tracing.MilestoneKindData,
+			What:   "ToMem",
+		})
 		tracing.TraceReqComplete(m.comp, processing)
 		m.removeReqFromProcessingReqList(processing.Meta().ID)
 
@@ -290,10 +302,21 @@ func (m *dmaMiddleware) parseFromCP() bool {
 		return false
 	}
 
-	req := m.toCP().RetrieveIncoming()
+	req := m.toCP().PeekIncoming()
 	if req == nil {
 		return false
 	}
+
+	// A processing slot was free, so this request is admitted now. If it had to
+	// wait in the incoming buffer for a slot, this marks the resolution of that
+	// wait on the buffer task (the DBTracer collapses it when there was none).
+	tracing.AddMilestone(m.comp, tracing.Milestone{
+		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
+		Kind:   tracing.MilestoneKindHardwareResource,
+		What:   "processing slot",
+	})
+
+	m.toCP().RetrieveIncoming()
 	tracing.TraceReqReceive(m.comp, req)
 
 	rqC := NewRequestCollection(req)

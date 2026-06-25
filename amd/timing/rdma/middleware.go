@@ -99,6 +99,15 @@ func (m *forwardMiddleware) processIncomingRsp() bool {
 		rsp.Meta().RspTo, state.TransactionsFromInside)
 	trans := state.TransactionsFromInside[index]
 
+	// The remote response has arrived: end the remote round-trip wait now,
+	// before the egress-port backpressure below, so the wait to forward the
+	// response is not charged to the remote interval. Guard so an egress-full
+	// retry does not re-emit.
+	if !trans.RemoteMilestoneEmitted {
+		m.markRemoteRoundTripDone(trans)
+		state.TransactionsFromInside[index].RemoteMilestoneEmitted = true
+	}
+
 	inPort := m.port("RDMARequestInside")
 	if !inPort.CanSend() {
 		return false
@@ -167,6 +176,15 @@ func (m *forwardMiddleware) processFromL2() bool {
 		rsp.Meta().RspTo, state.TransactionsFromOutside)
 	trans := state.TransactionsFromOutside[index]
 
+	// The remote response has arrived: end the remote round-trip wait now,
+	// before the egress-port backpressure below, so the wait to forward the
+	// response is not charged to the remote interval. Guard so an egress-full
+	// retry does not re-emit.
+	if !trans.RemoteMilestoneEmitted {
+		m.markRemoteRoundTripDone(trans)
+		state.TransactionsFromOutside[index].RemoteMilestoneEmitted = true
+	}
+
 	outPort := m.port("RDMADataOutside")
 	if !outPort.CanSend() {
 		return false
@@ -199,6 +217,22 @@ func (m *forwardMiddleware) startTransaction(
 		ForwardedReqID: cloned.Meta().ID,
 		RecvTaskID:     recvTaskID,
 	}
+}
+
+// markRemoteRoundTripDone emits the "remote" data milestone for a transaction
+// when its response first arrives — before any egress-port backpressure — so
+// the wait to forward the response is not charged to the remote round-trip
+// interval. Callers guard against re-emission via Transaction.RemoteMilestoneEmitted.
+func (m *forwardMiddleware) markRemoteRoundTripDone(trans transaction) {
+	if m.comp.NumHooks() == 0 {
+		return
+	}
+
+	tracing.AddMilestone(m.comp, tracing.Milestone{
+		TaskID: trans.RecvTaskID,
+		Kind:   tracing.MilestoneKindData,
+		What:   "remote",
+	})
 }
 
 // endTransaction ends the tracing tasks for a completed transaction.
