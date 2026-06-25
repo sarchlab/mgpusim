@@ -1,6 +1,6 @@
 // Package lbm implements the Parboil LBM (Lattice Boltzmann Method, D3Q19)
 // benchmark, ported from sarchlab/gpu_benchmarks (tier2/parboil_lbm) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // It simulates fluid flow on a regular NxNxN 3D grid using the D3Q19 lattice.
 // A fused collide-stream kernel applies the BGK collision operator and streams
@@ -10,7 +10,7 @@
 // buffers each step.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration). The
+// benchmark must be run with `-arch cdna3` (the MI300X configuration). The
 // D3Q19 velocity set, weights and opposite tables live as __constant__ arrays
 // baked into the code object, and the kernel uses a constant block size, so no
 // hidden ABI arguments are emitted (kernarg_segment_size = 32).
@@ -126,7 +126,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the parboil lbm benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

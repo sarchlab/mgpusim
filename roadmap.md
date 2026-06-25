@@ -1,13 +1,13 @@
-# MI300A Timing Simulation — Roadmap
+# MI300X Timing Simulation — Roadmap
 
 ## Goal
-Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
+Average symmetrical error < 20%, max < 50% across MI300X benchmarks.
 
 ## Current Status
 
 ### Completed Milestones
 
-**M1** (merged): Basic MI300A timing config
+**M1** (merged): Basic MI300X timing config
 - Frequency 1800MHz, 240 CUs, 32MB L2, SimpleBankedMemory DRAM
 - wfPoolSize=8, vgprCount=32768
 - L1V: bankLatency=20, MSHR=32
@@ -27,12 +27,12 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 - Cached kernel code object GPU addresses across launches
 - Fixed memRangeOverlap adjacency bug (> instead of >=)
 - Investigated MMU page-not-found panics (corrupted 64-bit FLAT addresses in timing mode)
-- Reduced MI300A switch latency from 140→15 (Infinity Fabric, not PCIe)
+- Reduced MI300X switch latency from 140→15 (Infinity Fabric, not PCIe)
 - storageAccessor.Write bug fixed
 
 **M5** (merged, verified): s_nop fix + kernel overhead tuning
 - Fixed s_nop infinite loop in scheduler.go (default case now advances PC)
-- Reduced H2D 14500→500, D2H 8500→300 for MI300A (unified memory)
+- Reduced H2D 14500→500, D2H 8500→300 for MI300X (unified memory)
 - Set constantKernelOverhead to 3600 (~2µs GPU-side dispatch)
 - Unlocked 4 new benchmarks: bitonicsort, matrixtranspose, fastwalshtransform, simpleconvolution(partial)
 
@@ -64,7 +64,7 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 ### M9: MISSED DEADLINE (budgeted 8, used 8)
 - **Achieved**: Merged Harper's FLAT SAddr fix. Collected 65 data points across 10 benchmarks. Avg |error| = 79.6%, median = 31.6%, 66.2% within 50%.
 - **Not achieved**: Target was avg < 50%, actual is 79.6%
-- **What went wrong**: The team focused on parameter tuning (cache latencies, DRAM width/latency) but missed the fundamental architectural bottleneck: per-CU memory pipeline buffer size limits effective memory bandwidth to ~250 GB/s vs real MI300A's 1+ TB/s. Also introduced SPU=32 which is architecturally incorrect per CDNA3 ISA.
+- **What went wrong**: The team focused on parameter tuning (cache latencies, DRAM width/latency) but missed the fundamental architectural bottleneck: per-CU memory pipeline buffer size limits effective memory bandwidth to ~250 GB/s vs real MI300X's 1+ TB/s. Also introduced SPU=32 which is architecturally incorrect per CDNA3 ISA.
 
 ### M9.1: COMPLETE ✅ (budgeted 6, used 6) — PENDING MERGE
 - **Branch**: `ares/m9.1-spu16-membuf32` — verified by Apollo, needs merge to main
@@ -78,7 +78,7 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 
 1. **#344 — Simulation performance too slow**: Create GitHub Actions CI for parallel benchmarks. Simplify sim if needed. Workers should fire-and-check, not block.
 2. **#346 — Host OOM**: Never run simulations on host machine. Use GitHub Actions.
-3. **#343 — Evidence-based tuning**: Create microbenchmarks. Use documentation citations. Maintain mi300a_calibration.md.
+3. **#343 — Evidence-based tuning**: Create microbenchmarks. Use documentation citations. Maintain mi300x_calibration.md.
 4. **#286 — GPU-side command queueing**: Deferred, revisit when kernel launch overhead is dominant.
 
 ## Planned Milestones
@@ -86,8 +86,8 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 ### M10: COMPLETE ✅ (budgeted 8, used 2)
 - Merged M9.1 to main
 - Created GitHub Actions benchmark workflow (.github/workflows/benchmark.yml) with 11 parallel jobs
-- Fixed DRAM bandwidth: BPW=1, depth=10, SL=3 → 5.46 TB/s (matches MI300A HBM3 5.3 TB/s)
-- Updated mi300a_calibration.md with evidence
+- Fixed DRAM bandwidth: BPW=1, depth=10, SL=3 → 5.46 TB/s (matches MI300X HBM3 5.3 TB/s)
+- Updated mi300x_calibration.md with evidence
 - **CI Results (run 22804545319)**: 26/453 matched points, avg error 31.7%, max 80.3%
 - Per-kernel: matmul 4.8%, vectoradd 24.5%, relu 27.4%, matrixtranspose 35.3%, FWT 39.5%, stencil2d 59.6%
 - **Critical finding**: Most benchmarks (atax, bicg, fft, fir) crash with exit code 2 due to wrong CLI flags in benchmark.yml. nbody crashes with MMU panic.
@@ -102,7 +102,7 @@ Average symmetrical error < 20%, max < 50% across MI300A benchmarks.
 
 ### M12: COMPLETE ✅ (budgeted 6, used ~4)
 - Fixed kmeans CI: max-iter 5→1 in benchmark.yml
-- Added WithConstantKernelOverhead(1800) to MI300A CP builder (plumbed through CP builder)
+- Added WithConstantKernelOverhead(1800) to MI300X CP builder (plumbed through CP builder)
 - Expanded CI benchmark sizes for vectoradd, stencil2d, fft
 - **CI Results (run 22806486504)**: 93 matched data points, avg error 34.5%, median 23.0%
 - Per-kernel: matmul 5.2%, relu 9.3%, vectoradd 15.3%, matrixtranspose 15.6%, bicg 21.8%, bitonicsort 24.6%, floydwarshall 27.1%, pagerank 29.2%, nw 35.1%, fir 42.3%, stencil2d 43.1%, atax 45.1%, kmeans 51.2%, FWT 78.8%, fft 110.4%
@@ -262,7 +262,7 @@ BFS crashes because `-depth 100` apparently doesn't prevent the crash — the cr
 - **M9 lesson**: The DRAM model (`simplebankedmemory`) is a latency model, not a bandwidth model. The bandwidth bottleneck is in the per-CU memory pipeline (bufferSize=8)
 - **M9.1 lesson**: stencil2d and fft defaults (iter=5, passes=2) didn't match real HW measurement methodology. Always verify benchmark settings match the reference data.
 - **Operational lesson**: Human explicitly demands we stop running simulations on the host (OOM, issue #346) and use GitHub Actions instead. Must create CI workflows for benchmark evaluation.
-- **Operational lesson**: Parameter tuning must be evidence-based (issue #343). Create microbenchmarks, cite documentation, document decisions in mi300a_calibration.md.
+- **Operational lesson**: Parameter tuning must be evidence-based (issue #343). Create microbenchmarks, cite documentation, document decisions in mi300x_calibration.md.
 - **Cycle estimates**: M1-M4 ~20 cycles; M5 ~5; M6 ~8; M7 ~6; M8 ~2; M9 ~8 (failed); M9.1 ~6; M10 ~2
 - **M10 lesson**: Always verify CI workflow output. The workflow was created but 4/11 benchmarks had wrong CLI flags (atax used -row/-col instead of -x/-y, fft used -length instead of -MB, fir used nonexistent -taps flag). This wasted the entire CI run for those benchmarks.
 - **M10 lesson**: Coverage matters more than accuracy at this stage. With only 26/453 matched points (5.7%), we don't have enough data to make good accuracy decisions. Expanding coverage first gives us a true picture.

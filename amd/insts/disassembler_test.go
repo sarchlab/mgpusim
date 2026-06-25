@@ -155,6 +155,21 @@ var _ = Describe("GCN3 Disassembler", func() {
 			To(Equal("ds_write2_b32 v17, v20, v46 offset1:66"))
 	})
 
+	It("should decode D81E4200 002E1411", func() {
+		buf := []byte{0x00, 0x42, 0x1e, 0xd8, 0x11, 0x14, 0x2e, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).
+			To(Equal("ds_write2st64_b32 v17, v20, v46 offset1:66"))
+		// Regression: opcode 15 previously had SRC0Width/SRC1Width 0 in the decode
+		// table, so both data operands were left nil and the LDS execution handler
+		// (runDSWRITE2ST64B32) nil-paniced when a kernel used this instruction.
+		Expect(inst.Data).NotTo(BeNil())
+		Expect(inst.Data1).NotTo(BeNil())
+	})
+
 	It("should decode D81A03C0 0000211F", func() {
 		buf := []byte{0xC0, 0x03, 0x1a, 0xd8, 0x1F, 0x21, 0x00, 0x00}
 

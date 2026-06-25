@@ -1,11 +1,11 @@
 // Package conv3d implements the PolyBench 3D Convolution benchmark, ported
 // from sarchlab/gpu_benchmarks (tier2/polybench_3dconv) for the MGPUSim
-// MI300A (CDNA3 / gfx942) model.
+// MI300X (CDNA3 / gfx942) model.
 //
 // It convolves an NxNxN float volume with a small
 // filter_size x filter_size x filter_size 3D filter, one work-item per
 // output element. The kernel binary is compiled for gfx942 only (see
-// native/), so the benchmark must be run with `-arch cdna3` (the MI300A
+// native/), so the benchmark must be run with `-arch cdna3` (the MI300X
 // configuration).
 package conv3d
 
@@ -101,7 +101,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 3dconv benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

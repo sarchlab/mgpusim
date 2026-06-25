@@ -1,6 +1,6 @@
 // Package int32throughput implements the int32_throughput microbenchmark,
 // ported from sarchlab/gpu_benchmarks (tier1/int32_throughput) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Each thread runs a long chain of INT32 multiply-add operations
 // (a = a*mul + add) entirely in registers and then writes its accumulated
@@ -13,7 +13,7 @@
 // so the compiler emits no hidden ABI arguments; the launcher therefore
 // must use the same block size. The kernel binary is compiled for gfx942
 // only (see native/), so the benchmark must be run with `-arch cdna3`
-// (the MI300A configuration).
+// (the MI300X configuration).
 package int32throughput
 
 import (
@@ -107,7 +107,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the int32_throughput benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

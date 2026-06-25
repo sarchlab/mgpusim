@@ -1,18 +1,20 @@
 // Package binomialoptions implements the Tango Binomial Options benchmark,
 // ported from sarchlab/gpu_benchmarks (tier2/tango_binomial_options) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // It prices American put options with the Cox-Ross-Rubinstein (CRR) binomial
 // tree model. One work-group (threadblock) prices one option; work-items
 // collaborate via LDS (shared memory) on the backward induction through the
 // tree. The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 //
 // The native kernel uses a constant compile-time block size (BLOCK_SIZE=256)
-// and a statically-sized LDS array (MAX_NODES=256) instead of the original's
+// and a statically-sized LDS array (MAX_NODES=1025) instead of the original's
 // blockDim.x stride bound and dynamic shared memory. As a result the compiler
 // emits no hidden ABI arguments (kernarg_segment_size = 20) and the launch
-// must use block dim {256,1,1} with NumSteps+1 <= 256.
+// must use block dim {256,1,1} with NumSteps+1 <= 1025. MAX_NODES is sized to
+// the ground truth's steps=1024 (1025 nodes); its ~4 KB LDS footprint matches
+// the real kernel's dynamic per-option shared memory.
 package binomialoptions
 
 import (
@@ -30,7 +32,7 @@ import (
 // blockSize and maxNodes must match the native kernel (BLOCK_SIZE, MAX_NODES).
 const (
 	blockSize = 256
-	maxNodes  = 256
+	maxNodes  = 1025
 )
 
 // optionData mirrors the kernel's OptionData struct (5 contiguous float32s).
@@ -110,7 +112,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the tango binomial options benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

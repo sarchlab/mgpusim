@@ -1,6 +1,6 @@
 // Package gaussian implements the Rodinia Gaussian elimination benchmark,
 // ported from sarchlab/gpu_benchmarks (tier2/rodinia_gaussian) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // It solves a dense NxN linear system Ax=b. GPU forward elimination is done
 // with two kernels (fan1 computes pivot multipliers, fan2 updates the
@@ -9,7 +9,7 @@
 // Verify() checks the relative residual ||A*x - b|| / ||b||.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration). The
+// benchmark must be run with `-arch cdna3` (the MI300X configuration). The
 // kernels use constant block dimensions, so no hidden ABI arguments are
 // emitted (kernarg_segment_size = 24 for fan1, 32 for fan2).
 package gaussian
@@ -120,7 +120,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia gaussian benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

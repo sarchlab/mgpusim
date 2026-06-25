@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic MI300A calibration sweep for ONE microbenchmark.
+"""Generic MI300X calibration sweep for ONE microbenchmark.
 
 Reads the ground-truth CSV for <benchmark>, runs the matching mgpusim sample in
 timing mode at each measured configuration, and writes a sim-results CSV that
@@ -29,10 +29,37 @@ from calib_common import parse_ns, xparse
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
-COMMON = ["-timing", "-arch", "cdna3", "-gpu", "mi300a", "-disable-rtm"]
+COMMON = ["-timing", "-arch", "cdna3", "-gpu", "mi300x", "-disable-rtm"]
 
 # benchmark -> {sample dir, scaling-value flag, ground-truth-param -> CLI flag}.
+#
+# Only benchmarks whose sim sample is a FAITHFUL port of the ground-truth kernel
+# are listed (same benchmark package). Ground-truth benchmarks with no sim runner
+# (atomic_operations, cache_bandwidth, empty_kernel, pcie_bandwidth,
+# tensor_core_throughput, warp_shuffle, altis_gups/particlefilter, chai_*,
+# graph_*, lonestar_*, npb_cg/is/mg, parboil_histogram/spmv) or only a
+# different-kernel sample (cuda_* vs nbody/matrixtranspose, shoc_* vs the generic
+# fft/stencil2d/spmv/sort samples, polybench_atax/bicg, rodinia_bfs/kmeans/nw) are
+# intentionally omitted -- calibrating against a different kernel is meaningless.
+# Most samples expose only their scaling dimension; unsupported ground-truth
+# params (block_size, precision, ...) are simply not passed (the sim curve then
+# repeats across that dimension -- the honest result).
+#
+# KERNEL-FIDELITY CAVEATS (from diffing MGPUSim native kernels vs current
+# gpu_benchmarks .hip; the recent gpu_benchmarks updates are harness-only, so
+# these are pre-existing port divergences, not staleness):
+#  - heteromark_{aes,fir,pagerank}: GENUINE kernel drift -> DISABLED above.
+#  - memory_bandwidth: ground truth is host hipMemcpy D2D (no kernel); the sim
+#    proxies it with a copy kernel -- same D2D direction, different mechanism.
+#  - fp64_throughput, polybench_gramschmidt, rodinia_hotspot3d, npb_ep,
+#    parboil_cutcp: intentional, documented CDNA3/gfx942 emulator workarounds
+#    (memory-sourced operands / serial-reduction-instead-of-atomics / z-loop /
+#    per-thread-output / dropped-unused-param). Numerically equivalent, but the
+#    timing profile of the adapted step is not a faithful match -- read with care.
+#  - shared_mem_bandwidth: kernel logic matches but LDS footprint differs
+#    (gpu_benchmarks 48 KB vs sim 2 KB) -> different occupancy; consider aligning.
 SPECS = {
+    # --- Tier-1 microbenchmarks ---
     "fp32_throughput":      {"sample": "fp32_throughput",      "scaling_flag": "-fmas",
                              "params": {"num_blocks": "-num-blocks", "threads_per_block": "-threads-per-block"}},
     "fp16_throughput":      {"sample": "fp16_throughput",      "scaling_flag": "-fmas-per-thread",
@@ -47,8 +74,88 @@ SPECS = {
                              "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
+    # Pass the real benchmark's params so the sim builds the same cacheline-strided
+    # chain and derives the same timed-access count (measure_laps x lines, clamped).
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
-                             "params": {"num_accesses": "-num-accesses", "rng_seed": "-seed"}},
+                             "params": {"cacheline_bytes": "-cacheline-bytes",
+                                        "measure_laps": "-measure-laps", "rng_seed": "-seed"}},
+    # Launch-overhead microbench. The GT's kernel_ms_mean for empty_kernel is the
+    # real launch_sync_us (per-launch round-trip; see summarize_ground_truth.py),
+    # so the sim's single empty launch (kernel_time = the model's per-launch
+    # overhead) is the comparable quantity.
+    "empty_kernel":         {"sample": "empty_kernel",         "scaling_flag": "-num-blocks",
+                             "params": {"block_size": "-block-size"}},
+
+    # --- Tier-2: altis ---
+    "altis_cfd":            {"sample": "altis_cfd",            "scaling_flag": "-size",  "params": {}},
+    "altis_raytracing":     {"sample": "altis_raytracing",    "scaling_flag": "-width",
+                             "params": {"height": "-height", "spheres": "-spheres"}},
+
+    # --- Tier-2: heteromark --- DISABLED pending re-port.
+    # The MGPUSim aes/fir/pagerank ports run materially DIFFERENT kernel code than
+    # the current gpu_benchmarks ground truth (verified by kernel diff): pagerank
+    # is CSR SpMV warp-per-row in the sim vs thread-per-vertex power-method
+    # upstream (different algorithm); aes uses a different AES-256 formulation; fir
+    # uses a history buffer vs shared-mem coefficients. Calibrating against these
+    # would compare different kernels. Re-extract the kernels from current
+    # gpu_benchmarks tier2/{heteromark_aes,heteromark_fir,heteromark_pagerank}.hip
+    # and recompile the HSACO before re-enabling. Mappings kept for that work:
+    #   "heteromark_aes":      {"sample": "aes",      "scaling_flag": "-length", "params": {}},
+    #   "heteromark_fir":      {"sample": "fir",      "scaling_flag": "-length", "params": {"num_taps": "-taps"}},
+    #   "heteromark_pagerank": {"sample": "pagerank", "scaling_flag": "-node",   "params": {"pr_iterations": "-iterations"}},
+
+    # --- Tier-2: npb ---
+    # npb_ep DISABLED: real ep_kernel is atomic-contention-bound
+    # (atomicAdd into a ~10-bin histogram -> serializes -> scales ~linearly with
+    # N). The CDNA3/gfx942 emulator has no global atomics, so the port uses
+    # per-thread output (zero contention) and the sim is flat across the whole
+    # size sweep -- the trend is unrecoverable here. Re-enable once atomics land.
+    # See https://github.com/sarchlab/mgpusim/issues/278
+    # "npb_ep":               {"sample": "npb_ep",              "scaling_flag": "-size",   "params": {}},
+
+    # --- Tier-2: parboil ---
+    "parboil_cutcp":        {"sample": "parboil_cutcp",       "scaling_flag": "-num-atoms",
+                             "params": {"grid_spacing": "-grid-spacing", "cutoff_radius": "-cutoff"}},
+    "parboil_lbm":          {"sample": "parboil_lbm",         "scaling_flag": "-grid",
+                             "params": {"num_timesteps": "-timesteps", "tau": "-tau"}},
+    "parboil_sgemm":        {"sample": "parboil_sgemm",       "scaling_flag": "-size",   "params": {}},
+    # parboil_stencil hangs in CDNA3 timing mode (known timing-core bug); kept here
+    # for manual runs but excluded from the CI matrix so it can't burn a runner.
+    "parboil_stencil":      {"sample": "parboil_stencil",     "scaling_flag": "-size",
+                             "params": {"num_timesteps": "-timesteps"}},
+
+    # --- Tier-2: polybench ---
+    "polybench_2dconv":      {"sample": "polybench_2dconv",      "scaling_flag": "-size", "params": {}},
+    "polybench_2mm":         {"sample": "polybench_2mm",         "scaling_flag": "-size", "params": {}},
+    "polybench_3dconv":      {"sample": "polybench_3dconv",      "scaling_flag": "-size", "params": {"filter_size": "-filter-size"}},
+    "polybench_3mm":         {"sample": "polybench_3mm",         "scaling_flag": "-size", "params": {}},
+    "polybench_correlation": {"sample": "polybench_correlation", "scaling_flag": "-size", "params": {}},
+    "polybench_fdtd2d":      {"sample": "polybench_fdtd2d",      "scaling_flag": "-size", "params": {"tmax": "-tmax"}},
+    "polybench_gemm":        {"sample": "polybench_gemm",        "scaling_flag": "-size", "params": {}},
+    # gramschmidt HANGS in CDNA3 timing mode (stalls even at n=1, in
+    # gram_norm_finish/gram_normalize -- a timing-core stall, not the serial
+    # reduction). Excluded from the CI matrix. ALSO atomic-dependent: the real
+    # gram_norm does atomicAdd(nrm_buf, ...), which the CDNA3 emulator can't model
+    # (see https://github.com/sarchlab/mgpusim/issues/278), so it stays dropped on
+    # both counts. Kept here only for manual runs.
+    "polybench_gramschmidt": {"sample": "polybench_gramschmidt", "scaling_flag": "-m",    "params": {"n": "-n"}},
+    "polybench_jacobi2d":    {"sample": "polybench_jacobi2d",    "scaling_flag": "-size", "params": {"tsteps": "-tsteps"}},
+    "polybench_mvt":         {"sample": "polybench_mvt",         "scaling_flag": "-size", "params": {}},
+    "polybench_syr2k":       {"sample": "polybench_syr2k",       "scaling_flag": "-size", "params": {"inner_size": "-inner-size"}},
+
+    # --- Tier-2: rodinia ---
+    "rodinia_backprop":   {"sample": "rodinia_backprop",   "scaling_flag": "-input",     "params": {"hidden": "-hidden", "output": "-output"}},
+    "rodinia_gaussian":   {"sample": "rodinia_gaussian",   "scaling_flag": "-size",      "params": {}},
+    "rodinia_hotspot":    {"sample": "rodinia_hotspot",    "scaling_flag": "-size",      "params": {"num_iterations": "-iterations"}},
+    "rodinia_hotspot3d":  {"sample": "rodinia_hotspot3d",  "scaling_flag": "-size",      "params": {"amb_temp": "-amb-temp", "num_iterations": "-iterations"}},
+    "rodinia_lavamd":     {"sample": "rodinia_lavamd",     "scaling_flag": "-num-boxes", "params": {"particles_per_box": "-particles-per-box"}},
+    "rodinia_lud":        {"sample": "rodinia_lud",        "scaling_flag": "-size",      "params": {}},
+    "rodinia_pathfinder": {"sample": "rodinia_pathfinder", "scaling_flag": "-cols",      "params": {"rows": "-rows"}},
+    "rodinia_srad":       {"sample": "rodinia_srad",       "scaling_flag": "-size",      "params": {"num_iterations": "-iterations"}},
+
+    # --- Tier-2: tango ---
+    "tango_binomial_options": {"sample": "tango_binomial_options", "scaling_flag": "-options", "params": {"steps": "-steps"}},
+    "tango_blackscholes":     {"sample": "tango_blackscholes",     "scaling_flag": "-size",    "params": {}},
 }
 
 
@@ -147,7 +254,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("benchmark")
     ap.add_argument("out")
-    ap.add_argument("--ref", default=os.path.join(SCRIPT_DIR, "mi300a_ground_truth.csv"))
+    ap.add_argument("--ref", default=os.path.join(SCRIPT_DIR, "mi300x_ground_truth.csv"))
     args = ap.parse_args()
 
     spec = SPECS.get(args.benchmark)

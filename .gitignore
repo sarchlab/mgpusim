@@ -9,10 +9,14 @@
 *.out
 debug
 *.csv
-# Committed MI300A calibration ground truth (summarized from the ~9 MB DB).
-!gpu_perf_scripts/calibration/mi300a_ground_truth.csv
+# Committed MI300X calibration ground truth (summarized from the ~9 MB DB).
+!gpu_perf_scripts/calibration/mi300x_ground_truth.csv
 *.sqlite3-journal
 *.sqlite3
+# Ground-truth DBs are kept external; only the summarized CSV is committed.
+*.db
+*.db-shm
+*.db-wal
 *~
 *.debug
 *.trace
@@ -20,7 +24,7 @@ debug
 .ropeproject
 __pycache__
 *.html
-# Committed MI300A calibration dashboard assets (served from gh-pages).
+# Committed MI300X calibration dashboard assets (served from gh-pages).
 !gpu_perf_scripts/calibration/web/*.html
 _bench_*
 *.atp
@@ -60,3 +64,6 @@ im2col
 _sim_benchmarks/
 stencil2d_bench
 _akita_local/
+
+# hipcc linker intermediate
+*.resolution.txt

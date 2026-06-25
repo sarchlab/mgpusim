@@ -1,12 +1,12 @@
 // Package raytracing implements the Altis ray tracing benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/altis_raytracing) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/altis_raytracing) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // It casts one ray per pixel through an image plane and intersects each ray
 // with a set of randomly-placed spheres, shading the nearest hit with Phong
 // lighting. One thread handles one pixel, writing an RGBA byte per pixel into
 // the output image. The kernel binary is compiled for gfx942 only (see
-// native/), so the benchmark must be run with `-arch cdna3` (the MI300A
+// native/), so the benchmark must be run with `-arch cdna3` (the MI300X
 // configuration).
 package raytracing
 
@@ -103,7 +103,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the altis raytracing benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

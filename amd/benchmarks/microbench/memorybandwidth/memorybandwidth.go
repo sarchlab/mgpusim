@@ -1,6 +1,6 @@
 // Package memorybandwidth implements the memory_bandwidth microbenchmark,
 // ported from sarchlab/gpu_benchmarks (tier1/memory_bandwidth) for the
-// MGPUSim MI300A (CDNA3 / gfx942) model.
+// MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // The original HIP benchmark measures memory bandwidth using host-side
 // hipMemcpy in three directions (H2D, D2H, D2D). Only the device-to-device
@@ -10,7 +10,7 @@
 // equivalent of a device-to-device memcpy and produces a verifiable result.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300A configuration).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package memorybandwidth
 
 import (
@@ -96,7 +96,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the memory_bandwidth benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

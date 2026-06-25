@@ -830,7 +830,7 @@ var benchmarks = []benchmark{
 	// },
 	// },
 
-	// CDNA3/MI300A (gfx942) architecture tests
+	// CDNA3/MI300X (gfx942) architecture tests
 	// Multi-GPU support via unified GPU mode (automatic workgroup distribution)
 	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/vectoradd",
@@ -841,32 +841,32 @@ var benchmarks = []benchmark{
 			// Emulation tests
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
-			// MI300A timing tests
+			// MI300X timing tests
 			{
 				gpus: []int{1}, timing: true, parallel: false,
-				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
 			{
 				gpus: []int{1}, timing: true, parallel: true,
-				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
-			// Unified GPU MI300A tests (2-GPU)
+			// Unified GPU MI300X tests (2-GPU)
 			{
 				gpus: []int{1, 2}, timing: true, parallel: false,
-				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
 			{
 				gpus: []int{1, 2}, timing: true, parallel: true,
-				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
-			// Unified GPU MI300A tests (4-GPU)
+			// Unified GPU MI300X tests (4-GPU)
 			{
 				gpus: []int{1, 2, 3, 4}, timing: true, parallel: false,
-				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
 			{
 				gpus: []int{1, 2, 3, 4}, timing: true, parallel: true,
-				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300a",
+				unifiedGPU: true, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
 			},
 		},
 	},
@@ -879,12 +879,12 @@ var benchmarks = []benchmark{
 			// CDNA3 Emulation tests
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
-			// Unified GPU MI300A tests (2-GPU)
+			// Unified GPU MI300X tests (2-GPU)
 			{
 				gpus: []int{1, 2}, timing: false, parallel: false,
 				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",
 			},
-			// Unified GPU MI300A tests (4-GPU)
+			// Unified GPU MI300X tests (4-GPU)
 			{
 				gpus: []int{1, 2, 3, 4}, timing: false, parallel: false,
 				unifiedGPU: true, unifiedMemory: false, arch: "cdna3",

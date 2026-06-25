@@ -244,7 +244,7 @@ func (c defaultCoalescer) readFlatAddr(
 	// (see amd/insts/disassembler.go decodeFLAT, keyed on IsCDNA3), so:
 	//   RegCount=1 -> SAddr mode (scalar base + 32-bit VGPR offset)
 	//   RegCount=2 -> OFF mode   (64-bit VGPR pair as the full address)
-	// This requires the timing CU to decode with the correct arch; the MI300A
+	// This requires the timing CU to decode with the correct arch; the MI300X
 	// timing config wires a CDNA3 disassembler via WithDecoderBuilder.
 	hasSAddr := inst.Addr.RegCount == 1
 	var scalarBase uint64

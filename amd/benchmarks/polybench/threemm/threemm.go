@@ -1,5 +1,5 @@
 // Package threemm implements the PolyBench 3MM benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/polybench_3mm) for the MGPUSim MI300A
+// sarchlab/gpu_benchmarks (tier2/polybench_3mm) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
 // It computes three chained matrix multiplications:
@@ -11,7 +11,7 @@
 // Each thread computes one output element with a simple dot-product loop,
 // using a constant 16×16 block. The kernel binary is compiled for gfx942
 // only (see native/), so the benchmark must be run with `-arch cdna3`
-// (the MI300A configuration).
+// (the MI300X configuration).
 package threemm
 
 import (
@@ -121,7 +121,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 3mm benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()

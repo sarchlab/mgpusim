@@ -1,13 +1,13 @@
 // Package pathfinder implements the Rodinia PathFinder benchmark, ported
 // from sarchlab/gpu_benchmarks (tier2/rodinia_pathfinder) for the MGPUSim
-// MI300A (CDNA3 / gfx942) model.
+// MI300X (CDNA3 / gfx942) model.
 //
 // PathFinder is a dynamic-programming sweep that finds the minimum-cost path
 // through a 2D grid of weights from the top row to the bottom row. Each row
 // is processed by one kernel launch using the previous row's costs; the
 // source/destination row buffers are double-buffered (ping-pong) across the
 // Rows iterations. The kernel binary is compiled for gfx942 only (see
-// native/), so the benchmark must be run with `-arch cdna3` (MI300A).
+// native/), so the benchmark must be run with `-arch cdna3` (MI300X).
 package pathfinder
 
 import (
@@ -100,7 +100,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) Run() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia pathfinder benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300a")
+			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
 	b.loadProgram()
