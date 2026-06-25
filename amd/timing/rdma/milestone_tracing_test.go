@@ -111,3 +111,60 @@ func TestRDMARecordsDataMilestoneOnResponse(t *testing.T) {
 			rec.milestones)
 	}
 }
+
+// Egress-port backpressure must not delay or duplicate the remote milestone:
+// it is emitted when the response arrives, even if the response cannot be
+// forwarded yet, and exactly once across retries.
+func TestRDMARemoteMilestoneNotDelayedByEgressBackpressure(t *testing.T) {
+	rdmaEngine, mw, requestOutside, rec := buildTracedRDMA(t)
+
+	// Saturate the egress port so the arrived response cannot be forwarded.
+	inPort := rdmaEngine.GetPortByName("RDMARequestInside")
+	for i := 0; i < 100 && inPort.CanSend(); i++ {
+		inPort.Send(memprotocol.WriteDoneRsp{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: inPort.AsRemote(),
+				Dst: remoteGPU,
+			},
+		})
+	}
+	if inPort.CanSend() {
+		t.Skip("could not saturate the egress port")
+	}
+
+	forwardedID := timing.GetIDGenerator().Generate()
+	recvTaskID := timing.GetIDGenerator().Generate()
+	rdmaEngine.State.TransactionsFromInside = append(
+		rdmaEngine.State.TransactionsFromInside,
+		transaction{
+			OriginalReqID:  timing.GetIDGenerator().Generate(),
+			OriginalSrc:    localCache,
+			ForwardedReqID: forwardedID,
+			RecvTaskID:     recvTaskID,
+		})
+
+	requestOutside.Deliver(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: forwardedID,
+		},
+	})
+
+	// Tick twice while the egress port stays full: the response stays
+	// unforwarded, but the remote milestone fires once, at arrival.
+	mw.Tick()
+	mw.Tick()
+
+	count := 0
+	for _, ms := range rec.milestones {
+		if ms.TaskID == recvTaskID &&
+			ms.Kind == tracing.MilestoneKindData && ms.What == "remote" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("remote milestone should be emitted once at arrival even "+
+			"under egress backpressure; got %d", count)
+	}
+}
