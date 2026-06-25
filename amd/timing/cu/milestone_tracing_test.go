@@ -409,3 +409,41 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 			got)
 	}
 }
+
+// During a flush resend, coalesced siblings that have not been re-sent yet live
+// in the shadow buffer. The data milestone must not fire while such a sibling
+// is still parked there.
+func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	inst := wavefront.NewInst(insts.NewInst())
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+
+	resent := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.InFlightVectorMemAccess = []VectorMemAccessInfo{
+		{Read: resent, Inst: inst, Wavefront: wf},
+	}
+	// A coalesced sibling still parked in the shadow buffer, not yet re-sent.
+	shadowSibling := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.shadowInFlightVectorMemAccess = []VectorMemAccessInfo{
+		{Read: shadowSibling, Inst: inst, Wavefront: wf},
+	}
+
+	cu.handleVectorDataLoadReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: resent.ID,
+		},
+	})
+
+	if countVMemData(rec, inst.ID) != 0 {
+		t.Fatal("data milestone must not fire while a sibling is parked in the " +
+			"shadow buffer")
+	}
+}

@@ -663,9 +663,16 @@ func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
 }
 
 // hasInFlightVectorMemFor reports whether any vector-memory transaction for the
-// given instruction is still in flight.
+// given instruction is still in flight — including siblings parked in the
+// shadow buffer during a flush resend but not yet re-sent.
 func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 	for _, info := range cu.InFlightVectorMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	for _, info := range cu.shadowInFlightVectorMemAccess {
 		if info.Inst == inst {
 			return true
 		}
@@ -675,9 +682,16 @@ func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 }
 
 // hasInFlightScalarMemFor reports whether any scalar-memory access for the given
-// instruction is still in flight.
+// instruction is still in flight — including shadow-buffered siblings that have
+// not been re-sent yet.
 func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
 	for _, info := range cu.InFlightScalarMemAccess {
+		if info.Inst == inst {
+			return true
+		}
+	}
+
+	for _, info := range cu.shadowInFlightScalarMemAccess {
 		if info.Inst == inst {
 			return true
 		}
