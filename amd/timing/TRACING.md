@@ -47,15 +47,16 @@ reason. Admission waits hang on the port's incoming-buffer task (via
 | CP | `ToDMA` | network_busy | waited for the downstream DMA port (buffer task) |
 | RDMA | `remote` | data | waited for the round trip to the other side (req_in) |
 | CU | `vmem-inflight` | hardware_resource | waited for an in-flight vector-mem slot (inst) |
-| CU | `coalesce` | work | coalescing/transaction-issue before the first vector-mem request is sent, backed by a `pipeline` subtask (inst) |
+| CU | `coalesce` | work | coalescing/transaction-issue, until the first vector-mem transaction is ready to send, backed by a `pipeline` subtask (inst) |
 | CU | `vmem` / `smem` | data | waited for the vector/scalar memory response (inst) |
 | CU | `s_waitcnt` | data | S_WAITCNT waited for outstanding memory (inst) |
 | CU | `s_endpgm` | data | S_ENDPGM drained outstanding memory (inst) |
 
 A vector-memory `inst` task is tiled into three phases: `vmem-inflight`
 (`hardware_resource`, the in-flight slot is acquired at execute) → `coalesce`
-(`work`, the first transaction is sent) → `vmem` (`data`, the last response
-returns, at the task end). The `coalesce` interval is the unit *doing work*
+(`work`, until the first transaction is ready to send) → `vmem` (`data`, the
+last response returns, at the task end). The `coalesce` interval is the unit
+*doing work*
 (coalescing + transaction-issue pipeline), not blocking, so it is a `work`
 milestone backed by a child `pipeline`/`coalesce` subtask that spans it (per the
 "work ⇒ subtask" coverage rule). The request is not yet outstanding before the

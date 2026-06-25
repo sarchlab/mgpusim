@@ -72,9 +72,11 @@ func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
 }
 
 // endIssueSubtask closes an instruction's issue subtask (if still open) when
-// its first transaction is sent, and emits the "work" milestone the subtask
-// backs. Later transactions of the same instruction find no open subtask and
-// are no-ops, so the milestone lands at the first send.
+// its first transaction reaches the head of the send buffer (the issue work is
+// done), and emits the "work" milestone the subtask backs. Later transactions
+// of the same instruction — and port-full retries on the same one — find no
+// open subtask and are no-ops, so the milestone lands once, at the moment the
+// transaction is ready to send rather than when it actually leaves.
 func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
 	taskID, ok := u.issueTaskIDs[inst.ID]
 	if !ok {
@@ -339,6 +341,15 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 
 		info := u.postTransactionPipelineBuffer.Peek()
 
+		// The transaction has reached the head of the send buffer: the
+		// coalescing / transaction-issue work is done. Close the issue subtask
+		// and emit the "coalesce" work milestone now — before the CanSend check
+		// below — so that port backpressure (cycles spent waiting to send) is
+		// not counted as coalescing work. It is idempotent (only the first
+		// transaction per instruction finds an open subtask), so a port-full
+		// retry on the same transaction does not re-emit it.
+		u.endIssueSubtask(info.Inst)
+
 		var req messaging.Msg
 		if info.Read != nil {
 			req = *info.Read
@@ -354,13 +365,6 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.postTransactionPipelineBuffer.Pop()
 		u.numTransactionInFlight--
 
-		// The first transaction for this instruction is leaving the unit: close
-		// the issue subtask and mark the end of the coalescing /
-		// transaction-issue work. This separates the issue phase (work) from the
-		// data wait, which only begins once a request is actually outstanding —
-		// the subtask bar and the work milestone span exactly the interval
-		// before the req_out subtasks start.
-		u.endIssueSubtask(info.Inst)
 		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
 		madeProgress = true
 	}

@@ -251,3 +251,69 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 		t.Fatal("the issue subtask should be closed after the first send")
 	}
 }
+
+func countCoalesceWork(rec *cuMilestoneRecorder, instID uint64) int {
+	count := 0
+	for _, m := range rec.milestones {
+		if m.TaskID == instID && m.Kind == tracing.MilestoneKindWork &&
+			m.What == "coalesce" {
+			count++
+		}
+	}
+
+	return count
+}
+
+// Port backpressure must not be counted as coalescing work. When the vector
+// memory port is full, the transaction is ready but cannot be sent; the
+// coalesce work milestone must still be emitted now (the work is done) and must
+// not be re-emitted when the port frees and the transaction is finally sent.
+func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	port := newFakePort("CU.ToVectorMem")
+	cu.ToVectorMem = port
+	vmu := NewVectorMemoryUnit(cu, nil)
+	vmu.postTransactionPipelineBuffer =
+		queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
+
+	inst := wavefront.NewInst(nil)
+	vmu.startIssueSubtask(inst)
+	read := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: cu.ToVectorMem.AsRemote(),
+			Dst: "VectorMem",
+		},
+	}
+	vmu.numTransactionInFlight = 1
+	vmu.postTransactionPipelineBuffer.PushTyped(
+		VectorMemAccessInfo{Read: read, Inst: inst})
+
+	// Port full: the transaction is ready but cannot be sent. The work
+	// milestone fires now; the transaction stays unsent.
+	port.full = true
+	vmu.sendRequest()
+
+	if got := countCoalesceWork(rec, inst.ID); got != 1 {
+		t.Fatalf("coalesce work must be emitted when ready even if the port is "+
+			"full; got %d", got)
+	}
+	if len(port.sent) != 0 {
+		t.Fatal("the transaction must not be sent while the port is full")
+	}
+
+	// Port frees: the transaction is sent, but no second work milestone.
+	port.full = false
+	vmu.sendRequest()
+
+	if got := countCoalesceWork(rec, inst.ID); got != 1 {
+		t.Fatalf("coalesce work must not be re-emitted on the actual send; "+
+			"got %d", got)
+	}
+	if len(port.sent) != 1 {
+		t.Fatal("the transaction should be sent once the port frees")
+	}
+}
