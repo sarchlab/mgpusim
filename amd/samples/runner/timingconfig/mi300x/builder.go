@@ -28,19 +28,30 @@ import (
 
 // MI300X hardware configuration constants.
 //
-// The MI300X has 304 active compute units (8 XCDs x 38 CUs). We model that
-// total as 38 shader arrays of 8 CUs each (38 x 8 = 304). The CU count is the
-// only topology change from the MI300A config: both are CDNA3 and share the
-// same per-XCD memory hierarchy (a single work-item sees a 4 MB per-XCD L2
-// backed by a 256 MB device-wide MALL/Infinity Cache), which the builder models
-// via numMemoryBank (independent of the shader-array count), so the calibrated
-// cache hierarchy is preserved. Clock and interconnect latencies are inherited
-// from the MI300A baseline and tuned for MI300X separately.
+// The MI300X has 304 active compute units organized as 8 XCDs (accelerator
+// complex dies) of 38 CUs each. Per the CDNA3 white paper a shader array holds
+// 2 CUs (sharing one 64 KB L1 instruction cache), so each XCD is 19 shader
+// arrays and the device is 8 x 19 x 2 = 304 CUs. We model that hierarchy
+// directly: NumXCD dies, each NumShaderArrayPerXCD shader arrays, each
+// NumCUPerShaderArray CUs. The XCD grouping is what the per-die dispatchers use.
+//
+// The L2/MALL cache hierarchy is still modeled as a single device-wide L2
+// (4 MB, address-interleaved over numMemoryBank banks) backed by a 256 MB MALL.
+// A true per-XCD L2 (8 x 4 MB = 32 MB) and 128 B cache lines are a separate
+// follow-up; they are entangled with the cache_latency calibration and are not
+// needed for per-die dispatch.
 const (
-	// NumCUPerShaderArray is the number of compute units per shader array.
-	NumCUPerShaderArray = 8
-	// NumShaderArray is the number of shader arrays in the GPU (38 x 8 = 304 CUs).
-	NumShaderArray = 38
+	// NumCUPerShaderArray is the number of compute units per shader array
+	// (CDNA3: 2 CUs share one L1 instruction cache).
+	NumCUPerShaderArray = 2
+	// NumShaderArrayPerXCD is the number of shader arrays in one XCD
+	// (19 x 2 CU = 38 CUs per XCD).
+	NumShaderArrayPerXCD = 19
+	// NumXCD is the number of accelerator complex dies.
+	NumXCD = 8
+	// NumShaderArray is the total number of shader arrays in the GPU
+	// (8 XCD x 19 SA = 152 SAs; 152 x 2 CU = 304 CUs).
+	NumShaderArray = NumXCD * NumShaderArrayPerXCD
 )
 
 // Port buffer sizes. The CP and DMA-to-CP ports mirror the v4 4096-deep
@@ -101,7 +112,13 @@ type Builder struct {
 // MakeBuilder creates a new builder with MI300X default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:                1700 * timing.MHz, // inherited from MI300A baseline; tune for MI300X
+		// MI300X boost clock (TechPowerUp). CUs, caches, and the dispatcher run
+		// in this clock domain. The cycle-denominated latencies below were
+		// re-derived for 2.1 GHz (scaled x2100/1700 from the old 1.7 GHz values)
+		// so their nanosecond targets are preserved. NOTE: the DRAM controllers
+		// are pinned at 1 GHz (see buildDRAMControllers), so HBM bandwidth is
+		// independent of this clock and was not rescaled.
+		freq:                2100 * timing.MHz,
 		numCUPerShaderArray: NumCUPerShaderArray,
 		numShaderArray:      NumShaderArray,
 		// MI300X L2 is a per-XCD 4 MB cache (16-way, 16x256 KB channels). A
@@ -110,14 +127,16 @@ func MakeBuilder() Builder {
 		l2CacheSize: 4 * mem.MB,
 		// L2 bank latency in cycles. Tuned so an L1-miss/L2-hit dependent load
 		// lands near the ~60-100 ns the real MI300X L2 shows in cache_latency.
-		l2BankLatency: 100,
+		// 124 cyc / 2.1 GHz = ~59 ns (was 100 cyc / 1.7 GHz = ~59 ns).
+		l2BankLatency: 124,
 		// MI300X adds a 256 MB MALL (Memory-Attached Last-Level / Infinity
 		// Cache) on the IODs between the L2 and HBM. Modeling it gives the
 		// cache_latency curve its third plateau (8 MB-256 MB working sets).
 		mallCacheSize: 256 * mem.MB,
 		// MALL bank latency in cycles. Tuned so an L2-miss/MALL-hit dependent
 		// load lands near the ~170-330 ns the real MI300X MALL shows.
-		mallBankLatency:                300,
+		// 371 cyc / 2.1 GHz = ~177 ns (was 300 cyc / 1.7 GHz = ~176 ns).
+		mallBankLatency:                371,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
@@ -571,7 +590,7 @@ func (b *Builder) buildSAs() {
 		WithVecMemTransPipelineWidth(8).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
-		WithL1VBankLatency(7).
+		WithL1VBankLatency(9). // ~4.3 ns at 2.1 GHz (was 7 cyc / 1.7 GHz)
 		WithMemPipelineBufferSize(64).
 		WithMaxCoalescingPenalty(3).
 		WithRegisterScoreboard(true)
@@ -769,15 +788,25 @@ func (b *Builder) buildDMAEngine() {
 func (b *Builder) buildCP() {
 	spec := cp.DefaultSpec()
 	spec.Freq = b.freq
-	// Per-launch overhead calibrated against empty_kernel: with overhead=0 the sim
-	// floor was ~0.37 us vs the real launch_sync_us floor of ~8.66 us, so ~8.3 us
-	// (= ~14000 cycles at 1.7 GHz) of fixed launch latency is missing. NOTE:
-	// launch_sync_us is a host round-trip (CPU launch + device sync) that the sim
-	// doesn't otherwise model, so this slightly over-attributes host cost to the
-	// GPU; refine once a GPU-side launch measurement exists.
-	spec.ConstantKernelLaunchOverhead = 14000
-	spec.SubsequentKernelLaunchOverhead = 14000
+	// No fixed kernel launch/teardown overhead is modeled. The empty_kernel floor
+	// (~8.66 us at 1 WG) is launch_sync_us -- a host round-trip (CPU launch + API +
+	// device sync) that is NOT GPU time. Modeling it as a fixed GPU launch latency
+	// would fake host cost as device cost; the calibration metric anchors the floor
+	// out (error is measured relative to the smallest-grid point), so only the
+	// per-WG dispatch slope matters and it is unaffected. Leave all three overheads
+	// at zero unless/until a GPU-side launch measurement exists.
+	spec.ConstantKernelLaunchOverhead = 0
+	spec.SubsequentKernelLaunchOverhead = 0
 	spec.ConstantKernelOverhead = 0
+
+	// Per-die (per-XCD) dispatch: a kernel's work-groups are split into NumXCD
+	// contiguous blocks (one per die) and dispatched across the 8 XCDs in
+	// parallel, each XCD dispatching 1 wavefront / 2 cycles. For a 256-thread
+	// (4-wavefront) WG that is 8 cycles/WG per die, so 8 dies aggregate to ~1
+	// WG/cycle = ~0.48 ns/WG at 2.1 GHz, matching the empty_kernel sweep slope.
+	spec.Alg = "per-die"
+	spec.NumDies = NumXCD
+	spec.WavefrontDispatchCycles = 2
 
 	b.cp = cp.MakeBuilder().
 		WithRegistrar(b.simulation).

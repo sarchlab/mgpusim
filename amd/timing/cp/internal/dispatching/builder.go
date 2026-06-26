@@ -21,6 +21,8 @@ type Builder struct {
 	constantKernelLaunchOverhead   int
 	subsequentKernelLaunchOverhead int
 	wgScalingThreshold             int
+	numDies                        int
+	wavefrontDispatchCycles        int
 }
 
 // MakeBuilder creates a builder with default dispatching configurations.
@@ -33,6 +35,8 @@ func MakeBuilder() Builder {
 		constantKernelOverhead:         0,
 		subsequentKernelLaunchOverhead: 1800,
 		wgScalingThreshold:             128,
+		numDies:                        1,
+		wavefrontDispatchCycles:        2,
 	}
 	return b
 }
@@ -75,12 +79,28 @@ func (b Builder) WithDispatchingPortName(name string) Builder {
 // WithAlg sets the dispatching algorithm.
 func (b Builder) WithAlg(alg string) Builder {
 	switch alg {
-	case "round-robin", "greedy", "partition":
+	case "round-robin", "greedy", "partition", "per-die":
 		b.alg = alg
 	default:
 		panic("unknown dispatching algorithm " + alg)
 	}
 
+	return b
+}
+
+// WithNumDies sets the number of dies (XCDs) the per-die algorithm dispatches
+// across in parallel. Only used by the "per-die" algorithm.
+func (b Builder) WithNumDies(n int) Builder {
+	b.numDies = n
+	return b
+}
+
+// WithWavefrontDispatchCycles sets the per-die dispatch cost charged per
+// wavefront, in cycles. A W-wavefront work-group occupies its die's dispatch
+// pipe for W*cycles before that die can dispatch the next work-group. Only used
+// by the "per-die" algorithm.
+func (b Builder) WithWavefrontDispatchCycles(cycles int) Builder {
+	b.wavefrontDispatchCycles = cycles
 	return b
 }
 
@@ -159,8 +179,19 @@ func (b Builder) Build(name string) Dispatcher {
 		d.alg = &partitionAlgorithm{
 			cuPool: b.cuResourcePool,
 		}
+	case "per-die":
+		d.alg = &perDieAlgorithm{
+			cuPool:  b.cuResourcePool,
+			numDies: b.numDies,
+		}
 	default:
 		panic("unknown dispatching algorithm " + b.alg)
+	}
+
+	if da, ok := d.alg.(dieAwareAlgorithm); ok {
+		d.dieAware = da
+		d.dieCyclesLeft = make([]int, da.NumDies())
+		d.wavefrontDispatchCycles = b.wavefrontDispatchCycles
 	}
 
 	return d

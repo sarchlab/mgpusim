@@ -30,6 +30,19 @@ type Spec struct {
 	// WGScalingThreshold is the threshold for WG-count-based scaling of the
 	// subsequent kernel launch overhead.
 	WGScalingThreshold int `json:"wg_scaling_threshold"`
+
+	// Alg selects the work-group dispatching algorithm: "round-robin",
+	// "greedy", "partition", or "per-die". Empty defaults to "round-robin".
+	Alg string `json:"alg"`
+
+	// NumDies is the number of dies (XCDs) the "per-die" algorithm dispatches
+	// across in parallel.
+	NumDies int `json:"num_dies"`
+
+	// WavefrontDispatchCycles is the per-die dispatch cost charged per wavefront,
+	// in cycles, for the "per-die" algorithm. A W-wavefront work-group occupies
+	// its die's dispatch pipe for W*cycles before the die dispatches the next.
+	WavefrontDispatchCycles int `json:"wavefront_dispatch_cycles"`
 }
 
 // Control sequences that the Command Processor can be running. The Command

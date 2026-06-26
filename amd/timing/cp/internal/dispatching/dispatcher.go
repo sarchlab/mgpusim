@@ -51,6 +51,9 @@ type DispatcherImpl struct {
 	dispatchingPort     messaging.Port
 
 	alg                            algorithm
+	dieAware                       dieAwareAlgorithm // non-nil iff alg dispatches per-die
+	dieCyclesLeft                  []int             // per-die rate gate (cycles until next dispatch)
+	wavefrontDispatchCycles        int               // per-die cost charged per wavefront dispatched
 	dispatching                    protocol.LaunchKernelReq
 	isDispatching                  bool
 	currWG                         dispatchLocation
@@ -123,6 +126,9 @@ func (d *DispatcherImpl) StartDispatching(req protocol.LaunchKernelReq) {
 
 	d.numDispatchedWGs = 0
 	d.numCompletedWGs = 0
+	for i := range d.dieCyclesLeft {
+		d.dieCyclesLeft[i] = 0
+	}
 	if !d.firstKernelLaunched {
 		d.cycleLeft = d.constantKernelLaunchOverhead
 		d.firstKernelLaunched = true
@@ -163,6 +169,8 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 	if d.isDispatching {
 		if d.kernelCompleted() {
 			madeProgress = d.completeKernel() || madeProgress
+		} else if d.dieAware != nil {
+			madeProgress = d.tickPerDie() || madeProgress
 		} else {
 			// Dispatch up to 8 WGs per cycle
 			for i := 0; i < 8; i++ {
@@ -342,6 +350,71 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 	// correctly: the vis DBTracer is the same instance attached to both d (via
 	// report.go / the CP builder) and d.cp (via RegisterComponent), so both
 	// tasks land in one trace database keyed by task ID.
+	tracing.TraceReqInitiate(d, req,
+		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
+
+	return true
+}
+
+// tickPerDie advances all dies one cycle: each die whose rate gate is free may
+// dispatch one work-group this cycle, so up to NumDies work-groups dispatch per
+// cycle (one per die), each die independently throttled by wavefrontDispatchCycles.
+func (d *DispatcherImpl) tickPerDie() (madeProgress bool) {
+	for die := range d.dieCyclesLeft {
+		if d.dieCyclesLeft[die] > 0 {
+			d.dieCyclesLeft[die]--
+			madeProgress = true
+			continue
+		}
+
+		if d.dispatchNextWGForDie(die) {
+			madeProgress = true
+		}
+	}
+
+	return madeProgress
+}
+
+// dispatchNextWGForDie dispatches one work-group on the given die and arms that
+// die's rate gate for wavefrontDispatchCycles per wavefront dispatched. The
+// port's send capacity is checked before reserving CU resources so a full port
+// never strands a reserved work-group.
+func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
+	port := d.getDispatchingPort()
+	if !port.CanSend() {
+		return false
+	}
+
+	loc := d.dieAware.NextForDie(die)
+	if !loc.valid {
+		return false
+	}
+
+	req := protocol.MapWGReq{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: port.AsRemote(),
+			Dst: loc.cu,
+		},
+		WorkGroup:  loc.wg,
+		PID:        d.dispatching.PID,
+		Wavefronts: loc.locations,
+	}
+	port.Send(req)
+
+	d.numDispatchedWGs++
+	d.inflightWGs[req.ID] = loc
+	d.originalReqs[req.ID] = req
+	// The die is busy dispatching this WG's wavefronts for
+	// wavefrontDispatchCycles*W cycles total. This dispatch consumes the current
+	// cycle (the first busy cycle), so the gate holds the remaining W*cycles-1,
+	// giving an exact per-die period of W*cycles (not W*cycles+1).
+	d.dieCyclesLeft[die] = d.wavefrontDispatchCycles*len(loc.locations) - 1
+
+	if d.progressBar != nil {
+		d.progressBar.IncrementInProgress(1)
+	}
+
 	tracing.TraceReqInitiate(d, req,
 		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 

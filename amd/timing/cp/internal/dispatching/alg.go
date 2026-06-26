@@ -36,3 +36,18 @@ type algorithm interface {
 	// FreeResources marks the dispatched resources available.
 	FreeResources(location dispatchLocation)
 }
+
+// dieAwareAlgorithm dispatches a kernel across multiple dies (XCDs) in parallel.
+// The dispatcher drives each die independently through NextForDie and gates each
+// die with its own per-wavefront dispatch rate, so the dies advance in parallel.
+type dieAwareAlgorithm interface {
+	algorithm
+
+	// NumDies returns the number of dies dispatched across in parallel.
+	NumDies() int
+
+	// NextForDie returns where the next work-group on the given die can be
+	// dispatched, or an invalid location if that die has nothing to dispatch
+	// right now.
+	NextForDie(die int) (location dispatchLocation)
+}

@@ -18,6 +18,8 @@ import (
 var defaultSpec = Spec{
 	Freq:           1 * timing.GHz,
 	NumDispatchers: 8,
+	Alg:            "round-robin",
+	NumDies:        1,
 }
 
 // DefaultSpec returns a copy of the default configuration. Callers typically
@@ -128,9 +130,15 @@ func (b Builder) Build(name string) *Comp {
 
 func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
 	cuResourcePool := resource.NewCUResourcePool()
+	alg := b.spec.Alg
+	if alg == "" {
+		alg = "round-robin"
+	}
 	builder := dispatching.MakeBuilder().
 		WithCP(comp).
-		WithAlg("round-robin").
+		WithAlg(alg).
+		WithNumDies(b.spec.NumDies).
+		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
 		WithPortSource(comp).
 		WithDispatchingPortName("ToCUs").
