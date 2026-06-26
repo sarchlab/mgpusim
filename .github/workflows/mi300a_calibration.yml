@@ -26,9 +26,42 @@ name: MI300X Calibration
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: 'small = fast microbenchmarks only (~minutes); large = all benchmarks (3-12 h each, needs many runners)'
+        type: choice
+        options:
+          - small
+          - large
+        default: small
 
 jobs:
+  # Resolve the benchmark matrix from the `scope` input on a GitHub-hosted runner
+  # so it never consumes a (scarce) self-hosted runner.
+  #   small: the microbenchmarks that finish in <~15 min.
+  #   large: every benchmark in the `large` list below (each dense kernel is a
+  #          3-12 h cycle-accurate sweep, so this needs a lot of runner time).
+  # Benchmarks intentionally in NEITHER list (no faithful sim port / hang /
+  # unsupported -- see run_sweep.py SPECS): fp16_throughput (too slow),
+  # heteromark_* (different kernels), npb_ep (#278), parboil_stencil (hangs),
+  # polybench_gramschmidt (timing-core stall).
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      benchmarks: ${{ steps.pick.outputs.benchmarks }}
+    steps:
+      - id: pick
+        run: |
+          small='["fp32_throughput","fp64_throughput","int32_throughput","shared_mem_bandwidth","empty_kernel"]'
+          large='["fp32_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_bandwidth","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
+          if [ "${{ inputs.scope }}" = "large" ]; then
+            echo "benchmarks=$large" >> "$GITHUB_OUTPUT"
+          else
+            echo "benchmarks=$small" >> "$GITHUB_OUTPUT"
+          fi
+
   sweep:
+    needs: [setup]
     name: ${{ matrix.benchmark }} sweep
     runs-on: self-hosted
     # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
@@ -37,62 +70,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Only benchmarks with a faithful sim port + a run_sweep.py SPEC are
-        # listed (see SPECS in gpu_perf_scripts/calibration/run_sweep.py for why
-        # others are omitted). fail-fast is off and each benchmark streams
-        # independently, so a benchmark that crashes/produces nothing in CDNA3
-        # timing mode just yields no points without blocking the rest.
-        benchmark:
-          # Tier-1 microbenchmarks
-          - fp32_throughput
-          # fp16_throughput dropped for now: its timing-sim path is far slower
-          # than the others (even the smallest configs lag), so it produced no
-          # points while tying up a runner. Re-add once that's investigated.
-          - fp64_throughput
-          - int32_throughput
-          - memory_bandwidth
-          - shared_mem_bandwidth
-          - cache_latency
-          - empty_kernel
-          # Tier-2: altis
-          - altis_cfd
-          - altis_raytracing
-          # Tier-2: heteromark (aes/fir/pagerank) intentionally omitted -- the
-          # MGPUSim ports run different kernels than the gpu_benchmarks ground
-          # truth (pagerank is a different algorithm); see run_sweep.py SPECS.
-          # Tier-2: npb (npb_ep dropped: atomic-contention-bound, unsupported by
-          # the CDNA3 emulator -- https://github.com/sarchlab/mgpusim/issues/278)
-          # Tier-2: parboil (parboil_stencil omitted: hangs in CDNA3 timing mode)
-          - parboil_cutcp
-          - parboil_lbm
-          - parboil_sgemm
-          # Tier-2: polybench
-          - polybench_2dconv
-          - polybench_2mm
-          - polybench_3dconv
-          - polybench_3mm
-          - polybench_correlation
-          - polybench_fdtd2d
-          - polybench_gemm
-          # polybench_gramschmidt omitted: HANGS in CDNA3 timing mode (stalls even
-          # at n=1, in gram_norm_finish/gram_normalize) -- not a slow serial
-          # reduction as first thought, a timing-core stall. Re-add once fixed so
-          # it can't burn a runner for the whole sweep budget.
-          - polybench_jacobi2d
-          - polybench_mvt
-          - polybench_syr2k
-          # Tier-2: rodinia
-          - rodinia_backprop
-          - rodinia_gaussian
-          - rodinia_hotspot
-          - rodinia_hotspot3d
-          - rodinia_lavamd
-          - rodinia_lud
-          - rodinia_pathfinder
-          - rodinia_srad
-          # Tier-2: tango
-          - tango_binomial_options
-          - tango_blackscholes
+        # Resolved from the `scope` input by the setup job above.
+        benchmark: ${{ fromJSON(needs.setup.outputs.benchmarks) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
