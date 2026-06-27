@@ -17,6 +17,8 @@ func (u *ALU) runSOPK(state emu.InstEmuState) {
 		u.runSCMPKEQI32(state)
 	case 3:
 		u.runSCMPKLGI32(state)
+	case 14:
+		u.runSADDKI32(state)
 	case 15:
 		u.runSMULKI32(state)
 	default:
@@ -54,6 +56,23 @@ func (u *ALU) runSCMPKLGI32(state emu.InstEmuState) {
 	imm := int32(emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff)))
 	src := emu.AsInt32(uint32(state.ReadOperand(inst.Dst, 0)))
 	if src != imm {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+// runSADDKI32 implements s_addk_i32: Dst = Dst + signext(SImm16), with SCC set
+// on signed overflow.
+func (u *ALU) runSADDKI32(state emu.InstEmuState) {
+	inst := state.Inst()
+	imm := int32(emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff)))
+	src := emu.AsInt32(uint32(state.ReadOperand(inst.Dst, 0)))
+	result := src + imm
+	state.WriteOperand(inst.Dst, 0, uint64(emu.Int32ToBits(result)))
+
+	if (src > 0 && imm > 0 && result < 0) ||
+		(src < 0 && imm < 0 && result >= 0) {
 		state.SetSCC(1)
 	} else {
 		state.SetSCC(0)

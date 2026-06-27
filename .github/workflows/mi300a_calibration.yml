@@ -52,8 +52,8 @@ jobs:
     steps:
       - id: pick
         run: |
-          small='["fp32_throughput","fp64_throughput","int32_throughput","shared_mem_bandwidth","empty_kernel"]'
-          large='["fp32_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_bandwidth","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
+          small='["fp32_throughput","fp64_throughput","int32_throughput","shared_mem_latency","empty_kernel"]'
+          large='["fp32_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_latency","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
           if [ "${{ inputs.scope }}" = "large" ]; then
             echo "benchmarks=$large" >> "$GITHUB_OUTPUT"
           else

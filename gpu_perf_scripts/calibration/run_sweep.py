@@ -72,6 +72,14 @@ SPECS = {
     # convert MiB -> float32 elements (1 MiB / 4 bytes).
     "memory_bandwidth":     {"sample": "memory_bandwidth",     "scaling_flag": "-size",
                              "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
+    # The original "shared_mem_bandwidth" kernel was actually a single-accumulator
+    # dependent chain (measures LDS latency, not bandwidth); it is now
+    # shared_mem_latency and keeps the existing ground truth.
+    "shared_mem_latency":   {"sample": "shared_mem_latency",   "scaling_flag": "-inner-iters",
+                             "params": {"num_blocks": "-num-blocks"}},
+    # New multi-accumulator shared_mem_bandwidth kernel: NOT yet swept in CI --
+    # it needs HW ground truth (rocprof GPU-side time). Add ground-truth rows and
+    # the CI matrix entry once collected; the SPEC below is ready for that.
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
     # Pass the real benchmark's params so the sim builds the same cacheline-strided
