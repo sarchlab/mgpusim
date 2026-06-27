@@ -188,6 +188,12 @@ func (s *SchedulerImpl) DoFetch() bool {
 			ParentID: wf.UID,
 			Kind:     "fetch",
 			What:     "fetch",
+			// Give instruction fetch its own unit location instead of letting it
+			// fall back to the bare CU name (singleKindLocation's default). That
+			// keeps "one location, one kind": the bare CU name is no longer a task
+			// row, and fetch can't collide with the sampled wavefront task (which
+			// also used to fall back to the bare CU name).
+			Location: s.cu.comp.Name() + ".InstFetcher",
 		})
 		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}

@@ -461,6 +461,10 @@ func (cu *ComputeUnit) handleMapWGReq(
 					ParentID: tracing.MsgIDAtReceiver(req, cu.comp),
 					Kind:     "wavefront",
 					What:     "wavefront",
+					// The sampled fast path forgot the location, so the wavefront task
+					// fell back to the bare CU name and collided with fetch. Pin it to
+					// the same .WFPool location the normal path uses.
+					Location: cu.comp.Name() + ".WFPool",
 				})
 			}
 		}
