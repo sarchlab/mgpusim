@@ -195,6 +195,13 @@ func (s *SchedulerImpl) DoFetch() bool {
 			// also used to fall back to the bare CU name).
 			Location: s.cu.comp.Name() + ".InstFetcher",
 		})
+		if wf.InFlightInsts == 0 {
+			// Fetching while nothing is in flight: the wavefront is stalled with no
+			// instruction available, waiting on the fetch path. (A prefetch issued
+			// while an instruction executes leaves InFlightInsts > 0 and is silent.)
+			s.cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+				"inst_fetch")
+		}
 		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}
 

@@ -347,6 +347,11 @@ func (cu *ComputeUnit) endInflightTracingTasks() {
 			}
 
 			if inst := wf.DynamicInst(); inst != nil {
+				// This running inst's task is force-ended here, bypassing
+				// logInstTask, so keep the in-flight counter balanced.
+				if wf.InFlightInsts > 0 {
+					wf.InFlightInsts--
+				}
 				tracing.EndTaskOnReset(cu.comp, inst.ID)
 			}
 		}
@@ -581,6 +586,12 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	wf.IsFetching = false
 	wf.LastFetchTime = cu.CurrentTime()
+
+	if wf.InFlightInsts == 0 {
+		// The fetched instruction bytes arrived while nothing was executing: the
+		// interval since the fetch went out was spent waiting for this data.
+		cu.markWfMilestone(wf, tracing.MilestoneKindData, "inst_fetch")
+	}
 
 	tracing.TraceReqFinalize(cu.comp, info.Req)
 	tracing.EndTask(cu.comp, tracing.TaskEnd{ID: info.FetchTaskID})
@@ -850,15 +861,48 @@ func (cu *ComputeUnit) flushCUBuffers() {
 	cu.InFlightVectorMemAccess = nil
 }
 
+// markWfMilestone records a milestone on the wavefront task itself (TaskID
+// wf.UID), not on its instruction. These tile the wavefront's life into
+// execution (work) and the reasons for a gap between instructions — waiting
+// to fetch (hardware_resource), waiting for the fetched bytes (data), and
+// waiting for the exec unit to accept the issue (hardware_resource). They are
+// only emitted while nothing is in flight (see logInstTask), so they never
+// overlap and a prefetch overlapping execution stays silent.
+func (cu *ComputeUnit) markWfMilestone(
+	wf *wavefront.Wavefront, kind tracing.MilestoneKind, what string,
+) {
+	tracing.AddMilestone(cu.comp, tracing.Milestone{
+		TaskID: wf.UID,
+		Kind:   kind,
+		What:   what,
+	})
+}
+
 func (cu *ComputeUnit) logInstTask(
 	wf *wavefront.Wavefront,
 	inst *wavefront.Inst,
 	completed bool,
 ) {
 	if completed {
+		wf.InFlightInsts--
+		if wf.InFlightInsts == 0 {
+			// The last in-flight instruction finished: close the execution burst
+			// as work, so the gap that follows is attributed separately.
+			cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
+		}
 		tracing.EndTask(cu.comp, tracing.TaskEnd{ID: inst.ID})
 		return
 	}
+
+	if wf.InFlightInsts == 0 {
+		// Issuing after a gap (nothing was in flight): the time since the last
+		// milestone was spent waiting to issue this instruction — decode is ~1
+		// cycle, so it is dominated by waiting for the exec unit to accept the
+		// wave. Attribute it to that unit as a hardware resource.
+		cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+			cu.execUnitToString(inst.ExeUnit))
+	}
+	wf.InFlightInsts++
 
 	tracing.StartTask(cu.comp, tracing.TaskStart{
 		ID:       inst.ID,
