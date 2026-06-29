@@ -83,14 +83,14 @@ SPECS = {
     # emulator is hardened for the conflict kernel.
     "shared_mem_latency":   {"sample": "shared_mem_latency",   "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks", "block_size": "-block-size"}},
-    # New multi-accumulator shared_mem_bandwidth kernel (independent accumulators,
-    # many LDS reads in flight -> measures throughput, not latency). HW ground
-    # truth collected on a real MI300X (full inner_iters x block_size x
-    # access_pattern sweep); now enabled in the CI matrix. The SPEC passes only
-    # num_blocks, so block_size/access_pattern collapse via dedup (sim curve
-    # repeats across them -- the honest result until the sample exposes them).
+    # Multi-accumulator shared_mem_bandwidth kernel (independent accumulators,
+    # many LDS reads in flight -> measures throughput, not latency). block_size is
+    # now a real swept param: the kernel matches the HW (32 KB LDS footprint, block
+    # size a runtime arg, reads masked to block_size*UNROLL). access_pattern is NOT
+    # passed -- the conflict kernel hangs the CDNA3 emulator (same as
+    # shared_mem_latency), so the sim runs no_conflict only until that is fixed.
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
-                             "params": {"num_blocks": "-num-blocks"}},
+                             "params": {"num_blocks": "-num-blocks", "block_size": "-block-size"}},
     # Pass the real benchmark's params so the sim builds the same cacheline-strided
     # chain and derives the same timed-access count (measure_laps x lines, clamped).
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",

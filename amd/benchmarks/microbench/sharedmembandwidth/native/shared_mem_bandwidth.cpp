@@ -26,12 +26,17 @@
  */
 #include "hip/hip_runtime.h"
 
-#define BLOCK_SIZE  256
 #define UNROLL      8
-#define SMEM_FLOATS (BLOCK_SIZE * UNROLL)   // 2048, power of two (mask-wrappable)
+// Fixed 32 KB LDS footprint, matching the HW kernel so occupancy is the same.
+// The block size is a runtime kernel argument; reads mask to block_size*UNROLL
+// (the contiguously-initialized region, a power of two) -- a runtime AND, which
+// avoids both the runtime division and the uninitialized-cell reads that a
+// fixed 8192 modulo would otherwise need.
+#define SMEM_FLOATS 8192
 
 extern "C" __global__ void smem_bw_no_conflict(const float *d_in,
-                                               float *d_sink, int inner_iters)
+                                               float *d_sink, int inner_iters,
+                                               int block_size)
 {
     __shared__ float smem[SMEM_FLOATS];
     const int tid = threadIdx.x;
@@ -57,7 +62,7 @@ extern "C" __global__ void smem_bw_no_conflict(const float *d_in,
         for (int u = 0; u < UNROLL; ++u) {
             // it-varying window (not hoistable); consecutive lanes ->
             // consecutive cells -> consecutive banks (conflict-free).
-            int idx = (tid + (u + it) * BLOCK_SIZE) & (SMEM_FLOATS - 1);
+            int idx = (tid + (u + it) * block_size) & (block_size * UNROLL - 1);
             acc[u] += smem[idx];
         }
     }
@@ -73,7 +78,8 @@ extern "C" __global__ void smem_bw_no_conflict(const float *d_in,
 }
 
 extern "C" __global__ void smem_bw_conflict(const float *d_in,
-                                            float *d_sink, int inner_iters)
+                                            float *d_sink, int inner_iters,
+                                            int block_size)
 {
     __shared__ float smem[SMEM_FLOATS];
     const int tid  = threadIdx.x;
@@ -97,7 +103,7 @@ extern "C" __global__ void smem_bw_conflict(const float *d_in,
             // stride 32 floats between lanes -> all 32 lanes of a warp hit the
             // same bank (32-way conflict); (u+it) shifts which bank, and makes
             // the access it-varying so it can't be hoisted.
-            int idx = (lane * 32 + ((u + it) & 31)) & (SMEM_FLOATS - 1);
+            int idx = (lane * 32 + ((u + it) & 31)) & (block_size * UNROLL - 1);
             acc[u] += smem[idx];
         }
     }
