@@ -77,9 +77,12 @@ SPECS = {
     # shared_mem_latency and keeps the existing ground truth.
     "shared_mem_latency":   {"sample": "shared_mem_latency",   "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
-    # New multi-accumulator shared_mem_bandwidth kernel: NOT yet swept in CI --
-    # it needs HW ground truth (rocprof GPU-side time). Add ground-truth rows and
-    # the CI matrix entry once collected; the SPEC below is ready for that.
+    # New multi-accumulator shared_mem_bandwidth kernel (independent accumulators,
+    # many LDS reads in flight -> measures throughput, not latency). HW ground
+    # truth collected on a real MI300X (full inner_iters x block_size x
+    # access_pattern sweep); now enabled in the CI matrix. The SPEC passes only
+    # num_blocks, so block_size/access_pattern collapse via dedup (sim curve
+    # repeats across them -- the honest result until the sample exposes them).
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
                              "params": {"num_blocks": "-num-blocks"}},
     # Pass the real benchmark's params so the sim builds the same cacheline-strided
