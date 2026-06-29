@@ -75,6 +75,7 @@ func (r *Runner) initSimulation() {
 
 	if *visTracing {
 		builder = builder.WithVisTracingOnStart()
+		builder = withRecordedSource(builder)
 	}
 
 	// Only honor -metric-file-name when it is explicitly set, so the
