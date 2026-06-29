@@ -358,6 +358,12 @@ func (s *SchedulerImpl) evalSEndPgm(
 	// executing paths close it via logInstTask).
 	s.markMemDrained(wf, "s_endpgm")
 
+	// Cap the wavefront's final execution burst with a work milestone before it
+	// completes. The tail can keep InFlightInsts > 0 (e.g. a long outstanding
+	// VMem) right up to S_ENDPGM, so no count->0 work milestone fires on its own;
+	// without this the busy tail would be left unattributed.
+	s.cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
+
 	if allCompleted {
 		s.sendWGCompletionMessage(wf.WG)
 
