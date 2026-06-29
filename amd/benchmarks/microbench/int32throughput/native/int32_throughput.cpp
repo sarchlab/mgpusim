@@ -9,17 +9,16 @@
  * single final store per thread makes the result fully verifiable on the
  * host (with int32 wraparound).
  *
- * A constant block size (BLOCK) is used instead of blockDim.x so the
- * compiler emits no hidden ABI arguments. The host launcher MUST use the
- * same block size.
+ * The work-group size is passed as an explicit threads_per_block argument
+ * (blockDim.x reads back as 0 in this CDNA3 model for multi-block launches),
+ * so the global thread id is correct for any swept block size.
  */
 #include "hip/hip_runtime.h"
 
-#define BLOCK 64
-
-extern "C" __global__ void int32_mad_kernel(int *out, int mads_per_thread)
+extern "C" __global__ void int32_mad_kernel(int *out, int mads_per_thread,
+                                            int threads_per_block)
 {
-    int tid = blockIdx.x * BLOCK + threadIdx.x;
+    int tid = blockIdx.x * threads_per_block + threadIdx.x;
 
     int a0 = 1 + static_cast<int>(threadIdx.x);
     int a1 = a0 + 111;

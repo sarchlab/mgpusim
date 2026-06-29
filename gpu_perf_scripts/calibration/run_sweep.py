@@ -65,9 +65,9 @@ SPECS = {
     "fp16_throughput":      {"sample": "fp16_throughput",      "scaling_flag": "-fmas-per-thread",
                              "params": {"num_blocks": "-num-blocks", "threads_per_block": "-threads-per-block"}},
     "fp64_throughput":      {"sample": "fp64_throughput",      "scaling_flag": "-fmas-per-thread",
-                             "params": {"num_blocks": "-num-blocks"}},
+                             "params": {"num_blocks": "-num-blocks", "threads_per_block": "-threads-per-block"}},
     "int32_throughput":     {"sample": "int32_throughput",     "scaling_flag": "-mads",
-                             "params": {"num_blocks": "-blocks"}},
+                             "params": {"num_blocks": "-blocks", "threads_per_block": "-threads-per-block"}},
     # -size is a float32 ELEMENT count; ground truth scales by buffer_size_mb, so
     # convert MiB -> float32 elements (1 MiB / 4 bytes).
     "memory_bandwidth":     {"sample": "memory_bandwidth",     "scaling_flag": "-size",

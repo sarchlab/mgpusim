@@ -23,10 +23,11 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// blockSize is the fixed work-group size (BLOCK_SIZE in the kernel). It is a
-// compile-time constant in the kernel so blockDim.x is never read, which
-// keeps the kernel free of hidden ABI arguments.
-const blockSize = 64
+// defaultThreadsPerBlock is the work-group size used when ThreadsPerBlock is
+// unset. The block size is a runtime kernel argument (passed explicitly
+// because blockDim.x reads back as 0 in this model), so the calibration can
+// sweep it.
+const defaultThreadsPerBlock = 256
 
 // stride is the number of doubles per thread in the input buffer (STRIDE in
 // the kernel). It is a power of two so the kernel forms the load address
@@ -46,15 +47,15 @@ const (
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
 // The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 20): two 8-byte global_buffer pointers
-// (out, in) followed by one 4-byte by_value int, packed with no padding
-// (mgpusim serializes args with binary.Write, which does not insert
-// alignment padding). The kernel reads only blockIdx.x / threadIdx.x (block
-// size is a compile-time constant), so no hidden ABI arguments are emitted.
+// metadata (kernarg_segment_size = 24): two 8-byte global_buffer pointers
+// (out, in) followed by two 4-byte by_value ints (fmas_per_thread,
+// threads_per_block), packed with no padding (mgpusim serializes args with
+// binary.Write, which does not insert alignment padding).
 type KernelArgs struct {
-	Out           driver.Ptr // offset 0
-	In            driver.Ptr // offset 8
-	FmasPerThread int32      // offset 16
+	Out             driver.Ptr // offset 0
+	In              driver.Ptr // offset 8
+	FmasPerThread   int32      // offset 16
+	ThreadsPerBlock int32      // offset 20
 }
 
 // Benchmark defines the fp64_throughput benchmark.
@@ -67,9 +68,11 @@ type Benchmark struct {
 
 	Arch arch.Type
 
-	// NumBlocks is the number of work-groups (grid dim in blocks). Each
-	// block has blockSize (64) work-items.
+	// NumBlocks is the number of work-groups (grid dim in blocks).
 	NumBlocks int
+	// ThreadsPerBlock is the work-group (block) size, swept by the
+	// calibration and passed to the kernel as an explicit argument.
+	ThreadsPerBlock int
 	// FmasPerThread is the number of FMA iterations per work-item. It is
 	// rounded down to a multiple of 4 (matching the host program), with a
 	// minimum of 4. Each iteration performs 4 FP64 FMAs (one per
@@ -137,13 +140,16 @@ func (b *Benchmark) normalizeParams() {
 	if b.FmasPerThread <= 0 {
 		b.FmasPerThread = 16
 	}
+	if b.ThreadsPerBlock <= 0 {
+		b.ThreadsPerBlock = defaultThreadsPerBlock
+	}
 	// Match the host program: round down to a multiple of 4, minimum 4.
 	b.FmasPerThread = (b.FmasPerThread / 4) * 4
 	if b.FmasPerThread == 0 {
 		b.FmasPerThread = 4
 	}
 
-	b.numThreads = b.NumBlocks * blockSize
+	b.numThreads = b.NumBlocks * b.ThreadsPerBlock
 }
 
 // seedFor returns the seed for accumulator acc (0..3) of work-item gid.
@@ -198,16 +204,17 @@ func (b *Benchmark) exec() {
 	globalX := uint32(b.numThreads)
 
 	args := KernelArgs{
-		Out:           b.gOut,
-		In:            b.gIn,
-		FmasPerThread: int32(b.FmasPerThread),
+		Out:             b.gOut,
+		In:              b.gIn,
+		FmasPerThread:   int32(b.FmasPerThread),
+		ThreadsPerBlock: int32(b.ThreadsPerBlock),
 	}
 
 	b.driver.EnqueueLaunchKernel(
 		b.queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
+		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
 

@@ -8,9 +8,11 @@ import (
 )
 
 var numBlocks = flag.Int("num-blocks", 4,
-	"The number of work-groups (each has 64 work-items).")
+	"The number of work-groups.")
 var fmasPerThread = flag.Int("fmas-per-thread", 16,
 	"The number of FP64 FMA iterations per work-item (rounded to a multiple of 4).")
+var threadsPerBlock = flag.Int("threads-per-block", 256,
+	"Work-group size (threads per block).")
 
 func main() {
 	flag.Parse()
@@ -20,6 +22,7 @@ func main() {
 	benchmark := fp64throughput.NewBenchmark(runner.Driver())
 	benchmark.NumBlocks = *numBlocks
 	benchmark.FmasPerThread = *fmasPerThread
+	benchmark.ThreadsPerBlock = *threadsPerBlock
 	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)

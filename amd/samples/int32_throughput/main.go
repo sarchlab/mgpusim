@@ -11,8 +11,9 @@ var madsPerThread = flag.Int("mads", 4096,
 	"The number of int32 multiply-add operations per thread "+
 		"(rounded down to a multiple of 4).")
 var numBlocks = flag.Int("blocks", 16,
-	"The number of work-groups (blocks) in the 1D grid. "+
-		"The block size is fixed at 64.")
+	"The number of work-groups (blocks) in the 1D grid.")
+var threadsPerBlock = flag.Int("threads-per-block", 256,
+	"Work-group size (threads per block).")
 
 func main() {
 	flag.Parse()
@@ -22,6 +23,7 @@ func main() {
 	benchmark := int32throughput.NewBenchmark(runner.Driver())
 	benchmark.MadsPerThread = *madsPerThread
 	benchmark.NumBlocks = *numBlocks
+	benchmark.ThreadsPerBlock = *threadsPerBlock
 	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
