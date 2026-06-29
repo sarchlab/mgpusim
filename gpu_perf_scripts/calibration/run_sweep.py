@@ -75,8 +75,14 @@ SPECS = {
     # The original "shared_mem_bandwidth" kernel was actually a single-accumulator
     # dependent chain (measures LDS latency, not bandwidth); it is now
     # shared_mem_latency and keeps the existing ground truth.
+    # block_size is now a real swept param (the kernel matches the HW: 48 KB
+    # LDS, block size as a runtime arg). access_pattern is intentionally NOT
+    # passed: the conflict kernel's runtime arithmetic still trips CDNA3-emulator
+    # gaps, so the sim runs no_conflict only for now (the sample default);
+    # conflict ground-truth rows dedup onto the no_conflict sim until the
+    # emulator is hardened for the conflict kernel.
     "shared_mem_latency":   {"sample": "shared_mem_latency",   "scaling_flag": "-inner-iters",
-                             "params": {"num_blocks": "-num-blocks"}},
+                             "params": {"num_blocks": "-num-blocks", "block_size": "-block-size"}},
     # New multi-accumulator shared_mem_bandwidth kernel (independent accumulators,
     # many LDS reads in flight -> measures throughput, not latency). HW ground
     # truth collected on a real MI300X (full inner_iters x block_size x
