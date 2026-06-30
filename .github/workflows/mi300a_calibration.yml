@@ -67,9 +67,10 @@ jobs:
     needs: [setup]
     name: ${{ matrix.benchmark }} sweep
     runs-on: self-hosted
-    # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
-    # run (PER_RUN_TIMEOUT) + build/setup headroom. Self-hosted: no 6 h cap.
-    timeout-minutes: 1500
+    # With early-stop on the first timeout/failure + a 3 h SWEEP_TIMEOUT backstop
+    # and an 8 min PER_RUN_TIMEOUT (set on the Run sweep step), a benchmark
+    # finishes well under 4 h; this is just a hard runner-release backstop.
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
@@ -128,6 +129,13 @@ jobs:
             mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run sweep
+        env:
+          # Configs run cheapest-to-simulate first and the sweep early-stops on the
+          # first timeout/failure (run_sweep.py), so a short per-run cap fails the
+          # first too-expensive config fast and the budget is just a backstop.
+          # Tuned down for limited-runner setups (was 1800 / 86400).
+          PER_RUN_TIMEOUT: "480"
+          SWEEP_TIMEOUT: "10800"
         run: |
           python3 gpu_perf_scripts/calibration/run_sweep.py \
             ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv

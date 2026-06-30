@@ -193,7 +193,20 @@ def sim_cost(scaling_value, ns):
         s = abs(xparse(scaling_value))
     except (ValueError, TypeError):
         s = 1
-    return s * ns.get("num_blocks", 1) * ns.get("threads_per_block", 1)
+    cost = s * ns.get("num_blocks", 1) * ns.get("threads_per_block", 1)
+    # Iteration-count params multiply the per-element work, so fold them in too:
+    # this keeps the ordering (and the early-stop) monotonic in real sim time when
+    # two configs share a scaling value but differ in iteration count.
+    for k in ("num_iterations", "iterations", "tsteps", "tmax", "num_timesteps",
+              "steps", "passes", "trials", "measure_laps", "inner_iters"):
+        v = ns.get(k)
+        if v is None:
+            continue
+        try:
+            cost *= max(1, abs(int(v)))
+        except (ValueError, TypeError):
+            pass
+    return cost
 
 
 def load_configs(ref, benchmark):
@@ -280,6 +293,11 @@ def main():
     per_run = int(os.environ.get("PER_RUN_TIMEOUT", "1800"))
     budget = int(os.environ.get("SWEEP_TIMEOUT", "86400"))
     every = int(os.environ.get("FB_EVERY", "5"))
+    # Configs are ordered cheapest-to-simulate first, so the first config that
+    # times out or fails means every remaining config is at least as expensive.
+    # Stop there instead of burning a full PER_RUN_TIMEOUT on each remaining
+    # (more expensive) config. Set SWEEP_STOP_ON_TIMEOUT=0 for an exhaustive sweep.
+    stop_on_timeout = os.environ.get("SWEEP_STOP_ON_TIMEOUT", "1") != "0"
     os.environ.setdefault("CGO_ENABLED", "1")  # timing metrics via the SQLite recorder
 
     build_dir = tempfile.mkdtemp()
@@ -322,9 +340,18 @@ def main():
         elif kt == "timeout":
             timed_out += 1
             print(f"  timeout {tag}  (> {per_run}s)", flush=True)
+            if stop_on_timeout and not cached:
+                print(f"  STOP: timed out; the remaining {len(configs) - i} configs are "
+                      f"at least this expensive (cheapest-first order). Skipping them.",
+                      flush=True)
+                break
         else:
             failed += 1
             print(f"  FAIL    {tag}", flush=True)
+            if stop_on_timeout and not cached:
+                print(f"  STOP: no metric (sim failure); the remaining {len(configs) - i} "
+                      f"configs are more expensive. Skipping them.", flush=True)
+                break
     writer_f.close()
     fb_stream(args.benchmark, out_abs, args.ref)  # final flush
     print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")
