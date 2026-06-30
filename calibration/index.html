@@ -118,7 +118,7 @@ function computeGlobal(points) {
     const s = Number(p.sim_ms), h = (p.real_ms == null) ? null : Number(p.real_ms);
     if (h == null || !(s > 0) || !(h > 0)) continue;
     const lr = Math.log(s / h);
-    logr.push(lr); scatter.push({ real: h, sim: s, benchmark: p.benchmark, logr: lr });
+    logr.push(lr); scatter.push({ real: h, sim: s, benchmark: p.benchmark, logr: lr, x: Number(p.x), label: p.label });
     if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, []);
     byBench.get(p.benchmark).push({ x: Number(p.x), sim: s, real: h, lr });
   }
@@ -198,18 +198,61 @@ function drawScatterFig(div, g) {
   }, { displayModeBar: false, responsive: true });
 }
 
+// Symmetric fold-change error: 0 = exact, -1 = sim 2× too fast (under-estimate),
+// +1 = sim 2× too slow (over-estimate). A factor f either way maps to ±(f-1), so
+// the metric is symmetric (sim 0.5 ms vs real 1 ms -> -1; sim 2 ms vs real 1 ms -> +1).
+function symErr(sim, real) {
+  return sim >= real ? (sim / real - 1) : -(real / sim - 1);
+}
+
+// S-curve: every (benchmark, config) measurement sorted by signed error, from the
+// most under-estimated (sim too fast, most negative) to the most over-estimated
+// (sim too slow, most positive). Tooltips identify each point.
+function drawScurveFig(div, g) {
+  const data = g.scatter.map((p) => ({ ...p, e: symErr(p.sim, p.real) }))
+                        .sort((a, b) => a.e - b.e);
+  const n = data.length;
+  const text = data.map((p) => {
+    const fast = p.sim < p.real, fold = fast ? (p.real / p.sim) : (p.sim / p.real);
+    const cfg = p.label ? `<br>${p.label}`
+      : (p.x != null && !Number.isNaN(p.x) ? `<br>scale = ${p.x}` : "");
+    const dir = fast ? "too fast (sim under-estimates)"
+      : (p.sim > p.real ? "too slow (sim over-estimates)" : "exact");
+    return `<b>${p.benchmark}</b>${cfg}`
+      + `<br>sim ${p.sim.toFixed(4)} ms · real ${p.real.toFixed(4)} ms`
+      + `<br>${fold.toFixed(2)}× ${dir}`;
+  });
+  const pts = {
+    x: data.map((_, i) => i + 1), y: data.map((p) => p.e), text,
+    mode: "markers", type: "scatter",
+    marker: { size: 5, opacity: 0.8, color: data.map((p) => p.e),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "← faster   0   slower →", side: "right" }, thickness: 10, len: 0.9 } },
+    hovertemplate: "%{text}<br>rank %{x}/" + n + " · error %{y:+.2f}<extra></extra>",
+  };
+  const zero = { x: [0, n + 1], y: [0, 0], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [zero, pts], {
+    title: { text: `calibration S-curve: every measurement sorted by signed error<br><sub>y = symmetric fold-change · −1 = sim 2× too fast · +1 = sim 2× too slow · 0 = exact · ${n} points</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "measurements, sorted: most under-estimated → most over-estimated", font: { size: 11 } }, range: [0, n + 1], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "← sim faster (−)    signed error    sim slower (+) →", font: { size: 11 } }, fixedrange: true, automargin: true, zeroline: false },
+    margin: { l: 60, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
 function renderGlobal(points) {
   const root = $("global");
   const g = computeGlobal(points);
   if (!g) { root.innerHTML = ""; return; }
   if (!$("gfig_rank")) {
     root.innerHTML = `<h2>Global calibration <span id="gmetrics" class="gmetrics"></span></h2>`
+      + `<div class="card" style="margin-bottom:12px"><div class="plot" id="gfig_scurve" style="height:380px"></div></div>`
       + `<div class="grid">`
       + `<div class="card"><div class="plot" id="gfig_rank"></div></div>`
       + `<div class="card"><div class="plot" id="gfig_scatter"></div></div>`
       + `</div>`;
   }
   $("gmetrics").innerHTML = globalMetricsHTML(g);
+  drawScurveFig($("gfig_scurve"), g);
   drawRankFig($("gfig_rank"), g);
   drawScatterFig($("gfig_scatter"), g);
 }
