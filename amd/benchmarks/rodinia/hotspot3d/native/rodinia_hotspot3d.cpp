@@ -8,13 +8,13 @@
  * uses its own value for the missing neighbor).
  *
  * The launch geometry uses a constant BLOCK_DIM (8) square for the (x, y)
- * block, so the compiler emits no hidden ABI arguments. Each work-item owns
- * one (x, y) column and walks the full z range in a loop, so the kernel never
- * references blockIdx.z / threadIdx.z. (The MGPUSim gfx942 model does not wire
- * up the work-group ID Z system SGPR, so a 3D grid would read blockIdx.z as 0;
- * folding z into an in-kernel loop sidesteps that and is numerically
- * identical.) Grid x/y are ceil(N / BLOCK_DIM) each; the in-kernel bounds
- * checks against nx/ny mask off any out-of-range work-items.
+ * block. The grid is 3D: one work-item per (x, y, z) cell, with z = blockIdx.z
+ * (blockDim.z == 1), matching the real gpu_benchmarks kernel's nx*ny*nz
+ * parallelism (the earlier z-loop port collapsed that to nx*ny work-items,
+ * starving occupancy and making the sim ~6x too slow). The CDNA3 model wires up
+ * the work-group ID Z system SGPR, so blockIdx.z is correct. Grid x/y are
+ * ceil(N / BLOCK_DIM) each, grid z is N; the in-kernel bounds checks mask off
+ * any out-of-range work-items.
  */
 #include "hip/hip_runtime.h"
 
@@ -31,36 +31,34 @@ extern "C" __global__ void hotspot3d_kernel(
 {
     int x = blockIdx.x * BLOCK_DIM + threadIdx.x;
     int y = blockIdx.y * BLOCK_DIM + threadIdx.y;
+    int z = blockIdx.z;   // one work-item per (x, y, z) cell; blockDim.z == 1
 
-    if (x >= nx || y >= ny) return;
+    if (x >= nx || y >= ny || z >= nz) return;
 
     int plane = ny * nx;
+    int idx = z * plane + y * nx + x;
 
-    for (int z = 0; z < nz; ++z) {
-        int idx = z * plane + y * nx + x;
+    float tc = temp_src[idx];
 
-        float tc = temp_src[idx];
+    // +/-x neighbors (clamped boundary)
+    float txm = (x > 0)      ? temp_src[z * plane + y * nx + (x - 1)] : tc;
+    float txp = (x < nx - 1) ? temp_src[z * plane + y * nx + (x + 1)] : tc;
 
-        // +/-x neighbors (clamped boundary)
-        float txm = (x > 0)      ? temp_src[z * plane + y * nx + (x - 1)] : tc;
-        float txp = (x < nx - 1) ? temp_src[z * plane + y * nx + (x + 1)] : tc;
+    // +/-y neighbors (clamped boundary)
+    float tym = (y > 0)      ? temp_src[z * plane + (y - 1) * nx + x] : tc;
+    float typ = (y < ny - 1) ? temp_src[z * plane + (y + 1) * nx + x] : tc;
 
-        // +/-y neighbors (clamped boundary)
-        float tym = (y > 0)      ? temp_src[z * plane + (y - 1) * nx + x] : tc;
-        float typ = (y < ny - 1) ? temp_src[z * plane + (y + 1) * nx + x] : tc;
+    // +/-z neighbors (clamped boundary)
+    float tzm = (z > 0)      ? temp_src[(z - 1) * plane + y * nx + x] : tc;
+    float tzp = (z < nz - 1) ? temp_src[(z + 1) * plane + y * nx + x] : tc;
 
-        // +/-z neighbors (clamped boundary)
-        float tzm = (z > 0)      ? temp_src[(z - 1) * plane + y * nx + x] : tc;
-        float tzp = (z < nz - 1) ? temp_src[(z + 1) * plane + y * nx + x] : tc;
+    float delta = step_div_cap * (
+        power[idx]
+        + (txm + txp - 2.0f * tc) * Rx_1
+        + (tym + typ - 2.0f * tc) * Ry_1
+        + (tzm + tzp - 2.0f * tc) * Rz_1
+        + (amb_temp - tc) * Ra_1
+    );
 
-        float delta = step_div_cap * (
-            power[idx]
-            + (txm + txp - 2.0f * tc) * Rx_1
-            + (tym + typ - 2.0f * tc) * Ry_1
-            + (tzm + tzp - 2.0f * tc) * Rz_1
-            + (amb_temp - tc) * Ra_1
-        );
-
-        temp_dst[idx] = tc + delta;
-    }
+    temp_dst[idx] = tc + delta;
 }
