@@ -57,27 +57,33 @@ jobs:
       per_run: ${{ steps.pick.outputs.per_run }}
       sweep_timeout: ${{ steps.pick.outputs.sweep_timeout }}
       job_timeout: ${{ steps.pick.outputs.job_timeout }}
+      runner: ${{ steps.pick.outputs.runner }}
     steps:
       - id: pick
         run: |
           benchmarks='["fp32_throughput","fp16_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_latency","shared_mem_bandwidth","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
-          # tier -> per-sim (s) / per-benchmark (s) / job hard-timeout (min)
+          # tier -> per-sim (s) / per-benchmark (s) / job hard-timeout (min) / runner.
+          # Short tiers fit GitHub's 6 h hosted-runner cap, so run them on FREE
+          # github-hosted runners (mgpusim is public); long tiers exceed 6 h and
+          # must use self-hosted.
           case "${{ inputs.scope }}" in
-            small)   per_run=600;   sweep=1800;   job=50    ;;  # 10 min / 30 min
-            medium)  per_run=1800;  sweep=7200;   job=165   ;;  # 30 min / 2 h
-            large)   per_run=7200;  sweep=86400;  job=1600  ;;  # 2 h  / 1 day
-            x-large) per_run=43200; sweep=604800; job=10900 ;;  # 12 h / 1 week
-            *)       per_run=1800;  sweep=7200;   job=165   ;;  # default = medium
+            small)   per_run=600;   sweep=1800;   job=50;    runner=ubuntu-latest ;;  # 10 min / 30 min
+            medium)  per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # 30 min / 2 h
+            large)   per_run=7200;  sweep=86400;  job=1600;  runner=self-hosted   ;;  # 2 h  / 1 day
+            x-large) per_run=43200; sweep=604800; job=10900; runner=self-hosted   ;;  # 12 h / 1 week
+            *)       per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # default = medium
           esac
           echo "benchmarks=$benchmarks"   >> "$GITHUB_OUTPUT"
           echo "per_run=$per_run"         >> "$GITHUB_OUTPUT"
           echo "sweep_timeout=$sweep"     >> "$GITHUB_OUTPUT"
           echo "job_timeout=$job"         >> "$GITHUB_OUTPUT"
+          echo "runner=$runner"           >> "$GITHUB_OUTPUT"
 
   sweep:
     needs: [setup]
     name: ${{ matrix.benchmark }} sweep
-    runs-on: self-hosted
+    # github-hosted (free) for small/medium, self-hosted for large/x-large -- see setup.
+    runs-on: ${{ needs.setup.outputs.runner }}
     # Hard runner-release backstop, scaled to the scope tier's per-benchmark cap
     # by the setup job (small 50m ... x-large ~1 week + headroom). The sweep's own
     # SWEEP_TIMEOUT + early-stop normally finish well before this fires.
@@ -96,15 +102,21 @@ jobs:
         with:
           go-version-file: go.mod
           # Self-hosted runners persist ~/go/pkg/mod and ~/.cache/go-build on disk
-          # between jobs, so setup-go's remote module cache is redundant -- it was
-          # restoring ~1.7 GB (~6.5 min) over modules already present, then failing
-          # the tar extract with "File exists". Disable it.
-          cache: false
+          # between jobs, so setup-go's remote cache is redundant there (and was
+          # failing the tar extract with "File exists"). Ephemeral github-hosted
+          # runners have no persistent disk, so enable the cache there to avoid
+          # re-downloading modules on every job.
+          cache: ${{ needs.setup.outputs.runner != 'self-hosted' }}
 
       - name: Install build dependencies
         run: |
           if command -v dnf &>/dev/null; then
             sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          elif command -v apt-get &>/dev/null; then
+            # github-hosted ubuntu: gcc/sqlite are usually preinstalled; ensure the
+            # CGO sqlite recorder can build.
+            sudo apt-get update -qq && sudo apt-get install -y -qq gcc libsqlite3-dev \
+              || echo "WARNING: apt failed, deps may already be installed"
           fi
 
       - name: Tool versions
@@ -159,8 +171,8 @@ jobs:
 
   report:
     name: Render report + finalize run
-    runs-on: self-hosted
-    needs: [sweep]
+    runs-on: ${{ needs.setup.outputs.runner }}
+    needs: [setup, sweep]
     if: always()      # render from whatever sweeps produced, even if some failed
     timeout-minutes: 30
     steps:
@@ -244,7 +256,7 @@ jobs:
     name: Mark run failed (cancelled)
     needs: [sweep]
     if: ${{ cancelled() }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest   # just a Firestore status update -- no need for self-hosted
     timeout-minutes: 10
     steps:
       - name: Checkout
