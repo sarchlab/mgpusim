@@ -200,7 +200,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 			// instruction available, waiting on the fetch path. (A prefetch issued
 			// while an instruction executes leaves InFlightInsts > 0 and is silent.)
 			s.cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
-				"inst_fetch")
+				s.cu.comp.Name()+".InstFetcher")
 		}
 		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}

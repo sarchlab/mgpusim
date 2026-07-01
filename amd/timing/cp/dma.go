@@ -313,7 +313,7 @@ func (m *dmaMiddleware) parseFromCP() bool {
 	tracing.AddMilestone(m.comp, tracing.Milestone{
 		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
 		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   "processing slot",
+		What:   m.comp.Name() + ".processing-slot",
 	})
 
 	m.toCP().RetrieveIncoming()

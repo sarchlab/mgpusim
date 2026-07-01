@@ -900,7 +900,7 @@ func (cu *ComputeUnit) logInstTask(
 		// cycle, so it is dominated by waiting for the exec unit to accept the
 		// wave. Attribute it to that unit as a hardware resource.
 		cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
-			cu.execUnitToString(inst.ExeUnit))
+			cu.comp.Name()+"."+cu.execUnitToString(inst.ExeUnit))
 	}
 	wf.InFlightInsts++
 
