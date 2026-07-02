@@ -65,6 +65,13 @@ type Wavefront struct {
 	OutstandingScalarMemAccess int
 	OutstandingVectorMemAccess int
 
+	// InFlightInsts counts this wavefront's instruction tasks currently in
+	// flight (issued but not yet completed). When it is zero the wavefront has
+	// nothing executing — a real gap — and its fetch/issue stalls are
+	// attributed with milestones; while it is non-zero a concurrent prefetch is
+	// silent (the wavefront is making progress, so it is not blocked).
+	InFlightInsts int
+
 	// ScoreboardData holds per-wavefront register scoreboard state.
 	// When register scoreboard is enabled, this contains a *cu.Scoreboard
 	// (stored as interface{} to avoid circular imports).

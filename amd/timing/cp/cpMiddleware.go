@@ -148,7 +148,7 @@ func (m *cpMiddleware) processLaunchKernelReq(
 	tracing.AddMilestone(m.comp, tracing.Milestone{
 		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
 		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   "dispatcher",
+		What:   m.comp.Name() + ".dispatcher",
 	})
 
 	m.toDriver().RetrieveIncoming()

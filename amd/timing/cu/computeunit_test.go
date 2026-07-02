@@ -206,7 +206,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf *wavefront.Wavefront
 		)
 		BeforeEach(func() {
-			wf = new(wavefront.Wavefront)
+			wf = wavefront.NewWavefront(kernels.NewWavefront())
 			inst := wavefront.NewInst(nil)
 			wf.SetDynamicInst(inst)
 			wf.SetPC(0x1000)

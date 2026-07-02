@@ -259,7 +259,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 		TaskID: wave.DynamicInst().ID,
 		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   "vmem-inflight",
+		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
 	u.startIssueSubtask(wave.DynamicInst())
 
@@ -309,7 +309,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 		TaskID: wave.DynamicInst().ID,
 		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   "vmem-inflight",
+		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
 	u.startIssueSubtask(wave.DynamicInst())
 

@@ -188,7 +188,20 @@ func (s *SchedulerImpl) DoFetch() bool {
 			ParentID: wf.UID,
 			Kind:     "fetch",
 			What:     "fetch",
+			// Give instruction fetch its own unit location instead of letting it
+			// fall back to the bare CU name (singleKindLocation's default). That
+			// keeps "one location, one kind": the bare CU name is no longer a task
+			// row, and fetch can't collide with the sampled wavefront task (which
+			// also used to fall back to the bare CU name).
+			Location: s.cu.comp.Name() + ".InstFetcher",
 		})
+		if wf.InFlightInsts == 0 {
+			// Fetching while nothing is in flight: the wavefront is stalled with no
+			// instruction available, waiting on the fetch path. (A prefetch issued
+			// while an instruction executes leaves InFlightInsts > 0 and is silent.)
+			s.cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+				s.cu.comp.Name()+".InstFetcher")
+		}
 		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}
 
@@ -344,6 +357,12 @@ func (s *SchedulerImpl) evalSEndPgm(
 	// once, before any branch below ends the inst task (the barrier and
 	// executing paths close it via logInstTask).
 	s.markMemDrained(wf, "s_endpgm")
+
+	// Cap the wavefront's final execution burst with a work milestone before it
+	// completes. The tail can keep InFlightInsts > 0 (e.g. a long outstanding
+	// VMem) right up to S_ENDPGM, so no count->0 work milestone fires on its own;
+	// without this the busy tail would be left unattributed.
+	s.cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
 
 	if allCompleted {
 		s.sendWGCompletionMessage(wf.WG)
