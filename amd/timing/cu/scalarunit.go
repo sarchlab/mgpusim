@@ -25,6 +25,12 @@ type ScalarUnit struct {
 	readBufSize int
 	readBuf     []memprotocol.ReadReq
 
+	// issueTaskIDs maps an SMEM instruction's task ID to the "pipeline" subtask
+	// that records scalar-address/read-request issue work. The subtask closes
+	// when the requests are admitted into readBuf, so the later data milestone
+	// covers only the actual memory round trip.
+	issueTaskIDs map[uint64]uint64
+
 	log2CachelineSize uint64
 
 	isIdle bool
@@ -41,6 +47,7 @@ func NewScalarUnit(
 	u.alu = alu
 	u.readBufSize = 16
 	u.readBuf = make([]memprotocol.ReadReq, 0, u.readBufSize)
+	u.issueTaskIDs = make(map[uint64]uint64)
 	return u
 }
 
@@ -59,6 +66,37 @@ func (u *ScalarUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront) {
 	u.toRead = wave
+	inst := wave.Inst()
+	dynInst := wave.DynamicInst()
+	if inst != nil && dynInst != nil && inst.FormatType == insts.SMEM {
+		u.startIssueSubtask(dynInst)
+	}
+}
+
+func (u *ScalarUnit) startIssueSubtask(inst *wavefront.Inst) {
+	taskID := timing.GetIDGenerator().Generate()
+	tracing.StartTask(u.cu.comp, tracing.TaskStart{
+		ID:       taskID,
+		ParentID: inst.ID,
+		Kind:     "pipeline",
+		What:     "smem_issue",
+	})
+	u.issueTaskIDs[inst.ID] = taskID
+}
+
+func (u *ScalarUnit) endIssueSubtask(inst *wavefront.Inst) {
+	taskID, ok := u.issueTaskIDs[inst.ID]
+	if !ok {
+		return
+	}
+
+	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: inst.ID,
+		Kind:   tracing.MilestoneKindWork,
+		What:   "smem_issue",
+	})
+	delete(u.issueTaskIDs, inst.ID)
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -170,6 +208,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		curr += bytesLeftInCacheline
 	}
 
+	u.endIssueSubtask(inst)
+
 	u.toExec.OutstandingScalarMemAccess++
 	u.cu.UpdatePCAndSetReady(u.toExec)
 	u.toExec = nil
@@ -245,4 +285,13 @@ func (u *ScalarUnit) Flush() {
 	u.toExec = nil
 	u.toWrite = nil
 	u.readBuf = nil
+	for instID, taskID := range u.issueTaskIDs {
+		tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
+		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+			TaskID: instID,
+			Kind:   tracing.MilestoneKindWork,
+			What:   "smem_issue",
+		})
+		delete(u.issueTaskIDs, instID)
+	}
 }
