@@ -576,6 +576,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	info := cu.InFlightInstFetch[matchIdx]
 	wf := info.Wavefront
 	addr := info.Address
+	wasWaitingForFetch := wf.InFlightInsts == 0 && !wfHasInstructionReady(wf)
 	cu.InFlightInstFetch = append(
 		cu.InFlightInstFetch[:matchIdx],
 		cu.InFlightInstFetch[matchIdx+1:]...)
@@ -587,7 +588,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	wf.IsFetching = false
 	wf.LastFetchTime = cu.CurrentTime()
 
-	if wf.InFlightInsts == 0 {
+	if wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
 		// interval since the fetch went out was spent waiting for this data.
 		cu.markWfMilestone(wf, tracing.MilestoneKindData, "inst_fetch")
@@ -853,6 +854,23 @@ func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
 			wf.InstBufferStartPC += 64
 		}
 	}
+}
+
+func wfHasInstructionReady(wf *wavefront.Wavefront) bool {
+	if wf.InstToIssue != nil {
+		return true
+	}
+
+	if len(wf.InstBuffer) == 0 || wf.PC() < wf.InstBufferStartPC {
+		return false
+	}
+
+	offset := wf.PC() - wf.InstBufferStartPC
+	if offset > uint64(len(wf.InstBuffer)) {
+		return false
+	}
+
+	return len(wf.InstBuffer[int(offset):]) >= 4
 }
 
 func (cu *ComputeUnit) flushCUBuffers() {
