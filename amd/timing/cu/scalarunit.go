@@ -79,7 +79,7 @@ func (u *ScalarUnit) startIssueSubtask(inst *wavefront.Inst) {
 		ID:       taskID,
 		ParentID: inst.ID,
 		Kind:     "pipeline",
-		What:     "smem_issue",
+		What:     u.cu.comp.Name() + ".smem_issue",
 	})
 	u.issueTaskIDs[inst.ID] = taskID
 }
@@ -94,7 +94,7 @@ func (u *ScalarUnit) endIssueSubtask(inst *wavefront.Inst) {
 	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 		TaskID: inst.ID,
 		Kind:   tracing.MilestoneKindWork,
-		What:   "smem_issue",
+		What:   u.cu.comp.Name() + ".smem_issue",
 	})
 	delete(u.issueTaskIDs, inst.ID)
 }
@@ -290,7 +290,7 @@ func (u *ScalarUnit) Flush() {
 		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 			TaskID: instID,
 			Kind:   tracing.MilestoneKindWork,
-			What:   "smem_issue",
+			What:   u.cu.comp.Name() + ".smem_issue",
 		})
 		delete(u.issueTaskIDs, instID)
 	}

@@ -66,7 +66,7 @@ func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
 		ID:       taskID,
 		ParentID: inst.ID,
 		Kind:     "pipeline",
-		What:     "coalesce",
+		What:     u.cu.comp.Name() + ".coalesce",
 	})
 	u.issueTaskIDs[inst.ID] = taskID
 }
@@ -87,7 +87,7 @@ func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
 	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 		TaskID: inst.ID,
 		Kind:   tracing.MilestoneKindWork,
-		What:   "coalesce",
+		What:   u.cu.comp.Name() + ".coalesce",
 	})
 	delete(u.issueTaskIDs, inst.ID)
 }
@@ -383,7 +383,7 @@ func (u *VectorMemoryUnit) Flush() {
 		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
 			TaskID: instID,
 			Kind:   tracing.MilestoneKindWork,
-			What:   "coalesce",
+			What:   u.cu.comp.Name() + ".coalesce",
 		})
 		tracing.EndTaskOnReset(u.cu.comp, id)
 	}

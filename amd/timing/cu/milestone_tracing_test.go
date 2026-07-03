@@ -363,7 +363,7 @@ func TestDecodeRecordsWorkMilestone(t *testing.T) {
 	du.AcceptWave(wf)
 	du.Run()
 
-	if !rec.has(inst.ID, tracing.MilestoneKindWork, "decode") {
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.decode") {
 		t.Fatalf("expected a work milestone for decode, got %+v",
 			rec.milestones)
 	}
@@ -409,7 +409,7 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	su.Run() // read -> exec
 	su.Run() // exec -> readBuf/in-flight scalar access
 
-	if !rec.has(inst.ID, tracing.MilestoneKindWork, "smem_issue") {
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.smem_issue") {
 		t.Fatalf("expected a work milestone for SMEM issue, got %+v",
 			rec.milestones)
 	}
@@ -449,7 +449,7 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 
 	vmu.sendRequest()
 
-	if !rec.has(inst.ID, tracing.MilestoneKindWork, "coalesce") {
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.coalesce") {
 		t.Fatalf("expected a work milestone at transaction send, got %+v",
 			rec.milestones)
 	}
@@ -462,7 +462,7 @@ func countCoalesceWork(rec *cuMilestoneRecorder, instID uint64) int {
 	count := 0
 	for _, m := range rec.milestones {
 		if m.TaskID == instID && m.Kind == tracing.MilestoneKindWork &&
-			m.What == "coalesce" {
+			m.What == "CU.coalesce" {
 			count++
 		}
 	}
