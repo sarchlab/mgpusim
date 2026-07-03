@@ -188,7 +188,7 @@ func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
 		ID:       taskID,
 		ParentID: inst.ID,
 		Kind:     "pipeline",
-		What:     u.cu.execUnitToString(inst.ExeUnit),
+		What:     u.Name() + "." + u.cu.execUnitToString(inst.ExeUnit),
 	})
 
 	return taskID
