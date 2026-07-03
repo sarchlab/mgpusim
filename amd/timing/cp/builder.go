@@ -20,6 +20,15 @@ var defaultSpec = Spec{
 	NumDispatchers: 8,
 	Alg:            "round-robin",
 	NumDies:        1,
+	// Per-kernel constant overhead (cycles after all WGs complete). Kept
+	// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
+	// events coincide, which exposes a latent tie-break ordering in the
+	// instruction-cache latency accounting and makes the deterministic test
+	// see run-to-run differences. Platforms that want a different value set
+	// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
+	// value falls through to the dispatcher default, since cp/builder only
+	// applies ConstantKernelOverhead when it is > 0).
+	ConstantKernelOverhead: 3600,
 }
 
 // DefaultSpec returns a copy of the default configuration. Callers typically
