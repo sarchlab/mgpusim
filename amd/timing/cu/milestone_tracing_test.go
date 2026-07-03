@@ -212,6 +212,212 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 	}
 }
 
+// A fetch-ahead request can run while the wavefront already has instruction
+// bytes for its current PC. That fetch is not the wavefront's blocker; if the
+// ready instruction cannot issue yet, the later issue milestone should name the
+// execution unit instead.
+func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.comp.State.InstMem = "InstMem"
+	cu.ToInstMem = newFakePort("CU.ToInstMem")
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.SetPC(0x100)
+	wf.InstBufferStartPC = 0x100
+	wf.InstBuffer = make([]byte, 64)
+
+	fetchArbiter := newMockWfArbitor()
+	fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn,
+		[]*wavefront.Wavefront{wf})
+	s := NewScheduler(cu, fetchArbiter, nil)
+
+	s.DoFetch()
+
+	if rec.has(wf.UID, tracing.MilestoneKindHardwareResource,
+		"CU.InstFetcher") {
+		t.Fatalf("fetch-ahead should not be marked as a blocker, got %+v",
+			rec.milestones)
+	}
+}
+
+// If instruction bytes were already available before a prefetch response
+// arrived, that response did not unblock the wavefront. Do not stamp a
+// data/inst_fetch milestone over an execution-unit stall.
+func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.SetPC(0x100)
+	wf.InstBufferStartPC = 0x100
+	wf.InstBuffer = make([]byte, 64)
+
+	req := memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:        0x140,
+		AccessByteSize: 64,
+	}
+	cu.InFlightInstFetch = append(cu.InFlightInstFetch, &InstFetchReqInfo{
+		Wavefront:   wf,
+		Req:         req,
+		Address:     0x140,
+		FetchTaskID: timing.GetIDGenerator().Generate(),
+	})
+
+	cu.handleFetchReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: req.ID,
+		},
+		Data: make([]byte, 64),
+	})
+
+	if rec.has(wf.UID, tracing.MilestoneKindData, "inst_fetch") {
+		t.Fatalf("fetch-ahead return should not be marked as data wait, got %+v",
+			rec.milestones)
+	}
+}
+
+func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.SetPC(0x100)
+	wf.InstBufferStartPC = 0x100
+
+	req := memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:        0x100,
+		AccessByteSize: 64,
+	}
+	cu.InFlightInstFetch = append(cu.InFlightInstFetch, &InstFetchReqInfo{
+		Wavefront:   wf,
+		Req:         req,
+		Address:     0x100,
+		FetchTaskID: timing.GetIDGenerator().Generate(),
+	})
+
+	cu.handleFetchReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: req.ID,
+		},
+		Data: make([]byte, 64),
+	})
+
+	if !rec.has(wf.UID, tracing.MilestoneKindData, "inst_fetch") {
+		t.Fatalf("blocking fetch return should be marked as data wait, got %+v",
+			rec.milestones)
+	}
+}
+
+type decodeTraceUnit struct {
+	canAccept bool
+	accepted  []*wavefront.Wavefront
+}
+
+func (u *decodeTraceUnit) CanAcceptWave() bool {
+	return u.canAccept
+}
+
+func (u *decodeTraceUnit) AcceptWave(wf *wavefront.Wavefront) {
+	u.accepted = append(u.accepted, wf)
+}
+
+func (u *decodeTraceUnit) Run() bool {
+	return false
+}
+
+func (u *decodeTraceUnit) IsIdle() bool {
+	return len(u.accepted) == 0
+}
+
+func (u *decodeTraceUnit) Flush() {}
+
+// Decode is the first pipeline interval inside an instruction task. Record it
+// explicitly so the instruction timeline does not have an unexplained prefix
+// before the execution unit's own subtasks begin.
+func TestDecodeRecordsWorkMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	du := NewDecodeUnit(cu)
+	exec := &decodeTraceUnit{canAccept: true}
+	du.AddExecutionUnit(exec)
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	inst := wavefront.NewInst(insts.NewInst())
+	inst.ExeUnit = insts.ExeUnitScalar
+	wf.SetDynamicInst(inst)
+
+	du.AcceptWave(wf)
+	du.Run()
+
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.decode") {
+		t.Fatalf("expected a work milestone for decode, got %+v",
+			rec.milestones)
+	}
+	if _, ok := du.decodeTaskIDs[inst.ID]; ok {
+		t.Fatal("the decode subtask should be closed after execution-unit admission")
+	}
+	if len(exec.accepted) != 1 {
+		t.Fatalf("expected decode to forward the wavefront, got %d accepts",
+			len(exec.accepted))
+	}
+}
+
+// A scalar-memory instruction spends a few cycles in the scalar unit before its
+// read request exists. Mark that interval as issue work so the later data
+// milestone starts at the memory request, not at the instruction task start.
+func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	cu.ToScalarMem = newFakePort("CU.ToScalarMem")
+	cu.comp.State.ScalarMem = "ScalarMem"
+	su := NewScalarUnit(cu, nil)
+	su.log2CachelineSize = 6
+
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	regAccessor := newMockRegFileAccessor()
+	wf.RegAccessor = regAccessor
+
+	inst := wavefront.NewInst(insts.NewInst())
+	inst.FormatType = insts.SMEM
+	inst.Opcode = 0
+	inst.Data = insts.NewSRegOperand(0, 0, 1)
+	inst.Base = insts.NewSRegOperand(2, 2, 2)
+	inst.Offset = insts.NewIntOperand(0, 0)
+	wf.SetDynamicInst(inst)
+
+	baseReg := insts.SReg(2)
+	regAccessor.setRegValue(baseReg, 2, 0, wf.SRegOffset,
+		insts.Uint64ToBytes(0x1000)[:8])
+
+	su.AcceptWave(wf)
+	su.Run() // read -> exec
+	su.Run() // exec -> readBuf/in-flight scalar access
+
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.smem_issue") {
+		t.Fatalf("expected a work milestone for SMEM issue, got %+v",
+			rec.milestones)
+	}
+	if _, ok := su.issueTaskIDs[inst.ID]; ok {
+		t.Fatal("the SMEM issue subtask should be closed after request admission")
+	}
+}
+
 // Sending the first vector-memory transaction closes the issue subtask and
 // records a "work" milestone (not a hardware_resource one): the coalescing /
 // transaction-issue phase is the unit doing work, and it is backed by the
@@ -243,7 +449,7 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 
 	vmu.sendRequest()
 
-	if !rec.has(inst.ID, tracing.MilestoneKindWork, "coalesce") {
+	if !rec.has(inst.ID, tracing.MilestoneKindWork, "CU.coalesce") {
 		t.Fatalf("expected a work milestone at transaction send, got %+v",
 			rec.milestones)
 	}
@@ -256,7 +462,7 @@ func countCoalesceWork(rec *cuMilestoneRecorder, instID uint64) int {
 	count := 0
 	for _, m := range rec.milestones {
 		if m.TaskID == instID && m.Kind == tracing.MilestoneKindWork &&
-			m.What == "coalesce" {
+			m.What == "CU.coalesce" {
 			count++
 		}
 	}
