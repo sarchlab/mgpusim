@@ -16,6 +16,10 @@ type DecodeUnit struct {
 	toDecode []*wavefront.Wavefront
 	decoded  bool
 
+	// stage names this decoder in the CU-qualified tracing location
+	// "<cu>.<stage>" (the builder tags each decoder, e.g. "decode_scalar").
+	stage string
+
 	decodeTaskIDs map[uint64]uint64
 	decodeDone    map[uint64]bool
 
@@ -27,6 +31,7 @@ func NewDecodeUnit(cu *ComputeUnit) *DecodeUnit {
 	du := new(DecodeUnit)
 	du.cu = cu
 	du.decoded = false
+	du.stage = "decode"
 	du.toDecode = make([]*wavefront.Wavefront, 0, 4)
 	du.decodeTaskIDs = make(map[uint64]uint64)
 	du.decodeDone = make(map[uint64]bool)
@@ -117,7 +122,7 @@ func (du *DecodeUnit) startDecodeSubtask(inst *wavefront.Inst) {
 		ID:       taskID,
 		ParentID: inst.ID,
 		Kind:     "pipeline",
-		What:     "decode",
+		What:     du.cu.comp.Name() + "." + du.stage,
 	})
 	du.decodeTaskIDs[inst.ID] = taskID
 }
@@ -136,7 +141,7 @@ func (du *DecodeUnit) endDecodeSubtask(inst *wavefront.Inst) {
 	tracing.AddMilestone(du.cu.comp, tracing.Milestone{
 		TaskID: inst.ID,
 		Kind:   tracing.MilestoneKindWork,
-		What:   "decode",
+		What:   du.cu.comp.Name() + "." + du.stage,
 	})
 	delete(du.decodeTaskIDs, inst.ID)
 }

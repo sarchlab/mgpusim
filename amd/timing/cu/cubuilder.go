@@ -168,6 +168,7 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	cu.BranchUnit = NewBranchUnit(cu, b.resources.ALU)
 
 	scalarDecoder := NewDecodeUnit(cu)
+	scalarDecoder.stage = "decode_scalar"
 	cu.ScalarDecoder = scalarDecoder
 	scalarUnit := NewScalarUnit(cu, b.resources.ALU)
 	scalarUnit.log2CachelineSize = b.spec.Log2CachelineSize
@@ -179,6 +180,7 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 
 func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 	vectorDecoder := NewDecodeUnit(cu)
+	vectorDecoder.stage = "decode_vector"
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.spec.SIMDCount; i++ {
 		simdName := fmt.Sprintf(name+".SIMD%d", i)
@@ -196,6 +198,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 
 func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
+	ldsDecoder.stage = "decode_lds"
 	cu.LDSDecoder = ldsDecoder
 
 	ldsUnit := NewLDSUnit(cu, b.resources.ALU)
@@ -208,6 +211,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 
 func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	vectorMemDecoder := NewDecodeUnit(cu)
+	vectorMemDecoder.stage = "decode_vmem"
 	cu.VectorMemDecoder = vectorMemDecoder
 
 	coalescer := &defaultCoalescer{
