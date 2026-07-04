@@ -26,73 +26,73 @@ name: MI300X Calibration
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Time-budget tier (ALL benchmarks run at every tier; per-sim / per-benchmark caps): small=10m/30m, medium=30m/2h, large=2h/1day, x-large=12h/1week'
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+          - x-large
+        default: medium
 
 jobs:
+  # Resolve the time-budget tier from the `scope` input on a GitHub-hosted runner
+  # so it never consumes a (scarce) self-hosted runner. ALL enabled benchmarks run
+  # at every tier; the tier only sets the per-simulation (PER_RUN_TIMEOUT) and
+  # per-benchmark (SWEEP_TIMEOUT) caps, plus the job's hard timeout. Configs run
+  # cheapest-to-simulate first and the sweep early-stops at the first config that
+  # exceeds the per-sim cap (run_sweep.py), so the tier controls how far up the
+  # size curve each benchmark reaches and how long the whole pass takes:
+  #   small=10m/30m  medium=30m/2h  large=2h/1day  x-large=12h/1week  (per-sim/per-bench)
+  # The list covers EVERY benchmark with a faithful, non-hanging sim port (all of
+  # run_sweep.py's enabled SPECS). Intentionally EXCLUDED (no faithful port / hang
+  # / unsupported): heteromark_* (different kernels), npb_ep (#278), parboil_stencil
+  # (hangs), polybench_gramschmidt (timing-core stall).
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      benchmarks: ${{ steps.pick.outputs.benchmarks }}
+      per_run: ${{ steps.pick.outputs.per_run }}
+      sweep_timeout: ${{ steps.pick.outputs.sweep_timeout }}
+      job_timeout: ${{ steps.pick.outputs.job_timeout }}
+      runner: ${{ steps.pick.outputs.runner }}
+    steps:
+      - id: pick
+        run: |
+          benchmarks='["fp32_throughput","fp16_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_latency","shared_mem_bandwidth","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
+          # tier -> per-sim (s) / per-benchmark (s) / job hard-timeout (min) / runner.
+          # Short tiers fit GitHub's 6 h hosted-runner cap, so run them on FREE
+          # github-hosted runners (mgpusim is public); long tiers exceed 6 h and
+          # must use self-hosted.
+          case "${{ inputs.scope }}" in
+            small)   per_run=600;   sweep=1800;   job=50;    runner=ubuntu-latest ;;  # 10 min / 30 min
+            medium)  per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # 30 min / 2 h
+            large)   per_run=7200;  sweep=86400;  job=1600;  runner=self-hosted   ;;  # 2 h  / 1 day
+            x-large) per_run=43200; sweep=604800; job=10900; runner=self-hosted   ;;  # 12 h / 1 week
+            *)       per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # default = medium
+          esac
+          echo "benchmarks=$benchmarks"   >> "$GITHUB_OUTPUT"
+          echo "per_run=$per_run"         >> "$GITHUB_OUTPUT"
+          echo "sweep_timeout=$sweep"     >> "$GITHUB_OUTPUT"
+          echo "job_timeout=$job"         >> "$GITHUB_OUTPUT"
+          echo "runner=$runner"           >> "$GITHUB_OUTPUT"
+
   sweep:
+    needs: [setup]
     name: ${{ matrix.benchmark }} sweep
-    runs-on: self-hosted
-    # Sweep budget is 24 h (SWEEP_TIMEOUT) + up to 30 min for the last launched
-    # run (PER_RUN_TIMEOUT) + build/setup headroom. Self-hosted: no 6 h cap.
-    timeout-minutes: 1500
+    # github-hosted (free) for small/medium, self-hosted for large/x-large -- see setup.
+    runs-on: ${{ needs.setup.outputs.runner }}
+    # Hard runner-release backstop, scaled to the scope tier's per-benchmark cap
+    # by the setup job (small 50m ... x-large ~1 week + headroom). The sweep's own
+    # SWEEP_TIMEOUT + early-stop normally finish well before this fires.
+    timeout-minutes: ${{ fromJSON(needs.setup.outputs.job_timeout) }}
     strategy:
       fail-fast: false
       matrix:
-        # Only benchmarks with a faithful sim port + a run_sweep.py SPEC are
-        # listed (see SPECS in gpu_perf_scripts/calibration/run_sweep.py for why
-        # others are omitted). fail-fast is off and each benchmark streams
-        # independently, so a benchmark that crashes/produces nothing in CDNA3
-        # timing mode just yields no points without blocking the rest.
-        benchmark:
-          # Tier-1 microbenchmarks
-          - fp32_throughput
-          # fp16_throughput dropped for now: its timing-sim path is far slower
-          # than the others (even the smallest configs lag), so it produced no
-          # points while tying up a runner. Re-add once that's investigated.
-          - fp64_throughput
-          - int32_throughput
-          - memory_bandwidth
-          - shared_mem_bandwidth
-          - cache_latency
-          - empty_kernel
-          # Tier-2: altis
-          - altis_cfd
-          - altis_raytracing
-          # Tier-2: heteromark (aes/fir/pagerank) intentionally omitted -- the
-          # MGPUSim ports run different kernels than the gpu_benchmarks ground
-          # truth (pagerank is a different algorithm); see run_sweep.py SPECS.
-          # Tier-2: npb (npb_ep dropped: atomic-contention-bound, unsupported by
-          # the CDNA3 emulator -- https://github.com/sarchlab/mgpusim/issues/278)
-          # Tier-2: parboil (parboil_stencil omitted: hangs in CDNA3 timing mode)
-          - parboil_cutcp
-          - parboil_lbm
-          - parboil_sgemm
-          # Tier-2: polybench
-          - polybench_2dconv
-          - polybench_2mm
-          - polybench_3dconv
-          - polybench_3mm
-          - polybench_correlation
-          - polybench_fdtd2d
-          - polybench_gemm
-          # polybench_gramschmidt omitted: HANGS in CDNA3 timing mode (stalls even
-          # at n=1, in gram_norm_finish/gram_normalize) -- not a slow serial
-          # reduction as first thought, a timing-core stall. Re-add once fixed so
-          # it can't burn a runner for the whole sweep budget.
-          - polybench_jacobi2d
-          - polybench_mvt
-          - polybench_syr2k
-          # Tier-2: rodinia
-          - rodinia_backprop
-          - rodinia_gaussian
-          - rodinia_hotspot
-          - rodinia_hotspot3d
-          - rodinia_lavamd
-          - rodinia_lud
-          - rodinia_pathfinder
-          - rodinia_srad
-          # Tier-2: tango
-          - tango_binomial_options
-          - tango_blackscholes
+        # Resolved from the `scope` input by the setup job above.
+        benchmark: ${{ fromJSON(needs.setup.outputs.benchmarks) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -102,15 +102,21 @@ jobs:
         with:
           go-version-file: go.mod
           # Self-hosted runners persist ~/go/pkg/mod and ~/.cache/go-build on disk
-          # between jobs, so setup-go's remote module cache is redundant -- it was
-          # restoring ~1.7 GB (~6.5 min) over modules already present, then failing
-          # the tar extract with "File exists". Disable it.
-          cache: false
+          # between jobs, so setup-go's remote cache is redundant there (and was
+          # failing the tar extract with "File exists"). Ephemeral github-hosted
+          # runners have no persistent disk, so enable the cache there to avoid
+          # re-downloading modules on every job.
+          cache: ${{ needs.setup.outputs.runner != 'self-hosted' }}
 
       - name: Install build dependencies
         run: |
           if command -v dnf &>/dev/null; then
             sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          elif command -v apt-get &>/dev/null; then
+            # github-hosted ubuntu: gcc/sqlite are usually preinstalled; ensure the
+            # CGO sqlite recorder can build.
+            sudo apt-get update -qq && sudo apt-get install -y -qq gcc libsqlite3-dev \
+              || echo "WARNING: apt failed, deps may already be installed"
           fi
 
       - name: Tool versions
@@ -146,6 +152,12 @@ jobs:
             mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
 
       - name: Run sweep
+        env:
+          # Per-sim / per-benchmark caps come from the scope tier (setup job).
+          # Cheapest-first + early-stop: the per-sim cap bounds the largest size
+          # reached; the per-benchmark cap bounds total time.
+          PER_RUN_TIMEOUT: ${{ needs.setup.outputs.per_run }}
+          SWEEP_TIMEOUT: ${{ needs.setup.outputs.sweep_timeout }}
         run: |
           python3 gpu_perf_scripts/calibration/run_sweep.py \
             ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv
@@ -159,8 +171,8 @@ jobs:
 
   report:
     name: Render report + finalize run
-    runs-on: self-hosted
-    needs: [sweep]
+    runs-on: ${{ needs.setup.outputs.runner }}
+    needs: [setup, sweep]
     if: always()      # render from whatever sweeps produced, even if some failed
     timeout-minutes: 30
     steps:
@@ -244,7 +256,7 @@ jobs:
     name: Mark run failed (cancelled)
     needs: [sweep]
     if: ${{ cancelled() }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest   # just a Firestore status update -- no need for self-hosted
     timeout-minutes: 10
     steps:
       - name: Checkout

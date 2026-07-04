@@ -34,8 +34,36 @@ func (u *ALU) runSOPC(state emu.InstEmuState) {
 		u.runSCMPLTU32(state)
 	case 11:
 		u.runSCMPLEU32(state)
+	case 12:
+		u.runSBITCMP0B32(state)
+	case 13:
+		u.runSBITCMP1B32(state)
 	default:
 		log.Panicf("Opcode %d for SOPC format is not implemented", inst.Opcode)
+	}
+}
+
+// runSBITCMP0B32 implements s_bitcmp0_b32: SCC = (bit (Src1 & 31) of Src0 == 0).
+func (u *ALU) runSBITCMP0B32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	bit := uint32(state.ReadOperand(inst.Src1, 0)) & 31
+	if (src0>>bit)&1 == 0 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
+	}
+}
+
+// runSBITCMP1B32 implements s_bitcmp1_b32: SCC = (bit (Src1 & 31) of Src0 == 1).
+func (u *ALU) runSBITCMP1B32(state emu.InstEmuState) {
+	inst := state.Inst()
+	src0 := uint32(state.ReadOperand(inst.Src0, 0))
+	bit := uint32(state.ReadOperand(inst.Src1, 0)) & 31
+	if (src0>>bit)&1 == 1 {
+		state.SetSCC(1)
+	} else {
+		state.SetSCC(0)
 	}
 }
 

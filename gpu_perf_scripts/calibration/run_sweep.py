@@ -65,15 +65,32 @@ SPECS = {
     "fp16_throughput":      {"sample": "fp16_throughput",      "scaling_flag": "-fmas-per-thread",
                              "params": {"num_blocks": "-num-blocks", "threads_per_block": "-threads-per-block"}},
     "fp64_throughput":      {"sample": "fp64_throughput",      "scaling_flag": "-fmas-per-thread",
-                             "params": {"num_blocks": "-num-blocks"}},
+                             "params": {"num_blocks": "-num-blocks", "threads_per_block": "-threads-per-block"}},
     "int32_throughput":     {"sample": "int32_throughput",     "scaling_flag": "-mads",
-                             "params": {"num_blocks": "-blocks"}},
+                             "params": {"num_blocks": "-blocks", "threads_per_block": "-threads-per-block"}},
     # -size is a float32 ELEMENT count; ground truth scales by buffer_size_mb, so
     # convert MiB -> float32 elements (1 MiB / 4 bytes).
     "memory_bandwidth":     {"sample": "memory_bandwidth",     "scaling_flag": "-size",
                              "params": {}, "scaling_xform": lambda v: int(v) * 1024 * 1024 // 4},
+    # The original "shared_mem_bandwidth" kernel was actually a single-accumulator
+    # dependent chain (measures LDS latency, not bandwidth); it is now
+    # shared_mem_latency and keeps the existing ground truth.
+    # block_size is now a real swept param (the kernel matches the HW: 48 KB
+    # LDS, block size as a runtime arg). access_pattern is intentionally NOT
+    # passed: the conflict kernel's runtime arithmetic still trips CDNA3-emulator
+    # gaps, so the sim runs no_conflict only for now (the sample default);
+    # conflict ground-truth rows dedup onto the no_conflict sim until the
+    # emulator is hardened for the conflict kernel.
+    "shared_mem_latency":   {"sample": "shared_mem_latency",   "scaling_flag": "-inner-iters",
+                             "params": {"num_blocks": "-num-blocks", "block_size": "-block-size"}},
+    # Multi-accumulator shared_mem_bandwidth kernel (independent accumulators,
+    # many LDS reads in flight -> measures throughput, not latency). block_size is
+    # now a real swept param: the kernel matches the HW (32 KB LDS footprint, block
+    # size a runtime arg, reads masked to block_size*UNROLL). access_pattern is NOT
+    # passed -- the conflict kernel hangs the CDNA3 emulator (same as
+    # shared_mem_latency), so the sim runs no_conflict only until that is fixed.
     "shared_mem_bandwidth": {"sample": "shared_mem_bandwidth", "scaling_flag": "-inner-iters",
-                             "params": {"num_blocks": "-num-blocks"}},
+                             "params": {"num_blocks": "-num-blocks", "block_size": "-block-size"}},
     # Pass the real benchmark's params so the sim builds the same cacheline-strided
     # chain and derives the same timed-access count (measure_laps x lines, clamped).
     "cache_latency":        {"sample": "cache_latency",        "scaling_flag": "-array-bytes",
@@ -176,7 +193,20 @@ def sim_cost(scaling_value, ns):
         s = abs(xparse(scaling_value))
     except (ValueError, TypeError):
         s = 1
-    return s * ns.get("num_blocks", 1) * ns.get("threads_per_block", 1)
+    cost = s * ns.get("num_blocks", 1) * ns.get("threads_per_block", 1)
+    # Iteration-count params multiply the per-element work, so fold them in too:
+    # this keeps the ordering (and the early-stop) monotonic in real sim time when
+    # two configs share a scaling value but differ in iteration count.
+    for k in ("num_iterations", "iterations", "tsteps", "tmax", "num_timesteps",
+              "steps", "passes", "trials", "measure_laps", "inner_iters"):
+        v = ns.get(k)
+        if v is None:
+            continue
+        try:
+            cost *= max(1, abs(int(v)))
+        except (ValueError, TypeError):
+            pass
+    return cost
 
 
 def load_configs(ref, benchmark):
@@ -263,6 +293,11 @@ def main():
     per_run = int(os.environ.get("PER_RUN_TIMEOUT", "1800"))
     budget = int(os.environ.get("SWEEP_TIMEOUT", "86400"))
     every = int(os.environ.get("FB_EVERY", "5"))
+    # Configs are ordered cheapest-to-simulate first, so the first config that
+    # times out or fails means every remaining config is at least as expensive.
+    # Stop there instead of burning a full PER_RUN_TIMEOUT on each remaining
+    # (more expensive) config. Set SWEEP_STOP_ON_TIMEOUT=0 for an exhaustive sweep.
+    stop_on_timeout = os.environ.get("SWEEP_STOP_ON_TIMEOUT", "1") != "0"
     os.environ.setdefault("CGO_ENABLED", "1")  # timing metrics via the SQLite recorder
 
     build_dir = tempfile.mkdtemp()
@@ -305,9 +340,18 @@ def main():
         elif kt == "timeout":
             timed_out += 1
             print(f"  timeout {tag}  (> {per_run}s)", flush=True)
+            if stop_on_timeout and not cached:
+                print(f"  STOP: timed out; the remaining {len(configs) - i} configs are "
+                      f"at least this expensive (cheapest-first order). Skipping them.",
+                      flush=True)
+                break
         else:
             failed += 1
             print(f"  FAIL    {tag}", flush=True)
+            if stop_on_timeout and not cached:
+                print(f"  STOP: no metric (sim failure); the remaining {len(configs) - i} "
+                      f"configs are more expensive. Skipping them.", flush=True)
+                break
     writer_f.close()
     fb_stream(args.benchmark, out_abs, args.ref)  # final flush
     print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")

@@ -240,7 +240,11 @@ func (p *cuProcessor) initWfRegs(wf *Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIDZ() {
+	// Wire up work-group ID Z for genuinely 3D launches even when the (unreliable,
+	// often zero for extern "C" kernels) rsrc2 enable bit is clear -- see the
+	// matching note in amd/timing/cu/wfdispatcher.go.
+	if co.EnableSgprWorkGroupIDZ() ||
+		(pkt != nil && pkt.GridSizeZ > uint32(pkt.WorkgroupSizeZ)) {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDZ))
 		//fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)

@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	blockSz = 64 // 1D block width (matches BLOCK_SZ in the kernel)
+	blockSz = 256 // 1D block width (matches BLOCK_SZ in the kernel; HW uses 256)
 	tile2D  = 16 // 2D block dim for update_w1 (matches TILE2D in the kernel)
 	lr      = float32(0.1)
 )

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/sharedmembandwidth"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/sharedmemlatency"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
 	runner := new(runner.Runner).Init()
 
-	benchmark := sharedmembandwidth.NewBenchmark(runner.Driver())
+	benchmark := sharedmemlatency.NewBenchmark(runner.Driver())
 	benchmark.NumBlocks = *numBlocks
 	benchmark.InnerIters = *innerIters
 	benchmark.BlockSize = *blockSize

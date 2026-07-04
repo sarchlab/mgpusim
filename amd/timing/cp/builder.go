@@ -18,6 +18,17 @@ import (
 var defaultSpec = Spec{
 	Freq:           1 * timing.GHz,
 	NumDispatchers: 8,
+	Alg:            "round-robin",
+	NumDies:        1,
+	// Per-kernel constant overhead (cycles after all WGs complete). Kept
+	// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
+	// events coincide, which exposes a latent tie-break ordering in the
+	// instruction-cache latency accounting and makes the deterministic test
+	// see run-to-run differences. Platforms that want a different value set
+	// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
+	// value falls through to the dispatcher default, since cp/builder only
+	// applies ConstantKernelOverhead when it is > 0).
+	ConstantKernelOverhead: 3600,
 }
 
 // DefaultSpec returns a copy of the default configuration. Callers typically
@@ -128,9 +139,15 @@ func (b Builder) Build(name string) *Comp {
 
 func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
 	cuResourcePool := resource.NewCUResourcePool()
+	alg := b.spec.Alg
+	if alg == "" {
+		alg = "round-robin"
+	}
 	builder := dispatching.MakeBuilder().
 		WithCP(comp).
-		WithAlg("round-robin").
+		WithAlg(alg).
+		WithNumDies(b.spec.NumDies).
+		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
 		WithPortSource(comp).
 		WithDispatchingPortName("ToCUs").

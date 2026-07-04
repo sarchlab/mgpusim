@@ -183,7 +183,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIDZ() {
+	// Wire up work-group ID Z for genuinely 3D launches even when the (unreliable,
+	// often zero for extern "C" kernels) rsrc2 enable bit is clear: a grid with
+	// more than one z work-group means the kernel allocated this SGPR for
+	// blockIdx.z. Without this, 3D kernels read blockIdx.z as garbage.
+	if co.EnableSgprWorkGroupIDZ() ||
+		(wf.WG.Packet != nil &&
+			wf.WG.Packet.GridSizeZ > uint32(wf.WG.Packet.WorkgroupSizeZ)) {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
 			insts.Uint32ToBytes(uint32(wf.WG.IDZ)),

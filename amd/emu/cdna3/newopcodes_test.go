@@ -298,3 +298,48 @@ func TestVOP3aNgtF32E64(t *testing.T) {
 		t.Fatalf("v_cmp_ngt_f32_e64 expected SGPR=%b, got %b", 0b10, state.operands[state.inst.Dst][0])
 	}
 }
+
+// TestSOPKCmpK checks the s_cmpk_* compare-with-constant family (opcodes 4-13):
+// each sets SCC from comparing Dst against the sign-extended SImm16. These are
+// emitted by parameterized kernels (loop bounds against a constant) but not by
+// the older frozen-constant kernels.
+func TestSOPKCmpK(t *testing.T) {
+	cases := []struct {
+		name   string
+		opcode insts.Opcode
+		src    int32
+		imm    int16
+		want   byte
+	}{
+		{"gt_i32 11>10", 4, 11, 10, 1},
+		{"gt_i32 10>10", 4, 10, 10, 0},
+		{"ge_i32 10>=10", 5, 10, 10, 1},
+		{"ge_i32 9>=10", 5, 9, 10, 0},
+		{"lt_i32 5<10", 6, 5, 10, 1},
+		{"lt_i32 10<10", 6, 10, 10, 0},
+		{"lt_i32 -3<2", 6, -3, 2, 1},
+		{"le_i32 10<=10", 7, 10, 10, 1},
+		{"le_i32 11<=10", 7, 11, 10, 0},
+		{"eq_u32 7==7", 8, 7, 7, 1},
+		{"lg_u32 7!=8", 9, 7, 8, 1},
+		{"gt_u32 9>8", 10, 9, 8, 1},
+		{"ge_u32 8>=9", 11, 8, 9, 0},
+		{"lt_u32 8<9", 12, 8, 9, 1},
+		{"le_u32 9<=9", 13, 9, 9, 1},
+	}
+	for _, c := range cases {
+		alu := NewALU(nil)
+		state := newMockInstState()
+		state.inst.FormatType = insts.SOPK
+		state.inst.Opcode = c.opcode
+		state.inst.Dst = &insts.Operand{}
+		state.inst.SImm16 = &insts.Operand{}
+		state.setOperand(state.inst.Dst, 0, uint64(emu.Int32ToBits(c.src)))
+		state.setOperand(state.inst.SImm16, 0, uint64(uint16(c.imm)))
+		alu.Run(state)
+		if state.scc != c.want {
+			t.Fatalf("%s (opcode %d): expected SCC=%d, got %d",
+				c.name, c.opcode, c.want, state.scc)
+		}
+	}
+}

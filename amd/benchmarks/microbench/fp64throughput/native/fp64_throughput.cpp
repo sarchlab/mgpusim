@@ -24,8 +24,9 @@
  *     on every lane. A thread-independent seed keeps the FP64 FMA workload
  *     intact while staying on paths the emulator handles correctly.
  *
- *  3. BLOCK_SIZE is a compile-time constant (so blockDim.x is not read),
- *     keeping the kernel free of hidden ABI args.
+ *  3. The work-group size is passed as an explicit threads_per_block argument
+ *     (blockDim.x reads back as 0 in this CDNA3 model for multi-block
+ *     launches), so gid is correct for any swept block size.
  *
  *  4. All FP64 operands (the four accumulator seeds and the FMA
  *     multiplier/addend) are read from a per-thread slice of the read-only
@@ -56,15 +57,15 @@
  */
 #include "hip/hip_runtime.h"
 
-#define BLOCK_SIZE 64
 #define STRIDE 8
 
 extern "C" __global__ void fp64_fma_kernel(
     double* __restrict__ out,
     const double* __restrict__ in,
-    int fmas_per_thread)
+    int fmas_per_thread,
+    int threads_per_block)
 {
-    int gid = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    int gid = blockIdx.x * threads_per_block + threadIdx.x;
     const double* p = in + (long)gid * STRIDE;
 
     double a0 = p[0];

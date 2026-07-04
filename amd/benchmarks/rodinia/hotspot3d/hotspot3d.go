@@ -217,13 +217,14 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) exec() {
 	n := b.GridSize
 
-	// The kernel uses a 2D (x, y) work-group; each work-item walks the full z
-	// range internally. So we launch a 2D grid that covers x and y; the z grid
-	// dimension is 1. globalX/Y are the total work-item counts (block-size
-	// multiples), matching the AQL packet's global-size semantics.
+	// 3D grid: one work-item per (x, y, z) cell. globalX/Y are block-size
+	// multiples (ceil(n/blockDim)*blockDim); the z grid dimension is n with
+	// blockDim.z == 1 (the kernel uses z = blockIdx.z). globalX/Y/Z are total
+	// work-item counts, matching the AQL packet's global-size semantics.
 	gridDim := uint32((n + blockDim - 1) / blockDim)
 	globalX := gridDim * blockDim
 	globalY := gridDim * blockDim
+	globalZ := uint32(n)
 
 	src := 0
 	dst := 1
@@ -246,7 +247,7 @@ func (b *Benchmark) exec() {
 		b.driver.EnqueueLaunchKernel(
 			b.queue,
 			b.hsaco,
-			[3]uint32{globalX, globalY, 1},
+			[3]uint32{globalX, globalY, globalZ},
 			[3]uint16{blockDim, blockDim, 1},
 			&args,
 		)
