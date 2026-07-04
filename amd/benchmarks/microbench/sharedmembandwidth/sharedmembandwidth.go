@@ -1,24 +1,24 @@
 // Package sharedmembandwidth implements the shared-memory (LDS) bandwidth
-// microbenchmark, ported from sarchlab/gpu_benchmarks
-// (tier1/shared_mem_bandwidth) for the MGPUSim MI300X (CDNA3 / gfx942) model.
+// microbenchmark for the MGPUSim MI300X (CDNA3 / gfx942) model.
 //
-// Two kernels exercise a block-local __shared__ buffer:
-//   - smem_bw_no_conflict : stride-1 per lane (bank-conflict free)
-//   - smem_bw_conflict    : stride-32 between lanes (intra-warp conflicts)
+// Two kernels stream a block-local __shared__ buffer using UNROLL independent
+// accumulators, so many LDS reads are in flight at once and the LDS unit can be
+// saturated (bandwidth, not latency):
+//   - smem_bw_no_conflict : consecutive lanes -> consecutive banks (conflict-free)
+//   - smem_bw_conflict    : 32 lanes -> the same bank (32-way bank conflict)
 //
-// Each thread accumulates a running sum while reading/writing its cells;
-// thread 0 of each block writes that accumulator to d_sink[blockIdx.x].
+// To stop the compiler from folding the loop-invariant, all-equal LDS reads
+// away, the buffer is staged from a GLOBAL input (d_in, contents opaque to the
+// compiler) and the read index depends on the loop counter (not hoistable).
+// d_in is filled with 1.0 on the host, so each block's result is exactly
+// UNROLL*InnerIters -- deterministic -- while the compiler still must emit
+// InnerIters*UNROLL real ds_read ops. To actually measure bandwidth, launch
+// with a full block and many blocks (>= number of CUs).
 //
-// The block size (64) and the shared-buffer length (512 floats) are
-// compile-time constants in the kernel, so the gfx942 binary carries NO
-// hidden ABI arguments (kernarg_segment_size = 12). The benchmark must be
-// run with `-arch cdna3` (the MI300X configuration).
-//
-// Verify() reproduces the deterministic smem_bw_no_conflict result on the
-// CPU. In that pattern each thread owns a disjoint set of cells, so the
-// final accumulator is independent of warp scheduling and exactly
-// reproducible. The conflict kernel is launched for faithfulness/timing but
-// its values are scheduling-dependent and are not asserted.
+// The block size (256), shared-buffer length (2048 floats) and UNROLL (8) are
+// compile-time constants in the kernel, so the gfx942 binary carries NO hidden
+// ABI arguments (kernarg_segment_size = 20: two 8-byte pointers + one 4-byte
+// by_value int). Run with `-arch cdna3` (the MI300X configuration).
 package sharedmembandwidth
 
 import (
@@ -33,24 +33,25 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// These mirror the compile-time constants baked into the gfx942 kernel
-// (see native/shared_mem_bandwidth.cpp). Keep them in sync.
+// These mirror constants in the gfx942 kernel (native/shared_mem_bandwidth.cpp).
 const (
-	blockSize  = 64  // BLOCK_SIZE
-	smemFloats = 512 // SMEM_FLOATS
+	defaultBlockSize = 256  // work-group size used when BlockSize is unset
+	smemFloats       = 8192 // SMEM_FLOATS: fixed 32 KB LDS footprint (matches HW)
+	unroll           = 8    // UNROLL independent accumulators
 )
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernels.
 //
 // Verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 12): one 8-byte global_buffer pointer followed by
-// one 4-byte by_value int, packed with no padding (mgpusim serializes args
-// with binary.Write, which inserts no alignment padding). Both kernels share
-// this identical layout, and neither emits hidden ABI arguments because the
-// block geometry is a compile-time constant.
+// (kernarg_segment_size = 24): two 8-byte global_buffer pointers followed by
+// two 4-byte by_value ints (inner_iters, block_size), packed with no padding
+// (mgpusim serializes args with binary.Write, which inserts no alignment
+// padding). Both kernels share this layout.
 type KernelArgs struct {
-	Sink       driver.Ptr // offset 0
-	InnerIters int32      // offset 8
+	In         driver.Ptr // offset 0  (opaque source data, staged into LDS)
+	Sink       driver.Ptr // offset 8
+	InnerIters int32      // offset 16
+	BlockSize  int32      // offset 20
 }
 
 // Benchmark defines the shared-memory bandwidth benchmark.
@@ -66,9 +67,16 @@ type Benchmark struct {
 
 	// NumBlocks is the number of work-groups (grid size in the X dimension).
 	NumBlocks int
-	// InnerIters is the number of outer timing iterations the kernel runs.
+	// InnerIters is the number of streaming iterations the kernel runs.
 	InnerIters int
+	// BlockSize is the work-group size (threads per block), swept by the
+	// calibration and passed to the kernel as an explicit argument.
+	BlockSize int
+	// AccessPattern selects which kernel(s) run: "no_conflict" (default),
+	// "conflict", or "both".
+	AccessPattern string
 
+	gIn   driver.Ptr
 	gSink driver.Ptr
 
 	// noConflictResult holds the d_sink contents after the no-conflict
@@ -137,93 +145,85 @@ func (b *Benchmark) initMem() {
 	if b.InnerIters <= 0 {
 		b.InnerIters = 8
 	}
+	if b.BlockSize <= 0 {
+		b.BlockSize = defaultBlockSize
+	}
+	if b.AccessPattern == "" {
+		b.AccessPattern = "no_conflict"
+	}
+
+	// The kernel stages d_in[0 .. block_size*UNROLL) into LDS (one contiguous
+	// chunk per thread); that is exactly the region the streaming reads mask to.
+	inFloats := b.BlockSize * unroll
 
 	if b.useUnifiedMemory {
+		b.gIn = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(inFloats*4))
 		b.gSink = b.driver.AllocateUnifiedMemory(
 			b.context, uint64(b.NumBlocks*4))
 	} else {
-		b.gSink = b.driver.AllocateMemory(
-			b.context, uint64(b.NumBlocks*4))
+		b.gIn = b.driver.AllocateMemory(b.context, uint64(inFloats*4))
+		b.gSink = b.driver.AllocateMemory(b.context, uint64(b.NumBlocks*4))
 	}
+
+	// Opaque source data: all 1.0, so each block's accumulator is exactly
+	// unroll*InnerIters, but the compiler can't fold the LDS reads.
+	in := make([]float32, inFloats)
+	for i := range in {
+		in[i] = 1.0
+	}
+	b.driver.MemCopyH2D(b.context, b.gIn, in)
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
 	b.driver.MemCopyH2D(b.context, b.gSink, zeros)
 }
 
-func (b *Benchmark) exec() {
+// launch runs one kernel (no_conflict or conflict) with the configured block
+// size as both the work-group dimension and an explicit kernel argument.
+func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 	args := KernelArgs{
+		In:         b.gIn,
 		Sink:       b.gSink,
 		InnerIters: int32(b.InnerIters),
+		BlockSize:  int32(b.BlockSize),
 	}
-
-	// No-conflict kernel (the one Verify() checks).
 	b.driver.EnqueueLaunchKernel(
 		b.queue,
-		b.hsaco,
-		[3]uint32{uint32(b.NumBlocks) * blockSize, 1, 1},
-		[3]uint16{blockSize, 1, 1},
+		kernel,
+		[3]uint32{uint32(b.NumBlocks * b.BlockSize), 1, 1},
+		[3]uint16{uint16(b.BlockSize), 1, 1},
 		&args,
 	)
 	b.driver.DrainCommandQueue(b.queue)
-
-	// Conflict kernel: launched for faithfulness/timing. Reuses the same
-	// sink (overwriting the no-conflict result), so snapshot the no-conflict
-	// result before running it.
-	b.noConflictResult = make([]float32, b.NumBlocks)
-	b.driver.MemCopyD2H(b.context, b.noConflictResult, b.gSink)
-
-	confArgs := KernelArgs{
-		Sink:       b.gSink,
-		InnerIters: int32(b.InnerIters),
-	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
-		b.conf,
-		[3]uint32{uint32(b.NumBlocks) * blockSize, 1, 1},
-		[3]uint16{blockSize, 1, 1},
-		&confArgs,
-	)
-	b.driver.DrainCommandQueue(b.queue)
 }
 
-// computeNoConflictAcc reproduces, on the CPU, the accumulator that thread 0
-// of every block produces in the smem_bw_no_conflict kernel.
-//
-// In that pattern thread tid touches the disjoint index set
-// {tid, tid+n, tid+2n, ...}. For thread 0 with stride n=blockSize the cells
-// are 0, n, 2n, ... < smemFloats, each starting at 1.0. The inner sequence
-//
-//	acc += smem[i]; smem[i] = acc;
-//
-// over the cells in order, repeated InnerIters times, is order-independent
-// across threads, so it is exactly reproducible here.
-func (b *Benchmark) computeNoConflictAcc() float32 {
-	n := blockSize
+func (b *Benchmark) exec() {
+	runNoConflict := b.AccessPattern != "conflict"
+	runConflict := b.AccessPattern == "conflict" || b.AccessPattern == "both"
 
-	// Cells owned by thread 0.
-	cells := make([]float32, 0, smemFloats/n+1)
-	for i := 0; i < smemFloats; i += n {
-		cells = append(cells, 1.0)
+	if runNoConflict {
+		b.launch(b.hsaco)
+		// Snapshot the deterministic no-conflict result before any conflict
+		// launch overwrites the shared sink.
+		b.noConflictResult = make([]float32, b.NumBlocks)
+		b.driver.MemCopyD2H(b.context, b.noConflictResult, b.gSink)
 	}
 
-	var acc float32
-	for it := 0; it < b.InnerIters; it++ {
-		for k := range cells {
-			acc += cells[k]
-			cells[k] = acc
-		}
+	if runConflict {
+		b.launch(b.conf)
 	}
-	return acc
 }
 
-// Verify checks the GPU result against a CPU reference computation.
-//
-// It validates the deterministic smem_bw_no_conflict result (every block's
-// thread 0 produces the same accumulator) snapshotted before the conflict
-// kernel ran.
+// Verify checks the GPU result against the CPU reference. With d_in all 1.0,
+// each block's thread 0 accumulates 1.0 once per (iteration, accumulator), so
+// the result is exactly unroll*InnerIters and independent of scheduling.
 func (b *Benchmark) Verify() {
-	ref := b.computeNoConflictAcc()
+	if b.noConflictResult == nil {
+		log.Printf("Verify skipped (no_conflict kernel not run).\n")
+		return
+	}
+	ref := float32(unroll * b.InnerIters)
 
 	for blk := 0; blk < b.NumBlocks; blk++ {
 		got := b.noConflictResult[blk]

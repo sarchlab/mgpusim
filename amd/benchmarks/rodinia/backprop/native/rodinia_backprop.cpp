@@ -14,7 +14,7 @@
  */
 #include "hip/hip_runtime.h"
 
-#define BLOCK_SZ 64
+#define BLOCK_SZ 256
 #define TILE2D   16
 
 __device__ __forceinline__ float sigmoid_d(float x)

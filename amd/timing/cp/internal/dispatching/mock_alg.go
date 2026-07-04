@@ -118,3 +118,133 @@ func (mr *MockAlgorithmMockRecorder) StartNewKernel(info any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartNewKernel", reflect.TypeOf((*MockAlgorithm)(nil).StartNewKernel), info)
 }
+
+// MockdieAwareAlgorithm is a mock of dieAwareAlgorithm interface.
+type MockdieAwareAlgorithm struct {
+	ctrl     *gomock.Controller
+	recorder *MockdieAwareAlgorithmMockRecorder
+	isgomock struct{}
+}
+
+// MockdieAwareAlgorithmMockRecorder is the mock recorder for MockdieAwareAlgorithm.
+type MockdieAwareAlgorithmMockRecorder struct {
+	mock *MockdieAwareAlgorithm
+}
+
+// NewMockdieAwareAlgorithm creates a new mock instance.
+func NewMockdieAwareAlgorithm(ctrl *gomock.Controller) *MockdieAwareAlgorithm {
+	mock := &MockdieAwareAlgorithm{ctrl: ctrl}
+	mock.recorder = &MockdieAwareAlgorithmMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockdieAwareAlgorithm) EXPECT() *MockdieAwareAlgorithmMockRecorder {
+	return m.recorder
+}
+
+// FreeResources mocks base method.
+func (m *MockdieAwareAlgorithm) FreeResources(location dispatchLocation) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "FreeResources", location)
+}
+
+// FreeResources indicates an expected call of FreeResources.
+func (mr *MockdieAwareAlgorithmMockRecorder) FreeResources(location any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreeResources", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).FreeResources), location)
+}
+
+// HasNext mocks base method.
+func (m *MockdieAwareAlgorithm) HasNext() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasNext")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasNext indicates an expected call of HasNext.
+func (mr *MockdieAwareAlgorithmMockRecorder) HasNext() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNext", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).HasNext))
+}
+
+// Next mocks base method.
+func (m *MockdieAwareAlgorithm) Next() dispatchLocation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Next")
+	ret0, _ := ret[0].(dispatchLocation)
+	return ret0
+}
+
+// Next indicates an expected call of Next.
+func (mr *MockdieAwareAlgorithmMockRecorder) Next() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).Next))
+}
+
+// NextForDie mocks base method.
+func (m *MockdieAwareAlgorithm) NextForDie(die int) dispatchLocation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextForDie", die)
+	ret0, _ := ret[0].(dispatchLocation)
+	return ret0
+}
+
+// NextForDie indicates an expected call of NextForDie.
+func (mr *MockdieAwareAlgorithmMockRecorder) NextForDie(die any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextForDie", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).NextForDie), die)
+}
+
+// NumDies mocks base method.
+func (m *MockdieAwareAlgorithm) NumDies() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumDies")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumDies indicates an expected call of NumDies.
+func (mr *MockdieAwareAlgorithmMockRecorder) NumDies() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumDies", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).NumDies))
+}
+
+// NumWG mocks base method.
+func (m *MockdieAwareAlgorithm) NumWG() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumWG")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumWG indicates an expected call of NumWG.
+func (mr *MockdieAwareAlgorithmMockRecorder) NumWG() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumWG", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).NumWG))
+}
+
+// RegisterCU mocks base method.
+func (m *MockdieAwareAlgorithm) RegisterCU(cu resource.DispatchableCU) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RegisterCU", cu)
+}
+
+// RegisterCU indicates an expected call of RegisterCU.
+func (mr *MockdieAwareAlgorithmMockRecorder) RegisterCU(cu any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCU", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).RegisterCU), cu)
+}
+
+// StartNewKernel mocks base method.
+func (m *MockdieAwareAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StartNewKernel", info)
+}
+
+// StartNewKernel indicates an expected call of StartNewKernel.
+func (mr *MockdieAwareAlgorithmMockRecorder) StartNewKernel(info any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartNewKernel", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).StartNewKernel), info)
+}

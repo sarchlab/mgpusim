@@ -9,10 +9,10 @@
 // store makes the result fully verifiable on the host with int32
 // wraparound.
 //
-// The kernel uses a constant block size (blockSize) instead of blockDim.x,
-// so the compiler emits no hidden ABI arguments; the launcher therefore
-// must use the same block size. The kernel binary is compiled for gfx942
-// only (see native/), so the benchmark must be run with `-arch cdna3`
+// The block size is passed as an explicit threads_per_block kernel argument
+// (blockDim.x reads back as 0 in this model), so the calibration can sweep it
+// and the global thread id stays correct. The kernel binary is compiled for
+// gfx942 only (see native/), so the benchmark must be run with `-arch cdna3`
 // (the MI300X configuration).
 package int32throughput
 
@@ -27,22 +27,23 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// blockSize must match the BLOCK constant compiled into the gfx942 kernel
-// (native/int32_throughput.cpp). The kernel computes the global thread id
-// as blockIdx.x * blockSize + threadIdx.x.
-const blockSize = 64
+// defaultThreadsPerBlock is the work-group size used when ThreadsPerBlock is
+// unset. The block size is a runtime kernel argument (passed explicitly
+// because blockDim.x reads back as 0 in this model), so the calibration can
+// sweep it.
+const defaultThreadsPerBlock = 256
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
 // The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 12): one 8-byte global_buffer pointer
-// followed by one 4-byte by_value int32, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment
-// padding). The kernel uses only threadIdx.x / blockIdx.x (no
-// blockDim/gridDim), so no hidden ABI arguments are emitted.
+// metadata (kernarg_segment_size = 16): one 8-byte global_buffer pointer
+// followed by two 4-byte by_value int32s (mads_per_thread,
+// threads_per_block), packed with no padding (mgpusim serializes args with
+// binary.Write, which does not insert alignment padding).
 type KernelArgs struct {
-	Out           driver.Ptr // offset 0
-	MadsPerThread int32      // offset 8
+	Out             driver.Ptr // offset 0
+	MadsPerThread   int32      // offset 8
+	ThreadsPerBlock int32      // offset 12
 }
 
 // Benchmark defines the int32_throughput benchmark.
@@ -59,9 +60,11 @@ type Benchmark struct {
 	// It is rounded down to a multiple of 4 (and forced to at least 4),
 	// matching the HIP host program.
 	MadsPerThread int
-	// NumBlocks is the number of work-groups (blocks) in the 1D grid. The
-	// work-group size is fixed at blockSize.
+	// NumBlocks is the number of work-groups (blocks) in the 1D grid.
 	NumBlocks int
+	// ThreadsPerBlock is the work-group (block) size, swept by the
+	// calibration and passed to the kernel as an explicit argument.
+	ThreadsPerBlock int
 
 	madsPerThread int
 	numThreads    int
@@ -124,6 +127,9 @@ func (b *Benchmark) initMem() {
 	if b.MadsPerThread <= 0 {
 		b.MadsPerThread = 4096
 	}
+	if b.ThreadsPerBlock <= 0 {
+		b.ThreadsPerBlock = defaultThreadsPerBlock
+	}
 
 	// Match the HIP host: round down to a multiple of 4, min 4.
 	b.madsPerThread = (b.MadsPerThread / 4) * 4
@@ -131,7 +137,7 @@ func (b *Benchmark) initMem() {
 		b.madsPerThread = 4
 	}
 
-	b.numThreads = b.NumBlocks * blockSize
+	b.numThreads = b.NumBlocks * b.ThreadsPerBlock
 
 	if b.useUnifiedMemory {
 		b.gOut = b.driver.AllocateUnifiedMemory(
@@ -146,15 +152,16 @@ func (b *Benchmark) exec() {
 	globalX := uint32(b.numThreads)
 
 	args := KernelArgs{
-		Out:           b.gOut,
-		MadsPerThread: int32(b.madsPerThread),
+		Out:             b.gOut,
+		MadsPerThread:   int32(b.madsPerThread),
+		ThreadsPerBlock: int32(b.ThreadsPerBlock),
 	}
 
 	b.driver.EnqueueLaunchKernel(
 		b.queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
+		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
 
@@ -190,7 +197,7 @@ func (b *Benchmark) Verify() {
 	b.driver.MemCopyD2H(b.context, gpuOut, b.gOut)
 
 	for tid := 0; tid < b.numThreads; tid++ {
-		threadIdxX := tid % blockSize
+		threadIdxX := tid % b.ThreadsPerBlock
 		ref := b.cpuReferenceForThread(threadIdxX)
 		got := gpuOut[tid]
 
