@@ -84,7 +84,7 @@ func (b *Benchmark) Verify() {
 	m := CPUMatrixMultiplier{}
 	mCPU := m.Multiply(b.MatrixA, b.MatrixB)
 	for i := uint32(0); i < mCPU.Width; i++ {
-		for j := uint32(0); i < mCPU.Width; i++ {
+		for j := uint32(0); j < mCPU.Height; j++ {
 			index := i + j*mCPU.Width
 
 			if math.Abs(float64(mCPU.Data[index]-b.MatrixC.Data[index])) > 1e-3 {
