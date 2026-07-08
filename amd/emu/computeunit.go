@@ -268,13 +268,15 @@ func (p *cuProcessor) initWfRegs(wf *Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		if co.Version == insts.CodeObjectV5 {
-			// For V5 code objects (gfx942/CDNA3), pack work-item IDs into v0
-			// as: v0 = (z << 20) | (y << 10) | x
+		if co.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
+			// For gfx9+/CDNA V5 code objects (e.g. gfx942), pack work-item IDs
+			// into v0 as: v0 = (z << 20) | (y << 10) | x. gfx8 (GCN3) uses
+			// separate VGPRs even as a V5 code object, so it takes the branch
+			// below.
 			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
 			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(packed))
 		} else {
-			// For V2/V3 code objects (GCN3), use separate registers
+			// For V2/V3 (GCN3) and gfx8 V5 code objects, use separate registers
 			wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
 			if co.EnableVgprWorkItemID() > 0 {

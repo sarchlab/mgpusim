@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"os"
 )
 
 // CodeObjectVersion represents the AMDGPU code object version
@@ -93,13 +94,12 @@ func newKernelCodeObjectFromEntireTextSection(data []byte) *KernelCodeObject {
 // LoadKernelCodeObjectFromFS loads a kernel from an HSACO file by path.
 // If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
 func LoadKernelCodeObjectFromFS(filePath, kernelName string) *KernelCodeObject {
-	executable, err := elf.Open(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer executable.Close()
 
-	return loadKernelCodeObjectFromELF(executable, kernelName)
+	return LoadKernelCodeObjectFromBytes(data, kernelName)
 }
 
 // LoadKernelCodeObjectFromBytes loads a kernel from embedded HSACO bytes.
@@ -111,13 +111,48 @@ func LoadKernelCodeObjectFromBytes(data []byte, kernelName string) *KernelCodeOb
 		log.Fatal(err)
 	}
 
-	return loadKernelCodeObjectFromELF(executable, kernelName)
+	// The V5 kernel descriptor does not record the GPU generation; recover it
+	// from the ELF e_flags (EF_AMDGPU_MACH) and thread it into the parser so
+	// gfx8 (GCN3) and gfx9+/CDNA V5 kernels get the right SGPR/work-item layout.
+	return loadKernelCodeObjectFromELF(executable, kernelName, elfAMDGPUMach(data))
+}
+
+// elfAMDGPUMach returns the EF_AMDGPU_MACH field (the low byte of e_flags) from
+// a 64-bit little-endian ELF header, or 0 if the data is too short.
+func elfAMDGPUMach(data []byte) uint32 {
+	const eFlagsOffset = 0x30
+	if len(data) < eFlagsOffset+4 {
+		return 0
+	}
+	return binary.LittleEndian.Uint32(data[eFlagsOffset:eFlagsOffset+4]) & 0xff
+}
+
+// amdgpuMachToVersionMajor maps an EF_AMDGPU_MACH machine id to the GPU
+// generation major number (the N in gfxN..):
+//
+//	0x28-0x2b => 8  (gfx8 / GCN3-4, e.g. gfx803)
+//	0x2c-0x4f => 9  (gfx9 / GCN5 & CDNA, e.g. gfx900, gfx942)
+//
+// Returns 0 for machine ids outside these ranges (older/unknown), which callers
+// treat as "assume packed work-item IDs" to preserve gfx9+/CDNA behavior.
+func amdgpuMachToVersionMajor(mach uint32) uint16 {
+	switch {
+	case mach >= 0x28 && mach <= 0x2b:
+		return 8
+	case mach >= 0x2c && mach <= 0x4f:
+		return 9
+	default:
+		return 0
+	}
 }
 
 // LoadKernelCodeObjectFromELF loads a kernel from an already-opened ELF file.
 // If kernelName is empty, auto-detects single-kernel ELFs or panics for multi-kernel.
 func LoadKernelCodeObjectFromELF(elfFile *elf.File, kernelName string) *KernelCodeObject {
-	return loadKernelCodeObjectFromELF(elfFile, kernelName)
+	// e_flags is unavailable from an already-parsed *elf.File; pass 0 (unknown
+	// generation), which the V5 parser treats as gfx9+/CDNA (packed work-item
+	// IDs, main's default layout).
+	return loadKernelCodeObjectFromELF(elfFile, kernelName, 0)
 }
 
 // loadKernelCodeObjectFromELF extracts a kernel from an ELF file.
@@ -126,7 +161,7 @@ func LoadKernelCodeObjectFromELF(elfFile *elf.File, kernelName string) *KernelCo
 //   - For multi-kernel ELFs: panics with helpful message listing available kernels
 //
 //nolint:gocognit,funlen
-func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *KernelCodeObject {
+func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string, machID uint32) *KernelCodeObject {
 	textSection := executable.Section(".text")
 	if textSection == nil {
 		log.Fatal(".text section not found in ELF file")
@@ -216,7 +251,7 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 			// definitively V5 and we use the raw .text data as-is.
 			if v5Meta := findV5KernelDescriptor(
 				kernelName, symbols, executable,
-				rodataSection, rodataSectionData,
+				rodataSection, rodataSectionData, machID,
 			); v5Meta != nil {
 				// Override WFSgprCount/WIVgprCount from ELF metadata
 				// symbols if available. The compute_pgm_rsrc1 field
@@ -227,6 +262,17 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string) *Kerne
 				overrideRegisterCountsFromSymbols(
 					v5Meta, kernelName, symbols,
 				)
+
+				// The kernel_code_entry_byte_offset in the .kd descriptor
+				// is measured from the descriptor's own address to the
+				// kernel entry (entry_va - kd_va). MGPUSim, however, copies
+				// only the kernel's .text bytes (starting exactly at the
+				// entry symbol) and sets PC = KernelObject +
+				// KernelCodeEntryByteOffset. Since co.Data already begins at
+				// the entry instruction, the offset into it is 0. Leaving the
+				// raw .kd value here would push the PC far past the code and
+				// execute unrelated memory (an infinite hang).
+				v5Meta.KernelCodeEntryByteOffset = 0
 
 				co := new(KernelCodeObject)
 				co.Data = kernelData // V5: entire kernel data is instructions
@@ -296,6 +342,7 @@ func findV5KernelDescriptor(
 	executable *elf.File,
 	rodataSection *elf.Section,
 	rodataSectionData []byte,
+	machID uint32,
 ) *KernelCodeObjectMeta {
 	if rodataSection == nil || rodataSectionData == nil {
 		return nil
@@ -310,7 +357,7 @@ func findV5KernelDescriptor(
 					kdOffset := sym.Value - rodataSection.Addr
 					if kdOffset+64 <= uint64(len(rodataSectionData)) {
 						kdData := rodataSectionData[kdOffset : kdOffset+64]
-						return parseV5KernelDescriptor(kdData)
+						return parseV5KernelDescriptor(kdData, machID)
 					}
 				}
 			}
@@ -405,7 +452,7 @@ func parseV2V3Header(data []byte) *KernelCodeObjectMeta {
 }
 
 // parseV5KernelDescriptor parses the 64-byte V5 kernel descriptor
-func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
+func parseV5KernelDescriptor(data []byte, machID uint32) *KernelCodeObjectMeta {
 	meta := new(KernelCodeObjectMeta)
 
 	// V5 Kernel Descriptor layout (64 bytes):
@@ -452,13 +499,34 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	// 2. Workgroup ID and work-item ID enables come from compute_pgm_rsrc2
 	// 3. We disable unused/deprecated SGPR features (dispatch ptr, queue ptr, etc.)
 	//
-	// The SGPR layout for V5 kernels is always:
-	//   s[0:1] = kernarg segment pointer (if kernel has kernargs)
-	//   s2     = workgroup ID X (if enabled in rsrc2)
-	//   s3     = workgroup ID Y (if enabled in rsrc2)
-	//   s4     = workgroup ID Z (if enabled in rsrc2)
+	// SGPR layout selection: clang's gfx803 OpenCL COV5 output reserves
+	// s[0:3] for the private segment buffer and places the kernarg pointer
+	// at s[4:5], with the workgroup-id SGPRs following (wg id x = s6,
+	// wg id y = s7). This does NOT match the kernel_code_properties bits
+	// under the standard AMDHSA model (which would put kernarg at s[0:1]),
+	// so we select the layout from the descriptor's original user_sgpr_count
+	// instead: a count large enough to hold a 4-SGPR private segment buffer
+	// plus the 2-SGPR kernarg pointer means the private segment buffer is
+	// present and shifts kernarg to s[4:5]. Smaller counts (typical HIP
+	// kernels) keep the private buffer off and kernarg at s[0:1]:
+	//   with private buffer:  s[0:3]=priv buf, s[4:5]=kernarg, s6/s7=wg id x/y
+	//   without:              s[0:1]=kernarg, s2/s3=wg id x/y
+	//
+	// TODO: harden this heuristic once more V5 kernels are available to
+	// cross-check against.
+	// The V5 kernel descriptor does not record the GPU generation; recover it
+	// from the ELF e_flags (EF_AMDGPU_MACH) so the private-segment-buffer
+	// heuristic below stays scoped to gfx8 (GCN3) and never perturbs the SGPR
+	// layout of gfx9+/CDNA V5 kernels, which use main's default layout.
+	meta.MachineVersionMajor = amdgpuMachToVersionMajor(machID)
 
-	meta.EnableSgprPrivateSegmentBuffer = false // Deprecated in V5
+	const privSegBufferSgprs = 4
+	const kernargPtrSgprs = 2
+	origUserSgpr := (meta.ComputePgmRsrc2 >> 1) & 0x1F
+	usePrivateSegmentBuffer := meta.MachineVersionMajor == 8 &&
+		origUserSgpr >= privSegBufferSgprs+kernargPtrSgprs
+
+	meta.EnableSgprPrivateSegmentBuffer = usePrivateSegmentBuffer
 
 	// For V5 code objects, always enable kernarg ptr if there are kernel arguments
 	meta.EnableSgprKernargSegmentPtr = meta.KernargSegmentByteSize > 0
@@ -474,7 +542,7 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	// enable_sgpr_workgroup_id and enable_vgpr_workitem_id bits.
 	// For V5 code objects, we ensure these are always enabled since
 	// all HIP kernels use workgroup and work-item IDs.
-	// Bit 1-5:  user_sgpr_count → set to 2 (for kernarg ptr s[0:1])
+	// Bit 1-5:  user_sgpr_count → private buffer (4, if present) + kernarg (2)
 	// Bit 7:    enable_sgpr_workgroup_id_x → force enable
 	// Bit 8:    enable_sgpr_workgroup_id_y → force enable
 	// Bit 9:    enable_sgpr_workgroup_id_z → leave as-is
@@ -482,10 +550,16 @@ func parseV5KernelDescriptor(data []byte) *KernelCodeObjectMeta {
 	rsrc2 := meta.ComputePgmRsrc2
 	// Clear bit 0 (enable_sgpr_private_segment_wave_byte_offset) — deprecated in V5
 	rsrc2 &^= 1
-	if meta.EnableSgprKernargSegmentPtr {
-		// Set user_sgpr_count to 2 (kernarg ptr uses 2 SGPRs)
-		rsrc2 = (rsrc2 &^ (0x1F << 1)) | (2 << 1)
+	// Recompute user_sgpr_count to match the enabled user SGPRs so it stays
+	// consistent with the layout the wavefront dispatcher builds.
+	userSgpr := uint32(0)
+	if usePrivateSegmentBuffer {
+		userSgpr += privSegBufferSgprs
 	}
+	if meta.EnableSgprKernargSegmentPtr {
+		userSgpr += kernargPtrSgprs
+	}
+	rsrc2 = (rsrc2 &^ (0x1F << 1)) | (userSgpr << 1)
 	rsrc2 |= (1 << 7) // enable_sgpr_workgroup_id_x
 	rsrc2 |= (1 << 8) // enable_sgpr_workgroup_id_y
 	// Set enable_vgpr_workitem_id to at least 1 (enable X and Y)
