@@ -79,6 +79,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVCmpGeU32VOP3a(state)
 	case 233: // 0xE9
 		u.runVCmpLtU64VOP3a(state)
+	case 264: // 0x108 v_mul_u32_u24 (VOP3a form)
+		u.runVMULU32U24(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
 	case 258:

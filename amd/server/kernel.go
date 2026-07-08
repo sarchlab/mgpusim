@@ -1,8 +1,6 @@
 package server
 
 import (
-	"bytes"
-	"debug/elf"
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
@@ -43,11 +41,11 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	elfFile, err := elf.NewFile(bytes.NewReader(rawCodeObject))
-	if err != nil {
-		panic(err)
-	}
-	hsaCo := insts.LoadKernelCodeObjectFromELF(elfFile, "")
+	// Load from the raw bytes (not a pre-parsed *elf.File) so the loader can
+	// read the ELF e_flags and recover the GPU generation; this is required
+	// for gfx8 (GCN3) Code Object V5 kernels to get separate work-item-ID
+	// VGPRs instead of the gfx9+/CDNA packed-into-v0 layout.
+	hsaCo := insts.LoadKernelCodeObjectFromBytes(rawCodeObject, "")
 
 	rawArgs, err := base64.StdEncoding.DecodeString(dataJSON.Args)
 	if err != nil {
