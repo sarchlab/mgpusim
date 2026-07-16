@@ -52,7 +52,7 @@ from pathlib import Path
 #               reused/unchanged. Harder to justify precisely (it's still a
 #               whole-package granularity, not per-symbol), but it excludes
 #               akita packages the NVIDIA simulator never touches.
-MODE = "all_akita"  # "all_akita" or "used_akita"
+MODE = "used_akita"  # "all_akita" or "used_akita"
 
 # Set to False to also count *_test.go files in every bucket below.
 EXCLUDE_TEST_FILES = True
