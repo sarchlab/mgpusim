@@ -1,0 +1,5 @@
+# Generated/downloaded at run time -- see code_similarity.py docstring.
+cache/
+external/
+output/
+*.pkl
