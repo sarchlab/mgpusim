@@ -1,0 +1,13 @@
+gpu_model,gpu_frequency_mhz,benchmark,gpu_kernel_time_real_s,gpu_cycle_count_calculated,mgpusim_simulated_kernel_time_real_s,mgpusim_simulated_cycle_count_calculated,simulated_real_ratio,
+H100,1755,matrixmultiplication,3.65E-05,64092.6,4.48E-05,78538,1.225383,0.672067167
+H100,1755,matrixtranspose,1.52E-05,26705.8,1.80E-05,31607.5,1.183545,
+H100,1755,simpleconvolution,1.35E-05,23620.5,7.80E-06,13692.5,0.579686,
+H100,1755,bitonicsort,1.14E-03,2004801.4,3.82E-04,669688.7,0.334042,
+H100,1755,floydwarshall,1.12E-03,1963918.7,2.53E-04,443530.6,0.22584,
+H100,1755,fastwalshtransform,1.01E-04,176444.2,4.87E-05,85382.5,0.483907,
+A100,1410,matrixmultiplication,4.35E-05,61311,5.43E-05,76563,1.248764,0.618241333
+A100,1410,matrixtranspose,1.80E-05,25353.2,1.82E-05,25607,1.010011,
+A100,1410,simpleconvolution,1.74E-05,24495.9,8.94E-06,12599.8,0.514361,
+A100,1410,bitonicsort,1.60E-03,2256432.9,4.69E-04,661167.3,0.293014,
+A100,1410,floydwarshall,1.15E-03,1627761.8,3.00E-04,422943.6,0.259831,
+A100,1410,fastwalshtransform,1.56E-04,219589.2,5.97E-05,84205.2,0.383467,

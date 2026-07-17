@@ -1,0 +1,33 @@
+{
+  "repo_root": "/Users/enze/workspace/mgpusim",
+  "mode": "used_akita",
+  "exclude_test_files": true,
+  "akita_import_path": "github.com/sarchlab/akita/v4",
+  "akita_module_dir": "/Users/enze/go/pkg/mod/github.com/sarchlab/akita/v4@v4.7.0",
+  "akita_packages_used": [
+    "github.com/sarchlab/akita/v4/analysis",
+    "github.com/sarchlab/akita/v4/datarecording",
+    "github.com/sarchlab/akita/v4/mem/cache",
+    "github.com/sarchlab/akita/v4/mem/cache/writearound",
+    "github.com/sarchlab/akita/v4/mem/cache/writeback",
+    "github.com/sarchlab/akita/v4/mem/idealmemcontroller",
+    "github.com/sarchlab/akita/v4/mem/mem",
+    "github.com/sarchlab/akita/v4/mem/vm",
+    "github.com/sarchlab/akita/v4/monitoring",
+    "github.com/sarchlab/akita/v4/monitoring/web",
+    "github.com/sarchlab/akita/v4/pipelining",
+    "github.com/sarchlab/akita/v4/sim",
+    "github.com/sarchlab/akita/v4/sim/directconnection",
+    "github.com/sarchlab/akita/v4/simulation",
+    "github.com/sarchlab/akita/v4/tracing"
+  ],
+  "total_lines": 14397,
+  "unchanged_lines": 10195,
+  "adapted_lines": 1668,
+  "new_lines": 2534,
+  "unchanged_pct": 70.81336389525596,
+  "adapted_pct": 11.585747030631381,
+  "new_pct": 17.60088907411266,
+  "combined_reuse_lines": 11863,
+  "combined_reuse_pct": 82.39911092588734
+}
