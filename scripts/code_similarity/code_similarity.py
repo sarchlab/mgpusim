@@ -114,6 +114,13 @@ COMPUTE_SELF_BASELINE = True
 SELF_BASELINE_MAX_FUNCTIONS = 800
 SELF_BASELINE_SEED = 0
 
+# Dump the K highest-scoring (nvidia, X) pairs to disk as plain-text files,
+# for eyeballing what "most similar" actually looks like. Written under
+# SCRIPT_DIR/results_<method>/nvidia_vs_<X>_top_<K>/, fully refreshed (old
+# files removed) on every run.
+DUMP_TOP_PAIRS = True
+TOP_K_PAIRS = 20
+
 # ----------------------------------------------------------------------------
 
 
@@ -466,6 +473,65 @@ def subsample(records, embeddings, max_n, seed):
     return [records[i] for i in idx], embeddings[idx]
 
 
+def top_k_pairs(embA, embB, k: int, upper_triangle_only: bool = False):
+    """Returns the k highest-scoring (score, i, j) triples from embA @ embB.T.
+
+    upper_triangle_only=True is for a corpus compared against itself: it
+    keeps only i < j, which simultaneously excludes the trivial i == j
+    self-pairs and the symmetric mirror of every pair (since the matrix is
+    symmetric in that case, (i, j) and (j, i) carry the same score)."""
+    import numpy as np
+
+    sim = embA @ embB.T
+    if upper_triangle_only:
+        sim = np.where(np.triu(np.ones(sim.shape, dtype=bool), k=1), sim, -np.inf)
+
+    flat = sim.reshape(-1)
+    k = min(k, int(np.isfinite(flat).sum()))
+    top_idx = np.argpartition(flat, -k)[-k:]
+    top_idx = top_idx[np.argsort(flat[top_idx])[::-1]]
+
+    pairs = []
+    for idx in top_idx:
+        i, j = np.unravel_index(int(idx), sim.shape)
+        pairs.append((float(sim[i, j]), int(i), int(j)))
+    return pairs
+
+
+def format_function_ref(label: str, rec: dict) -> str:
+    qualified_name = f"{rec['receiver']}.{rec['name']}" if rec.get("receiver") else rec["name"]
+    return f"{label} :: {rec['path']} :: {qualified_name} (lines {rec['start_line']}-{rec['end_line']})"
+
+
+def dump_top_pairs(results_root: Path, comparison_name: str, label_a: str, records_a,
+                    label_b: str, records_b, pairs, k: int):
+    folder = results_root / f"nvidia_vs_{comparison_name}_top_{k}"
+    if folder.exists():
+        existing = list(folder.glob("*.txt"))
+        print(f"removing {len(existing)} results in {folder}/", file=sys.stderr)
+        for f in existing:
+            f.unlink()
+    folder.mkdir(parents=True, exist_ok=True)
+
+    sep = "-" * 60
+    for rank, (score, i, j) in enumerate(pairs, start=1):
+        rec_a, rec_b = records_a[i], records_b[j]
+        content = (
+            f"{sep}\n"
+            f"function from {format_function_ref(label_a, rec_a)}\n"
+            f"{sep}\n"
+            f"{rec_a['source']}\n"
+            f"\n"
+            f"{sep}\n"
+            f"function from {format_function_ref(label_b, rec_b)}\n"
+            f"{sep}\n"
+            f"{rec_b['source']}\n"
+        )
+        (folder / f"{rank}_{score:.6f}.txt").write_text(content, encoding="utf-8")
+
+    print(f"wrote {len(pairs)} pair files to {folder}/", file=sys.stderr)
+
+
 # ---- Main ------------------------------------------------------------------
 
 
@@ -560,12 +626,25 @@ def main():
         print("self-similarity baselines (excluding self-pairs, subsampled):")
         for label, key in [("nvidia vs nvidia", "nvidia_vs_nvidia"), ("amd vs amd", "amd_vs_amd"), ("gpgpu_sim vs gpgpu_sim", "gpgpu_sim_vs_gpgpu_sim")]:
             s = results["self_baseline"][key]
-            print(f"  {label:24s} pairs={s['pairs']:>8,}  mean={s['mean']:.4f}  median={s['median']:.4f}")
+            print(f"  {label:24s} pairs={s['pairs']:>8,}  mean={s['mean']:.4f}  median={s['median']:.4f}  std={s['std']:.4f}")
     print("=" * 72)
 
     out_path = OUTPUT_DIR / f"similarity_{method}{'_mock' if args.mock_embeddings else ''}.json"
     out_path.write_text(json.dumps(results, indent=2) + "\n")
     print(f"\nwrote {out_path}")
+
+    if DUMP_TOP_PAIRS:
+        results_root = SCRIPT_DIR / f"results_{method}"
+        print(f"\ndumping top-{TOP_K_PAIRS} pairs to {results_root}/ ...", file=sys.stderr)
+
+        pairs = top_k_pairs(nvidia_emb, nvidia_emb, TOP_K_PAIRS, upper_triangle_only=True)
+        dump_top_pairs(results_root, "nvidia", "nvidia", nvidia_records, "nvidia", nvidia_records, pairs, TOP_K_PAIRS)
+
+        pairs = top_k_pairs(nvidia_emb, amd_emb, TOP_K_PAIRS)
+        dump_top_pairs(results_root, "amd_main", "nvidia", nvidia_records, "amd_main", amd_records, pairs, TOP_K_PAIRS)
+
+        pairs = top_k_pairs(nvidia_emb, gpgpu_emb, TOP_K_PAIRS)
+        dump_top_pairs(results_root, "gpgpu_sim", "nvidia", nvidia_records, "gpgpu_sim", gpgpu_records, pairs, TOP_K_PAIRS)
 
 
 if __name__ == "__main__":
