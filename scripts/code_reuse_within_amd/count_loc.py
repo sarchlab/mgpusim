@@ -10,15 +10,21 @@ of `main`'s amd/ (mgpusim's current AMD target, MI300X) is unchanged from
 with the same "(1) unchanged also includes the toolkit code actually used"
 convention.
 
+Scope is deliberately narrow: only AMD_CODE_SUBDIRS below (driver, bitops,
+emu, insts, kernels, protocol, sampling, server, timing) -- not amd/arch,
+amd/samples, amd/benchmarks, amd/tests. Test files (*_test.go), doc.go
+files (package-level doc stubs, low information content), and non-.go
+files are all excluded from every count.
+
 Categories, mirroring count_loc.py's structure:
   (2) unchanged - amd/ lines on MAIN_REF that are textually identical to a
                    line already present in the same file on OLD_REF (a
-                   difflib-based per-file line match, non-blank lines
-                   only; a file with no OLD_REF counterpart contributes 0
-                   unchanged lines), PLUS the akita packages actually
-                   imported by MAIN_REF's amd/ code (used_akita
-                   methodology -- same "only packages actually reachable,
-                   whole-package granularity" caveat as count_loc.py).
+                   difflib-based per-file line match; a file with no
+                   OLD_REF counterpart contributes 0 unchanged lines),
+                   PLUS the akita packages actually imported by MAIN_REF's
+                   amd/ code (used_akita methodology -- same "only
+                   packages actually reachable, whole-package granularity"
+                   caveat as count_loc.py).
   (3) adapted    - always 0: "adapted" captures a different vendor's
                    structure being retrofitted (SA -> SM, CU -> SMSP for
                    the NVIDIA side); there is no such concept for AMD's
@@ -41,9 +47,11 @@ lets `go mod download` fetch akita/v5 from the module proxy instead --
 this is the one network dependency here (OLD_REF's akita/v4 dependency is
 already resolvable from the local module cache with no such issue).
 
-Blank/whitespace-only lines are excluded from every count; everything else
-(including comments) counts as a line, per physical-line LOC convention,
-matching scripts/code_reuse/count_loc.py.
+Blank/whitespace-only lines AND comment-only lines are excluded from every
+count; a line with trailing code plus a comment still counts (only the
+comment text is stripped, via strip_comments.go / go/scanner, which -
+unlike a naive regex - correctly leaves "//" or "/*" inside string/rune
+literals alone).
 """
 
 import argparse
@@ -68,16 +76,27 @@ MAIN_REF = "origin/main"
 OLD_REF = "origin/v4"
 
 AMD_ROOT = "amd"
-AMD_EXCLUDE_PREFIXES = [
-    "amd/benchmarks/",
-    "amd/tests/",
+
+# Only these amd/ subdirectories count toward any bucket below (also used
+# to scope the `go list -deps` used_akita computation). Everything else
+# under amd/ (arch, samples, benchmarks, tests, ...) is out of scope.
+AMD_CODE_SUBDIRS = [
+    "driver",
+    "bitops",
+    "emu",
+    "insts",
+    "kernels",
+    "protocol",
+    "sampling",
+    "server",
+    "timing",
 ]
-AMD_EXCLUDE_FILES = {
-    "amd/run_before_merge.sh",
-}
 
 # Set to False to also count *_test.go files in every bucket below.
 EXCLUDE_TEST_FILES = True
+
+# Set to False to count doc.go files too.
+EXCLUDE_DOC_GO = True
 
 # Go import-path prefix used to recognize akita packages among dependencies.
 # Matches any major version (v4, v5, ...) via `go list -m all`.
@@ -90,22 +109,40 @@ OUTPUT_DIR = SCRIPT_DIR / "output"
 # ----------------------------------------------------------------------------
 
 
-def count_nonblank_lines(path: Path) -> int:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        print(f"warning: could not read {path}: {exc}", file=sys.stderr)
-        return 0
-    return sum(1 for line in text.splitlines() if line.strip())
-
-
-def nonblank_lines(path: Path):
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        print(f"warning: could not read {path}: {exc}", file=sys.stderr)
-        return []
+def nonblank_lines_from_text(text: str):
     return [line for line in text.splitlines() if line.strip()]
+
+
+def build_strip_comments_binary() -> Path:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    binary = CACHE_DIR / "strip_comments_bin"
+    if not binary.exists():
+        src = SCRIPT_DIR / "strip_comments.go"
+        result = subprocess.run(["go", "build", "-o", str(binary), str(src)], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"failed to build strip_comments.go: {result.stderr}")
+    return binary
+
+
+def strip_comments_batch(binary: Path, paths):
+    """Returns {resolved Path: comment-stripped source text} for every
+    path in `paths` (deduplicated). Comments are blanked via go/scanner
+    (see strip_comments.go's docstring) -- safe against "//"/"/*" inside
+    string or rune literals, unlike a regex-based stripper."""
+    unique_paths = sorted({Path(p).resolve() for p in paths})
+    if not unique_paths:
+        return {}
+    result = subprocess.run(
+        [str(binary), *[str(p) for p in unique_paths]], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"strip_comments failed: {result.stderr}")
+    data = json.loads(result.stdout)
+    return {Path(item["path"]): item["source"] for item in data}
+
+
+def _is_doc_go(path: Path) -> bool:
+    return EXCLUDE_DOC_GO and path.name == "doc.go"
 
 
 def iter_go_files(root: Path, exclude_tests: bool, recursive: bool = True):
@@ -113,7 +150,20 @@ def iter_go_files(root: Path, exclude_tests: bool, recursive: bool = True):
     for path in sorted(paths):
         if exclude_tests and path.name.endswith("_test.go"):
             continue
+        if _is_doc_go(path):
+            continue
         yield path
+
+
+def iter_amd_code_files(amd_dir: Path, exclude_tests: bool):
+    """Only files under one of AMD_CODE_SUBDIRS, applying the same
+    test/doc.go exclusions as iter_go_files."""
+    for subdir in AMD_CODE_SUBDIRS:
+        d = amd_dir / subdir
+        if not d.is_dir():
+            print(f"warning: {amd_dir}/{subdir} not found -- skipping", file=sys.stderr)
+            continue
+        yield from iter_go_files(d, exclude_tests, recursive=True)
 
 
 def run_go(args, cwd: Path) -> str:
@@ -158,47 +208,29 @@ def _git_archive_extract(repo_root: Path, sha: str, paths, dest: Path):
     archive.wait()
 
 
-def _apply_amd_excludes(dest: Path):
-    for excluded in ("benchmarks", "tests"):
-        p = dest / AMD_ROOT / excluded
-        if p.exists():
-            import shutil
-            shutil.rmtree(p)
-    for f in AMD_EXCLUDE_FILES:
-        p = dest / f
-        if p.exists():
-            p.unlink()
-
-
 def materialize_amd_only(repo_root: Path, ref: str) -> Path:
-    """Archives just amd/ (minus excludes) from `ref` into
-    CACHE_DIR/amd_only_<sha>/."""
+    """Archives just amd/ from `ref` into CACHE_DIR/amd_only_<sha>/.
+    Everything outside AMD_CODE_SUBDIRS is still present on disk (git
+    archive pulls the whole amd/ tree) -- scope filtering happens later,
+    at line-counting time, via iter_amd_code_files()."""
     sha = _ref_sha(repo_root, ref)
     dest = CACHE_DIR / f"amd_only_{sha[:12]}"
     if not dest.exists():
         _git_archive_extract(repo_root, sha, [AMD_ROOT], dest)
-        _apply_amd_excludes(dest)
     return dest
 
 
 def materialize_full_repo(repo_root: Path, ref: str) -> Path:
     """Archives the *entire* tree at `ref` into CACHE_DIR/full_<sha>/ --
-    needed (not just amd/) so `go list -deps` can resolve the module.
-    Deliberately does NOT apply AMD_EXCLUDE_PREFIXES/FILES here: e.g.
-    amd/samples/*/main.go imports amd/benchmarks/..., so removing
-    benchmarks/ would break module resolution even though we don't want
-    to *count* those lines. Exclusion is applied later, at line-counting
-    time, in classify_amd_diff()."""
+    needed (not just amd/) so `go list -deps` can resolve the module:
+    e.g. amd/samples/*/main.go imports amd/benchmarks/..., so the full
+    tree is needed even though amd/samples and amd/benchmarks are outside
+    AMD_CODE_SUBDIRS and don't contribute to any count."""
     sha = _ref_sha(repo_root, ref)
     dest = CACHE_DIR / f"full_{sha[:12]}"
     if not dest.exists():
         _git_archive_extract(repo_root, sha, ["."], dest)
     return dest
-
-
-def _is_excluded(rel_amd_path: str) -> bool:
-    full_path = f"{AMD_ROOT}/{rel_amd_path}"
-    return any(full_path.startswith(p) for p in AMD_EXCLUDE_PREFIXES) or full_path in AMD_EXCLUDE_FILES
 
 
 _LOCAL_REPLACE_RE = re.compile(r"^\s*replace\s+\S+\s*=>\s*(\.\.?/\S+)\s*$")
@@ -283,25 +315,27 @@ def build_rename_map(repo_root: Path, old_ref: str, new_ref: str):
     return mapping
 
 
-def classify_amd_diff(old_amd_dir: Path, new_amd_dir: Path, exclude_tests: bool, rename_map: dict):
+def classify_amd_diff(old_amd_dir: Path, new_amd_dir: Path, exclude_tests: bool,
+                       rename_map: dict, stripped: dict):
     """Returns (unchanged_lines, new_lines, per_file_records) for every
-    .go file under new_amd_dir (minus excludes/tests), classifying each of
-    its non-blank lines as unchanged (matched, via difflib, to a line in
-    its counterpart file under old_amd_dir -- same relative path, or the
-    rename_map's mapped path if git detected a move) or new (no
-    counterpart at all, or no line-level match within one)."""
+    .go file under new_amd_dir's AMD_CODE_SUBDIRS, classifying each of its
+    non-blank, non-comment lines as unchanged (matched, via difflib, to a
+    line in its counterpart file under old_amd_dir -- same relative path,
+    or the rename_map's mapped path if git detected a move) or new (no
+    counterpart at all, or no line-level match within one).
+
+    `stripped` is {resolved Path: comment-stripped source}, pre-populated
+    by strip_comments_batch() for every file this function will touch."""
     unchanged_total = 0
     new_total = 0
     records = []
-    for f in iter_go_files(new_amd_dir, exclude_tests):
+    for f in iter_amd_code_files(new_amd_dir, exclude_tests):
         rel = str(f.relative_to(new_amd_dir))
-        if _is_excluded(rel):
-            continue
-        new_lines_list = nonblank_lines(f)
+        new_lines_list = nonblank_lines_from_text(stripped[f.resolve()])
         old_rel = rename_map.get(rel, rel)
         old_f = old_amd_dir / old_rel
         if old_f.is_file():
-            old_lines_list = nonblank_lines(old_f)
+            old_lines_list = nonblank_lines_from_text(stripped[old_f.resolve()])
             matcher = difflib.SequenceMatcher(None, old_lines_list, new_lines_list, autojunk=False)
             unchanged_here = sum(block.size for block in matcher.get_matching_blocks())
         else:
@@ -333,26 +367,15 @@ def resolve_akita_module(full_dir: Path):
     )
 
 
-def amd_core_subdirs(main_amd_dir: Path):
-    """amd/'s immediate subdirectories, minus benchmarks/tests -- used as
-    the `go list -deps` starting points, analogous to how
-    scripts/code_reuse/count_loc.py scopes CODE_FOLDERS to just the
-    NVIDIA simulator's own code (not nvidia/benchmark, nvidia/eval).
-    Listed dynamically rather than hardcoded so it stays correct if amd/
-    gains or loses a subdirectory."""
-    excluded_names = {p.rstrip("/").rsplit("/", 1)[-1] for p in AMD_EXCLUDE_PREFIXES}
-    return sorted(
-        d.name for d in main_amd_dir.iterdir()
-        if d.is_dir() and d.name not in excluded_names
-    )
-
-
-def count_used_akita(full_dir: Path, akita_import_path: str, exclude_tests: bool):
+def resolve_akita_files(full_dir: Path, akita_import_path: str, exclude_tests: bool):
+    """Returns (akita_pkgs, [(file_path, import_path), ...]) for every
+    akita package actually reachable from AMD_CODE_SUBDIRS (used_akita
+    methodology). Doesn't count lines itself -- that happens after
+    comment-stripping, in count_akita_lines()."""
     deps_args = ["-deps"]
     if not exclude_tests:
         deps_args.append("-test")
-    subdirs = amd_core_subdirs(full_dir / AMD_ROOT)
-    pkg_patterns = [f"./{AMD_ROOT}/{d}/..." for d in subdirs]
+    pkg_patterns = [f"./{AMD_ROOT}/{d}/..." for d in AMD_CODE_SUBDIRS]
     out = run_go(["list", *deps_args, *pkg_patterns], cwd=full_dir)
     deps = sorted({line.strip() for line in out.splitlines() if line.strip()})
     akita_pkgs = [d for d in deps if d.startswith(akita_import_path)]
@@ -360,16 +383,23 @@ def count_used_akita(full_dir: Path, akita_import_path: str, exclude_tests: bool
         raise RuntimeError(f"no akita packages found among {AMD_ROOT}/ dependencies in {full_dir}")
 
     dir_out = run_go(["list", "-f", "{{.ImportPath}} {{.Dir}}", *akita_pkgs], cwd=full_dir)
-    total = 0
-    records = []
+    files = []
     for line in dir_out.splitlines():
         import_path, _, dir_ = line.partition(" ")
         d = Path(dir_)
         for f in iter_go_files(d, exclude_tests, recursive=False):
-            n = count_nonblank_lines(f)
-            total += n
-            records.append({"path": str(f), "package": import_path, "lines": n})
-    return total, records, akita_pkgs
+            files.append((f, import_path))
+    return akita_pkgs, files
+
+
+def count_akita_lines(akita_files, stripped: dict):
+    total = 0
+    records = []
+    for f, import_path in akita_files:
+        n = len(nonblank_lines_from_text(stripped[f.resolve()]))
+        total += n
+        records.append({"path": str(f), "package": import_path, "lines": n})
+    return total, records
 
 
 # ---- Main ------------------------------------------------------------------
@@ -389,6 +419,9 @@ def main():
     print(f"exclude _test.go files : {EXCLUDE_TEST_FILES}")
     print()
 
+    print("building strip_comments.go ...", file=sys.stderr)
+    strip_comments_bin = build_strip_comments_binary()
+
     print(f"materializing {OLD_REF}'s amd/ ...", file=sys.stderr)
     old_amd_dir = materialize_amd_only(repo_root, OLD_REF) / AMD_ROOT
 
@@ -400,7 +433,20 @@ def main():
     rename_map = build_rename_map(repo_root, OLD_REF, MAIN_REF)
     print(f"  {len(rename_map)} changed/renamed files mapped", file=sys.stderr)
 
-    unchanged_diff_lines, new_lines, diff_records = classify_amd_diff(old_amd_dir, main_amd_dir, EXCLUDE_TEST_FILES, rename_map)
+    new_side_files = list(iter_amd_code_files(main_amd_dir, EXCLUDE_TEST_FILES))
+    old_side_files = []
+    for f in new_side_files:
+        rel = str(f.relative_to(main_amd_dir))
+        old_f = old_amd_dir / rename_map.get(rel, rel)
+        if old_f.is_file():
+            old_side_files.append(old_f)
+
+    print(f"stripping comments from {len(new_side_files) + len(old_side_files)} amd/ files ...", file=sys.stderr)
+    diff_stripped = strip_comments_batch(strip_comments_bin, new_side_files + old_side_files)
+
+    unchanged_diff_lines, new_lines, diff_records = classify_amd_diff(
+        old_amd_dir, main_amd_dir, EXCLUDE_TEST_FILES, rename_map, diff_stripped
+    )
     print(f"  amd/ (unchanged vs. {OLD_REF}): {unchanged_diff_lines:,} lines", file=sys.stderr)
     print(f"  amd/ (new relative to {OLD_REF}): {new_lines:,} lines", file=sys.stderr)
 
@@ -410,8 +456,12 @@ def main():
     akita_import_path, akita_module_dir = resolve_akita_module(main_full_dir)
     print(f"akita module: {akita_import_path} @ {akita_module_dir}")
 
-    akita_lines, akita_records, akita_pkgs_used = count_used_akita(main_full_dir, akita_import_path, EXCLUDE_TEST_FILES)
+    akita_pkgs_used, akita_files = resolve_akita_files(main_full_dir, akita_import_path, EXCLUDE_TEST_FILES)
     print(f"akita packages actually imported by {MAIN_REF}'s {AMD_ROOT}/ code: {len(akita_pkgs_used)}")
+
+    print(f"stripping comments from {len(akita_files)} akita files ...", file=sys.stderr)
+    akita_stripped = strip_comments_batch(strip_comments_bin, [f for f, _ in akita_files])
+    akita_lines, akita_records = count_akita_lines(akita_files, akita_stripped)
 
     unchanged_lines = unchanged_diff_lines + akita_lines
     adapted_lines = 0
