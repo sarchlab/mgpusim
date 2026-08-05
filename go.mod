@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.1
-	github.com/sarchlab/akita/v5 v5.0.0-beta.8
+	github.com/sarchlab/akita/v5 v5.0.0-beta.10
 	github.com/tebeka/atexit v0.3.0
 	go.uber.org/mock v0.6.0
 	gonum.org/v1/gonum v0.15.1

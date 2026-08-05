@@ -52,8 +52,8 @@ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
-github.com/sarchlab/akita/v5 v5.0.0-beta.8 h1:6BfkgKn4pygJm9KwtNoZAR/g5Qxtykp+BCMhz2Xa2mg=
-github.com/sarchlab/akita/v5 v5.0.0-beta.8/go.mod h1:/2uOHfnAJFZCMufMx7a5tXUsdAdgP2XiL9ssc2C4Za8=
+github.com/sarchlab/akita/v5 v5.0.0-beta.10 h1:eaVg8DYN0LDrCeh5WkLRcXP2UjGRJarl09N+xgTmARA=
+github.com/sarchlab/akita/v5 v5.0.0-beta.10/go.mod h1:lpv/tSeBBx1W80ihELOsinlVKnYNrdPBisHG66SAuZI=
 github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
 github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
