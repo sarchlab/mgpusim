@@ -42,17 +42,22 @@ run() {
   "$@"
 }
 
-verify_tracked_clean() {
-  local phase="$1"
+initial_worktree_status="$(git status --porcelain=v1 --untracked-files=all)"
 
-  if ! git diff --quiet -- || ! git diff --cached --quiet --; then
-    printf 'run_before_merge.sh failed: tracked files changed during %s.\n' "${phase}" >&2
+verify_tree_unchanged() {
+  local phase="$1"
+  local current_worktree_status
+
+  current_worktree_status="$(git status --porcelain=v1 --untracked-files=all)"
+
+  if [[ "${current_worktree_status}" != "${initial_worktree_status}" ]]; then
+    printf 'run_before_merge.sh failed: the worktree changed during %s.\n' "${phase}" >&2
     git status --short >&2
     return 1
   fi
 }
 
-verify_tracked_clean "startup"
+verify_tree_unchanged "startup"
 
 printf 'Running local MGPUSim Go build/lint/test gate.\n'
 
@@ -71,6 +76,6 @@ run env "${go_env[@]}" GOLANGCI_LINT_CACHE="${lint_cache_dir}" \
   "${bin_dir}/golangci-lint" run --timeout=10m --modules-download-mode=readonly ./...
 run env "${go_env[@]}" "${bin_dir}/ginkgo" -r --skip-package=mccl --mod=readonly
 
-verify_tracked_clean "validation"
+verify_tree_unchanged "validation"
 
 printf 'Local MGPUSim Go build/lint/test gate completed successfully.\n'

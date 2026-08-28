@@ -16,7 +16,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -38,7 +38,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -73,7 +73,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -108,7 +108,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -135,7 +135,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -163,7 +163,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -204,7 +204,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -235,7 +235,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
@@ -262,7 +262,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27.0"
+          go-version-file: go.mod
           cache: false
 
       - name: Install build dependencies
