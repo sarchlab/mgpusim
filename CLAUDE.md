@@ -9,13 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 go build ./...
 
 # Run unit tests (~17s) - uses Ginkgo framework
-ginkgo -r --skip-package=nvidia
+ginkgo -r --skip-package=mccl
 
 # Run specific package tests
 go test ./amd/emu/... -v
 
-# Lint AMD code
-golangci-lint run ./amd/... --timeout=10m
+# Lint all Go packages
+golangci-lint run ./... --timeout=10m
 
 # Run acceptance tests (~3.5 min for single GPU)
 cd amd/tests/acceptance && go build && ./acceptance -num-gpu=1
@@ -26,7 +26,7 @@ cd amd/samples/fir && go build && ./fir -timing --report-all -length=64 -verify
 
 ## Architecture Overview
 
-MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set architecture. It uses the Akita discrete-event simulation framework (`github.com/sarchlab/akita/v4`).
+MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set architecture. It uses the Akita discrete-event simulation framework (`github.com/sarchlab/akita/v5`).
 
 ### Two Simulation Modes
 
@@ -93,11 +93,11 @@ Never cancel long-running commands:
 **IMPORTANT**: Before finishing any code modification task, always run linting to ensure code quality:
 
 ```bash
-# Install golangci-lint v2.1.5 (if not already installed)
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.5
+# Install the repository-pinned golangci-lint release (if not already installed)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 # Run linting
-golangci-lint run ./amd/... --timeout=10m
+golangci-lint run ./... --timeout=10m
 ```
 
 Fix any linting issues before considering the task complete. Common issues include:

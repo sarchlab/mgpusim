@@ -7,8 +7,8 @@
 
 [![MGPUSim Test](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml/badge.svg)](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml)
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/mgpusim/v4)](https://goreportcard.com/report/github.com/sarchlab/mgpusim/v4)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim/v5.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim/v5)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/mgpusim/v5)](https://goreportcard.com/report/github.com/sarchlab/mgpusim/v5)
 
 MGPUSim Documents can be found [here](https://akitasim.dev/docs/mgpusim/intro). Please raise issues if you need documentation on a specific aspect. 
 
@@ -21,9 +21,9 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 
 ## Getting Started
 
-- Install the most recent version of Go from golang.org.
+- Install Go 1.27 or newer from golang.org.
 - Clone this repository, assuming the path is `[mgpusim_home]`.
-- Change your current directory to `[mgpusim_home]/samples/fir`.
+- Change your current directory to `[mgpusim_home]/amd/samples/fir`.
 - Compile the simulator with the benchmark with `go build`. The compiler will generate an executable file called `fir` (on Linux or Mac OS) or `fir.exe` (on Windows) for you.
 - Run the simulation with `./fir -timing --report-all` to run the simulation.
 - Check the generated `metrics.csv` file for high-level metrics output.
@@ -33,7 +33,7 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 If a modification to Akita is required, you can clone Akita next to the MGPUSim directory in your system. Then, you can modify the `go.mod` file to include the following line. 
 
 ```
-replace github.com/sarchlab/akita/v4 => ../akita
+replace github.com/sarchlab/akita/v5 => ../akita
 ```
 
 This line will direct the go compiler to use your local version of Akita rather than the official release of Akita. 
@@ -114,4 +114,3 @@ Papers that use MGPUSim:
 ## License
 
 MIT © Project Akita Developers.
-
