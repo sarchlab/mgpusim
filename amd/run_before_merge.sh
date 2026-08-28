@@ -18,6 +18,7 @@ go_env=(
   "GOPATH=${go_path_dir}"
   "GOMODCACHE=${go_mod_cache_dir}"
   "GOCACHE=${go_build_cache_dir}"
+  "GOWORK=off"
 )
 
 cleanup() {
@@ -42,22 +43,20 @@ run() {
   "$@"
 }
 
-initial_worktree_status="$(git status --porcelain=v1 --untracked-files=all)"
-
-verify_tree_unchanged() {
+verify_clean_tree() {
   local phase="$1"
   local current_worktree_status
 
   current_worktree_status="$(git status --porcelain=v1 --untracked-files=all)"
 
-  if [[ "${current_worktree_status}" != "${initial_worktree_status}" ]]; then
-    printf 'run_before_merge.sh failed: the worktree changed during %s.\n' "${phase}" >&2
+  if [[ -n "${current_worktree_status}" ]]; then
+    printf 'run_before_merge.sh failed: the worktree is not clean during %s.\n' "${phase}" >&2
     git status --short >&2
     return 1
   fi
 }
 
-verify_tree_unchanged "startup"
+verify_clean_tree "startup"
 
 printf 'Running local MGPUSim Go build/lint/test gate.\n'
 
@@ -76,6 +75,6 @@ run env "${go_env[@]}" GOLANGCI_LINT_CACHE="${lint_cache_dir}" \
   "${bin_dir}/golangci-lint" run --timeout=10m --modules-download-mode=readonly ./...
 run env "${go_env[@]}" "${bin_dir}/ginkgo" -r --skip-package=mccl --mod=readonly
 
-verify_tree_unchanged "validation"
+verify_clean_tree "validation"
 
 printf 'Local MGPUSim Go build/lint/test gate completed successfully.\n'
