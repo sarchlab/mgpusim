@@ -114,3 +114,6 @@ Papers that use MGPUSim:
 ## License
 
 MIT © Project Akita Developers.
+
+
+<!-- Security scan triggered at 2026-09-02 15:44:04 -->
