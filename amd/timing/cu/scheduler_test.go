@@ -147,6 +147,35 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.IsFetching).To(BeFalse())
 	})
 
+	It("should wait for the second dword of an instruction across a fetch boundary", func() {
+		cu.Decoder = insts.NewDisassembler()
+		wf := wavefront.NewWavefront(kernels.NewWavefront())
+		wf.InstBufferStartPC = 0x100
+		wf.InstBuffer = make([]byte, 64)
+		wf.SetPC(0x13c)
+		wf.State = wavefront.WfReady
+		// First dword of v_fma_mixhi_f16. Its second dword will arrive in
+		// the next 64-byte instruction-fetch response.
+		copy(wf.InstBuffer[60:], []byte{0x01, 0x00, 0xa2, 0xd3})
+		cu.WfPools[0].AddWf(wf)
+
+		Expect(scheduler.DecodeNextInst()).To(BeFalse())
+		Expect(wf.InstToIssue).To(BeNil())
+	})
+
+	It("should fail fast when an instruction opcode is unsupported", func() {
+		cu.Decoder = insts.NewDisassembler()
+		wf := wavefront.NewWavefront(kernels.NewWavefront())
+		wf.InstBufferStartPC = 0x120
+		wf.InstBuffer = []byte{0x00, 0x00, 0xff, 0xd3, 0, 0, 0, 0}
+		wf.SetPC(0x120)
+		wf.State = wavefront.WfReady
+		cu.WfPools[0].AddWf(wf)
+
+		Expect(func() { scheduler.DecodeNextInst() }).To(PanicWith(
+			MatchRegexp("failed to decode instruction at PC 0x120.*opcode 1023 not found")))
+	})
+
 	It("should issue", func() {
 		wfs := make([]*wavefront.Wavefront, 0)
 		issueDirs := []insts.ExeUnit{
@@ -466,6 +495,7 @@ var _ = Describe("Scheduler", func() {
 		}
 
 		wf := wg.Wfs[0]
+		wf.InFlightInsts = 1
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst()
@@ -474,6 +504,7 @@ var _ = Describe("Scheduler", func() {
 		Expect(len(scheduler.barrierBuffer)).To(Equal(1))
 		Expect(scheduler.barrierBuffer[0]).To(BeIdenticalTo(wf))
 		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
+		Expect(wf.InFlightInsts).To(Equal(0))
 	})
 
 	It("should continue execution if all wavefronts from a workgroup hits "+
@@ -485,16 +516,23 @@ var _ = Describe("Scheduler", func() {
 			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
 			wf.DynamicInst().Opcode = 10
 			wf.State = wavefront.WfAtBarrier
+			// The barrier instruction task is already complete for a wavefront
+			// waiting in the barrier buffer.
+			wf.InFlightInsts = 0
 			wf.WG = wg
 			wg.Wfs = append(wg.Wfs, wf)
 			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
 		}
 
-		wf := wg.Wfs[0]
+		wf := wavefront.NewWavefront(kernels.NewWavefront())
 		wf.State = wavefront.WfRunning
 		wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
 		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
 		wf.DynamicInst().Opcode = 10
+		// issueToInternal increments this counter when the final wavefront
+		// issues its barrier.
+		wf.InFlightInsts = 1
+		wf.WG = wg
 		wg.Wfs = append(wg.Wfs, wf)
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
@@ -505,6 +543,7 @@ var _ = Describe("Scheduler", func() {
 		for i := 0; i < 4; i++ {
 			wf := wg.Wfs[i]
 			Expect(wf.State).To(Equal(wavefront.WfReady))
+			Expect(wf.InFlightInsts).To(Equal(0))
 		}
 
 	})

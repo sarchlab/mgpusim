@@ -24,6 +24,7 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/internal/verification"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -239,10 +240,6 @@ func cpuCollideStream(fSrc, fDst []float32, n int, omega float32) {
 		iy := (idx / nx) % ny
 		ix := idx % nx
 
-		isBoundary := ix == 0 || ix == nx-1 ||
-			iy == 0 || iy == ny-1 ||
-			iz == 0 || iz == nz-1
-
 		var f [Q]float32
 		for q := 0; q < Q; q++ {
 			f[q] = fSrc[q*numCells+idx]
@@ -268,14 +265,15 @@ func cpuCollideStream(fSrc, fDst []float32, n int, omega float32) {
 			fPost[q] = f[q] + omega*(fEq-f[q])
 		}
 
+		// Apply bounce-back per outgoing link. This gives every destination
+		// distribution slot exactly one writer and mirrors the race-free device
+		// kernel.
 		for q := 0; q < Q; q++ {
 			nxi := ix + hEx[q]
 			nyi := iy + hEy[q]
 			nzi := iz + hEz[q]
 
-			if isBoundary {
-				fDst[hOpp[q]*numCells+idx] = fPost[q]
-			} else if nxi >= 0 && nxi < nx && nyi >= 0 && nyi < ny &&
+			if nxi >= 0 && nxi < nx && nyi >= 0 && nyi < ny &&
 				nzi >= 0 && nzi < nz {
 				nidx := nzi*nx*ny + nyi*nx + nxi
 				fDst[q*numCells+nidx] = fPost[q]
@@ -312,6 +310,13 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < Q*numCells; i++ {
 		ref := float64(src[i])
 		got := float64(gpuF[i])
+
+		if !verification.AllFinite(ref, got) {
+			q := i / numCells
+			cell := i % numCells
+			log.Fatalf("Non-finite value at q=%d cell=%d: expected %f, but got %f.\n",
+				q, cell, ref, got)
+		}
 
 		denom := math.Abs(ref)
 		if denom < 1.0 {

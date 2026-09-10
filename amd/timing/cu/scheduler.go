@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"errors"
 	"log"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
@@ -123,12 +124,20 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				continue
 			}
 
-			inst, err := s.cu.Decoder.Decode(
-				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
-			if err == nil {
-				wf.InstToIssue = wavefront.NewInst(inst)
-				madeProgress = true
+			remaining := wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]
+			inst, err := s.cu.Decoder.Decode(remaining)
+			if err != nil {
+				if errors.Is(err, insts.ErrInsufficientInstructionBytes) {
+					continue
+				}
+
+				rawByteCount := min(8, len(remaining))
+				log.Panicf("failed to decode instruction at PC %#x (bytes %x): %v",
+					wf.PC(), remaining[:rawByteCount], err)
 			}
+
+			wf.InstToIssue = wavefront.NewInst(inst)
+			madeProgress = true
 		}
 	}
 	return madeProgress
@@ -530,8 +539,10 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 	wg *wavefront.WorkGroup,
 ) {
 	for _, wf := range wg.Wfs {
-		s.cu.logInstTask(wf, wf.DynamicInst(), true)
-
+		// A wavefront ends its barrier instruction task when it enters the
+		// barrier buffer. The final wavefront ends its task in
+		// EvaluateInternalInst after this function returns. Advancing the
+		// wavefronts here must not end either task again.
 		if wf.State == wavefront.WfCompleted {
 			continue
 		}

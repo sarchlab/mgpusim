@@ -39,9 +39,14 @@ type Spec struct {
 	// across in parallel.
 	NumDies int `json:"num_dies"`
 
+	// MinWorkgroupDispatchCycles is the minimum per-die service time charged
+	// for one work-group, in cycles, by the "per-die" algorithm.
+	MinWorkgroupDispatchCycles int `json:"min_workgroup_dispatch_cycles"`
+
 	// WavefrontDispatchCycles is the per-die dispatch cost charged per wavefront,
-	// in cycles, for the "per-die" algorithm. A W-wavefront work-group occupies
-	// its die's dispatch pipe for W*cycles before the die dispatches the next.
+	// in cycles, for the "per-die" algorithm. Together these fields charge
+	// max(MinWorkgroupDispatchCycles, WavefrontDispatchCycles*W) for a
+	// W-wavefront work-group.
 	WavefrontDispatchCycles int `json:"wavefront_dispatch_cycles"`
 }
 

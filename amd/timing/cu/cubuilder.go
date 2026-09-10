@@ -30,6 +30,8 @@ var defaultSpec = Spec{
 	InstBufByteSize:              256,
 }
 
+const wavefrontLaneCount = 64
+
 // DefaultSpec returns a copy of the default compute-unit configuration.
 // Callers obtain it, tweak the fields they care about, and pass it to
 // WithSpec.
@@ -141,6 +143,15 @@ func (b Builder) Build(name string) *Comp {
 func (b *Builder) mustHaveValidSpec() {
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
+	}
+
+	for i, count := range b.spec.VGPRCounts {
+		if count <= 0 || count%wavefrontLaneCount != 0 {
+			panic(fmt.Sprintf(
+				"cu: VGPRCounts[%d] must be positive and divisible by %d",
+				i, wavefrontLaneCount,
+			))
+		}
 	}
 }
 
@@ -255,7 +266,10 @@ func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	cu.SRegFile = sRegFile
 
 	for i := 0; i < b.spec.SIMDCount; i++ {
-		vRegFile := NewSimpleRegisterFile(uint64(b.spec.VGPRCounts[i]*4), 1024)
+		vgprCount := b.spec.VGPRCounts[i]
+		byteSizePerLane := vgprCount * 4 / wavefrontLaneCount
+		vRegFile := NewSimpleRegisterFile(
+			uint64(vgprCount*4), byteSizePerLane)
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
 }

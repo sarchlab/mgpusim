@@ -19,6 +19,7 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/internal/verification"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -222,6 +223,11 @@ func (b *Benchmark) Verify() {
 	ref := roundToHalf(roundToHalf(a0+a1) + roundToHalf(a2+a3))
 
 	checkLane := func(name string, got float32) {
+		if !verification.AllFinite(float64(ref), float64(got)) {
+			log.Fatalf("Non-finite value in %s lane: expected %f, but got %f.\n",
+				name, ref, got)
+		}
+
 		denom := math.Abs(float64(ref))
 		if denom < 1.0 {
 			denom = 1.0

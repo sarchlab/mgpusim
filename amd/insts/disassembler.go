@@ -11,6 +11,13 @@ import (
 	"strings"
 )
 
+// ErrInsufficientInstructionBytes means that the bytes currently available to
+// the decoder contain the start of a valid instruction but not the complete
+// instruction. Timing frontends can wait for the next fetch response when this
+// error is returned; other decode errors indicate an unsupported or corrupt
+// instruction and should not be silently retried forever.
+var ErrInsufficientInstructionBytes = errors.New("insufficient instruction bytes")
+
 func extractBits(number uint32, lo uint8, hi uint8) uint32 {
 	var mask uint64
 	var extracted uint64
@@ -117,7 +124,7 @@ func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -127,7 +134,7 @@ func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) error {
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -152,7 +159,7 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -190,7 +197,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	operandBits := uint16(extractBits(bytes, 0, 8))
 	if operandBits == 249 {
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.IsSdwa = true
 		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
@@ -319,7 +326,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -357,7 +364,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 
 		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
@@ -366,7 +373,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 
 		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
@@ -469,7 +476,7 @@ func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) error {
 	if inst.Data.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Data.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -516,7 +523,7 @@ func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -532,7 +539,7 @@ func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -541,7 +548,7 @@ func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -645,20 +652,31 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 	d.parseNeg(inst, inst.Neg)
 
-	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
-	if inst.Opcode == 944 {
-		// 3-source FMA: bits [13:11] = op_sel[2:0], bit [14] = op_sel_hi[2]
+	// VOP3P instructions use bits from both dwords for the packed source
+	// selectors. The GFX9 decoder reports the VOP3P opcode with a 0x380 base.
+	if inst.Opcode == 944 || inst.Opcode == 929 || inst.Opcode == 930 {
+		// 3-source FMA: OPSEL_HI src0/src1/src2 are encoded in bits
+		// 14/60/59 respectively.
 		inst.OpSel = int(extractBits(bytesLo, 11, 13))
-		inst.OpSelHi = int(extractBits(bytesHi, 27, 28)) |
-			(int(extractBits(bytesLo, 14, 14)) << 2)
-	} else if (inst.Opcode >= 945 && inst.Opcode <= 946) || inst.Opcode == 929 {
+		inst.OpSelHi = decodeVOP3POpSelHi(bytesLo, bytesHi)
+	} else if (inst.Opcode >= 945 && inst.Opcode <= 946) || inst.Opcode == 911 {
 		// 2-source MUL/ADD: bits [12:11] = op_sel[1:0],
-		// bits [14:13] = neg_hi[1:0] (ignored; neg_lo from Neg field applies to both halves)
+		// and OPSEL_HI uses bit 14 for src0 and bit 60 for src1.
 		inst.OpSel = int(extractBits(bytesLo, 11, 12))
-		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))
+		inst.OpSelHi = decodeVOP3POpSelHi(bytesLo, bytesHi) & 0b011
+	} else if inst.Opcode == 672 {
+		// v_pack_b32_f16 uses the ordinary VOP3 op_sel bits to select the
+		// source half for each of its two inputs.
+		inst.OpSel = int(extractBits(bytesLo, 11, 12))
 	}
 
 	return nil
+}
+
+func decodeVOP3POpSelHi(bytesLo, bytesHi uint32) int {
+	return int(extractBits(bytesLo, 14, 14)) |
+		(int(extractBits(bytesHi, 28, 28)) << 1) |
+		(int(extractBits(bytesHi, 27, 27)) << 2)
 }
 
 func (d *Disassembler) parseNeg(inst *Inst, neg int) {
@@ -705,7 +723,7 @@ func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
-			return errors.New("no enough bytes")
+			return ErrInsufficientInstructionBytes
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
@@ -782,6 +800,10 @@ func (d *Disassembler) combineDSOffsets(inst *Inst) {
 //
 //nolint:gocyclo,funlen
 func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
+	if len(buf) < 4 {
+		return nil, ErrInsufficientInstructionBytes
+	}
+
 	format, err := d.matchFormat(binary.LittleEndian.Uint32(buf[:4]))
 	if err != nil {
 		return nil, err
@@ -799,7 +821,7 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	inst.ByteSize = format.ByteSizeExLiteral
 
 	if inst.ByteSize > len(buf) {
-		return nil, errors.New("no enough buffer")
+		return nil, ErrInsufficientInstructionBytes
 	}
 
 	switch format.FormatType {

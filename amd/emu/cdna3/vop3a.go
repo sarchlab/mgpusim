@@ -42,6 +42,16 @@ func applyB32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
 	return val
 }
 
+func applyF16Modifier(val uint16, srcIdx int, inst *insts.Inst) uint16 {
+	if inst.Abs&(1<<uint(srcIdx)) != 0 {
+		val &= 0x7fff
+	}
+	if inst.Neg&(1<<uint(srcIdx)) != 0 {
+		val ^= 0x8000
+	}
+	return val
+}
+
 //nolint:gocyclo,funlen
 func (u *ALU) runVOP3A(state emu.InstEmuState) {
 	inst := state.Inst()
@@ -153,6 +163,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVDIVFMASF32(state)
 	case 483:
 		u.runVDIVFMASF64(state)
+	case 499: // v_xad_u32
+		u.runVXADU32(state)
 	case 640:
 		u.runVADDF64(state)
 	case 641:
@@ -179,8 +191,14 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVOR3B32(state)
 	case 648: // v_ldexp_f32
 		u.runVLDEXPF32(state)
-	case 929: // v_pk_add_f16
+	case 672: // v_pack_b32_f16
+		u.runVPACKB32F16(state)
+	case 911: // v_pk_add_f16
 		u.runVPKADDF16(state)
+	case 929: // v_fma_mixlo_f16
+		u.runVFMAMIXF16(state, false)
+	case 930: // v_fma_mixhi_f16
+		u.runVFMAMIXF16(state, true)
 	case 520:
 		u.runVLSHLADDU64(state)
 	case 655:
@@ -342,7 +360,8 @@ func (u *ALU) vop3aPreprocess(state emu.InstEmuState) {
 func (u *ALU) vop3aPostprocess(state emu.InstEmuState) {
 	inst := state.Inst()
 
-	if strings.HasPrefix(inst.InstName, "v_pk_") {
+	if strings.HasPrefix(inst.InstName, "v_pk_") ||
+		strings.HasPrefix(inst.InstName, "v_fma_mix") {
 		return
 	}
 
@@ -940,6 +959,98 @@ func (u *ALU) runVLDEXPF32(state emu.InstEmuState) {
 	}
 }
 
+// runVXADU32 implements v_xad_u32.
+// D.u32 = (S0.u32 XOR S1.u32) + S2.u32.
+func (u *ALU) runVXADU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
+		src2 := uint32(state.ReadOperand(inst.Src2, i))
+		state.WriteOperand(inst.Dst, i, uint64((src0^src1)+src2))
+	}
+}
+
+// runVPACKB32F16 implements v_pack_b32_f16. Each input is already an f16
+// bit-pattern; the instruction selects one half from each input and packs the
+// first into D[15:0] and the second into D[31:16].
+func (u *ALU) runVPACKB32F16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+
+		src0 := uint32(state.ReadOperand(inst.Src0, i))
+		src1 := uint32(state.ReadOperand(inst.Src1, i))
+		lo := uint16(src0 >> (16 * uint(inst.OpSel&1)))
+		hi := uint16(src1 >> (16 * uint((inst.OpSel>>1)&1)))
+		lo = applyF16Modifier(lo, 0, inst)
+		hi = applyF16Modifier(hi, 1, inst)
+		if inst.Clamp {
+			lo = float32ToFloat16(min(max(float16ToFloat32(lo), 0), 1))
+			hi = float32ToFloat16(min(max(float16ToFloat32(hi), 0), 1))
+		}
+		state.WriteOperand(inst.Dst, i, uint64(uint32(lo)|(uint32(hi)<<16)))
+	}
+}
+
+// runVFMAMIXF16 implements v_fma_mixlo_f16 and v_fma_mixhi_f16. For each
+// source, op_sel_hi chooses f32 (0) or f16 (1), while op_sel chooses the low or
+// high half when the source is f16. MIXLO and MIXHI update only their selected
+// destination half, which lets the compiler build a half2 with two successive
+// instructions targeting the same VGPR.
+func (u *ALU) runVFMAMIXF16(state emu.InstEmuState, writeHigh bool) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+
+		src0 := fmaMixSource(state.ReadOperand(inst.Src0, i), 0, inst)
+		src1 := fmaMixSource(state.ReadOperand(inst.Src1, i), 1, inst)
+		src2 := fmaMixSource(state.ReadOperand(inst.Src2, i), 2, inst)
+		result := float32(math.FMA(float64(src0), float64(src1), float64(src2)))
+		if inst.Clamp {
+			result = min(max(result, 0), 1)
+		}
+		resultF16 := uint32(float32ToFloat16(result))
+		oldDst := uint32(state.ReadOperand(inst.Dst, i))
+		if writeHigh {
+			state.WriteOperand(inst.Dst, i,
+				uint64((oldDst&0x0000ffff)|(resultF16<<16)))
+		} else {
+			state.WriteOperand(inst.Dst, i,
+				uint64((oldDst&0xffff0000)|resultF16))
+		}
+	}
+}
+
+func fmaMixSource(raw uint64, srcIndex int, inst *insts.Inst) float32 {
+	var value float32
+	if inst.OpSelHi&(1<<uint(srcIndex)) != 0 {
+		shift := 16 * uint((inst.OpSel>>uint(srcIndex))&1)
+		value = float16ToFloat32(uint16(uint32(raw) >> shift))
+	} else {
+		value = math.Float32frombits(uint32(raw))
+	}
+
+	if inst.Abs&(1<<uint(srcIndex)) != 0 {
+		value = float32(math.Abs(float64(value)))
+	}
+	if inst.Neg&(1<<uint(srcIndex)) != 0 {
+		value = -value
+	}
+	return value
+}
+
 // runVPKADDF16 implements v_pk_add_f16 (packed half2 addition).
 // D.lo16 = f16(S0.lo16 + S1.lo16), D.hi16 = f16(S0.hi16 + S1.hi16).
 //
@@ -947,8 +1058,11 @@ func (u *ALU) runVLDEXPF32(state emu.InstEmuState) {
 // two f16 values. op_sel selects the source half feeding the LOW result word
 // (0 = low half, 1 = high half) and op_sel_hi selects the source half feeding
 // the HIGH result word with the same convention (matching the packed-f32
-// handlers). A plain packed add decodes op_sel = 0b00 and op_sel_hi = 0b11,
-// computing low = s0.lo + s1.lo and high = s0.hi + s1.hi.
+// handlers). In the generic Inst representation, Neg contains the VOP3P
+// low-result negation bits (encoding bits 61:63), while Abs contains the
+// high-result negation bits (encoding bits 8:10); VOP3P has no abs modifier.
+// A plain packed add decodes op_sel = 0b00 and op_sel_hi = 0b11, computing
+// low = s0.lo + s1.lo and high = s0.hi + s1.hi.
 func (u *ALU) runVPKADDF16(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -995,18 +1109,31 @@ func (u *ALU) runVPKADDF16(state emu.InstEmuState) {
 			bHi = src1Lo
 		}
 
-		// Apply neg modifiers (neg_lo applies to both halves for VOP3P).
-		if inst.Src0Neg {
+		// VOP3P's NEG field applies to operands feeding the low result. The
+		// field stored as Abs by the generic VOP3A decoder is NEG_HI and applies
+		// independently to operands feeding the high result.
+		if inst.Neg&0b001 != 0 {
 			aLo = -aLo
+		}
+		if inst.Neg&0b010 != 0 {
+			bLo = -bLo
+		}
+		if inst.Abs&0b001 != 0 {
 			aHi = -aHi
 		}
-		if inst.Src1Neg {
-			bLo = -bLo
+		if inst.Abs&0b010 != 0 {
 			bHi = -bHi
 		}
 
-		resLo := float32ToFloat16(aLo + bLo)
-		resHi := float32ToFloat16(aHi + bHi)
+		resultLo := aLo + bLo
+		resultHi := aHi + bHi
+		if inst.Clamp {
+			resultLo = min(max(resultLo, 0), 1)
+			resultHi = min(max(resultHi, 0), 1)
+		}
+
+		resLo := float32ToFloat16(resultLo)
+		resHi := float32ToFloat16(resultHi)
 
 		dstBits := uint32(resLo) | (uint32(resHi) << 16)
 		state.WriteOperand(inst.Dst, i, uint64(dstBits))
@@ -1423,28 +1550,70 @@ func (u *ALU) runVDIVFIXUPF32(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
-		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
-		src2 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src2, i), 2, inst)))
-		// v_div_fixup_f32: Final fixup for division
-		// Simplified: handles special cases (NaN, inf, denormals)
-		// For normal values, just use src0 as the quotient
-		dst := src0
-		// Handle special cases
-		if math.IsNaN(float64(src1)) || math.IsNaN(float64(src2)) {
-			dst = float32(math.NaN())
-		} else if math.IsInf(float64(src1), 0) && math.IsInf(float64(src2), 0) {
-			dst = float32(math.NaN())
-		} else if src2 == 0 && src1 != 0 {
-			// Division by zero
-			if src1 > 0 {
-				dst = float32(math.Inf(1))
-			} else {
-				dst = float32(math.Inf(-1))
-			}
-		}
-		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+		src0 := uint32(applyF32Modifier(
+			state.ReadOperand(inst.Src0, i), 0, inst))
+		src1 := uint32(applyF32Modifier(
+			state.ReadOperand(inst.Src1, i), 1, inst))
+		src2 := uint32(applyF32Modifier(
+			state.ReadOperand(inst.Src2, i), 2, inst))
+		dst := calculateDivFixUpF32(src0, src1, src2)
+		state.WriteOperand(inst.Dst, i, uint64(dst))
 	}
+}
+
+// calculateDivFixUpF32 implements the special-value handling defined by the
+// CDNA3 ISA. The operands are quotient, denominator, and numerator,
+// respectively. Keep this calculation on the bit representations so that NaN
+// payloads and signed zero are preserved.
+func calculateDivFixUpF32(
+	src0Bits, src1Bits, src2Bits uint32,
+) uint32 {
+	const (
+		signMask      = uint32(0x80000000)
+		magnitudeMask = uint32(0x7fffffff)
+		infinity      = uint32(0x7f800000)
+		quietNaNBit   = uint32(0x00400000)
+		indeterminate = uint32(0xffc00000)
+	)
+
+	absSrc1 := src1Bits & magnitudeMask
+	absSrc2 := src2Bits & magnitudeMask
+	signOut := (src1Bits ^ src2Bits) & signMask
+
+	// The ISA gives numerator NaN precedence over denominator NaN and quiets
+	// the selected input while retaining its sign and payload.
+	if absSrc2 > infinity {
+		return src2Bits | quietNaNBit
+	}
+	if absSrc1 > infinity {
+		return src1Bits | quietNaNBit
+	}
+
+	if (absSrc1 == 0 && absSrc2 == 0) ||
+		(absSrc1 == infinity && absSrc2 == infinity) {
+		return indeterminate
+	}
+
+	// numerator / 0 and infinity / denominator
+	if absSrc1 == 0 || absSrc2 == infinity {
+		return signOut | infinity
+	}
+
+	// numerator / infinity and 0 / denominator
+	if absSrc1 == infinity || absSrc2 == 0 {
+		return signOut
+	}
+
+	exponentSrc1 := int((absSrc1 >> 23) & 0xff)
+	exponentSrc2 := int((absSrc2 >> 23) & 0xff)
+	if exponentSrc2-exponentSrc1 < -150 {
+		return signOut
+	}
+	if exponentSrc1 == 255 {
+		return signOut | infinity
+	}
+
+	return signOut | (src0Bits & magnitudeMask)
 }
 
 func (u *ALU) runVDIVFIXUPF64(state emu.InstEmuState) {

@@ -25,6 +25,13 @@ var _ = Describe("GCN3 Disassembler", func() {
 		printer = insts.NewInstPrinter(nil)
 	})
 
+	It("should report an incomplete first instruction dword", func() {
+		inst, err := disassembler.Decode([]byte{0x00, 0x01, 0x02})
+
+		Expect(inst).To(BeNil())
+		Expect(err).To(MatchError(insts.ErrInsufficientInstructionBytes))
+	})
+
 	It("should decode BF8C0F70", func() {
 		buf := []byte{0x70, 0x0f, 0x8c, 0xbf}
 
@@ -330,6 +337,98 @@ var _ = Describe("CDNA3 Disassembler", func() {
 
 		Expect(err).To(BeNil())
 		Expect(printer.Print(inst)).To(Equal("v_lshl_add_u64 v[2:3], s[2:3], 0, v[0:1]"))
+	})
+
+	It("should decode the gfx942 fp16 throughput VOP3 instructions", func() {
+		cases := []struct {
+			name        string
+			buf         []byte
+			wantPrinted string
+			wantOpSel   int
+			wantOpSelHi int
+		}{
+			{
+				name:        "fma mixlo",
+				buf:         []byte{0x01, 0x00, 0xa1, 0xd3, 0x02, 0x09, 0x0c, 0x04},
+				wantPrinted: "v_fma_mixlo_f16 v1, v2, s4, v3",
+			},
+			{
+				name:        "fma mixhi",
+				buf:         []byte{0x01, 0x00, 0xa2, 0xd3, 0x02, 0x09, 0x0c, 0x04},
+				wantPrinted: "v_fma_mixhi_f16 v1, v2, s4, v3",
+			},
+			{
+				name:        "pack f16",
+				buf:         []byte{0x02, 0x00, 0xa0, 0xd2, 0x02, 0x05, 0x02, 0x00},
+				wantPrinted: "v_pack_b32_f16 v2, v2, v2",
+			},
+			{
+				name:        "packed add with high-half selection",
+				buf:         []byte{0x01, 0x40, 0x8f, 0xd3, 0x01, 0x05, 0x01, 0x08},
+				wantPrinted: "v_pk_add_f16 v1, v1, 2",
+				wantOpSelHi: 1,
+			},
+		}
+
+		for _, tc := range cases {
+			inst, err := disassembler.Decode(tc.buf)
+			Expect(err).NotTo(HaveOccurred(), tc.name)
+			Expect(printer.Print(inst)).To(Equal(tc.wantPrinted), tc.name)
+			Expect(inst.OpSel).To(Equal(tc.wantOpSel), tc.name)
+			Expect(inst.OpSelHi).To(Equal(tc.wantOpSelHi), tc.name)
+		}
+	})
+
+	It("should decode non-symmetric VOP3P op_sel_hi source bits", func() {
+		cases := []struct {
+			name        string
+			buf         []byte
+			wantOpSelHi int
+		}{
+			{
+				name: "three-source src0 and src1 high selectors",
+				// v_fma_mixlo_f16 with OPSEL_HI src0=1, src1=1, src2=0.
+				// The fields reside at instruction bits 14, 60, and 59.
+				buf:         []byte{0x01, 0x40, 0xa1, 0xd3, 0x02, 0x09, 0x0c, 0x14},
+				wantOpSelHi: 0b011,
+			},
+			{
+				name: "two-source src0 high selector only",
+				// v_pk_add_f16 with bit 14 set and bits 60/59 clear.
+				buf:         []byte{0x01, 0x40, 0x8f, 0xd3, 0x01, 0x05, 0x01, 0x00},
+				wantOpSelHi: 0b001,
+			},
+		}
+
+		for _, tc := range cases {
+			inst, err := disassembler.Decode(tc.buf)
+			Expect(err).NotTo(HaveOccurred(), tc.name)
+			Expect(inst.OpSelHi).To(Equal(tc.wantOpSelHi), tc.name)
+		}
+	})
+
+	It("should decode D1F3000E 000D8300 as v_xad_u32", func() {
+		buf := []byte{0x0e, 0x00, 0xf3, 0xd1, 0x00, 0x83, 0x0d, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(printer.Print(inst)).To(Equal("v_xad_u32 v14, v0, -1, s3"))
+	})
+
+	It("should decode fma mix abs and neg modifiers from their VOP3P fields", func() {
+		negBuf := []byte{0x01, 0x00, 0xa1, 0xd3, 0x02, 0x07, 0x12, 0x24}
+		absBuf := []byte{0x01, 0x01, 0xa1, 0xd3, 0x02, 0x07, 0x12, 0x04}
+
+		negInst, err := disassembler.Decode(negBuf)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(negInst.Neg & 1).To(Equal(1))
+		Expect(negInst.Abs & 1).To(Equal(0))
+
+		absInst, err := disassembler.Decode(absBuf)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(absInst.Abs & 1).To(Equal(1))
+		Expect(absInst.Neg & 1).To(Equal(0))
 	})
 
 	It("should decode DC508000 067F0004 as global_load_dword", func() {

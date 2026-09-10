@@ -53,8 +53,8 @@ type Inst struct {
 	Abs                 int
 	Omod                int
 	Neg                 int
-	OpSel               int // VOP3P: bits 11-14 for packed instructions
-	OpSelHi             int // VOP3P: bits 59-60 for packed instructions
+	OpSel               int // VOP3P per-source low-result/source-half selectors
+	OpSelHi             int // VOP3P per-source high-result/source-width selectors
 	Offset0             uint32
 	Offset1             uint32
 	SystemLevelCoherent bool
@@ -89,4 +89,3 @@ func NewInst() *Inst {
 	i.InstType = new(InstType)
 	return i
 }
-

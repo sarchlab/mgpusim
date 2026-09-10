@@ -840,6 +840,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_fma_f16", 494, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fixup_16", 495, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_cvt_pkaccum_u8_f32", 496, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_xad_u32", 499, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_interp_p1_f32", 624, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_interp_p2_f32", 625, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_interp_mov_f32", 626, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
@@ -873,6 +874,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pkrtz_f16_f32", 662, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_u16_u32", 663, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_i16_i32", 664, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_pack_b32_f16", 672, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 
 	// CDNA3 VOP3A instructions
 	d.addInstType(&InstType{"v_lshl_add_u32", 509, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
@@ -882,7 +884,11 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_lshl_add_u64", 520, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 64, 0})
 	d.addInstType(&InstType{"v_or3_b32", 514, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_sub_u32_e64", 53 + 256, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
-	d.addInstType(&InstType{"v_pk_add_f16", 929, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	// GFX9 VOP3P encodings share the VOP3A prefix. The opcode returned by the
+	// generic decoder therefore includes the 0x380 encoding base.
+	d.addInstType(&InstType{"v_pk_add_f16", 896 + 15, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_fma_mixlo_f16", 896 + 33, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_fma_mixhi_f16", 896 + 34, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 
 	// SOP1 Instructions
 	d.addInstType(&InstType{"s_mov_b32", 0, FormatTable[SOP1], 0, ExeUnitScalar, 32, 32, 0, 0, 0})

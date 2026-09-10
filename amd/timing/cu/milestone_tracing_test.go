@@ -567,6 +567,18 @@ func countVMemData(rec *cuMilestoneRecorder, instID uint64) int {
 	return count
 }
 
+func countSMemData(rec *cuMilestoneRecorder, instID uint64) int {
+	count := 0
+	for _, m := range rec.milestones {
+		if m.TaskID == instID && m.Kind == tracing.MilestoneKindData &&
+			m.What == "smem" {
+			count++
+		}
+	}
+
+	return count
+}
+
 // Coalesced responses can return out of order: the last request generated
 // (CanWaitForCoalesce==false) may return before its siblings. The vmem data
 // milestone must wait for the actual last response, gated on no remaining
@@ -578,6 +590,8 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 
 	inst := wavefront.NewInst(insts.NewInst())
 	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.InFlightInsts = 1
+	wf.OutstandingVectorMemAccess = 1
 
 	readSibling := &memprotocol.ReadReq{
 		MsgMeta:            messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
@@ -602,6 +616,10 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	if countVMemData(rec, inst.ID) != 0 {
 		t.Fatal("data milestone must not fire while a sibling is still in flight")
 	}
+	if wf.InFlightInsts != 1 {
+		t.Fatalf("instruction must remain in flight while a sibling remains; got %d",
+			wf.InFlightInsts)
+	}
 
 	// The actual last response returns: the milestone fires exactly once.
 	cu.handleVectorDataLoadReturn(memprotocol.DataReadyRsp{
@@ -613,6 +631,10 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	if got := countVMemData(rec, inst.ID); got != 1 {
 		t.Fatalf("expected one data milestone after the last response; got %d",
 			got)
+	}
+	if wf.InFlightInsts != 0 {
+		t.Fatalf("instruction must retire after the true last response; got %d",
+			wf.InFlightInsts)
 	}
 }
 
@@ -626,6 +648,8 @@ func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
 
 	inst := wavefront.NewInst(insts.NewInst())
 	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.InFlightInsts = 1
+	wf.OutstandingVectorMemAccess = 1
 
 	resent := &memprotocol.ReadReq{
 		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
@@ -651,5 +675,196 @@ func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
 	if countVMemData(rec, inst.ID) != 0 {
 		t.Fatal("data milestone must not fire while a sibling is parked in the " +
 			"shadow buffer")
+	}
+	if wf.OutstandingVectorMemAccess != 1 {
+		t.Fatalf("vmem counter must remain 1 while a sibling is parked in the "+
+			"shadow buffer; got %d", wf.OutstandingVectorMemAccess)
+	}
+	if wf.InFlightInsts != 1 {
+		t.Fatalf("instruction must remain in flight while a sibling is parked; got %d",
+			wf.InFlightInsts)
+	}
+}
+
+// Scalar-memory accesses can also be split across cache lines. If one sibling
+// has been re-sent while another is still parked in the shadow buffer, the
+// first response must not retire the instruction. Once the shadow sibling is
+// re-sent and returns, the instruction must retire exactly once.
+func TestScalarMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.SRegFile = NewSimpleRegisterFile(1024, 0)
+	cu.ToScalarMem = newFakePort("CU.ScalarMem")
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	inst := wavefront.NewInst(insts.NewInst())
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.InFlightInsts = 1
+	wf.OutstandingScalarMemAccess = 1
+
+	resent := memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.InFlightScalarMemAccess = []*ScalarMemAccessInfo{
+		{Req: resent, Inst: inst, Wavefront: wf, DstSGPR: insts.SReg(0)},
+	}
+	shadowSibling := memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.shadowInFlightScalarMemAccess = []*ScalarMemAccessInfo{
+		{
+			Req: shadowSibling, Inst: inst, Wavefront: wf,
+			DstSGPR: insts.SReg(1),
+		},
+	}
+
+	cu.handleScalarDataLoadReturn(memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: resent.ID,
+		},
+		Data: insts.Uint32ToBytes(1),
+	})
+
+	if countSMemData(rec, inst.ID) != 0 {
+		t.Fatal("smem data milestone must not fire while a sibling is parked " +
+			"in the shadow buffer")
+	}
+	if wf.OutstandingScalarMemAccess != 1 || wf.InFlightInsts != 1 {
+		t.Fatalf("scalar instruction retired before its shadow sibling: "+
+			"outstanding=%d in-flight=%d",
+			wf.OutstandingScalarMemAccess, wf.InFlightInsts)
+	}
+
+	if !cu.sendScalarShadowBufferAccesses() {
+		t.Fatal("expected the scalar shadow sibling to be re-sent")
+	}
+	if len(cu.shadowInFlightScalarMemAccess) != 0 ||
+		len(cu.InFlightScalarMemAccess) != 1 {
+		t.Fatalf("unexpected scalar buffers after resend: shadow=%d live=%d",
+			len(cu.shadowInFlightScalarMemAccess),
+			len(cu.InFlightScalarMemAccess))
+	}
+	resentSiblingID := cu.InFlightScalarMemAccess[0].Req.ID
+	lastRsp := memprotocol.DataReadyRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: resentSiblingID,
+		},
+		Data: insts.Uint32ToBytes(2),
+	}
+	cu.handleScalarDataLoadReturn(lastRsp)
+
+	if got := countSMemData(rec, inst.ID); got != 1 {
+		t.Fatalf("expected one smem data milestone after the last response; got %d",
+			got)
+	}
+	if wf.OutstandingScalarMemAccess != 0 || wf.InFlightInsts != 0 {
+		t.Fatalf("scalar instruction did not retire at its true drain: "+
+			"outstanding=%d in-flight=%d",
+			wf.OutstandingScalarMemAccess, wf.InFlightInsts)
+	}
+
+	// A duplicate response no longer matches an in-flight request and must not
+	// retire the instruction or emit the data milestone a second time.
+	cu.handleScalarDataLoadReturn(lastRsp)
+	if got := countSMemData(rec, inst.ID); got != 1 {
+		t.Fatalf("duplicate response emitted an extra smem milestone; got %d", got)
+	}
+	if wf.OutstandingScalarMemAccess != 0 || wf.InFlightInsts != 0 {
+		t.Fatalf("duplicate response retired scalar instruction twice: "+
+			"outstanding=%d in-flight=%d",
+			wf.OutstandingScalarMemAccess, wf.InFlightInsts)
+	}
+}
+
+// Vector stores have the same split-transaction drain rule as vector loads.
+// A shadow-buffered sibling must keep both FLAT wait counters and the parent
+// instruction live until that sibling has been re-sent and acknowledged.
+func TestVectorStoreDataMilestoneWaitsForShadowSiblings(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.ToVectorMem = newFakePort("CU.VectorMem")
+	rec := &cuMilestoneRecorder{}
+	tracing.CollectTrace(cu.comp, rec)
+
+	inst := wavefront.NewInst(insts.NewInst())
+	inst.FormatType = insts.FLAT
+	wf := wavefront.NewWavefront(kernels.NewWavefront())
+	wf.InFlightInsts = 1
+	wf.OutstandingVectorMemAccess = 1
+	wf.OutstandingScalarMemAccess = 1
+
+	resent := &memprotocol.WriteReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.InFlightVectorMemAccess = []VectorMemAccessInfo{
+		{Write: resent, Inst: inst, Wavefront: wf},
+	}
+	shadowSibling := &memprotocol.WriteReq{
+		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
+	}
+	cu.shadowInFlightVectorMemAccess = []VectorMemAccessInfo{
+		{Write: shadowSibling, Inst: inst, Wavefront: wf},
+	}
+
+	cu.handleVectorDataStoreRsp(memprotocol.WriteDoneRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: resent.ID,
+		},
+	})
+
+	if countVMemData(rec, inst.ID) != 0 {
+		t.Fatal("vmem data milestone must not fire while a store sibling is " +
+			"parked in the shadow buffer")
+	}
+	if wf.OutstandingVectorMemAccess != 1 ||
+		wf.OutstandingScalarMemAccess != 1 || wf.InFlightInsts != 1 {
+		t.Fatalf("vector store retired before its shadow sibling: "+
+			"vector=%d scalar=%d in-flight=%d",
+			wf.OutstandingVectorMemAccess, wf.OutstandingScalarMemAccess,
+			wf.InFlightInsts)
+	}
+
+	if !cu.sendVectorShadowBufferAccesses() {
+		t.Fatal("expected the vector-store shadow sibling to be re-sent")
+	}
+	if len(cu.shadowInFlightVectorMemAccess) != 0 ||
+		len(cu.InFlightVectorMemAccess) != 1 {
+		t.Fatalf("unexpected vector buffers after resend: shadow=%d live=%d",
+			len(cu.shadowInFlightVectorMemAccess),
+			len(cu.InFlightVectorMemAccess))
+	}
+	resentSiblingID := cu.InFlightVectorMemAccess[0].Write.ID
+	lastRsp := memprotocol.WriteDoneRsp{
+		MsgMeta: messaging.MsgMeta{
+			ID:    timing.GetIDGenerator().Generate(),
+			RspTo: resentSiblingID,
+		},
+	}
+	cu.handleVectorDataStoreRsp(lastRsp)
+
+	if got := countVMemData(rec, inst.ID); got != 1 {
+		t.Fatalf("expected one vmem data milestone after the last store response; "+
+			"got %d", got)
+	}
+	if wf.OutstandingVectorMemAccess != 0 ||
+		wf.OutstandingScalarMemAccess != 0 || wf.InFlightInsts != 0 {
+		t.Fatalf("vector store did not retire at its true drain: "+
+			"vector=%d scalar=%d in-flight=%d",
+			wf.OutstandingVectorMemAccess, wf.OutstandingScalarMemAccess,
+			wf.InFlightInsts)
+	}
+
+	cu.handleVectorDataStoreRsp(lastRsp)
+	if got := countVMemData(rec, inst.ID); got != 1 {
+		t.Fatalf("duplicate response emitted an extra vmem milestone; got %d", got)
+	}
+	if wf.OutstandingVectorMemAccess != 0 ||
+		wf.OutstandingScalarMemAccess != 0 || wf.InFlightInsts != 0 {
+		t.Fatalf("duplicate response retired vector store twice: "+
+			"vector=%d scalar=%d in-flight=%d",
+			wf.OutstandingVectorMemAccess, wf.OutstandingScalarMemAccess,
+			wf.InFlightInsts)
 	}
 }

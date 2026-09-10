@@ -53,6 +53,7 @@ type DispatcherImpl struct {
 	alg                            algorithm
 	dieAware                       dieAwareAlgorithm // non-nil iff alg dispatches per-die
 	dieCyclesLeft                  []int             // per-die rate gate (cycles until next dispatch)
+	minWorkgroupDispatchCycles     int               // per-die floor charged per work-group
 	wavefrontDispatchCycles        int               // per-die cost charged per wavefront dispatched
 	dispatching                    protocol.LaunchKernelReq
 	isDispatching                  bool
@@ -358,7 +359,8 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 
 // tickPerDie advances all dies one cycle: each die whose rate gate is free may
 // dispatch one work-group this cycle, so up to NumDies work-groups dispatch per
-// cycle (one per die), each die independently throttled by wavefrontDispatchCycles.
+// cycle (one per die), each die independently throttled by the dispatch service
+// law configured on the builder.
 func (d *DispatcherImpl) tickPerDie() (madeProgress bool) {
 	for die := range d.dieCyclesLeft {
 		if d.dieCyclesLeft[die] > 0 {
@@ -376,9 +378,10 @@ func (d *DispatcherImpl) tickPerDie() (madeProgress bool) {
 }
 
 // dispatchNextWGForDie dispatches one work-group on the given die and arms that
-// die's rate gate for wavefrontDispatchCycles per wavefront dispatched. The
-// port's send capacity is checked before reserving CU resources so a full port
-// never strands a reserved work-group.
+// die's rate gate for max(minWorkgroupDispatchCycles,
+// wavefrontDispatchCycles*numWavefronts). The port's send capacity is checked
+// before reserving CU resources so a full port never strands a reserved
+// work-group.
 func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 	port := d.getDispatchingPort()
 	if !port.CanSend() {
@@ -405,11 +408,10 @@ func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 	d.numDispatchedWGs++
 	d.inflightWGs[req.ID] = loc
 	d.originalReqs[req.ID] = req
-	// The die is busy dispatching this WG's wavefronts for
-	// wavefrontDispatchCycles*W cycles total. This dispatch consumes the current
-	// cycle (the first busy cycle), so the gate holds the remaining W*cycles-1,
-	// giving an exact per-die period of W*cycles (not W*cycles+1).
-	d.dieCyclesLeft[die] = d.wavefrontDispatchCycles*len(loc.locations) - 1
+	// This dispatch consumes the first service cycle, so the gate holds the
+	// remaining serviceCycles-1 cycles (not serviceCycles+1).
+	serviceCycles := d.workgroupDispatchCycles(len(loc.locations))
+	d.dieCyclesLeft[die] = serviceCycles - 1
 
 	if d.progressBar != nil {
 		d.progressBar.IncrementInProgress(1)
@@ -419,4 +421,12 @@ func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 
 	return true
+}
+
+func (d *DispatcherImpl) workgroupDispatchCycles(numWavefronts int) int {
+	wavefrontService := d.wavefrontDispatchCycles * numWavefronts
+	if wavefrontService > d.minWorkgroupDispatchCycles {
+		return wavefrontService
+	}
+	return d.minWorkgroupDispatchCycles
 }

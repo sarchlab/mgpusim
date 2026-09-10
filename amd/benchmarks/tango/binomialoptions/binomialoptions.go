@@ -25,6 +25,7 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/internal/verification"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -236,6 +237,11 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < b.NumOptions; i++ {
 		ref := binomialCPU(b.options[i], b.NumSteps)
 		got := gpuPrices[i]
+
+		if !verification.AllFinite(float64(ref), float64(got)) {
+			log.Fatalf("Non-finite value at option %d: expected %f, but got %f.\n",
+				i, ref, got)
+		}
 
 		diff := math.Abs(float64(got - ref))
 		tol := 1e-2*math.Abs(float64(ref)) + 1e-3

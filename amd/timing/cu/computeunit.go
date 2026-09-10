@@ -647,22 +647,21 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	tracing.TraceReqFinalize(cu.comp, req)
 
-	if cu.isLastRead(req) {
+	// OutstandingScalarMemAccess counts instructions, not cache-line
+	// requests. The request marked as last when generated can return before a
+	// sibling, so only retire the instruction when no live or shadow request
+	// for it remains.
+	instDrained := !cu.hasInFlightScalarMemFor(info.Inst)
+	if instDrained {
 		wf.OutstandingScalarMemAccess--
 	}
 
-	// Coalesced responses can return out of order, so isLastRead (the last
-	// request generated) is not necessarily the last received. End the inst
-	// task and mark the data wait only once no access for this instruction is
-	// still in flight.
-	if !cu.hasInFlightScalarMemFor(info.Inst) {
+	// End the instruction task and mark the data wait at that same true drain
+	// point, rather than when the request generated last happens to return.
+	if instDrained {
 		cu.markInstDataReturned(info.Inst, "smem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
-}
-
-func (cu *ComputeUnit) isLastRead(req memprotocol.ReadReq) bool {
-	return !req.CanWaitForCoalesce
 }
 
 // markInstDataReturned records a "data" milestone on a memory instruction's
@@ -786,7 +785,12 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
-	if !info.Read.CanWaitForCoalesce {
+	// OutstandingVectorMemAccess counts instructions, not transactions.
+	// Responses for the transactions of one instruction may arrive out of
+	// order, so the transaction marked as the last one when generated is not
+	// necessarily the last one to return. Only retire the instruction from the
+	// wait counter after all of its transactions have returned.
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
@@ -824,7 +828,9 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	tracing.TraceReqFinalize(cu.comp, *info.Write)
 
 	wf := info.Wavefront
-	if !info.Write.CanWaitForCoalesce {
+	// See handleVectorDataLoadReturn: the wait counters count instructions,
+	// and transaction responses may arrive out of order.
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--

@@ -22,6 +22,7 @@ type Builder struct {
 	subsequentKernelLaunchOverhead int
 	wgScalingThreshold             int
 	numDies                        int
+	minWorkgroupDispatchCycles     int
 	wavefrontDispatchCycles        int
 }
 
@@ -36,6 +37,7 @@ func MakeBuilder() Builder {
 		subsequentKernelLaunchOverhead: 1800,
 		wgScalingThreshold:             128,
 		numDies:                        1,
+		minWorkgroupDispatchCycles:     0,
 		wavefrontDispatchCycles:        2,
 	}
 	return b
@@ -95,10 +97,16 @@ func (b Builder) WithNumDies(n int) Builder {
 	return b
 }
 
+// WithMinWorkgroupDispatchCycles sets the minimum per-die service time for
+// one work-group. Only used by the "per-die" algorithm.
+func (b Builder) WithMinWorkgroupDispatchCycles(cycles int) Builder {
+	b.minWorkgroupDispatchCycles = cycles
+	return b
+}
+
 // WithWavefrontDispatchCycles sets the per-die dispatch cost charged per
-// wavefront, in cycles. A W-wavefront work-group occupies its die's dispatch
-// pipe for W*cycles before that die can dispatch the next work-group. Only used
-// by the "per-die" algorithm.
+// wavefront, in cycles. The total service time is the maximum of the work-group
+// floor and W*cycles. Only used by the "per-die" algorithm.
 func (b Builder) WithWavefrontDispatchCycles(cycles int) Builder {
 	b.wavefrontDispatchCycles = cycles
 	return b
@@ -191,6 +199,7 @@ func (b Builder) Build(name string) Dispatcher {
 	if da, ok := d.alg.(dieAwareAlgorithm); ok {
 		d.dieAware = da
 		d.dieCyclesLeft = make([]int, da.NumDies())
+		d.minWorkgroupDispatchCycles = b.minWorkgroupDispatchCycles
 		d.wavefrontDispatchCycles = b.wavefrontDispatchCycles
 	}
 

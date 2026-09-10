@@ -147,6 +147,7 @@ func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
 		WithCP(comp).
 		WithAlg(alg).
 		WithNumDies(b.spec.NumDies).
+		WithMinWorkgroupDispatchCycles(b.spec.MinWorkgroupDispatchCycles).
 		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
 		WithPortSource(comp).

@@ -25,6 +25,7 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/internal/verification"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -317,6 +318,11 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 		for col := 0; col < n; col++ {
 			ref := float64(corr[row*n+col])
 			got := float64(gpuCorr[row*n+col])
+
+			if !verification.AllFinite(ref, got) {
+				log.Fatalf("Non-finite value at (%d,%d): expected %f, but got %f.\n",
+					row, col, ref, got)
+			}
 
 			denom := math.Abs(ref)
 			if denom < 1.0 {

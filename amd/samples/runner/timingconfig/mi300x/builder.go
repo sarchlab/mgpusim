@@ -799,13 +799,12 @@ func (b *Builder) buildCP() {
 	spec.SubsequentKernelLaunchOverhead = 0
 	spec.ConstantKernelOverhead = 0
 
-	// Per-die (per-XCD) dispatch: a kernel's work-groups are split into NumXCD
-	// contiguous blocks (one per die) and dispatched across the 8 XCDs in
-	// parallel, each XCD dispatching 1 wavefront / 2 cycles. For a 256-thread
-	// (4-wavefront) WG that is 8 cycles/WG per die, so 8 dies aggregate to ~1
-	// WG/cycle = ~0.48 ns/WG at 2.1 GHz, matching the empty_kernel sweep slope.
+	// Floor-only diagnostic candidate for per-die (per-XCD) dispatch. Keep the
+	// existing 2 cycles/wavefront term fixed and test one new physical parameter:
+	// max(8 cycles/work-group, 2 cycles/wavefront * numWavefronts).
 	spec.Alg = "per-die"
 	spec.NumDies = NumXCD
+	spec.MinWorkgroupDispatchCycles = 8
 	spec.WavefrontDispatchCycles = 2
 
 	b.cp = cp.MakeBuilder().

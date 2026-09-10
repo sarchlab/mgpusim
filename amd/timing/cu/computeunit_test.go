@@ -270,6 +270,7 @@ var _ = Describe("ComputeUnit", func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
 			wf = wavefront.NewWavefront(rawWf)
 			wf.SRegOffset = 0
+			wf.InFlightInsts = 1
 			wf.OutstandingScalarMemAccess = 1
 		})
 
@@ -310,7 +311,67 @@ var _ = Describe("ComputeUnit", func() {
 			}
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
+			Expect(wf.InFlightInsts).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(cu.InFlightScalarMemAccess).To(HaveLen(0))
+		})
+
+		It("should not retire a scalar load when the request marked last "+
+			"returns before its siblings", func() {
+			inst := wavefront.NewInst(insts.NewInst())
+			siblingRead := memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cu.ToScalarMem.AsRemote(),
+				},
+				CanWaitForCoalesce: true,
+			}
+			lastGeneratedRead := memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: cu.ToScalarMem.AsRemote(),
+				},
+				CanWaitForCoalesce: false,
+			}
+
+			cu.InFlightScalarMemAccess = append(
+				cu.InFlightScalarMemAccess,
+				&ScalarMemAccessInfo{
+					Req: siblingRead, Wavefront: wf,
+					DstSGPR: insts.SReg(0), Inst: inst,
+				},
+				&ScalarMemAccessInfo{
+					Req: lastGeneratedRead, Wavefront: wf,
+					DstSGPR: insts.SReg(1), Inst: inst,
+				},
+			)
+
+			toScalarMem.incoming = append(toScalarMem.incoming,
+				memprotocol.DataReadyRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: lastGeneratedRead.ID,
+					},
+					Data: insts.Uint32ToBytes(2),
+				})
+			cu.processInputFromScalarMem()
+
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.InFlightInsts).To(Equal(1))
+			Expect(cu.InFlightScalarMemAccess).To(HaveLen(1))
+
+			toScalarMem.incoming = append(toScalarMem.incoming,
+				memprotocol.DataReadyRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: siblingRead.ID,
+					},
+					Data: insts.Uint32ToBytes(1),
+				})
+			cu.processInputFromScalarMem()
+
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.InFlightInsts).To(Equal(0))
 			Expect(cu.InFlightScalarMemAccess).To(HaveLen(0))
 		})
 	})
@@ -332,6 +393,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SIMDID = 0
 			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
+			wf.InFlightInsts = 1
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
@@ -373,6 +435,18 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle vector data load return, and the return is not "+
 			"the last one for an instruction", func() {
+			pendingRead := &memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				CanWaitForCoalesce: false,
+			}
+			pendingInfo := info
+			pendingInfo.Read = pendingRead
+			pendingInfo.laneInfo = nil
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, pendingInfo)
+
 			cu.processInputFromVectorMem()
 
 			for i := 0; i < 4; i++ {
@@ -388,7 +462,8 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
+			Expect(wf.InFlightInsts).To(Equal(1))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
 		})
 
 		It("should handle vector data load return, and the return is the "+
@@ -399,6 +474,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.InFlightInsts).To(Equal(0))
 			for i := 0; i < 4; i++ {
 				access := RegisterAccess{}
 				access.RegCount = 1
@@ -409,6 +485,53 @@ var _ = Describe("ComputeUnit", func() {
 				cu.VRegFile[0].Read(access)
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
+		})
+
+		It("should not retire a load when the transaction marked last "+
+			"returns before its siblings", func() {
+			lastGeneratedRead := &memprotocol.ReadReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				CanWaitForCoalesce: false,
+			}
+			lastGeneratedInfo := info
+			lastGeneratedInfo.Read = lastGeneratedRead
+			lastGeneratedInfo.laneInfo = nil
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, lastGeneratedInfo)
+
+			toVectorMem.incoming = nil
+			toVectorMem.incoming = append(toVectorMem.incoming,
+				memprotocol.DataReadyRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: lastGeneratedRead.ID,
+					},
+				})
+
+			cu.processInputFromVectorMem()
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.InFlightInsts).To(Equal(1))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
+
+			toVectorMem.incoming = append(toVectorMem.incoming,
+				memprotocol.DataReadyRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: read.ID,
+					},
+					Data: make([]byte, 16),
+				})
+
+			cu.processInputFromVectorMem()
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.InFlightInsts).To(Equal(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
 
@@ -429,6 +552,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SIMDID = 0
 			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
+			wf.InFlightInsts = 1
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
@@ -458,9 +582,23 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle vector data store return and the return is not "+
 			"the last one from an instruction", func() {
+			pendingWrite := &memprotocol.WriteReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				CanWaitForCoalesce: false,
+			}
+			pendingInfo := info
+			pendingInfo.Write = pendingWrite
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, pendingInfo)
+
 			madeProgress := cu.processInputFromVectorMem()
 
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.InFlightInsts).To(Equal(1))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
 			Expect(madeProgress).To(BeTrue())
 		})
 
@@ -472,6 +610,52 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.InFlightInsts).To(Equal(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
+		})
+
+		It("should not retire a store when the transaction marked last "+
+			"returns before its siblings", func() {
+			lastGeneratedWrite := &memprotocol.WriteReq{
+				MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(),
+				},
+				CanWaitForCoalesce: false,
+			}
+			lastGeneratedInfo := info
+			lastGeneratedInfo.Write = lastGeneratedWrite
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, lastGeneratedInfo)
+
+			toVectorMem.incoming = nil
+			toVectorMem.incoming = append(toVectorMem.incoming,
+				memprotocol.WriteDoneRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: lastGeneratedWrite.ID,
+					},
+				})
+
+			cu.processInputFromVectorMem()
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.InFlightInsts).To(Equal(1))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
+
+			toVectorMem.incoming = append(toVectorMem.incoming,
+				memprotocol.WriteDoneRsp{
+					MsgMeta: messaging.MsgMeta{
+						ID:    timing.GetIDGenerator().Generate(),
+						RspTo: writeReq.ID,
+					},
+				})
+
+			cu.processInputFromVectorMem()
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.InFlightInsts).To(Equal(0))
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})

@@ -239,7 +239,7 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	alu := NewALU(nil)
 	state := newMockInstState()
 	state.inst.FormatType = insts.VOP3a
-	state.inst.Opcode = 929
+	state.inst.Opcode = 911
 	state.inst.Src0 = &insts.Operand{}
 	state.inst.Src1 = &insts.Operand{}
 	state.inst.Dst = &insts.Operand{}
@@ -263,6 +263,353 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	}
 	if hi != 5.0 {
 		t.Fatalf("v_pk_add_f16 hi expected 5.0, got %v", hi)
+	}
+}
+
+func TestVOP3aPkAddF16DecodedModifiersAndEXEC(t *testing.T) {
+	testCases := []struct {
+		name string
+		code []byte
+		src0 uint64
+		src1 uint64
+		want uint32
+	}{
+		{
+			name: "non-symmetric decoded high-half selection",
+			// v_pk_add_f16 with OPSEL_HI src0=1, src1=0. Bit 14 is set,
+			// while the unrelated src2 selector at bit 59 is clear.
+			code: []byte{0x01, 0x40, 0x8f, 0xd3, 0x01, 0x05, 0x01, 0x00},
+			src0: packF16Pair(1.0, 2.0),
+			src1: packF16Pair(0.5, 3.0),
+			want: 0x41003e00, // {1.5, 2.5}
+		},
+		{
+			name: "independent low and high negation",
+			// v_pk_add_f16 v1, v1, v2
+			//     neg_lo:[1,0] neg_hi:[0,1]
+			code: []byte{0x01, 0x42, 0x8f, 0xd3, 0x01, 0x05, 0x02, 0x38},
+			src0: packF16Pair(1.0, 2.0),
+			src1: packF16Pair(0.5, 3.0),
+			want: 0xbc00b800, // {-0.5, -1.0}
+		},
+		{
+			name: "clamp applies its lower bound to both halves",
+			// Same instruction with CLMP set.
+			code: []byte{0x01, 0xc2, 0x8f, 0xd3, 0x01, 0x05, 0x02, 0x38},
+			src0: packF16Pair(1.0, 2.0),
+			src1: packF16Pair(0.5, 3.0),
+			want: 0x00000000,
+		},
+		{
+			name: "clamp applies its upper bound to both halves",
+			code: []byte{0x01, 0xc2, 0x8f, 0xd3, 0x01, 0x05, 0x02, 0x38},
+			src0: packF16Pair(-2.0, 2.0),
+			src1: packF16Pair(0.5, -3.0),
+			want: 0x3c003c00,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			inst, err := insts.NewDisassembler().Decode(tc.code)
+			if err != nil {
+				t.Fatalf("decode failed: %v", err)
+			}
+
+			alu := NewALU(nil)
+			state := newMockInstState()
+			state.inst = inst
+			state.exec = 0x1
+
+			state.setOperand(inst.Src0, 0, tc.src0)
+			state.setOperand(inst.Src1, 0, tc.src1)
+			state.setOperand(inst.Src0, 1, tc.src0)
+			state.setOperand(inst.Src1, 1, tc.src1)
+			const disabledLaneSentinel = uint64(0x5aa5c33c)
+			state.setOperand(inst.Dst, 1, disabledLaneSentinel)
+
+			alu.Run(state)
+
+			if got := uint32(state.operands[inst.Dst][0]); got != tc.want {
+				t.Fatalf("result = 0x%08x, want 0x%08x", got, tc.want)
+			}
+			if got := state.operands[inst.Dst][1]; got != disabledLaneSentinel {
+				t.Fatalf("disabled EXEC lane changed to 0x%08x", got)
+			}
+		})
+	}
+}
+
+func TestVOP3aPackB32F16(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 672
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 0x1
+
+	state.setOperand(state.inst.Src0, 0, 0xabcd1234)
+	state.setOperand(state.inst.Src1, 0, 0xef015678)
+	alu.Run(state)
+	if got := uint32(state.operands[state.inst.Dst][0]); got != 0x56781234 {
+		t.Fatalf("v_pack_b32_f16 low selection = 0x%08x, want 0x56781234", got)
+	}
+
+	state.inst.OpSel = 0b11
+	alu.Run(state)
+	if got := uint32(state.operands[state.inst.Dst][0]); got != 0xef01abcd {
+		t.Fatalf("v_pack_b32_f16 high selection = 0x%08x, want 0xef01abcd", got)
+	}
+}
+
+func TestVOP3aPackB32F16DecodedModifiersAndEXEC(t *testing.T) {
+	// v_pack_b32_f16 v2, -|v2|, |v3| op_sel:[1,0]
+	code := []byte{0x02, 0x0b, 0xa0, 0xd2, 0x02, 0x07, 0x02, 0x20}
+	inst, err := insts.NewDisassembler().Decode(code)
+	if err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 0x1
+
+	// OPSEL selects src0.high (+3) and src1.low (-4). Source modifiers
+	// produce -abs(+3) and abs(-4), preserving their f16 encodings.
+	src0 := uint64(float32ToFloat16(7.0)) |
+		(uint64(float32ToFloat16(3.0)) << 16)
+	src1 := uint64(float32ToFloat16(-4.0)) |
+		(uint64(float32ToFloat16(-8.0)) << 16)
+	state.setOperand(inst.Src0, 0, src0)
+	state.setOperand(inst.Src1, 0, src1)
+	state.setOperand(inst.Src0, 1, src0)
+	state.setOperand(inst.Src1, 1, src1)
+	const disabledLaneSentinel = uint64(0x5aa5c33c)
+	state.setOperand(inst.Dst, 1, disabledLaneSentinel)
+
+	alu.Run(state)
+
+	if got := uint32(state.operands[inst.Dst][0]); got != 0x4400c200 {
+		t.Fatalf("result = 0x%08x, want 0x4400c200", got)
+	}
+	if got := state.operands[inst.Dst][1]; got != disabledLaneSentinel {
+		t.Fatalf("disabled EXEC lane changed to 0x%08x", got)
+	}
+}
+
+func TestVOP3aPackB32F16DecodedClamp(t *testing.T) {
+	// v_pack_b32_f16 v2, v2, v3 clamp
+	code := []byte{0x02, 0x80, 0xa0, 0xd2, 0x02, 0x07, 0x02, 0x00}
+	inst, err := insts.NewDisassembler().Decode(code)
+	if err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 0x1
+	state.setOperand(inst.Src0, 0, packF16Pair(-2, 7))
+	state.setOperand(inst.Src1, 0, packF16Pair(3, 8))
+
+	alu.Run(state)
+
+	if got := uint32(state.operands[inst.Dst][0]); got != 0x3c000000 {
+		t.Fatalf("clamped result = 0x%08x, want 0x3c000000", got)
+	}
+}
+
+func TestVOP3aFMAMixF16PreservesOtherHalf(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 929
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 0x1
+
+	// The raw fp16-throughput instructions use f32 sources (OpSelHi == 0).
+	// MIXLO computes 1.5*2+0.25 = 3.25 and keeps the existing high half.
+	state.setOperand(state.inst.Src0, 0, f32bits(1.5))
+	state.setOperand(state.inst.Src1, 0, f32bits(2))
+	state.setOperand(state.inst.Src2, 0, f32bits(0.25))
+	state.setOperand(state.inst.Dst, 0,
+		uint64(uint32(float32ToFloat16(9))<<16))
+	alu.Run(state)
+
+	got := uint32(state.operands[state.inst.Dst][0])
+	if lo := float16ToFloat32(uint16(got)); lo != 3.25 {
+		t.Fatalf("v_fma_mixlo_f16 low result = %v, want 3.25", lo)
+	}
+	if hi := float16ToFloat32(uint16(got >> 16)); hi != 9 {
+		t.Fatalf("v_fma_mixlo_f16 changed high half to %v, want 9", hi)
+	}
+
+	// MIXHI computes 2*3+1 = 7 and keeps the low result from MIXLO.
+	state.inst.Opcode = 930
+	state.setOperand(state.inst.Src0, 0, f32bits(2))
+	state.setOperand(state.inst.Src1, 0, f32bits(3))
+	state.setOperand(state.inst.Src2, 0, f32bits(1))
+	alu.Run(state)
+
+	got = uint32(state.operands[state.inst.Dst][0])
+	if lo := float16ToFloat32(uint16(got)); lo != 3.25 {
+		t.Fatalf("v_fma_mixhi_f16 changed low half to %v, want 3.25", lo)
+	}
+	if hi := float16ToFloat32(uint16(got >> 16)); hi != 7 {
+		t.Fatalf("v_fma_mixhi_f16 high result = %v, want 7", hi)
+	}
+}
+
+func TestVOP3aFMAMixF16ModifiersClampAndEXEC(t *testing.T) {
+	t.Run("decoded non-symmetric op_sel_hi selects src0 and src1 as f16", func(t *testing.T) {
+		// v_fma_mixlo_f16 with OPSEL_HI src0=1, src1=1, src2=0.
+		code := []byte{0x01, 0x40, 0xa1, 0xd3, 0x02, 0x09, 0x0c, 0x14}
+		inst, err := insts.NewDisassembler().Decode(code)
+		if err != nil {
+			t.Fatalf("decode failed: %v", err)
+		}
+
+		alu := NewALU(nil)
+		state := newMockInstState()
+		state.inst = inst
+		state.exec = 0x1
+		state.setOperand(inst.Src0, 0, packF16Pair(2, 9))
+		state.setOperand(inst.Src1, 0, packF16Pair(3, 8))
+		state.setOperand(inst.Src2, 0, f32bits(1))
+		state.setOperand(inst.Dst, 0, packF16Pair(4, 11))
+
+		alu.Run(state)
+
+		got := uint32(state.operands[inst.Dst][0])
+		if low := float16ToFloat32(uint16(got)); low != 7 {
+			t.Fatalf("low result = %v, want 7", low)
+		}
+		if high := float16ToFloat32(uint16(got >> 16)); high != 11 {
+			t.Fatalf("mixlo changed high half to %v, want 11", high)
+		}
+	})
+
+	t.Run("mixlo selects f16 halves and applies abs and neg", func(t *testing.T) {
+		alu := NewALU(nil)
+		state := newMockInstState()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 929
+		state.inst.InstName = "v_fma_mixlo_f16"
+		state.inst.Src0 = &insts.Operand{}
+		state.inst.Src1 = &insts.Operand{}
+		state.inst.Src2 = &insts.Operand{}
+		state.inst.Dst = &insts.Operand{}
+		state.inst.OpSelHi = 0b111 // all three inputs are selected as f16
+		state.inst.OpSel = 0b010   // src0.low, src1.high, src2.low
+		state.inst.Abs = 0b011     // abs(src0), abs(src1)
+		state.inst.Neg = 0b110     // negate src1 and src2 after abs
+		state.exec = 0x1
+
+		state.setOperand(state.inst.Src0, 0, packF16Pair(-2, 9))
+		state.setOperand(state.inst.Src1, 0, packF16Pair(8, -3))
+		state.setOperand(state.inst.Src2, 0, packF16Pair(-0.5, 7))
+		state.setOperand(state.inst.Dst, 0, packF16Pair(4, 11))
+		const disabledLaneSentinel = uint64(0xa55a3cc3)
+		state.setOperand(state.inst.Dst, 1, disabledLaneSentinel)
+
+		alu.Run(state)
+
+		got := uint32(state.operands[state.inst.Dst][0])
+		if low := float16ToFloat32(uint16(got)); low != -5.5 {
+			t.Fatalf("low result = %v, want -5.5", low)
+		}
+		if high := float16ToFloat32(uint16(got >> 16)); high != 11 {
+			t.Fatalf("mixlo changed high half to %v, want 11", high)
+		}
+		if got := state.operands[state.inst.Dst][1]; got != disabledLaneSentinel {
+			t.Fatalf("disabled EXEC lane changed to 0x%08x", got)
+		}
+	})
+
+	t.Run("mixhi selects f16 halves and clamps", func(t *testing.T) {
+		alu := NewALU(nil)
+		state := newMockInstState()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 930
+		state.inst.InstName = "v_fma_mixhi_f16"
+		state.inst.Src0 = &insts.Operand{}
+		state.inst.Src1 = &insts.Operand{}
+		state.inst.Src2 = &insts.Operand{}
+		state.inst.Dst = &insts.Operand{}
+		state.inst.OpSelHi = 0b111 // all three inputs are selected as f16
+		state.inst.OpSel = 0b101   // src0.high, src1.low, src2.high
+		state.inst.Abs = 0b111
+		state.inst.Neg = 0b100 // negate src2 after abs
+		state.inst.Clamp = true
+		state.exec = 0x1
+
+		state.setOperand(state.inst.Src0, 0, packF16Pair(9, -2))
+		state.setOperand(state.inst.Src1, 0, packF16Pair(-3, 8))
+		state.setOperand(state.inst.Src2, 0, packF16Pair(7, -0.5))
+		state.setOperand(state.inst.Dst, 0, packF16Pair(4, 11))
+		const disabledLaneSentinel = uint64(0xa55a3cc3)
+		state.setOperand(state.inst.Dst, 1, disabledLaneSentinel)
+
+		alu.Run(state)
+
+		got := uint32(state.operands[state.inst.Dst][0])
+		if low := float16ToFloat32(uint16(got)); low != 4 {
+			t.Fatalf("mixhi changed low half to %v, want 4", low)
+		}
+		if high := float16ToFloat32(uint16(got >> 16)); high != 1 {
+			t.Fatalf("clamped high result = %v, want 1", high)
+		}
+		if got := state.operands[state.inst.Dst][1]; got != disabledLaneSentinel {
+			t.Fatalf("disabled EXEC lane changed to 0x%08x", got)
+		}
+	})
+}
+
+func packF16Pair(low, high float32) uint64 {
+	return uint64(float32ToFloat16(low)) |
+		(uint64(float32ToFloat16(high)) << 16)
+}
+
+func TestVOP3aXadU32(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 499
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 0x5
+
+	// Lane 0 wraps in uint32 arithmetic. Lane 1 is disabled and must retain
+	// its destination value.
+	state.setOperand(state.inst.Src0, 0, 0xffffffff)
+	state.setOperand(state.inst.Src1, 0, 0)
+	state.setOperand(state.inst.Src2, 0, 1)
+	state.setOperand(state.inst.Src0, 1, 0x00ff00ff)
+	state.setOperand(state.inst.Src1, 1, 0x0f0f0f0f)
+	state.setOperand(state.inst.Src2, 1, 7)
+	state.setOperand(state.inst.Dst, 1, 0x12345678)
+	state.setOperand(state.inst.Src0, 2, 0x00ff00ff)
+	state.setOperand(state.inst.Src1, 2, 0x0f0f0f0f)
+	state.setOperand(state.inst.Src2, 2, 7)
+	alu.Run(state)
+
+	if got := uint32(state.operands[state.inst.Dst][0]); got != 0 {
+		t.Fatalf("v_xad_u32 wrapped result = 0x%08x, want 0", got)
+	}
+	if got := uint32(state.operands[state.inst.Dst][1]); got != 0x12345678 {
+		t.Fatalf("v_xad_u32 changed disabled lane to 0x%08x", got)
+	}
+	want := (uint32(0x00ff00ff) ^ uint32(0x0f0f0f0f)) + 7
+	if got := uint32(state.operands[state.inst.Dst][2]); got != want {
+		t.Fatalf("v_xad_u32 nontrivial result = 0x%08x, want 0x%08x", got, want)
 	}
 }
 

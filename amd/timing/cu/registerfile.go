@@ -29,9 +29,9 @@ type RegisterFile interface {
 type SimpleRegisterFile struct {
 	storage []byte
 
-	// In vector register, each lane can have up-to 256 VGPRs. Then the offset
-	// difference from v0 lane 0 to v0 lane 1 is 256*4 = 1024B. Field
-	// ByteSizePerLane should be set to 1024 in vector registers.
+	// ByteSizePerLane is the physical VGPR capacity assigned to one lane.
+	// It must track the total per-SIMD VGPR capacity: 1024 bytes for 16384
+	// VGPRs and 2048 bytes for 32768 VGPRs across a 64-lane wavefront.
 	ByteSizePerLane int
 }
 

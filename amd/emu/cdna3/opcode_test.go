@@ -1,6 +1,7 @@
 package cdna3
 
 import (
+	"math"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
@@ -207,5 +208,113 @@ func TestVOP1Opcode56VMOVRELSDB32(t *testing.T) {
 			state.operands[state.inst.Dst][1],
 			state.operands[state.inst.Dst][2],
 			state.operands[state.inst.Dst][3])
+	}
+}
+
+func TestVOP3aDivFixupF32SpecialValues(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 478
+	state.inst.InstName = "v_div_fixup_f32"
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+
+	testCases := []struct {
+		name               string
+		quotient           uint32
+		denominator        uint32
+		numerator          uint32
+		expectedResultBits uint32
+	}{
+		{
+			name:     "normal quotient keeps the numerator-over-denominator sign",
+			quotient: math.Float32bits(-1.5), denominator: math.Float32bits(2),
+			numerator: math.Float32bits(3), expectedResultBits: math.Float32bits(1.5),
+		},
+		{
+			name:     "negative normal quotient",
+			quotient: math.Float32bits(1.5), denominator: math.Float32bits(-2),
+			numerator: math.Float32bits(3), expectedResultBits: math.Float32bits(-1.5),
+		},
+		{
+			name:     "positive zero numerator",
+			quotient: math.Float32bits(9), denominator: math.Float32bits(2),
+			numerator: 0x00000000, expectedResultBits: 0x00000000,
+		},
+		{
+			name:     "negative zero numerator",
+			quotient: math.Float32bits(9), denominator: math.Float32bits(2),
+			numerator: 0x80000000, expectedResultBits: 0x80000000,
+		},
+		{
+			name:     "finite numerator divided by negative zero",
+			quotient: math.Float32bits(9), denominator: 0x80000000,
+			numerator: math.Float32bits(3), expectedResultBits: 0xff800000,
+		},
+		{
+			name:     "zero divided by zero is indeterminate",
+			quotient: math.Float32bits(9), denominator: 0x00000000,
+			numerator: 0x80000000, expectedResultBits: 0xffc00000,
+		},
+		{
+			name:     "infinity divided by infinity is indeterminate",
+			quotient: math.Float32bits(9), denominator: 0xff800000,
+			numerator: 0x7f800000, expectedResultBits: 0xffc00000,
+		},
+		{
+			name:     "finite numerator divided by negative infinity",
+			quotient: math.Float32bits(9), denominator: 0xff800000,
+			numerator: math.Float32bits(3), expectedResultBits: 0x80000000,
+		},
+		{
+			name:     "negative infinity divided by finite denominator",
+			quotient: math.Float32bits(9), denominator: math.Float32bits(2),
+			numerator: 0xff800000, expectedResultBits: 0xff800000,
+		},
+		{
+			name:     "numerator signaling NaN takes precedence and is quieted",
+			quotient: math.Float32bits(9), denominator: 0x7f800321,
+			numerator: 0xff800123, expectedResultBits: 0xffc00123,
+		},
+		{
+			name:     "denominator signaling NaN is quieted",
+			quotient: math.Float32bits(9), denominator: 0x7f800321,
+			numerator: math.Float32bits(3), expectedResultBits: 0x7fc00321,
+		},
+		{
+			name:     "result below the representable range underflows to signed zero",
+			quotient: math.Float32bits(9), denominator: 0x7f7fffff,
+			numerator: 0x80800000, expectedResultBits: 0x80000000,
+		},
+	}
+
+	state.exec = (uint64(1) << uint(len(testCases))) - 1
+	for lane, tc := range testCases {
+		state.setOperand(state.inst.Src0, lane, uint64(tc.quotient))
+		state.setOperand(state.inst.Src1, lane, uint64(tc.denominator))
+		state.setOperand(state.inst.Src2, lane, uint64(tc.numerator))
+	}
+
+	disabledLane := len(testCases)
+	const disabledLaneSentinel = uint64(0x12345678)
+	state.setOperand(state.inst.Src0, disabledLane, f32bits(1))
+	state.setOperand(state.inst.Src1, disabledLane, f32bits(1))
+	state.setOperand(state.inst.Src2, disabledLane, f32bits(1))
+	state.setOperand(state.inst.Dst, disabledLane, disabledLaneSentinel)
+
+	alu.Run(state)
+
+	for lane, tc := range testCases {
+		if got := uint32(state.operands[state.inst.Dst][lane]); got != tc.expectedResultBits {
+			t.Errorf("%s: expected %#08x, got %#08x",
+				tc.name, tc.expectedResultBits, got)
+		}
+	}
+	if got := state.operands[state.inst.Dst][disabledLane]; got != disabledLaneSentinel {
+		t.Errorf("disabled EXEC lane changed: expected %#08x, got %#08x",
+			disabledLaneSentinel, got)
 	}
 }

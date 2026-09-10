@@ -63,10 +63,6 @@ extern "C" __global__ void lbm_collide_stream_kernel(
     int iy = (idx / Nx) % Ny;
     int ix = idx % Nx;
 
-    bool is_boundary = (ix == 0 || ix == Nx-1 ||
-                        iy == 0 || iy == Ny-1 ||
-                        iz == 0 || iz == Nz-1);
-
     float f[Q];
 #pragma unroll
     for (int q = 0; q < Q; ++q) {
@@ -97,14 +93,15 @@ extern "C" __global__ void lbm_collide_stream_kernel(
     }
 
 #pragma unroll
+    // Decide bounce-back per outgoing link. Every in-domain destination slot
+    // then has exactly one writer. Bouncing every link of a boundary cell
+    // races with adjacent interior cells that stream into that same cell.
     for (int q = 0; q < Q; ++q) {
         int nx = ix + lbm_ex(q);
         int ny = iy + lbm_ey(q);
         int nz = iz + lbm_ez(q);
 
-        if (is_boundary) {
-            f_dst[lbm_opp(q) * N + idx] = f_post[q];
-        } else if (nx >= 0 && nx < Nx && ny >= 0 && ny < Ny && nz >= 0 && nz < Nz) {
+        if (nx >= 0 && nx < Nx && ny >= 0 && ny < Ny && nz >= 0 && nz < Nz) {
             int nidx = nz * Nx * Ny + ny * Nx + nx;
             f_dst[q * N + nidx] = f_post[q];
         } else {

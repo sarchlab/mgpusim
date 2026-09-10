@@ -186,6 +186,33 @@ var _ = Describe("Dispatcher", func() {
 		Expect(dispatcher.numDispatchedWGs).To(Equal(0))
 	})
 
+	DescribeTable("calculates the per-die work-group dispatch service law",
+		func(floor, wave, numWavefronts, expected int) {
+			dispatcher.minWorkgroupDispatchCycles = floor
+			dispatcher.wavefrontDispatchCycles = wave
+
+			Expect(dispatcher.workgroupDispatchCycles(numWavefronts)).
+				To(Equal(expected))
+		},
+		Entry("uses the floor for one wavefront", 8, 2, 1, 8),
+		Entry("uses the floor at the crossover", 8, 2, 4, 8),
+		Entry("uses the wavefront term above the crossover", 8, 2, 16, 32),
+		Entry("preserves the old wavefront-only law with a zero floor", 0, 2, 4, 8),
+	)
+
+	It("plumbs dispatch service-law fields through the dispatcher builder", func() {
+		built := MakeBuilder().
+			WithAlg("per-die").
+			WithNumDies(2).
+			WithMinWorkgroupDispatchCycles(8).
+			WithWavefrontDispatchCycles(2).
+			Build("service-law-test").(*DispatcherImpl)
+
+		Expect(built.minWorkgroupDispatchCycles).To(Equal(8))
+		Expect(built.wavefrontDispatchCycles).To(Equal(2))
+		Expect(built.dieCyclesLeft).To(HaveLen(2))
+	})
+
 	It("should do nothing if all work-groups dispatched", func() {
 		req := makeLaunchReq()
 		dispatcher.dispatching = req
