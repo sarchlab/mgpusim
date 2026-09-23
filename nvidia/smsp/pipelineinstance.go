@@ -1,9 +1,7 @@
 package smsp
 
 import (
-	log "github.com/sirupsen/logrus"
-
-	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 type Stage struct {
@@ -95,10 +93,10 @@ func (p *PipelineInstance) MarkDstRegsReleased() {
 func (p *PipelineInstance) MarkMemoryRequestSent() {
 	stage := p.CurrentStage()
 	if stage == nil || !isMemoryPipeStage(stage.Def.Name) {
-		log.Panic("MarkMemoryRequestSent called for non-memory pipeline")
+		panic("MarkMemoryRequestSent called for non-memory pipeline")
 	}
 	if stage.Left != 2 {
-		log.Panic("memory pipeline should have Left == 2 before request is sent")
+		panic("memory pipeline should have Left == 2 before request is sent")
 	}
 	stage.Left = 1
 }
@@ -106,13 +104,13 @@ func (p *PipelineInstance) MarkMemoryRequestSent() {
 func (p *PipelineInstance) MarkMemoryResponseReady() {
 	stage := p.CurrentStage()
 	if stage == nil || !isMemoryPipeStage(stage.Def.Name) {
-		log.Panic("MarkMemoryResponseReady called for non-memory pipeline")
+		panic("MarkMemoryResponseReady called for non-memory pipeline")
 	}
 	if stage.Left == 0 {
 		return
 	}
 	if stage.Left != 1 {
-		log.Panic("memory pipeline should have Left == 1 when response returns")
+		panic("memory pipeline should have Left == 1 when response returns")
 	}
 	stage.Left = 0
 	p.advanceToNextActiveStage()
@@ -136,7 +134,7 @@ func (p *PipelineInstance) Tick() bool {
 
 	stage.Left--
 	if stage.Left < 0 {
-		log.Panic("pipeline stage left cycles went negative")
+		panic("pipeline stage left cycles went negative")
 	}
 
 	if stage.Left == 0 {

@@ -127,23 +127,3 @@ func (s *Scoreboard) HasAnyBusy() bool {
 	}
 	return false
 }
-
-func (s *Scoreboard) getNumOfRegReadBusy() uint64 {
-	count := uint64(0)
-	for _, v := range s.regReadBusy {
-		if v > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func (s *Scoreboard) getNumOfRegWriteBusy() uint64 {
-	count := uint64(0)
-	for _, v := range s.regWriteBusy {
-		if v > 0 {
-			count++
-		}
-	}
-	return count
-}

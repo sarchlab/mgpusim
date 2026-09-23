@@ -2,55 +2,84 @@ package trace
 
 import (
 	"fmt"
-
-	log "github.com/sirupsen/logrus"
 )
 
-// Opcode type was previously from trace package
-// type Opcode struct {
-// 	Name string
-// }
+// ExecType identifies the kind of an entry in kernelslist.g.
+type ExecType int
 
-// func NewOpcode(name string) *Opcode {
-// 	return &Opcode{Name: name}
-// }
+// The kinds of entries that can appear in kernelslist.g.
+const (
+	ExecUndefined ExecType = iota
+	ExecKernel
+	ExecMemcpy
+)
 
+// ExecMemcpyDirection is the direction of a memory copy.
+type ExecMemcpyDirection string
+
+// Memory copy directions as spelled in kernelslist.g.
+const (
+	ExecMemcpyDirectionUndefined ExecMemcpyDirection = ""
+	H2D                          ExecMemcpyDirection = "MemcpyHtoD"
+	D2H                          ExecMemcpyDirection = "MemcpyDtoH"
+)
+
+// Dim3 is a 3-dimensional index, e.g., a thread block ID.
+type Dim3 [3]int32
+
+// Register is a register operand of an instruction.
+type Register struct {
+	Name string
+}
+
+// Opcode is the SASS opcode of an instruction, e.g., "LDG.E".
+type Opcode string
+
+// String returns the opcode text.
+func (op Opcode) String() string {
+	return string(op)
+}
+
+// KernelTrace is the trace of one kernel launch.
 type KernelTrace struct {
 	ID           string
 	FileHeader   KernelFileHeader
-	tbIDToIndex  map[Dim3]int32
 	Threadblocks []*ThreadblockTrace
 }
 
+// KernelFileHeader holds the "-key = value" lines at the top of a .traceg
+// file.
 type KernelFileHeader struct {
-	KernelName            string `title:"kernel name"`
-	KernelID              int32  `title:"kernel id"`
-	GridDim               Dim3   `title:"grid dim"`
-	BlockDim              Dim3   `title:"block dim"`
-	Shmem                 int32  `title:"shmem"`
-	Nregs                 int32  `title:"nregs"`
-	BinaryVersion         int32  `title:"binary version"`
-	CudaStreamID          int32  `title:"cuda stream id"`
-	ShmemBaseAddr         uint64 `title:"shmem base_addr"`
-	LocalMemBaseAddr      uint64 `title:"local mem base_addr"`
-	NvbitVersion          string `title:"nvbit version"`
-	AccelsimTracerVersion string `title:"accelsim tracer version"`
-	EnableLineinfo        bool   `title:"enable lineinfo"`
+	KernelName            string
+	KernelID              int32
+	GridDim               Dim3
+	BlockDim              Dim3
+	Shmem                 int32
+	Nregs                 int32
+	BinaryVersion         int32
+	CudaStreamID          int32
+	ShmemBaseAddr         uint64
+	LocalMemBaseAddr      uint64
+	NvbitVersion          string
+	AccelsimTracerVersion string
+	EnableLineinfo        bool
 }
 
+// ThreadblockTrace is the trace of one thread block (CTA).
 type ThreadblockTrace struct {
 	ID             Dim3
 	FatherKernelID string
 	Warps          []*WarpTrace
 }
 
+// WarpTrace is the dynamic instruction stream of one warp.
 type WarpTrace struct {
 	ID                  int
 	FatherThreadblockID Dim3
-	instsCount          uint64
 	Instructions        []*InstructionTrace
 }
 
+// InstructionTrace is one dynamic instruction of a warp.
 type InstructionTrace struct {
 	threadblockID     Dim3
 	warpID            int
@@ -59,7 +88,7 @@ type InstructionTrace struct {
 	Mask              uint64
 	DestNum           int
 	DestRegs          []Register
-	OpCode            *Opcode
+	OpCode            Opcode
 	SrcNum            int
 	SrcRegs           []Register
 	MemWidth          int
@@ -70,13 +99,8 @@ type InstructionTrace struct {
 	Immediate         uint64
 }
 
-// Shaoyu: Maybe we can parse the attrs in order and avoid using swicth-case here
-// ChenGong: I thought it would be better to display the working pattern during the parse
-// [TODO]
-//
-//nolint:funlen,gocyclo
 func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
-	err := error(nil)
+	var err error
 
 	switch key {
 	case "kernel name":
@@ -84,9 +108,11 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	case "kernel id":
 		_, err = fmt.Sscanf(value, "%d", &th.KernelID)
 	case "grid dim":
-		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.GridDim[0], &th.GridDim[1], &th.GridDim[2])
+		_, err = fmt.Sscanf(value, "(%d,%d,%d)",
+			&th.GridDim[0], &th.GridDim[1], &th.GridDim[2])
 	case "block dim":
-		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.BlockDim[0], &th.BlockDim[1], &th.BlockDim[2])
+		_, err = fmt.Sscanf(value, "(%d,%d,%d)",
+			&th.BlockDim[0], &th.BlockDim[1], &th.BlockDim[2])
 	case "shmem":
 		_, err = fmt.Sscanf(value, "%d", &th.Shmem)
 	case "nregs":
@@ -106,51 +132,49 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	case "enable lineinfo":
 		th.EnableLineinfo = value == "1"
 	default:
-		log.WithField("key", key).Panic("Unknown key")
+		// Newer tracer versions may add header fields that the simulator
+		// does not use.
 	}
 
 	if err != nil {
-		log.WithError(err).Panic("Failed to parse value")
+		panic(fmt.Sprintf("failed to parse trace header %q = %q: %v",
+			key, value, err))
 	}
 }
 
+// ThreadblocksCount returns the number of thread blocks in the kernel.
 func (t *KernelTrace) ThreadblocksCount() uint64 {
 	return uint64(len(t.Threadblocks))
 }
 
+// Threadblock returns the thread block at the given index.
 func (t *KernelTrace) Threadblock(index uint64) *ThreadblockTrace {
 	return t.Threadblocks[index]
 }
 
-func (t *KernelTrace) KernelFullID(index uint64) string {
-	return fmt.Sprintf("kernel[%s]", t.ID)
-}
-
+// WarpsCount returns the number of warps in the thread block.
 func (tb *ThreadblockTrace) WarpsCount() uint64 {
 	return uint64(len(tb.Warps))
 }
 
+// Warp returns the warp at the given index.
 func (tb *ThreadblockTrace) Warp(index uint64) *WarpTrace {
 	return tb.Warps[index]
 }
 
+// ThreadblockFullID returns a human-readable ID of the thread block.
 func (tb *ThreadblockTrace) ThreadblockFullID() string {
 	return fmt.Sprintf("threadblock[%d,%d,%d]", tb.ID[0], tb.ID[1], tb.ID[2])
 }
 
+// InstructionsCount returns the number of instructions of the warp.
 func (w *WarpTrace) InstructionsCount() uint64 {
 	return uint64(len(w.Instructions))
 }
 
-func (w *WarpTrace) WarpFullID() string {
-	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]", w.FatherThreadblockID[0], w.FatherThreadblockID[1], w.FatherThreadblockID[2], w.ID)
-}
-
-func (i *InstructionTrace) InstructionsParentID() string {
-	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID)
-}
-
+// InstructionsFullID returns a human-readable ID of the instruction.
 func (i *InstructionTrace) InstructionsFullID() string {
-	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp)
-	// return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp, i.OpCode.rawText)
+	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]",
+		i.threadblockID[0], i.threadblockID[1], i.threadblockID[2],
+		i.warpID, i.instIndexInWarp)
 }

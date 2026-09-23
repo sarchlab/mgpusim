@@ -1,2 +1,3 @@
-// Package message contains the types for all the sim.msgs.
+// Package message defines the messages exchanged between the driver, GPU, SM,
+// and SMSP components of the NVIDIA simulator.
 package message

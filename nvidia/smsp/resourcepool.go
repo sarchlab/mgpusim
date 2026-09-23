@@ -2,7 +2,6 @@ package smsp
 
 import (
 	"fmt"
-	"log"
 )
 
 type ResourcePool struct {
@@ -78,7 +77,7 @@ func (rp *ResourcePool) Reserve(unit ExecUnitKind) bool {
 		}
 		rp.SpecialUnitsAvailable--
 	default:
-		log.Panic("Reserve: Unknown execution unit type:", unit)
+		panic(fmt.Sprintf("Reserve: unknown execution unit type %v", unit))
 	}
 	return true
 }
@@ -112,7 +111,7 @@ func (rp *ResourcePool) Release(unit ExecUnitKind) {
 			rp.SpecialUnitsAvailable++
 		}
 	default:
-		log.Panic("Release: Unknown execution unit type:", unit)
+		panic(fmt.Sprintf("Release: unknown execution unit type %v", unit))
 	}
 }
 

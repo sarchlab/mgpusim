@@ -3,347 +3,206 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writearound"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/noc/directconnection"
+	"github.com/sarchlab/akita/v5/timing"
 
-	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
-	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
-	"github.com/tebeka/atexit"
+	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
-type SMBuilder struct {
-	simulation *simulation.Simulation
-	name       string
+const portBufSize = 4096
 
-	engine sim.Engine
-	freq   sim.Freq
+// SMBuilder builds SMs. Each SM contains its SMSPs and one L1 vector cache
+// per SMSP.
+type SMBuilder struct {
+	registrar modeling.Registrar
+	freq      timing.Freq
 
 	smspsCount        uint64
 	log2CacheLineSize uint64
-
-	// cache updates
-	l1vCaches       []*writearound.Comp
-	l1AddressMapper mem.AddressToPortMapper
-
-	// sm    *SMControllers
-	smsps []*smsp.SMSPController
-
-	connectionCount int
+	l1AddressMapper   mem.AddressToPortMapper
 
 	SM2SMSPWarpIssueLatency uint64
 	SMReceiveGPULatency     uint64
 	SMSPResponseHandleWidth uint64
 	MemResponseHandleWidth  uint64
-
-	VisTracing bool
 }
 
+// MakeBuilder creates an SMBuilder with default parameters.
 func MakeBuilder() SMBuilder {
 	return SMBuilder{
-		freq:              1 * sim.GHz,
-		log2CacheLineSize: 9, // 7
+		freq:              1 * timing.GHz,
+		smspsCount:        4,
+		log2CacheLineSize: 9,
 	}
 }
 
-func (b SMBuilder) WithEngine(engine sim.Engine) SMBuilder {
-	b.engine = engine
+// WithRegistrar sets the simulation that components register to.
+func (b SMBuilder) WithRegistrar(r modeling.Registrar) SMBuilder {
+	b.registrar = r
 	return b
 }
 
-func (b SMBuilder) WithFreq(freq sim.Freq) SMBuilder {
+// WithFreq sets the frequency of the SM and its sub-components.
+func (b SMBuilder) WithFreq(freq timing.Freq) SMBuilder {
 	b.freq = freq
 	return b
 }
 
-func (b SMBuilder) WithSimulation(sim *simulation.Simulation) SMBuilder {
-	b.simulation = sim
-	return b
-}
-
+// WithSMSPsCount sets the number of SMSPs per SM.
 func (b SMBuilder) WithSMSPsCount(count uint64) SMBuilder {
 	b.smspsCount = count
 	return b
 }
 
-func (b SMBuilder) WithL1AddressMapper(
-	l1AddressMapper mem.AddressToPortMapper,
-) SMBuilder {
-	b.l1AddressMapper = l1AddressMapper
+// WithL1AddressMapper sets how the L1 caches find the L2 cache banks.
+func (b SMBuilder) WithL1AddressMapper(m mem.AddressToPortMapper) SMBuilder {
+	b.l1AddressMapper = m
 	return b
 }
 
+// WithLog2CacheLineSize sets the cache line size of the L1 caches.
 func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
 	b.log2CacheLineSize = size
 	return b
 }
 
+// WithSM2SMSPWarpIssueLatency sets the cycles between two warp dispatches.
 func (b SMBuilder) WithSM2SMSPWarpIssueLatency(l uint64) SMBuilder {
 	b.SM2SMSPWarpIssueLatency = l
 	return b
 }
 
+// WithSMReceiveGPULatency sets the cycles to accept a thread block.
 func (b SMBuilder) WithSMReceiveGPULatency(l uint64) SMBuilder {
 	b.SMReceiveGPULatency = l
 	return b
 }
 
+// WithSMSPResponseHandleWidth sets how many SMSP messages the SM handles per
+// cycle.
 func (b SMBuilder) WithSMSPResponseHandleWidth(w uint64) SMBuilder {
 	b.SMSPResponseHandleWidth = w
 	return b
 }
 
+// WithMemResponseHandleWidth sets how many memory responses each SMSP
+// handles per cycle.
 func (b SMBuilder) WithMemResponseHandleWidth(w uint64) SMBuilder {
 	b.MemResponseHandleWidth = w
 	return b
 }
 
-func (b SMBuilder) WithVisTracing(vt bool) SMBuilder {
-	b.VisTracing = vt
-	return b
-}
-
+// Build creates an SM with the given name. The SM exposes a "ToGPU" port and
+// the L1 caches expose their "Bottom" ports for the connection to L2.
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:                                   sim.GetIDGenerator().Generate(),
-		SMSPs:                                make(map[string]*smsp.SMSPController),
-		SMSPsIDs:                             []string{},
-		smspsCount:                           b.smspsCount,
-		smspIssueIndex:                       0,
-		SM2SMSPWarpIssueLatency:              b.SM2SMSPWarpIssueLatency,
-		SM2SMSPWarpIssueLatencyRemaining:     b.SM2SMSPWarpIssueLatency,
-		threadblockWarpCountTable:            make(map[trace.Dim3]uint64),
-		threadblockWarpCountTableOrigin:      make(map[trace.Dim3]uint64),
-		SMReceiveGPULatency:                  b.SMReceiveGPULatency,
-		SMReceiveGPULatencyRemaining:         b.SMReceiveGPULatency,
-		SMSPResponseHandleWidth:              b.SMSPResponseHandleWidth,
-		CWDAdmissionPathCostLatencyRemaining: 0,
-		VisTracing:                           b.VisTracing,
+		ID:                               name,
+		threadblockWarpCount:             make(map[trace.Dim3]uint64),
+		threadblockWarpCountOrigin:       make(map[trace.Dim3]uint64),
+		SM2SMSPWarpIssueLatency:          b.SM2SMSPWarpIssueLatency,
+		SM2SMSPWarpIssueLatencyRemaining: b.SM2SMSPWarpIssueLatency,
+		SMReceiveGPULatency:              b.SMReceiveGPULatency,
+		SMReceiveGPULatencyRemaining:     b.SMReceiveGPULatency,
+		SMSPResponseHandleWidth:          b.SMSPResponseHandleWidth,
 	}
+	s.TickingComponent = modeling.NewTickingComponent(
+		name, b.registrar.GetEngine(), b.freq, s)
+	b.registrar.RegisterComponent(s)
 
-	b.name = name
-	b.connectionCount = 0
-	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
-	b.buildL1VCaches()
+	s.DeclarePort("ToGPU")
+	s.DeclarePort("ToSMSPs")
+	s.toGPU = b.buildPort(s, "ToGPU", portBufSize)
+	s.toSMSPs = b.buildPort(s, "ToSMSPs", portBufSize)
 
-	b.simulation.RegisterComponent(s)
-	b.buildPortsForSM(s, name)
-	b.buildSMSPs(name)
-	b.connectSMwithSMSPs(s, b.smsps)
-
-	// b.sm = s
-
-	// s.PendingWriteReq = make(map[string]*message.SMSPToSMMemWriteMsg)
-	// s.PendingReadReq = make(map[string]*message.SMSPToSMMemReadMsg)
-
-	b.connectVectorMem()
-
-	// b.populateExternalPorts(s)
-
-	atexit.Register(s.LogStatus)
+	b.buildSMSPs(s)
+	b.buildL1VCaches(s)
+	b.connectSMSPs(s)
 
 	return s
 }
 
-// func (b *SMBuilder) populateExternalPorts(sm *SMController) {
-// 	// sm.AddPort("L1CacheBottom", b.l1Cache.GetPortByName("Bottom"))
-// 	for i := range b.smspsCount {
-// 		smsp := b.smsps[i]
-// 		b.sm.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
-// 			b.l1vCaches[i].GetPortByName("Bottom"))
-// 	}
-// }
-
-func (b *SMBuilder) buildPortsForSM(sm *SMController, name string) {
-	sm.toGPU = sim.NewPort(sm, 4096, 4096, fmt.Sprintf("%s.ToGPU", name))
-	sm.toSMSPs = sim.NewPort(sm, 4096, 4096, fmt.Sprintf("%s.ToSMSPs", name))
-	sm.AddPort(fmt.Sprintf("%s.ToGPU", name), sm.toGPU)
-	sm.AddPort(fmt.Sprintf("%s.ToSMSPs", name), sm.toSMSPs)
-
-	for i := range b.smspsCount {
-		// smsp := b.smsps[i]
-		sm.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
-			b.l1vCaches[i].GetPortByName("Bottom"))
-	}
-
-	// cache updates
-	// sm.toGPUMem = sim.NewPort(sm,4096, 4096, fmt.Sprintf("%s.ToGPUMem", name))
-	// sm.toSMSPMem = sim.NewPort(sm,4096, 4096, fmt.Sprintf("%s.ToSMSPMem", name))
-	// sm.AddPort(fmt.Sprintf("%s.ToGPUMem", name), sm.toGPUMem)
-	// sm.AddPort(fmt.Sprintf("%s.ToSMSPMem", name), sm.toSMSPMem)
-}
-
-// func (b *SMBuilder) BuildL1VCachesBottomPorts(sm *SMController) {
-// 	for i := range b.smspsCount {
-// 		// smsp := b.smsps[i]
-// 		sm.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
-// 			b.l1vCaches[i].GetPortByName("Bottom"))
-// 	}
-// }
-
-func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
-
-	b.smsps = []*smsp.SMSPController{}
-	for i := uint64(0); i < b.smspsCount; i++ {
-		smspBuilder := new(smsp.SMSPBuilder).
-			WithEngine(b.engine).
-			WithFreq(b.freq).
-			WithSimulation(b.simulation).
-			WithVisTracing(b.VisTracing).
-			WithMemResponseHandleWidth(b.MemResponseHandleWidth)
-
-		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", smName, i))
-		b.simulation.RegisterComponent(smsp)
-		b.smsps = append(b.smsps, smsp)
-		smsp.SetVectorMemRemote(b.l1vCaches[i].GetPortByName("Top"))
-	}
-
-	return b.smsps
-}
-
-func (b *SMBuilder) connectSMwithSMSPs(sm *SMController, smsps []*smsp.SMSPController) {
-	conn := directconnection.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
-		Build(fmt.Sprintf("%s.SMToSMSPs", b.name))
-		// Build("SMToSMSPs")
-		// Build(fmt.Sprintf("%s.SMSPController(%d)", smName, i))
-
-	conn.PlugIn(sm.toSMSPs)
-	b.simulation.RegisterComponent(conn)
-	// conn.PlugIn(sm.toSMSPMem)
-
-	for i := range smsps {
-		smsp := smsps[i]
-
-		sm.SMSPList = append(sm.SMSPList, smsp)
-		sm.SMSPs[smsp.ID] = smsp
-		sm.SMSPsIDs = append(sm.SMSPsIDs, smsp.ID)
-
-		smsp.SetSMRemotePort(sm.toSMSPs)
-		// smsp.SetGPUControllerMemRemote(sm.toGPUControllerCaches)
-		conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())))
-
-		// smsp.SetSMMemRemotePort(sm.toSMSPMem)
-		// conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSMMem", smsp.Name())))
-	}
-}
-
-func (b *SMBuilder) buildL1VCaches() {
-	for i := 0; i < int(b.smspsCount); i++ {
-		builder := writearound.MakeBuilder().
-			WithEngine(b.engine).
-			WithFreq(b.freq).
-			WithBankLatency(27). // WithBankLatency(27). // cycle was 20 40
-			WithNumBanks(1).
-			WithLog2BlockSize(b.log2CacheLineSize).
-			WithWayAssociativity(4).
-			WithNumMSHREntry(16).
-			WithTotalByteSize(64 * mem.KB). // was 16 KB
-			WithAddressToPortMapper(b.l1AddressMapper)
-
-		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-		// fmt.Printf("b.name: %s, cache name: %s\n", b.name, name)
-		cache := builder.Build(name)
-		b.l1vCaches = append(b.l1vCaches, cache)
-		b.simulation.RegisterComponent(cache)
-
-		// if b.memTracer != nil {
-		// 	tracing.CollectTrace(cache, b.memTracer)
-		// }
-	}
-	// name := fmt.Sprintf("%s.L1Cache", b.name)
-	// cache := builder.Build(name)
-	// b.simulation.RegisterComponent(cache)
-	// b.l1Cache = cache
-}
-
-func (b *SMBuilder) connectVectorMem() {
-	for i := range b.smspsCount {
-		smsp := b.smsps[i]
-		// rob := b.l1vROBs[i]
-		// at := b.l1vATs[i]
-		l1v := b.l1vCaches[i]
-		// tlb := b.l1vTLBs[i]
-
-		// smsp.VectorMemModules = &mem.SinglePortMapper{
-		// 	Port: rob.GetPortByName("Top").AsRemote(),
-		// }
-		// b.connectWithDirectConnection(smsp.ToVectorMem,
-		// 	rob.GetPortByName("Top"), 8)
-
-		// atTopPort := at.GetPortByName("Top")
-		// rob.BottomUnit = atTopPort
-		// b.connectWithDirectConnection(
-		// 	rob.GetPortByName("Bottom"), atTopPort, 8)
-
-		// tlbTopPort := tlb.GetPortByName("Top")
-		// at.SetTranslationProvider(tlbTopPort.AsRemote())
-		// b.connectWithDirectConnection(
-		// 	at.GetPortByName("Translation"), tlbTopPort, 8)
-
-		// at.SetAddressToPortMapper(&mem.SinglePortMapper{
-		// 	Port: l1v.GetPortByName("Top").AsRemote(),
-		// })
-		// b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-		// 	at.GetPortByName("Bottom"), 8)
-
-		b.connectWithDirectConnection(smsp.ToVectorMem, l1v.GetPortByName("Top"))
-	}
-}
-
-func (b *SMBuilder) connectWithDirectConnection(
-	port1, port2 sim.Port,
-	// bufferSize int,
-) {
-	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
-	// fmt.Printf("Connecting %s with %s through %s\n", port1.Name(), port2.Name(), name)
-	b.connectionCount++
-
-	conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
+func (b SMBuilder) buildPort(
+	comp messaging.Component,
+	name string,
+	bufSize int,
+) messaging.Port {
+	port := modeling.MakePortBuilder().
+		WithRegistrar(b.registrar).
+		WithComponent(comp).
+		WithSpec(modeling.PortSpec{BufSize: bufSize}).
 		Build(name)
+	comp.AssignPort(name, port)
 
-	b.simulation.RegisterComponent(conn)
-
-	conn.PlugIn(port1)
-	conn.PlugIn(port2)
+	return port
 }
 
-// func (b *SMBuilder) buildL1Caches(sm *SMController) {
-// 	builder := writearound.NewBuilder().
-// 		WithEngine(b.engine).
-// 		WithFreq(b.freq).
-// 		WithBankLatency(60).
-// 		WithNumBanks(1).
-// 		WithLog2BlockSize(b.log2CacheLineSize).
-// 		WithWayAssociativity(4).
-// 		WithNumMSHREntry(16).
-// 		WithTotalByteSize(16 * mem.KB)
+func (b SMBuilder) buildSMSPs(s *SMController) {
+	smspBuilder := new(smsp.SMSPBuilder).
+		WithRegistrar(b.registrar).
+		WithFreq(b.freq).
+		WithLog2CacheLineSize(b.log2CacheLineSize).
+		WithMemResponseHandleWidth(b.MemResponseHandleWidth)
 
-// 	// if b.visTracer != nil {
-// 	// 	builder = builder.WithVisTracer(b.visTracer)
-// 	// }
+	for i := range b.smspsCount {
+		sp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", s.Name(), i))
+		sp.SetSMRemotePort(s.toSMSPs.AsRemote())
+		s.SMSPs = append(s.SMSPs, sp)
+	}
+}
 
-// 	// for i := 0; i < b.numCU; i++ {
-// 	// 	name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-// 	// 	cache := builder.Build(name)
-// 	// 	sa.l1vCaches = append(sa.l1vCaches, cache)
+func (b SMBuilder) buildL1VCaches(s *SMController) {
+	spec := writethroughcache.DefaultSpec()
+	spec.Freq = b.freq
+	spec.WritePolicyType = "write-around"
+	spec.BankLatency = 27
+	spec.NumBanks = 1
+	spec.Log2BlockSize = b.log2CacheLineSize
+	spec.WayAssociativity = 4
+	spec.NumMSHREntry = 16
+	spec.NumReqPerCycle = 4
+	spec.MaxNumConcurrentTrans = 64
+	spec.TotalByteSize = 64 * mem.KB
 
-// 	// 	if b.memTracer != nil {
-// 	// 		tracing.CollectTrace(cache, b.memTracer)
-// 	// 	}
-// 	// }
-// 	for i := 0; i < int(b.smspsCount); i++ {
-// 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-// 		cache := builder.Build(name)
-// 		sm.l1Caches = append(sm.l1Caches, cache)
+	for i := range b.smspsCount {
+		cache := writethroughcache.MakeBuilder().
+			WithRegistrar(b.registrar).
+			WithSpec(spec).
+			WithResources(writethroughcache.Resources{
+				AddressMapper: b.l1AddressMapper,
+			}).
+			Build(fmt.Sprintf("%s.L1VCache[%d]", s.Name(), i))
 
-// 		// if b.memTracer != nil {
-// 		// 	tracing.CollectTrace(cache, b.memTracer)
-// 		// }
-// 	}
-// }
+		b.buildPort(cache, "Top", spec.NumReqPerCycle)
+		b.buildPort(cache, "Bottom", spec.NumReqPerCycle)
+		b.buildPort(cache, "Control", spec.NumReqPerCycle)
+
+		s.L1VCaches = append(s.L1VCaches, cache)
+	}
+}
+
+func (b SMBuilder) connectSMSPs(s *SMController) {
+	smToSMSPs := directconnection.MakeBuilder().
+		WithRegistrar(b.registrar).
+		WithSpec(directconnection.Spec{Freq: b.freq}).
+		Build(s.Name() + ".SMToSMSPs")
+	smToSMSPs.PlugIn(s.toSMSPs)
+
+	for i, sp := range s.SMSPs {
+		smToSMSPs.PlugIn(sp.GetPortByName("ToSM"))
+
+		l1Top := s.L1VCaches[i].GetPortByName("Top")
+		sp.SetVectorMemRemote(l1Top.AsRemote())
+
+		conn := directconnection.MakeBuilder().
+			WithRegistrar(b.registrar).
+			WithSpec(directconnection.Spec{Freq: b.freq}).
+			Build(fmt.Sprintf("%s.SMSPToL1V[%d]", s.Name(), i))
+		conn.PlugIn(sp.GetPortByName("ToVectorMem"))
+		conn.PlugIn(l1Top)
+	}
+}

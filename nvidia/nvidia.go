@@ -1,113 +1,67 @@
+// Command nvidia simulates an NVIDIA GPU running a SASS trace collected with
+// the Accel-Sim NVBit tracer. See README.md for how to collect a trace.
 package main
 
 import (
 	"flag"
-	"io"
+	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
-	"github.com/sarchlab/mgpusim/v4/nvidia/platform"
-	"github.com/sarchlab/mgpusim/v4/nvidia/runner"
-	"github.com/tebeka/atexit"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/sarchlab/mgpusim/v5/nvidia/platform"
+	"github.com/sarchlab/mgpusim/v5/nvidia/runner"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
-type Params struct {
-	TraceDir        *string
-	Device          *string
-	VisTracing      *bool
-	DisableAkitaRTM *bool
-}
-
-// get trace directory from parameter
-func parseFlags() *Params {
-	params := &Params{
-		TraceDir:        flag.String("trace-dir", "data/simtune-example-2", "The directory that contains the trace files"),
-		Device:          flag.String("device", "H100", "Device type: H100 or A100 (required)"),
-		VisTracing:      flag.Bool("trace-vis", false, "Generate trace for visualization purposes."),
-		DisableAkitaRTM: flag.Bool("disable-rtm", true, "Disable the AkitaRTM monitoring portal"),
-	}
-
+func main() {
+	traceDir := flag.String("trace-dir", "",
+		"The directory that contains kernelslist.g and the .traceg files.")
+	device := flag.String("device", "H100", "The GPU to simulate: H100 or A100.")
+	visTracing := flag.Bool("trace-vis", false,
+		"Record a Daisen visualization trace into the output database.")
+	output := flag.String("output", "",
+		"The name of the SQLite database that Akita writes.")
 	flag.Parse()
 
-	return params
+	if err := run(*traceDir, *device, *visTracing, *output); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 }
 
-func main() {
-	params := parseFlags()
-	initLogSetting()
-
-	benchmark := new(benchmark.BenchmarkBuilder).
-		WithTraceDirectory(*params.TraceDir).
-		Build()
-
-	// A100
-	// platform := new(platform.A100PlatformBuilder).
-	// 	WithFreq(1065 * sim.MHz).
-	// 	Build()
-	var plat *platform.Platform // <-- declare outside if/else
-	b := simulation.MakeBuilder()
-	var simulation *simulation.Simulation
-
-	// fmt.Printf("simulation.id: %s\n", simulation.ID())
-	// if simulation == nil {
-	// 	fmt.Printf("Failed to create simulation")
-	// }
-
-	if *params.DisableAkitaRTM {
-		simulation = b.WithoutMonitoring().Build()
-	} else {
-		simulation = b.Build()
+func run(traceDir, deviceName string, visTracing bool, output string) error {
+	if traceDir == "" {
+		return fmt.Errorf("-trace-dir is required")
 	}
 
-	if *params.Device == "A100" {
-		plat = (&platform.A100PlatformBuilder{}).
-			WithFreq(1 * sim.Hz).
-			WithSimulation(simulation).
-			WithVisTracing(*params.VisTracing).
-			Build()
-	} else if *params.Device == "H100" {
-		plat = (&platform.H100PlatformBuilder{}).
-			WithFreq(1 * sim.Hz).
-			WithSimulation(simulation).
-			WithVisTracing(*params.VisTracing).
-			Build()
-	} else {
-		log.Fatal("Invalid device type. Please specify 'A100' or 'H100'.")
-		return
+	kernelsList := filepath.Join(traceDir, trace.KernelsListFileName)
+	if _, err := os.Stat(kernelsList); err != nil {
+		return fmt.Errorf("%s not found; is %s a post-processed trace directory?",
+			kernelsList, traceDir)
 	}
 
-	// tracingBackend := tracing.NewDBTracer("")
-	// tracingBackend.Init()
-	// b := simulation.MakeBuilder()
-	// simulation := b.Build()
-
-	runner := new(runner.RunnerBuilder).
-		WithPlatform(plat).
-		WithSimulation(simulation).
-		WithVisTracing(*params.VisTracing).
-		Build()
-	// runner.Init()
-	runner.AddBenchmark(benchmark)
-
-	runner.Run()
-
-	atexit.Exit(0)
-}
-
-func initLogSetting() {
-	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	device, err := platform.DeviceByName(deviceName)
 	if err != nil {
-		log.Fatal("Failed to open log file:", err)
+		return err
 	}
-	multiWriter := io.MultiWriter(file) //, os.Stdout)
 
-	log.SetOutput(multiWriter)
-	log.SetLevel(log.DebugLevel)
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
+	result, err := runner.Run(runner.Options{
+		TraceDir:   traceDir,
+		Device:     device,
+		VisTracing: visTracing,
+		OutputFile: output,
 	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("device:          %s @ %.0f MHz\n",
+		result.Device, float64(result.Freq)/1e6)
+	fmt.Printf("kernels:         %d\n", result.NumKernels)
+	fmt.Printf("warps:           %d\n", result.NumWarps)
+	fmt.Printf("instructions:    %d\n", result.NumInsts)
+	fmt.Printf("simulated time:  %.3f us\n", result.Seconds()*1e6)
+	fmt.Printf("simulated cycles: %d\n", result.Cycles())
+
+	return nil
 }

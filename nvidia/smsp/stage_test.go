@@ -7,6 +7,7 @@ import "testing"
 func TestGetPipelineStages_SimilarMatch(t *testing.T) {
 	// make threshold permissive for this test
 	SimilarityThreshold = 0.50
+	resolvedTemplates.Clear()
 
 	// "FFMA.RM" exists in PipelineTable; create a near miss.
 	unseen := "FFMA.RMX"
@@ -21,6 +22,7 @@ func TestGetPipelineStages_SimilarMatch(t *testing.T) {
 func TestGetPipelineStages_FallbackDefault(t *testing.T) {
 	// make threshold very high to force fallback
 	SimilarityThreshold = 0.99
+	resolvedTemplates.Clear()
 
 	unseen := "THIS_OPCODE_DOES_NOT_EXIST_AT_ALL"
 

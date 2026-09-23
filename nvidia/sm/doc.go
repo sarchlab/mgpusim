@@ -1,2 +1,2 @@
-// Package sm implements the SM ticking component.
+// Package sm implements the streaming multiprocessor (SM) component.
 package sm

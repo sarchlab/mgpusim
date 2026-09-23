@@ -4,256 +4,321 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/rs/xid"
-	log "github.com/sirupsen/logrus"
 )
 
-// ExecType : Redefine necessary types from trace package
-type ExecType int
+// KernelsListFileName is the index file written by the Accel-Sim trace
+// post-processor. It lists memory copies and kernel trace files in launch
+// order.
+const KernelsListFileName = "kernelslist.g"
 
 const (
-	ExecUndefined ExecType = iota
-	ExecKernel
-	ExecMemcpy
+	execMemcpyPrefix = "Memcpy"
+	execKernelPrefix = "kernel"
+	maxLineBytes     = 16 * 1024 * 1024
 )
 
-// type ExecMemcpyDirection int
-
-// const (
-// 	MemcpyHostToDevice ExecMemcpyDirection = iota
-// 	MemcpyDeviceToHost
-// )
-
-type ExecMemcpyDirection string
-
-const (
-	ExecMemcpyDirectionUndefined ExecMemcpyDirection = ""
-	H2D                          ExecMemcpyDirection = "MemcpyHtoD"
-	D2H                          ExecMemcpyDirection = "MemcpyDtoH"
-)
-
-type Dim3 [3]int32
-
-type Register struct {
-	Name string
-}
-
-func NewRegister(name string) Register {
-	return Register{Name: name}
-}
-
-type TraceReader struct {
-	directoryPath string
-
-	execMetas []TraceExecMeta
-}
-
-func (r *TraceReader) GetExecMetas() []TraceExecMeta {
-	return r.execMetas
-}
-
+// TraceExecMeta describes one entry of kernelslist.g.
 type TraceExecMeta struct {
 	execType ExecType
-
-	// exec kernel
-	filename string
 	filepath string
 
-	// exec memcpy
 	Direction ExecMemcpyDirection
 	Address   uint64
 	Length    uint64
 }
 
+// ExecType returns whether the entry is a kernel or a memory copy.
 func (m *TraceExecMeta) ExecType() ExecType {
 	return m.execType
 }
 
-var kernelScanner *bufio.Scanner
+// TraceReader reads the kernelslist.g file of a trace directory.
+type TraceReader struct {
+	directoryPath string
+	execMetas     []TraceExecMeta
+}
 
+// GetExecMetas returns the entries of kernelslist.g in order.
+func (r *TraceReader) GetExecMetas() []TraceExecMeta {
+	return r.execMetas
+}
+
+// TraceReaderBuilder builds a TraceReader.
+type TraceReaderBuilder struct {
+	traceDirPath string
+}
+
+// WithTraceDirectory sets the directory that holds kernelslist.g.
+func (b *TraceReaderBuilder) WithTraceDirectory(
+	traceDirPath string,
+) *TraceReaderBuilder {
+	b.traceDirPath = traceDirPath
+	return b
+}
+
+// Build reads kernelslist.g and returns the reader.
+func (b *TraceReaderBuilder) Build() *TraceReader {
+	if b.traceDirPath == "" {
+		panic("trace directory must be set")
+	}
+
+	r := &TraceReader{directoryPath: b.traceDirPath}
+	r.readKernelsList()
+
+	return r
+}
+
+func (r *TraceReader) readKernelsList() {
+	path := filepath.Join(r.directoryPath, KernelsListFileName)
+
+	file, err := os.Open(path)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open %s: %v", path, err))
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			r.execMetas = append(r.execMetas, r.parseExecLine(line))
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic(fmt.Sprintf("failed to read %s: %v", path, err))
+	}
+}
+
+func (r *TraceReader) parseExecLine(text string) TraceExecMeta {
+	m := TraceExecMeta{}
+
+	switch {
+	case strings.HasPrefix(text, execMemcpyPrefix):
+		m.execType = ExecMemcpy
+		fields := strings.Split(text, ",")
+
+		if len(fields) != 3 {
+			panic(fmt.Sprintf("malformed memcpy line %q", text))
+		}
+
+		m.Direction = ExecMemcpyDirection(fields[0])
+		m.Address = mustParseUint(fields[1])
+		m.Length = mustParseUint(fields[2])
+	case strings.HasPrefix(text, execKernelPrefix):
+		m.execType = ExecKernel
+		m.filepath = filepath.Join(r.directoryPath, text)
+	default:
+		panic(fmt.Sprintf("unknown entry %q in %s", text, KernelsListFileName))
+	}
+
+	return m
+}
+
+func mustParseUint(s string) uint64 {
+	v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 64)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q as an integer: %v", s, err))
+	}
+
+	return v
+}
+
+// kernelFileReader parses one .traceg file.
+type kernelFileReader struct {
+	scanner *bufio.Scanner
+}
+
+// ReadTrace loads the kernel trace file that a kernel entry points to.
 func ReadTrace(meta TraceExecMeta) KernelTrace {
 	if meta.execType != ExecKernel {
-		log.WithField("execType", meta.ExecType()).Panic("Invalid exec type")
+		panic("ReadTrace called on a non-kernel entry")
 	}
 
 	file, err := os.Open(meta.filepath)
 	if err != nil {
-		log.WithError(err).WithField("filepath", meta.filepath).Error("Failed to open file")
+		panic(fmt.Sprintf("failed to open %s: %v", meta.filepath, err))
 	}
 	defer file.Close()
 
-	kernelScanner = bufio.NewScanner(file)
-	trace := KernelTrace{}
-	trace.ID = xid.New().String()
-	trace.readTraceHeader()
-	trace.readThreadblocks()
+	r := &kernelFileReader{scanner: bufio.NewScanner(file)}
+	r.scanner.Buffer(make([]byte, 0, 64*1024), maxLineBytes)
 
-	return trace
+	kernel := KernelTrace{ID: filepath.Base(meta.filepath)}
+	r.readHeader(&kernel)
+	r.readThreadblocks(&kernel)
+
+	if err := r.scanner.Err(); err != nil {
+		panic(fmt.Sprintf("failed to read %s: %v", meta.filepath, err))
+	}
+
+	return kernel
 }
 
-func moveScannerToNextLine() bool {
-	for kernelScanner.Scan() {
-		// fmt.Println("input:", kernelScanner.Text())
-		if kernelScanner.Text() != "" {
+// nextNonEmptyLine advances the scanner to the next non-empty line.
+func (r *kernelFileReader) nextNonEmptyLine() bool {
+	for r.scanner.Scan() {
+		if r.scanner.Text() != "" {
 			return true
 		}
 	}
+
 	return false
 }
-func goToNextlineWithPrefixIncludingNow(prefix string) bool {
-	line := kernelScanner.Text()
-	if strings.HasPrefix(line, prefix) {
+
+// seekPrefix advances to the first line, starting from the current one, that
+// starts with prefix.
+func (r *kernelFileReader) seekPrefix(prefix string) bool {
+	if strings.HasPrefix(r.scanner.Text(), prefix) {
 		return true
 	}
-	for moveScannerToNextLine() {
-		line = kernelScanner.Text()
-		if strings.HasPrefix(line, prefix) {
+
+	for r.nextNonEmptyLine() {
+		if strings.HasPrefix(r.scanner.Text(), prefix) {
 			return true
 		}
 	}
+
 	return false
 }
 
-func (t *KernelTrace) readTraceHeader() {
-	for moveScannerToNextLine() {
-		text := kernelScanner.Text()
-		if strings.HasPrefix(text, "-") {
-			elems := strings.Split(text, "=")
-			key := strings.TrimSpace(elems[0])[1:]
-			value := strings.TrimSpace(elems[1])
-			t.FileHeader.updateTraceHeaderParam(key, value)
-		} else {
-			break
+func (r *kernelFileReader) readHeader(kernel *KernelTrace) {
+	for r.nextNonEmptyLine() {
+		text := r.scanner.Text()
+		if !strings.HasPrefix(text, "-") {
+			return
 		}
+
+		key, value, found := strings.Cut(text[1:], "=")
+		if !found {
+			continue
+		}
+
+		kernel.FileHeader.updateTraceHeaderParam(
+			strings.TrimSpace(key), strings.TrimSpace(value))
 	}
 }
 
-func (t *KernelTrace) readThreadblocks() {
-	t.tbIDToIndex = make(map[Dim3]int32)
-	t.Threadblocks = make([]*ThreadblockTrace, 0)
+func (r *kernelFileReader) readThreadblocks(kernel *KernelTrace) {
+	for r.seekPrefix("thread block") {
+		tb := &ThreadblockTrace{FatherKernelID: kernel.ID}
+		mustSscanf(r.scanner.Text(), "thread block = %d,%d,%d",
+			&tb.ID[0], &tb.ID[1], &tb.ID[2])
 
-	for goToNextlineWithPrefixIncludingNow("thread block") {
-		tb := &ThreadblockTrace{
-			FatherKernelID: t.ID,
-		}
-		fmt.Sscanf(kernelScanner.Text(), "thread block = %d,%d,%d", &tb.ID[0], &tb.ID[1], &tb.ID[2])
-
-		for moveScannerToNextLine() {
-			// fmt.Println("kernelScanner.Text():", kernelScanner.Text())
-			if strings.HasPrefix(kernelScanner.Text(), "warp") {
-				// fmt.Println("This is visited")
-				wp := &WarpTrace{}
-				wp.FatherThreadblockID = tb.ID
-				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.ID)
-
-				if !goToNextlineWithPrefixIncludingNow("insts") {
-					log.WithField("line", kernelScanner.Text()).Panic("Cannot find insts line")
-				}
-				fmt.Sscanf(kernelScanner.Text(), "insts = %d", &wp.instsCount)
-				// fmt.Printf("wp.instsCount = %d\n", wp.instsCount)
-				for j := 0; j < int(wp.instsCount); j++ {
-					moveScannerToNextLine()
-					inst := extractInst(kernelScanner.Text(), uint64(j))
-					inst.threadblockID = tb.ID
-					inst.warpID = wp.ID
-
-					wp.Instructions = append(wp.Instructions, inst)
-					// fmt.Printf("tb cnt: %d, warp cnt: %d, inst cnt: %d\n",
-					// 	len(t.Threadblocks), len(tb.Warps), len(wp.Instructions))
-				}
-
-				// fmt.Printf("warp.InstructionsCount() = %d\n", wp.InstructionsCount())
-
-				tb.Warps = append(tb.Warps, wp)
-			} else {
+		for r.nextNonEmptyLine() {
+			if !strings.HasPrefix(r.scanner.Text(), "warp") {
 				break
 			}
+
+			tb.Warps = append(tb.Warps, r.readWarp(tb.ID))
 		}
 
-		t.Threadblocks = append(t.Threadblocks, tb)
-		t.tbIDToIndex[tb.ID] = int32(t.ThreadblocksCount() - 1)
+		kernel.Threadblocks = append(kernel.Threadblocks, tb)
 	}
 }
 
-/*
-#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?]
+func (r *kernelFileReader) readWarp(tbID Dim3) *WarpTrace {
+	wp := &WarpTrace{FatherThreadblockID: tbID}
+	mustSscanf(r.scanner.Text(), "warp = %d", &wp.ID)
 
-	0	 1		2					3		4					5		6
-
-[mem_addresses] immediate
-
-	7
-*/
-func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
-	// fmt.Printf("Extracting inst text: %s\n", text)
-	inst := &InstructionTrace{
-		instIndexInWarp: instIndexInWarp,
+	if !r.seekPrefix("insts") {
+		panic(fmt.Sprintf("cannot find the insts line of warp %d", wp.ID))
 	}
+
+	var instsCount int
+
+	mustSscanf(r.scanner.Text(), "insts = %d", &instsCount)
+
+	for j := range instsCount {
+		if !r.nextNonEmptyLine() {
+			panic("trace file ends in the middle of a warp")
+		}
+
+		inst := extractInst(r.scanner.Text(), uint64(j))
+		inst.threadblockID = tbID
+		inst.warpID = wp.ID
+		wp.Instructions = append(wp.Instructions, inst)
+	}
+
+	return wp
+}
+
+func mustSscanf(text, format string, args ...any) {
+	if _, err := fmt.Sscanf(text, format, args...); err != nil {
+		panic(fmt.Sprintf("failed to parse %q: %v", text, err))
+	}
+}
+
+// extractInst parses one instruction line. The format is
+//
+//	PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width
+//	[address_compress] [mem_addresses] immediate
+func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
+	inst := &InstructionTrace{instIndexInWarp: instIndexInWarp}
 	elems := strings.Fields(text)
 
-	fmt.Sscanf(elems[0], "%x", &inst.PC)
-	fmt.Sscanf(elems[1], "%x", &inst.Mask)
+	inst.PC = mustParseHex(elems[0])
+	inst.Mask = mustParseHex(elems[1])
+	inst.DestNum = mustAtoi(elems[2])
 
-	fmt.Sscanf(elems[2], "%d", &inst.DestNum)
-	for i := 0; i < inst.DestNum; i++ {
-		inst.DestRegs = append(inst.DestRegs, NewRegister(elems[2+i+1]))
+	for i := range inst.DestNum {
+		inst.DestRegs = append(inst.DestRegs, Register{Name: elems[3+i]})
 	}
 
-	inst.OpCode = NewOpcode(elems[3+inst.DestNum])
+	inst.OpCode = Opcode(elems[3+inst.DestNum])
+	inst.SrcNum = mustAtoi(elems[4+inst.DestNum])
 
-	fmt.Sscanf(elems[4+inst.DestNum], "%d", &inst.SrcNum)
-	for i := 0; i < inst.SrcNum; i++ {
-		inst.SrcRegs = append(inst.SrcRegs, NewRegister(elems[4+inst.DestNum+i+1]))
+	for i := range inst.SrcNum {
+		inst.SrcRegs = append(inst.SrcRegs,
+			Register{Name: elems[5+inst.DestNum+i]})
 	}
 
-	// if len(inst.DestRegs) > 0 {
-	// 	fmt.Printf("DestRegs: %v (type: %v), SrcRegs: %v\n", inst.DestRegs, reflect.TypeOf(inst.DestRegs[0]), inst.SrcRegs)
-	// } else {
-	// 	fmt.Printf("DestRegs: %v, SrcRegs: %v\n", inst.DestRegs, inst.SrcRegs)
-	// }
 	updateInstMemoryPart(inst, elems[5+inst.DestNum+inst.SrcNum:])
+
 	return inst
 }
 
-// [todo]: understand memory format
 func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
-	// if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
-	// 	fmt.Printf("elems: %v\n", elems)
-	// }
-	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
+	inst.MemWidth = mustAtoi(elems[0])
 
 	if inst.MemWidth != 0 {
-		fmt.Sscanf(elems[1], "%d", &inst.AddressCompress)
-		memAddressStr := elems[2]
-		if strings.HasPrefix(memAddressStr, "0x") {
-			memAddressStr = memAddressStr[2:] // Remove the "0x" prefix
-		}
-		memAddress, err := strconv.ParseUint(memAddressStr, 16, 64)
-		// fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse MemAddress: %v\n", err)
-			inst.MemAddress = 0 // Default to 0 if parsing fails
-		} else {
-			inst.MemAddress = memAddress
-		}
-		// if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
-		// 	// fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
-		// 	// fmt.Printf("MemAddress: %x\n", inst.MemAddress)
-		// }
+		inst.AddressCompress = mustAtoi(elems[1])
+		inst.MemAddress = mustParseHex(elems[2])
 
-		if inst.AddressCompress == 1 {
-			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)
-		} else if inst.AddressCompress == 2 {
+		switch inst.AddressCompress {
+		case 1:
+			inst.MemAddressSuffix1 = mustAtoi(elems[3])
+		case 2:
 			for _, s := range elems[3 : len(elems)-1] {
-				s32, _ := strconv.Atoi(s)
-				inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2, int32(s32))
+				inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2,
+					int32(mustAtoi(s)))
 			}
 		}
 	}
 
-	imm, _ := strconv.Atoi(elems[len(elems)-1])
-	inst.Immediate = uint64(imm)
+	imm, err := strconv.ParseInt(elems[len(elems)-1], 0, 64)
+	if err == nil {
+		inst.Immediate = uint64(imm)
+	}
+}
+
+func mustParseHex(s string) uint64 {
+	v, err := strconv.ParseUint(strings.TrimPrefix(s, "0x"), 16, 64)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q as hex: %v", s, err))
+	}
+
+	return v
+}
+
+func mustAtoi(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q as an integer: %v", s, err))
+	}
+
+	return v
 }

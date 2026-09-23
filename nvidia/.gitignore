@@ -1,8 +1,5 @@
-nvidia
-*.log
-etc/secret-local.yaml
-count.py
-test-v*
-reports
-test*
-__debug*
+# Output of `go build` in this directory.
+/nvidia
+# CUDA benchmark binaries and traces collected by following README.md.
+/benchmarks/bin/
+/traces/

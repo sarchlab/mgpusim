@@ -1,3 +1,3 @@
-// Package runner provides the main entry point for the simulation.
-// It contains platform and benchmarks.
+// Package runner loads a trace, builds the simulated platform, and runs the
+// simulation.
 package runner

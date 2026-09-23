@@ -3,10 +3,7 @@ package smsp
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 type WarpStatus int
@@ -47,20 +44,8 @@ func NewSMSPScheduler() *SMSPSWarpScheduler {
 	}
 }
 
-func isIssueStage(stageName string) bool {
-	return stageName == "Issue"
-}
-
 func isMemoryPipeStage(stageName string) bool {
 	return stageName == "MemoryPipeRead" || stageName == "MemoryPipeWrite"
-}
-
-func isMemoryPipeReadStage(stageName string) bool {
-	return stageName == "MemoryPipeRead"
-}
-
-func isMemoryPipeWriteStage(stageName string) bool {
-	return stageName == "MemoryPipeWrite"
 }
 
 func regsToNames(inst *trace.InstructionTrace) (srcRegs []string, dstRegs []string) {
@@ -97,34 +82,6 @@ func (wu *SMSPWarpUnit) updateStatus() {
 	default:
 		wu.status = WarpStatusRunning
 	}
-}
-
-func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
-	fmt.Printf("%.10f, %s's Scheduler has %d Warps:", engineCurrentTime, smspName, len(s.warpUnitList))
-	for i, wu := range s.warpUnitList {
-		nextOpcode := "<none>"
-		nextStage := "<done>"
-		if wu.HasMoreToIssue() {
-			inst := wu.NextInstruction()
-			nextOpcode = inst.OpCode.String()
-			pipe := NewPipelineInstance(inst, wu)
-			if stage := pipe.CurrentStage(); stage != nil {
-				nextStage = stage.Def.Name
-			}
-		}
-		fmt.Printf(" [wu %d/%d (status: %v): next issue %d/%d '%s' @ '%s', inflight=%d] [scoreboard: read #: %d, write #: %d]",
-			i+1,
-			len(s.warpUnitList),
-			wu.status,
-			wu.nextIssueInstIndex+1,
-			wu.warp.InstructionsCount(),
-			nextOpcode,
-			nextStage,
-			len(wu.InFlightPipelines),
-			wu.Scoreboard.getNumOfRegReadBusy(),
-			wu.Scoreboard.getNumOfRegWriteBusy())
-	}
-	fmt.Println()
 }
 
 func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDecision {
@@ -181,7 +138,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDeci
 	} else if SMSPSchedulerIssuepolicy == "FCFS" {
 		s.nextIssueIndex = 0
 	} else {
-		log.Panic("unsupported issue policy")
+		panic("unsupported issue policy")
 	}
 	return issued
 }
@@ -196,7 +153,7 @@ func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 		Scoreboard:           NewScoreboard(),
 	}
 	if len(warp.Instructions) == 0 {
-		log.Panic(fmt.Sprintf("warp (ID: %d) has no instructions", warp.ID))
+		panic(fmt.Sprintf("warp (ID: %d) has no instructions", warp.ID))
 	}
 
 	s.warpUnitList = append(s.warpUnitList, newWarpUnit)
@@ -212,14 +169,4 @@ func (s *SMSPSWarpScheduler) insertWarps(warps []*trace.WarpTrace) bool {
 
 func (s *SMSPSWarpScheduler) isEmpty() bool {
 	return len(s.warpUnitList) == 0
-}
-
-func (s *SMSPSWarpScheduler) removeFinishedWarps(warpUnit *SMSPWarpUnit) {
-	for i, unit := range s.warpUnitList {
-		if unit == warpUnit {
-			s.warpUnitList = append(s.warpUnitList[:i], s.warpUnitList[i+1:]...)
-			return
-		}
-	}
-	log.Panic("warp unit is not implemented yet")
 }

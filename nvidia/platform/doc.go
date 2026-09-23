@@ -1,3 +1,3 @@
-// Package platform organizes all the components needed for a simulation.
-// Including the driver, the GPU, and the simulation engine.
+// Package platform assembles a driver and GPUs into a simulated system and
+// provides the configurations of the supported GPU models.
 package platform

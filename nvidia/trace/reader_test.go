@@ -1,55 +1,67 @@
 package trace_test
 
 import (
-	"sync"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
+
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
-var _ = Describe("Read Traces from VectorAdd Traces Version 5.0", func() {
-	var traceDir = "../data/simple-trace-example"
-	var kt trace.KernelTrace
-	var once sync.Once
+var _ = Describe("Trace reader", func() {
+	const traceDir = "testdata/vectoradd"
+
+	var (
+		metas  []trace.TraceExecMeta
+		kernel trace.KernelTrace
+	)
 
 	BeforeEach(func() {
-		once.Do(func() {
-			tracerder := new(trace.TraceReaderBuilder).
-				WithTraceDirectory(traceDir).
-				Build()
-			execs := tracerder.GetExecMetas()
-			for _, exec := range execs {
-				if exec.ExecType() == trace.ExecKernel {
-					kt = trace.ReadTrace(exec)
-				}
+		metas = new(trace.TraceReaderBuilder).
+			WithTraceDirectory(traceDir).
+			Build().
+			GetExecMetas()
+
+		for _, m := range metas {
+			if m.ExecType() == trace.ExecKernel {
+				kernel = trace.ReadTrace(m)
 			}
-		})
+		}
 	})
 
-	Describe("Header Extract", func() {
-		It("AccelSim Version should be 5", func() {
-			Expect(kt.FileHeader.AccelsimTracerVersion).To(Equal("5"))
-		})
+	It("should read kernelslist.g in order", func() {
+		Expect(metas).To(HaveLen(3))
+		Expect(metas[0].ExecType()).To(Equal(trace.ExecMemcpy))
+		Expect(metas[0].Direction).To(Equal(trace.H2D))
+		Expect(metas[0].Address).To(Equal(uint64(0x00007fb0fc400000)))
+		Expect(metas[0].Length).To(Equal(uint64(200000)))
+		Expect(metas[2].ExecType()).To(Equal(trace.ExecKernel))
 	})
 
-	Describe("Blocks Count", func() {
-		It("should contain 196 block", func() {
-			Expect(kt.ThreadblocksCount()).To(Equal(uint64(196)))
-		})
+	It("should parse the kernel header", func() {
+		Expect(kernel.FileHeader.KernelName).To(Equal("_Z9vectorAddPKfS0_Pfi"))
+		Expect(kernel.FileHeader.AccelsimTracerVersion).To(Equal("5"))
+		Expect(kernel.FileHeader.GridDim).To(Equal(trace.Dim3{196, 1, 1}))
+		Expect(kernel.FileHeader.BlockDim).To(Equal(trace.Dim3{256, 1, 1}))
 	})
 
-	Describe("Insts Count", func() {
-		It("should count 26601 instructions", func() {
-			instCount := 0
-			for i := uint64(0); i < kt.ThreadblocksCount(); i++ {
-				tb := kt.Threadblock(i)
-				for j := uint64(0); j < tb.WarpsCount(); j++ {
-					instCount += int(tb.Warp(j).InstructionsCount())
-				}
+	It("should parse thread blocks, warps, and instructions", func() {
+		Expect(kernel.ThreadblocksCount()).To(Equal(uint64(2)))
+		Expect(kernel.Threadblock(1).ID).To(Equal(trace.Dim3{1, 0, 0}))
+		Expect(kernel.Threadblock(0).WarpsCount()).To(Equal(uint64(8)))
+
+		instCount := uint64(0)
+		for _, tb := range kernel.Threadblocks {
+			for _, w := range tb.Warps {
+				instCount += w.InstructionsCount()
 			}
-			Expect(instCount).To(Equal(26601))
-		})
-	})
+		}
+		Expect(instCount).To(Equal(uint64(272)))
 
+		ldg := kernel.Threadblock(0).Warp(0).Instructions[10]
+		Expect(ldg.OpCode.String()).To(Equal("LDG.E"))
+		Expect(ldg.MemWidth).To(Equal(4))
+		Expect(ldg.MemAddress).To(Equal(uint64(0x7fb0fc430e00)))
+		Expect(ldg.SrcRegs).To(Equal([]trace.Register{{Name: "R4"}}))
+		Expect(ldg.DestRegs).To(Equal([]trace.Register{{Name: "R4"}}))
+	})
 })

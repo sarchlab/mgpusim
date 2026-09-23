@@ -1,71 +1,79 @@
 package smsp
 
 import (
-	"fmt"
-
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/tebeka/atexit"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
+const portBufSize = 4096
+
+// SMSPBuilder builds SMSPs.
 type SMSPBuilder struct {
-	simulation             *simulation.Simulation
-	engine                 sim.Engine
-	freq                   sim.Freq
-	VisTracing             bool
+	registrar              modeling.Registrar
+	freq                   timing.Freq
+	log2CacheLineSize      uint64
 	MemResponseHandleWidth uint64
 }
 
-func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
-	b.engine = engine
+// WithRegistrar sets the simulation that the SMSP and its ports register to.
+func (b *SMSPBuilder) WithRegistrar(r modeling.Registrar) *SMSPBuilder {
+	b.registrar = r
 	return b
 }
 
-func (b *SMSPBuilder) WithFreq(freq sim.Freq) *SMSPBuilder {
+// WithFreq sets the frequency of the SMSP.
+func (b *SMSPBuilder) WithFreq(freq timing.Freq) *SMSPBuilder {
 	b.freq = freq
 	return b
 }
 
-func (b *SMSPBuilder) WithSimulation(sim *simulation.Simulation) *SMSPBuilder {
-	b.simulation = sim
+// WithLog2CacheLineSize sets the cache line size used to split memory
+// accesses.
+func (b *SMSPBuilder) WithLog2CacheLineSize(n uint64) *SMSPBuilder {
+	b.log2CacheLineSize = n
 	return b
 }
 
-func (b *SMSPBuilder) WithVisTracing(vt bool) *SMSPBuilder {
-	b.VisTracing = vt
-	return b
-}
-
+// WithMemResponseHandleWidth sets how many memory responses the SMSP can
+// process per cycle.
 func (b *SMSPBuilder) WithMemResponseHandleWidth(w uint64) *SMSPBuilder {
 	b.MemResponseHandleWidth = w
 	return b
 }
 
+// Build creates an SMSP with the given name. The SMSP has two ports, "ToSM"
+// and "ToVectorMem".
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
-		ID:                            sim.GetIDGenerator().Generate(),
-		SMSPReceiveSMLatency:          10000,
-		SMSPReceiveSMLatencyRemaining: 10000,
-		VisTracing:                    b.VisTracing,
-		MemResponseHandleWidth:        b.MemResponseHandleWidth,
-		scheduler:                     NewSMSPScheduler(),
+		ID:                     name,
+		scheduler:              NewSMSPScheduler(),
+		ResourcePool:           NewH100SMSPResourcePool(),
+		inflightMemPipelines:   make(map[uint64]*PipelineInstance),
+		log2CacheLineSize:      b.log2CacheLineSize,
+		MemResponseHandleWidth: b.MemResponseHandleWidth,
 	}
+	s.TickingComponent = modeling.NewTickingComponent(
+		name, b.registrar.GetEngine(), b.freq, s)
+	b.registrar.RegisterComponent(s)
 
-	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
-	s.toSM = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToSM", name))
-	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
-
-	s.ToVectorMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToVectorMem", name))
-	s.AddPort(fmt.Sprintf("%s.ToVectorMem", name), s.ToVectorMem)
-
-	s.ResourcePool = NewH100SMSPResourcePool()
-
-	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
-	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
-	s.PendingSMSPMemMsgID2Pipeline = make(map[string]*PipelineInstance)
-
-	atexit.Register(s.LogStatus)
+	s.toSM = b.buildPort(s, "ToSM")
+	s.toVectorMem = b.buildPort(s, "ToVectorMem")
 
 	return s
+}
+
+func (b *SMSPBuilder) buildPort(
+	s *SMSPController,
+	name string,
+) messaging.Port {
+	s.DeclarePort(name)
+	port := modeling.MakePortBuilder().
+		WithRegistrar(b.registrar).
+		WithComponent(s).
+		WithSpec(modeling.PortSpec{BufSize: portBufSize}).
+		Build(name)
+	s.AssignPort(name, port)
+
+	return port
 }
