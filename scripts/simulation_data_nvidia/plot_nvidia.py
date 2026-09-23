@@ -55,18 +55,41 @@ from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 # ---------------------------------------------------------------------------
 # Tweakable presentation settings -- kept up top so they're easy to find.
+# Styled to match draw_amd_result.py's theme: green bars with a black
+# outline, no in-plot title, no value labels on bars, a shaded background
+# band behind the summary bar, a full box frame, fixed 0.25-interval
+# y-ticks, light vertical separators between bars, and a serif font.
 # ---------------------------------------------------------------------------
-FONT_SIZE_TITLE = 20
-FONT_SIZE_AXIS_LABEL = 20 # 18
-FONT_SIZE_TICK = 20 # 13
-FONT_SIZE_ANNOTATION = 12 # 10
+FONT_FAMILY = "serif"
+FONT_SERIF_STACK = ["Nimbus Roman", "Liberation Serif", "DejaVu Serif"]  # "Times New Roman",
 
-NVIDIA_GREEN = "#76B900"
-BAR_COLOR = NVIDIA_GREEN
-MEAN_BAR_COLOR = NVIDIA_GREEN  # same color; change if you want the mean bar to stand out
+FONT_SIZE_AXIS_LABEL = 16#14
+FONT_SIZE_TICK = 16#13
+
+BAR_COLOR = "#00B050"        # rgb(0,176,80), matching draw_amd_result.py
+MEAN_BAR_COLOR = "#00B050"   # same green; the shaded band behind it is what sets it apart
+BAR_EDGE_COLOR = "black"
+BAR_EDGE_WIDTH = 1.2
+
+SHOW_TITLE = False           # reference chart has no in-plot title
+SHOW_VALUE_LABELS = False    # reference chart has no numbers printed above bars
+
+MEAN_BAND_COLOR = "#D9D9D9"  # light gray band behind the summary bar
+MEAN_BAND_HALF_WIDTH = 0.45  # half-width (in x-axis units) of the shaded band
+
+Y_TICK_STEP = 0.25           # fixed tick spacing: 0.00/0.25/0.50/0.75/1.00/...
+Y_TICK_FORMAT = "%.2f"
+
+BORDER_LINEWIDTH = 1.8       # thickness of the box frame, gridlines, and ticks
+
+# Light vertical separators between adjacent bars (including the gap into
+# the mean bar).
+VLINE_COLOR = "#DDDDDD"
+VLINE_WIDTH = 0.9
 
 # Benchmarks excluded from the chart entirely, in addition to whatever
 # --exclude adds. Empty by default -- nothing here has a known
@@ -83,14 +106,19 @@ FILTER_MAX_RATIO = 1.05
 # suite" as a group.
 MIN_BENCHMARKS_PER_SUITE = 3
 
-FIGSIZE = (16, 9)   # wider than the AMD chart's default -- more benchmarks here
+FIGSIZE = (18, 4)   # matches draw_amd_result.py's default for visual consistency
+                     # between the two companion figures; widen back out (e.g.
+                     # to the previous (16, 9)) if this dataset's bar count
+                     # makes labels too cramped at 18-wide.
 DPI = 300
-BAR_WIDTH = 0.6
-GAP_BEFORE_MEAN = 1.5       # extra x-axis units of empty space before the mean bar
-LABEL_ROTATION = 60         # steeper than the AMD chart's 45 -- more labels to fit
+BAR_WIDTH = 0.35
+# Now that the mean bar is set apart by its shaded background band rather
+# than by whitespace, it doesn't need extra gap.
+GAP_BEFORE_MEAN = 0.0
+LABEL_ROTATION = 25         # kept steeper than the AMD chart's 30 -- more/longer labels to fit
 
 TITLE = "Simulator Performance on NVIDIA H100 GPU"
-YLABEL = "Relative Error  |Sim \u2212 Real| / Real"
+YLABEL = "|Sim − HW| / HW"
 
 
 def format_label(suite, benchmark):
@@ -198,30 +226,58 @@ def build_bars(errors_by_bench, exclude, filter_max_ratio, tag):
 
 
 def plot(bench_labels, bench_values, mean_value, title, out_path):
+    if FONT_FAMILY:
+        plt.rcParams["font.family"] = FONT_FAMILY
+        plt.rcParams["font.serif"] = FONT_SERIF_STACK
+
     n = len(bench_labels)
     x = list(range(n))
     mean_x = n - 1 + GAP_BEFORE_MEAN + 1  # one bar-width slot after the last benchmark, plus the gap
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
 
-    ax.bar(x, bench_values, width=BAR_WIDTH, color=BAR_COLOR, zorder=3)
-    ax.bar([mean_x], [mean_value], width=BAR_WIDTH, color=MEAN_BAR_COLOR, zorder=3)
+    # Shaded band behind the summary bar, drawn first so bars sit on top.
+    ax.axvspan(mean_x - MEAN_BAND_HALF_WIDTH, mean_x + MEAN_BAND_HALF_WIDTH,
+               color=MEAN_BAND_COLOR, zorder=0)
 
-    for xi, v in zip(x, bench_values):
-        ax.text(xi, v, f"{v:.3f}", ha="center", va="bottom", fontsize=FONT_SIZE_ANNOTATION, zorder=4)
-    ax.text(mean_x, mean_value, f"{mean_value:.3f}", ha="center", va="bottom", fontsize=FONT_SIZE_ANNOTATION, zorder=4)
+    # Light vertical separators at the midpoint between every pair of
+    # adjacent bars (including the gap into the mean bar).
+    all_x = x + [mean_x]
+    for xi, xj in zip(all_x[:-1], all_x[1:]):
+        ax.axvline((xi + xj) / 2, color=VLINE_COLOR, linewidth=VLINE_WIDTH, zorder=1)
+
+    ax.bar(x, bench_values, width=BAR_WIDTH, color=BAR_COLOR,
+           edgecolor=BAR_EDGE_COLOR, linewidth=BAR_EDGE_WIDTH, zorder=3)
+    ax.bar([mean_x], [mean_value], width=BAR_WIDTH, color=MEAN_BAR_COLOR,
+           edgecolor=BAR_EDGE_COLOR, linewidth=BAR_EDGE_WIDTH, zorder=3)
+
+    if SHOW_VALUE_LABELS:
+        for xi, v in zip(x, bench_values):
+            ax.text(xi, v, f"{v:.3f}", ha="center", va="bottom", fontsize=FONT_SIZE_TICK, zorder=4)
+        ax.text(mean_x, mean_value, f"{mean_value:.3f}", ha="center", va="bottom", fontsize=FONT_SIZE_TICK, zorder=4)
 
     ax.set_xticks(x + [mean_x])
     ax.set_xticklabels(bench_labels + ["mean"], rotation=LABEL_ROTATION, ha="right", fontsize=FONT_SIZE_TICK)
     ax.tick_params(axis="y", labelsize=FONT_SIZE_TICK)
 
-    ax.set_title(title, fontsize=FONT_SIZE_TITLE, pad=16)
+    if SHOW_TITLE:
+        ax.set_title(title, fontsize=FONT_SIZE_AXIS_LABEL + 4, pad=16)
     ax.set_ylabel(YLABEL, fontsize=FONT_SIZE_AXIS_LABEL)
 
-    ax.yaxis.grid(True, linestyle="--", alpha=0.4, zorder=0)
+    ax.yaxis.set_major_locator(MultipleLocator(Y_TICK_STEP))
+    ax.yaxis.set_major_formatter(FormatStrFormatter(Y_TICK_FORMAT))
+    ax.yaxis.grid(True, linestyle="--", color="#BBBBBB", linewidth=BORDER_LINEWIDTH * 0.6, alpha=0.8, zorder=1)
     ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
+
+    # Full box frame, instead of hiding top/right spines.
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_color("black")
+        spine.set_linewidth(BORDER_LINEWIDTH)
+
+    ax.tick_params(width=BORDER_LINEWIDTH * 0.7)
+
+    ax.set_xlim(-0.8, mean_x + 0.8)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=DPI)

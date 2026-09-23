@@ -261,7 +261,7 @@ func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
 			s.ID,
 			s,
 			"SM Command",
-			"process threadblock",
+			"process CTA",
 			nil,
 		)
 	}

@@ -6,37 +6,40 @@ V-B ("Code Reuse Validation"): embed every function with a pretrained code
 model and report the mean pairwise cosine similarity between corpora,
 rather than the LOC-textual-identity metric in count_loc.py.
 
-Matching mode is "brute force": we do NOT try to pair a specific NVIDIA
-function with a specific counterpart. Every function in corpus A is
-compared against every function in corpus B, and we report the aggregate
+Matching mode is "brute force": we do NOT try to pair a specific function
+with a specific counterpart. Every function in corpus A is compared
+against every function in corpus B, and we report the aggregate
 statistics (mean, median, std, percentiles) over the full N x M pairwise
-cosine-similarity matrix. This sidesteps the need for a curated or
-nearest-neighbor matching scheme, at the cost of the "xx matched function
-pairs" framing the LOC-style metric uses -- the number here is N x M pairs,
-not a curated 1:1 mapping.
+cosine-similarity matrix.
 
-Three comparisons:
-  (1) nvidia/  vs  amd/    (this repo's origin/main, minus excluded paths)
-                            -- "does our retargeted code stay semantically
-                            close to the codebase it was retargeted from?"
-  (2) nvidia/  vs  GPGPU-Sim
-                            -- an unrelated-simulator baseline: two
-                            independently designed NVIDIA simulators with
-                            no shared code or authorship, for calibrating
-                            what a "low" score looks like.
-  (3) optional same-corpus self-baselines (nvidia vs nvidia, amd vs amd,
-      GPGPU-Sim vs GPGPU-Sim, excluding self-pairs) -- context for what a
-      "high" score looks like within one codebase/language, since
-      transformer embedding cosine similarity is known to be anisotropic
-      (unrelated snippets in the same corpus/language routinely score well
-      above 0, so raw cross-corpus numbers should be read relative to
-      these baselines, not against an absolute 0-1 scale).
+Four corpora (see CORPUS_* below):
+  mgpusim_nvidia      -- our NVIDIA simulator (this repo's nvidia/ folders,
+                          nvidia_instruction branch's working tree)
+  mgpusim_amd_MI300X  -- mgpusim's amd/ on the "main" branch: the current
+                          AMD target (MI300X)
+  mgpusim_amd_r9nano  -- mgpusim's amd/ on the "v4" branch: mgpusim's
+                          original AMD target (R9 Nano), before MI300X
+                          support landed on main
+  gpgpusim            -- GPGPU-Sim, an independently developed NVIDIA
+                          simulator with no shared code or authorship
+
+We report a ROWS x COLS matrix of pairwise cosine-similarity statistics
+(ROWS/COLS below): each row corpus against itself (self-similarity, i<j
+pairs only, no trivial i==j pairs) and against each of the reference
+corpora in COLS. "itself" tells us what "high" looks like within a single
+codebase/language; mgpusim_amd_r9nano is a same-project, different-branch
+control (does our NVIDIA code and the current AMD code both still read
+close to the AMD code they were each historically derived/diverged from?);
+gpgpusim is the unrelated-simulator floor. Transformer embedding cosine
+similarity is known to be anisotropic (unrelated snippets in the same
+corpus/language routinely score well above 0), so raw numbers should be
+read relative to these baselines, not against an absolute 0-1 scale.
 
 Usage (run from anywhere; nvidia_instruction branch, since it's the only
 branch where nvidia/ is tracked):
 
     python3 scripts/code_similarity/code_similarity.py
-    python3 scripts/code_similarity/code_similarity.py --method graphcodebert
+    python3 scripts/code_similarity/code_similarity.py --method codebert
     python3 scripts/code_similarity/code_similarity.py --mock-embeddings   # dry run, no model download
 
 Requires (for a real run): `pip install transformers torch numpy`, and the
@@ -62,7 +65,7 @@ from pathlib import Path
 # ----------------------------------------------------------------------------
 
 # "codebert" | "graphcodebert" | "unixcoder"
-METHOD = "codebert"
+METHOD = "unixcoder"
 
 MODEL_NAMES = {
     "codebert": "microsoft/codebert-base",
@@ -85,10 +88,19 @@ NVIDIA_CODE_FOLDERS = [
     "nvidia/trace",
 ]
 
-# Which ref of *this* repo to pull the original AMD-only MGPUSim source
-# from. Uses local git history (this repo IS a clone of sarchlab/mgpusim),
-# so no network access is needed for this corpus.
-AMD_GIT_REF = "origin/main"
+# ---- Corpus names --------------------------------------------------------
+CORPUS_NVIDIA = "mgpusim_nvidia"
+CORPUS_AMD_MI300X = "mgpusim_amd_MI300X"
+CORPUS_AMD_R9NANO = "mgpusim_amd_r9nano"
+CORPUS_GPGPUSIM = "gpgpusim"
+
+# Which ref of *this* repo (mgpusim IS a clone of sarchlab/mgpusim, so no
+# network access is needed for either of these) each AMD-side corpus's
+# amd/ folder is pulled from.
+AMD_SNAPSHOT_REFS = {
+    CORPUS_AMD_MI300X: "origin/main",
+    CORPUS_AMD_R9NANO: "origin/v4",
+}
 AMD_ROOT = "amd"
 AMD_EXCLUDE_PREFIXES = [
     "amd/benchmarks/",
@@ -107,19 +119,18 @@ GPGPU_SIM_DIR = EXTERNAL_DIR / "gpgpu-sim_distribution"
 CACHE_DIR = SCRIPT_DIR / "cache"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 
-# Compute same-corpus self-similarity baselines (see module docstring, item 3).
-COMPUTE_SELF_BASELINE = True
-# Cap self-baseline matrix size for large corpora (amd/, GPGPU-Sim can have
-# thousands of functions; N^2 pairs gets expensive/large fast).
-SELF_BASELINE_MAX_FUNCTIONS = 800
-SELF_BASELINE_SEED = 0
+# The comparison matrix: for each row corpus, report its similarity to
+# itself and to each corpus in COLS (excluding "itself", which always
+# means the row corpus's own self-similarity).
+ROWS = [CORPUS_NVIDIA, CORPUS_AMD_MI300X]
+COLS = ["itself", CORPUS_AMD_R9NANO, CORPUS_GPGPUSIM]
 
-# Dump the K highest-scoring (nvidia, X) pairs to disk as plain-text files,
-# for eyeballing what "most similar" actually looks like. Written under
-# SCRIPT_DIR/results_<method>/nvidia_vs_<X>_top_<K>/, fully refreshed (old
-# files removed) on every run.
+# Dump the K highest-scoring pairs for every (row, col) cell to disk as
+# plain-text files, for eyeballing what "most similar" actually looks
+# like. Written under SCRIPT_DIR/results_<method>/<row>_vs_<col>_top_<K>/,
+# fully refreshed (old files removed) on every run.
 DUMP_TOP_PAIRS = True
-TOP_K_PAIRS = 20
+TOP_K_PAIRS = 200
 
 # ----------------------------------------------------------------------------
 
@@ -301,9 +312,9 @@ def extract_cpp_functions(root: Path, extensions=GPGPU_SIM_EXTENSIONS):
 # ---- Corpus assembly ---------------------------------------------------------
 
 
-def materialize_amd_corpus(repo_root: Path, ref: str = AMD_GIT_REF) -> Path:
+def materialize_amd_corpus(repo_root: Path, ref: str) -> Path:
     """Extracts amd/ (minus excludes) from `ref` in this repo's own git
-    history into CACHE_DIR/amd_<ref>_<sha>/, without touching the network
+    history into CACHE_DIR/amd_src_<sha>/, without touching the network
     (this repo already is a clone of sarchlab/mgpusim)."""
     sha = subprocess.run(
         ["git", "rev-parse", ref], cwd=repo_root, capture_output=True, text=True, check=True
@@ -343,6 +354,38 @@ def ensure_gpgpu_sim_clone() -> Path:
         ["git", "clone", "--depth", "1", GPGPU_SIM_REPO_URL, str(GPGPU_SIM_DIR)], check=True
     )
     return GPGPU_SIM_DIR
+
+
+def load_all_corpora(repo_root: Path):
+    """Returns {corpus_name: [function records]} for every corpus in
+    CORPUS_* (all four are always loaded, regardless of ROWS/COLS, since
+    extraction is cheap relative to embedding and it keeps the cache keys
+    stable)."""
+    records = {}
+
+    print(f"extracting {CORPUS_NVIDIA} functions...", file=sys.stderr)
+    records[CORPUS_NVIDIA] = extract_go_functions(NVIDIA_CODE_FOLDERS, repo_root)
+    print(f"  {len(records[CORPUS_NVIDIA])} functions", file=sys.stderr)
+
+    for corpus_name in (CORPUS_AMD_MI300X, CORPUS_AMD_R9NANO):
+        ref = AMD_SNAPSHOT_REFS[corpus_name]
+        print(f"materializing {corpus_name} (amd/ @ {ref}) functions...", file=sys.stderr)
+        src_dir = materialize_amd_corpus(repo_root, ref)
+        amd_records = extract_go_functions([AMD_ROOT], src_dir)
+        amd_records = [
+            r for r in amd_records
+            if not any(r["path"].startswith(p) for p in AMD_EXCLUDE_PREFIXES)
+            and r["path"] not in AMD_EXCLUDE_FILES
+        ]
+        records[corpus_name] = amd_records
+        print(f"  {len(amd_records)} functions", file=sys.stderr)
+
+    print(f"preparing {CORPUS_GPGPUSIM} functions...", file=sys.stderr)
+    gpgpu_dir = ensure_gpgpu_sim_clone()
+    records[CORPUS_GPGPUSIM] = extract_cpp_functions(gpgpu_dir)
+    print(f"  {len(records[CORPUS_GPGPUSIM])} functions (heuristic C++ extraction)", file=sys.stderr)
+
+    return records
 
 
 # ---- Embedding ----------------------------------------------------------------
@@ -445,7 +488,6 @@ def pairwise_stats(embA, embB, exclude_diagonal: bool = False):
 
     sim = embA @ embB.T
     if exclude_diagonal:
-        n = min(sim.shape)
         mask = ~np.eye(sim.shape[0], sim.shape[1], dtype=bool)
         vals = sim[mask]
     else:
@@ -460,17 +502,6 @@ def pairwise_stats(embA, embB, exclude_diagonal: bool = False):
         "p10": float(np.percentile(vals, 10)),
         "p90": float(np.percentile(vals, 90)),
     }
-
-
-def subsample(records, embeddings, max_n, seed):
-    import numpy as np
-
-    if len(records) <= max_n:
-        return records, embeddings
-    rng = np.random.default_rng(seed)
-    idx = rng.choice(len(records), size=max_n, replace=False)
-    idx.sort()
-    return [records[i] for i in idx], embeddings[idx]
 
 
 def top_k_pairs(embA, embB, k: int, upper_triangle_only: bool = False):
@@ -503,9 +534,9 @@ def format_function_ref(label: str, rec: dict) -> str:
     return f"{label} :: {rec['path']} :: {qualified_name} (lines {rec['start_line']}-{rec['end_line']})"
 
 
-def dump_top_pairs(results_root: Path, comparison_name: str, label_a: str, records_a,
-                    label_b: str, records_b, pairs, k: int):
-    folder = results_root / f"nvidia_vs_{comparison_name}_top_{k}"
+def dump_top_pairs(results_root: Path, row_name: str, col_label: str,
+                    records_row, records_col, pairs, k: int):
+    folder = results_root / f"{row_name}_vs_{col_label}_top_{k}"
     if folder.exists():
         existing = list(folder.glob("*.txt"))
         print(f"removing {len(existing)} results in {folder}/", file=sys.stderr)
@@ -515,15 +546,15 @@ def dump_top_pairs(results_root: Path, comparison_name: str, label_a: str, recor
 
     sep = "-" * 60
     for rank, (score, i, j) in enumerate(pairs, start=1):
-        rec_a, rec_b = records_a[i], records_b[j]
+        rec_a, rec_b = records_row[i], records_col[j]
         content = (
             f"{sep}\n"
-            f"function from {format_function_ref(label_a, rec_a)}\n"
+            f"function from {format_function_ref(row_name, rec_a)}\n"
             f"{sep}\n"
             f"{rec_a['source']}\n"
             f"\n"
             f"{sep}\n"
-            f"function from {format_function_ref(label_b, rec_b)}\n"
+            f"function from {format_function_ref(col_label, rec_b)}\n"
             f"{sep}\n"
             f"{rec_b['source']}\n"
         )
@@ -548,7 +579,6 @@ def main():
     parser.add_argument("--method", choices=list(MODEL_NAMES), default=None, help=f"Override METHOD (default: {METHOD!r})")
     parser.add_argument("--mock-embeddings", action="store_true", help="Use deterministic pseudo-embeddings instead of downloading a model (pipeline dry run)")
     parser.add_argument("--refresh", action="store_true", help="Ignore cached embeddings and recompute")
-    parser.add_argument("--skip-self-baseline", action="store_true")
     args = parser.parse_args()
 
     method = args.method or METHOD
@@ -560,74 +590,49 @@ def main():
     print(f"method    : {method}{' (mock)' if args.mock_embeddings else ''}")
     print()
 
-    print("extracting nvidia/ functions...", file=sys.stderr)
-    nvidia_records = extract_go_functions(NVIDIA_CODE_FOLDERS, repo_root)
-    print(f"  {len(nvidia_records)} functions", file=sys.stderr)
-
-    print("materializing amd/ (origin/main) functions...", file=sys.stderr)
-    amd_src_dir = materialize_amd_corpus(repo_root)
-    amd_records = extract_go_functions([AMD_ROOT], amd_src_dir)
-    amd_records = [
-        r for r in amd_records
-        if not any(r["path"].startswith(p) for p in AMD_EXCLUDE_PREFIXES)
-        and r["path"] not in AMD_EXCLUDE_FILES
-    ]
-    print(f"  {len(amd_records)} functions", file=sys.stderr)
-
-    print("preparing GPGPU-Sim functions...", file=sys.stderr)
-    gpgpu_dir = ensure_gpgpu_sim_clone()
-    gpgpu_records = extract_cpp_functions(gpgpu_dir)
-    print(f"  {len(gpgpu_records)} functions (heuristic C++ extraction)", file=sys.stderr)
+    all_records = load_all_corpora(repo_root)
 
     embedder = Embedder(method, mock=args.mock_embeddings)
 
     print("embedding corpora...", file=sys.stderr)
-    nvidia_emb = embed_corpus("nvidia", nvidia_records, embedder, refresh=args.refresh)
-    amd_emb = embed_corpus("amd_main", amd_records, embedder, refresh=args.refresh)
-    gpgpu_emb = embed_corpus("gpgpu_sim", gpgpu_records, embedder, refresh=args.refresh)
+    all_embeddings = {
+        name: embed_corpus(name, recs, embedder, refresh=args.refresh)
+        for name, recs in all_records.items()
+    }
+
+    matrix = {}
+    for row in ROWS:
+        matrix[row] = {}
+        for col in COLS:
+            if col == "itself":
+                stats = pairwise_stats(all_embeddings[row], all_embeddings[row], exclude_diagonal=True)
+            else:
+                stats = pairwise_stats(all_embeddings[row], all_embeddings[col])
+            matrix[row][col] = stats
 
     results = {
         "method": method,
         "mock_embeddings": args.mock_embeddings,
-        "corpus_sizes": {
-            "nvidia": len(nvidia_records),
-            "amd_main": len(amd_records),
-            "gpgpu_sim": len(gpgpu_records),
-        },
-        "nvidia_vs_amd": pairwise_stats(nvidia_emb, amd_emb),
-        "nvidia_vs_gpgpu_sim": pairwise_stats(nvidia_emb, gpgpu_emb),
+        "corpus_sizes": {name: len(recs) for name, recs in all_records.items()},
+        "matrix": matrix,
     }
 
-    if COMPUTE_SELF_BASELINE and not args.skip_self_baseline:
-        print("computing self-similarity baselines...", file=sys.stderr)
-        n_rec, n_emb = subsample(nvidia_records, nvidia_emb, SELF_BASELINE_MAX_FUNCTIONS, SELF_BASELINE_SEED)
-        a_rec, a_emb = subsample(amd_records, amd_emb, SELF_BASELINE_MAX_FUNCTIONS, SELF_BASELINE_SEED)
-        g_rec, g_emb = subsample(gpgpu_records, gpgpu_emb, SELF_BASELINE_MAX_FUNCTIONS, SELF_BASELINE_SEED)
-        results["self_baseline"] = {
-            "nvidia_vs_nvidia": pairwise_stats(n_emb, n_emb, exclude_diagonal=True),
-            "amd_vs_amd": pairwise_stats(a_emb, a_emb, exclude_diagonal=True),
-            "gpgpu_sim_vs_gpgpu_sim": pairwise_stats(g_emb, g_emb, exclude_diagonal=True),
-        }
-
     print()
-    print("=" * 72)
+    print("=" * 96)
     print(f"Semantic Code Similarity ({method}{'  [MOCK]' if args.mock_embeddings else ''})")
-    print("=" * 72)
-    print(f"corpus sizes: nvidia={results['corpus_sizes']['nvidia']}  "
-          f"amd_main={results['corpus_sizes']['amd_main']}  "
-          f"gpgpu_sim={results['corpus_sizes']['gpgpu_sim']}")
+    print("=" * 96)
+    print("corpus sizes: " + "  ".join(f"{name}={n}" for name, n in results["corpus_sizes"].items()))
     print()
-    for label, key in [("nvidia vs amd_main", "nvidia_vs_amd"), ("nvidia vs gpgpu_sim", "nvidia_vs_gpgpu_sim")]:
-        s = results[key]
-        print(f"{label:22s} pairs={s['pairs']:>10,}  mean={s['mean']:.4f}  median={s['median']:.4f}  "
-              f"std={s['std']:.4f}  [p10={s['p10']:.4f}, p90={s['p90']:.4f}]")
-    if "self_baseline" in results:
-        print()
-        print("self-similarity baselines (excluding self-pairs, subsampled):")
-        for label, key in [("nvidia vs nvidia", "nvidia_vs_nvidia"), ("amd vs amd", "amd_vs_amd"), ("gpgpu_sim vs gpgpu_sim", "gpgpu_sim_vs_gpgpu_sim")]:
-            s = results["self_baseline"][key]
-            print(f"  {label:24s} pairs={s['pairs']:>8,}  mean={s['mean']:.4f}  median={s['median']:.4f}  std={s['std']:.4f}")
-    print("=" * 72)
+    col_width = 26
+    header = " " * 22 + "".join(f"{col:<{col_width}}" for col in COLS)
+    print(header)
+    for row in ROWS:
+        cells = []
+        for col in COLS:
+            s = matrix[row][col]
+            cells.append(f"{s['mean']:.3f} +/- {s['std']:.3f}".ljust(col_width))
+        print(f"{row:<22}" + "".join(cells))
+    print("=" * 96)
 
     out_path = OUTPUT_DIR / f"similarity_{method}{'_mock' if args.mock_embeddings else ''}.json"
     out_path.write_text(json.dumps(results, indent=2) + "\n")
@@ -636,15 +641,14 @@ def main():
     if DUMP_TOP_PAIRS:
         results_root = SCRIPT_DIR / f"results_{method}"
         print(f"\ndumping top-{TOP_K_PAIRS} pairs to {results_root}/ ...", file=sys.stderr)
-
-        pairs = top_k_pairs(nvidia_emb, nvidia_emb, TOP_K_PAIRS, upper_triangle_only=True)
-        dump_top_pairs(results_root, "nvidia", "nvidia", nvidia_records, "nvidia", nvidia_records, pairs, TOP_K_PAIRS)
-
-        pairs = top_k_pairs(nvidia_emb, amd_emb, TOP_K_PAIRS)
-        dump_top_pairs(results_root, "amd_main", "nvidia", nvidia_records, "amd_main", amd_records, pairs, TOP_K_PAIRS)
-
-        pairs = top_k_pairs(nvidia_emb, gpgpu_emb, TOP_K_PAIRS)
-        dump_top_pairs(results_root, "gpgpu_sim", "nvidia", nvidia_records, "gpgpu_sim", gpgpu_records, pairs, TOP_K_PAIRS)
+        for row in ROWS:
+            for col in COLS:
+                if col == "itself":
+                    pairs = top_k_pairs(all_embeddings[row], all_embeddings[row], TOP_K_PAIRS, upper_triangle_only=True)
+                    dump_top_pairs(results_root, row, "itself", all_records[row], all_records[row], pairs, TOP_K_PAIRS)
+                else:
+                    pairs = top_k_pairs(all_embeddings[row], all_embeddings[col], TOP_K_PAIRS)
+                    dump_top_pairs(results_root, row, col, all_records[row], all_records[col], pairs, TOP_K_PAIRS)
 
 
 if __name__ == "__main__":
