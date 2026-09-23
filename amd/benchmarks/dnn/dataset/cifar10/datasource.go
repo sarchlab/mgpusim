@@ -1,7 +1,7 @@
 package cifar10
 
 import (
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	//"fmt"
 )
 

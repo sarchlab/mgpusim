@@ -4,14 +4,14 @@ package vgg16
 import (
 	"math"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/dataset/imagenet"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/gputraining"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/mccl"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/dataset/imagenet"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
 // Benchmark defines the VGG16 network training benchmark.

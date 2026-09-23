@@ -5,14 +5,14 @@ import (
 	"math"
 	"sync"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
 
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 )
 
 // DataParallelismMultiGPUTrainer can use multiple GPUs to train the DNN model

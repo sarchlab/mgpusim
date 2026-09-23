@@ -1,0 +1,10 @@
+*.o
+*.bc
+*.s
+*.hipi
+*.out
+*.hipfb
+*.cui
+*.fatbin
+*.txt
+*.disasm

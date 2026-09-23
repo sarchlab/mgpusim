@@ -1,65 +1,138 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v4/mem/cache"
-	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/mem/vm/tlb"
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
-// CommandProcessor is an Akita component that is responsible for receiving
-// requests from the driver and dispatch the requests to other parts of the
-// GPU.
-type CommandProcessor struct {
-	*sim.TickingComponent
+// Spec contains the immutable configuration of the Command Processor.
+type Spec struct {
+	Freq           timing.Freq `json:"freq"`
+	NumDispatchers int         `json:"num_dispatchers"`
 
-	Dispatchers        []dispatching.Dispatcher
-	DMAEngine          sim.Port
-	Driver             sim.Port
-	TLBs               []sim.Port
-	CUs                []sim.RemotePort
-	AddressTranslators []sim.Port
-	RDMA               sim.Port
-	PMC                sim.Port
-	L1VCaches          []sim.Port
-	L1SCaches          []sim.Port
-	L1ICaches          []sim.Port
-	L2Caches           []sim.Port
-	DRAMControllers    []*idealmemcontroller.Comp
+	// ConstantKernelLaunchOverhead is the fixed per-kernel launch latency, in
+	// cycles, applied to the first kernel launched by a dispatcher.
+	ConstantKernelLaunchOverhead int `json:"constant_kernel_launch_overhead"`
 
-	ToDriver             sim.Port
-	ToDMA                sim.Port
-	ToCUs                sim.Port
-	ToTLBs               sim.Port
-	ToAddressTranslators sim.Port
-	ToCaches             sim.Port
-	ToRDMA               sim.Port
-	ToPMC                sim.Port
+	// ConstantKernelOverhead is the fixed overhead, in cycles, after all the
+	// work-groups of a kernel complete. When 0, the dispatcher default is
+	// used.
+	ConstantKernelOverhead int `json:"constant_kernel_overhead"`
 
-	currShootdownRequest *protocol.ShootDownCommand
-	currFlushRequest     *protocol.FlushReq
+	// SubsequentKernelLaunchOverhead is the launch latency, in cycles, for
+	// kernels launched after the first one.
+	SubsequentKernelLaunchOverhead int `json:"subsequent_kernel_launch_overhead"`
 
-	numTLBs                      uint64
-	numCUAck                     uint64
-	numAddrTranslationFlushAck   uint64
-	numAddrTranslationRestartAck uint64
-	numTLBAck                    uint64
-	numCacheACK                  uint64
+	// WGScalingThreshold is the threshold for WG-count-based scaling of the
+	// subsequent kernel launch overhead.
+	WGScalingThreshold int `json:"wg_scaling_threshold"`
 
-	shootDownInProcess bool
+	// Alg selects the work-group dispatching algorithm: "round-robin",
+	// "greedy", "partition", or "per-die". Empty defaults to "round-robin".
+	Alg string `json:"alg"`
 
-	bottomKernelLaunchReqIDToTopReqMap map[string]*protocol.LaunchKernelReq
-	bottomMemCopyH2DReqIDToTopReqMap   map[string]*protocol.MemCopyH2DReq
-	bottomMemCopyD2HReqIDToTopReqMap   map[string]*protocol.MemCopyD2HReq
+	// NumDies is the number of dies (XCDs) the "per-die" algorithm dispatches
+	// across in parallel.
+	NumDies int `json:"num_dies"`
+
+	// WavefrontDispatchCycles is the per-die dispatch cost charged per wavefront,
+	// in cycles, for the "per-die" algorithm. A W-wavefront work-group occupies
+	// its die's dispatch pipe for W*cycles before the die dispatches the next.
+	WavefrontDispatchCycles int `json:"wavefront_dispatch_cycles"`
 }
+
+// Control sequences that the Command Processor can be running. The Command
+// Processor runs at most one control sequence at a time.
+const (
+	ctrlSeqNone      = ""
+	ctrlSeqFlush     = "flush"
+	ctrlSeqShootdown = "shootdown"
+	ctrlSeqRestart   = "restart"
+)
+
+// Driver-response kinds queued in State.PendingDriverRsps.
+const (
+	driverRspFlushDone       = "flushDone"
+	driverRspShootdownDone   = "shootdownDone"
+	driverRspRestartDone     = "restartDone"
+	driverRspRDMADrainDone   = "rdmaDrainDone"
+	driverRspRDMARestartDone = "rdmaRestartDone"
+)
+
+// State contains the mutable runtime data of the Command Processor.
+type State struct {
+	// Destinations of the messages that the Command Processor sends. They are
+	// set by the configuration code after Build. The TLB, address translator,
+	// ROB, cache, and DRAM destinations are the "Control" ports of the
+	// respective components (they speak memcontrolprotocol).
+	Driver             messaging.RemotePort   `json:"driver"`
+	DMAEngine          messaging.RemotePort   `json:"dma_engine"`
+	RDMA               messaging.RemotePort   `json:"rdma"`
+	CUs                []messaging.RemotePort `json:"cus"`
+	TLBs               []messaging.RemotePort `json:"tlbs"`
+	AddressTranslators []messaging.RemotePort `json:"address_translators"`
+	ROBs               []messaging.RemotePort `json:"robs"`
+	L1VCaches          []messaging.RemotePort `json:"l1v_caches"`
+	L1SCaches          []messaging.RemotePort `json:"l1s_caches"`
+	L1ICaches          []messaging.RemotePort `json:"l1i_caches"`
+	L2Caches           []messaging.RemotePort `json:"l2_caches"`
+
+	// DRAMControllers list the Control ports of the DRAM controllers. The
+	// Command Processor currently sends no commands to them (the page
+	// migration flow that used them has been dropped); the list is kept so
+	// that configuration code can record the topology.
+	DRAMControllers []messaging.RemotePort `json:"dram_controllers"`
+
+	// In-flight memory-copy bookkeeping: cloned request ID -> original
+	// request from the driver.
+	BottomMemCopyH2DToTop map[uint64]protocol.MemCopyH2DReq `json:"bottom_mem_copy_h2d_to_top"`
+	BottomMemCopyD2HToTop map[uint64]protocol.MemCopyD2HReq `json:"bottom_mem_copy_d2h_to_top"`
+
+	// Control-sequence bookkeeping. CtrlSeq names the sequence in progress
+	// (flush, shootdown, restart), CtrlStep is the index of the current step
+	// within the sequence, and PendingAcks counts the responses that must
+	// arrive before the sequence advances to the next step.
+	CtrlSeq     string `json:"ctrl_seq"`
+	CtrlStep    int    `json:"ctrl_step"`
+	PendingAcks uint64 `json:"pending_acks"`
+
+	ShootDownInProcess bool `json:"shoot_down_in_process"`
+
+	// Requests from the driver that are being served by a control sequence.
+	CurrFlushReq  protocol.FlushReq         `json:"curr_flush_req"`
+	CurrShootdown protocol.ShootDownCommand `json:"curr_shootdown"`
+
+	// Outbound message queues, drained by the control middleware as the
+	// corresponding ports become available.
+	PendingCacheReqs     []memcontrolprotocol.Req        `json:"pending_cache_reqs"`
+	PendingTLBReqs       []memcontrolprotocol.Req        `json:"pending_tlb_reqs"`
+	PendingATReqs        []memcontrolprotocol.Req        `json:"pending_at_reqs"`
+	PendingCUFlushReqs   []protocol.CUPipelineFlushReq   `json:"pending_cu_flush_reqs"`
+	PendingCURestartReqs []protocol.CUPipelineRestartReq `json:"pending_cu_restart_reqs"`
+	PendingDriverRsps    []string                        `json:"pending_driver_rsps"`
+}
+
+// Comp is the Command Processor, an Akita component that is responsible for
+// receiving requests from the driver and dispatching them to other parts of
+// the GPU.
+//
+// Ports (declared in Build, assigned externally):
+//   - "ToDriver": connects to the driver.
+//   - "ToDMA": connects to the DMA engine.
+//   - "ToCUs": connects to the Compute Units (dispatching + pipeline control).
+//   - "ToTLBs": connects to the Control ports of the TLBs.
+//   - "ToAddressTranslators": connects to the Control ports of the address
+//     translators and the reorder buffers.
+//   - "ToCaches": connects to the Control ports of the L1/L2 caches.
+//   - "ToRDMA": connects to the Ctrl port of the RDMA engine.
+type Comp = modeling.Component[Spec, State, modeling.None]
+
+// CommandProcessor is an alias of Comp, kept for readability at use sites.
+type CommandProcessor = Comp
 
 // CUInterfaceForCP defines the interface that a CP requires from CU.
 type CUInterfaceForCP interface {
@@ -67,740 +140,18 @@ type CUInterfaceForCP interface {
 
 	// ControlPort returns a port on the CU that the CP can send controlling
 	// messages to.
-	ControlPort() sim.RemotePort
+	ControlPort() messaging.RemotePort
 }
 
-// RegisterCU allows the Command Processor to control the CU.
-func (p *CommandProcessor) RegisterCU(cu CUInterfaceForCP) {
-	p.CUs = append(p.CUs, cu.ControlPort())
-	for _, d := range p.Dispatchers {
-		d.RegisterCU(cu)
-	}
-}
+// RegisterCU allows the Command Processor to control and dispatch to the CU.
+func RegisterCU(cp *Comp, cu CUInterfaceForCP) {
+	cp.State.CUs = append(cp.State.CUs, cu.ControlPort())
 
-// Tick ticks
-func (p *CommandProcessor) Tick() bool {
-	madeProgress := false
-
-	madeProgress = p.tickDispatchers() || madeProgress
-	madeProgress = p.processReqFromDriver() || madeProgress
-	madeProgress = p.processRspFromInternal() || madeProgress
-
-	return madeProgress
-}
-
-func (p *CommandProcessor) tickDispatchers() (madeProgress bool) {
-	for _, d := range p.Dispatchers {
-		madeProgress = d.Tick() || madeProgress
-	}
-
-	return madeProgress
-}
-
-func (p *CommandProcessor) processReqFromDriver() bool {
-	msg := p.ToDriver.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *protocol.LaunchKernelReq:
-		return p.processLaunchKernelReq(req)
-	case *protocol.FlushReq:
-		return p.processFlushReq(req)
-	case *protocol.MemCopyD2HReq, *protocol.MemCopyH2DReq:
-		return p.processMemCopyReq(req)
-	case *protocol.RDMADrainCmdFromDriver:
-		return p.processRDMADrainCmd(req)
-	case *protocol.RDMARestartCmdFromDriver:
-		return p.processRDMARestartCommand(req)
-	case *protocol.ShootDownCommand:
-		return p.processShootdownCommand(req)
-	case *protocol.GPURestartReq:
-		return p.processGPURestartReq(req)
-	case *protocol.PageMigrationReqToCP:
-		return p.processPageMigrationReq(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromInternal() bool {
-	madeProgress := false
-
-	madeProgress = p.processRspFromDMAs() || madeProgress
-	madeProgress = p.processRspFromRDMAs() || madeProgress
-	madeProgress = p.processRspFromCUs() || madeProgress
-	madeProgress = p.processRspFromATs() || madeProgress
-	madeProgress = p.processRspFromCaches() || madeProgress
-	madeProgress = p.processRspFromTLBs() || madeProgress
-	madeProgress = p.processRspFromPMC() || madeProgress
-
-	return madeProgress
-}
-
-func (p *CommandProcessor) processRspFromDMAs() bool {
-	msg := p.ToDMA.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *sim.GeneralRsp:
-		return p.processMemCopyRsp(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromRDMAs() bool {
-	msg := p.ToRDMA.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *rdma.DrainRsp:
-		return p.processRDMADrainRsp(req)
-	case *rdma.RestartRsp:
-		return p.processRDMARestartRsp(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromCUs() bool {
-	msg := p.ToCUs.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *protocol.CUPipelineFlushRsp:
-		return p.processCUPipelineFlushRsp(req)
-	case *protocol.CUPipelineRestartRsp:
-		return p.processCUPipelineRestartRsp(req)
-	}
-
-	return false
-}
-
-func (p *CommandProcessor) processRspFromCaches() bool {
-	msg := p.ToCaches.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *cache.FlushRsp:
-		return p.processCacheFlushRsp(req)
-	case *cache.RestartRsp:
-		return p.processCacheRestartRsp(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromATs() bool {
-	item := p.ToAddressTranslators.PeekIncoming()
-	if item == nil {
-		return false
-	}
-
-	msg := item.(*mem.ControlMsg)
-
-	if p.numAddrTranslationFlushAck > 0 {
-		return p.processAddressTranslatorFlushRsp(msg)
-	} else if p.numAddrTranslationRestartAck > 0 {
-		return p.processAddressTranslatorRestartRsp(msg)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromTLBs() bool {
-	msg := p.ToTLBs.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *tlb.FlushRsp:
-		return p.processTLBFlushRsp(req)
-	case *tlb.RestartRsp:
-		return p.processTLBRestartRsp(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processRspFromPMC() bool {
-	msg := p.ToPMC.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
-	switch req := msg.(type) {
-	case *pagemigrationcontroller.PageMigrationRspFromPMC:
-		return p.processPageMigrationRsp(req)
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processLaunchKernelReq(
-	req *protocol.LaunchKernelReq,
-) bool {
-	d := p.findAvailableDispatcher()
-
-	if d == nil {
-		return false
-	}
-
-	if *sampling.SampledRunnerFlag {
-		sampling.SampledEngineInstance.Reset()
-	}
-	d.StartDispatching(req)
-	p.ToDriver.RetrieveIncoming()
-
-	tracing.TraceReqReceive(req, p)
-	// tracing.TraceReqInitiate(&reqToBottom, now, p,
-	// 	tracing.MsgIDAtReceiver(req, p))
-
-	return true
-}
-
-func (p *CommandProcessor) findAvailableDispatcher() dispatching.Dispatcher {
-	for _, d := range p.Dispatchers {
-		if !d.IsDispatching() {
-			return d
+	for _, mw := range cp.Middlewares() {
+		if cpMW, ok := mw.(*cpMiddleware); ok {
+			for _, d := range cpMW.dispatchers {
+				d.RegisterCU(cu)
+			}
 		}
 	}
-
-	return nil
-}
-func (p *CommandProcessor) processRDMADrainCmd(
-	cmd *protocol.RDMADrainCmdFromDriver,
-) bool {
-	req := rdma.DrainReqBuilder{}.
-		WithSrc(p.ToRDMA.AsRemote()).
-		WithDst(p.RDMA.AsRemote()).
-		Build()
-
-	err := p.ToRDMA.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	p.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processRDMADrainRsp(
-	rsp *rdma.DrainRsp,
-) bool {
-	req := protocol.NewRDMADrainRspToDriver(p.ToDriver, p.Driver)
-
-	err := p.ToDriver.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	p.ToRDMA.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processShootdownCommand(
-	cmd *protocol.ShootDownCommand,
-) bool {
-	if p.shootDownInProcess == true {
-		return false
-	}
-
-	p.currShootdownRequest = cmd
-	p.shootDownInProcess = true
-
-	for i := 0; i < len(p.CUs); i++ {
-		p.numCUAck++
-		req := protocol.CUPipelineFlushReqBuilder{}.
-			WithSrc(p.ToCUs.AsRemote()).
-			WithDst(p.CUs[i]).
-			Build()
-		p.ToCUs.Send(req)
-	}
-
-	p.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processCUPipelineFlushRsp(
-	rsp *protocol.CUPipelineFlushRsp,
-) bool {
-	p.numCUAck--
-
-	if p.numCUAck == 0 {
-		for i := 0; i < len(p.AddressTranslators); i++ {
-			req := mem.ControlMsgBuilder{}.
-				WithSrc(p.ToAddressTranslators.AsRemote()).
-				WithDst(p.AddressTranslators[i].AsRemote()).
-				ToDiscardTransactions().
-				Build()
-			p.ToAddressTranslators.Send(req)
-			p.numAddrTranslationFlushAck++
-		}
-	}
-
-	p.ToCUs.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processAddressTranslatorFlushRsp(
-	msg *mem.ControlMsg,
-) bool {
-	p.numAddrTranslationFlushAck--
-
-	if p.numAddrTranslationFlushAck == 0 {
-		for _, port := range p.L1SCaches {
-			p.flushAndResetL1Cache(port)
-		}
-
-		for _, port := range p.L1VCaches {
-			p.flushAndResetL1Cache(port)
-		}
-
-		for _, port := range p.L1ICaches {
-			p.flushAndResetL1Cache(port)
-		}
-
-		for _, port := range p.L2Caches {
-			p.flushAndResetL2Cache(port)
-		}
-	}
-
-	p.ToAddressTranslators.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) flushAndResetL1Cache(
-	port sim.Port,
-) {
-	req := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		PauseAfterFlushing().
-		DiscardInflight().
-		InvalidateAllCacheLines().
-		Build()
-
-	p.ToCaches.Send(req)
-	p.numCacheACK++
-}
-
-func (p *CommandProcessor) flushAndResetL2Cache(port sim.Port) {
-	req := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		PauseAfterFlushing().
-		DiscardInflight().
-		InvalidateAllCacheLines().
-		Build()
-
-	p.ToCaches.Send(req)
-	p.numCacheACK++
-}
-
-func (p *CommandProcessor) processCacheFlushRsp(
-	rsp *cache.FlushRsp,
-) bool {
-	p.numCacheACK--
-	p.ToCaches.RetrieveIncoming()
-
-	if p.numCacheACK == 0 {
-		if p.shootDownInProcess {
-			return p.processCacheFlushCausedByTLBShootdown(rsp)
-		}
-		return p.processRegularCacheFlush(rsp)
-	}
-
-	return true
-}
-
-func (p *CommandProcessor) processRegularCacheFlush(
-	flushRsp *cache.FlushRsp,
-) bool {
-	rsp := sim.GeneralRspBuilder{}.
-		WithSrc(p.ToDriver.AsRemote()).
-		WithDst(p.currFlushRequest.Src).
-		WithOriginalReq(p.currFlushRequest).
-		Build()
-
-	p.ToDriver.Send(rsp)
-
-	tracing.TraceReqComplete(p.currFlushRequest, p)
-	p.currFlushRequest = nil
-
-	return true
-}
-
-func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
-	flushRsp *cache.FlushRsp,
-) bool {
-	p.currFlushRequest = nil
-
-	for i := 0; i < len(p.TLBs); i++ {
-		shootDownCmd := p.currShootdownRequest
-		req := tlb.FlushReqBuilder{}.
-			WithSrc(p.ToTLBs.AsRemote()).
-			WithDst(p.TLBs[i].AsRemote()).
-			WithPID(shootDownCmd.PID).
-			WithVAddrs(shootDownCmd.VAddr).
-			Build()
-
-		p.ToTLBs.Send(req)
-		p.numTLBAck++
-	}
-
-	return true
-}
-
-func (p *CommandProcessor) processTLBFlushRsp(
-	rsp *tlb.FlushRsp,
-) bool {
-	p.numTLBAck--
-
-	if p.numTLBAck == 0 {
-		req := protocol.NewShootdownCompleteRsp(p.ToDriver, p.Driver)
-		p.ToDriver.Send(req)
-
-		p.shootDownInProcess = false
-	}
-
-	p.ToTLBs.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processRDMARestartCommand(
-	cmd *protocol.RDMARestartCmdFromDriver,
-) bool {
-	req := rdma.RestartReqBuilder{}.
-		WithSrc(p.ToRDMA.AsRemote()).
-		WithDst(p.RDMA.AsRemote()).
-		Build()
-
-	p.ToRDMA.Send(req)
-
-	p.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processRDMARestartRsp(rsp *rdma.RestartRsp) bool {
-	req := protocol.NewRDMARestartRspToDriver(p.ToDriver, p.Driver)
-	p.ToDriver.Send(req)
-	p.ToRDMA.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processGPURestartReq(
-	cmd *protocol.GPURestartReq,
-) bool {
-	for _, port := range p.L2Caches {
-		p.restartCache(port)
-	}
-	for _, port := range p.L1ICaches {
-		p.restartCache(port)
-	}
-	for _, port := range p.L1SCaches {
-		p.restartCache(port)
-	}
-
-	for _, port := range p.L1VCaches {
-		p.restartCache(port)
-	}
-
-	p.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) restartCache(port sim.Port) {
-	req := cache.RestartReqBuilder{}.
-		WithSrc(p.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		Build()
-
-	err := p.ToCaches.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	p.numCacheACK++
-}
-
-func (p *CommandProcessor) processCacheRestartRsp(
-	rsp *cache.RestartRsp,
-) bool {
-	p.numCacheACK--
-	if p.numCacheACK == 0 {
-		for i := 0; i < len(p.TLBs); i++ {
-			p.numTLBAck++
-
-			req := tlb.RestartReqBuilder{}.
-				WithSrc(p.ToTLBs.AsRemote()).
-				WithDst(p.TLBs[i].AsRemote()).
-				Build()
-			p.ToTLBs.Send(req)
-		}
-	}
-
-	p.ToCaches.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processTLBRestartRsp(
-	rsp *tlb.RestartRsp,
-) bool {
-	p.numTLBAck--
-
-	if p.numTLBAck == 0 {
-		for i := 0; i < len(p.AddressTranslators); i++ {
-			req := mem.ControlMsgBuilder{}.
-				WithSrc(p.ToAddressTranslators.AsRemote()).
-				WithDst(p.AddressTranslators[i].AsRemote()).
-				ToRestart().
-				Build()
-			p.ToAddressTranslators.Send(req)
-
-			// fmt.Printf("Restarting %s\n", p.AddressTranslators[i].Name())
-
-			p.numAddrTranslationRestartAck++
-		}
-	}
-
-	p.ToTLBs.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processAddressTranslatorRestartRsp(
-	rsp *mem.ControlMsg,
-) bool {
-	p.numAddrTranslationRestartAck--
-
-	if p.numAddrTranslationRestartAck == 0 {
-		for i := 0; i < len(p.CUs); i++ {
-			req := protocol.CUPipelineRestartReqBuilder{}.
-				WithSrc(p.ToCUs.AsRemote()).
-				WithDst(p.CUs[i]).
-				Build()
-			p.ToCUs.Send(req)
-
-			p.numCUAck++
-		}
-	}
-
-	p.ToAddressTranslators.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processCUPipelineRestartRsp(
-	rsp *protocol.CUPipelineRestartRsp,
-) bool {
-	p.numCUAck--
-
-	if p.numCUAck == 0 {
-		rsp := protocol.NewGPURestartRsp(p.ToDriver, p.Driver)
-		p.ToDriver.Send(rsp)
-	}
-
-	p.ToCUs.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processPageMigrationReq(
-	cmd *protocol.PageMigrationReqToCP,
-) bool {
-	req := pagemigrationcontroller.PageMigrationReqToPMCBuilder{}.
-		WithSrc(p.ToPMC.AsRemote()).
-		WithDst(p.PMC.AsRemote()).
-		WithPageSize(cmd.PageSize).
-		WithPMCPortOfRemoteGPU(cmd.DestinationPMCPort.AsRemote()).
-		WithReadFrom(cmd.ToReadFromPhysicalAddress).
-		WithWriteTo(cmd.ToWriteToPhysicalAddress).
-		Build()
-
-	err := p.ToPMC.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	p.ToDriver.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processPageMigrationRsp(
-	rsp *pagemigrationcontroller.PageMigrationRspFromPMC,
-) bool {
-	req := protocol.NewPageMigrationRspToDriver(p.ToDriver, p.Driver)
-
-	err := p.ToDriver.Send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	p.ToPMC.RetrieveIncoming()
-
-	return true
-}
-
-func (p *CommandProcessor) processFlushReq(
-	req *protocol.FlushReq,
-) bool {
-	if p.numCacheACK > 0 {
-		return false
-	}
-
-	for _, port := range p.L1ICaches {
-		p.flushCache(port)
-	}
-
-	for _, port := range p.L1SCaches {
-		p.flushCache(port)
-	}
-
-	for _, port := range p.L1VCaches {
-		p.flushCache(port)
-	}
-
-	for _, port := range p.L2Caches {
-		p.flushCache(port)
-	}
-
-	p.currFlushRequest = req
-	if p.numCacheACK == 0 {
-		rsp := sim.GeneralRspBuilder{}.
-			WithSrc(p.ToDriver.AsRemote()).
-			WithDst(p.Driver.AsRemote()).
-			WithOriginalReq(req).
-			Build()
-		p.ToDriver.Send(rsp)
-	}
-
-	p.ToDriver.RetrieveIncoming()
-
-	tracing.TraceReqReceive(req, p)
-
-	return true
-}
-
-func (p *CommandProcessor) flushCache(port sim.Port) {
-	flushReq := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches.AsRemote()).
-		WithDst(port.AsRemote()).
-		Build()
-
-	err := p.ToCaches.Send(flushReq)
-	if err != nil {
-		panic(err)
-	}
-
-	p.numCacheACK++
-}
-
-func (p *CommandProcessor) cloneMemCopyH2DReq(
-	req *protocol.MemCopyH2DReq,
-) *protocol.MemCopyH2DReq {
-	cloned := *req
-	cloned.ID = sim.GetIDGenerator().Generate()
-	p.bottomMemCopyH2DReqIDToTopReqMap[cloned.ID] = req
-	return &cloned
-}
-
-func (p *CommandProcessor) cloneMemCopyD2HReq(
-	req *protocol.MemCopyD2HReq,
-) *protocol.MemCopyD2HReq {
-	cloned := *req
-	cloned.ID = sim.GetIDGenerator().Generate()
-	p.bottomMemCopyD2HReqIDToTopReqMap[cloned.ID] = req
-	return &cloned
-}
-
-func (p *CommandProcessor) processMemCopyReq(
-	req sim.Msg,
-) bool {
-	if p.numCacheACK > 0 {
-		return false
-	}
-
-	var cloned sim.Msg
-	switch req := req.(type) {
-	case *protocol.MemCopyH2DReq:
-		cloned = p.cloneMemCopyH2DReq(req)
-	case *protocol.MemCopyD2HReq:
-		cloned = p.cloneMemCopyD2HReq(req)
-	default:
-		panic("unknown type")
-	}
-
-	cloned.Meta().Dst = p.DMAEngine.AsRemote()
-	cloned.Meta().Src = p.ToDMA.AsRemote()
-
-	p.ToDMA.Send(cloned)
-	p.ToDriver.RetrieveIncoming()
-
-	tracing.TraceReqReceive(req, p)
-	tracing.TraceReqInitiate(cloned, p, tracing.MsgIDAtReceiver(req, p))
-
-	return true
-}
-
-func (p *CommandProcessor) findAndRemoveOriginalMemCopyRequest(
-	rsp sim.Rsp,
-) sim.Msg {
-	rspTo := rsp.GetRspTo()
-
-	originalH2DReq, ok := p.bottomMemCopyH2DReqIDToTopReqMap[rspTo]
-	if ok {
-		delete(p.bottomMemCopyH2DReqIDToTopReqMap, rspTo)
-		return originalH2DReq
-	}
-
-	originalD2HReq, ok := p.bottomMemCopyD2HReqIDToTopReqMap[rspTo]
-	if ok {
-		delete(p.bottomMemCopyD2HReqIDToTopReqMap, rspTo)
-		return originalD2HReq
-	}
-
-	panic("never")
-}
-
-func (p *CommandProcessor) processMemCopyRsp(
-	req sim.Rsp,
-) bool {
-	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
-
-	rsp := sim.GeneralRspBuilder{}.
-		WithDst(originalReq.Meta().Src).
-		WithSrc(p.ToDriver.AsRemote()).
-		WithOriginalReq(originalReq).
-		Build()
-
-	p.ToDriver.Send(rsp)
-	p.ToDMA.RetrieveIncoming()
-
-	tracing.TraceReqComplete(originalReq, p)
-	tracing.TraceReqFinalize(req, p)
-
-	return true
 }

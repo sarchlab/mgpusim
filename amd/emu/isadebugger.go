@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/tebeka/atexit"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction
 type ISADebugger struct {
-	sim.LogHookBase
+	Logger *log.Logger
 
 	isFirstEntry bool
 	// prevWf *Wavefront
@@ -31,7 +31,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *ISADebugger) Func(ctx sim.HookCtx) {
+func (h *ISADebugger) Func(ctx hooking.HookCtx) {
 	wf, ok := ctx.Item.(*Wavefront)
 	if !ok {
 		return
@@ -66,14 +66,14 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 	output += fmt.Sprintf("{")
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
-	output += fmt.Sprintf(`"Inst":"%s",`, wf.Inst().String(nil))
-	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC&0xffffffff)
-	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC>>32)
-	output += fmt.Sprintf(`"EXECLo":%d,`, wf.Exec&0xffffffff)
-	output += fmt.Sprintf(`"EXECHi":%d,`, wf.Exec>>32)
-	output += fmt.Sprintf(`"VCCLo":%d,`, wf.VCC&0xffffffff)
-	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC>>32)
-	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC)
+	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(wf.Inst()))
+	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC()&0xffffffff)
+	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC()>>32)
+	output += fmt.Sprintf(`"EXECLo":%d,`, wf.EXEC()&0xffffffff)
+	output += fmt.Sprintf(`"EXECHi":%d,`, wf.EXEC()>>32)
+	output += fmt.Sprintf(`"VCCLo":%d,`, wf.VCC()&0xffffffff)
+	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC()>>32)
+	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
 	output += fmt.Sprintf(`"SGPRs":[`)
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {

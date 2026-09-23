@@ -49,6 +49,8 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"s_cbrahcn_g_fork", 41, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"s_absdiss_i32", 42, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"s_rfe_restore_b64", 43, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"s_mul_hi_u32", 44, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"s_mul_hi_i32", 45, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
 
 	// VOP2 instructions
 	d.addInstType(&InstType{"v_cndmask_b32_e32", 0, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
@@ -103,6 +105,12 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_min_u16", 49, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_min_i16", 50, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_ldexp_f16", 51, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+
+	// CDNA3 VOP2 instructions
+	d.addInstType(&InstType{"v_add_u32_e32", 52, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_sub_u32_e32", 53, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_subrev_u32_e32", 54, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_fmac_f32_e32", 59, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 
 	// VOP1 instructions
 	d.addInstType(&InstType{"v_nop", 0, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
@@ -815,7 +823,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pk_u8_f32", 477, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fixup_f32", 478, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fixup_f64", 479, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 64, 0})
-	d.addInstType(&InstType{"v_div_scale_f32", 480, FormatTable[VOP3b], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_div_scale_f32", 480, FormatTable[VOP3b], 0, ExeUnitVALU, 32, 32, 32, 32, 64})
 	d.addInstType(&InstType{"v_div_scale_f64", 481, FormatTable[VOP3b], 0, ExeUnitVALU, 64, 64, 64, 64, 64})
 	d.addInstType(&InstType{"v_div_fmas_f32", 482, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_div_fmas_f64", 483, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 64, 0})
@@ -823,8 +831,8 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_qsad_pk_u16_u8", 485, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_mqsad_pk_u16_u8", 486, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_mqsad_u32_u8", 487, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
-	d.addInstType(&InstType{"v_mad_u64_u32", 488, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
-	d.addInstType(&InstType{"v_mad_i64_i32", 489, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_mad_u64_u32", 488, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 32, 32, 64, 0})
+	d.addInstType(&InstType{"v_mad_i64_i32", 489, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 32, 32, 64, 0})
 	d.addInstType(&InstType{"v_mad_f16", 490, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_mad_u16", 491, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_mad_i16", 492, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
@@ -845,6 +853,9 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_ldexp_f64", 644, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_mul_lo_u32", 645, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_mul_hi_u32", 646, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_pk_fma_f32", 944, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 64, 0})
+	d.addInstType(&InstType{"v_pk_mul_f32", 945, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 0, 0})
+	d.addInstType(&InstType{"v_pk_add_f32", 946, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 0, 0})
 	d.addInstType(&InstType{"v_mul_hi_i32", 647, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_ldexp_f32", 648, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_readlane_b32", 649, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
@@ -862,6 +873,16 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pkrtz_f16_f32", 662, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_u16_u32", 663, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_pk_i16_i32", 664, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+
+	// CDNA3 VOP3A instructions
+	d.addInstType(&InstType{"v_lshl_add_u32", 509, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_lshl_or_b32", 512, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_add_lshl_u32", 510, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_add3_u32", 511, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_lshl_add_u64", 520, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 64, 0})
+	d.addInstType(&InstType{"v_or3_b32", 514, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_sub_u32_e64", 53 + 256, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_pk_add_f16", 929, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 
 	// SOP1 Instructions
 	d.addInstType(&InstType{"s_mov_b32", 0, FormatTable[SOP1], 0, ExeUnitScalar, 32, 32, 0, 0, 0})
@@ -929,7 +950,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_mskor_b32", 12, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_write_b32", 13, FormatTable[DS], 0, ExeUnitLDS, 0, 32, 0, 0, 0})
 	d.addInstType(&InstType{"ds_write2_b32", 14, FormatTable[DS], 0, ExeUnitLDS, 0, 32, 32, 0, 0})
-	d.addInstType(&InstType{"ds_write2st64_b32", 15, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
+	d.addInstType(&InstType{"ds_write2st64_b32", 15, FormatTable[DS], 0, ExeUnitLDS, 0, 32, 32, 0, 0})
 	d.addInstType(&InstType{"ds_cmpst_b32", 16, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_cmpst_f32", 17, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_min_f32", 18, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})

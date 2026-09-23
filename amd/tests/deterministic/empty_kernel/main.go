@@ -4,11 +4,11 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 // KernelArgs defines kernel arguments
@@ -23,7 +23,7 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 
-	hsaco *insts.HsaCo
+	hsaco *insts.KernelCodeObject
 
 	useUnifiedMemory bool
 }
@@ -50,7 +50,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = kernels.LoadProgram("kernels.hsaco", "")
+	b.hsaco = insts.LoadKernelCodeObjectFromFS("kernels.hsaco", "")
 }
 
 func (b *Benchmark) initMem() {
@@ -73,7 +73,7 @@ func (b *Benchmark) exec() {
 var numWfPerWGFlag = flag.Int("num-wf-per-wg", 1, "The number of wavefronts in each workgroup")
 var numWGFlag = flag.Int("num-wg", 1, "The number of workgroups in total")
 
-func run() sim.VTimeInSec {
+func run() timing.VTimeInPicoSec {
 	runner := new(runner.Runner)
 	runner.Init()
 
@@ -92,7 +92,7 @@ func main() {
 	t1 := run()
 	t2 := run()
 
-	log.Printf("t1: %.10f, t2: %.10f\n", t1, t2)
+	log.Printf("t1: %d ps, t2: %d ps\n", t1, t2)
 
 	if t1 != t2 {
 		panic("non-deterministic behavior in empty kernel test")

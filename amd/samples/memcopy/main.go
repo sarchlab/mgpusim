@@ -5,8 +5,8 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 // Benchmark defines a benchmark

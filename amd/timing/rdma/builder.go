@@ -1,110 +1,88 @@
 package rdma
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
+// defaultSpec provides the default configuration for the RDMA engine.
+var defaultSpec = Spec{
+	Freq:                1 * timing.GHz,
+	BufferSize:          128,
+	IncomingReqPerCycle: 1,
+	IncomingRspPerCycle: 1,
+	OutgoingReqPerCycle: 1,
+	OutgoingRspPerCycle: 1,
+}
+
+// DefaultSpec returns a copy of the default configuration. Callers typically
+// obtain it, tweak the fields they care about, and pass it to WithSpec.
+func DefaultSpec() Spec {
+	return defaultSpec
+}
+
+// Builder builds RDMA engines. Configuration is supplied as a whole through
+// WithSpec; wiring is supplied through WithRegistrar and WithResources. The
+// component declares its "RDMARequestInside", "RDMARequestOutside",
+// "RDMADataInside", "RDMADataOutside", and "Ctrl" ports; the port instances
+// are supplied externally after Build with AssignPort.
 type Builder struct {
-	name                   string
-	engine                 sim.Engine
-	freq                   sim.Freq
-	localModules           mem.AddressToPortMapper
-	RemoteRDMAAddressTable mem.AddressToPortMapper
-	bufferSize             int
-
-	incomingReqPerCycle int
-	incomingRspPerCycle int
-	outgoingReqPerCycle int
-	outgoingRspPerCycle int
+	spec      Spec
+	registrar modeling.Registrar
+	resources Resources
 }
 
-// MakeBuilder creates a new builder with default configuration values.
+// MakeBuilder returns a new Builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{
-		freq:                1 * sim.GHz,
-		bufferSize:          128,
-		incomingReqPerCycle: 1,
-		incomingRspPerCycle: 1,
-		outgoingReqPerCycle: 1,
-		outgoingRspPerCycle: 1,
-	}
+	return Builder{spec: defaultSpec}
 }
 
-// WithEngine sets the even-driven simulation engine to use.
-func (b Builder) WithEngine(engine sim.Engine) Builder {
-	b.engine = engine
+// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
+func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+	b.registrar = reg
 	return b
 }
 
-// WithFreq sets the frequency that the Command Processor works at.
-func (b Builder) WithFreq(freq sim.Freq) Builder {
-	b.freq = freq
+// WithSpec sets the entire configuration. Start from DefaultSpec() and tweak.
+func (b Builder) WithSpec(spec Spec) Builder {
+	b.spec = spec
 	return b
 }
 
-// WithBufferSize sets the number of transactions that the buffer can handle.
-func (b Builder) WithBufferSize(n int) Builder {
-	b.bufferSize = n
+// WithResources injects the address-to-port mappers used to route requests to
+// local modules and remote RDMA engines.
+func (b Builder) WithResources(r Resources) Builder {
+	b.resources = r
 	return b
 }
 
-// WithLocalModules sets the local modules.
-func (b Builder) WithLocalModules(m mem.AddressToPortMapper) Builder {
-	b.localModules = m
-	return b
-}
-
-// WithRemoteModules sets the remote modules.
-func (b Builder) WithRemoteModules(m mem.AddressToPortMapper) Builder {
-	b.RemoteRDMAAddressTable = m
-	return b
-}
-
-func (b Builder) WithIncomingReqPerCycle(n int) Builder {
-	b.incomingReqPerCycle = n
-	return b
-}
-
-func (b Builder) WithIncomingRspPerCycle(n int) Builder {
-	b.incomingRspPerCycle = n
-	return b
-}
-
-func (b Builder) WithOutgoingReqPerCycle(n int) Builder {
-	b.outgoingReqPerCycle = n
-	return b
-}
-
-func (b Builder) WithOutgoingRspPerCycle(n int) Builder {
-	b.outgoingRspPerCycle = n
-	return b
-}
-
-// Build creates a RDMA with the given parameters.
+// Build builds a new Comp. It declares the component's ports; assign the port
+// instances after Build with AssignPort.
 func (b Builder) Build(name string) *Comp {
-	rdma := &Comp{}
+	if b.registrar == nil {
+		panic("rdma: WithRegistrar is required")
+	}
 
-	rdma.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, rdma)
+	comp := modeling.NewBuilder[Spec, State, Resources]().
+		WithEngine(b.registrar.GetEngine()).
+		WithFreq(b.spec.Freq).
+		WithSpec(b.spec).
+		WithResources(b.resources).
+		Build(name)
+	comp.State = State{}
 
-	rdma.localModules = b.localModules
-	rdma.RemoteRDMAAddressTable = b.RemoteRDMAAddressTable
-	rdma.incomingReqPerCycle = b.incomingReqPerCycle
-	rdma.incomingRspPerCycle = b.incomingRspPerCycle
-	rdma.outgoingReqPerCycle = b.outgoingReqPerCycle
-	rdma.outgoingRspPerCycle = b.outgoingRspPerCycle
+	comp.AddMiddleware(&ctrlMiddleware{comp: comp})
+	comp.AddMiddleware(&forwardMiddleware{comp: comp})
 
-	rdma.RDMARequestInside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMARequestInside")
-	rdma.RDMARequestOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMARequestOutside")
-	rdma.RDMADataInside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMADataInside")
-	rdma.RDMADataOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMADataOutside")
-	rdma.CtrlPort = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".CtrlPort")
+	comp.DeclarePort("RDMARequestInside", memprotocol.Responder)
+	comp.DeclarePort("RDMARequestOutside", memprotocol.Requester)
+	comp.DeclarePort("RDMADataInside", memprotocol.Requester)
+	comp.DeclarePort("RDMADataOutside", memprotocol.Responder)
+	comp.DeclarePort("Ctrl")
 
-	rdma.AddPort("RDMARequestInside", rdma.RDMARequestInside)
-	rdma.AddPort("RDMARequestOutside", rdma.RDMARequestOutside)
-	rdma.AddPort("RDMADataOutside", rdma.RDMADataOutside)
-	rdma.AddPort("RDMADataInside", rdma.RDMADataInside)
-	rdma.AddPort("CtrlPort", rdma.CtrlPort)
+	b.registrar.RegisterComponent(comp)
 
-	return rdma
+	return comp
 }

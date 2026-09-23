@@ -1,0 +1,276 @@
+name: MI300X Calibration
+
+# NOTE: the file is named mi300a_calibration.yml (not mi300x_*) on purpose. A
+# workflow can only be dispatched (workflow_dispatch, including on feature
+# branches) if its FILE PATH is registered on the default branch; renaming the
+# file would make it un-triggerable until the rename is merged to main. This
+# workflow targets MI300X -- only the historical filename is retained so it stays
+# dispatchable on branches.
+#
+# Runs the MI300X (CDNA3) timing model on the calibration benchmarks at the same
+# configurations measured on real hardware, and compares simulated vs real KERNEL
+# EXECUTION TIME. Each benchmark is swept in its own matrix job that STREAMS its
+# results to Firestore as configs finish, so the live dashboard
+# (https://sarchlab.github.io/mgpusim/calibration/) fills in; relative error
+# (MAPE/sMAPE) is computed against gpu_perf_scripts/calibration/mi300x_ground_truth.csv.
+#
+# Structure: one matrix `sweep` job per benchmark (parallel; fail-fast off so one
+# benchmark can't cancel the others), each marking the run in_progress and
+# streaming points to Firestore via the generic run_sweep.py. A single `report`
+# job runs after all sweeps, renders the PNG/markdown artifact, backfills any
+# missed points, and marks the run completed/failed. Run data lives ONLY in
+# Firestore -- the dashboard reads it directly (the static page is on gh-pages).
+#
+# Manual trigger only (workflow_dispatch): each sweep is a long set of full
+# cycle-accurate simulations, launched from the Actions tab / `gh workflow run`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Time-budget tier (ALL benchmarks run at every tier; per-sim / per-benchmark caps): small=10m/30m, medium=30m/2h, large=2h/1day, x-large=12h/1week'
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+          - x-large
+        default: medium
+
+jobs:
+  # Resolve the time-budget tier from the `scope` input on a GitHub-hosted runner
+  # so it never consumes a (scarce) self-hosted runner. ALL enabled benchmarks run
+  # at every tier; the tier only sets the per-simulation (PER_RUN_TIMEOUT) and
+  # per-benchmark (SWEEP_TIMEOUT) caps, plus the job's hard timeout. Configs run
+  # cheapest-to-simulate first and the sweep early-stops at the first config that
+  # exceeds the per-sim cap (run_sweep.py), so the tier controls how far up the
+  # size curve each benchmark reaches and how long the whole pass takes:
+  #   small=10m/30m  medium=30m/2h  large=2h/1day  x-large=12h/1week  (per-sim/per-bench)
+  # The list covers EVERY benchmark with a faithful, non-hanging sim port (all of
+  # run_sweep.py's enabled SPECS). Intentionally EXCLUDED (no faithful port / hang
+  # / unsupported): heteromark_* (different kernels), npb_ep (#278), parboil_stencil
+  # (hangs), polybench_gramschmidt (timing-core stall).
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      benchmarks: ${{ steps.pick.outputs.benchmarks }}
+      per_run: ${{ steps.pick.outputs.per_run }}
+      sweep_timeout: ${{ steps.pick.outputs.sweep_timeout }}
+      job_timeout: ${{ steps.pick.outputs.job_timeout }}
+      runner: ${{ steps.pick.outputs.runner }}
+    steps:
+      - id: pick
+        run: |
+          benchmarks='["fp32_throughput","fp16_throughput","fp64_throughput","int32_throughput","memory_bandwidth","shared_mem_latency","shared_mem_bandwidth","cache_latency","empty_kernel","altis_cfd","altis_raytracing","parboil_cutcp","parboil_lbm","parboil_sgemm","polybench_2dconv","polybench_2mm","polybench_3dconv","polybench_3mm","polybench_correlation","polybench_fdtd2d","polybench_gemm","polybench_jacobi2d","polybench_mvt","polybench_syr2k","rodinia_backprop","rodinia_gaussian","rodinia_hotspot","rodinia_hotspot3d","rodinia_lavamd","rodinia_lud","rodinia_pathfinder","rodinia_srad","tango_binomial_options","tango_blackscholes"]'
+          # tier -> per-sim (s) / per-benchmark (s) / job hard-timeout (min) / runner.
+          # Short tiers fit GitHub's 6 h hosted-runner cap, so run them on FREE
+          # github-hosted runners (mgpusim is public); long tiers exceed 6 h and
+          # must use self-hosted.
+          case "${{ inputs.scope }}" in
+            small)   per_run=600;   sweep=1800;   job=50;    runner=ubuntu-latest ;;  # 10 min / 30 min
+            medium)  per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # 30 min / 2 h
+            large)   per_run=7200;  sweep=86400;  job=1600;  runner=self-hosted   ;;  # 2 h  / 1 day
+            x-large) per_run=43200; sweep=604800; job=10900; runner=self-hosted   ;;  # 12 h / 1 week
+            *)       per_run=1800;  sweep=7200;   job=165;   runner=ubuntu-latest ;;  # default = medium
+          esac
+          echo "benchmarks=$benchmarks"   >> "$GITHUB_OUTPUT"
+          echo "per_run=$per_run"         >> "$GITHUB_OUTPUT"
+          echo "sweep_timeout=$sweep"     >> "$GITHUB_OUTPUT"
+          echo "job_timeout=$job"         >> "$GITHUB_OUTPUT"
+          echo "runner=$runner"           >> "$GITHUB_OUTPUT"
+
+  sweep:
+    needs: [setup]
+    name: ${{ matrix.benchmark }} sweep
+    # github-hosted (free) for small/medium, self-hosted for large/x-large -- see setup.
+    runs-on: ${{ needs.setup.outputs.runner }}
+    # Hard runner-release backstop, scaled to the scope tier's per-benchmark cap
+    # by the setup job (small 50m ... x-large ~1 week + headroom). The sweep's own
+    # SWEEP_TIMEOUT + early-stop normally finish well before this fires.
+    timeout-minutes: ${{ fromJSON(needs.setup.outputs.job_timeout) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Resolved from the `scope` input by the setup job above.
+        benchmark: ${{ fromJSON(needs.setup.outputs.benchmarks) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          # Self-hosted runners persist ~/go/pkg/mod and ~/.cache/go-build on disk
+          # between jobs, so setup-go's remote cache is redundant there (and was
+          # failing the tar extract with "File exists"). Ephemeral github-hosted
+          # runners have no persistent disk, so enable the cache there to avoid
+          # re-downloading modules on every job.
+          cache: ${{ needs.setup.outputs.runner != 'self-hosted' }}
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc sqlite || echo "WARNING: sudo failed, deps may already be installed"
+          elif command -v apt-get &>/dev/null; then
+            # github-hosted ubuntu: gcc/sqlite are usually preinstalled; ensure the
+            # CGO sqlite recorder can build.
+            sudo apt-get update -qq && sudo apt-get install -y -qq gcc libsqlite3-dev \
+              || echo "WARNING: apt failed, deps may already be installed"
+          fi
+
+      - name: Tool versions
+        run: |
+          go version
+          python3 --version
+
+      # Best-effort: set up Firestore credentials + mark the run in_progress so the
+      # live dashboard shows it immediately. If this fails, FB_RUN_ID is never
+      # exported and the sweep simply runs without streaming.
+      - name: Set up Firestore streaming
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore streaming DISABLED (firebase-admin unavailable on this runner)"
+            exit 0
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"   # for THIS step's mark-run
+          # run_attempt so a re-run gets its own Firestore run + points.
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          {
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/fb_sa.json"
+            echo "FB_PY=$FB_PY"
+            echo "FB_RUN_ID=$RID"
+          } >> "$GITHUB_ENV"
+          echo "Firestore streaming ENABLED (FB_PY=$FB_PY)"
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status in_progress --run-url "$RURL"
+
+      - name: Run sweep
+        env:
+          # Per-sim / per-benchmark caps come from the scope tier (setup job).
+          # Cheapest-first + early-stop: the per-sim cap bounds the largest size
+          # reached; the per-benchmark cap bounds total time.
+          PER_RUN_TIMEOUT: ${{ needs.setup.outputs.per_run }}
+          SWEEP_TIMEOUT: ${{ needs.setup.outputs.sweep_timeout }}
+        run: |
+          python3 gpu_perf_scripts/calibration/run_sweep.py \
+            ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv
+
+      - name: Upload sweep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.benchmark }}-sim-results
+          path: ${{ matrix.benchmark }}_sim_results.csv
+
+  report:
+    name: Render report + finalize run
+    runs-on: ${{ needs.setup.outputs.runner }}
+    needs: [setup, sweep]
+    if: always()      # render from whatever sweeps produced, even if some failed
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download all sweep results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: sim       # each artifact lands in sim/<benchmark>-sim-results/
+
+      - name: Install plotting dependencies
+        run: python3 -m pip install --user --quiet matplotlib seaborn
+
+      - name: Plot figures (sim vs real) + relative error
+        id: plot
+        run: |
+          python3 gpu_perf_scripts/calibration/plot_calibration.py \
+            --ref gpu_perf_scripts/calibration/mi300x_ground_truth.csv \
+            --sim-dir sim \
+            --out figures \
+            --report report.md \
+            --json data.json \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}" \
+            --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mi300x-calibration-report
+          path: |
+            report.md
+            data.json
+            figures/
+
+      # Finalize in Firestore (the dashboard's data source): backfill every point
+      # from the CSV artifacts (idempotent) so a dropped best-effort sweep-side
+      # publish can't leave a completed run missing points, then mark the run.
+      # Best-effort: a Firestore failure must not fail the report job.
+      - name: Mark run completed in Firestore
+        if: always()
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then
+            echo "Firestore unavailable on this runner; skipping finalize/backfill"
+            exit 0
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          STATUS=completed
+          if [[ "${{ needs.sweep.result }}" != "success" || "${{ steps.plot.outcome }}" != "success" ]]; then
+            STATUS=failed
+          fi
+          REF=gpu_perf_scripts/calibration/mi300x_ground_truth.csv
+          for csv in sim/*/*_sim_results.csv; do
+            [ -f "$csv" ] || continue
+            bench=$(basename "$csv" _sim_results.csv)
+            "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+              publish-points --run-id "$RID" --benchmark "$bench" --csv "$csv" --ref "$REF"
+          done
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status "$STATUS" --from-json data.json --run-url "$RURL"
+          DASH="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/calibration/run/$RID"
+          printf '\n**📊 [View this run in the calibration dashboard](%s)** (%s)\n' "$DASH" "$STATUS" >> "$GITHUB_STEP_SUMMARY"
+
+  # First-level cleanup: if the run is CANCELLED, the report job above is skipped,
+  # leaving the Firestore doc stuck at in_progress. This job runs only on
+  # cancellation and marks it failed so the dashboard stops showing it as running.
+  # (If even this can't run -- e.g. cancelled before a runner is assigned, or the
+  # machine dies -- the dashboard's Actions-status cross-check is the backstop.)
+  finalize_cancelled:
+    name: Mark run failed (cancelled)
+    needs: [sweep]
+    if: ${{ cancelled() }}
+    runs-on: ubuntu-latest   # just a Firestore status update -- no need for self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Mark run failed in Firestore
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          FB_PY="$(bash gpu_perf_scripts/calibration/setup_fb.sh)" || true
+          if [ -z "$FB_PY" ]; then echo "Firestore unavailable on this runner"; exit 0; fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/fb_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/fb_sa.json"
+          RID="${{ github.run_id }}-${{ github.run_attempt }}"
+          RURL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
+          "$FB_PY" gpu_perf_scripts/calibration/fb_publish.py \
+            mark-run --run-id "$RID" --status failed --run-url "$RURL"

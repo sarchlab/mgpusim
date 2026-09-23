@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/amdappsdk/simpleconvolution"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/simpleconvolution"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var widthFlag = flag.Uint("width", 254, "The width of the input matrix.")
@@ -20,6 +20,7 @@ func main() {
 	benchmark.Height = uint32(*heightFlag)
 	benchmark.Width = uint32(*widthFlag)
 	benchmark.SetMaskSize(uint32(*maskSizeFlag))
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

@@ -3,12 +3,14 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // Scheduler does its job
@@ -33,6 +35,8 @@ type SchedulerImpl struct {
 
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
+
+	scoreboardEnabled bool
 
 	isPaused bool
 }
@@ -61,6 +65,9 @@ func NewScheduler(
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
+		if s.scoreboardEnabled {
+			madeProgress = s.tickScoreboards() || madeProgress
+		}
 		madeProgress = s.EvaluateInternalInst() || madeProgress
 		madeProgress = s.DecodeNextInst() || madeProgress
 		madeProgress = s.DoIssue() || madeProgress
@@ -78,13 +85,29 @@ func (s *SchedulerImpl) Run() bool {
 	return true
 }
 
+func (s *SchedulerImpl) tickScoreboards() bool {
+	ticked := false
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.ScoreboardData != nil {
+				sb := wf.ScoreboardData.(*Scoreboard)
+				if sb.AnyBusy() {
+					sb.Tick()
+					ticked = true
+				}
+			}
+		}
+	}
+	return ticked
+}
+
 // DecodeNextInst checks
 func (s *SchedulerImpl) DecodeNextInst() bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
 			if len(wf.InstBuffer) == 0 {
-				wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+				wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 				continue
 			}
 
@@ -101,10 +124,9 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			}
 
 			inst, err := s.cu.Decoder.Decode(
-				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
+				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
-				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
 				madeProgress = true
 			}
 		}
@@ -112,47 +134,78 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 4
+func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(
+	wf *wavefront.Wavefront,
+) bool {
+	return len(wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:]) >= 4
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
-// instruction memory
+// instruction memory. It fetches for up to 4 wavefronts per cycle to
+// reduce startup latency for streaming workloads.
 func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
-	if len(wfs) > 0 {
-		wf := wfs[0]
+	fetchLimit := min(4, len(wfs))
+	for idx := 0; idx < fetchLimit; idx++ {
+		wf := wfs[idx]
 
 		if len(wf.InstBuffer) == 0 {
-			wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+			wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
-		req := mem.ReadReqBuilder{}.
-			WithSrc(s.cu.ToInstMem.AsRemote()).
-			WithDst(s.cu.InstMem.AsRemote()).
-			WithAddress(addr).
-			WithPID(wf.PID()).
-			WithByteSize(64).
-			Build()
-
-		err := s.cu.ToInstMem.Send(req)
-		if err == nil {
-			info := new(InstFetchReqInfo)
-			info.Wavefront = wf
-			info.Req = req
-			info.Address = addr
-			s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
-			wf.IsFetching = true
-
-			madeProgress = true
-
-			tracing.StartTask(req.ID+"_fetch", wf.UID,
-				s.cu, "fetch", "fetch", nil)
-			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: s.cu.instMemPort().AsRemote(),
+				Dst: s.cu.comp.State.InstMem,
+			},
+			Address:        addr,
+			AccessByteSize: 64,
+			PID:            wf.PID(),
 		}
+
+		if !s.cu.instMemPort().CanSend() {
+			continue
+		}
+
+		s.cu.instMemPort().Send(req)
+
+		info := new(InstFetchReqInfo)
+		info.Wavefront = wf
+		info.Req = req
+		info.Address = addr
+		info.FetchTaskID = timing.GetIDGenerator().Generate()
+		s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
+		wf.IsFetching = true
+
+		madeProgress = true
+
+		tracing.StartTask(s.cu.comp, tracing.TaskStart{
+			ID:       info.FetchTaskID,
+			ParentID: wf.UID,
+			Kind:     "fetch",
+			What:     "fetch",
+			// Give instruction fetch its own unit location instead of letting it
+			// fall back to the bare CU name (singleKindLocation's default). That
+			// keeps "one location, one kind": the bare CU name is no longer a task
+			// row, and fetch can't collide with the sampled wavefront task (which
+			// also used to fall back to the bare CU name).
+			Location: s.cu.comp.Name() + ".InstFetcher",
+		})
+		if wf.InFlightInsts == 0 && !wfHasInstructionReady(wf) {
+			// Fetching while nothing is in flight: the wavefront is stalled with no
+			// instruction available, waiting on the fetch path. (A prefetch issued
+			// while an instruction executes leaves InFlightInsts > 0 and is silent;
+			// a fetch-ahead with decoded/available bytes is also silent because the
+			// real blocker is the execution unit that has not accepted the ready
+			// instruction yet.
+			s.cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+				s.cu.comp.Name()+".InstFetcher")
+		}
+		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
 	}
 
 	return madeProgress
@@ -179,9 +232,16 @@ func (s *SchedulerImpl) DoIssue() bool {
 
 				s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
+				if s.scoreboardEnabled && wf.ScoreboardData != nil {
+					latency := GetScoreboardLatency(wf.DynamicInst().Inst)
+					if latency > 0 {
+						wf.ScoreboardData.(*Scoreboard).MarkBusy(
+							wf.DynamicInst().Inst, latency)
+					}
+				}
+
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
-				//s.removeStaleInstBuffer(wf)
 
 				madeProgress = true
 			}
@@ -195,7 +255,6 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront) bool {
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
 	wf.State = wavefront.WfRunning
-	//s.removeStaleInstBuffer(wf)
 
 	s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
@@ -243,13 +302,14 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 
 			if passBarrier {
 				s.removeAllWfFromInternalExecuting(executing.WG, &newExecuting)
-				s.removeAllWfFromInternalExecuting(executing.WG, &s.internalExecuting)
+				s.removeAllWfFromInternalExecuting(
+					executing.WG, &s.internalExecuting)
 			}
 		case 12: // S_WAITCNT
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
 			// The program has to make progress
-			executing.State = wavefront.WfReady
+			s.cu.UpdatePCAndSetReady(executing)
 			instProgress = true
 			instCompleted = true
 		}
@@ -275,7 +335,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
-	////sampling
+	// sampling
 	now := s.cu.CurrentTime()
 	if *sampling.SampledRunnerFlag {
 		issuetime, found := s.cu.wftime[wf.UID]
@@ -286,46 +346,56 @@ func (s *SchedulerImpl) evalSEndPgm(
 			delete(s.cu.wftime, wf.UID)
 		}
 	}
-	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
-		done := s.sendWGCompletionMessage(wf.WG)
-		if !done {
-			return false, false
-		}
+
+	allCompleted := s.areAllOtherWfsInWGCompleted(wf.WG, wf)
+
+	// The only path that cannot retire this tick is the work-group-completing
+	// one when the ACE port is full. Decide that here, before emitting the
+	// milestone, so a retry does not re-emit it.
+	if allCompleted && !s.cu.acePort().CanSend() {
+		return false, false
+	}
+
+	// S_ENDPGM will retire this tick: mark the end of the drain wait exactly
+	// once, before any branch below ends the inst task (the barrier and
+	// executing paths close it via logInstTask).
+	s.markMemDrained(wf, "s_endpgm")
+
+	// Cap the wavefront's final execution burst with a work milestone before it
+	// completes. The tail can keep InFlightInsts > 0 (e.g. a long outstanding
+	// VMem) right up to S_ENDPGM, so no count->0 work milestone fires on its own;
+	// without this the busy tail would be left unattributed.
+	s.cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
+
+	if allCompleted {
+		s.sendWGCompletionMessage(wf.WG)
 
 		wf.State = wavefront.WfCompleted
 
 		s.resetRegisterValue(wf)
 		s.cu.clearWGResource(wf.WG)
 
-		tracing.EndTask(wf.UID, s.cu)
-		tracing.TraceReqComplete(wf.WG.MapReq, s.cu)
-
-		return true, true
-	}
-
-	if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+		tracing.TraceReqComplete(s.cu.comp, wf.WG.MapReq)
+	} else if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
 		s.passBarrier(wf.WG)
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
-		tracing.EndTask(wf.UID, s.cu)
-
-		return true, true
-	}
-
-	if s.atLeaseOneWfIsExecuting(wf.WG) {
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+	} else if s.atLeaseOneWfIsExecuting(wf.WG) {
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		s.cu.logInstTask(wf, wf.DynamicInst(), true)
-		tracing.EndTask(wf.UID, s.cu)
-
-		return true, true
+		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+	} else {
+		panic("never")
 	}
 
-	panic("never")
+	return true, true
 }
 
 func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
@@ -363,15 +433,22 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Src
 
-	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(s.cu.ToACE.AsRemote()).
-		WithDst(dispatcher).
-		WithRspTo([]string{mapReq.ID}).
-		Build()
+	msg := protocol.WGCompletionMsg{
+		MsgMeta: messaging.MsgMeta{
+			ID:  timing.GetIDGenerator().Generate(),
+			Src: s.cu.acePort().AsRemote(),
+			Dst: dispatcher,
+		},
+		RspToIDs: []uint64{mapReq.ID},
+	}
 
-	err := s.cu.ToACE.Send(msg)
+	if !s.cu.acePort().CanSend() {
+		return false
+	}
 
-	return err == nil
+	s.cu.acePort().Send(msg)
+
+	return true
 }
 
 func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(
@@ -501,11 +578,24 @@ func (s *SchedulerImpl) evalSWaitCnt(
 	}
 
 	if done {
+		// The outstanding memory accesses the S_WAITCNT was waiting on have
+		// drained to the requested counts: mark the end of that wait.
+		s.markMemDrained(wf, "s_waitcnt")
 		s.cu.UpdatePCAndSetReady(wf)
 		return true, true
 	}
 
 	return false, false
+}
+
+// markMemDrained records a "data" milestone on a wavefront's instruction task,
+// marking the moment the memory accesses it was waiting on have drained.
+func (s *SchedulerImpl) markMemDrained(wf *wavefront.Wavefront, what string) {
+	tracing.AddMilestone(s.cu.comp, tracing.Milestone{
+		TaskID: wf.DynamicInst().ID,
+		Kind:   tracing.MilestoneKindData,
+		What:   what,
+	})
 }
 
 // Pause pauses

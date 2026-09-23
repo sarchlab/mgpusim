@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/heteromark/kmeans"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/kmeans"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var points = flag.Int("points", 1024, "The number of points.")
@@ -20,6 +20,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := kmeans.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NumPoints = *points
 	benchmark.NumClusters = *clusters
 	benchmark.NumFeatures = *features

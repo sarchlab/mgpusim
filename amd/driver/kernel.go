@@ -4,16 +4,16 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/driver/internal"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later
 func (d *Driver) EnqueueLaunchKernel(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
@@ -23,22 +23,33 @@ func (d *Driver) EnqueueLaunchKernel(
 	if dev.Type == internal.DeviceTypeUnifiedGPU {
 		d.enqueueLaunchUnifiedKernel(queue, co, gridSize, wgSize, kernelArgs)
 	} else {
-		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
+		dCoData, cached := d.codeObjGPUAddrs[co]
+		if !cached {
+			dCoData = d.AllocateMemory(queue.Context, uint64(len(co.Data)))
+			d.codeObjGPUAddrs[co] = dCoData
+		}
 
-		packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, packet)
+		dKernArgData := d.AllocateMemory(queue.Context, co.KernargSegmentByteSize)
 
-		d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+		packet := kernels.HsaKernelDispatchPacket{}
+		dPacket := d.AllocateMemory(queue.Context, uint64(binary.Size(packet)))
+
+		aqlPacket := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
+		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, aqlPacket)
+
+		if !cached {
+			d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+		}
 		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
-		d.EnqueueMemCopyH2D(queue, dPacket, packet)
+		d.EnqueueMemCopyH2D(queue, dPacket, aqlPacket)
 
-		d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
+		d.enqueueLaunchKernelCommand(queue, co, aqlPacket, dPacket)
 	}
 }
 
 func (d *Driver) allocateGPUMemory(
 	ctx *Context,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 ) (dCoData, dKernArgData, dPacket Ptr) {
 	dCoData = d.AllocateMemory(ctx, uint64(len(co.Data)))
 	dKernArgData = d.AllocateMemory(ctx, co.KernargSegmentByteSize)
@@ -50,7 +61,7 @@ func (d *Driver) allocateGPUMemory(
 }
 
 func (d *Driver) prepareLocalMemory(
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	kernelArgs interface{},
 	packet *kernels.HsaKernelDispatchPacket,
 ) (newKernelArgs interface{}) {
@@ -58,7 +69,7 @@ func (d *Driver) prepareLocalMemory(
 	reflect.ValueOf(newKernelArgs).Elem().
 		Set(reflect.ValueOf(kernelArgs).Elem())
 
-	ldsSize := co.WGGroupSegmentByteSize
+	ldsSize := co.GroupSegmentByteSize
 
 	if reflect.TypeOf(newKernelArgs).Kind() == reflect.Slice {
 		// From server, do nothing
@@ -84,7 +95,7 @@ func (d *Driver) prepareLocalMemory(
 // launches the kernel immediately.
 func (d *Driver) LaunchKernel(
 	ctx *Context,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
@@ -114,12 +125,12 @@ func (d *Driver) createAQLPacket(
 
 func (d *Driver) enqueueLaunchKernelCommand(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	packet *kernels.HsaKernelDispatchPacket,
 	dPacket Ptr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         sim.GetIDGenerator().Generate(),
+		ID:         timing.GetIDGenerator().Generate(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,
@@ -129,12 +140,12 @@ func (d *Driver) enqueueLaunchKernelCommand(
 
 func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	packet []*kernels.HsaKernelDispatchPacket,
 	dPacket []Ptr,
 ) {
 	cmd := &LaunchUnifiedMultiGPUKernelCommand{
-		ID:           sim.GetIDGenerator().Generate(),
+		ID:           timing.GetIDGenerator().Generate(),
 		CodeObject:   co,
 		DPacketArray: dPacket,
 		PacketArray:  packet,
@@ -143,7 +154,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 }
 func (d *Driver) enqueueLaunchUnifiedKernel(
 	queue *CommandQueue,
-	co *insts.HsaCo,
+	co *insts.KernelCodeObject,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},

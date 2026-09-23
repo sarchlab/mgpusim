@@ -3,26 +3,33 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/emu"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A ScalarUnit performs Scalar operations
 type ScalarUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
+	alu emu.ALU
 
 	toRead  *wavefront.Wavefront
 	toExec  *wavefront.Wavefront
 	toWrite *wavefront.Wavefront
 
 	readBufSize int
-	readBuf     []*mem.ReadReq
+	readBuf     []memprotocol.ReadReq
+
+	// issueTaskIDs maps an SMEM instruction's task ID to the "pipeline" subtask
+	// that records scalar-address/read-request issue work. The subtask closes
+	// when the requests are admitted into readBuf, so the later data milestone
+	// covers only the actual memory round trip.
+	issueTaskIDs map[uint64]uint64
 
 	log2CachelineSize uint64
 
@@ -33,15 +40,14 @@ type ScalarUnit struct {
 // the compute unit.
 func NewScalarUnit(
 	cu *ComputeUnit,
-	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.cu = cu
-	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 	u.readBufSize = 16
-	u.readBuf = make([]*mem.ReadReq, 0, u.readBufSize)
+	u.readBuf = make([]memprotocol.ReadReq, 0, u.readBufSize)
+	u.issueTaskIDs = make(map[uint64]uint64)
 	return u
 }
 
@@ -52,13 +58,45 @@ func (u *ScalarUnit) CanAcceptWave() bool {
 
 // IsIdle checks idleness
 func (u *ScalarUnit) IsIdle() bool {
-	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil) && (len(u.readBuf) == 0)
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) &&
+		(u.toExec == nil) && (len(u.readBuf) == 0)
 	return u.isIdle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront) {
 	u.toRead = wave
+	inst := wave.Inst()
+	dynInst := wave.DynamicInst()
+	if inst != nil && dynInst != nil && inst.FormatType == insts.SMEM {
+		u.startIssueSubtask(dynInst)
+	}
+}
+
+func (u *ScalarUnit) startIssueSubtask(inst *wavefront.Inst) {
+	taskID := timing.GetIDGenerator().Generate()
+	tracing.StartTask(u.cu.comp, tracing.TaskStart{
+		ID:       taskID,
+		ParentID: inst.ID,
+		Kind:     "pipeline",
+		What:     u.cu.comp.Name() + ".smem_issue",
+	})
+	u.issueTaskIDs[inst.ID] = taskID
+}
+
+func (u *ScalarUnit) endIssueSubtask(inst *wavefront.Inst) {
+	taskID, ok := u.issueTaskIDs[inst.ID]
+	if !ok {
+		return
+	}
+
+	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
+	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+		TaskID: inst.ID,
+		Kind:   tracing.MilestoneKindWork,
+		What:   u.cu.comp.Name() + ".smem_issue",
+	})
+	delete(u.issueTaskIDs, inst.ID)
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -77,8 +115,6 @@ func (u *ScalarUnit) runReadStage() bool {
 	}
 
 	if u.toExec == nil {
-		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 		return true
@@ -126,9 +162,10 @@ func (u *ScalarUnit) executeSMEMInst() bool {
 
 func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 	inst := u.toExec.DynamicInst()
-	sp := u.toExec.Scratchpad().AsSMEM()
-
-	start := sp.Base + sp.Offset
+	rawInst := u.toExec.Inst()
+	baseVal := u.toExec.ReadOperand(rawInst.Base, 0)
+	offsetVal := u.toExec.ReadOperand(rawInst.Offset, 0)
+	start := baseVal + offsetVal
 	numCacheline := u.numCacheline(start, uint64(byteSize))
 
 	if len(u.readBuf)+numCacheline > u.readBufSize {
@@ -142,13 +179,16 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
 
-		req := mem.ReadReqBuilder{}.
-			WithSrc(u.cu.ToScalarMem.AsRemote()).
-			WithDst(u.cu.ScalarMem.AsRemote()).
-			WithAddress(curr).
-			WithPID(u.toExec.PID()).
-			WithByteSize(bytesLeftInCacheline).
-			Build()
+		req := memprotocol.ReadReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: u.cu.scalarMemPort().AsRemote(),
+				Dst: u.cu.comp.State.ScalarMem,
+			},
+			Address:        curr,
+			AccessByteSize: bytesLeftInCacheline,
+			PID:            u.toExec.PID(),
+		}
 		if bytesLeft > 0 {
 			req.CanWaitForCoalesce = true
 		}
@@ -163,10 +203,12 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		u.cu.InFlightScalarMemAccess = append(
 			u.cu.InFlightScalarMemAccess, info)
 
-		tracing.TraceReqInitiate(req, u.cu, u.toExec.DynamicInst().ID)
+		tracing.TraceReqInitiate(u.cu.comp, req, u.toExec.DynamicInst().ID)
 
 		curr += bytesLeftInCacheline
 	}
+
+	u.endIssueSubtask(inst)
 
 	u.toExec.OutstandingScalarMemAccess++
 	u.cu.UpdatePCAndSetReady(u.toExec)
@@ -214,8 +256,6 @@ func (u *ScalarUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
-
 	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
@@ -225,15 +265,18 @@ func (u *ScalarUnit) runWriteStage() bool {
 }
 
 func (u *ScalarUnit) sendRequest() bool {
-	if len(u.readBuf) > 0 {
+	madeProgress := false
+	for i := 0; i < 4 && len(u.readBuf) > 0; i++ {
 		req := u.readBuf[0]
-		err := u.cu.ToScalarMem.Send(req)
-		if err == nil {
-			u.readBuf = u.readBuf[1:]
-			return true
+		if !u.cu.scalarMemPort().CanSend() {
+			break
 		}
+
+		u.cu.scalarMemPort().Send(req)
+		u.readBuf = u.readBuf[1:]
+		madeProgress = true
 	}
-	return false
+	return madeProgress
 }
 
 // Flush clears the unit
@@ -242,4 +285,13 @@ func (u *ScalarUnit) Flush() {
 	u.toExec = nil
 	u.toWrite = nil
 	u.readBuf = nil
+	for instID, taskID := range u.issueTaskIDs {
+		tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
+		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
+			TaskID: instID,
+			Kind:   tracing.MilestoneKindWork,
+			What:   u.cu.comp.Name() + ".smem_issue",
+		})
+		delete(u.issueTaskIDs, instID)
+	}
 }

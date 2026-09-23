@@ -2,15 +2,15 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // Inst in the timing package is a wrapper of the insts.Inst.
 type Inst struct {
 	*insts.Inst
 
-	ID string
+	ID uint64
 }
 
 // NewInst creates a newly created Inst
@@ -18,7 +18,7 @@ func NewInst(raw *insts.Inst) *Inst {
 	i := new(Inst)
 	i.Inst = raw
 
-	i.ID = sim.GetIDGenerator().Generate()
+	i.ID = timing.GetIDGenerator().Generate()
 
 	return i
 }

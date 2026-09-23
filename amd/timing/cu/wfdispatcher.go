@@ -3,9 +3,9 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/protocol"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts
@@ -21,7 +21,8 @@ type WfDispatcher interface {
 type WfDispatcherImpl struct {
 	cu *ComputeUnit
 
-	Latency int
+	Latency           int
+	scoreboardEnabled bool
 }
 
 // NewWfDispatcher creates a default WfDispatcher
@@ -39,6 +40,10 @@ func (d *WfDispatcherImpl) DispatchWf(
 ) {
 	d.setWfInfo(wf, location)
 	d.initRegisters(wf)
+
+	if d.scoreboardEnabled {
+		wf.ScoreboardData = NewScoreboard()
+	}
 }
 
 func (d *WfDispatcherImpl) setWfInfo(
@@ -49,8 +54,8 @@ func (d *WfDispatcherImpl) setWfInfo(
 	wf.SRegOffset = location.SGPROffset
 	wf.VRegOffset = location.VGPROffset
 	wf.LDSOffset = location.LDSOffset
-	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
-	wf.EXEC = wf.InitExecMask
+	wf.SetPC(wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset)
+	wf.SetEXEC(wf.InitExecMask)
 }
 
 //nolint:gocyclo,funlen
@@ -59,13 +64,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	pkt := wf.Packet
 
 	SGPRPtr := 0
-	if co.EnableSgprPrivateSegmentBuffer() {
+	if co.EnableSgprPrivateSegmentBuffer {
 		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
 		// fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
 		SGPRPtr += 16
 	}
 
-	if co.EnableSgprDispatchPtr() {
+	if co.EnableSgprDispatchPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
 			insts.Uint64ToBytes(wf.PacketAddress),
@@ -76,13 +81,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprQueuePtr() {
+	if co.EnableSgprQueuePtr {
 		log.Printf("EnableSgprQueuePtr is not supported")
 		// fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprKernelArgSegmentPtr() {
+	if co.EnableSgprKernargSegmentPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
 			insts.Uint64ToBytes(pkt.KernargAddress),
@@ -93,25 +98,25 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchID() {
+	if co.EnableSgprDispatchID {
 		log.Printf("EnableSgprDispatchID is not supported")
 		// fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprFlatScratchInit() {
+	if co.EnableSgprFlatScratchInit {
 		log.Printf("EnableSgprFlatScratchInit is not supported")
 		// fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprPrivateSegementSize() {
+	if co.EnableSgprPrivateSegmentSize {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
 		// fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountX() {
+	if co.EnableSgprGridWorkgroupCountX {
 		// fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
 
 		wgCountX := (pkt.GridSizeX + uint32(pkt.WorkgroupSizeX) - 1) /
@@ -126,7 +131,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountY() {
+	if co.EnableSgprGridWorkgroupCountY {
 		// fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
 
 		wgCountY := (pkt.GridSizeY + uint32(pkt.WorkgroupSizeY) - 1) /
@@ -141,7 +146,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprGridWorkGroupCountZ() {
+	if co.EnableSgprGridWorkgroupCountZ {
 		// fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
 
 		wgCountZ := (pkt.GridSizeZ + uint32(pkt.WorkgroupSizeZ) - 1) /
@@ -178,7 +183,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIDZ() {
+	// Wire up work-group ID Z for genuinely 3D launches even when the (unreliable,
+	// often zero for extern "C" kernels) rsrc2 enable bit is clear: a grid with
+	// more than one z work-group means the kernel allocated this SGPR for
+	// blockIdx.z. Without this, 3D kernels read blockIdx.z as garbage.
+	if co.EnableSgprWorkGroupIDZ() ||
+		(wf.WG.Packet != nil &&
+			wf.WG.Packet.GridSizeZ > uint32(wf.WG.Packet.WorkgroupSizeZ)) {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
 			insts.Uint32ToBytes(uint32(wf.WG.IDZ)),
@@ -206,26 +217,43 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
 		laneID := i - wf.FirstWiFlatID
 
-		d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-			0, insts.VReg(0), 1, laneID, wf.VRegOffset,
-			insts.Uint32ToBytes(uint32(x)),
-			false,
-		})
-
-		if co.EnableVgprWorkItemID() > 0 {
+		if co.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
+			// For gfx9+/CDNA V5 code objects (e.g. gfx942), the work-item IDs
+			// are packed into v0 as v0 = (z << 20) | (y << 10) | x. This mirrors
+			// the functional emulator (amd/emu/computeunit.go). Without this,
+			// gfx942 kernels read threadIdx.y/z as 0, breaking every kernel
+			// that uses a 2D/3D workgroup. gfx8 (GCN3) uses separate VGPRs even
+			// as a V5 code object, so it takes the branch below.
+			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(1), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(y)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(packed),
 				false,
 			})
-		}
-
-		if co.EnableVgprWorkItemID() > 1 {
+		} else {
+			// For V2/V3 (GCN3) and gfx8 V5 code objects, the work-item IDs use separate
+			// registers v0=x, v1=y, v2=z.
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(2), 1, laneID, wf.VRegOffset,
-				insts.Uint32ToBytes(uint32(z)),
+				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(uint32(x)),
 				false,
 			})
+
+			if co.EnableVgprWorkItemID() > 0 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(1), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(y)),
+					false,
+				})
+			}
+
+			if co.EnableVgprWorkItemID() > 1 {
+				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
+					0, insts.VReg(2), 1, laneID, wf.VRegOffset,
+					insts.Uint32ToBytes(uint32(z)),
+					false,
+				})
+			}
 		}
 	}
 }

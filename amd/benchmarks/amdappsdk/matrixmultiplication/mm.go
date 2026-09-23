@@ -6,9 +6,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // A MatrixMultiplier is a service type that can calculate the result of matrix
@@ -23,8 +23,10 @@ type GPUMatrixMultiplier struct {
 	driver           *driver.Driver
 	context          *driver.Context
 	gpus             []int
-	kernel           *insts.HsaCo
+	kernel           *insts.KernelCodeObject
+	Arch             arch.Type
 	useUnifiedMemory bool
+	blockABuf        driver.Ptr
 }
 
 // NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
@@ -45,7 +47,7 @@ func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
 	m.gpus = gpus
 }
 
-// KernelArgs defines kernel arguments
+// KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
 	MatrixA             driver.Ptr
 	MatrixB             driver.Ptr
@@ -55,6 +57,61 @@ type KernelArgs struct {
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
+}
+
+// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
+type CDNA3KernelArgs struct {
+	MatrixA             driver.Ptr
+	MatrixB             driver.Ptr
+	MatrixC             driver.Ptr
+	WidthA              uint32
+	Padding1            uint32
+	BlockA              driver.Ptr
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding2            [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
+}
+
+// COV5KernelArgs defines kernel arguments for a Code Object V5 build of the
+// GCN3 (gfx803) kernel. The explicit arguments are identical to KernelArgs
+// (BlockA is still an LDS/local pointer), but modern LLVM emits the richer
+// COV5 hidden-argument block (block counts, group sizes, remainders, grid
+// dims) that the kernel reads for get_local_size()/get_num_groups(), rather
+// than the three global-offset words used by the legacy COV2 build. Field
+// order and sizes are chosen so binary.Write packs them at the byte offsets
+// the compiled kernel expects (matrixA@0, widthA@24, blockA@28, block
+// counts@32, group sizes@44, remainders@50, global offsets@72, grid dims@96).
+type COV5KernelArgs struct {
+	MatrixA             driver.Ptr
+	MatrixB             driver.Ptr
+	MatrixC             driver.Ptr
+	WidthA              uint32
+	BlockA              driver.LocalPtr
+	HiddenBlockCountX   uint32
+	HiddenBlockCountY   uint32
+	HiddenBlockCountZ   uint32
+	HiddenGroupSizeX    uint16
+	HiddenGroupSizeY    uint16
+	HiddenGroupSizeZ    uint16
+	HiddenRemainderX    uint16
+	HiddenRemainderY    uint16
+	HiddenRemainderZ    uint16
+	Padding             [16]byte
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+	HiddenGridDims      uint16
 }
 
 // Multiply multiplies two matrice
@@ -72,7 +129,7 @@ func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 	return mC
 }
 
-func (m *GPUMatrixMultiplier) launchKernel(
+func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 	gA, gB, gC driver.Ptr,
 	mA *Matrix,
 	mC *Matrix,
@@ -88,19 +145,86 @@ func (m *GPUMatrixMultiplier) launchKernel(
 		width := int(mC.Width) / 4
 		height := int(mC.Height) / 4 / len(m.gpus)
 
-		kernArgs := &KernelArgs{
-			gA, gB, gC,
-			mA.Width,
-			32 * 32 * 4,
-			0, int64(height * i), 0,
+		globalSizeX := uint32(width)
+		globalSizeY := uint32(height)
+		localSizeX := uint16(8)
+		localSizeY := uint16(8)
+
+		if m.Arch == arch.CDNA3 {
+			if m.blockABuf == 0 {
+				m.blockABuf = m.driver.AllocateMemory(m.context,
+					uint64(32*32*4))
+			}
+			kernArgs := &CDNA3KernelArgs{
+				MatrixA:             gA,
+				MatrixB:             gB,
+				MatrixC:             gC,
+				WidthA:              mA.Width,
+				BlockA:              m.blockABuf,
+				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
+				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    localSizeX,
+				HiddenGroupSizeY:    localSizeY,
+				HiddenGroupSizeZ:    1,
+				HiddenRemainderX:    uint16(globalSizeX % uint32(localSizeX)),
+				HiddenRemainderY:    uint16(globalSizeY % uint32(localSizeY)),
+				HiddenRemainderZ:    0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: int64(height * i),
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      2,
+			}
+			m.driver.EnqueueLaunchKernel(
+				q,
+				m.kernel,
+				[3]uint32{globalSizeX, globalSizeY, 1},
+				[3]uint16{localSizeX, localSizeY, 1},
+				kernArgs,
+			)
+		} else if m.kernel.Version == insts.CodeObjectV5 {
+			kernArgs := &COV5KernelArgs{
+				MatrixA:             gA,
+				MatrixB:             gB,
+				MatrixC:             gC,
+				WidthA:              mA.Width,
+				BlockA:              32 * 32 * 4,
+				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
+				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
+				HiddenBlockCountZ:   1,
+				HiddenGroupSizeX:    localSizeX,
+				HiddenGroupSizeY:    localSizeY,
+				HiddenGroupSizeZ:    1,
+				HiddenRemainderX:    uint16(globalSizeX % uint32(localSizeX)),
+				HiddenRemainderY:    uint16(globalSizeY % uint32(localSizeY)),
+				HiddenRemainderZ:    0,
+				HiddenGlobalOffsetX: 0,
+				HiddenGlobalOffsetY: int64(height * i),
+				HiddenGlobalOffsetZ: 0,
+				HiddenGridDims:      2,
+			}
+			m.driver.EnqueueLaunchKernel(
+				q,
+				m.kernel,
+				[3]uint32{globalSizeX, globalSizeY, 1},
+				[3]uint16{localSizeX, localSizeY, 1},
+				kernArgs,
+			)
+		} else {
+			kernArgs := &KernelArgs{
+				gA, gB, gC,
+				mA.Width,
+				32 * 32 * 4,
+				0, int64(height * i), 0,
+			}
+			m.driver.EnqueueLaunchKernel(
+				q,
+				m.kernel,
+				[3]uint32{globalSizeX, globalSizeY, 1},
+				[3]uint16{localSizeX, localSizeY, 1},
+				kernArgs,
+			)
 		}
-		m.driver.EnqueueLaunchKernel(
-			q,
-			m.kernel,
-			[3]uint32{uint32(width), uint32(height), 1},
-			[3]uint16{8, 8, 1},
-			kernArgs,
-		)
 	}
 
 	for _, q := range queues {
@@ -144,8 +268,18 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 //go:embed kernels.hsaco
 var hsacoBytes []byte
 
+//go:embed kernels_gfx942.hsaco
+var cdna3HSACOBytes []byte
+
 func (m *GPUMatrixMultiplier) loadKernel() {
-	m.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "mmmKernel_local")
+	var kernelBytes []byte
+	if m.Arch == arch.CDNA3 {
+		kernelBytes = cdna3HSACOBytes
+	} else {
+		kernelBytes = hsacoBytes
+	}
+
+	m.kernel = insts.LoadKernelCodeObjectFromBytes(kernelBytes, "mmmKernel_local")
 	if m.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}

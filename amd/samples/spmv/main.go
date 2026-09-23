@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/shoc/spmv"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/spmv"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 // Dim is dimension
@@ -22,6 +22,7 @@ func main() {
 	benchmark := spmv.NewBenchmark(runner.Driver())
 	benchmark.Dim = int32(*Dim)
 	benchmark.Sparsity = *Sparsity
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

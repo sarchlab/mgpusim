@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layer_benchmarks/im2col"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layer_benchmarks/im2col"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var n = flag.Int("N", 1, "batch size")
@@ -38,6 +38,7 @@ func main() {
 	benchmark.StrideY = *strideY
 	benchmark.DilateX = *dilateX
 	benchmark.DilateY = *dilateY
+	benchmark.Arch = runner.ArchType
 
 	runner.AddBenchmark(benchmark)
 

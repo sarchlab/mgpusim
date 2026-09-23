@@ -3,7 +3,7 @@ package driver
 import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"go.uber.org/mock/gomock"
 )
 

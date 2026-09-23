@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/heteromark/aes"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/aes"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var lenInput = flag.Int("length", 65536, "The length of array to sort.")
@@ -15,6 +15,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := aes.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Length = *lenInput
 
 	runner.AddBenchmark(benchmark)

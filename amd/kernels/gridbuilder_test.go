@@ -3,7 +3,7 @@ package kernels
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 var _ = Describe("GridBuilder", func() {
@@ -17,7 +17,7 @@ var _ = Describe("GridBuilder", func() {
 	})
 
 	It("should build partial wavefront", func() {
-		codeObject := new(insts.HsaCo)
+		codeObject := new(insts.KernelCodeObject)
 		packet := new(HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 64
 		packet.WorkgroupSizeY = 1
@@ -43,7 +43,7 @@ var _ = Describe("GridBuilder", func() {
 	})
 
 	It("should build partial 2d wavefront", func() {
-		codeObject := new(insts.HsaCo)
+		codeObject := new(insts.KernelCodeObject)
 		packet := new(HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 8
 		packet.WorkgroupSizeY = 8
@@ -82,7 +82,7 @@ var _ = Describe("GridBuilder", func() {
 	})
 
 	It("should build 1D grid workgroup", func() {
-		codeObject := new(insts.HsaCo)
+		codeObject := new(insts.KernelCodeObject)
 		packet := new(HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 256
 		packet.WorkgroupSizeY = 1
@@ -126,7 +126,7 @@ var _ = Describe("GridBuilder", func() {
 	})
 
 	It("should build 2D grid", func() {
-		codeObject := new(insts.HsaCo)
+		codeObject := new(insts.KernelCodeObject)
 		packet := new(HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
 		packet.WorkgroupSizeY = 16

@@ -1,6 +1,6 @@
 package kernels
 
-import "github.com/sarchlab/mgpusim/v4/amd/insts"
+import "github.com/sarchlab/mgpusim/v5/amd/insts"
 
 // WGFilterFunc is a filter
 type WGFilterFunc func(
@@ -10,7 +10,7 @@ type WGFilterFunc func(
 
 // KernelLaunchInfo includes the necessary information to launch a kernel.
 type KernelLaunchInfo struct {
-	CodeObject *insts.HsaCo
+	CodeObject *insts.KernelCodeObject
 	Packet     *HsaKernelDispatchPacket
 	PacketAddr uint64
 	WGFilter   WGFilterFunc
@@ -31,7 +31,7 @@ func NewGridBuilder() GridBuilder {
 }
 
 type gridBuilderImpl struct {
-	hsaco      *insts.HsaCo
+	hsaco      *insts.KernelCodeObject
 	packet     *HsaKernelDispatchPacket
 	filter     WGFilterFunc
 	packetAddr uint64

@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v5/timing"
 )
 
 // SampledRunnerFlag is used to enable wf sampling
@@ -19,9 +19,13 @@ var SampledRunnerThresholdFlag = flag.Float64("sampled-threshold", 0.03,
 var SampledRunnerGranularyFlag = flag.Int("sampled-granulary", 1024,
 	"the granulary of the sampled execution to collect and analyze data.")
 
+const picosPerSecond = 1e12
+
 // SampledEngine is used to detect if the wavefront sampling is stable or not.
+// Internal time statistics are float64 seconds; the public API exchanges
+// timing.VTimeInPicoSec.
 type SampledEngine struct {
-	predTime             sim.VTimeInSec
+	predTime             float64
 	enableSampled        bool
 	disableEngine        bool
 	SimTime              float64 `json:"simtime"`
@@ -31,7 +35,7 @@ type SampledEngine struct {
 	dataIdx              uint64
 	stableEngine         *StableEngine
 	shortStableEngine    *StableEngine
-	predTimeSum          sim.VTimeInSec
+	predTimeSum          float64
 	predTimeNum          uint64
 	granularity          int
 }
@@ -110,8 +114,8 @@ func (se *SampledEngine) IfDisable() bool {
 
 // Collect the runtime information
 func (se *SampledEngine) Collect(
-	issueTime sim.VTimeInSec,
-	finishTime sim.VTimeInSec,
+	issueTime timing.VTimeInPicoSec,
+	finishTime timing.VTimeInPicoSec,
 ) {
 	if se.enableSampled || se.disableEngine { //we do not need to collect data if sampling is enabled
 		return
@@ -122,8 +126,11 @@ func (se *SampledEngine) Collect(
 		return
 	}
 
-	se.stableEngine.Collect(issueTime, finishTime)
-	se.shortStableEngine.Collect(issueTime, finishTime)
+	issue := float64(issueTime) / picosPerSecond
+	finish := float64(finishTime) / picosPerSecond
+
+	se.stableEngine.Collect(issue, finish)
+	se.shortStableEngine.Collect(issue, finish)
 	stableEngine := se.stableEngine
 	shortStableEngine := se.shortStableEngine
 
@@ -131,12 +138,12 @@ func (se *SampledEngine) Collect(
 		longTime := stableEngine.predTime
 		shortTime := shortStableEngine.predTime
 		se.predTime = shortStableEngine.predTime
-		diff := float64((longTime - shortTime) / (longTime + shortTime))
+		diff := (longTime - shortTime) / (longTime + shortTime)
 		diffBoundary := *SampledRunnerThresholdFlag
 		if diff <= diffBoundary && diff >= -diffBoundary {
 			se.enableSampled = true
 			se.predTime = shortTime
-			se.predTimeSum = shortTime * sim.VTimeInSec(se.granularity)
+			se.predTimeSum = shortTime * float64(se.granularity)
 			se.predTimeNum = uint64(se.granularity)
 		}
 	} else if shortStableEngine.enableSampled {
@@ -149,6 +156,6 @@ func (se *SampledEngine) Collect(
 }
 
 // Predict the execution time of the next wavefronts
-func (se *SampledEngine) Predict() (sim.VTimeInSec, bool) {
-	return se.predTime, se.enableSampled
+func (se *SampledEngine) Predict() (timing.VTimeInPicoSec, bool) {
+	return timing.VTimeInPicoSec(se.predTime * picosPerSecond), se.enableSampled
 }

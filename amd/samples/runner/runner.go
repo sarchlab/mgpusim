@@ -8,14 +8,14 @@ import (
 	_ "net/http/pprof"
 	"sync"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/simulation"
-	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig"
-	"github.com/sarchlab/mgpusim/v4/amd/sampling"
+	"github.com/sarchlab/akita/v5/simulation"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 type verificationPreEnablingBenchmark interface {
@@ -27,13 +27,15 @@ type verificationPreEnablingBenchmark interface {
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	simulation *simulation.Simulation
-	platform   *sim.Domain
+	gpuDriver  *driver.Driver
 	reporter   *reporter
 
 	Timing           bool
 	Verify           bool
 	Parallel         bool
 	UseUnifiedMemory bool
+	ArchType         arch.Type
+	GPUType          string
 
 	GPUIDs     []int
 	benchmarks []benchmarks.Benchmark
@@ -65,19 +67,37 @@ func (r *Runner) initSimulation() {
 		builder = builder.WithParallelEngine()
 	}
 
+	if *disableAkitaRTM {
+		builder = builder.WithoutMonitoring()
+	} else if *customPortForAkitaRTM > 0 {
+		builder = builder.WithMonitorPort(*customPortForAkitaRTM)
+	}
+
+	if *visTracing {
+		builder = builder.WithVisTracingOnStart()
+		builder = withRecordedSource(builder)
+	}
+
+	// Only honor -metric-file-name when it is explicitly set, so the
+	// default output name stays the v4-compatible "akita_sim_<id>".
+	if metricFileNameFlagIsSet() {
+		builder = builder.WithOutputFileName(*filenameFlag)
+	}
+
 	r.simulation = builder.Build()
 }
 
 func (r *Runner) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
 		b = b.WithDebugISA()
 	}
 
-	r.platform = b.Build()
+	r.gpuDriver = b.Build()
 }
 
 func (r *Runner) buildTimingPlatform() {
@@ -85,26 +105,15 @@ func (r *Runner) buildTimingPlatform() {
 
 	b := timingconfig.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
+		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithGPUType(r.GPUType)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
 	}
 
-	r.platform = b.Build()
+	r.gpuDriver = b.Build()
 	r.reporter = newReporter(r.simulation)
-	r.configureVisTracing()
-}
-
-func (r *Runner) configureVisTracing() {
-	if !*visTracing {
-		return
-	}
-
-	visTracer := r.simulation.GetVisTracer()
-	for _, comp := range r.simulation.Components() {
-		tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
-	}
 }
 
 func (r *Runner) createUnifiedGPUs() {
@@ -112,8 +121,7 @@ func (r *Runner) createUnifiedGPUs() {
 		return
 	}
 
-	driver := r.simulation.GetComponentByName("Driver").(*driver.Driver)
-	unifiedGPUID := driver.CreateUnifiedGPU(nil, r.GPUIDs)
+	unifiedGPUID := r.gpuDriver.CreateUnifiedGPU(nil, r.GPUIDs)
 	r.GPUIDs = []int{unifiedGPUID}
 }
 
@@ -161,8 +169,18 @@ func (r *Runner) Run() {
 	}
 	wg.Wait()
 
+	// The benchmark goroutines return as soon as their kernels report
+	// completion, but the driver runs the Akita engine on a background
+	// goroutine that may still be draining the final events (including the
+	// trailing tracing EndTask hooks). Wait for that goroutine to go idle
+	// before reading any results, otherwise report() races it and
+	// order-sensitive metrics (e.g. cache req_average_latency) come out
+	// non-deterministic.
+	r.Driver().WaitForEngineIdle()
+
 	if r.reporter != nil {
 		r.reporter.report()
+		r.reporter.dataRecorder.Flush()
 	}
 
 	r.Driver().Terminate()
@@ -171,10 +189,10 @@ func (r *Runner) Run() {
 
 // Driver returns the GPU driver used by the current runner.
 func (r *Runner) Driver() *driver.Driver {
-	return r.simulation.GetComponentByName("Driver").(*driver.Driver)
+	return r.gpuDriver
 }
 
 // Engine returns the event-driven simulation engine used by the current runner.
-func (r *Runner) Engine() sim.Engine {
+func (r *Runner) Engine() timing.Engine {
 	return r.simulation.GetEngine()
 }

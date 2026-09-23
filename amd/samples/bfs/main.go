@@ -5,8 +5,8 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/shoc/bfs"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/bfs"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var path = flag.String("load-graph", "", "Path to file from which graph to be loaded. "+
@@ -23,6 +23,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := bfs.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.Path = *path
 	benchmark.NumNode = *numNode
 	benchmark.Degree = *degree

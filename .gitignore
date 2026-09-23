@@ -8,9 +8,15 @@
 *.exe
 *.out
 debug
-# *.csv
+*.csv
+# Committed MI300X calibration ground truth (summarized from the ~9 MB DB).
+!gpu_perf_scripts/calibration/mi300x_ground_truth.csv
 *.sqlite3-journal
 *.sqlite3
+# Ground-truth DBs are kept external; only the summarized CSV is committed.
+*.db
+*.db-shm
+*.db-wal
 *~
 *.debug
 *.trace
@@ -18,22 +24,46 @@ debug
 .ropeproject
 __pycache__
 *.html
+# Committed MI300X calibration dashboard assets (served from gh-pages).
+!gpu_perf_scripts/calibration/web/*.html
+_bench_*
 *.atp
 *.swo
 *.o
 
+*.orig
 *.orig.bc
 .idea
-vendor
 .DS_Store
-# *.json
+*.json
 __debug_bin
+__debug_bin*
 
 samples/**/metrics.csv
 
 test
-
-mnt-collector
-mnt-backend
 # Generated mocks (created via go:generate mockgen)
 **/mock_*_test.go
+
+.history
+
+fastwalshtransform
+fir
+floydwarshall
+matmul
+matrixtranspose
+simpleconvolution
+
+# HIP/ROCm build artifacts
+*.hipi
+*.bc
+*.s
+*.hipfb
+conv2d
+im2col
+_sim_benchmarks/
+stencil2d_bench
+_akita_local/
+
+# hipcc linker intermediate
+*.resolution.txt

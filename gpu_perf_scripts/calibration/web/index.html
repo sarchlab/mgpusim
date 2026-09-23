@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MI300X Calibration Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+<style>
+  :root { --fg:#1b1f23; --muted:#57606a; --line:#d0d7de; --bg:#ffffff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+         color:var(--fg); background:#f6f8fa; }
+  header { background:var(--bg); border-bottom:1px solid var(--line); padding:16px 24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; }
+  .controls { margin-top:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  select { font-size:14px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .meta { color:var(--muted); font-size:13px; }
+  .meta b { color:var(--fg); }
+  main { padding:16px 24px 48px; }
+  h2 { font-size:16px; margin:24px 0 8px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:12px; }
+  .card { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; }
+  .plot { width:100%; height:340px; }
+  .note { color:var(--muted); padding:24px 0; }
+  .gmetrics { font-weight:400; font-size:12px; color:var(--muted); }
+  .gmetrics b { color:var(--fg); }
+  .pbar { height:8px; background:#e1e4e8; border-radius:5px; overflow:hidden; flex:1 1 auto; }
+  .pfill { height:100%; background:#2da44e; transition:width .35s ease; }
+  .pfill.done { background:#0969da; }
+  .ptxt { font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #gprogress { margin-top:10px; display:none; align-items:center; gap:10px; max-width:680px; }
+  #gprogress .ptxt { font-size:13px; }
+  .h2row { display:flex; align-items:center; gap:10px; }
+  .h2row > span:first-child { flex:0 0 auto; }
+  .h2row .pbar { max-width:200px; }
+  a { color:#0969da; text-decoration:none; } a:hover { text-decoration:underline; }
+  header a#home { color:inherit; text-decoration:none; cursor:pointer; }
+  header a#home:hover h1 { text-decoration:underline; }
+  .runlist { display:flex; flex-direction:column; gap:8px; max-width:760px; margin-top:8px; }
+  .runcard { display:flex; flex-direction:column; gap:2px; padding:12px 14px; background:var(--bg);
+             border:1px solid var(--line); border-radius:8px; color:var(--fg); }
+  .runcard:hover { border-color:#0969da; background:#f6f8fa; text-decoration:none; }
+  .rc-id { font-weight:600; }
+  .rc-meta { color:var(--muted); font-size:13px; }
+  .badge { font-size:11px; font-weight:600; padding:1px 8px; border-radius:10px; margin-left:8px; vertical-align:middle; }
+  .b-run  { background:#fff3cd; color:#7a5d00; }
+  .b-done { background:#d4edda; color:#155724; }
+  .b-fail { background:#f8d7da; color:#721c24; }
+  .b-stale { background:#e1e4e8; color:#57606a; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .b-run::before { content:"\25CF "; animation:pulse 1.2s infinite; }
+</style>
+</head>
+<body>
+<header>
+  <a id="home"><h1>MI300X Calibration Dashboard</h1></a>
+  <div class="sub">Simulated vs. real-hardware kernel execution time (CDNA3 timing model). Log-log axes.</div>
+  <div class="controls">
+    <label>Run: <select id="runPicker"></select></label>
+    <span class="meta" id="runMeta"></span>
+  </div>
+  <div id="gprogress">
+    <span class="ptxt"><b>Progress</b></span>
+    <div class="pbar"><div class="pfill" id="gpfill" style="width:0%"></div></div>
+    <span class="ptxt" id="gptxt"></span>
+  </div>
+</header>
+<main>
+  <div id="status" class="note">Loading runs&hellip;</div>
+  <div id="global"></div>
+  <div id="figures"></div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDqeN1HbzzbVz6FkwQCoMr6wEnvoZSW24g",
+  authDomain: "mgpusim-calibration.firebaseapp.com",
+  projectId: "mgpusim-calibration",
+  storageBucket: "mgpusim-calibration.firebasestorage.app",
+  messagingSenderId: "720226769969",
+  appId: "1:720226769969:web:8570a2774d9a8226210910",
+};
+const db = getFirestore(initializeApp(firebaseConfig));
+
+const SIM_COLOR = "#1f77b4", REAL_COLOR = "#d62728";
+
+const $ = (id) => document.getElementById(id);
+const fmtPct = (v) => (v === null || v === undefined) ? "n/a" : `${(v * 100).toFixed(1)}%`;
+const fmtOffset = (v) => (v === null || v === undefined) ? "n/a" : `${v >= 0 ? "+" : ""}${v.toFixed(3)} ms`;
+const mean = (a) => a.length ? a.reduce((p, c) => p + c, 0) / a.length : null;
+const fmtX = (v) => (v === null || v === undefined) ? "n/a" : `${v.toFixed(v < 10 ? 2 : 1)}×`;
+const std = (a) => { const m = mean(a); return Math.sqrt(mean(a.map((x) => (x - m) ** 2))); };
+function ranksOf(vals) {   // ordinal ranks, 1 = smallest
+  const order = [...vals.keys()].sort((i, j) => vals[i] - vals[j]);
+  const r = new Array(vals.length);
+  order.forEach((idx, k) => { r[idx] = k + 1; });
+  return r;
+}
+function pearson(a, b) {
+  const ma = mean(a), mb = mean(b); let cov = 0, va = 0, vb = 0;
+  for (let i = 0; i < a.length; i++) { cov += (a[i] - ma) * (b[i] - mb); va += (a[i] - ma) ** 2; vb += (b[i] - mb) ** 2; }
+  return (va && vb) ? cov / Math.sqrt(va * vb) : null;
+}
+
+// Global calibration metrics for a run, computed ONLY from its per-run points, so
+// any past run renders these with no re-run or schema change. Rank correlation
+// grades cross-benchmark ORDERING (scale-invariant); geo-sigma is the magnitude
+// spread the single global constant (geomean k) can't remove -- neither can be
+// gamed by per-benchmark fitting (see the calibration metric notes).
+function computeGlobal(points) {
+  const logr = [], byBench = new Map(), scatter = [];
+  for (const p of points) {
+    const s = Number(p.sim_ms), h = (p.real_ms == null) ? null : Number(p.real_ms);
+    if (h == null || !(s > 0) || !(h > 0)) continue;
+    const lr = Math.log(s / h);
+    logr.push(lr); scatter.push({ real: h, sim: s, benchmark: p.benchmark, logr: lr, x: Number(p.x), label: p.label });
+    if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, []);
+    byBench.get(p.benchmark).push({ x: Number(p.x), sim: s, real: h, lr });
+  }
+  if (logr.length < 2 || byBench.size < 2) return null;
+  const geomeanK = Math.exp(mean(logr)), geoStd = Math.exp(std(logr));
+  const perBenchMean = [], withinVars = [], weights = [];
+  for (const [, pts] of byBench) {
+    const lrs = pts.map((q) => q.lr);
+    perBenchMean.push(mean(lrs)); withinVars.push(lrs.length > 1 ? std(lrs) ** 2 : 0); weights.push(lrs.length);
+  }
+  const wsum = weights.reduce((a, b) => a + b, 0);
+  const withinFactor = Math.exp(Math.sqrt(withinVars.reduce((a, v, i) => a + v * weights[i], 0) / wsum));
+  const betweenFactor = Math.exp(std(perBenchMean));
+  // ---- ordering over ALL shared (benchmark, config) measurements ----
+  // Every data point is ranked together (not one representative per benchmark).
+  // With many benchmarks x short sweeps, within-benchmark pairs are a small
+  // fraction, so this measures cross-workload ordering AND uses all the data.
+  const rrk = ranksOf(scatter.map((p) => p.real)), srk = ranksOf(scatter.map((p) => p.sim));
+  scatter.forEach((p, i) => { p.rr = rrk[i]; p.rs = srk[i]; });
+  const rv = scatter.map((p) => p.real), sv = scatter.map((p) => p.sim);
+  const m = scatter.length; let C = 0, D = 0;
+  for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) {
+    const s = (rv[i] - rv[j]) * (sv[i] - sv[j]); if (s > 0) C++; else if (s < 0) D++;
+  }
+  return { geomeanK, geoStd, withinFactor, betweenFactor,
+           spearman: pearson(rrk, srk), kendall: (C + D) ? (C - D) / (C + D) : null,
+           scatter, nBench: byBench.size, nPts: logr.length };
+}
+
+function globalMetricsHTML(g) {
+  const pairs = g.kendall == null ? "" : ` (&asymp;${Math.round((g.kendall + 1) / 2 * 100)}% of pairs ordered correctly)`;
+  return `Spearman &rho; <b>${g.spearman.toFixed(2)}</b> &middot; Kendall &tau; <b>${g.kendall.toFixed(2)}</b>${pairs}`
+    + ` &middot; geomean k <b>${fmtX(g.geomeanK)}</b> <span title="the single global constant you are allowed to tune; reference, not a score">(global constant, ref)</span>`
+    + ` &middot; geo-&sigma; <b>${fmtX(g.geoStd)}</b> <span title="typical factor still off after the one global constant; ideal 1x; cannot be removed by per-benchmark fitting">(ideal 1&times;)</span>`
+    + ` &mdash; shape <b>${fmtX(g.withinFactor)}</b> / level <b>${fmtX(g.betweenFactor)}</b>`;
+}
+
+// Plotly text is SVG -> use literal unicode glyphs, NOT HTML entities.
+function drawRankFig(div, g) {
+  const n = g.nPts;
+  const pts = {
+    x: g.scatter.map((p) => p.rr), y: g.scatter.map((p) => p.rs),
+    text: g.scatter.map((p) => `${p.benchmark}<br>${p.sim < p.real ? (p.real / p.sim).toFixed(1) + "× too fast" : (p.sim / p.real).toFixed(1) + "× too slow"}`),
+    mode: "markers", type: "scatter",
+    marker: { size: 5, opacity: 0.75, color: g.scatter.map((p) => p.logr / Math.LN10),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "log10(sim/real)", side: "right" }, thickness: 10, len: 0.9 } },
+    hovertemplate: "%{text}<br>HW rank %{x}, sim rank %{y}<extra></extra>",
+  };
+  const diag = { x: [1, n], y: [1, n], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [diag, pts], {
+    title: { text: `ranking of all ${n} measurements: sim vs HW (on the diagonal = correct order)<br><sub>Spearman ρ = ${g.spearman.toFixed(2)} · ${g.nPts} points across ${g.nBench} benchmarks · off-diagonal = mis-ranked</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "real-HW time rank (1 = fastest)", font: { size: 11 } }, range: [0, n + 1], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "simulation time rank", font: { size: 11 } }, range: [0, n + 1], scaleanchor: "x", scaleratio: 1, fixedrange: true, automargin: true },
+    margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
+function drawScatterFig(div, g) {
+  const xs = g.scatter.map((p) => p.real), ys = g.scatter.map((p) => p.sim);
+  const lo = Math.min(...xs, ...ys), hi = Math.max(...xs, ...ys);
+  const pts = {
+    x: xs, y: ys,
+    text: g.scatter.map((p) => `${p.benchmark}<br>${p.sim < p.real ? (p.real / p.sim).toFixed(1) + "× too fast" : (p.sim / p.real).toFixed(1) + "× too slow"}`),
+    mode: "markers", type: "scatter",
+    marker: { size: 6, opacity: 0.8, color: g.scatter.map((p) => p.logr / Math.LN10),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "log10(sim/real)", side: "right" }, thickness: 10, len: 0.9 } },
+    hovertemplate: "%{text}<br>real %{x:.4f} ms · sim %{y:.4f} ms<extra></extra>",
+  };
+  const diag = { x: [lo, hi], y: [lo, hi], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [diag, pts], {
+    title: { text: `absolute kernel time: sim vs real (y = x is ideal)<br><sub>geo-σ = ${fmtX(g.geoStd)} after one global constant · ${g.nPts} points · above line = sim slower</sub>`, font: { size: 13 } },
+    xaxis: { type: "log", title: { text: "real-HW kernel time (ms)", font: { size: 11 } }, fixedrange: true, automargin: true },
+    yaxis: { type: "log", title: { text: "simulation kernel time (ms)", font: { size: 11 } }, fixedrange: true, automargin: true },
+    margin: { l: 56, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
+// Symmetric fold-change error: 0 = exact, -1 = sim 2× too fast (under-estimate),
+// +1 = sim 2× too slow (over-estimate). A factor f either way maps to ±(f-1), so
+// the metric is symmetric (sim 0.5 ms vs real 1 ms -> -1; sim 2 ms vs real 1 ms -> +1).
+function symErr(sim, real) {
+  return sim >= real ? (sim / real - 1) : -(real / sim - 1);
+}
+
+// S-curve: every (benchmark, config) measurement sorted by signed error, from the
+// most under-estimated (sim too fast, most negative) to the most over-estimated
+// (sim too slow, most positive). Tooltips identify each point.
+function drawScurveFig(div, g) {
+  const data = g.scatter.map((p) => ({ ...p, e: symErr(p.sim, p.real) }))
+                        .sort((a, b) => a.e - b.e);
+  const n = data.length;
+  const text = data.map((p) => {
+    const fast = p.sim < p.real, fold = fast ? (p.real / p.sim) : (p.sim / p.real);
+    const cfg = p.label ? `<br>${p.label}`
+      : (p.x != null && !Number.isNaN(p.x) ? `<br>scale = ${p.x}` : "");
+    const dir = fast ? "too fast (sim under-estimates)"
+      : (p.sim > p.real ? "too slow (sim over-estimates)" : "exact");
+    return `<b>${p.benchmark}</b>${cfg}`
+      + `<br>sim ${p.sim.toFixed(4)} ms · real ${p.real.toFixed(4)} ms`
+      + `<br>${fold.toFixed(2)}× ${dir}`;
+  });
+  const pts = {
+    x: data.map((_, i) => i + 1), y: data.map((p) => p.e), text,
+    mode: "markers", type: "scatter",
+    marker: { size: 5, opacity: 0.8, color: data.map((p) => p.e),
+              colorscale: "RdBu", reversescale: true, cmid: 0,
+              colorbar: { title: { text: "← faster   0   slower →", side: "right" }, thickness: 10, len: 0.9 } },
+    hovertemplate: "%{text}<br>rank %{x}/" + n + " · error %{y:+.2f}<extra></extra>",
+  };
+  const zero = { x: [0, n + 1], y: [0, 0], mode: "lines", line: { color: "#888", dash: "dash", width: 1 }, hoverinfo: "skip" };
+  Plotly.react(div, [zero, pts], {
+    title: { text: `calibration S-curve: every measurement sorted by signed error<br><sub>y = symmetric fold-change · −1 = sim 2× too fast · +1 = sim 2× too slow · 0 = exact · ${n} points</sub>`, font: { size: 13 } },
+    xaxis: { title: { text: "measurements, sorted: most under-estimated → most over-estimated", font: { size: 11 } }, range: [0, n + 1], fixedrange: true, automargin: true },
+    yaxis: { title: { text: "← sim faster (−)    signed error    sim slower (+) →", font: { size: 11 } }, fixedrange: true, automargin: true, zeroline: false },
+    margin: { l: 60, r: 12, t: 56, b: 44 }, showlegend: false, dragmode: false,
+  }, { displayModeBar: false, responsive: true });
+}
+
+function renderGlobal(points) {
+  const root = $("global");
+  const g = computeGlobal(points);
+  if (!g) { root.innerHTML = ""; return; }
+  if (!$("gfig_rank")) {
+    root.innerHTML = `<h2>Global calibration <span id="gmetrics" class="gmetrics"></span></h2>`
+      + `<div class="card" style="margin-bottom:12px"><div class="plot" id="gfig_scurve" style="height:380px"></div></div>`
+      + `<div class="grid">`
+      + `<div class="card"><div class="plot" id="gfig_rank"></div></div>`
+      + `<div class="card"><div class="plot" id="gfig_scatter"></div></div>`
+      + `</div>`;
+  }
+  $("gmetrics").innerHTML = globalMetricsHTML(g);
+  drawScurveFig($("gfig_scurve"), g);
+  drawRankFig($("gfig_rank"), g);
+  drawScatterFig($("gfig_scatter"), g);
+}
+
+// Client-side equivalent of plot_calibration.align_sim_to_real.
+function alignSeries(simPts, realPts) {
+  const real = new Map(realPts), sim = new Map(simPts);
+  const shared = [...sim.keys()].filter((x) => real.has(x)).sort((a, b) => a - b);
+  if (!shared.length) return { sim: simPts.slice(), offset: null, anchorX: null, mape: null, smape: null, n: 0, geomeanK: null };
+  const x0 = shared[0], offset = real.get(x0) - sim.get(x0);
+  const simAdj = simPts.map(([x, y]) => [x, y + offset]);
+  const mapeArr = [], smapeArr = [], logr = [];
+  for (const x of shared) {   // multiplicative ratio (RAW sim vs real); reference only, never the score
+    const s0 = sim.get(x), h = real.get(x);
+    if (s0 > 0 && h > 0) logr.push(Math.log(s0 / h));
+  }
+  for (const x of shared.slice(1)) {
+    const s = sim.get(x) + offset, h = real.get(x);
+    if (h !== 0) mapeArr.push(Math.abs(s - h) / h);
+    if (Math.min(s, h) !== 0) smapeArr.push(Math.abs(s - h) / Math.min(s, h));
+  }
+  return { sim: simAdj, offset, anchorX: x0, mape: mean(mapeArr), smape: mean(smapeArr),
+           n: shared.length - 1, geomeanK: logr.length ? Math.exp(mean(logr)) : null };
+}
+
+function trace(points, name, color, symbol) {
+  return {
+    x: points.map((p) => p[0]), y: points.map((p) => p[1]),
+    mode: "lines+markers", name, marker: { symbol, size: 7, color }, line: { color, width: 2 },
+  };
+}
+
+// fig: {benchmark, xlabel, label, sim(aligned [[x,y]]), real([[x,y]]), offset, anchorX, mape, smape, n}
+function drawFigure(div, fig) {
+  // NB: Plotly titles are SVG text -> use the literal "·", not the &middot; entity.
+  let err;
+  if (fig.offset === null || fig.offset === undefined) err = "MAPE / sMAPE n/a (no matched points)";
+  else if ((fig.mape == null) && (fig.smape == null))
+    err = `offset ${fmtOffset(fig.offset)} · err n/a (only anchor matched)`;
+  else
+    err = `offset ${fmtOffset(fig.offset)} · MAPE ${fmtPct(fig.mape)} · sMAPE ${fmtPct(fig.smape)} (n=${fig.n}, anchor excl.)`;
+  if (fig.geomeanK != null) err += ` · k≈${fmtX(fig.geomeanK)} (ref)`;
+  const traces = [
+    trace(fig.sim, "simulation (aligned)", SIM_COLOR, "circle"),
+    trace(fig.real, "real hardware", REAL_COLOR, "square"),
+  ];
+  if (fig.anchorX !== null && fig.anchorX !== undefined) {
+    const ap = fig.real.find((p) => p[0] === fig.anchorX);
+    if (ap) traces.push({ x: [ap[0]], y: [ap[1]], mode: "markers", name: "anchor (excl.)",
+      marker: { symbol: "star", size: 13, color: "#111" } });
+  }
+  Plotly.react(div, traces, {
+    title: { text: `${fig.label}<br><sub>${err}</sub>`, font: { size: 13 } },
+    // fixedrange disables zoom/pan on each axis (drag, scroll, double-click) while
+    // keeping hover tooltips.
+    xaxis: { type: "log", title: { text: fig.xlabel, font: { size: 11 } }, automargin: true, fixedrange: true },
+    yaxis: { type: "log", title: { text: "kernel time (ms)", font: { size: 11 } }, automargin: true, fixedrange: true },
+    legend: { orientation: "h", y: -0.25 },
+    margin: { l: 56, r: 12, t: 48, b: 40 },
+    dragmode: false,
+  }, { displayModeBar: false, responsive: true, scrollZoom: false, doubleClick: false });
+}
+
+// Render a list of benchmark groups into #figures, reusing existing plot divs by id
+// (so live re-renders update in place instead of flickering).
+// progress bar (points published / expected configs); total from runs/{id}.totals
+function pbarHTML(done, total) {
+  const pct = total > 0 ? Math.min(100, Math.round(100 * done / total)) : 0;
+  const cls = (total > 0 && done >= total) ? "pfill done" : "pfill";
+  return `<div class="pbar"><div class="${cls}" style="width:${pct}%"></div></div>`
+    + `<span class="ptxt">${done}/${total} (${pct}%)</span>`;
+}
+function updateGlobalProgress(groups) {
+  const el = $("gprogress");
+  let done = 0, total = 0, nb = 0;
+  for (const g of (groups || [])) if (g.total > 0) { done += Math.min(g.done, g.total); total += g.total; nb++; }
+  if (!total) { el.style.display = "none"; return; }
+  const pct = Math.min(100, Math.round(100 * done / total));
+  el.style.display = "flex";
+  const fill = $("gpfill");
+  fill.style.width = pct + "%";
+  fill.classList.toggle("done", done >= total);
+  $("gptxt").textContent = `${done} / ${total} configs (${pct}%) across ${nb} benchmark${nb === 1 ? "" : "s"}`;
+}
+
+function renderGroups(groups, metaHTML) {
+  $("runMeta").innerHTML = metaHTML;
+  const root = $("figures");
+  const wanted = new Set();
+  let html = "";
+  for (const g of groups) {
+    if (!g.figures.length) continue;
+    html += (g.total > 0
+      ? `<h2 class="h2row"><span>${g.benchmark}</span>${pbarHTML(g.done, g.total)}</h2>`
+      : `<h2>${g.benchmark}</h2>`) + `<div class="grid">`;
+    for (const fig of g.figures) {
+      const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
+      wanted.add(pid);
+      html += `<div class="card"><div class="plot" id="${pid}"></div></div>`;
+    }
+    html += `</div>`;
+  }
+  // Rebuild DOM only when the set of figures changed (keeps Plotly.react stable).
+  if (root.dataset.sig !== [...wanted].sort().join("|")) {
+    root.innerHTML = html || '<div class="note">No figures yet.</div>';
+    root.dataset.sig = [...wanted].sort().join("|");
+  }
+  for (const g of groups)
+    for (const fig of g.figures) {
+      const pid = `plot__${g.benchmark}__${fig.slug || fig.label}`.replace(/[^\w]/g, "_");
+      drawFigure($(pid), { ...fig, xlabel: g.xlabel });
+    }
+}
+
+// ---- render a run from its Firestore points (live or completed) ------------
+function pointsToGroups(points, totals) {
+  const byBench = new Map();
+  const scalingOf = new Map();   // benchmark -> scaling param name (for the x-axis label)
+  for (const p of points) {
+    if (!byBench.has(p.benchmark)) byBench.set(p.benchmark, new Map());
+    if (p.scaling) scalingOf.set(p.benchmark, p.scaling);
+    const g = byBench.get(p.benchmark);
+    if (!g.has(p.slug)) g.set(p.slug, { label: p.label, sim: [], real: [] });
+    const fig = g.get(p.slug);
+    fig.sim.push([Number(p.x), Number(p.sim_ms)]);
+    if (p.real_ms !== null && p.real_ms !== undefined) fig.real.push([Number(p.x), Number(p.real_ms)]);
+  }
+  const groups = [];
+  const allMape = [], allSmape = [];
+  for (const [benchmark, g] of [...byBench].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+    const figures = [];
+    let done = 0;
+    for (const [slug, fig] of g) {
+      done += fig.sim.length;   // streamed points for this benchmark
+      fig.sim.sort((a, b) => a[0] - b[0]); fig.real.sort((a, b) => a[0] - b[0]);
+      const a = alignSeries(fig.sim, fig.real);
+      if (a.mape != null) allMape.push(a.mape);
+      if (a.smape != null) allSmape.push(a.smape);
+      figures.push({ slug, label: fig.label, sim: a.sim, real: fig.real,
+        offset: a.offset, anchorX: a.anchorX, mape: a.mape, smape: a.smape, n: a.n, geomeanK: a.geomeanK });
+    }
+    figures.sort((x, y) => x.label < y.label ? -1 : 1);
+    const sc = scalingOf.get(benchmark);
+    groups.push({ benchmark, xlabel: sc ? `${sc} (scaling factor)` : "scaling factor", figures,
+      done, total: (totals && totals[benchmark]) || 0 });
+  }
+  return { groups, overallMape: mean(allMape), overallSmape: mean(allSmape) };
+}
+
+let unsubPoints = null, unsubRun = null;
+function unsubCurrent() {
+  if (unsubPoints) { unsubPoints(); unsubPoints = null; }
+  if (unsubRun) { unsubRun(); unsubRun = null; }
+}
+function renderLive(runId) {
+  unsubCurrent();
+  $("global").innerHTML = "";
+  updateGlobalProgress(null);
+  $("figures").innerHTML = '<div class="note">Connecting to run&hellip;</div>';
+  $("figures").dataset.sig = "";
+  let run = liveRuns.get(runId) || {};
+  let points = [];
+  const render = () => {
+    const { groups, overallMape, overallSmape } = pointsToGroups(points, run.totals);
+    const rawStatus = run.status || "in_progress";
+    checkActions({ run_id: runId, status: rawStatus, run_url: run.run_url });
+    const badge = badgeHTML(displayStatus({ run_id: runId, status: rawStatus }));
+    const link = run.run_url ? `<a href="${run.run_url}" target="_blank" rel="noopener">run ${runId}</a>` : `run ${runId}`;
+    const meta = `${link} &middot; ${badge} ${points.length} points &middot; `
+      + `overall <b>MAPE ${fmtPct(overallMape)}</b> / <b>sMAPE ${fmtPct(overallSmape)}</b>`;
+    if (!points.length) { $("global").innerHTML = ""; updateGlobalProgress(null); $("figures").innerHTML = '<div class="note">No points yet &mdash; the sweep is just starting.</div>'; $("runMeta").innerHTML = meta; return; }
+    renderGlobal(points);
+    renderGroups(groups, meta);
+    updateGlobalProgress(groups);
+  };
+  // Re-render on status changes (run doc) AND on new points, so a run that
+  // completes/fails while being viewed updates its badge without a reload.
+  unsubRun = onSnapshot(doc(db, "runs", runId), (s) => { if (s.exists()) run = s.data(); render(); }, () => {});
+  unsubPoints = onSnapshot(collection(db, "runs", runId, "points"), (snap) => {
+    points = snap.docs.map((d) => d.data()); render();
+  }, (err) => { $("figures").innerHTML = `<div class="note">Live read failed: ${err.message}</div>`; });
+}
+
+// ---- run list (all runs from Firestore) ------------------------------------
+const liveRuns = new Map();     // run_id -> firestore run doc (the only data source)
+let current = null;             // selected run_id or null (landing)
+let pendingDeepLink = null;     // run id awaiting its doc to appear (Firestore loads async)
+
+function tsIso(t) { return (t && t.toDate) ? t.toDate().toISOString() : (t || ""); }
+
+// ---- guard (a): an in_progress doc whose GitHub Actions run has actually finished
+// (cancelled / machine died before the cleanup job could mark it) is shown as
+// "ended", not "running". The page can't fix the DB (read-only) -- display only;
+// the workflow's cancel-finalize job is what actually repairs the record.
+const actionsDone = new Set();      // run ids whose Actions run reports completed
+const actionsChecked = new Set();   // run ids already queried (one fetch each)
+function displayStatus(r) {
+  return (r.status === "in_progress" && actionsDone.has(r.run_id)) ? "ended" : r.status;
+}
+function checkActions(run) {
+  if (run.status !== "in_progress" || actionsChecked.has(run.run_id)) return;
+  const m = (run.run_url || "").match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+  if (!m) return;
+  actionsChecked.add(run.run_id);
+  fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/actions/runs/${m[3]}`,
+        { headers: { Accept: "application/vnd.github+json" } })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.status === "completed") { actionsDone.add(run.run_id); rebuildPicker(); } })
+    .catch(() => {});   // rate-limited / offline: leave it showing in_progress
+}
+
+function mergedRuns() {
+  const arr = [];
+  for (const [id, doc] of liveRuns) arr.push({
+    run_id: id, status: doc.status || "in_progress", run_url: doc.run_url,
+    when: tsIso(doc.started_at) || doc.generated_at || "",
+    mape: doc.overall_mape, smape: doc.overall_smape,
+  });
+  arr.forEach(checkActions);   // verify in_progress runs against the Actions API (once each)
+  return arr.sort((a, b) =>
+    String(b.when || "").localeCompare(String(a.when || "")) || String(b.run_id).localeCompare(String(a.run_id)));
+}
+
+function badgeHTML(s) {
+  return s === "completed" ? '<span class="badge b-done">completed</span>'
+    : s === "failed" ? '<span class="badge b-fail">failed</span>'
+    : s === "ended" ? '<span class="badge b-stale">ended</span>'
+    : s === "in_progress" ? '<span class="badge b-run">running</span>' : "";
+}
+
+// ---- routing: clean paths  …/calibration/run/<id>  (SPA on GitHub Pages) -----
+// 404.html re-encodes a deep link as "?/run/<id>"; restore the clean URL here.
+if (location.search.startsWith("?/")) {
+  const rest = location.search.slice(2).split("&")[0];
+  history.replaceState(null, "", location.pathname.replace(/\/+$/, "") + "/" + rest + location.hash);
+}
+const BASE = (() => {
+  const p = location.pathname.split("/"), i = p.indexOf("calibration");
+  return i === -1 ? location.pathname.replace(/[^/]*$/, "") : p.slice(0, i + 1).join("/") + "/";
+})();
+function routeRunId() {
+  const after = location.pathname.startsWith(BASE) ? location.pathname.slice(BASE.length) : "";
+  const m = after.match(/^run\/([^/]+)\/?$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function navigate(runId) {   // user action -> push a history entry, then render
+  history.pushState(null, "", runId ? BASE + "run/" + encodeURIComponent(runId) : BASE);
+  renderRoute();
+}
+function renderRoute() {     // render whatever the current URL points at (no history change)
+  const id = routeRunId();
+  if (id) selectRun(id); else showLanding(mergedRuns());
+}
+window.addEventListener("popstate", renderRoute);
+
+function rebuildPicker() {
+  const runs = mergedRuns();
+  const picker = $("runPicker");
+  const sel = picker.value;
+  picker.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "Select a run…"; picker.appendChild(ph);
+  for (const r of runs) {
+    const o = document.createElement("option");
+    o.value = r.run_id;
+    const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "";
+    const st = displayStatus(r);
+    const m = st === "in_progress" ? "running" : st === "ended" ? "ended (not finalized)"
+      : `MAPE ${fmtPct(r.mape)} / sMAPE ${fmtPct(r.smape)}`;
+    o.textContent = `${r.run_id} — ${when} — ${m}`;
+    picker.appendChild(o);
+  }
+  if (pendingDeepLink && !current && runs.some((x) => x.run_id === String(pendingDeepLink))) {
+    const id = pendingDeepLink; pendingDeepLink = null; selectRun(id); return;
+  }
+  picker.value = current || sel || "";
+  if (!current) showLanding(runs);
+}
+
+function showLanding(runs) {
+  current = null;
+  unsubCurrent();
+  $("runPicker").value = "";
+  $("status").style.display = "none";
+  $("global").innerHTML = "";
+  updateGlobalProgress(null);
+  const n = runs.length;
+  $("runMeta").innerHTML = `${n} run${n === 1 ? "" : "s"} &mdash; pick one to view its charts.`;
+  const root = $("figures"); root.dataset.sig = "";
+  if (!n) { root.innerHTML = '<div class="note">No runs yet.</div>'; return; }
+  const list = document.createElement("div"); list.className = "runlist";
+  for (const r of runs) {
+    const when = r.when ? r.when.replace("T", " ").slice(0, 19) + " UTC" : "(undated)";
+    const a = document.createElement("a");
+    a.className = "runcard"; a.href = BASE + "run/" + encodeURIComponent(r.run_id);
+    const st = displayStatus(r);
+    const metrics = st === "in_progress" ? "in progress"
+      : st === "ended" ? "ended without finalizing"
+      : `MAPE <b>${fmtPct(r.mape)}</b> / sMAPE <b>${fmtPct(r.smape)}</b>`;
+    a.innerHTML = `<span class="rc-id">Run ${r.run_id}${badgeHTML(st)}</span>`
+      + `<span class="rc-meta">${when} &middot; ${metrics}</span>`;
+    a.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(r.run_id); });
+    list.appendChild(a);
+  }
+  root.innerHTML = ""; root.appendChild(list);
+}
+
+function selectRun(runId) {
+  const r = mergedRuns().find((x) => x.run_id === String(runId));
+  if (!r) { showLanding(mergedRuns()); return; }
+  current = r.run_id;
+  pendingDeepLink = null;
+  $("runPicker").value = r.run_id;
+  $("status").style.display = "none";
+  renderLive(r.run_id);   // subscribe to its points (live or completed)
+}
+
+async function main() {
+  $("runPicker").addEventListener("change", () => {
+    pendingDeepLink = null;   // explicit user choice overrides any pending deep link
+    navigate($("runPicker").value || null);
+  });
+  const home = $("home");
+  home.setAttribute("href", BASE);
+  home.addEventListener("click", (e) => { e.preventDefault(); pendingDeepLink = null; navigate(null); });
+
+  // All runs come from Firestore (realtime).
+  onSnapshot(collection(db, "runs"), (snap) => {
+    liveRuns.clear();
+    snap.forEach((d) => liveRuns.set(d.id, d.data()));
+    rebuildPicker();
+    // If currently viewing a live run, refresh its status badge in the meta line
+    // (points subscription handles the figures themselves).
+  }, () => {});
+
+  // Upgrade legacy ?run=<id> links (older job summaries) to the clean path.
+  const legacy = new URLSearchParams(location.search).get("run");
+  if (legacy && !routeRunId()) history.replaceState(null, "", BASE + "run/" + encodeURIComponent(legacy));
+  // Initial render from the URL path. A live run may not be in Firestore yet
+  // (loads async), so remember the request and let the runs snapshot resolve it.
+  pendingDeepLink = routeRunId();
+  renderRoute();
+}
+
+main();
+</script>
+</body>
+</html>

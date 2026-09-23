@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/training_benchmarks/minerva"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training_benchmarks/minerva"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")

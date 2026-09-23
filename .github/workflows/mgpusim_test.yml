@@ -1,355 +1,279 @@
-
 name: MGPUSim Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
-  # compile:
-  #   name: Compile
-  #   runs-on: Github-Large-1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
-
-  #     - name: Build
-  #       run: go build ./...
-
-  # lint:
-  #   name: Lint
-  #   runs-on: Github-Large-1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
-  #     - name: golangci-lint
-  #       uses: golangci/golangci-lint-action@v3
-  #       with:
-  #         version: "latest"
-  #         args: --timeout=10m
-  #         skip-cache: true
-
-  evaluate_commit:
-    name: Nvidia Simulator Evaluation
-    runs-on: Github-Large-1
-    # needs: [lint]
-
-
-    env:
-      # TEST_ENV: 1
-      MNT_BACKEND_HOST: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_HOST }}
-      MNT_BACKEND_PORT: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_PORT }}
-      MNT_BACKEND_TOKEN: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_TOKEN }}
-      S3_BUCKET: ${{ secrets.MNT_COLLECTOR_S3_BUCKET }}
-      S3_REGION: ${{ secrets.MNT_COLLECTOR_S3_REGION }}
-      S3_ACCESS_KEY_ID: ${{ secrets.MNT_COLLECTOR_S3_ACCESS_KEY_ID }}
-      S3_SECRET_ACCESS_KEY: ${{ secrets.MNT_COLLECTOR_S3_SECRET_ACCESS_KEY }}
-
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout mgpusim
+      - name: Checkout
         uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-      
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v7
         with:
-          go-version: "stable"
-      
-      - name: Clone mnt-collector and checkout branch and build
-        run: |
-          git clone https://github.com/sarchlab/mnt-collector.git
-          cd mnt-collector
-          go build
-      
-      - name: Create secrets.yaml from GitHub secrets
-        run: |
-          echo "Creating secrets.yaml in mnt-collector/etc"
-          mkdir -p mnt-collector/etc
-          # echo "TEST_ENV: ${TEST_ENV}"
-          cat << EOF > mnt-collector/etc/secrets.yaml
-          mnt-backend:
-            host: ${MNT_BACKEND_HOST}
-            port: ${MNT_BACKEND_PORT}
-            base: /v1
-            token: ${MNT_BACKEND_TOKEN}
-          s3:
-            bucket: ${S3_BUCKET}
-            region: ${S3_REGION}
-            access-key-id: ${S3_ACCESS_KEY_ID}
-            secret-access-key: ${S3_SECRET_ACCESS_KEY}
-          EOF
+          go-version-file: go.mod
+          cache: false
 
-
-      - name: Build nvidia executable
+      - name: Install build dependencies
         run: |
-          cd nvidia
-          go build
-          cd ..
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Build
+        run: go build ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Install mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
+
+      - name: Generate mocks
+        run: go generate ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: "v2.13.2"
+          # Use a pinned release that supports the configured Go toolchain.
+          install-mode: binary
+          args: --timeout=10m
+          skip-cache: true
+
+  unit_test:
+    name: Unit Test
+    runs-on: ubuntu-latest
+    needs: [compile, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Install mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
+
+      - name: Generate mocks
+        run: go generate ./...
+
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.32.1
+
+      - name: Unit Test
+        run: ginkgo -r --skip-package=mccl
+
+  deterministicity_test:
+    name: Deterministicity Test
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
 
       - name: List Directory Contents
         run: ls -R
 
-      - name: Get Commit Info
-        id: commit_info
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
-          echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
-      
-      - name: Determine Commit Type and Version
-        id: commit_type
-        run: |
-          MSG="${{ steps.commit_info.outputs.message }}"
-          if [[ "$MSG" =~ ^\[release-emptykernel\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            echo "type=release-emptykernel" >> $GITHUB_OUTPUT
-            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            # # Remove the [release-emptykernel vX.X.X] part from message
-            # MSG="${MSG#*\] }"
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" =~ ^\[release-ffmakernel\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            echo "type=release-ffmakernel" >> $GITHUB_OUTPUT
-            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            # # Remove the [release-ffmakernel vX.X.X] part from message
-            # MSG="${MSG#*\] }"
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" =~ ^\[release-rodinia\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            echo "type=release-rodinia" >> $GITHUB_OUTPUT
-            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            # # Remove the [release-rodinia vX.X.X] part from message
-            # MSG="${MSG#*\] }"
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            echo "type=release" >> $GITHUB_OUTPUT
-            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            # # Remove the [release vX.X.X] part from message
-            # MSG="${MSG#*\] }"
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" =~ ^test ]]; then
-            echo "type=test" >> $GITHUB_OUTPUT
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          else
-            echo "type=dev" >> $GITHUB_OUTPUT
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "msg=$MSG" >> $GITHUB_OUTPUT
-          fi
-    
-
-      - name: Generate timestamp
-        id: timestamp
-        run: |
-          echo "timestamp=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
-
-
-      - name: Run Evaluation Script
-        id: eval
-        run: |
-          go build -o nvidia/eval/eval nvidia/eval/eval.go
-          # SCORE=99999 # Simulated score
-          EVAL_START=$(date +%s.%N)
-          if [[ "${{ steps.commit_type.outputs.type }}" == "release" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
-          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-emptykernel" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release-emptykernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
-          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-ffmakernel" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release-ffmakernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
-          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-rodinia" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release-rodinia --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
-          elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }} --version "test")
-          else
-            OUTPUT=$(./nvidia/eval/eval --config dev --sha ${{ steps.commit_info.outputs.sha }} --version "dev")
-          fi
-          EVAL_END=$(date +%s.%N)
-          EVAL_ELAPSED=$(echo "$EVAL_END - $EVAL_START" | bc)
-          NUM_SUITE=$(echo "$OUTPUT" | tail -8 | head -1)
-          NUM_BENCHMARK=$(echo "$OUTPUT" | tail -7 | head -1)
-          NUM_TRACE=$(echo "$OUTPUT" | tail -6 | head -1)
-          DIST_LINE=$(echo "$OUTPUT" | tail -5 | head -1)
-          SCORE=$(echo "$OUTPUT" | tail -4 | head -1)
-          RSQUARED=$(echo "$OUTPUT" | tail -3 | head -1)
-          PEARSON=$(echo "$OUTPUT" | tail -2 | head -1)
-          SPEARMAN=$(echo "$OUTPUT" | tail -1)
-          echo "[GitHub Workflow] score distribution read from eval: $DIST_LINE"
-          echo "[GitHub Workflow] score: $SCORE"
-          echo "[GitHub Workflow] eval elapsed: ${EVAL_ELAPSED}s"
-          echo "spearman=$SPEARMAN" >> $GITHUB_OUTPUT
-          echo "pearson=$PEARSON" >> $GITHUB_OUTPUT
-          echo "rsquared=$RSQUARED" >> $GITHUB_OUTPUT
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
-          echo "distribution=$DIST_LINE" >> $GITHUB_OUTPUT
-          echo "eval_time=$EVAL_ELAPSED" >> $GITHUB_OUTPUT
-          echo "num_suite=$NUM_SUITE" >> $GITHUB_OUTPUT
-          echo "num_benchmark=$NUM_BENCHMARK" >> $GITHUB_OUTPUT
-          echo "num_trace=$NUM_TRACE" >> $GITHUB_OUTPUT
-      
-      - name: Write evaluation txt record
-        run: |
-          SHA="${{ steps.commit_info.outputs.sha }}"
-          SHORT_SHA="${SHA:0:7}"
-          MSG="${{ steps.commit_info.outputs.message }}"
-          SPEARMAN="${{ steps.eval.outputs.spearman }}"
-          PEARSON="${{ steps.eval.outputs.pearson }}"
-          RSQUARED="${{ steps.eval.outputs.rsquared }}"
-          SCORE="${{ steps.eval.outputs.score }}"
-          DISTRIBUTION="${{ steps.eval.outputs.distribution }}"
-          AUTHOR="${{ steps.commit_info.outputs.author }}"
-          EVAL_TIME="${{ steps.eval.outputs.eval_time }}"
-          NUM_SUITE="${{ steps.eval.outputs.num_suite }}"
-          NUM_BENCHMARK="${{ steps.eval.outputs.num_benchmark }}"
-          NUM_TRACE="${{ steps.eval.outputs.num_trace }}"
-          COMMIT_TYPE="${{ steps.commit_type.outputs.type }}"
-          VERSION="${{ steps.commit_type.outputs.version }}"
-          TIME="${{ steps.timestamp.outputs.timestamp }}"
-          # Compose filename
-          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" || "$COMMIT_TYPE" == "release-ffmakernel" || "$COMMIT_TYPE" == "release-rodinia" ]]; then
-            FNAME="${COMMIT_TYPE}_${VERSION}_${TIME}_${SHA}.txt"
-          else
-            FNAME="${COMMIT_TYPE}_${TIME}_${SHA}.txt"
-          fi
-          LINE="$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\""
-          echo "$LINE"
-          echo "$LINE" > nvidia/eval/simulator_evaluation/$FNAME
-
-      # - name: Format and append evaluation result
-      #   run: |
-      #     SHA="${{ steps.commit_info.outputs.sha }}"
-      #     SHORT_SHA="${SHA:0:7}"
-      #     MSG="${{ steps.commit_info.outputs.message }}"
-      #     SPEARMAN="${{ steps.eval.outputs.spearman }}"
-      #     PEARSON="${{ steps.eval.outputs.pearson }}"
-      #     RSQUARED="${{ steps.eval.outputs.rsquared }}"
-      #     SCORE="${{ steps.eval.outputs.score }}"
-      #     DISTRIBUTION="${{ steps.eval.outputs.distribution }}"
-      #     AUTHOR="${{ steps.commit_info.outputs.author }}"
-      #     EVAL_TIME="${{ steps.eval.outputs.eval_time }}"
-      #     NUM_SUITE="${{ steps.eval.outputs.num_suite }}"
-      #     NUM_BENCHMARK="${{ steps.eval.outputs.num_benchmark }}"
-      #     NUM_TRACE="${{ steps.eval.outputs.num_trace }}"
-      #     COMMIT_TYPE="${{ steps.commit_type.outputs.type }}"
-      #     VERSION="${{ steps.commit_type.outputs.version }}"
-
-      #     # # Extract commit_type and version
-      #     # if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-      #     #   COMMIT_TYPE="release"
-      #     #   VERSION="v${BASH_REMATCH[1]}"
-      #     #   # Remove the [release vX.X.X] part from message
-      #     #   MSG="${MSG#*\] }"
-      #     # else
-      #     #   COMMIT_TYPE="dev"
-      #     #   VERSION=""
-      #     # fi
-
-      #     # Compose the CSV line
-      #     echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
-
-      - name: Remove cloned repo
-        run: |
-          rm -rf mnt-collector
-
-      - name: Commit results
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add nvidia/eval/simulator_evaluation/
-          git add nvidia/eval/records/
-          git add nvidia/eval/metrics/
-          git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Generate summary table artifact
-        run: |
-          set -euo pipefail
-          # list basenames (handle spaces/newlines safely)
-          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" -print0 | xargs -0 -n1 basename > txt_list.txt
-
-          rm -f version_rows.txt other_rows.txt sorted1.txt sorted2.txt sorted_txt_list.txt || true
-
-          # separate versioned files (second field starts with 'v') and others
-          awk -F'_' '{
-            n=split($0,a,"_");
-            if (a[2] ~ /^v/) {
-              version=a[2];
-              print version "\t" $0 >> "version_rows.txt"
-            } else {
-              type=a[1];
-              timestr=a[2] "_" a[3];
-              ord = (type=="release"?1:(type=="release-rodinia"?2:(type=="release-emptykernel"?3:(type=="release-ffmakernel"?4:(type=="dev"?5:6)))));
-              print ord "\t" timestr "\t" $0 >> "other_rows.txt"
-            }
-          }' txt_list.txt
-
-          # sort versioned rows by semantic version descending (latest first)
-          if [ -s version_rows.txt ]; then
-            # strip 'v', sort by version, reverse, then extract original filename
-            sort -t$'\t' -k1,1Vr version_rows.txt | cut -f2 > sorted1.txt
-          else
-            : > sorted1.txt
-          fi
-
-          echo "sorted1.txt:"
-          cat sorted1.txt || true
-
-          # sort other rows by type order (asc) then time desc
-          if [ -s other_rows.txt ]; then
-            sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
-          else
-            : > sorted2.txt
-          fi
-
-          cat sorted1.txt sorted2.txt > sorted_txt_list.txt
-
-          # header (keep Distribution as last column; we'll drop it in the UI render)
-          echo "Time String,Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
-
-          # prepend timestring extracted from filename and append the file content
-          while IFS= read -r fname; do
-            # robust split on '_' into array to avoid problems with variable number of underscores
-            IFS='_' read -ra parts <<< "$fname"
-            # parts[0] -> first field before first '_', parts[1] -> second, etc.
-            if [[ "${parts[1]:-}" =~ ^v ]]; then
-              # make sure we have at least parts[2] and parts[3]
-              timestr="${parts[2]:-}_${parts[3]:-}"
-            else
-              timestr="${parts[1]:-}_${parts[2]:-}"
-            fi
-            # read the whole CSV line from the file (it is guaranteed to be a well-formed CSV line)
-            if ! line=$(<"nvidia/eval/simulator_evaluation/$fname"); then
-              line=""
-            fi
-            # use printf to preserve all characters (commas, quotes) exactly in the second field
-            printf '%s,%s\n' "$timestr" "$line" >> summary_table.csv
-          done < sorted_txt_list.txt
-
-      - name: Upload summary table artifact
-        uses: actions/upload-artifact@v4
+      - name: Setup Go
+        uses: actions/setup-go@v7
         with:
-          name: mgpusim_nvidia_evaluation_summary
-          path: summary_table.csv
+          go-version-file: go.mod
+          cache: false
 
-      - name: Display complete summary in workflow UI
+      - name: Install build dependencies
         run: |
-          python -m pip install pandas tabulate
-          python - <<EOF
-          import pandas as pd
-          df = pd.read_csv("summary_table.csv")
-          df = df.drop(columns=["Error Benchmark-level Distribution"])
-          md = df.to_markdown(index=False)
-          with open("${GITHUB_STEP_SUMMARY}", "a") as f:
-              f.write("## 📊 Evaluation Summary\n")
-              f.write(md)
-          EOF
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
 
+      - name: Check Python
+        run: python3 --version
+
+      - name: Run Deterministicity Test
+        run: python test.py
+        working-directory: amd/tests/deterministic/
+
+  disassembler_test:
+    name: Disassembler Test (GFX942)
+    runs-on: ubuntu-latest
+    needs: [compile]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run Disassembler Test
+        run: ./test-disasm.sh --check
+        working-directory: amd/benchmarks/amdappsdk/vectoradd/native/
+
+  # =============================================================================
+  # GCN3 (R9Nano) Tests
+  # =============================================================================
+
+  gcn3_emu_test:
+    name: GCN3 Emulation Test
+    runs-on: Github-Large-1
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run GCN3 Emulation Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1 -no-timing -arch=gcn3
+        working-directory: amd/tests/acceptance/
+
+  gcn3_single_gpu_timing_test:
+    name: GCN3 Single GPU Timing Test (${{ matrix.shard.name }})
+    runs-on: Github-Large-1
+    needs: [gcn3_emu_test]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Split the timing benchmarks across runners so no single shard
+        # approaches the 60-minute job timeout. nbody dominates the runtime
+        # (~40 min on its own), so it gets a dedicated shard; atax and bicg
+        # are the next heaviest, and everything else fits comfortably together.
+        shard:
+          - name: nbody
+            filter: "^nbody$"
+          - name: polybench
+            filter: "^(atax|bicg)$"
+          - name: others
+            filter: "^(fir|aes|kmeans|pagerank|matrixmultiplication|matrixtranspose|simpleconvolution|floydwarshall|relu|bfs|stencil2d|spmv|fft|vectoradd|nw)$"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run GCN3 Single GPU Timing Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1 -arch=gcn3 -benchmark='${{ matrix.shard.filter }}'
+        working-directory: amd/tests/acceptance/
+
+  # =============================================================================
+  # CDNA3 (MI300X) Tests
+  # =============================================================================
+
+  cdna3_emu_test:
+    name: CDNA3 Emulation Test
+    runs-on: Github-Large-1
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Emulation Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1 -no-timing -arch=cdna3
+        working-directory: amd/tests/acceptance/
+
+  cdna3_single_gpu_timing_test:
+    name: CDNA3 Single GPU Timing Test
+    runs-on: Github-Large-1
+    needs: [cdna3_emu_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          if command -v dnf &>/dev/null; then
+            sudo dnf install -y gcc || echo "WARNING: sudo failed, gcc may already be installed"
+          fi
+
+      - name: Run CDNA3 Single GPU Timing Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1 -arch=cdna3
+        working-directory: amd/tests/acceptance/

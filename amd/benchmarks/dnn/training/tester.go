@@ -1,6 +1,6 @@
 package training
 
-import "github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 
 // Tester runs a forward propagation and tests the overall accuracy.
 type Tester struct {

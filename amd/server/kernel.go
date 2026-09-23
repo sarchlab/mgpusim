@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 type dim3 struct {
@@ -40,7 +40,12 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	hsaCo := insts.NewHsaCoFromData(rawCodeObject)
+
+	// Load from the raw bytes (not a pre-parsed *elf.File) so the loader can
+	// read the ELF e_flags and recover the GPU generation; this is required
+	// for gfx8 (GCN3) Code Object V5 kernels to get separate work-item-ID
+	// VGPRs instead of the gfx9+/CDNA packed-into-v0 layout.
+	hsaCo := insts.LoadKernelCodeObjectFromBytes(rawCodeObject, "")
 
 	rawArgs, err := base64.StdEncoding.DecodeString(dataJSON.Args)
 	if err != nil {

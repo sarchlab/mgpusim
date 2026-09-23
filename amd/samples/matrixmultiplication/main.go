@@ -5,8 +5,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/amdappsdk/matrixmultiplication"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/matrixmultiplication"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var xFlag = flag.Uint("x", 64, "The height of the first matrix.")
@@ -19,6 +19,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := matrixmultiplication.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.X = uint32(*xFlag)
 	benchmark.Y = uint32(*yFlag)
 	benchmark.Z = uint32(*zFlag)

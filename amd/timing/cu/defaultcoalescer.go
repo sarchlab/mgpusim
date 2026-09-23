@@ -1,9 +1,11 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/mgpusim/v4/amd/insts"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type defaultCoalescer struct {
@@ -37,31 +39,20 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 	}
 }
 
-// func (c defaultCoalescer) executionMaskMustNotBeAllZero(
-// 	wf *wavefront.Wavefront,
-// ) {
-// 	sp := wf.Scratchpad().AsFlat()
-// 	exec := sp.EXEC
-// 	if exec == 0 {
-// 		panic("execution mask is all 0")
-// 	}
-// }
-
 func (c defaultCoalescer) generateReadReqs(
 	wf *wavefront.Wavefront,
-) []*mem.ReadReq {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
-	reqs := []*mem.ReadReq{}
-	regCount := c.instRegCount(wf.Inst())
+) []*memprotocol.ReadReq {
+	exec := wf.EXEC()
+	inst := wf.Inst()
+	reqs := []*memprotocol.ReadReq{}
+	regCount := c.instRegCount(inst)
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
 			continue
 		}
 
-		addr := addrs[i]
+		addr := c.readFlatAddr(wf, int(i))
 		for j := 0; j < regCount; j++ {
 			c.findOrCreateReadReq(&reqs, addr+uint64(4*j))
 		}
@@ -72,24 +63,27 @@ func (c defaultCoalescer) generateReadReqs(
 
 func (c defaultCoalescer) generateWriteReqs(
 	wf *wavefront.Wavefront,
-) []*mem.WriteReq {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
-	reqs := []*mem.WriteReq{}
-	data := sp.DATA
+) []*memprotocol.WriteReq {
+	exec := wf.EXEC()
+	inst := wf.Inst()
+	reqs := []*memprotocol.WriteReq{}
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
 			continue
 		}
 
-		addr := addrs[i]
-		regCount := uint(c.instRegCount(wf.Inst()))
+		addr := c.readFlatAddr(wf, int(i))
+		regCount := uint(c.instRegCount(inst))
 		for j := uint(0); j < regCount; j++ {
-			reqData := data[i*4+j]
+			dataReg := insts.NewVRegOperand(
+				inst.Data.Register.RegIndex()+int(j),
+				inst.Data.Register.RegIndex()+int(j),
+				1,
+			)
+			dataVal := uint32(wf.ReadOperand(dataReg, int(i)))
 			c.findOrCreateWriteReq(&reqs, addr+uint64(j*4),
-				insts.Uint32ToBytes(reqData))
+				insts.Uint32ToBytes(dataVal))
 		}
 	}
 
@@ -98,7 +92,7 @@ func (c defaultCoalescer) generateWriteReqs(
 
 func (c defaultCoalescer) generateReadTransactions(
 	wf *wavefront.Wavefront,
-	reqs []*mem.ReadReq,
+	reqs []*memprotocol.ReadReq,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
@@ -117,7 +111,7 @@ func (c defaultCoalescer) generateReadTransactions(
 
 func (c defaultCoalescer) generateWriteTransactions(
 	wf *wavefront.Wavefront,
-	reqs []*mem.WriteReq,
+	reqs []*memprotocol.WriteReq,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
@@ -133,28 +127,31 @@ func (c defaultCoalescer) generateWriteTransactions(
 }
 
 func (c defaultCoalescer) findOrCreateReadReq(
-	reqs *[]*mem.ReadReq,
+	reqs *[]*memprotocol.ReadReq,
 	addr uint64,
-) *mem.ReadReq {
+) *memprotocol.ReadReq {
 	for _, req := range *reqs {
 		if c.isInSameCacheLine(addr, req.Address) {
 			return req
 		}
 	}
 
-	req := mem.ReadReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithByteSize(1 << c.log2CacheLineSize).
-		Build()
+	req := &memprotocol.ReadReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:        c.cacheLineID(addr),
+		AccessByteSize: 1 << c.log2CacheLineSize,
+	}
 	*reqs = append(*reqs, req)
 	return req
 }
 
 func (c defaultCoalescer) findOrCreateWriteReq(
-	reqs *[]*mem.WriteReq,
+	reqs *[]*memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
-) *mem.WriteReq {
+) *memprotocol.WriteReq {
 	for _, req := range *reqs {
 		if c.isInSameCacheLine(addr, req.Address) {
 			c.mergeDataWithReq(req, addr, data)
@@ -162,18 +159,21 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 		}
 	}
 
-	req := mem.WriteReqBuilder{}.
-		WithAddress(c.cacheLineID(addr)).
-		WithData(make([]byte, 1<<c.log2CacheLineSize)).
-		WithDirtyMask(make([]bool, 1<<c.log2CacheLineSize)).
-		Build()
+	req := &memprotocol.WriteReq{
+		MsgMeta: messaging.MsgMeta{
+			ID: timing.GetIDGenerator().Generate(),
+		},
+		Address:   c.cacheLineID(addr),
+		Data:      make([]byte, 1<<c.log2CacheLineSize),
+		DirtyMask: make([]bool, 1<<c.log2CacheLineSize),
+	}
 	c.mergeDataWithReq(req, addr, data)
 	*reqs = append(*reqs, req)
 	return req
 }
 
 func (c defaultCoalescer) mergeDataWithReq(
-	req *mem.WriteReq,
+	req *memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
 ) {
@@ -188,7 +188,7 @@ func (c defaultCoalescer) mergeDataWithReq(
 }
 
 func (c defaultCoalescer) addressRangeMustFallInReq(
-	req *mem.WriteReq,
+	req *memprotocol.WriteReq,
 	addr uint64,
 	data []byte,
 ) {
@@ -205,11 +205,10 @@ func (c defaultCoalescer) addLaneInfo(
 	transaction *VectorMemAccessInfo,
 	wf *wavefront.Wavefront,
 ) {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	addrs := sp.ADDR
+	exec := wf.EXEC()
+	inst := wf.Inst()
 	req := transaction.Read
-	regCount := c.instRegCount(wf.Inst())
+	regCount := c.instRegCount(inst)
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
@@ -217,8 +216,8 @@ func (c defaultCoalescer) addLaneInfo(
 		}
 
 		for j := 0; j < regCount; j++ {
-			addr := addrs[i] + uint64(j*4)
-			reg := insts.VReg(wf.Inst().Dst.Register.RegIndex() + j)
+			addr := c.readFlatAddr(wf, int(i)) + uint64(j*4)
+			reg := insts.VReg(inst.Dst.Register.RegIndex() + j)
 			if c.isInSameCacheLine(addr, req.Address) {
 				laneInfo := vectorMemAccessLaneInfo{
 					laneID:                int(i),
@@ -226,10 +225,52 @@ func (c defaultCoalescer) addLaneInfo(
 					regCount:              1,
 					addrOffsetInCacheLine: c.addrOffsetInCacheLine(addr),
 				}
-				transaction.laneInfo = append(transaction.laneInfo, laneInfo)
+				transaction.laneInfo = append(
+					transaction.laneInfo, laneInfo)
 			}
 		}
 	}
+}
+
+func (c defaultCoalescer) readFlatAddr(
+	wf *wavefront.Wavefront,
+	laneID int,
+) uint64 {
+	inst := wf.Inst()
+
+	// Handle SAddr mode.
+	// Use inst.Addr.RegCount to determine the addressing mode. The disassembler
+	// already resolves the architecture-dependent SADDR/OFF rule at decode time
+	// (see amd/insts/disassembler.go decodeFLAT, keyed on IsCDNA3), so:
+	//   RegCount=1 -> SAddr mode (scalar base + 32-bit VGPR offset)
+	//   RegCount=2 -> OFF mode   (64-bit VGPR pair as the full address)
+	// This requires the timing CU to decode with the correct arch; the MI300X
+	// timing config wires a CDNA3 disassembler via WithDecoderBuilder.
+	hasSAddr := inst.Addr.RegCount == 1
+	var scalarBase uint64
+	if hasSAddr && inst.SAddr != nil {
+		sAddrReg := int(inst.SAddr.IntValue)
+		sAddrOperand := insts.NewSRegOperand(sAddrReg, sAddrReg, 2)
+		scalarBase = wf.ReadOperand(sAddrOperand, 0)
+	}
+
+	var signedOffset int64
+	if inst.Offset0 != 0 {
+		signedOffset = int64(int32(inst.Offset0))
+	}
+
+	vgprAddr := wf.ReadOperand(inst.Addr, laneID)
+
+	var finalAddr uint64
+	if hasSAddr {
+		finalAddr = scalarBase + (vgprAddr & 0xFFFFFFFF)
+	} else {
+		finalAddr = vgprAddr
+	}
+
+	finalAddr = uint64(int64(finalAddr) + signedOffset)
+
+	return finalAddr
 }
 
 func (c defaultCoalescer) isInSameCacheLine(addr1, addr2 uint64) bool {
@@ -263,4 +304,8 @@ func (c defaultCoalescer) instRegCount(inst *insts.Inst) int {
 	default:
 		panic("not supported opcode")
 	}
+}
+
+func laneMasked(exec uint64, laneID uint) bool {
+	return exec&(1<<laneID) > 0
 }

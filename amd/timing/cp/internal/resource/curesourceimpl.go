@@ -3,15 +3,15 @@ package resource
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/kernels"
+	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // CUResourceImpl implements CUResource
 type CUResourceImpl struct {
 	sync.Mutex
 
-	port sim.RemotePort
+	port messaging.RemotePort
 
 	wfPoolFreeCount []int
 
@@ -32,7 +32,7 @@ type CUResourceImpl struct {
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
-func (r *CUResourceImpl) DispatchingPort() sim.RemotePort {
+func (r *CUResourceImpl) DispatchingPort() messaging.RemotePort {
 	return r.port
 }
 
@@ -96,7 +96,7 @@ func (r *CUResourceImpl) withinLDSLimitation(
 	locations []WfLocation,
 ) bool {
 	co := wg.CodeObject
-	required := r.unitsOccupy(int(co.WGGroupSegmentByteSize), r.ldsGranularity)
+	required := r.unitsOccupy(int(co.GroupSegmentByteSize), r.ldsGranularity)
 	offset, ok := r.ldsMask.nextRegion(required, allocStatusFree)
 	if !ok {
 		return false
@@ -213,7 +213,7 @@ func (r *CUResourceImpl) FreeResourcesForWG(wg *kernels.WorkGroup) {
 	for _, location := range locations {
 		r.wfPoolFreeCount[location.SIMDID]++
 
-		ldsUnits := r.unitsOccupy(int(co.WGGroupSegmentByteSize),
+		ldsUnits := r.unitsOccupy(int(co.GroupSegmentByteSize),
 			r.ldsGranularity)
 		r.ldsMask.setStatus(location.LDSOffset/r.ldsGranularity, ldsUnits,
 			allocStatusFree)

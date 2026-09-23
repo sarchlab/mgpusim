@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/amdappsdk/nbody"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/nbody"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 )
 
 var numIter = flag.Int("iter", 8, "The number of iterations to run.")
@@ -16,6 +16,7 @@ func main() {
 	runner := new(runner.Runner).Init()
 
 	benchmark := nbody.NewBenchmark(runner.Driver())
+	benchmark.Arch = runner.ArchType
 	benchmark.NumIterations = int32(*numIter)
 	benchmark.NumParticles = int32(*particles)
 
