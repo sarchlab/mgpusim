@@ -40,7 +40,7 @@ func H100() Device {
 			NumSMSPsPerSM:                      4,
 			L2CacheSize:                        50 * mem.MB,
 			NumMemoryBanks:                     4,
-			Log2CacheLineSize:                  9,
+			Log2CacheLineSize:                  7,
 			L2BankLatency:                      305,
 			DRAMLatency:                        490,
 			SMThreadCapacity:                   2048,

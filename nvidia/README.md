@@ -185,8 +185,8 @@ Flags:
 | --- | --- | --- |
 | `-trace-dir` | (required) | Directory that contains `kernelslist.g`. |
 | `-device` | `H100` | `H100` or `A100`. |
-| `-trace-vis` | `false` | Record a Daisen visualization trace. |
-| `-output` | `akita_sim_<id>` | Name of the SQLite database that Akita writes. |
+| `-trace-vis` | `false` | Record a Daisen visualization trace into an SQLite database. This makes the simulation much slower. |
+| `-output` | `akita_sim_<id>` | Name of that database (only with `-trace-vis`). |
 
 Opcodes the pipeline table does not know are mapped to the most similar known
 opcode, or to a one-cycle default, and reported once on stderr.

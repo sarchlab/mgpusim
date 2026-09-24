@@ -18,9 +18,9 @@ func main() {
 		"The directory that contains kernelslist.g and the .traceg files.")
 	device := flag.String("device", "H100", "The GPU to simulate: H100 or A100.")
 	visTracing := flag.Bool("trace-vis", false,
-		"Record a Daisen visualization trace into the output database.")
+		"Record a Daisen visualization trace into an SQLite database (slow).")
 	output := flag.String("output", "",
-		"The name of the SQLite database that Akita writes.")
+		"The name of the SQLite database written with -trace-vis.")
 	flag.Parse()
 
 	if err := run(*traceDir, *device, *visTracing, *output); err != nil {

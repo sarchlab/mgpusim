@@ -37,7 +37,7 @@ func MakeBuilder() SMBuilder {
 	return SMBuilder{
 		freq:              1 * timing.GHz,
 		smspsCount:        4,
-		log2CacheLineSize: 9,
+		log2CacheLineSize: 7,
 	}
 }
 
