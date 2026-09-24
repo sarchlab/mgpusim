@@ -2,6 +2,8 @@ package runner
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/sarchlab/akita/v5/modeling"
 	"github.com/sarchlab/akita/v5/simulation"
@@ -20,6 +22,9 @@ type Options struct {
 	// VisTracing records a Daisen visualization trace into an SQLite
 	// database. Tracing makes the simulation much slower.
 	VisTracing bool
+	// Progress, if not zero, prints the simulation status to stderr about
+	// this often (in wall-clock time).
+	Progress time.Duration
 	// OutputFile is the name of that database. An empty name lets Akita
 	// choose one. It is only used with VisTracing.
 	OutputFile string
@@ -44,6 +49,73 @@ func (r Result) Cycles() uint64 {
 // Seconds returns the simulated execution time in seconds.
 func (r Result) Seconds() float64 {
 	return float64(r.Time) * 1e-12
+}
+
+// progressStep is the simulated time between two progress checks.
+const progressStep = 10 * 1000 * 1000 // 10 us in ps
+
+// runEngine runs the simulation to the end. With progress reporting, it runs
+// the serial engine in slices of simulated time and prints the status after
+// a slice once the reporting interval has passed.
+func runEngine(
+	engine timing.Engine,
+	p *platform.Platform,
+	interval time.Duration,
+) error {
+	serial, ok := engine.(*timing.SerialEngine)
+	if interval <= 0 || !ok {
+		return engine.Run()
+	}
+
+	start := time.Now()
+	lastReport := start
+
+	for p.Driver.UnfinishedKernels() > 0 {
+		now := serial.CurrentTime()
+		if err := serial.RunUntil(now + progressStep); err != nil {
+			return err
+		}
+
+		if time.Since(lastReport) >= interval {
+			lastReport = time.Now()
+			printStatus(p, serial.CurrentTime(), time.Since(start))
+		}
+
+		if serial.CurrentTime() == now && p.Driver.UnfinishedKernels() > 0 {
+			printStatus(p, serial.CurrentTime(), time.Since(start))
+
+			return fmt.Errorf("no more events but %d kernel(s) did not finish",
+				p.Driver.UnfinishedKernels())
+		}
+	}
+
+	return engine.Run()
+}
+
+func printStatus(p *platform.Platform, now timing.VTimeInPicoSec, wall time.Duration) {
+	var insts uint64
+
+	var warps, unsent, inflight int
+
+	for _, g := range p.Devices {
+		for _, s := range g.SMList {
+			for _, sp := range s.SMSPs {
+				insts += sp.GetTotalInstsCount()
+				w, u, i := sp.Status()
+				warps += w
+				unsent += u
+				inflight += i
+			}
+		}
+	}
+
+	undispatched, unfinished := p.Devices[0].Status()
+
+	fmt.Fprintf(os.Stderr,
+		"[%6.1fs] sim %9.3f us | kernels left %d | TBs waiting %d, unfinished %d"+
+			" | warps %d | insts %d | mem unsent %d, in flight %d\n",
+		wall.Seconds(), float64(now)*1e-6, p.Driver.UnfinishedKernels(),
+		undispatched, unfinished, warps, insts, unsent, inflight)
 }
 
 // newSimulation creates the engine and the registrar that components are
@@ -97,7 +169,7 @@ func Run(opts Options) (Result, error) {
 
 	p.Driver.TickLater()
 
-	if err := engine.Run(); err != nil {
+	if err := runEngine(engine, p, opts.Progress); err != nil {
 		return result, fmt.Errorf("simulation failed: %w", err)
 	}
 

@@ -95,3 +95,22 @@ var _ = Describe("Trace reader with tracer version 6", func() {
 		Expect(ldg.MemAddressSuffix1).To(Equal(4))
 	})
 })
+
+var _ = Describe("Trace reader with cluster lines", func() {
+	It("should read the warps that follow the cluster lines", func() {
+		// Excerpt of a trace written by post-traces-processing for NVBit
+		// 1.8, which puts cluster id/cta/rank lines after "thread block".
+		metas := new(trace.TraceReaderBuilder).
+			WithTraceDirectory("testdata/atax-v5").
+			Build().
+			GetExecMetas()
+		kernel := trace.ReadTrace(metas[2])
+
+		Expect(kernel.FileHeader.AccelsimTracerVersion).To(Equal("5"))
+		Expect(kernel.ThreadblocksCount()).To(Equal(uint64(1)))
+		Expect(kernel.Threadblock(0).WarpsCount()).To(Equal(uint64(2)))
+		Expect(kernel.Threadblock(0).Warp(1).InstructionsCount()).
+			To(Equal(uint64(30)))
+	})
+})
+

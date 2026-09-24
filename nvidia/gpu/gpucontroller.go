@@ -258,3 +258,9 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 
 	return true
 }
+
+// Status reports the thread blocks that wait for an SM and the thread blocks
+// that have not finished yet.
+func (g *GPUController) Status() (undispatched, unfinished uint64) {
+	return uint64(len(g.undispatchedThreadblocks)), g.unfinishedThreadblocksCount
+}

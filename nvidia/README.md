@@ -185,6 +185,7 @@ Flags:
 | --- | --- | --- |
 | `-trace-dir` | (required) | Directory that contains `kernelslist.g`. |
 | `-device` | `H100` | `H100` or `A100`. |
+| `-progress` | off | Print the progress (simulated time, finished kernels, running warps, issued instructions, memory requests in flight) to stderr at this interval, e.g. `-progress 5s`. |
 | `-trace-vis` | `false` | Record a Daisen visualization trace into an SQLite database. This makes the simulation much slower. |
 | `-output` | `akita_sim_<id>` | Name of that database (only with `-trace-vis`). |
 

@@ -117,7 +117,7 @@ func (s *SMController) processSMSPsInput() bool {
 // that grow with the number of SMSPs the thread block occupies.
 func (s *SMController) processThreadblock(tb *trace.ThreadblockTrace) {
 	if s.CWDAdmissionPathCostLatencyRemaining == 0 {
-		nSMSPToUse := (tb.WarpsCount() + 15) / 16
+		nSMSPToUse := max((tb.WarpsCount()+15)/16, 1)
 		s.CWDAdmissionPathCostLatencyRemaining = 2*nSMSPToUse - 1
 
 		if s.CWDAdmissionPathCostLatencyRemaining > 0 {

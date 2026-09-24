@@ -19,17 +19,27 @@ func main() {
 	device := flag.String("device", "H100", "The GPU to simulate: H100 or A100.")
 	visTracing := flag.Bool("trace-vis", false,
 		"Record a Daisen visualization trace into an SQLite database (slow).")
+	progress := flag.Duration("progress", 0,
+		"Print the simulation status to stderr at this interval, e.g. 5s.")
 	output := flag.String("output", "",
 		"The name of the SQLite database written with -trace-vis.")
 	flag.Parse()
 
-	if err := run(*traceDir, *device, *visTracing, *output); err != nil {
+	opts := runner.Options{
+		TraceDir:   *traceDir,
+		VisTracing: *visTracing,
+		OutputFile: *output,
+		Progress:   *progress,
+	}
+
+	if err := run(opts, *device); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run(traceDir, deviceName string, visTracing bool, output string) error {
+func run(opts runner.Options, deviceName string) error {
+	traceDir := opts.TraceDir
 	if traceDir == "" {
 		return fmt.Errorf("-trace-dir is required")
 	}
@@ -45,12 +55,9 @@ func run(traceDir, deviceName string, visTracing bool, output string) error {
 		return err
 	}
 
-	result, err := runner.Run(runner.Options{
-		TraceDir:   traceDir,
-		Device:     device,
-		VisTracing: visTracing,
-		OutputFile: output,
-	})
+	opts.Device = device
+
+	result, err := runner.Run(opts)
 	if err != nil {
 		return err
 	}

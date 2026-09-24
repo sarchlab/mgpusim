@@ -346,3 +346,10 @@ func (s *SMSPController) writeReq(inst *trace.InstructionTrace) memprotocol.Writ
 func (s *SMSPController) GetTotalInstsCount() uint64 {
 	return s.instsCount
 }
+
+// Status reports how much work the SMSP holds: resident warps, memory
+// requests waiting to be sent, and memory requests waiting for a response.
+func (s *SMSPController) Status() (warps, unsentMem, inflightMem int) {
+	return len(s.scheduler.warpUnitList), len(s.unsentMemPipelines),
+		len(s.inflightMemPipelines)
+}

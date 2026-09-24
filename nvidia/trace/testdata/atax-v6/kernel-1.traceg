@@ -18,6 +18,9 @@
 #BEGIN_TB
 
 thread block = 0,0,0
+cluster id = 0,0,0
+cluster cta = 0,0,0
+cluster rank = 0
 
 warp = 0
 insts = 30

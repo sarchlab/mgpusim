@@ -40,3 +40,25 @@ func TestRunVectorAddTrace(t *testing.T) {
 		})
 	}
 }
+
+// A thread block whose warps were not parsed used to stall the SM forever,
+// so run the real-format traces end to end.
+func TestRunRealTraceFormats(t *testing.T) {
+	for _, dir := range []string{"atax-v5", "atax-v6"} {
+		t.Run(dir, func(t *testing.T) {
+			result, err := runner.Run(runner.Options{
+				TraceDir: "../trace/testdata/" + dir,
+				Device:   platform.H100(),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if result.NumWarps != 2 || result.NumInsts != 60 {
+				t.Errorf("expected 2 warps and 60 instructions, got %d and %d",
+					result.NumWarps, result.NumInsts)
+			}
+		})
+	}
+}
+

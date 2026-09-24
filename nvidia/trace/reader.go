@@ -209,12 +209,24 @@ func (r *kernelFileReader) readThreadblocks(kernel *KernelTrace) {
 		mustSscanf(r.scanner.Text(), "thread block = %d,%d,%d",
 			&tb.ID[0], &tb.ID[1], &tb.ID[2])
 
+		// Newer post-processors write cluster lines (cluster id, cluster
+		// cta, cluster rank) between the thread block and its first warp.
+		// Lines that are not warps are skipped until the thread block ends.
 		for r.nextNonEmptyLine() {
-			if !strings.HasPrefix(r.scanner.Text(), "warp") {
+			text := r.scanner.Text()
+			if strings.HasPrefix(text, "#END_TB") ||
+				strings.HasPrefix(text, "thread block") {
 				break
 			}
 
-			tb.Warps = append(tb.Warps, r.readWarp(tb.ID))
+			if strings.HasPrefix(text, "warp") {
+				tb.Warps = append(tb.Warps, r.readWarp(tb.ID))
+			}
+		}
+
+		if len(tb.Warps) == 0 {
+			panic(fmt.Sprintf("thread block %v in %s has no warps",
+				tb.ID, kernel.ID))
 		}
 
 		kernel.Threadblocks = append(kernel.Threadblocks, tb)

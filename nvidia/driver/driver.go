@@ -183,3 +183,8 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 
 	return true
 }
+
+// UnfinishedKernels returns the number of kernels that have not finished.
+func (d *Driver) UnfinishedKernels() uint64 {
+	return d.unfinishedKernelsCount
+}
