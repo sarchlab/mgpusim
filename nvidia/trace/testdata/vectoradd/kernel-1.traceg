@@ -1,0 +1,349 @@
+-kernel name = _Z9vectorAddPKfS0_Pfi
+-kernel id = 1
+-grid dim = (196,1,1)
+-block dim = (256,1,1)
+-shmem = 0
+-nregs = 12
+-binary version = 80
+-cuda stream id = 0
+-shmem base_addr = 0x00007fb139000000
+-local mem base_addr = 0x00007fb137000000
+-nvbit version = 1.7
+-accelsim tracer version = 5
+-enable lineinfo = 0
+
+#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses] immediate
+
+
+
+#BEGIN_TB
+
+thread block = 0,0,0
+
+warp = 0
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc430e00 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400000 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461c00 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 1
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc430e80 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400080 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461c80 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 2
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc430f00 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400100 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461d00 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 3
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc430f80 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400180 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461d80 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 4
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431000 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400200 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461e00 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 5
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431080 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400280 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461e80 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 6
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431100 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400300 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461f00 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 7
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431180 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400380 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc461f80 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 1,0,0
+
+warp = 0
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431200 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400400 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462000 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 1
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431280 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400480 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462080 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 2
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431300 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400500 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462100 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 3
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431380 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400580 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462180 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 4
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431400 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400600 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462200 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 5
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431480 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400680 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462280 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 6
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431500 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400700 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462300 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+warp = 7
+insts = 17
+0000 ffffffff 1 R1 MOV 0 0 0 
+0010 ffffffff 1 R6 S2R 0 0 0 
+0020 ffffffff 1 R3 S2R 0 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 0 
+0050 00000000 0 EXIT 0 0 0 
+0060 ffffffff 1 R7 HFMA2.MMA 2 R255 R255 0 0 
+0070 ffffffff 0 ULDC.64 0 0 0 
+0080 ffffffff 1 R4 IMAD.WIDE 2 R6 R7 0 0 
+0090 ffffffff 1 R2 IMAD.WIDE 2 R6 R7 0 0 
+00a0 ffffffff 1 R4 LDG.E 1 R4 4 1 0x7fb0fc431580 4 0 
+00b0 ffffffff 1 R3 LDG.E 1 R2 4 1 0x7fb0fc400780 4 0 
+00c0 ffffffff 1 R6 IMAD.WIDE 2 R6 R7 0 0 
+00d0 ffffffff 1 R0 FADD 2 R4 R3 0 0 
+00e0 ffffffff 1 R9 FADD 2 R255 R0 0 0 
+00f0 ffffffff 0 STG.E 2 R6 R9 4 1 0x7fb0fc462380 4 0 
+0100 ffffffff 0 EXIT 0 0 0 
+
+#END_TB

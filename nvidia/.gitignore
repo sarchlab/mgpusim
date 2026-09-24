@@ -1,0 +1,5 @@
+# Output of `go build` in this directory.
+/nvidia
+# CUDA benchmark binaries and traces collected by following README.md.
+/benchmarks/bin/
+/traces/
