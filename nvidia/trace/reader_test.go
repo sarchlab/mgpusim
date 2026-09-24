@@ -65,3 +65,33 @@ var _ = Describe("Trace reader", func() {
 		Expect(ldg.DestRegs).To(Equal([]trace.Register{{Name: "R4"}}))
 	})
 })
+
+var _ = Describe("Trace reader with tracer version 6", func() {
+	It("should parse a trace that carries register value columns", func() {
+		metas := new(trace.TraceReaderBuilder).
+			WithTraceDirectory("testdata/atax-v6").
+			Build().
+			GetExecMetas()
+		Expect(metas).To(HaveLen(3))
+
+		kernel := trace.ReadTrace(metas[2])
+		Expect(kernel.FileHeader.AccelsimTracerVersion).To(Equal("6"))
+		Expect(kernel.FileHeader.KernelName).To(Equal("atax_kernel1"))
+		Expect(kernel.ThreadblocksCount()).To(Equal(uint64(1)))
+		Expect(kernel.Threadblock(0).WarpsCount()).To(Equal(uint64(2)))
+
+		warp := kernel.Threadblock(0).Warp(1)
+		Expect(warp.InstructionsCount()).To(Equal(uint64(30)))
+
+		var ldg *trace.InstructionTrace
+		for _, inst := range warp.Instructions {
+			if inst.OpCode == "LDG.E" {
+				ldg = inst
+				break
+			}
+		}
+		Expect(ldg).NotTo(BeNil())
+		Expect(ldg.MemAddress).To(Equal(uint64(0x7f7b7dc40880)))
+		Expect(ldg.MemAddressSuffix1).To(Equal(4))
+	})
+})

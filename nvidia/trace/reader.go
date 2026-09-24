@@ -3,6 +3,7 @@ package trace
 import (
 	"bufio"
 	"fmt"
+	"math/bits"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -281,27 +282,46 @@ func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
 	return inst
 }
 
+// updateInstMemoryPart parses "mem_width [address_compress] [addresses]
+// immediate ...". Tracer version 5 ends the line with one immediate; version
+// 6 adds a second immediate and register values, which are ignored. The
+// number of addresses depends on the number of active threads in the mask:
+//
+//	compress 0: one address per active thread
+//	compress 1: base address and stride
+//	compress 2: base address and one delta per remaining active thread
 func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
 	inst.MemWidth = mustAtoi(elems[0])
+	next := 1
 
 	if inst.MemWidth != 0 {
 		inst.AddressCompress = mustAtoi(elems[1])
 		inst.MemAddress = mustParseHex(elems[2])
+		active := bits.OnesCount64(inst.Mask)
 
 		switch inst.AddressCompress {
+		case 0:
+			next = 2 + max(active, 1)
 		case 1:
 			inst.MemAddressSuffix1 = mustAtoi(elems[3])
+			next = 4
 		case 2:
-			for _, s := range elems[3 : len(elems)-1] {
+			next = 3 + max(active-1, 0)
+			for _, d := range elems[3:min(next, len(elems))] {
 				inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2,
-					int32(mustAtoi(s)))
+					int32(mustAtoi(d)))
 			}
+		default:
+			panic(fmt.Sprintf("unknown address compression %d",
+				inst.AddressCompress))
 		}
 	}
 
-	imm, err := strconv.ParseInt(elems[len(elems)-1], 0, 64)
-	if err == nil {
-		inst.Immediate = uint64(imm)
+	if next < len(elems) {
+		imm, err := strconv.ParseInt(elems[next], 0, 64)
+		if err == nil {
+			inst.Immediate = uint64(imm)
+		}
 	}
 }
 

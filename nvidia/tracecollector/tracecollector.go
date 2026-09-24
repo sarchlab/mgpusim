@@ -2,6 +2,11 @@
 // and turns the raw traces into the kernelslist.g + .traceg format that the
 // nvidia simulator reads. It must run on a machine with an NVIDIA GPU.
 //
+// The processing follows mnt-collector: move the files out of the tracer's
+// "traces" sub-directory, find the raw kernel list (kernelslist or
+// kernelslist_ctx_<ctx>), decompress the kernel-*.trace.xz files, write a
+// kernel list without the .xz suffixes, and run post-traces-processing on it.
+//
 // Usage:
 //
 //	go run ./nvidia/tracecollector \
@@ -23,7 +28,10 @@ import (
 	"strings"
 )
 
-const kernelsList = "kernelslist"
+const (
+	processedList  = "kernelslist_processed"
+	simulatorIndex = "kernelslist.g"
+)
 
 type options struct {
 	tracer    string
@@ -42,7 +50,7 @@ func main() {
 	flag.StringVar(&opts.outDir, "out", "",
 		"Output directory for the trace. It must not contain a trace yet.")
 	flag.BoolVar(&opts.keepRaw, "keep-raw", false,
-		"Keep the raw .trace files after post-processing.")
+		"Keep the raw traces and kernelslist_processed after post-processing.")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"Usage: %s [flags] -- <cuda program> [args...]\n", os.Args[0])
@@ -117,8 +125,9 @@ func validate(opts *options) error {
 		}
 	}
 
-	if fileExists(filepath.Join(opts.outDir, "kernelslist.g")) {
-		return fmt.Errorf("%s already contains a trace", opts.outDir)
+	if entries, err := os.ReadDir(opts.outDir); err == nil && len(entries) > 0 {
+		return fmt.Errorf("%s is not empty; remove it or choose another -out",
+			opts.outDir)
 	}
 
 	return nil
@@ -134,19 +143,24 @@ func runTraced(ctx context.Context, opts options) error {
 		"TRACES_FOLDER="+opts.outDir,
 	)
 
+	// Newer tracers record register values by default (trace version 6),
+	// which the simulator does not need. Older tracers ignore the variable.
+	if _, set := os.LookupEnv("ALLOW_REG_VAL_TRACING"); !set {
+		cmd.Env = append(cmd.Env, "ALLOW_REG_VAL_TRACING=0")
+	}
+
 	return cmd.Run()
 }
 
-// hoistTracesFolder moves the files out of <out>/traces for tracer versions
-// that always write into a "traces" sub-directory.
+// hoistTracesFolder moves the files out of <out>/traces, where the tracer
+// writes them when TRACES_FOLDER is set.
 func hoistTracesFolder(outDir string) error {
 	sub := filepath.Join(outDir, "traces")
-	if !fileExists(filepath.Join(sub, kernelsList)) {
-		return nil
-	}
 
 	entries, err := os.ReadDir(sub)
-	if err != nil {
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -160,15 +174,147 @@ func hoistTracesFolder(outDir string) error {
 	return os.Remove(sub)
 }
 
-// decompress unpacks kernel-*.trace.xz files and rewrites kernelslist so that
-// it lists the uncompressed files.
-func decompress(ctx context.Context, outDir string) error {
-	listPath := filepath.Join(outDir, kernelsList)
-
-	lines, err := readLines(listPath)
+// findRawKernelsList finds the kernel list written by the tracer. Depending
+// on the tracer version it is called kernelslist or kernelslist_ctx_<ctx>.
+func findRawKernelsList(outDir string) (string, error) {
+	matches, err := filepath.Glob(filepath.Join(outDir, "kernelslist*"))
 	if err != nil {
-		return fmt.Errorf("the tracer did not write %s; did the program "+
-			"launch any kernel on the GPU? %w", listPath, err)
+		return "", err
+	}
+
+	var lists []string
+
+	for _, m := range matches {
+		base := filepath.Base(m)
+		if strings.HasSuffix(base, ".g") || base == processedList {
+			continue
+		}
+
+		lists = append(lists, m)
+	}
+
+	switch len(lists) {
+	case 0:
+		return "", fmt.Errorf("the tracer did not write a kernelslist file in %s; "+
+			"did the program launch any kernel on the GPU?", outDir)
+	case 1:
+		return lists[0], nil
+	default:
+		return "", fmt.Errorf("found %d kernel lists (%s): the program used "+
+			"more than one CUDA context, which is not supported",
+			len(lists), strings.Join(lists, ", "))
+	}
+}
+
+// decompress unpacks the kernel-*.trace.xz files listed in the raw kernel list
+// and writes kernelslist_processed, which lists the uncompressed files.
+func decompress(ctx context.Context, outDir string) error {
+	rawList, err := findRawKernelsList(outDir)
+	if err != nil {
+		return err
+	}
+
+	lines, err := readLines(rawList)
+	if err != nil {
+		return err
+	}
+
+	for i, line := range lines {
+		name := strings.TrimSpace(line)
+		lines[i] = name
+
+		if !strings.HasPrefix(name, "kernel") || !strings.HasSuffix(name, ".xz") {
+			continue
+		}
+
+		if err := unxz(ctx, filepath.Join(outDir, name)); err != nil {
+			return err
+		}
+
+		lines[i] = strings.TrimSuffix(name, ".xz")
+	}
+
+	return os.WriteFile(filepath.Join(outDir, processedList),
+		[]byte(strings.Join(lines, "\n")+"\n"), 0o644)
+}
+
+func unxz(ctx context.Context, path string) error {
+	cmd := exec.CommandContext(ctx, "xz", "-d", "-f", path)
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to decompress %s: %w", path, err)
+	}
+
+	return nil
+}
+
+// postProcess runs post-traces-processing on kernelslist_processed. Older
+// versions always write plain-text .traceg files. Newer versions write
+// compressed .tracez files unless given --text, so postProcess reruns them
+// with --text when needed.
+func postProcess(ctx context.Context, opts options) error {
+	listPath := filepath.Join(opts.outDir, processedList)
+
+	if err := runProcessor(ctx, opts.processor, listPath); err != nil {
+		return err
+	}
+
+	if usesTracez(opts.outDir) {
+		fmt.Println("The post-processor wrote .tracez files; rerunning it with --text.")
+
+		if err := runProcessor(ctx, opts.processor, listPath, "--text"); err != nil {
+			return err
+		}
+	}
+
+	if err := decompressProcessed(ctx, opts.outDir); err != nil {
+		return err
+	}
+
+	if err := checkProcessedTrace(opts.outDir); err != nil {
+		return err
+	}
+
+	return removeIntermediateFiles(opts)
+}
+
+func runProcessor(ctx context.Context, processor string, args ...string) error {
+	cmd := exec.CommandContext(ctx, processor, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("post-processing failed: %w", err)
+	}
+
+	return nil
+}
+
+func usesTracez(outDir string) bool {
+	lines, err := readLines(filepath.Join(outDir, simulatorIndex))
+	if err != nil {
+		return false
+	}
+
+	for _, line := range lines {
+		if strings.HasSuffix(strings.TrimSpace(line), ".tracez") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// decompressProcessed unpacks .traceg.xz files, which some post-processor
+// versions write when their input is compressed.
+func decompressProcessed(ctx context.Context, outDir string) error {
+	indexPath := filepath.Join(outDir, simulatorIndex)
+
+	lines, err := readLines(indexPath)
+	if err != nil {
+		return fmt.Errorf("post-processing did not produce %s: %w",
+			simulatorIndex, err)
 	}
 
 	changed := false
@@ -179,11 +325,8 @@ func decompress(ctx context.Context, outDir string) error {
 			continue
 		}
 
-		cmd := exec.CommandContext(ctx, "xz", "-d", "-f", filepath.Join(outDir, name))
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to decompress %s: %w", name, err)
+		if err := unxz(ctx, filepath.Join(outDir, name)); err != nil {
+			return err
 		}
 
 		lines[i] = strings.TrimSuffix(name, ".xz")
@@ -194,36 +337,29 @@ func decompress(ctx context.Context, outDir string) error {
 		return nil
 	}
 
-	return os.WriteFile(listPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	return os.WriteFile(indexPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
-func postProcess(ctx context.Context, opts options) error {
-	listPath := filepath.Join(opts.outDir, kernelsList)
-
-	cmd := exec.CommandContext(ctx, opts.processor, listPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("post-processing failed: %w", err)
-	}
-
-	if err := checkProcessedTrace(opts.outDir); err != nil {
-		return err
-	}
-
+// removeIntermediateFiles deletes the raw traces and the processed kernel
+// list, as mnt-collector did. The tracer's own kernel list and stats file
+// are small and kept for reference.
+func removeIntermediateFiles(opts options) error {
 	if opts.keepRaw {
 		return nil
 	}
 
-	raw, err := filepath.Glob(filepath.Join(opts.outDir, "kernel-*.trace"))
-	if err != nil {
-		return err
-	}
+	patterns := []string{"kernel-*.trace", "kernel-*.trace.xz", processedList}
 
-	for _, f := range raw {
-		if err := os.Remove(f); err != nil {
+	for _, pattern := range patterns {
+		files, err := filepath.Glob(filepath.Join(opts.outDir, pattern))
+		if err != nil {
 			return err
+		}
+
+		for _, f := range files {
+			if err := os.Remove(f); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -233,9 +369,10 @@ func postProcess(ctx context.Context, opts options) error {
 // checkProcessedTrace makes sure that the post-processor wrote plain-text
 // .traceg files, which is the only format the simulator reads.
 func checkProcessedTrace(outDir string) error {
-	lines, err := readLines(filepath.Join(outDir, "kernelslist.g"))
+	lines, err := readLines(filepath.Join(outDir, simulatorIndex))
 	if err != nil {
-		return fmt.Errorf("post-processing did not produce kernelslist.g: %w", err)
+		return fmt.Errorf("post-processing did not produce %s: %w",
+			simulatorIndex, err)
 	}
 
 	for _, line := range lines {

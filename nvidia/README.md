@@ -84,27 +84,42 @@ own result. Run one natively to check the GPU and the build; it should print
 ./nvidia/benchmarks/bin/atax -x 256 -y 256
 ```
 
-### 3. Build the Accel-Sim NVBit tracer (once per server)
+### 3. Get the Accel-Sim NVBit tracer (once per server)
 
-Clone Accel-Sim outside the mgpusim repository and build its tracer. The
-simulator reads version 5 traces, which the `dev` branch produces. See
-Accel-Sim's `util/tracer_nvbit/README.md` if the build fails.
+You need two tools from Accel-Sim: the tracer `tracer_tool.so` and the
+post-processor `post-traces-processing`. Either of these works:
 
-```bash
-git clone -b dev https://github.com/accel-sim/accel-sim-framework.git ~/accel-sim-framework
-cd ~/accel-sim-framework/util/tracer_nvbit
-export CUDA_INSTALL_PATH=/usr/local/cuda   # adjust to your CUDA install
-./install_nvbit.sh
-make
-cd -
-```
+- **Tools you already have.** If the server has the pair that mnt-collector used
+  (its `lib/tracer_tool.so` and `lib/post-traces-processing`), use them.
+- **Build them.** Clone Accel-Sim outside the mgpusim repository and build its
+  tracer (see Accel-Sim's `util/tracer_nvbit/README.md` if the build fails):
 
-Then point the trace collector at the two tools the build produced:
+  ```bash
+  git clone -b dev https://github.com/accel-sim/accel-sim-framework.git ~/accel-sim-framework
+  cd ~/accel-sim-framework/util/tracer_nvbit
+  export CUDA_INSTALL_PATH=/usr/local/cuda   # adjust to your CUDA install
+  ./install_nvbit.sh
+  make
+  cd -
+  ```
+
+Point the trace collector at the two tools, for example:
 
 ```bash
 export TRACER_TOOL=~/accel-sim-framework/util/tracer_nvbit/tracer_tool/tracer_tool.so
 export TRACE_PROCESSOR=~/accel-sim-framework/util/tracer_nvbit/tracer_tool/traces-processing/post-traces-processing
 ```
+
+Older and newer tracer builds differ in file names and formats. The trace
+collector handles both:
+
+| | Older builds (e.g., mnt-collector's) | Newer builds (`dev` branch) |
+| --- | --- | --- |
+| Raw kernel list | `traces/kernelslist` | `traces/kernelslist_ctx_<ctx>` |
+| Trace version | 5 | 6 (adds register values; the collector sets `ALLOW_REG_VAL_TRACING=0` to get 5) |
+| Post-processor output | `.traceg` (text) | `.tracez` unless given `--text` (the collector reruns it with `--text`) |
+
+The simulator reads version 5 and version 6 `.traceg` files.
 
 ### 4. Collect a trace
 
@@ -116,15 +131,29 @@ go run ./nvidia/tracecollector -out nvidia/traces/pathfinder-64x1024 -- \
     nvidia/benchmarks/bin/pathfinder -rows 64 -cols 1024
 ```
 
-`tracecollector` runs the program with `LD_PRELOAD` set to the tracer,
-decompresses the raw traces, runs the post-processor, and removes the raw
-`.trace` files (pass `-keep-raw` to keep them). The result is a directory like:
+The `-out` directory must not exist yet or be empty; delete it to retry.
+`tracecollector` follows the steps of mnt-collector:
+
+1. Runs the program with `LD_PRELOAD` set to the tracer and
+   `TRACES_FOLDER=<out>`.
+2. Moves the files out of `<out>/traces/`.
+3. Finds the raw kernel list (`kernelslist*`), decompresses every
+   `kernel-*.trace.xz` it lists, and writes `kernelslist_processed` without the
+   `.xz` suffixes.
+4. Runs the post-processor on `kernelslist_processed`, which writes
+   `kernelslist.g` and one `.traceg` per kernel.
+5. Removes the raw traces and `kernelslist_processed` (pass `-keep-raw` to keep
+   them).
+
+The result is a directory like:
 
 ```
 nvidia/traces/atax-256/
-├── kernelslist.g          # memory copies and kernel launches, in order
+├── kernelslist.g                    # memory copies and kernel launches, in order
 ├── kernel-1-ctx_0x....traceg
-└── kernel-2-ctx_0x....traceg
+├── kernel-2-ctx_0x....traceg
+├── kernelslist_ctx_0x...            # the tracer's own list (kept for reference)
+└── stats_ctx_0x...                  # the tracer's per-kernel statistics
 ```
 
 Flags can replace the environment variables: `-tracer <tracer_tool.so>` and
