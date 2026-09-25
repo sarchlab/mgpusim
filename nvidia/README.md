@@ -10,6 +10,28 @@ cache banks, and DRAM. It reports the simulated execution time.
 The model is not calibrated. Treat the reported time as a relative number, not
 a prediction of real hardware.
 
+> [!WARNING]
+> The memory model is incomplete. Until the issues below are fixed, the
+> simulated time of memory-bound kernels is too low, and even comparisons
+> between runs can be misleading. Do not draw performance conclusions from it.
+>
+> - Only one address per warp instruction is simulated; the other active lanes
+>   are dropped and accesses are not coalesced
+>   ([#298](https://github.com/sarchlab/mgpusim/issues/298)).
+> - Shared-memory and local-memory accesses go through the L1/L2/DRAM hierarchy
+>   like global accesses
+>   ([#301](https://github.com/sarchlab/mgpusim/issues/301)).
+> - Whether an instruction reaches memory is decided by fuzzy opcode matching,
+>   so an unknown opcode can skip memory or send a bogus request
+>   ([#302](https://github.com/sarchlab/mgpusim/issues/302)).
+>
+> Other simplifications (unlimited issue width, no barrier synchronization,
+> one L1 per SMSP, ...) are tracked in
+> [#303](https://github.com/sarchlab/mgpusim/issues/303).
+>
+> Collect traces with `TRACE_LINEINFO=0`; line-info traces do not parse yet
+> ([#299](https://github.com/sarchlab/mgpusim/issues/299)).
+
 ## Layout
 
 | Path | What it is |
