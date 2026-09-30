@@ -69,9 +69,14 @@ func (d *Driver) Run() {
 	go d.runAsync()
 }
 
-// Terminate stops the driver thread execution.
+// Terminate stops command dispatch and waits for the engine's remaining events
+// and tracing hooks before ending the simulation. Call it after all submitting
+// goroutines have returned and before terminating the simulation's tracers.
 func (d *Driver) Terminate() {
 	d.driverStopped <- true
+	// Once runAsync receives the stop signal, it cannot launch another engine
+	// goroutine. Drain the existing one before callers release its resources.
+	d.WaitForEngineIdle()
 	d.logSimulationTerminate()
 }
 
