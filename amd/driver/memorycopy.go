@@ -258,21 +258,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
 
 	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
 
-	copyCmd := cmd.(*MemCopyH2DCommand)
-	newReqs := make([]messaging.Msg, 0, len(copyCmd.Reqs)-1)
-	for _, r := range copyCmd.GetReqs() {
-		if r.Meta().ID != req.Meta().ID {
-			newReqs = append(newReqs, r)
-		}
-	}
-	copyCmd.Reqs = newReqs
-
-	if len(copyCmd.Reqs) == 0 {
-		cmdQueue.IsRunning = false
-		cmdQueue.Dequeue()
-
-		m.driver.logCmdComplete(cmd)
-	}
+	cmd.RemoveReq(req)
+	m.completeCopyIfReady(cmd, cmdQueue)
 
 	return true
 }
@@ -286,21 +273,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
 
 	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
 
-	copyCmd := cmd.(*MemCopyD2HCommand)
-	copyCmd.RemoveReq(req)
-
-	if len(copyCmd.Reqs) == 0 {
-		cmdQueue.IsRunning = false
-		buf := bytes.NewReader(copyCmd.RawData)
-		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
-		if err != nil {
-			panic(err)
-		}
-
-		cmdQueue.Dequeue()
-
-		m.driver.logCmdComplete(copyCmd)
-	}
+	cmd.RemoveReq(req)
+	m.completeCopyIfReady(cmd, cmdQueue)
 
 	return true
 }
@@ -312,11 +286,34 @@ func (m *defaultMemoryCopyMiddleware) processFlushReturn(
 
 	m.driver.logTaskToGPUClear(req)
 
-	_, cmd, _ := m.driver.findCommandByReqID(req.Meta().ID)
+	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
 
 	cmd.RemoveReq(req)
-
-	m.driver.logTaskToGPUClear(req)
+	m.completeCopyIfReady(cmd, cmdQueue)
 
 	return true
+}
+
+// completeCopyIfReady handles both data-copy and cache-flush replies. A copy
+// spans multiple GPUs, so a flush reply may be the last outstanding request.
+// Completing only on a data-copy reply leaves the queue permanently running
+// when a remote GPU finishes flushing after the data transfer.
+func (m *defaultMemoryCopyMiddleware) completeCopyIfReady(
+	cmd Command,
+	queue *CommandQueue,
+) {
+	if len(cmd.GetReqs()) != 0 {
+		return
+	}
+
+	if copyCmd, ok := cmd.(*MemCopyD2HCommand); ok {
+		buf := bytes.NewReader(copyCmd.RawData)
+		if err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst); err != nil {
+			panic(err)
+		}
+	}
+
+	queue.IsRunning = false
+	queue.Dequeue()
+	m.driver.logCmdComplete(cmd)
 }

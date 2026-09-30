@@ -312,6 +312,70 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 	})
 
+	ginkgo.DescribeTable("complete memory copy regardless of response order",
+		func(deviceToHost bool, order []int) {
+			data := uint32(0)
+			payload := []byte{0x78, 0x56, 0x34, 0x12}
+			var copyReq messaging.Msg
+			var cmd Command
+			if deviceToHost {
+				copyReq = makeMemCopyD2HReq(0x100, payload)
+				cmd = &MemCopyD2HCommand{
+					ID:  timing.GetIDGenerator().Generate(),
+					Src: Ptr(0x100), Dst: &data, RawData: payload,
+				}
+			} else {
+				copyReq = makeMemCopyH2DReq(0x100, payload)
+				cmd = &MemCopyH2DCommand{
+					ID:  timing.GetIDGenerator().Generate(),
+					Dst: Ptr(0x100), Src: uint32(0x12345678),
+				}
+			}
+			reqs := []messaging.Msg{copyReq}
+			for _, gpu := range driver.GPUs {
+				reqs = append(reqs, protocol.FlushReq{MsgMeta: messaging.MsgMeta{
+					ID: timing.GetIDGenerator().Generate(), Src: toGPUs.AsRemote(), Dst: gpu,
+				}})
+			}
+			for _, req := range reqs {
+				cmd.AddReq(req)
+			}
+			cmdQueue.Enqueue(cmd)
+			cmdQueue.Enqueue(&NoopCommand{ID: timing.GetIDGenerator().Generate()})
+			cmdQueue.IsRunning = true
+
+			for i, index := range order {
+				deliverGeneralRsp(reqs[index].Meta().ID)
+				driver.Tick()
+				Expect(cmd.GetReqs()).To(HaveLen(len(order) - i - 1))
+				if i < len(order)-1 {
+					Expect(cmdQueue.IsRunning).To(BeTrue())
+					Expect(cmdQueue.NumCommand()).To(Equal(2))
+					Expect(data).To(BeZero())
+				}
+			}
+			// The last reply must release the copy and allow the next command
+			// to run, including when the last reply acknowledges a remote flush.
+			Expect(cmdQueue.IsRunning).To(BeFalse())
+			Expect(cmdQueue.NumCommand()).To(BeZero())
+			if deviceToHost {
+				Expect(data).To(Equal(uint32(0x12345678)))
+			}
+		},
+		ginkgo.Entry("H2D copy, flush 1, flush 2", false, []int{0, 1, 2}),
+		ginkgo.Entry("H2D copy, flush 2, flush 1", false, []int{0, 2, 1}),
+		ginkgo.Entry("H2D flush 1, copy, flush 2", false, []int{1, 0, 2}),
+		ginkgo.Entry("H2D flush 2, copy, flush 1", false, []int{2, 0, 1}),
+		ginkgo.Entry("H2D flush 1, flush 2, copy", false, []int{1, 2, 0}),
+		ginkgo.Entry("H2D flush 2, flush 1, copy", false, []int{2, 1, 0}),
+		ginkgo.Entry("D2H copy, flush 1, flush 2", true, []int{0, 1, 2}),
+		ginkgo.Entry("D2H copy, flush 2, flush 1", true, []int{0, 2, 1}),
+		ginkgo.Entry("D2H flush 1, copy, flush 2", true, []int{1, 0, 2}),
+		ginkgo.Entry("D2H flush 2, copy, flush 1", true, []int{2, 0, 1}),
+		ginkgo.Entry("D2H flush 1, flush 2, copy", true, []int{1, 2, 0}),
+		ginkgo.Entry("D2H flush 2, flush 1, copy", true, []int{2, 1, 0}),
+	)
+
 	ginkgo.Context("process LaunchKernelCommand", func() {
 		ginkgo.It("should send request to GPU", func() {
 			cmd := &LaunchKernelCommand{
