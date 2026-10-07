@@ -1,4 +1,4 @@
-==PROF== Connected to process 12345 (/home/u/mgpusim/nvidia/benchmarks/bin/atax)
+==PROF== Connected to process 12345 (/home/u/mgpusim/nvidia/benchmarks/bin/polybench-atax)
 ==PROF== Profiling "atax_kernel1": 0%....50%....100% - 1 pass
 ==PROF== Profiling "atax_kernel2": 0%....50%....100% - 1 pass
 ==PROF== Disconnected from process 12345

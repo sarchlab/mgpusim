@@ -11,7 +11,7 @@ CUDA host program `lavamd.cu` for the Rodinia LavaMD benchmark. The GPU kernels 
 | Host code follows | `amd/benchmarks/rodinia/lavamd/lavamd.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/lavamd` |
+| Binary | `nvidia/benchmarks/bin/rodinia-lavamd` |
 | Usage | `lavamd [-num-boxes B] [-particles-per-box P]` |
 
 ## Differences from the AMD host code

@@ -11,7 +11,7 @@ CUDA host program `jacobi2d.cu` for the PolyBench/GPU JACOBI-2D benchmark. The G
 | Host code follows | `amd/benchmarks/polybench/jacobi2d/jacobi2d.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/jacobi2d` |
+| Binary | `nvidia/benchmarks/bin/polybench-jacobi2d` |
 | Usage | `jacobi2d [-size N] [-tsteps T]` |
 
 ## Differences from the AMD host code

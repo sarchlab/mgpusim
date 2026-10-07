@@ -11,7 +11,7 @@ CUDA host program `hotspot.cu` for the Rodinia HotSpot benchmark. The GPU kernel
 | Host code follows | `amd/benchmarks/rodinia/hotspot/hotspot.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/hotspot` |
+| Binary | `nvidia/benchmarks/bin/rodinia-hotspot` |
 | Usage | `hotspot [-size N] [-iterations I]` |
 
 ## Differences from the AMD host code

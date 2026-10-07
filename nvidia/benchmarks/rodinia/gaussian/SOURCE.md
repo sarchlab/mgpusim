@@ -11,7 +11,7 @@ CUDA host program `gaussian.cu` for the Rodinia Gaussian benchmark. The GPU kern
 | Host code follows | `amd/benchmarks/rodinia/gaussian/gaussian.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/gaussian` |
+| Binary | `nvidia/benchmarks/bin/rodinia-gaussian` |
 | Usage | `gaussian [-size N]` |
 
 ## Differences from the AMD host code

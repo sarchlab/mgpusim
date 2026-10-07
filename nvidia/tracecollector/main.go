@@ -18,7 +18,7 @@
 //	    -tracer    <accel-sim>/util/tracer_nvbit/tracer_tool/tracer_tool.so \
 //	    -processor <accel-sim>/util/tracer_nvbit/tracer_tool/traces-processing/post-traces-processing \
 //	    -out traces/atax \
-//	    -- nvidia/benchmarks/bin/atax -x 256 -y 256
+//	    -- nvidia/benchmarks/bin/polybench-atax -x 256 -y 256
 package main
 
 import (

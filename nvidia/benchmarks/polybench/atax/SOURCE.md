@@ -11,7 +11,7 @@ CUDA host program `atax.cu` for the PolyBench/GPU ATAX benchmark. The GPU kernel
 | Host code follows | `amd/benchmarks/polybench/atax/benchmark.go` |
 | Host code version | commit `7d8578f7` (2026-06-15) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/atax` |
+| Binary | `nvidia/benchmarks/bin/polybench-atax` |
 | Usage | `atax [-x NX] [-y NY]` |
 
 ## Differences from the AMD host code

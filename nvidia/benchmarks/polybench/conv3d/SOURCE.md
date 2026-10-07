@@ -11,7 +11,7 @@ CUDA host program `conv3d.cu` for the PolyBench/GPU 3DCONV benchmark. The GPU ke
 | Host code follows | `amd/benchmarks/polybench/conv3d/conv3d.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/conv3d` |
+| Binary | `nvidia/benchmarks/bin/polybench-conv3d` |
 | Usage | `conv3d [-size N] [-filter-size F]` |
 
 ## Differences from the AMD host code

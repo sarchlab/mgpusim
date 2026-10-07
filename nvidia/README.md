@@ -77,14 +77,15 @@ make -C nvidia/benchmarks            # H100 (sm_90)
 # make -C nvidia/benchmarks ARCH=sm_80   # A100
 ```
 
-This creates one binary per benchmark in `nvidia/benchmarks/bin/`
-(`make -C nvidia/benchmarks list` prints the names, and
-`make -C nvidia/benchmarks bin/gemm` builds just one). Each program checks its
+This creates one binary per benchmark, named `<suite>-<benchmark>`, in
+`nvidia/benchmarks/bin/` (for example `bin/polybench-atax` and
+`bin/rodinia-pathfinder`). `make -C nvidia/benchmarks list` prints the names,
+and `make -C nvidia/benchmarks bin/polybench-gemm` builds just one. Each program checks its
 own result. Run one natively to check the GPU and the build; it should print
 `Passed!`:
 
 ```bash
-./nvidia/benchmarks/bin/atax -x 256 -y 256
+./nvidia/benchmarks/bin/polybench-atax -x 256 -y 256
 ```
 
 ### 3. Get the Accel-Sim NVBit tracer (once per server)
@@ -128,10 +129,10 @@ The simulator reads version 5 and version 6 `.traceg` files.
 
 ```bash
 go run ./nvidia/tracecollector -out nvidia/traces/atax-256 -- \
-    nvidia/benchmarks/bin/atax -x 256 -y 256
+    nvidia/benchmarks/bin/polybench-atax -x 256 -y 256
 
 go run ./nvidia/tracecollector -out nvidia/traces/pathfinder-64x1024 -- \
-    nvidia/benchmarks/bin/pathfinder -rows 64 -cols 1024
+    nvidia/benchmarks/bin/rodinia-pathfinder -rows 64 -cols 1024
 ```
 
 `tracecollector` runs the program twice, because the NVBit tracer and Nsight
@@ -236,7 +237,7 @@ print `0`. Then add the profile to an existing trace without tracing again:
 
 ```bash
 go run ./nvidia/tracecollector -profile-only -out nvidia/traces/atax-256 -- \
-    nvidia/benchmarks/bin/atax -x 256 -y 256
+    nvidia/benchmarks/bin/polybench-atax -x 256 -y 256
 ```
 
 #### Collecting only the trace or only the profile

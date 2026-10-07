@@ -11,7 +11,7 @@ CUDA host program `gramschmidt.cu` for the PolyBench/GPU GRAMSCHM benchmark. The
 | Host code follows | `amd/benchmarks/polybench/gramschmidt/gramschmidt.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/gramschmidt` |
+| Binary | `nvidia/benchmarks/bin/polybench-gramschmidt` |
 | Usage | `gramschmidt [-m M] [-n N]` |
 
 ## Differences from the AMD host code
