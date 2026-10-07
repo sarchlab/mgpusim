@@ -3,3 +3,6 @@
 # CUDA benchmark binaries and traces collected by following README.md.
 /benchmarks/bin/
 /traces/
+data/
+eval/
+count.py

@@ -67,3 +67,7 @@ _akita_local/
 
 # hipcc linker intermediate
 *.resolution.txt
+
+# NVIDIA scripts
+scripts/
+mnt-collector/
