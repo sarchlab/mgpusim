@@ -142,7 +142,7 @@ Compute cannot instrument the same run:
 2. **Profile**: under Nsight Compute (`ncu`), measuring every kernel on the
    real GPU. This is the hardware number to compare the simulation with.
 
-At the end it prints two reports, for example:
+At the end it prints two reports, for example (atax on an H100):
 
 ```
 # Trace Info
@@ -155,15 +155,15 @@ Simulate with:  ./nvidia/nvidia -trace-dir /home/enze/workspace/mgpusim/nvidia/t
 
 # Profile Info
 Status:         OK
-Tool:           /usr/local/cuda/bin/ncu (Version ...)
+Tool:           /usr/local/cuda-12.5/bin/ncu (Version 2025.2.1.0 (build 35987062) (public-release))
 Kernels:        2
   ID   Kernel               Cycles    Duration (us)
-  0    atax_kernel1          ...              ...
-  1    atax_kernel2          ...              ...
-Total cycles:   ...
-Total duration: ... us
-Average clock:  ... MHz (total cycles / total duration)
-Saved:          .../atax-256/profile.txt, .../atax-256/profile_ncu.csv
+  0    atax_kernel1          84814           77.504
+  1    atax_kernel2         153149          139.904
+Total cycles:   237963
+Total duration: 217.408 us
+Average clock:  1095 MHz (total cycles / total duration)
+Saved:          /home/enze/workspace/mgpusim/nvidia/traces/atax-256/profile.txt, /home/enze/workspace/mgpusim/nvidia/traces/atax-256/profile_ncu.csv
 ```
 
 - **Trace size** is the size of everything the simulator reads
@@ -189,18 +189,64 @@ Status:         Not available: ncu not found in PATH, /usr/local/cuda*/bin, or /
 
 Common reasons are: ncu is not installed or not found (pass `-ncu <path>`
 or set `NCU`), no GPU is visible (checked with `nvidia-smi -L`), the user may
-not read GPU performance counters (`ERR_NVGPUCTRPERM`: run the command with
-`sudo`, or ask the admin to set the driver option
-`NVreg_RestrictProfilingToAdminUsers=0`), or the program failed. ncu's output
-of a failed profile is kept as `profile_ncu_failed.log`, and it never replaces
-an earlier good `profile.txt` or `profile_ncu.csv`.
+not read GPU performance counters (`ERR_NVGPUCTRPERM`, see below), or the
+program failed. ncu's output of a failed profile is kept as
+`profile_ncu_failed.log`, and it never replaces an earlier good `profile.txt`
+or `profile_ncu.csv`.
 
-To do only one of the two runs:
+#### Fixing `ERR_NVGPUCTRPERM` (no permission to read performance counters)
+
+By default the NVIDIA driver lets only administrators read the GPU performance
+counters that ncu needs, so profiling fails with:
+
+```
+Status:         Not available: ncu: ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters ...
+```
+
+Check the setting; `1` means admins only, `0` means every user may profile:
+
+```bash
+grep RmProfilingAdminOnly /proc/driver/nvidia/params
+```
+
+To allow every user, reload the NVIDIA driver once with
+`NVreg_RestrictProfilingToAdminUsers=0`. This needs `sudo` only for these two
+commands; tracecollector itself then runs as a normal user.
+
+```bash
+sudo modprobe -r nvidia_uvm nvidia_drm nvidia_modeset nvidia
+sudo modprobe nvidia NVreg_RestrictProfilingToAdminUsers=0
+```
+
+- Unloading the driver stops every program that uses the GPU, so check
+  `nvidia-smi` first and make sure nobody else is using the server's GPUs.
+- If `modprobe -r` says a module is in use, stop what holds it (the GPU
+  programs listed by `nvidia-smi`, and `sudo systemctl stop nvidia-persistenced`
+  if that service runs), then try again.
+- The setting lasts until the next reboot. To keep it, add it to the driver
+  options and rebuild the initramfs (Ubuntu/Debian shown), then reboot:
+
+  ```bash
+  echo 'options nvidia NVreg_RestrictProfilingToAdminUsers=0' | sudo tee /etc/modprobe.d/nvidia-profiling.conf
+  sudo update-initramfs -u
+  ```
+
+Run `grep RmProfilingAdminOnly /proc/driver/nvidia/params` again; it should
+print `0`. Then add the profile to an existing trace without tracing again:
+
+```bash
+go run ./nvidia/tracecollector -profile-only -out nvidia/traces/atax-256 -- \
+    nvidia/benchmarks/bin/atax -x 256 -y 256
+```
+
+#### Collecting only the trace or only the profile
 
 | Flag | Effect |
 | --- | --- |
 | `-trace-only` | Only collect the trace. `-tracer` and `-processor` are required. |
 | `-profile-only` | Only profile. The tracer is not needed, and `-out` may already hold a trace, so you can add a profile to a trace collected earlier. Exits with status 1 if the profile is not available. |
+
+#### What the trace run does
 
 Without `-profile-only`, the `-out` directory must not exist yet or be empty;
 delete it to retry. The trace run follows the steps of mnt-collector:
