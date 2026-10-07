@@ -113,4 +113,3 @@ var _ = Describe("Trace reader with cluster lines", func() {
 			To(Equal(uint64(30)))
 	})
 })
-

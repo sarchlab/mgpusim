@@ -18,7 +18,7 @@ cache banks, and DRAM. It reports the simulated execution time.
 | Path | What it is |
 | --- | --- |
 | `nvidia.go` | The simulator command (`go run ./nvidia`). |
-| `tracecollector/` | Runs a CUDA program under the NVBit tracer and post-processes the trace. |
+| `tracecollector/` | Runs a CUDA program under the NVBit tracer (trace) and under Nsight Compute (profile of the real GPU). |
 | `benchmarks/` | CUDA host programs for benchmarks whose kernels live in `amd/benchmarks`. |
 | `trace/` | Reader for `kernelslist.g` and `.traceg` files. |
 | `platform/` | H100 and A100 configurations. |
@@ -59,7 +59,7 @@ anywhere Go runs, including the same server.
 You need:
 
 - Go (the version in the repository's `go.mod`; `go` downloads it on first use)
-- On the GPU server: the CUDA toolkit (`nvcc`), `make`, `git`, `xz`
+- On the GPU server: the CUDA toolkit (`nvcc`, and `ncu` for profiling), `make`, `git`, `xz`
 
 All commands below run from the root of the mgpusim repository.
 
@@ -124,7 +124,7 @@ collector handles both:
 
 The simulator reads version 5 and version 6 `.traceg` files.
 
-### 4. Collect a trace
+### 4. Collect a trace and a profile
 
 ```bash
 go run ./nvidia/tracecollector -out nvidia/traces/atax-256 -- \
@@ -134,8 +134,76 @@ go run ./nvidia/tracecollector -out nvidia/traces/pathfinder-64x1024 -- \
     nvidia/benchmarks/bin/pathfinder -rows 64 -cols 1024
 ```
 
-The `-out` directory must not exist yet or be empty; delete it to retry.
-`tracecollector` follows the steps of mnt-collector:
+`tracecollector` runs the program twice, because the NVBit tracer and Nsight
+Compute cannot instrument the same run:
+
+1. **Trace**: under the NVBit tracer, producing the trace that step 5
+   simulates.
+2. **Profile**: under Nsight Compute (`ncu`), measuring every kernel on the
+   real GPU. This is the hardware number to compare the simulation with.
+
+At the end it prints two reports, for example:
+
+```
+# Trace Info
+Status:         OK
+Directory:      /home/enze/workspace/mgpusim/nvidia/traces/atax-256
+Kernels:        2
+Memory copies:  2
+Trace size:     1.1156 MB (kernelslist.g and 2 .traceg files)
+Simulate with:  ./nvidia/nvidia -trace-dir /home/enze/workspace/mgpusim/nvidia/traces/atax-256
+
+# Profile Info
+Status:         OK
+Tool:           /usr/local/cuda/bin/ncu (Version ...)
+Kernels:        2
+  ID   Kernel               Cycles    Duration (us)
+  0    atax_kernel1          ...              ...
+  1    atax_kernel2          ...              ...
+Total cycles:   ...
+Total duration: ... us
+Average clock:  ... MHz (total cycles / total duration)
+Saved:          .../atax-256/profile.txt, .../atax-256/profile_ncu.csv
+```
+
+- **Trace size** is the size of everything the simulator reads
+  (`kernelslist.g` plus the `.traceg` files), with 1 MB = 10^6 bytes.
+- **Cycles** come straight from ncu, as in mnt-collector: ncu's "Elapsed
+  Cycles" (`gpc__cycles_elapsed.max`) for each kernel, so there is no
+  conversion through the clock frequency. **Duration** is ncu's
+  `gpu__time_duration.sum`. The average clock is only shown for reference.
+  ncu only collects these two metrics, which keeps profiling fast.
+- ncu locks the GPU clock to its base frequency while it profiles (its
+  default `--clock-control base`), so the cycles are stable from run to run
+  and the duration reflects the base clock rather than boost.
+- The profile report is also saved as `profile.txt` in the output directory,
+  and ncu's raw output as `profile_ncu.csv`.
+
+**If profiling is not possible**, the trace is still collected and
+`# Profile Info` says why, for example:
+
+```
+# Profile Info
+Status:         Not available: ncu not found in PATH, /usr/local/cuda*/bin, or /opt/nvidia/nsight-compute; install Nsight Compute or pass -ncu <path>
+```
+
+Common reasons are: ncu is not installed or not found (pass `-ncu <path>`
+or set `NCU`), no GPU is visible (checked with `nvidia-smi -L`), the user may
+not read GPU performance counters (`ERR_NVGPUCTRPERM`: run the command with
+`sudo`, or ask the admin to set the driver option
+`NVreg_RestrictProfilingToAdminUsers=0`), or the program failed. ncu's output
+of a failed profile is kept as `profile_ncu_failed.log`, and it never replaces
+an earlier good `profile.txt` or `profile_ncu.csv`.
+
+To do only one of the two runs:
+
+| Flag | Effect |
+| --- | --- |
+| `-trace-only` | Only collect the trace. `-tracer` and `-processor` are required. |
+| `-profile-only` | Only profile. The tracer is not needed, and `-out` may already hold a trace, so you can add a profile to a trace collected earlier. Exits with status 1 if the profile is not available. |
+
+Without `-profile-only`, the `-out` directory must not exist yet or be empty;
+delete it to retry. The trace run follows the steps of mnt-collector:
 
 1. Runs the program with `LD_PRELOAD` set to the tracer and
    `TRACES_FOLDER=<out>`.
@@ -156,13 +224,16 @@ nvidia/traces/atax-256/
 ├── kernel-1-ctx_0x....traceg
 ├── kernel-2-ctx_0x....traceg
 ├── kernelslist_ctx_0x...            # the tracer's own list (kept for reference)
-└── stats_ctx_0x...                  # the tracer's per-kernel statistics
+├── stats_ctx_0x...                  # the tracer's per-kernel statistics
+├── profile.txt                      # the "# Profile Info" report
+└── profile_ncu.csv                  # ncu's raw output
 ```
 
-Flags can replace the environment variables: `-tracer <tracer_tool.so>` and
-`-processor <post-traces-processing>`. Pick the GPU with `CUDA_VISIBLE_DEVICES`.
-Traces grow with the number of dynamic instructions, so start with small inputs.
-Traces are portable: you can copy the directory to another machine to simulate it.
+Flags can replace the environment variables: `-tracer <tracer_tool.so>`,
+`-processor <post-traces-processing>`, and `-ncu <ncu>`. Pick the GPU with
+`CUDA_VISIBLE_DEVICES`. Traces grow with the number of dynamic instructions,
+so start with small inputs. Traces are portable: you can copy the directory to
+another machine to simulate it.
 
 ### 5. Simulate the trace
 

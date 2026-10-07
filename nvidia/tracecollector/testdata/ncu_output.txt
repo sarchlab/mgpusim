@@ -1,0 +1,12 @@
+==PROF== Connected to process 12345 (/home/u/mgpusim/nvidia/benchmarks/bin/atax)
+==PROF== Profiling "atax_kernel1": 0%....50%....100% - 1 pass
+==PROF== Profiling "atax_kernel2": 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 12345
+"ID","Process ID","Process Name","Host Name","Kernel Name","Context","Stream","Block Size","Grid Size","Device","CC","Section Name","Metric Name","Metric Unit","Metric Value"
+"0","12345","atax","127.0.0.1","atax_kernel1","1","7","(256, 1, 1)","(1, 1, 1)","0","9.0","Command line profiler metrics","gpc__cycles_elapsed.max","cycle","1,234,567"
+"0","12345","atax","127.0.0.1","atax_kernel1","1","7","(256, 1, 1)","(1, 1, 1)","0","9.0","Command line profiler metrics","gpu__time_duration.sum","nsecond","776,320"
+"1","12345","atax","127.0.0.1","atax_kernel2","1","7","(256, 1, 1)","(1, 1, 1)","0","9.0","Command line profiler metrics","gpc__cycles_elapsed.max","Kcycle","1,500.5"
+"1","12345","atax","127.0.0.1","atax_kernel2","1","7","(256, 1, 1)","(1, 1, 1)","0","9.0","Command line profiler metrics","gpu__time_duration.sum","usecond","943.75"
+
+ATAX: NX=256 NY=256
+Passed!
