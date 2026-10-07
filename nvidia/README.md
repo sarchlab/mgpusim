@@ -7,8 +7,11 @@ through a model of the GPU: the thread block dispatcher, SMs, SM sub-partitions
 (warp schedulers, per-opcode pipelines, scoreboards), per-SMSP L1 caches, L2
 cache banks, and DRAM. It reports the simulated execution time.
 
-The model is not calibrated. Treat the reported time as a relative number, not
-a prediction of real hardware.
+> [!WARNING]
+> The NVIDIA simulator is experimental and not reliable yet. Its simulated
+> times are not validated against hardware and can be wrong, even as relative
+> numbers. Do not draw performance conclusions from it. We will remove this
+> warning once we consider the NVIDIA simulator ready.
 
 ## Layout
 
