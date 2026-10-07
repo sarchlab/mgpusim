@@ -6,3 +6,7 @@
 data/
 eval/
 count.py
+
+# The root .gitignore ignores every path named "conv2d" (an AMD build
+# artifact), which would also hide the conv2d benchmark directory.
+!/benchmarks/polybench/conv2d/
