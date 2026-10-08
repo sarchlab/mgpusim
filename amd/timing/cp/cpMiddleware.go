@@ -132,10 +132,30 @@ func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
 func (m *cpMiddleware) processLaunchKernelReq(
 	req protocol.LaunchKernelReq,
 ) bool {
+	state := &m.comp.State
+	if state.CtrlSeq != ctrlSeqNone {
+		return false
+	}
+
 	d := m.findAvailableDispatcher()
 	if d == nil {
 		return false
 	}
+
+	// The L1 caches are not coherent, so they must drop the lines that
+	// previous kernels and copies may have made stale before the kernel
+	// starts (the acquire at kernel start). The request stays in the buffer
+	// while the kernel-start sequence runs; see ctrlMiddleware.go.
+	if state.KernelStartReqID != req.ID {
+		state.KernelStartReqID = req.ID
+		m.ctrlMW().startSeq(ctrlSeqKernelStart)
+
+		if state.CtrlSeq != ctrlSeqNone {
+			return true
+		}
+	}
+
+	state.KernelStartReqID = 0
 
 	if *sampling.SampledRunnerFlag {
 		sampling.SampledEngineInstance.Reset()

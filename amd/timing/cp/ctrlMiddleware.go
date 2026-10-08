@@ -13,7 +13,8 @@ import (
 )
 
 // ctrlMiddleware implements the control plane of the Command Processor: cache
-// flushing, TLB shootdown, GPU restart, and RDMA drain/restart.
+// flushing, kernel-start L1 invalidation, TLB shootdown, GPU restart, and RDMA
+// drain/restart.
 //
 // # Control-verb mapping (Akita v4 -> v5 memcontrolprotocol)
 //
@@ -79,6 +80,15 @@ import (
 //
 //	Reset caches -> Enable TLBs -> Enable ATs + Reset ROBs ->
 //	Restart CU pipelines.
+//
+// Kernel start (before each protocol.LaunchKernelReq is dispatched; no
+// driver response):
+//
+//	Drain L1S+L1V -> Invalidate L1S+L1V -> Enable L1S+L1V.
+//
+// The L1 caches are not coherent with each other, so without this a kernel
+// can read lines cached by an earlier kernel that another CU has since
+// overwritten in the L2 (e.g. the passes of bitonicsort).
 //
 // Each step fans out to every component of the class and waits for all
 // responses (State.PendingAcks) before the next step starts.
@@ -436,6 +446,8 @@ func (m *ctrlMiddleware) execStep() int {
 		return m.execShootdownStep(state.CtrlStep)
 	case ctrlSeqRestart:
 		return m.execRestartStep(state.CtrlStep)
+	case ctrlSeqKernelStart:
+		return m.execKernelStartStep(state.CtrlStep)
 	default:
 		panic("unknown control sequence " + state.CtrlSeq)
 	}
@@ -455,6 +467,45 @@ func (m *ctrlMiddleware) l1Caches() []messaging.RemotePort {
 
 func (m *ctrlMiddleware) allCaches() []messaging.RemotePort {
 	return append(m.l1Caches(), m.comp.State.L2Caches...)
+}
+
+// l1DataCaches returns the scalar and vector L1 caches, which can hold data
+// written by an earlier kernel or copy. The instruction caches are left
+// alone because code objects are not rewritten while they run.
+func (m *ctrlMiddleware) l1DataCaches() []messaging.RemotePort {
+	state := &m.comp.State
+
+	l1s := make([]messaging.RemotePort, 0,
+		len(state.L1SCaches)+len(state.L1VCaches))
+	l1s = append(l1s, state.L1SCaches...)
+	l1s = append(l1s, state.L1VCaches...)
+
+	return l1s
+}
+
+// execKernelStartStep invalidates the L1 data caches before a kernel is
+// dispatched. The L1s are write-through, so draining them leaves no dirty
+// data and no Flush is needed. cpMiddleware dispatches the kernel once the
+// sequence finishes.
+func (m *ctrlMiddleware) execKernelStartStep(step int) int {
+	state := &m.comp.State
+
+	switch step {
+	case 0:
+		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
+			m.l1DataCaches(), memcontrolprotocol.CmdDrain, nil, 0)
+	case 1:
+		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
+			m.l1DataCaches(), memcontrolprotocol.CmdInvalidate, nil, 0)
+	case 2:
+		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
+			m.l1DataCaches(), memcontrolprotocol.CmdEnable, nil, 0)
+	case 3:
+		state.CtrlSeq = ctrlSeqNone
+		return 0
+	default:
+		panic("invalid kernel start step")
+	}
 }
 
 func (m *ctrlMiddleware) execFlushStep(step int) int {

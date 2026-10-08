@@ -197,11 +197,48 @@ var _ = Describe("CommandProcessor", func() {
 		}
 		toDriver.Deliver(req)
 
-		dispatcher.EXPECT().IsDispatching().Return(false)
+		dispatcher.EXPECT().IsDispatching().Return(false).AnyTimes()
+
+		tickUntilQuiet()
+
+		// The L1 data caches are invalidated before the kernel starts, and
+		// the request waits in the buffer meanwhile.
+		l1DataDsts := append(append([]messaging.RemotePort{},
+			cp.State.L1SCaches...), cp.State.L1VCaches...)
+		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1DataDsts)
+		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1DataDsts)
+		Expect(toDriver.PeekIncoming()).NotTo(BeNil())
+
 		dispatcher.EXPECT().StartDispatching(gomock.Any()).
 			Do(func(launched protocol.LaunchKernelReq) {
 				Expect(launched.ID).To(Equal(req.ID))
 			})
+
+		expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, l1DataDsts)
+
+		Expect(toDriver.PeekIncoming()).To(BeNil())
+		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
+		Expect(cp.State.KernelStartReqID).To(BeZero())
+	})
+
+	It("should dispatch a kernel immediately when there is no cache", func() {
+		useMockDispatcher()
+		cp.State.L1ICaches = nil
+		cp.State.L1SCaches = nil
+		cp.State.L1VCaches = nil
+		cp.State.L2Caches = nil
+
+		req := protocol.LaunchKernelReq{
+			MsgMeta: messaging.MsgMeta{
+				ID:  timing.GetIDGenerator().Generate(),
+				Src: driverPort,
+				Dst: toDriver.AsRemote(),
+			},
+		}
+		toDriver.Deliver(req)
+
+		dispatcher.EXPECT().IsDispatching().Return(false)
+		dispatcher.EXPECT().StartDispatching(gomock.Any())
 
 		madeProgress := cp.Tick()
 
