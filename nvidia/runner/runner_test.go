@@ -61,4 +61,3 @@ func TestRunRealTraceFormats(t *testing.T) {
 		})
 	}
 }
-

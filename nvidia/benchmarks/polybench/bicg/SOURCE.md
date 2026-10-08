@@ -11,7 +11,7 @@ CUDA host program `bicg.cu` for the PolyBench/GPU BICG benchmark. The GPU kernel
 | Host code follows | `amd/benchmarks/polybench/bicg/benchmark.go` |
 | Host code version | commit `7d8578f7` (2026-06-15) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/bicg` |
+| Binary | `nvidia/benchmarks/bin/polybench-bicg` |
 | Usage | `bicg [-x NX] [-y NY]` |
 
 ## Differences from the AMD host code

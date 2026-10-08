@@ -11,7 +11,7 @@ CUDA host program `nw.cu` for the Rodinia Needleman-Wunsch benchmark. The GPU ke
 | Host code follows | `amd/benchmarks/rodinia/nw/benchmark.go` |
 | Host code version | commit `7d8578f7` (2026-06-15) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/nw` |
+| Binary | `nvidia/benchmarks/bin/rodinia-nw` |
 | Usage | `nw [-length L] [-penalty P]   (L must be a multiple of 64)` |
 
 ## Differences from the AMD host code

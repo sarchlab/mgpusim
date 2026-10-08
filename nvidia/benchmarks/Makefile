@@ -6,8 +6,8 @@
 # New benchmarks are picked up automatically.
 #
 # Usage (on a machine with the CUDA toolkit):
-#   make                   # builds bin/<name> for every benchmark
-#   make bin/gemm          # builds one benchmark
+#   make                   # builds bin/<suite>-<name> for every benchmark
+#   make bin/polybench-gemm  # builds one benchmark
 #   make ARCH=sm_80        # target an A100 instead of an H100
 #   make list              # prints the benchmark names
 #   make KERNEL_ROOT=../../benchmarks   # if the shared kernels move
@@ -19,7 +19,10 @@ NVCCFLAGS   ?= -O3 -lineinfo
 
 BIN      := bin
 SOURCES  := $(wildcard polybench/*/*.cu rodinia/*/*.cu)
-NAMES    := $(basename $(notdir $(SOURCES)))
+# A benchmark's binary is named <suite>-<name>, e.g., bin/polybench-atax, so
+# that benchmarks of different suites cannot collide.
+bench_name = $(word 1,$(subst /, ,$(1)))-$(basename $(notdir $(1)))
+NAMES    := $(foreach src,$(SOURCES),$(call bench_name,$(src)))
 HEADERS  := include/hip/hip_runtime.h include/check.h
 INCLUDES := -Iinclude -I$(KERNEL_ROOT)
 
@@ -29,9 +32,10 @@ all: $(addprefix $(BIN)/,$(NAMES))
 list:
 	@echo $(NAMES)
 
-# bin/<name> depends on <suite>/<name>/<name>.cu and on the shared kernels.
+# bin/<suite>-<name> depends on <suite>/<name>/<name>.cu and on the shared
+# kernels.
 define BENCHMARK_RULE
-$(BIN)/$(basename $(notdir $(1))): $(1) $(wildcard $(KERNEL_ROOT)/$(dir $(1))native/*.cpp) $(HEADERS)
+$(BIN)/$(call bench_name,$(1)): $(1) $(wildcard $(KERNEL_ROOT)/$(dir $(1))native/*.cpp) $(HEADERS)
 	@mkdir -p $(BIN)
 	$$(NVCC) $$(NVCCFLAGS) -arch=$$(ARCH) $$(INCLUDES) -o $$@ $$<
 endef

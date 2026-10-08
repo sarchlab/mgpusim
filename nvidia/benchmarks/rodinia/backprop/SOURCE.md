@@ -11,7 +11,7 @@ CUDA host program `backprop.cu` for the Rodinia Backprop benchmark. The GPU kern
 | Host code follows | `amd/benchmarks/rodinia/backprop/backprop.go` |
 | Host code version | commit `7155c64f` (2026-07-04) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/backprop` |
+| Binary | `nvidia/benchmarks/bin/rodinia-backprop` |
 | Usage | `backprop [-input I] [-hidden H] [-output O]` |
 
 ## Differences from the AMD host code

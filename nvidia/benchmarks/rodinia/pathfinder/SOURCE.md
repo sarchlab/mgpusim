@@ -11,7 +11,7 @@ CUDA host program `pathfinder.cu` for the Rodinia PathFinder benchmark. The GPU 
 | Host code follows | `amd/benchmarks/rodinia/pathfinder/pathfinder.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/pathfinder` |
+| Binary | `nvidia/benchmarks/bin/rodinia-pathfinder` |
 | Usage | `pathfinder [-rows ROWS] [-cols COLS]` |
 
 ## Differences from the AMD host code

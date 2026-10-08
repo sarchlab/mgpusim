@@ -11,7 +11,7 @@ CUDA host program `twomm.cu` for the PolyBench/GPU 2MM benchmark. The GPU kernel
 | Host code follows | `amd/benchmarks/polybench/twomm/twomm.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/twomm` |
+| Binary | `nvidia/benchmarks/bin/polybench-twomm` |
 | Usage | `twomm [-size N]` |
 
 ## Differences from the AMD host code

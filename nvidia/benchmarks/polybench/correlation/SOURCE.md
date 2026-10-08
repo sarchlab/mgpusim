@@ -11,7 +11,7 @@ CUDA host program `correlation.cu` for the PolyBench/GPU CORR benchmark. The GPU
 | Host code follows | `amd/benchmarks/polybench/correlation/correlation.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/correlation` |
+| Binary | `nvidia/benchmarks/bin/polybench-correlation` |
 | Usage | `correlation [-size N]` |
 
 ## Differences from the AMD host code

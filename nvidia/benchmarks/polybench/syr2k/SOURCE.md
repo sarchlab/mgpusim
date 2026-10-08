@@ -11,7 +11,7 @@ CUDA host program `syr2k.cu` for the PolyBench/GPU SYR2K benchmark. The GPU kern
 | Host code follows | `amd/benchmarks/polybench/syr2k/syr2k.go` |
 | Host code version | commit `90b1b660` (2026-06-25) on main |
 | CUDA port written | 2026-09-23 |
-| Binary | `nvidia/benchmarks/bin/syr2k` |
+| Binary | `nvidia/benchmarks/bin/polybench-syr2k` |
 | Usage | `syr2k [-size N] [-inner-size M]` |
 
 ## Differences from the AMD host code

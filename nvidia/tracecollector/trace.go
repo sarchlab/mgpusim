@@ -1,26 +1,8 @@
-// Command tracecollector runs a CUDA program under the Accel-Sim NVBit tracer
-// and turns the raw traces into the kernelslist.g + .traceg format that the
-// nvidia simulator reads. It must run on a machine with an NVIDIA GPU.
-//
-// The processing follows mnt-collector: move the files out of the tracer's
-// "traces" sub-directory, find the raw kernel list (kernelslist or
-// kernelslist_ctx_<ctx>), decompress the kernel-*.trace.xz files, write a
-// kernel list without the .xz suffixes, and run post-traces-processing on it.
-//
-// Usage:
-//
-//	go run ./nvidia/tracecollector \
-//	    -tracer    <accel-sim>/util/tracer_nvbit/tracer_tool/tracer_tool.so \
-//	    -processor <accel-sim>/util/tracer_nvbit/tracer_tool/traces-processing/post-traces-processing \
-//	    -out traces/atax \
-//	    -- nvidia/benchmarks/bin/atax -x 256 -y 256
 package main
 
 import (
 	"bufio"
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,47 +15,17 @@ const (
 	simulatorIndex = "kernelslist.g"
 )
 
-type options struct {
-	tracer    string
-	processor string
-	outDir    string
-	keepRaw   bool
-	command   []string
-}
+// bytesPerMB is the size of a megabyte in the reports (10^6 bytes).
+const bytesPerMB = 1e6
 
-func main() {
-	opts := options{}
-	flag.StringVar(&opts.tracer, "tracer", os.Getenv("TRACER_TOOL"),
-		"Path to the Accel-Sim NVBit tracer_tool.so (env TRACER_TOOL).")
-	flag.StringVar(&opts.processor, "processor", os.Getenv("TRACE_PROCESSOR"),
-		"Path to Accel-Sim's post-traces-processing (env TRACE_PROCESSOR).")
-	flag.StringVar(&opts.outDir, "out", "",
-		"Output directory for the trace. It must not contain a trace yet.")
-	flag.BoolVar(&opts.keepRaw, "keep-raw", false,
-		"Keep the raw traces and kernelslist_processed after post-processing.")
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(),
-			"Usage: %s [flags] -- <cuda program> [args...]\n", os.Args[0])
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	opts.command = flag.Args()
-
-	if err := collect(context.Background(), opts); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-}
-
-func collect(ctx context.Context, opts options) error {
-	if err := validate(&opts); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(opts.outDir, 0o755); err != nil {
-		return err
-	}
-
+// collectTrace runs the program under the NVBit tracer and post-processes
+// the raw traces in opts.outDir.
+//
+// The processing follows mnt-collector: move the files out of the tracer's
+// "traces" sub-directory, find the raw kernel list (kernelslist or
+// kernelslist_ctx_<ctx>), decompress the kernel-*.trace.xz files, write a
+// kernel list without the .xz suffixes, and run post-traces-processing on it.
+func collectTrace(ctx context.Context, opts options) error {
 	fmt.Printf("Tracing %s into %s\n", strings.Join(opts.command, " "), opts.outDir)
 
 	if err := runTraced(ctx, opts); err != nil {
@@ -88,49 +40,51 @@ func collect(ctx context.Context, opts options) error {
 		return err
 	}
 
-	if err := postProcess(ctx, opts); err != nil {
-		return err
-	}
-
-	fmt.Printf("\nTrace ready: %s\n", opts.outDir)
-	fmt.Printf("Simulate it with:\n  go run ./nvidia -trace-dir %s\n", opts.outDir)
-
-	return nil
+	return postProcess(ctx, opts)
 }
 
-func validate(opts *options) error {
-	if len(opts.command) == 0 {
-		return errors.New("no CUDA program given; put it after --")
+// traceSummary describes a post-processed trace directory.
+type traceSummary struct {
+	kernels int
+	memcpys int
+	// bytes is the size of kernelslist.g plus the .traceg files it lists,
+	// i.e., everything the simulator reads.
+	bytes int64
+}
+
+func summarizeTrace(outDir string) (traceSummary, error) {
+	index := filepath.Join(outDir, simulatorIndex)
+
+	lines, err := readLines(index)
+	if err != nil {
+		return traceSummary{}, err
 	}
 
-	if opts.outDir == "" {
-		return errors.New("-out is required")
+	info, err := os.Stat(index)
+	if err != nil {
+		return traceSummary{}, err
 	}
 
-	var err error
+	s := traceSummary{bytes: info.Size()}
 
-	for _, p := range []*string{&opts.tracer, &opts.processor, &opts.outDir} {
-		if *p == "" {
-			return errors.New("both -tracer and -processor are required")
+	for _, line := range lines {
+		name := strings.TrimSpace(line)
+
+		switch {
+		case strings.HasPrefix(name, "Memcpy"):
+			s.memcpys++
+		case strings.HasPrefix(name, "kernel"):
+			info, err := os.Stat(filepath.Join(outDir, name))
+			if err != nil {
+				return traceSummary{}, err
+			}
+
+			s.kernels++
+			s.bytes += info.Size()
 		}
-
-		if *p, err = filepath.Abs(*p); err != nil {
-			return err
-		}
 	}
 
-	for _, p := range []string{opts.tracer, opts.processor} {
-		if _, err := os.Stat(p); err != nil {
-			return fmt.Errorf("cannot find %s: %w", p, err)
-		}
-	}
-
-	if entries, err := os.ReadDir(opts.outDir); err == nil && len(entries) > 0 {
-		return fmt.Errorf("%s is not empty; remove it or choose another -out",
-			opts.outDir)
-	}
-
-	return nil
+	return s, nil
 }
 
 func runTraced(ctx context.Context, opts options) error {
@@ -384,11 +338,6 @@ func checkProcessedTrace(outDir string) error {
 	}
 
 	return nil
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 func readLines(path string) ([]string, error) {
