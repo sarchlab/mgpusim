@@ -227,7 +227,7 @@ jobs:
           - name: polybench
             filter: "^(atax|bicg)$"
           - name: others
-            filter: "^(fir|aes|kmeans|pagerank|matrixmultiplication|matrixtranspose|simpleconvolution|floydwarshall|relu|bfs|stencil2d|spmv|fft|vectoradd|nw)$"
+            filter: "^(fir|aes|kmeans|pagerank|matrixmultiplication|matrixtranspose|bitonicsort|simpleconvolution|floydwarshall|relu|bfs|stencil2d|spmv|fft|vectoradd|nw)$"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
