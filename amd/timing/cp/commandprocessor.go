@@ -48,10 +48,11 @@ type Spec struct {
 // Control sequences that the Command Processor can be running. The Command
 // Processor runs at most one control sequence at a time.
 const (
-	ctrlSeqNone      = ""
-	ctrlSeqFlush     = "flush"
-	ctrlSeqShootdown = "shootdown"
-	ctrlSeqRestart   = "restart"
+	ctrlSeqNone        = ""
+	ctrlSeqFlush       = "flush"
+	ctrlSeqShootdown   = "shootdown"
+	ctrlSeqRestart     = "restart"
+	ctrlSeqKernelStart = "kernelStart"
 )
 
 // Driver-response kinds queued in State.PendingDriverRsps.
@@ -93,9 +94,9 @@ type State struct {
 	BottomMemCopyD2HToTop map[uint64]protocol.MemCopyD2HReq `json:"bottom_mem_copy_d2h_to_top"`
 
 	// Control-sequence bookkeeping. CtrlSeq names the sequence in progress
-	// (flush, shootdown, restart), CtrlStep is the index of the current step
-	// within the sequence, and PendingAcks counts the responses that must
-	// arrive before the sequence advances to the next step.
+	// (flush, shootdown, restart, kernelStart), CtrlStep is the index of the
+	// current step within the sequence, and PendingAcks counts the responses
+	// that must arrive before the sequence advances to the next step.
 	CtrlSeq     string `json:"ctrl_seq"`
 	CtrlStep    int    `json:"ctrl_step"`
 	PendingAcks uint64 `json:"pending_acks"`
@@ -105,6 +106,12 @@ type State struct {
 	// Requests from the driver that are being served by a control sequence.
 	CurrFlushReq  protocol.FlushReq         `json:"curr_flush_req"`
 	CurrShootdown protocol.ShootDownCommand `json:"curr_shootdown"`
+
+	// KernelStartReqID is the ID of the LaunchKernelReq whose kernel-start
+	// L1 invalidation has been started. The request stays in the incoming
+	// buffer until the sequence finishes; it is then dispatched and the ID
+	// is cleared.
+	KernelStartReqID uint64 `json:"kernel_start_req_id"`
 
 	// Outbound message queues, drained by the control middleware as the
 	// corresponding ports become available.
