@@ -196,6 +196,13 @@ func (m *cpMiddleware) processFlushReq(req protocol.FlushReq) bool {
 		return false
 	}
 
+	// The previous flush's completion may still be queued in
+	// PendingDriverRsps; it reads CurrFlushReq when sent, so wait until
+	// that response has gone out and cleared it.
+	if state.CurrFlushReq.ID != 0 {
+		return false
+	}
+
 	state.CurrFlushReq = req
 	m.ctrlMW().startSeq(ctrlSeqFlush)
 
