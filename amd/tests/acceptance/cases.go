@@ -886,11 +886,52 @@ var benchmarks = []benchmark{
 		benchmarkPath:  "../../benchmarks/rodinia/nw",
 		executablePath: "../../samples/nw",
 		executable:     "nw",
-		sizeArgs:       []string{"-length=64"},
+		// length=256 is the smallest size that exposes a wrong kernel2 launch
+		// order (#312); smaller sizes verify even when the order is wrong.
+		sizeArgs: []string{"-length=256"},
 		cases: []benchmarkCase{
+			// GCN3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
 			// CDNA3 Emulation tests
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/rodinia/nw",
+		executablePath: "../../samples/nw",
+		executable:     "nw",
+		// length=128 in CDNA3 timing mode crashes with an LDS out-of-bounds
+		// access if s_waitcnt is released before every coalesced response has
+		// returned (#311). length=64 does not trigger it.
+		sizeArgs: []string{"-length=128"},
+		cases: []benchmarkCase{
+			// MI300X timing tests
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+			{
+				gpus: []int{1}, timing: true, parallel: true,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/amdappsdk/nbody",
+		executablePath: "../../samples/nbody",
+		executable:     "nbody",
+		// The default run (1024 particles, 8 iterations) stays within the
+		// verification tolerance even when the CPU reference is wrong (#312);
+		// 32 iterations exposes it. Emulation only: nbody timing is already the
+		// slowest GCN3 timing shard.
+		sizeArgs: []string{"-iter=32"},
+		cases: []benchmarkCase{
+			// GCN3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},
 	},
 }
