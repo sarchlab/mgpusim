@@ -647,22 +647,17 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	tracing.TraceReqFinalize(cu.comp, req)
 
-	if cu.isLastRead(req) {
-		wf.OutstandingScalarMemAccess--
-	}
-
-	// Coalesced responses can return out of order, so isLastRead (the last
-	// request generated) is not necessarily the last received. End the inst
-	// task and mark the data wait only once no access for this instruction is
-	// still in flight.
+	// Coalesced responses can return out of order, so the last request
+	// generated is not necessarily the last received. Release the s_waitcnt
+	// counter, end the inst task and mark the data wait only once no access
+	// for this instruction is still in flight; releasing the counter earlier
+	// lets the wavefront reuse the destination SGPRs before the remaining
+	// responses overwrite them.
 	if !cu.hasInFlightScalarMemFor(info.Inst) {
+		wf.OutstandingScalarMemAccess--
 		cu.markInstDataReturned(info.Inst, "smem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
-}
-
-func (cu *ComputeUnit) isLastRead(req memprotocol.ReadReq) bool {
-	return !req.CanWaitForCoalesce
 }
 
 // markInstDataReturned records a "data" milestone on a memory instruction's
@@ -786,18 +781,18 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
-	if !info.Read.CanWaitForCoalesce {
+	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
+	// last request generated) is not necessarily the last received. Release
+	// the s_waitcnt counters, end the inst task and mark the data wait only
+	// once no transaction for this instruction is still in flight; releasing
+	// the counter earlier lets the wavefront reuse the destination VGPRs
+	// before the remaining responses overwrite them.
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-	}
 
-	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
-	// last request generated) is not necessarily the last received. End the
-	// inst task and mark the data wait only once no transaction for this
-	// instruction is still in flight.
-	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
@@ -824,17 +819,17 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	tracing.TraceReqFinalize(cu.comp, *info.Write)
 
 	wf := info.Wavefront
-	if !info.Write.CanWaitForCoalesce {
+
+	// Coalesced responses can return out of order; release the s_waitcnt
+	// counters, end the inst task and mark the data wait only once no
+	// transaction for this instruction remains in flight (see
+	// handleVectorDataLoadReturn).
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-	}
 
-	// Coalesced responses can return out of order; end the inst task and mark
-	// the data wait only once no transaction for this instruction remains in
-	// flight (see handleVectorDataLoadReturn).
-	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		cu.markInstDataReturned(info.Inst, "vmem")
 		cu.logInstTask(wf, info.Inst, true)
 	}
