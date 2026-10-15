@@ -285,6 +285,9 @@ func (b *Benchmark) Verify() {
 }
 
 func (b *Benchmark) nbodyCPU() {
+	oldPos := make([]float32, len(b.refPos))
+	copy(oldPos, b.refPos)
+
 	for i := int32(0); i < b.numBodies; i++ {
 		myIndex := 4 * i
 		acc := [3]float32{0.0, 0.0, 0.0}
@@ -294,13 +297,13 @@ func (b *Benchmark) nbodyCPU() {
 
 			distSqr := float32(0.0)
 			for k := int32(0); k < 3; k++ {
-				r[k] = b.refPos[index+k] - b.refPos[myIndex+k]
+				r[k] = oldPos[index+k] - oldPos[myIndex+k]
 				distSqr += r[k] * r[k]
 			}
 
 			invDist := 1.0 / float32(math.Sqrt(float64(distSqr+b.espSqr)))
 			invDistCube := invDist * invDist * invDist
-			s := b.refPos[index+3] * invDistCube
+			s := oldPos[index+3] * invDistCube
 
 			for k := int32(0); k < 3; k++ {
 				acc[k] += s * r[k]
