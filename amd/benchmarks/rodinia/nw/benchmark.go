@@ -291,7 +291,7 @@ func (b *Benchmark) runKernel2() {
 	offsetC := 0
 	blockWidth := workSize / b.blockSize
 
-	for blk := 1; blk <= workSize/b.blockSize; blk++ {
+	for blk := blockWidth - 1; blk >= 1; blk-- {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
