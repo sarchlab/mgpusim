@@ -10,6 +10,7 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/akita/v5/tracing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -77,7 +78,8 @@ type cuCPIStackTracer struct {
 }
 
 type reporter struct {
-	dataRecorder datarecording.DataRecorder
+	dataRecorder  datarecording.DataRecorder
+	pageMigration *pagemigration.Manager
 
 	kernelTimeTracer        *kernelTimeTracer
 	perGPUKernelTimeTracers []*kernelTimeTracer
@@ -106,6 +108,12 @@ func newReporter(s *simulation.Simulation) *reporter {
 	}
 
 	r.injectTracers(s)
+
+	for _, c := range s.Components() {
+		if m := pagemigration.ManagerOf(c); m != nil {
+			r.pageMigration = m
+		}
+	}
 
 	r.dataRecorder.CreateTable(tableName, metric{})
 
@@ -384,6 +392,24 @@ func (r *reporter) report() {
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
+	r.reportPageMigration()
+}
+
+// reportPageMigration reports the page-migration statistics whenever page
+// migration is enabled.
+func (r *reporter) reportPageMigration() {
+	if r.pageMigration == nil {
+		return
+	}
+
+	for _, m := range r.pageMigration.Metrics() {
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: m.Location,
+			What:     m.What,
+			Value:    m.Value,
+			Unit:     m.Unit,
+		})
+	}
 }
 
 func (r *reporter) reportKernelTime() {

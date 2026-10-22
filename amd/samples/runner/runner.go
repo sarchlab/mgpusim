@@ -112,6 +112,8 @@ func (r *Runner) buildTimingPlatform() {
 		b = b.WithMagicMemoryCopy()
 	}
 
+	b = b.WithPageMigration(pageMigrationSpecFromFlags())
+
 	r.gpuDriver = b.Build()
 	r.reporter = newReporter(r.simulation)
 }
