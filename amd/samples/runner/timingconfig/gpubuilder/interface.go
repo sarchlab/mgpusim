@@ -6,6 +6,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // GPU is the externally visible handle of a built GPU. It replaces the v4
@@ -37,6 +38,10 @@ type GPU struct {
 	// translation requests to the MMU over the inter-device network (v4
 	// domain ports "Translation_xx").
 	TranslationPorts []messaging.Port
+
+	// PageMigrationPort is the "Remote" port of the page-migration engine.
+	// It is nil unless page migration moves pages.
+	PageMigrationPort messaging.Port
 }
 
 // ExternalPorts returns all the ports of the GPU that connect to the
@@ -49,6 +54,10 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 	}
 	ports = append(ports, g.TranslationPorts...)
 
+	if g.PageMigrationPort != nil {
+		ports = append(ports, g.PageMigrationPort)
+	}
+
 	return ports
 }
 
@@ -58,5 +67,6 @@ type GPUBuilder interface {
 	WithMemAddrOffset(offset uint64) GPUBuilder
 	WithRDMAAddressMapper(mapper mem.AddressToPortMapper) GPUBuilder
 	WithDriverPort(port messaging.RemotePort) GPUBuilder
+	WithPageMigration(m *pagemigration.Manager) GPUBuilder
 	Build(name string) *GPU
 }

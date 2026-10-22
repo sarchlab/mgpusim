@@ -40,7 +40,7 @@ MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set arch
    - `cp/` - Command Processor for kernel dispatch
    - `rob/` - Reorder Buffer
    - `rdma/` - Remote DMA for multi-GPU communication
-   - `pagemigrationcontroller/` - Unified memory page migration
+   - `pagemigration/` - Page migration between GPUs (on-fault and access-counter policies)
 
 ### Key Components
 
