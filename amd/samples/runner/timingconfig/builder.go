@@ -16,6 +16,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // Port buffer sizes. The driver port mirrors the emulation platform's
@@ -25,6 +26,7 @@ const (
 	driverGPUPortBufSize = 4096
 	mmuTopPortBufSize    = 4096
 	ctrlPortBufSize      = 1
+	pmManagerPortBufSize = 1024
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -43,8 +45,11 @@ type Builder struct {
 	d2hCycles          int
 	h2dCycles          int
 
+	pageMigration pagemigration.Spec
+
 	globalStorage     *mem.Storage
 	rdmaAddressMapper *mem.BankedAddressPortMapper
+	pmManager         *pagemigration.Manager
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -88,6 +93,14 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 	return b
 }
 
+// WithPageMigration configures page migration between the GPUs. With the
+// none policy (the default) nothing is built or hooked. Page migration
+// requires the serial engine.
+func (b Builder) WithPageMigration(spec pagemigration.Spec) Builder {
+	b.pageMigration = spec
+	return b
+}
+
 // Build builds the hardware platform and returns the driver. The driver, the
 // GPUs, and all the connections register themselves with the simulation.
 func (b Builder) Build() *driver.Driver {
@@ -99,6 +112,7 @@ func (b Builder) Build() *driver.Driver {
 
 	mmuComp, pageTable := b.createMMU()
 	gpuDriver := b.buildGPUDriver(pageTable)
+	b.buildPageMigrationManager(pageTable)
 
 	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
 	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
@@ -106,6 +120,29 @@ func (b Builder) Build() *driver.Driver {
 	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
 
 	return gpuDriver
+}
+
+// buildPageMigrationManager builds the page-migration manager when page
+// migration is enabled. The manager is built before the GPUs, whose address
+// translators take its hooks.
+func (b *Builder) buildPageMigrationManager(pageTable vm.PageTable) {
+	if !b.pageMigration.Enabled() {
+		return
+	}
+
+	spec := b.pageMigration
+	spec.Log2PageSize = b.log2PageSize
+	spec.GPUMemSize = b.gpuMemSize
+
+	b.pmManager = pagemigration.MakeManagerBuilder().
+		WithRegistrar(b.simulation).
+		WithSpec(spec).
+		WithResources(pagemigration.ManagerResources{PageTable: pageTable}).
+		Build("PageMigrationManager")
+
+	if spec.Migrates() {
+		b.buildPort(b.pmManager, "ToEngines", pmManagerPortBufSize)
+	}
 }
 
 func (b *Builder) cpuGPUMemSizeMustEqual() {
@@ -220,14 +257,16 @@ func (b *Builder) createGPUBuilder(
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
-			WithDriverPort(driverPort)
+			WithDriverPort(driverPort).
+			WithPageMigration(b.pmManager)
 	default:
 		return r9nano.MakeBuilder().
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
-			WithDriverPort(driverPort)
+			WithDriverPort(driverPort).
+			WithPageMigration(b.pmManager)
 	}
 }
 
@@ -261,6 +300,10 @@ func (b *Builder) createConnection(
 
 	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
 	conn.PlugIn(mmuComponent.GetPortByName("Top"))
+
+	if b.pmManager != nil && b.pageMigration.Migrates() {
+		conn.PlugIn(b.pmManager.GetPortByName("ToEngines"))
+	}
 
 	return conn
 }

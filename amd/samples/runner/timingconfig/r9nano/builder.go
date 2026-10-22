@@ -20,6 +20,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -57,6 +58,7 @@ type Builder struct {
 	mmu                            *mmu.Comp
 	rdmaAddressMapper              mem.AddressToPortMapper
 	driverPort                     messaging.RemotePort
+	pageMigration                  *pagemigration.Manager
 
 	gpu                *gpubuilder.GPU
 	cp                 *cp.Comp
@@ -67,10 +69,12 @@ type Builder struct {
 	l2TLBs             []*tlb.Comp
 	drams              []messaging.Component
 	internalConn       *directconnection.Comp
+	l1ToL2Conn         *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
 	l1TLBAddressMapper *mem.SinglePortMapper
 	dmaLocalDataSource *mem.InterleavedAddressPortMapper
+	pmEngine           *pagemigration.Engine
 }
 
 // MakeBuilder creates a new builder.
@@ -194,6 +198,15 @@ func (b Builder) WithDriverPort(
 	return b
 }
 
+// WithPageMigration sets the page-migration manager (nil, the default,
+// disables page migration).
+func (b Builder) WithPageMigration(
+	m *pagemigration.Manager,
+) gpubuilder.GPUBuilder {
+	b.pageMigration = m
+	return b
+}
+
 // Build builds the hardware platform.
 func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.name = name
@@ -215,15 +228,55 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildCP()
 	b.buildL2TLB()
 	b.buildSAs()
+	b.buildPageMigrationEngine()
 
 	b.connectCP()
 	b.connectL2AndDRAM()
 	b.connectL1ToL2()
 	b.connectL1TLBToL2TLB()
 
+	b.connectPageMigrationEngine()
+
 	b.populateGPU()
 
+	gpubuilder.RegisterPageMigrationGPU(
+		b.pageMigration, b.pageMigrationGPU(), b.pmEngine)
+
 	return b.gpu
+}
+
+func (b *Builder) pageMigrationGPU() gpubuilder.PageMigrationGPU {
+	return gpubuilder.PageMigrationGPU{
+		GPUID:     b.gpuID,
+		SAs:       b.sas,
+		L2TLBs:    b.l2TLBs,
+		L2s:       b.l2Caches,
+		RDMA:      b.rdmaEngine,
+		L2Mapper:  b.l1AddressMapper,
+		MemMapper: b.dmaLocalDataSource,
+	}
+}
+
+// buildPageMigrationEngine builds the page-migration engine when the policy
+// moves pages. It is built after the shader arrays so that it knows every
+// TLB of the GPU.
+func (b *Builder) buildPageMigrationEngine() {
+	b.pmEngine = gpubuilder.BuildPageMigrationEngine(b.simulation,
+		b.pageMigration, b.name+".PageMigrationEngine", b.pageMigrationGPU())
+}
+
+// connectPageMigrationEngine connects the engine to the Control ports of
+// the TLBs, to the L2 slices (the source reads through the L2), and to the
+// memory-side modules that the DMA engine writes to (the destination writes
+// around the L2).
+func (b *Builder) connectPageMigrationEngine() {
+	if b.pmEngine == nil {
+		return
+	}
+
+	b.internalConn.PlugIn(b.pmEngine.GetPortByName("TLBControl"))
+	b.l1ToL2Conn.PlugIn(b.pmEngine.GetPortByName("L2"))
+	b.l2ToDramConnection.PlugIn(b.pmEngine.GetPortByName("DRAM"))
 }
 
 // buildPort creates a port instance for a declared port and assigns it to
@@ -250,6 +303,10 @@ func (b *Builder) populateGPU() {
 		CommandProcessorPort: b.cp.GetPortByName("ToDriver"),
 		RDMARequestPort:      b.rdmaEngine.GetPortByName("RDMARequestOutside"),
 		RDMADataPort:         b.rdmaEngine.GetPortByName("RDMADataOutside"),
+	}
+
+	if b.pmEngine != nil {
+		b.gpu.PageMigrationPort = b.pmEngine.GetPortByName("Remote")
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -393,6 +450,7 @@ func (b *Builder) connectL1ToL2() {
 		WithRegistrar(b.simulation).
 		WithSpec(directconnection.Spec{Freq: b.freq}).
 		Build(b.name + ".L1ToL2")
+	b.l1ToL2Conn = l1ToL2Conn
 
 	l1ToL2Conn.PlugIn(b.rdmaEngine.GetPortByName("RDMARequestInside"))
 	l1ToL2Conn.PlugIn(b.rdmaEngine.GetPortByName("RDMADataInside"))
@@ -460,7 +518,8 @@ func (b *Builder) buildSAs() {
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithLog2PageSize(b.log2PageSize).
 		WithL1AddressMapper(b.l1AddressMapper).
-		WithL1TLBAddressMapper(b.l1TLBAddressMapper)
+		WithL1TLBAddressMapper(b.l1TLBAddressMapper).
+		WithPageMigration(b.pageMigration)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
