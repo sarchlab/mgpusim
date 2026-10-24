@@ -136,12 +136,14 @@ type CPIStackTracer struct {
 	// this CU's own goroutine, so the maps below must not be touched unlocked.
 	mu sync.Mutex
 
-	inflightTasks        map[uint64]tasks.Task
-	firstWFStarted       bool
-	firstWFStartTime     float64
-	lastWFEndTime        float64
-	timeStack            map[string]float64
-	lastRecordedTime     float64
+	inflightTasks    map[uint64]tasks.Task
+	firstWFStarted   bool
+	firstWFStartTime timing.VTimeInPicoSec
+	lastWFEndTime    timing.VTimeInPicoSec
+	// Keep durations in integer simulation time so event segmentation cannot
+	// change floating-point rounding in reported CPI values.
+	timeStack            map[string]timing.VTimeInPicoSec
+	lastRecordedTime     timing.VTimeInPicoSec
 	inFlightTaskCountMap map[taskType]uint64
 	instCount            uint64
 	valuInstCount        uint64
@@ -158,7 +160,7 @@ func NewCPIStackInstHook(
 		cu:         cu,
 
 		inflightTasks: make(map[uint64]tasks.Task),
-		timeStack:     make(map[string]float64),
+		timeStack:     make(map[string]timing.VTimeInPicoSec),
 		inFlightTaskCountMap: map[taskType]uint64{
 			taskTypeIdle:          0,
 			taskTypeFetch:         0,
@@ -180,11 +182,11 @@ func NewCPIStackInstHook(
 func (h *CPIStackTracer) totalCycle() float64 {
 	endTime := h.lastWFEndTime
 	if h.runningWFCount > 0 {
-		endTime = secondsOf(h.timeTeller.CurrentTime())
+		endTime = h.timeTeller.CurrentTime()
 	}
 
 	totalTime := endTime - h.firstWFStartTime
-	totalCycle := totalTime * float64(h.cu.Spec.Freq)
+	totalCycle := secondsOf(totalTime) * float64(h.cu.Spec.Freq)
 	return totalCycle
 }
 
@@ -197,7 +199,7 @@ func (h *CPIStackTracer) GetCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.instCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Spec.Freq)
+		cycle := secondsOf(duration) * float64(h.cu.Spec.Freq)
 		stack[taskType] = cycle / float64(h.instCount)
 	}
 
@@ -214,7 +216,7 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.valuInstCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Spec.Freq)
+		cycle := secondsOf(duration) * float64(h.cu.Spec.Freq)
 		stack[taskType] = cycle / float64(h.valuInstCount)
 	}
 
@@ -273,7 +275,7 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 	case "wavefront":
 		if !h.firstWFStarted {
 			h.firstWFStarted = true
-			h.firstWFStartTime = secondsOf(task.StartTime)
+			h.firstWFStartTime = task.StartTime
 			h.lastRecordedTime = h.firstWFStartTime
 			h.runningWFCount++
 		}
@@ -296,7 +298,7 @@ func (h *CPIStackTracer) handleRegularTaskStart(task tasks.Task) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
-	currentTime := secondsOf(task.StartTime)
+	currentTime := task.StartTime
 	duration := currentTime - h.lastRecordedTime
 	h.timeStack[highestTaskType.ToString()] += duration
 	h.lastRecordedTime = currentTime
@@ -341,7 +343,7 @@ func (h *CPIStackTracer) handleRegularTaskEnd(
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
-	currentTime := secondsOf(endTime)
+	currentTime := endTime
 	duration := currentTime - h.lastRecordedTime
 
 	h.timeStack[highestTaskType.ToString()] += duration
@@ -391,7 +393,7 @@ func (h *CPIStackTracer) handleTaskEnd(
 	switch task.Kind {
 	case "wavefront":
 		if h.firstWFStarted {
-			h.lastWFEndTime = secondsOf(endTime)
+			h.lastWFEndTime = endTime
 			h.lastRecordedTime = h.lastWFEndTime
 			h.runningWFCount--
 		}
@@ -401,5 +403,5 @@ func (h *CPIStackTracer) handleTaskEnd(
 		h.handleReqEnd(task, endTime)
 	}
 
-	h.lastWFEndTime = secondsOf(endTime)
+	h.lastWFEndTime = endTime
 }

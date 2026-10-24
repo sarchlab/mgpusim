@@ -124,3 +124,10 @@ MGPUSim execution. A separate GCN3 sample comparison also matched all 857 metric
 rows after restoring the old TLB dwell in that diagnostic copy. Host-driven
 samples can additionally start commands at different engine boundaries, so the
 prequeued comparison is the controlled timing check.
+
+CPI stack durations are accumulated in integer picoseconds and converted to
+floating-point cycles only when reporting. This removes event-segmentation
+rounding noise observed by the exact-equality CI check; it does not change
+instruction scheduling or attributed intervals. The earlier 857-row diagnostic
+above used the previous floating-point accumulator. Its last few CPI digits may
+differ from the final reporter, while counts and simulation times are unchanged.
