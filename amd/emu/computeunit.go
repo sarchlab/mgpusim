@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/sarchlab/akita/v5/hooking"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -25,23 +25,19 @@ func ceilToSecond(t timing.VTimeInPicoSec) timing.VTimeInPicoSec {
 // pendingWGCompletion is a work-group that finished emulation and whose
 // completion is scheduled at a future time.
 type pendingWGCompletion struct {
-	completeAt timing.VTimeInPicoSec
-	reqID      uint64
-	workGroup  *kernels.WorkGroup
-	dst        messaging.RemotePort
+	CompleteAt timing.VTimeInPicoSec
+	ReqID      uint64
+	Dst        messaging.RemotePort
 }
 
 // cuProcessor implements modeling.EventProcessor for the emulation
 // ComputeUnit. It receives protocol.MapWGReq messages, functionally emulates
 // the work-groups, and responds with protocol.WGCompletionMsg.
 type cuProcessor struct {
-	// TODO(akita5): state purity — these runtime structures hold pointers
-	// (kernels, wavefronts, decoded instructions) and cannot live in the
-	// pure component State. They are not checkpointable.
-	queuedWGs          []protocol.MapWGReq
-	wfs                map[*kernels.WorkGroup][]*Wavefront
-	instCache          map[uint64]*insts.Inst
-	pendingCompletions []pendingWGCompletion
+	comp *Comp
+	// Event-local execution scratch and a cache validated against saved bytes.
+	wfs       map[*kernels.WorkGroup][]*Wavefront
+	instCache map[uint64]cachedInstruction
 }
 
 // Process reacts to a wakeup: it collects newly arrived MapWGReqs, runs the
@@ -60,25 +56,24 @@ func (p *cuProcessor) collectMapWGReqs(
 	comp *Comp,
 	now timing.VTimeInPicoSec,
 ) bool {
-	port := comp.GetPortByName(DispatchPortName)
+	port := comp.Ports.ToDispatcher
 	state := &comp.State
 	progress := false
 
 	for {
-		msg := port.RetrieveIncoming()
-		if msg == nil {
+		msg, ok := port.RetrieveIncoming()
+		if !ok {
 			break
 		}
 
-		req := msg.(protocol.MapWGReq)
+		req := msg
 
 		if state.NextEmulationAt <= now {
 			state.NextEmulationAt = ceilToSecond(now)
-			comp.ScheduleWakeAt(state.NextEmulationAt)
+			comp.WakeAt(state.NextEmulationAt)
 		}
 
-		p.queuedWGs = append(p.queuedWGs, req)
-		p.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
+		comp.State.QueuedWGs = append(comp.State.QueuedWGs, req)
 
 		progress = true
 	}
@@ -90,18 +85,18 @@ func (p *cuProcessor) runEmulation(
 	comp *Comp,
 	now timing.VTimeInPicoSec,
 ) bool {
-	if len(p.queuedWGs) == 0 {
+	if len(comp.State.QueuedWGs) == 0 {
 		return false
 	}
 
 	if now < comp.State.NextEmulationAt {
-		comp.ScheduleWakeAt(comp.State.NextEmulationAt)
+		comp.WakeAt(comp.State.NextEmulationAt)
 		return false
 	}
 
-	for len(p.queuedWGs) > 0 {
-		req := p.queuedWGs[0]
-		p.queuedWGs = p.queuedWGs[1:]
+	for len(comp.State.QueuedWGs) > 0 {
+		req := comp.State.QueuedWGs[0]
+		comp.State.QueuedWGs = comp.State.QueuedWGs[1:]
 		p.runWG(comp, req, now)
 	}
 
@@ -110,13 +105,18 @@ func (p *cuProcessor) runEmulation(
 
 func (p *cuProcessor) runWG(
 	comp *Comp,
-	req protocol.MapWGReq,
+	req messaging.Msg,
 	now timing.VTimeInPicoSec,
 ) {
-	wg := req.WorkGroup
+	wg, err := req.Payload.(protocol.MapWGReq).WorkGroup.Restore()
+	if err != nil {
+		panic(err)
+	}
+	p.wfs[wg] = nil
+	defer delete(p.wfs, wg)
 	p.initWfs(wg, req)
 
-	alu := comp.Resources().ALU
+	alu := comp.Resources.ALU
 	for !p.isAllWfCompleted(wg) {
 		for _, wf := range p.wfs[wg] {
 			alu.SetLDS(wf.LDS)
@@ -125,26 +125,25 @@ func (p *cuProcessor) runWG(
 		p.resolveBarrier(wg)
 	}
 
-	completeAt := comp.Spec().Freq.NextTick(now)
-	p.pendingCompletions = append(p.pendingCompletions, pendingWGCompletion{
-		completeAt: completeAt,
-		reqID:      req.ID,
-		workGroup:  wg,
-		dst:        req.Src,
+	completeAt := comp.Spec.Freq.NextTick(now)
+	comp.State.PendingCompletions = append(comp.State.PendingCompletions, pendingWGCompletion{
+		CompleteAt: completeAt,
+		ReqID:      req.ID,
+		Dst:        req.Src,
 	})
-	comp.ScheduleWakeAt(completeAt)
+	comp.WakeAt(completeAt)
 }
 
 func (p *cuProcessor) initWfs(
 	wg *kernels.WorkGroup,
-	req protocol.MapWGReq,
+	req messaging.Msg,
 ) {
 	lds := p.initLDS(req)
 
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		managedWf.LDS = lds
-		managedWf.pid = req.PID
+		managedWf.pid = req.Payload.(protocol.MapWGReq).PID
 		p.wfs[wg] = append(p.wfs[wg], managedWf)
 	}
 
@@ -153,8 +152,8 @@ func (p *cuProcessor) initWfs(
 	}
 }
 
-func (p *cuProcessor) initLDS(req protocol.MapWGReq) []byte {
-	ldsSize := req.WorkGroup.Packet.GroupSegmentSize
+func (p *cuProcessor) initLDS(req messaging.Msg) []byte {
+	ldsSize := req.Payload.(protocol.MapWGReq).WorkGroup.Packet.Packet.GroupSegmentSize
 	lds := make([]byte, ldsSize)
 	return lds
 }
@@ -304,20 +303,25 @@ func (p *cuProcessor) runWfUntilBarrier(comp *Comp, wf *Wavefront) {
 		return
 	}
 
-	resources := comp.Resources()
+	resources := comp.Resources
 
 	for {
 		pc := wf.PC()
-		inst, ok := p.instCache[pc]
-		if !ok {
-			instBuf := resources.StorageAccessor.Read(wf.pid, pc, 8)
-			var err error
-			inst, err = resources.Decoder.Decode(instBuf)
+		instBuf, saved := comp.State.DecodedBytes[pc]
+		if !saved {
+			instBuf = resources.StorageAccessor.Read(wf.pid, pc, 8)
+			comp.State.DecodedBytes[pc] = instBuf
+		}
+		cached, ok := p.instCache[pc]
+		if !ok || cached.Bytes != string(instBuf) {
+			inst, err := resources.Decoder.Decode(instBuf)
 			if err != nil {
 				log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", pc, err, instBuf)
 			}
-			p.instCache[pc] = inst
+			cached = cachedInstruction{Bytes: string(instBuf), Inst: inst}
+			p.instCache[pc] = cached
 		}
+		inst := cached.Inst
 		wf.inst = inst
 
 		wf.SetPC(wf.PC() + uint64(inst.ByteSize))
@@ -334,7 +338,7 @@ func (p *cuProcessor) runWfUntilBarrier(comp *Comp, wf *Wavefront) {
 			break
 		}
 
-		p.executeInst(comp.Resources().ALU, wf)
+		p.executeInst(comp.Resources.ALU, wf)
 		p.logInst(comp, wf, inst)
 	}
 }
@@ -374,26 +378,25 @@ func (p *cuProcessor) completeWorkGroups(
 ) bool {
 	state := &comp.State
 	progress := false
-	remaining := make([]pendingWGCompletion, 0, len(p.pendingCompletions))
+	remaining := make([]pendingWGCompletion, 0, len(comp.State.PendingCompletions))
 
-	for _, pc := range p.pendingCompletions {
-		if pc.completeAt > now {
+	for _, pc := range comp.State.PendingCompletions {
+		if pc.CompleteAt > now {
 			remaining = append(remaining, pc)
-			comp.ScheduleWakeAt(pc.completeAt)
+			comp.WakeAt(pc.CompleteAt)
 			continue
 		}
 
-		delete(p.wfs, pc.workGroup)
-		if !containsID(state.FinishedMapWGReqIDs, pc.reqID) {
+		if !containsID(state.FinishedMapWGReqIDs, pc.ReqID) {
 			state.FinishedMapWGReqIDs =
-				append(state.FinishedMapWGReqIDs, pc.reqID)
+				append(state.FinishedMapWGReqIDs, pc.ReqID)
 		}
-		state.CompletionDst = pc.dst
+		state.CompletionDst = pc.Dst
 
 		progress = true
 	}
 
-	p.pendingCompletions = remaining
+	comp.State.PendingCompletions = remaining
 
 	return p.sendWGCompletionMsg(comp) || progress
 }
@@ -401,24 +404,20 @@ func (p *cuProcessor) completeWorkGroups(
 func (p *cuProcessor) sendWGCompletionMsg(comp *Comp) bool {
 	state := &comp.State
 
-	if len(state.FinishedMapWGReqIDs) == 0 || len(p.wfs) != 0 {
+	if len(state.FinishedMapWGReqIDs) == 0 || len(state.QueuedWGs) != 0 || len(state.PendingCompletions) != 0 {
 		return false
 	}
 
-	port := comp.GetPortByName(DispatchPortName)
+	port := comp.Ports.ToDispatcher
 	if !port.CanSend() {
 		// NotifyPortFree will wake the component up to retry.
 		return false
 	}
 
-	msg := protocol.WGCompletionMsg{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: port.AsRemote(),
-			Dst: state.CompletionDst,
-		},
-		RspToIDs: state.FinishedMapWGReqIDs,
-	}
+	msg := messaging.Msg{ID: comp.NewID(),
+		Src: port.AsRemote(),
+		Dst: state.CompletionDst, Payload: protocol.WGCompletionMsg{RspToIDs: state.FinishedMapWGReqIDs}}
+
 	port.Send(msg)
 
 	state.FinishedMapWGReqIDs = nil
@@ -434,3 +433,5 @@ func containsID(ids []uint64, id uint64) bool {
 	}
 	return false
 }
+
+func (p *cuProcessor) Handle(timing.Event) bool { return p.Process(p.comp, p.comp.CurrentTime()) }

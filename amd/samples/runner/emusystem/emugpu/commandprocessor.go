@@ -1,9 +1,10 @@
 package emugpu
 
 import (
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
@@ -31,78 +32,41 @@ type cpSpec struct {
 	Freq timing.Freq `json:"freq"`
 }
 
-// cpState is the pure runtime state of the emulation command processor. The
-// in-flight bookkeeping holds pointers (work-groups) and lives on the
-// middleware instead.
-type cpState struct{}
+// cpState contains queued work and all in-flight launch bookkeeping.
+type cpState struct {
+	CUDst                 messaging.RemotePort
+	WGsToSend, RspsToSend []messaging.Msg
+	Launches              map[uint64]kernelLaunch
+	WGToKernel            map[uint64]uint64
+}
+type commandProcessor = ticking.Component[cpSpec, cpState, modeling.None, cpPorts, cpMiddlewares]
+type cpPorts struct {
+	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToCU     messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+}
+type cpMiddlewares struct{ CP *cpMiddleware }
 
-// commandProcessor is the emulation command processor component.
-type commandProcessor = modeling.Component[cpSpec, cpState, modeling.None]
+func (m *cpMiddlewares) Initialize(c *commandProcessor) { m.CP = &cpMiddleware{comp: c} }
 
-// kernelLaunch tracks one in-flight kernel launch.
 type kernelLaunch struct {
-	reqID       uint64
-	reqSrc      messaging.RemotePort
-	outstanding int
+	ReqID       uint64
+	ReqSrc      messaging.RemotePort
+	Outstanding int
 }
+type cpMiddleware struct{ comp *commandProcessor }
 
-// cpMiddleware implements the behavior of the emulation command processor.
-type cpMiddleware struct {
-	comp *commandProcessor
-
-	// cuDst is the remote port of the ComputeUnit that work-groups are
-	// dispatched to. It is set during platform assembly.
-	cuDst messaging.RemotePort
-
-	// TODO(akita5): state purity — the queued requests and the in-flight
-	// bookkeeping below hold pointers (work-groups) and maps and therefore
-	// cannot live in the pure component State. They are not checkpointable.
-	wgsToSend  []protocol.MapWGReq
-	rspsToSend []messaging.Msg
-	launches   map[uint64]*kernelLaunch // keyed by LaunchKernelReq.ID
-	wgToKernel map[uint64]uint64        // MapWGReq.ID -> LaunchKernelReq.ID
-}
-
-func newCPMiddleware(comp *commandProcessor) *cpMiddleware {
-	return &cpMiddleware{
-		comp:       comp,
-		launches:   make(map[uint64]*kernelLaunch),
-		wgToKernel: make(map[uint64]uint64),
-	}
-}
-
-// buildCommandProcessor builds the emulation command processor. It declares
-// the "ToDriver" and "ToCU" ports; the port instances are assigned externally
-// after Build.
-func buildCommandProcessor(
-	reg modeling.Registrar,
-	freq timing.Freq,
-	name string,
-) (*commandProcessor, *cpMiddleware) {
-	comp := modeling.NewBuilder[cpSpec, cpState, modeling.None]().
-		WithEngine(reg.GetEngine()).
-		WithFreq(freq).
-		WithSpec(cpSpec{Freq: freq}).
-		Build(name)
-	comp.State = cpState{}
-
-	mw := newCPMiddleware(comp)
-	comp.AddMiddleware(mw)
-
-	comp.DeclarePort(cpDriverPortName)
-	comp.DeclarePort(cpCUPortName)
-
-	reg.RegisterComponent(comp)
-
-	return comp, mw
+func buildCommandProcessor(reg modeling.Simulation, freq timing.Freq, name string) *commandProcessor {
+	c := modeling.MakeBuilder[*commandProcessor](cpSpec{Freq: freq}).WithSimulation(reg).Build(name)
+	c.State = cpState{Launches: make(map[uint64]kernelLaunch), WGToKernel: make(map[uint64]uint64)}
+	return c
 }
 
 func (m *cpMiddleware) driverPort() messaging.Port {
-	return m.comp.GetPortByName(cpDriverPortName)
+	return m.comp.Ports.ToDriver
 }
 
 func (m *cpMiddleware) cuPort() messaging.Port {
-	return m.comp.GetPortByName(cpCUPortName)
+	return m.comp.Ports.ToCU
 }
 
 // Tick advances the command processor by one cycle.
@@ -121,9 +85,9 @@ func (m *cpMiddleware) sendMapWGReqs() bool {
 	madeProgress := false
 	port := m.cuPort()
 
-	for len(m.wgsToSend) > 0 && port.CanSend() {
-		port.Send(m.wgsToSend[0])
-		m.wgsToSend = m.wgsToSend[1:]
+	for len(m.comp.State.WGsToSend) > 0 && port.CanSend() {
+		port.Send(m.comp.State.WGsToSend[0])
+		m.comp.State.WGsToSend = m.comp.State.WGsToSend[1:]
 		madeProgress = true
 	}
 
@@ -134,9 +98,9 @@ func (m *cpMiddleware) sendLaunchRsps() bool {
 	madeProgress := false
 	port := m.driverPort()
 
-	for len(m.rspsToSend) > 0 && port.CanSend() {
-		port.Send(m.rspsToSend[0])
-		m.rspsToSend = m.rspsToSend[1:]
+	for len(m.comp.State.RspsToSend) > 0 && port.CanSend() {
+		port.Send(m.comp.State.RspsToSend[0])
+		m.comp.State.RspsToSend = m.comp.State.RspsToSend[1:]
 		madeProgress = true
 	}
 
@@ -144,26 +108,27 @@ func (m *cpMiddleware) sendLaunchRsps() bool {
 }
 
 func (m *cpMiddleware) processDriverInput() bool {
-	msg := m.driverPort().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.driverPort().PeekIncoming()
+	if !ok {
 		return false
 	}
 
 	m.driverPort().RetrieveIncoming()
 
-	switch req := msg.(type) {
+	switch msg.Payload.(type) {
 	case protocol.LaunchKernelReq:
+		req := msg
+
 		m.handleLaunchKernelReq(req)
 	case protocol.FlushReq:
+		req := msg
+
 		// No caches in the emulation platform; acknowledge immediately.
-		m.rspsToSend = append(m.rspsToSend, protocol.GeneralRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   m.driverPort().AsRemote(),
-				Dst:   req.Src,
-				RspTo: req.ID,
-			},
-		})
+		m.comp.State.RspsToSend = append(m.comp.State.RspsToSend, messaging.Msg{ID: m.comp.NewID(),
+			Src:   m.driverPort().AsRemote(),
+			Dst:   req.Src,
+			RspTo: req.ID, Payload: protocol.GeneralRsp{}},
+		)
 	default:
 		panic("emugpu command processor: unsupported message type")
 	}
@@ -171,69 +136,65 @@ func (m *cpMiddleware) processDriverInput() bool {
 	return true
 }
 
-func (m *cpMiddleware) handleLaunchKernelReq(req protocol.LaunchKernelReq) {
-	gridBuilder := kernels.NewGridBuilder()
+func (m *cpMiddleware) handleLaunchKernelReq(req messaging.Msg) {
+	gridBuilder := kernels.NewGridBuilder(m.comp)
 	gridBuilder.SetKernel(kernels.KernelLaunchInfo{
-		CodeObject: req.CodeObject,
-		Packet:     req.Packet,
-		PacketAddr: req.PacketAddress,
-		WGFilter:   req.WGFilter,
+		CodeObject: req.Payload.(protocol.LaunchKernelReq).CodeObject.Restore(),
+		Packet:     kernels.PacketValue{Present: true, Packet: req.Payload.(protocol.LaunchKernelReq).Packet}.Restore(),
+		PacketAddr: req.Payload.(protocol.LaunchKernelReq).PacketAddress,
+		Selection:  req.Payload.(protocol.LaunchKernelReq).Selection,
 	})
 
 	numWG := gridBuilder.NumWG()
 	if numWG == 0 {
-		m.rspsToSend = append(m.rspsToSend, m.makeLaunchRsp(req.ID, req.Src))
+		m.comp.State.RspsToSend = append(m.comp.State.RspsToSend, m.makeLaunchRsp(req.ID, req.Src))
 		return
 	}
 
-	m.launches[req.ID] = &kernelLaunch{
-		reqID:       req.ID,
-		reqSrc:      req.Src,
-		outstanding: numWG,
+	m.comp.State.Launches[req.ID] = kernelLaunch{
+		ReqID:       req.ID,
+		ReqSrc:      req.Src,
+		Outstanding: numWG,
 	}
 
 	cuSrc := m.cuPort().AsRemote()
 	for i := 0; i < numWG; i++ {
 		wg := gridBuilder.NextWG()
 
-		mapReq := protocol.MapWGReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: cuSrc,
-				Dst: m.cuDst,
-			},
-			WorkGroup: wg,
-			PID:       req.PID,
-		}
+		mapReq := messaging.Msg{ID: m.comp.NewID(),
+			Src: cuSrc,
+			Dst: m.comp.State.CUDst, Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(wg),
+				PID: req.Payload.(protocol.LaunchKernelReq).PID}}
 
-		m.wgToKernel[mapReq.ID] = req.ID
-		m.wgsToSend = append(m.wgsToSend, mapReq)
+		m.comp.State.WGToKernel[mapReq.ID] = req.ID
+		m.comp.State.WGsToSend = append(m.comp.State.WGsToSend, mapReq)
 	}
 }
 
 func (m *cpMiddleware) processCUInput() bool {
-	msg := m.cuPort().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.cuPort().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	completion := msg.(protocol.WGCompletionMsg)
+	completion := msg
 	m.cuPort().RetrieveIncoming()
 
-	for _, wgID := range completion.RspToIDs {
-		kernelID, ok := m.wgToKernel[wgID]
+	for _, wgID := range completion.Payload.(protocol.WGCompletionMsg).RspToIDs {
+		kernelID, ok := m.comp.State.WGToKernel[wgID]
 		if !ok {
 			continue
 		}
 
-		delete(m.wgToKernel, wgID)
+		delete(m.comp.State.WGToKernel, wgID)
 
-		launch := m.launches[kernelID]
-		launch.outstanding--
-		if launch.outstanding == 0 {
-			m.rspsToSend = append(m.rspsToSend,
-				m.makeLaunchRsp(launch.reqID, launch.reqSrc))
-			delete(m.launches, kernelID)
+		launch := m.comp.State.Launches[kernelID]
+		launch.Outstanding--
+		m.comp.State.Launches[kernelID] = launch
+		if launch.Outstanding == 0 {
+			m.comp.State.RspsToSend = append(m.comp.State.RspsToSend,
+				m.makeLaunchRsp(launch.ReqID, launch.ReqSrc))
+			delete(m.comp.State.Launches, kernelID)
 		}
 	}
 
@@ -243,13 +204,11 @@ func (m *cpMiddleware) processCUInput() bool {
 func (m *cpMiddleware) makeLaunchRsp(
 	reqID uint64,
 	dst messaging.RemotePort,
-) protocol.LaunchKernelRsp {
-	return protocol.LaunchKernelRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   m.driverPort().AsRemote(),
-			Dst:   dst,
-			RspTo: reqID,
-		},
-	}
+) messaging.Msg {
+	return messaging.Msg{ID: m.comp.NewID(),
+		Src:   m.driverPort().AsRemote(),
+		Dst:   dst,
+		RspTo: reqID, Payload: protocol.LaunchKernelRsp{}}
 }
+
+func (m *cpMiddleware) Handle(timing.Event) bool { return m.Tick() }

@@ -3,7 +3,7 @@ package timingconfig
 import (
 	"testing"
 
-	"github.com/sarchlab/akita/v5/simulation"
+	simulation "github.com/sarchlab/akita/v5/sim"
 )
 
 // buildPlatform assembles a platform of the given GPU type and count. The
@@ -13,8 +13,7 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 	t.Helper()
 
 	s := simulation.MakeBuilder().
-		WithoutMonitoring().
-		WithOutputFileName(t.TempDir() + "/sim").
+		WithOutputPath(t.TempDir() + "/sim.sqlite3").
 		Build()
 	defer s.Terminate()
 
@@ -24,6 +23,10 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 		WithGPUType(gpuType).
 		Build()
 
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
 	if gpuDriver == nil {
 		t.Fatal("driver must not be nil")
 	}
@@ -32,12 +35,16 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 		t.Fatalf("expected %d GPUs, got %d", numGPUs, len(gpuDriver.GPUs))
 	}
 
-	if s.GetComponentByName("Driver") == nil {
+	found := make(map[string]bool)
+	for _, c := range s.Components() {
+		found[c.Name()] = true
+	}
+	if !found["Driver"] {
 		t.Fatal("driver must be registered with the simulation")
 	}
 
 	cpName := "GPU[1].CommandProcessor"
-	if s.GetComponentByName(cpName) == nil {
+	if !found[cpName] {
 		t.Fatalf("component %s must be registered", cpName)
 	}
 }

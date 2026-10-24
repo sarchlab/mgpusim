@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
@@ -27,8 +26,10 @@ func (m *defaultMemoryCopyMiddleware) ProcessCommand(
 ) (processed bool) {
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
+		m.driver.logCmdStart(cmd)
 		return m.processMemCopyH2DCommand(cmd, queue)
 	case *MemCopyD2HCommand:
+		m.driver.logCmdStart(cmd)
 		return m.processMemCopyD2HCommand(cmd, queue)
 	}
 
@@ -54,7 +55,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
+		page, found := m.driver.Resources.PageTable.
 			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
@@ -68,15 +69,13 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 		}
 
 		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.MemCopyH2DReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: m.driver.GPUs[gpuID-1],
-			},
-			SrcBuffer:  rawBytes[offset : offset+sizeToCopy],
-			DstAddress: pAddr,
-		}
+		req := messaging.Msg{ID: m.driver.NewID(),
+			Src: m.driver.gpuPort().AsRemote(),
+			Dst: m.driver.GPUs[gpuID-1],
+			Payload: protocol.MemCopyH2DReq{SrcBuffer: rawBytes[offset : offset+sizeToCopy],
+
+				DstAddress: pAddr}}
+
 		cmd.Reqs = append(cmd.Reqs, req)
 		m.awaitingReqs = append(m.awaitingReqs, req)
 
@@ -98,18 +97,18 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) bool {
-	if m.needFlushing(queue.Context, cmd.Src, uint64(binary.Size(cmd.Dst))) {
+	if m.needFlushing(queue.Context, cmd.Src, uint64(copyByteSize(cmd))) {
 		m.sendFlushRequest(cmd)
 		queue.Context.removeFreedBuffers()
 	}
 
-	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
+	cmd.RawData = make([]byte, copyByteSize(cmd))
 
 	offset := uint64(0)
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
+		page, found := m.driver.Resources.PageTable.
 			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
@@ -123,15 +122,11 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 		}
 
 		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.MemCopyD2HReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: m.driver.GPUs[gpuID-1],
-			},
-			SrcAddress: pAddr,
-			DstBuffer:  cmd.RawData[offset : offset+sizeToCopy],
-		}
+		req := messaging.Msg{ID: m.driver.NewID(),
+			Src: m.driver.gpuPort().AsRemote(),
+			Dst: m.driver.GPUs[gpuID-1], Payload: protocol.MemCopyD2HReq{SrcAddress: pAddr,
+				ByteSize: sizeToCopy, DstOffset: offset}}
+
 		cmd.Reqs = append(cmd.Reqs, req)
 		m.awaitingReqs = append(m.awaitingReqs, req)
 
@@ -186,13 +181,10 @@ func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
 	cmd Command,
 ) {
 	for _, gpu := range m.driver.GPUs {
-		req := protocol.FlushReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: gpu,
-			},
-		}
+		req := messaging.Msg{ID: m.driver.NewID(),
+			Src: m.driver.gpuPort().AsRemote(),
+			Dst: gpu, Payload: protocol.FlushReq{}}
+
 		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
 		cmd.AddReq(req)
 
@@ -214,13 +206,16 @@ func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
 		madeProgress = true
 	}
 
-	req := m.driver.gpuPort().PeekIncoming()
-	if req == nil {
+	req, ok := m.driver.gpuPort().PeekIncoming()
+	if !ok {
 		return madeProgress
 	}
 
-	switch req := req.(type) {
+	switch req.Payload.(type) {
+	case protocol.MemCopyD2HRsp:
+		madeProgress = m.processMemCopyD2HRsp(req) || madeProgress
 	case protocol.GeneralRsp:
+
 		madeProgress = m.processGeneralRsp(req) || madeProgress
 	}
 
@@ -232,31 +227,34 @@ func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
 // the v4 sim.GeneralRsp embedded the original request) and dispatches on the
 // request type.
 func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
-	rsp protocol.GeneralRsp,
+	rsp messaging.Msg,
 ) bool {
 	madeProgress := false
 	originalReq, _, _ := m.driver.findCommandByReqID(rsp.RspTo)
 
-	switch originalReq := originalReq.(type) {
+	switch originalReq.Payload.(type) {
 	case protocol.FlushReq:
+
 		madeProgress = m.processFlushReturn(originalReq)
 	case protocol.MemCopyH2DReq:
+
 		madeProgress = m.processMemCopyH2DReturn(originalReq)
 	case protocol.MemCopyD2HReq:
-		madeProgress = m.processMemCopyD2HReturn(originalReq)
+
+		panic("D2H completion requires returned data")
 	}
 
 	return madeProgress
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
-	req protocol.MemCopyH2DReq,
+	req messaging.Msg,
 ) bool {
 	m.driver.gpuPort().RetrieveIncoming()
 
 	m.driver.logTaskToGPUClear(req)
 
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
+	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.ID)
 
 	cmd.RemoveReq(req)
 	m.completeCopyIfReady(cmd, cmdQueue)
@@ -265,13 +263,13 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
-	req protocol.MemCopyD2HReq,
+	req messaging.Msg,
 ) bool {
 	m.driver.gpuPort().RetrieveIncoming()
 
 	m.driver.logTaskToGPUClear(req)
 
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
+	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.ID)
 
 	cmd.RemoveReq(req)
 	m.completeCopyIfReady(cmd, cmdQueue)
@@ -280,13 +278,13 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
 }
 
 func (m *defaultMemoryCopyMiddleware) processFlushReturn(
-	req protocol.FlushReq,
+	req messaging.Msg,
 ) bool {
 	m.driver.gpuPort().RetrieveIncoming()
 
 	m.driver.logTaskToGPUClear(req)
 
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
+	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.ID)
 
 	cmd.RemoveReq(req)
 	m.completeCopyIfReady(cmd, cmdQueue)
@@ -307,13 +305,22 @@ func (m *defaultMemoryCopyMiddleware) completeCopyIfReady(
 	}
 
 	if copyCmd, ok := cmd.(*MemCopyD2HCommand); ok {
-		buf := bytes.NewReader(copyCmd.RawData)
-		if err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst); err != nil {
-			panic(err)
-		}
+		m.driver.deliverResult(copyCmd)
 	}
 
 	queue.IsRunning = false
 	queue.Dequeue()
 	m.driver.logCmdComplete(cmd)
+}
+
+func (m *defaultMemoryCopyMiddleware) processMemCopyD2HRsp(rsp messaging.Msg) bool {
+	req, command, _ := m.driver.findCommandByReqID(rsp.RspTo)
+	cmd := command.(*MemCopyD2HCommand)
+	request := req.Payload.(protocol.MemCopyD2HReq)
+	data := rsp.Payload.(protocol.MemCopyD2HRsp).Data
+	if uint64(len(data)) != request.ByteSize {
+		panic("D2H response size differs from request")
+	}
+	copy(cmd.RawData[request.DstOffset:request.DstOffset+request.ByteSize], data)
+	return m.processMemCopyD2HReturn(req)
 }

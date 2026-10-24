@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
@@ -130,7 +129,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket Ptr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         timing.GetIDGenerator().Generate(),
+		ID:         d.NewID(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,
@@ -145,7 +144,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	dPacket []Ptr,
 ) {
 	cmd := &LaunchUnifiedMultiGPUKernelCommand{
-		ID:           timing.GetIDGenerator().Generate(),
+		ID:           d.NewID(),
 		CodeObject:   co,
 		DPacketArray: dPacket,
 		PacketArray:  packet,

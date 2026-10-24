@@ -6,10 +6,11 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
@@ -17,18 +18,20 @@ import (
 // Read/Write requests that correspond to it, as well as the number of
 // remaining requests
 type RequestCollection struct {
-	superiorRequest       messaging.Msg
-	subordinateRequestIDs []uint64
-	subordinateCount      int
+	RecvTaskID            uint64
+	Data                  []byte
+	SuperiorRequest       messaging.Msg
+	SubordinateRequestIDs []uint64
+	SubordinateCount      int
 }
 
 // decrementCountIfExists reduces the subordinate count if a specific ID is
 // present in the list of subordinate IDs, returning true if it was and false
 // if it was not
 func (rqC *RequestCollection) decrementCountIfExists(id uint64) bool {
-	for _, subID := range rqC.subordinateRequestIDs {
+	for _, subID := range rqC.SubordinateRequestIDs {
 		if id == subID {
-			rqC.subordinateCount--
+			rqC.SubordinateCount--
 			return true
 		}
 	}
@@ -39,31 +42,31 @@ func (rqC *RequestCollection) decrementCountIfExists(id uint64) bool {
 // isFinished returns true if the subordinate count is zero (i.e. the superior
 // request is finished processing)
 func (rqC *RequestCollection) isFinished() bool {
-	return rqC.subordinateCount == 0
+	return rqC.SubordinateCount == 0
 }
 
 func (rqC *RequestCollection) getSuperior() messaging.Msg {
-	return rqC.superiorRequest
+	return rqC.SuperiorRequest
 }
 
 func (rqC *RequestCollection) getSuperiorID() uint64 {
-	return rqC.superiorRequest.Meta().ID
+	return rqC.SuperiorRequest.ID
 }
 
 // appendSubordinateID adds a message ID to the list and increases the count
 func (rqC *RequestCollection) appendSubordinateID(id uint64) {
-	rqC.subordinateRequestIDs = append(rqC.subordinateRequestIDs, id)
-	rqC.subordinateCount++
+	rqC.SubordinateRequestIDs = append(rqC.SubordinateRequestIDs, id)
+	rqC.SubordinateCount++
 }
 
 // NewRequestCollection creates a RequestCollection for the given superior
 // request.
 func NewRequestCollection(
-	superiorRequest messaging.Msg,
+	SuperiorRequest messaging.Msg,
 ) *RequestCollection {
 	rqC := new(RequestCollection)
-	rqC.superiorRequest = superiorRequest
-	rqC.subordinateCount = 0
+	rqC.SuperiorRequest = SuperiorRequest
+	rqC.SubordinateCount = 0
 	return rqC
 }
 
@@ -80,10 +83,16 @@ type DMASpec struct {
 	MaxRequestCount uint64 `json:"max_request_count"`
 }
 
-// DMAState contains the mutable runtime data of the DMA engine. The in-flight
-// request bookkeeping holds message values and lives on the middleware
-// instead.
-type DMAState struct{}
+// DMAState contains all queued requests, partial copyback bytes and task handles.
+type DMAState struct {
+	ProcessingReqs []RequestCollection
+	PendingReqs    []messaging.Msg
+	ToSendToMem    []messaging.Msg
+	ToSendToCP     []messaging.Msg
+	PendingTaskIDs map[uint64]uint64
+}
+
+func (s *DMAState) Initialize(*DMAComp) { s.PendingTaskIDs = make(map[uint64]uint64) }
 
 // DMAResources holds the shared references used by the DMA engine.
 type DMAResources struct {
@@ -97,7 +106,15 @@ type DMAResources struct {
 // Ports (declared in Build, assigned externally):
 //   - "ToCP": connects to the Command Processor.
 //   - "ToMem": connects to the memory system.
-type DMAComp = modeling.Component[DMASpec, DMAState, DMAResources]
+type DMAComp = ticking.Component[DMASpec, DMAState, DMAResources, DMAPorts, DMAMiddlewares]
+type DMAPorts struct {
+	ToCP  messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.dma"`
+	ToMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+}
+type DMAMiddlewares struct{ DMA *dmaMiddleware }
+
+func (m *DMAMiddlewares) Initialize(c *DMAComp)   { m.DMA = &dmaMiddleware{comp: c} }
+func (m *dmaMiddleware) Handle(timing.Event) bool { return m.Tick() }
 
 // DMAEngine is an alias of DMAComp, kept for readability at use sites.
 type DMAEngine = DMAComp
@@ -105,29 +122,21 @@ type DMAEngine = DMAComp
 // dmaMiddleware implements the behavior of the DMA engine.
 type dmaMiddleware struct {
 	comp *DMAComp
-
-	// TODO(akita5): state purity — the in-flight request bookkeeping holds
-	// message values of mixed types, so it lives here rather than in the
-	// component State. It is not checkpointable.
-	processingReqs []*RequestCollection
-	pendingReqs    []messaging.Msg
-	toSendToMem    []messaging.Msg
-	toSendToCP     []messaging.Msg
 }
 
 func (m *dmaMiddleware) toCP() messaging.Port {
-	return m.comp.GetPortByName("ToCP")
+	return m.comp.Ports.ToCP
 }
 
 func (m *dmaMiddleware) toMem() messaging.Port {
-	return m.comp.GetPortByName("ToMem")
+	return m.comp.Ports.ToMem
 }
 
 func (m *dmaMiddleware) Tick() bool {
 	madeProgress := false
 
-	madeProgress = m.send(m.toCP(), &m.toSendToCP) || madeProgress
-	madeProgress = m.send(m.toMem(), &m.toSendToMem) || madeProgress
+	madeProgress = m.send(m.toCP(), &m.comp.State.ToSendToCP) || madeProgress
+	madeProgress = m.send(m.toMem(), &m.comp.State.ToSendToMem) || madeProgress
 	madeProgress = m.parseFromMem() || madeProgress
 	madeProgress = m.parseFromCP() || madeProgress
 
@@ -153,17 +162,20 @@ func (m *dmaMiddleware) send(
 }
 
 func (m *dmaMiddleware) parseFromMem() bool {
-	req := m.toMem().RetrieveIncoming()
-	if req == nil {
+	req, ok := m.toMem().RetrieveIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case memprotocol.DataReadyRsp:
+
 		m.processDataReadyRsp(req)
 	case memprotocol.WriteDoneRsp:
+
 		m.processDoneRsp(req)
 	default:
+
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
 
@@ -171,16 +183,17 @@ func (m *dmaMiddleware) parseFromMem() bool {
 }
 
 func (m *dmaMiddleware) processDataReadyRsp(
-	rsp memprotocol.DataReadyRsp,
+	rsp messaging.Msg,
 ) {
 	req := m.removeReqFromPendingReqList(
-		rsp.Meta().RspTo).(memprotocol.ReadReq)
-	tracing.TraceReqFinalize(m.comp, req)
+		rsp.RspTo)
+	m.finishBottomRequest(req.ID)
 
 	found := false
 	result := &RequestCollection{}
-	for _, rc := range m.processingReqs {
-		if rc.decrementCountIfExists(req.Meta().ID) {
+	for i := range m.comp.State.ProcessingReqs {
+		rc := &m.comp.State.ProcessingReqs[i]
+		if rc.decrementCountIfExists(req.ID) {
 			result = rc
 			found = true
 		}
@@ -190,43 +203,38 @@ func (m *dmaMiddleware) processDataReadyRsp(
 		panic("couldn't find requestcollection")
 	}
 
-	processing := result.getSuperior().(protocol.MemCopyD2HReq)
+	processing := result.getSuperior()
 
-	offset := req.Address - processing.SrcAddress
-	copy(processing.DstBuffer[offset:], rsp.Data)
+	offset := req.Payload.(memprotocol.ReadReq).Address - processing.Payload.(protocol.MemCopyD2HReq).SrcAddress
+	copy(result.Data[offset:], rsp.Payload.(memprotocol.DataReadyRsp).Data)
 
 	if result.isFinished() {
 		// All bottom reads have returned: mark the end of the wait for memory.
-		tracing.AddMilestone(m.comp, tracing.Milestone{
-			TaskID: tracing.MsgIDAtReceiver(processing, m.comp),
-			Kind:   tracing.MilestoneKindData,
-			What:   "ToMem",
-		})
-		tracing.TraceReqComplete(m.comp, processing)
-		m.removeReqFromProcessingReqList(processing.Meta().ID)
+		m.comp.TaskTracker().
+			AddMilestone(tasks.Milestone{TaskID: result.RecvTaskID, Kind: tasks.MilestoneKindData, What: "ToMem"})
+		m.comp.TaskTracker().EndReqIn(result.RecvTaskID)
+		m.removeReqFromProcessingReqList(processing.ID)
 
-		rsp := protocol.GeneralRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   processing.Dst,
-				Dst:   processing.Src,
-				RspTo: processing.ID,
-			},
-		}
-		m.toSendToCP = append(m.toSendToCP, rsp)
+		rsp := messaging.Msg{ID: m.comp.NewID(),
+			Src:   processing.Dst,
+			Dst:   processing.Src,
+			RspTo: processing.ID, Payload: protocol.MemCopyD2HRsp{Data: result.Data}}
+
+		m.comp.State.ToSendToCP = append(m.comp.State.ToSendToCP, rsp)
 	}
 }
 
 func (m *dmaMiddleware) processDoneRsp(
-	rsp memprotocol.WriteDoneRsp,
+	rsp messaging.Msg,
 ) {
-	r := m.removeReqFromPendingReqList(rsp.Meta().RspTo)
-	tracing.TraceReqFinalize(m.comp, r)
+	r := m.removeReqFromPendingReqList(rsp.RspTo)
+	m.finishBottomRequest(r.ID)
 
 	found := false
 	result := &RequestCollection{}
-	for _, rc := range m.processingReqs {
-		if rc.decrementCountIfExists(r.Meta().ID) {
+	for i := range m.comp.State.ProcessingReqs {
+		rc := &m.comp.State.ProcessingReqs[i]
+		if rc.decrementCountIfExists(r.ID) {
 			result = rc
 			found = true
 		}
@@ -237,25 +245,19 @@ func (m *dmaMiddleware) processDoneRsp(
 	}
 
 	if result.isFinished() {
-		processing := result.getSuperior().(protocol.MemCopyH2DReq)
+		processing := result.getSuperior()
 		// All bottom writes have completed: mark the end of the wait for memory.
-		tracing.AddMilestone(m.comp, tracing.Milestone{
-			TaskID: tracing.MsgIDAtReceiver(processing, m.comp),
-			Kind:   tracing.MilestoneKindData,
-			What:   "ToMem",
-		})
-		tracing.TraceReqComplete(m.comp, processing)
-		m.removeReqFromProcessingReqList(processing.Meta().ID)
+		m.comp.TaskTracker().
+			AddMilestone(tasks.Milestone{TaskID: result.RecvTaskID, Kind: tasks.MilestoneKindData, What: "ToMem"})
+		m.comp.TaskTracker().EndReqIn(result.RecvTaskID)
+		m.removeReqFromProcessingReqList(processing.ID)
 
-		rsp := protocol.GeneralRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   processing.Dst,
-				Dst:   processing.Src,
-				RspTo: processing.ID,
-			},
-		}
-		m.toSendToCP = append(m.toSendToCP, rsp)
+		rsp := messaging.Msg{ID: m.comp.NewID(),
+			Src:   processing.Dst,
+			Dst:   processing.Src,
+			RspTo: processing.ID, Payload: protocol.GeneralRsp{}}
+
+		m.comp.State.ToSendToCP = append(m.comp.State.ToSendToCP, rsp)
 	}
 }
 
@@ -263,17 +265,17 @@ func (m *dmaMiddleware) removeReqFromPendingReqList(
 	id uint64,
 ) messaging.Msg {
 	var reqToRet messaging.Msg
-	newList := make([]messaging.Msg, 0, len(m.pendingReqs)-1)
-	for _, r := range m.pendingReqs {
-		if r.Meta().ID == id {
+	newList := make([]messaging.Msg, 0, len(m.comp.State.PendingReqs)-1)
+	for _, r := range m.comp.State.PendingReqs {
+		if r.ID == id {
 			reqToRet = r
 		} else {
 			newList = append(newList, r)
 		}
 	}
-	m.pendingReqs = newList
+	m.comp.State.PendingReqs = newList
 
-	if reqToRet == nil {
+	if reqToRet.ID == 0 {
 		panic("not found")
 	}
 
@@ -282,15 +284,15 @@ func (m *dmaMiddleware) removeReqFromPendingReqList(
 
 func (m *dmaMiddleware) removeReqFromProcessingReqList(id uint64) {
 	found := false
-	newList := make([]*RequestCollection, 0, len(m.processingReqs)-1)
-	for _, r := range m.processingReqs {
+	newList := make([]RequestCollection, 0, len(m.comp.State.ProcessingReqs)-1)
+	for _, r := range m.comp.State.ProcessingReqs {
 		if r.getSuperiorID() == id {
 			found = true
 		} else {
 			newList = append(newList, r)
 		}
 	}
-	m.processingReqs = newList
+	m.comp.State.ProcessingReqs = newList
 
 	if !found {
 		panic("not found")
@@ -298,50 +300,49 @@ func (m *dmaMiddleware) removeReqFromProcessingReqList(id uint64) {
 }
 
 func (m *dmaMiddleware) parseFromCP() bool {
-	if uint64(len(m.processingReqs)) >= m.comp.Spec().MaxRequestCount {
+	if uint64(len(m.comp.State.ProcessingReqs)) >= m.comp.Spec.MaxRequestCount {
 		return false
 	}
 
-	req := m.toCP().PeekIncoming()
-	if req == nil {
+	req, ok := m.toCP().PeekIncoming()
+	if !ok {
 		return false
 	}
 
 	// A processing slot was free, so this request is admitted now. If it had to
 	// wait in the incoming buffer for a slot, this marks the resolution of that
 	// wait on the buffer task (the DBTracer collapses it when there was none).
-	tracing.AddMilestone(m.comp, tracing.Milestone{
-		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
-		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   m.comp.Name() + ".processing-slot",
-	})
+	m.toCP().AddIncomingMilestone(tasks.Reason(tasks.MilestoneKindHardwareResource, m.comp.Name()+".processing-slot"))
 
 	m.toCP().RetrieveIncoming()
-	tracing.TraceReqReceive(m.comp, req)
 
 	rqC := NewRequestCollection(req)
+	rqC.RecvTaskID = m.comp.TaskTracker().StartReqIn(m.comp, req)
 
-	m.processingReqs = append(m.processingReqs, rqC)
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case protocol.MemCopyH2DReq:
+
 		m.parseMemCopyH2D(req, rqC)
 	case protocol.MemCopyD2HReq:
+
 		m.parseMemCopyD2H(req, rqC)
 	default:
+
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
 
+	m.comp.State.ProcessingReqs = append(m.comp.State.ProcessingReqs, *rqC)
 	return true
 }
 
 func (m *dmaMiddleware) parseMemCopyH2D(
-	req protocol.MemCopyH2DReq,
+	req messaging.Msg,
 	rqC *RequestCollection,
 ) {
-	spec := m.comp.Spec()
+	spec := m.comp.Spec
 	offset := uint64(0)
-	lengthLeft := uint64(len(req.SrcBuffer))
-	addr := req.DstAddress
+	lengthLeft := uint64(len(req.Payload.(protocol.MemCopyH2DReq).SrcBuffer))
+	addr := req.Payload.(protocol.MemCopyH2DReq).DstAddress
 
 	for lengthLeft > 0 {
 		addrUnitFirstByte := addr & (^uint64(0) << spec.Log2AccessSize)
@@ -353,22 +354,18 @@ func (m *dmaMiddleware) parseMemCopyH2D(
 			length = lengthInUnit
 		}
 
-		module := m.comp.Resources().LocalDataSource.Find(addr)
-		reqToBottom := memprotocol.WriteReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.toMem().AsRemote(),
-				Dst: module,
-			},
-			Address: addr,
-			Data:    req.SrcBuffer[offset : offset+length],
-		}
-		m.toSendToMem = append(m.toSendToMem, reqToBottom)
-		m.pendingReqs = append(m.pendingReqs, reqToBottom)
-		rqC.appendSubordinateID(reqToBottom.Meta().ID)
+		module := m.comp.Resources.LocalDataSource.Find(addr)
+		reqToBottom := messaging.Msg{ID: m.comp.NewID(),
+			Src: m.toMem().AsRemote(),
+			Dst: module, Payload: memprotocol.WriteReq{Address: addr,
+				Data: req.Payload.(protocol.MemCopyH2DReq).SrcBuffer[offset : offset+length]}}
 
-		tracing.TraceReqInitiate(m.comp, reqToBottom,
-			tracing.MsgIDAtReceiver(req, m.comp))
+		m.comp.State.ToSendToMem = append(m.comp.State.ToSendToMem, reqToBottom)
+		m.comp.State.PendingReqs = append(m.comp.State.PendingReqs, reqToBottom)
+		rqC.appendSubordinateID(reqToBottom.ID)
+
+		m.comp.State.PendingTaskIDs[reqToBottom.ID] = m.comp.TaskTracker().
+			StartReqOut(m.comp, reqToBottom, rqC.RecvTaskID)
 
 		addr += length
 		lengthLeft -= length
@@ -377,13 +374,14 @@ func (m *dmaMiddleware) parseMemCopyH2D(
 }
 
 func (m *dmaMiddleware) parseMemCopyD2H(
-	req protocol.MemCopyD2HReq,
+	req messaging.Msg,
 	rqC *RequestCollection,
 ) {
-	spec := m.comp.Spec()
+	spec := m.comp.Spec
 	offset := uint64(0)
-	lengthLeft := uint64(len(req.DstBuffer))
-	addr := req.SrcAddress
+	lengthLeft := req.Payload.(protocol.MemCopyD2HReq).ByteSize
+	rqC.Data = make([]byte, lengthLeft)
+	addr := req.Payload.(protocol.MemCopyD2HReq).SrcAddress
 
 	for lengthLeft > 0 {
 		addrUnitFirstByte := addr & (^uint64(0) << spec.Log2AccessSize)
@@ -395,22 +393,18 @@ func (m *dmaMiddleware) parseMemCopyD2H(
 			length = lengthInUnit
 		}
 
-		module := m.comp.Resources().LocalDataSource.Find(addr)
-		reqToBottom := memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.toMem().AsRemote(),
-				Dst: module,
-			},
-			Address:        addr,
-			AccessByteSize: length,
-		}
-		m.toSendToMem = append(m.toSendToMem, reqToBottom)
-		m.pendingReqs = append(m.pendingReqs, reqToBottom)
-		rqC.appendSubordinateID(reqToBottom.Meta().ID)
+		module := m.comp.Resources.LocalDataSource.Find(addr)
+		reqToBottom := messaging.Msg{ID: m.comp.NewID(),
+			Src: m.toMem().AsRemote(),
+			Dst: module, Payload: memprotocol.ReadReq{Address: addr,
+				AccessByteSize: length}}
 
-		tracing.TraceReqInitiate(m.comp, reqToBottom,
-			tracing.MsgIDAtReceiver(req, m.comp))
+		m.comp.State.ToSendToMem = append(m.comp.State.ToSendToMem, reqToBottom)
+		m.comp.State.PendingReqs = append(m.comp.State.PendingReqs, reqToBottom)
+		rqC.appendSubordinateID(reqToBottom.ID)
+
+		m.comp.State.PendingTaskIDs[reqToBottom.ID] = m.comp.TaskTracker().
+			StartReqOut(m.comp, reqToBottom, rqC.RecvTaskID)
 
 		addr += length
 		lengthLeft -= length
@@ -431,12 +425,12 @@ func DefaultDMASpec() DMASpec {
 }
 
 // DMAEngineBuilder builds DMA engines. Configuration is supplied as a whole
-// through WithSpec; wiring is supplied through WithRegistrar and
+// through WithSpec; wiring is supplied through WithSimulation and
 // WithResources. The component declares its "ToCP" and "ToMem" ports; the
 // port instances are supplied externally after Build with AssignPort.
 type DMAEngineBuilder struct {
 	spec      DMASpec
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 	resources DMAResources
 }
 
@@ -446,9 +440,9 @@ func MakeDMAEngineBuilder() DMAEngineBuilder {
 	return DMAEngineBuilder{spec: defaultDMASpec}
 }
 
-// WithRegistrar wires the builder to a registrar.
-func (b DMAEngineBuilder) WithRegistrar(
-	reg modeling.Registrar,
+// WithSimulation wires the builder to a registrar.
+func (b DMAEngineBuilder) WithSimulation(
+	reg modeling.Simulation,
 ) DMAEngineBuilder {
 	b.registrar = reg
 	return b
@@ -472,23 +466,12 @@ func (b DMAEngineBuilder) WithResources(r DMAResources) DMAEngineBuilder {
 // ports; assign the port instances after Build with AssignPort.
 func (b DMAEngineBuilder) Build(name string) *DMAComp {
 	if b.registrar == nil {
-		panic("cp: DMAEngineBuilder requires WithRegistrar")
+		panic("cp: DMAEngineBuilder requires WithSimulation")
 	}
 
-	comp := modeling.NewBuilder[DMASpec, DMAState, DMAResources]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		WithResources(b.resources).
-		Build(name)
-	comp.State = DMAState{}
-
-	comp.AddMiddleware(&dmaMiddleware{comp: comp})
-
-	comp.DeclarePort("ToCP")
-	comp.DeclarePort("ToMem", memprotocol.Requester)
-
-	b.registrar.RegisterComponent(comp)
-
-	return comp
+	return modeling.MakeBuilder[*DMAComp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
+}
+func (m *dmaMiddleware) finishBottomRequest(id uint64) {
+	m.comp.TaskTracker().EndReqOut(m.comp.State.PendingTaskIDs[id])
+	delete(m.comp.State.PendingTaskIDs, id)
 }

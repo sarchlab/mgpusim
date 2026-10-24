@@ -5,11 +5,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/hooking"
 	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
@@ -25,15 +25,15 @@ type noopConn struct {
 }
 
 func (c *noopConn) Name() string                     { return "NoopConn" }
-func (c *noopConn) PlugIn(port messaging.Port)       { port.SetConnection(c) }
+func (c *noopConn) BindPort(port messaging.Port)     { port.BindConnection(c) }
 func (c *noopConn) Unplug(_ messaging.Port)          {}
 func (c *noopConn) NotifyAvailable(_ messaging.Port) {}
-func (c *noopConn) NotifySend()                      {}
+func (c *noopConn) NotifySend(messaging.Port)        {}
 
 var _ = Describe("CommandProcessor", func() {
 	var (
 		mockCtrl   *gomock.Controller
-		engine     timing.Engine
+		reg        *sim.Simulation
 		cp         *Comp
 		dispatcher *MockDispatcher
 
@@ -59,32 +59,31 @@ var _ = Describe("CommandProcessor", func() {
 	}
 
 	tickUntilQuiet := func() {
-		for cp.Tick() {
+		for tickCP(cp) {
 		}
 	}
 
-	collectCtrlReqs := func(port messaging.Port) []memcontrolprotocol.Req {
-		var reqs []memcontrolprotocol.Req
+	collectCtrlReqs := func(port messaging.Port) []messaging.Msg {
+		var reqs []messaging.Msg
 		for {
-			msg := port.RetrieveOutgoing()
-			if msg == nil {
+			msg, ok := port.RetrieveOutgoing()
+			if !ok {
 				break
 			}
-			reqs = append(reqs, msg.(memcontrolprotocol.Req))
+			reqs = append(reqs, msg)
 		}
 		return reqs
 	}
 
 	ackCtrlReqs := func(
 		port messaging.Port,
-		reqs []memcontrolprotocol.Req,
+		reqs []messaging.Msg,
 	) {
 		for _, req := range reqs {
-			rsp := memcontrolprotocol.Rsp{
-				Command: req.Command,
-				Success: true,
-			}
-			rsp.ID = timing.GetIDGenerator().Generate()
+			rsp := messaging.Msg{Payload: memcontrolprotocol.Rsp{Command: req.Payload.(memcontrolprotocol.Req).Command,
+				Success: true}}
+
+			rsp.ID = cp.NewID()
 			rsp.Src = req.Dst
 			rsp.Dst = req.Src
 			rsp.RspTo = req.ID
@@ -106,7 +105,7 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(reqs).To(HaveLen(len(dsts)))
 		seen := map[messaging.RemotePort]memcontrolprotocol.Command{}
 		for _, req := range reqs {
-			seen[req.Dst] = req.Command
+			seen[req.Dst] = req.Payload.(memcontrolprotocol.Req).Command
 		}
 		for _, dst := range dsts {
 			Expect(seen).To(HaveKeyWithValue(dst, cmd))
@@ -117,22 +116,21 @@ var _ = Describe("CommandProcessor", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		engine = timing.NewSerialEngine()
-		reg := modeling.NewStandaloneRegistrar(engine)
+		reg = sim.MakeBuilder().WithTaskTracking().Build()
+		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
 		cp = MakeBuilder().
-			WithRegistrar(reg).
+			WithSimulation(reg).
 			WithDriver(driverPort).
 			Build("CP")
 
 		assign := func(name string) messaging.Port {
-			p := modeling.MakePortBuilder().
-				WithRegistrar(reg).
-				WithComponent(cp).
-				WithSpec(modeling.PortSpec{BufSize: 64}).
-				Build(name)
-			cp.AssignPort(name, p)
-			(&noopConn{}).PlugIn(p)
+			p := twowaybuffered.MakeBuilder().
+				WithSimulation(reg).
+				WithSpec(twowaybuffered.Spec{IncomingCapacity: 64, OutgoingCapacity: 64}).
+				Build()
+			cp.BindPort(name, p)
+			(&noopConn{}).BindPort(p)
 			return p
 		}
 
@@ -144,6 +142,7 @@ var _ = Describe("CommandProcessor", func() {
 		toCaches = assign("ToCaches")
 		toRDMA = assign("ToRDMA")
 
+		Expect(reg.Initialize()).To(Succeed())
 		cp.State.DMAEngine = dmaPort
 		cp.State.RDMA = rdmaPort
 		cp.State.CUs = remoteList("CU", 10)
@@ -163,8 +162,8 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	useMockDispatcher := func() {
-		cpMW := cp.Middlewares()[0].(*cpMiddleware)
-		cpMW.dispatchers = []dispatching.Dispatcher{dispatcher}
+		cp.Resources.Dispatchers = []dispatching.Dispatcher{dispatcher}
+		cp.Middlewares.Data.dispatchers = cp.Resources.Dispatchers
 		dispatcher.EXPECT().Tick().Return(false).AnyTimes()
 	}
 
@@ -188,13 +187,10 @@ var _ = Describe("CommandProcessor", func() {
 	It("should forward kernel launching request to a Dispatcher", func() {
 		useMockDispatcher()
 
-		req := protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.LaunchKernelReq{}}
+
 		toDriver.Deliver(req)
 
 		dispatcher.EXPECT().IsDispatching().Return(false).AnyTimes()
@@ -207,16 +203,16 @@ var _ = Describe("CommandProcessor", func() {
 			cp.State.L1SCaches...), cp.State.L1VCaches...)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1DataDsts)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1DataDsts)
-		Expect(toDriver.PeekIncoming()).NotTo(BeNil())
+		Expect(toDriver.IncomingBuf().Size()).To(BeNumerically(">", 0))
 
 		dispatcher.EXPECT().StartDispatching(gomock.Any()).
-			Do(func(launched protocol.LaunchKernelReq) {
+			Do(func(launched messaging.Msg) {
 				Expect(launched.ID).To(Equal(req.ID))
 			})
 
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, l1DataDsts)
 
-		Expect(toDriver.PeekIncoming()).To(BeNil())
+		Expect(toDriver.IncomingBuf().Size()).To(BeZero())
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 		Expect(cp.State.KernelStartReqID).To(BeZero())
 	})
@@ -228,91 +224,79 @@ var _ = Describe("CommandProcessor", func() {
 		cp.State.L1VCaches = nil
 		cp.State.L2Caches = nil
 
-		req := protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.LaunchKernelReq{}}
+
 		toDriver.Deliver(req)
 
 		dispatcher.EXPECT().IsDispatching().Return(false)
 		dispatcher.EXPECT().StartDispatching(gomock.Any())
 
-		madeProgress := cp.Tick()
+		madeProgress := tickCP(cp)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(toDriver.PeekIncoming()).To(BeNil())
+		Expect(toDriver.IncomingBuf().Size()).To(BeZero())
 	})
 
 	It("should wait if there is no dispatcher available", func() {
 		useMockDispatcher()
 
-		req := protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.LaunchKernelReq{}}
+
 		toDriver.Deliver(req)
 
 		dispatcher.EXPECT().IsDispatching().Return(true).AnyTimes()
 
-		madeProgress := cp.Tick()
+		madeProgress := tickCP(cp)
 
 		Expect(madeProgress).To(BeFalse())
-		Expect(toDriver.PeekIncoming()).NotTo(BeNil())
+		Expect(toDriver.IncomingBuf().Size()).To(BeNumerically(">", 0))
 	})
 
 	It("should forward memory copies to the DMA engine and respond "+
 		"to the driver", func() {
-		req := protocol.MemCopyH2DReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-			SrcBuffer:  make([]byte, 128),
-			DstAddress: 0x1000,
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.MemCopyH2DReq{SrcBuffer: make([]byte, 128),
+				DstAddress: 0x1000}}
+
 		toDriver.Deliver(req)
 
 		tickUntilQuiet()
 
-		cloned := toDMA.RetrieveOutgoing().(protocol.MemCopyH2DReq)
+		cloned, ok := toDMA.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(cloned.Dst).To(Equal(dmaPort))
-		Expect(cloned.DstAddress).To(Equal(req.DstAddress))
+		Expect(
+			cloned.Payload.(protocol.MemCopyH2DReq).DstAddress,
+		).To(Equal(req.Payload.(protocol.MemCopyH2DReq).DstAddress))
 		Expect(cloned.ID).NotTo(Equal(req.ID))
 		Expect(cp.State.BottomMemCopyH2DToTop).To(HaveKey(cloned.ID))
 
-		dmaRsp := protocol.GeneralRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   dmaPort,
-				Dst:   toDMA.AsRemote(),
-				RspTo: cloned.ID,
-			},
-		}
+		dmaRsp := messaging.Msg{ID: cp.NewID(),
+			Src:   dmaPort,
+			Dst:   toDMA.AsRemote(),
+			RspTo: cloned.ID, Payload: protocol.GeneralRsp{}}
+
 		toDMA.Deliver(dmaRsp)
 
 		tickUntilQuiet()
 
-		rsp := toDriver.RetrieveOutgoing().(protocol.GeneralRsp)
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(rsp.RspTo).To(Equal(req.ID))
 		Expect(rsp.Dst).To(Equal(driverPort))
 		Expect(cp.State.BottomMemCopyH2DToTop).To(BeEmpty())
 	})
 
 	It("should handle a driver flush request", func() {
-		req := protocol.FlushReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+
 		toDriver.Deliver(req)
 
 		tickUntilQuiet()
@@ -331,7 +315,8 @@ var _ = Describe("CommandProcessor", func() {
 			cp.State.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
 
-		rsp := toDriver.RetrieveOutgoing().(protocol.GeneralRsp)
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(rsp.RspTo).To(Equal(req.ID))
 		Expect(rsp.Dst).To(Equal(driverPort))
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
@@ -344,31 +329,26 @@ var _ = Describe("CommandProcessor", func() {
 		cp.State.L1VCaches = nil
 		cp.State.L2Caches = nil
 
-		req := protocol.FlushReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+
 		toDriver.Deliver(req)
 
 		tickUntilQuiet()
 
-		rsp := toDriver.RetrieveOutgoing().(protocol.GeneralRsp)
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(rsp.RspTo).To(Equal(req.ID))
 	})
 
 	It("should answer back-to-back flush requests in order", func() {
-		var reqs []protocol.FlushReq
+		var reqs []messaging.Msg
 		for i := 0; i < 2; i++ {
-			req := protocol.FlushReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: driverPort,
-					Dst: toDriver.AsRemote(),
-				},
-			}
+			req := messaging.Msg{ID: cp.NewID(),
+				Src: driverPort,
+				Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+
 			toDriver.Deliver(req)
 			reqs = append(reqs, req)
 		}
@@ -393,23 +373,20 @@ var _ = Describe("CommandProcessor", func() {
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable,
 				allCacheDsts())
 
-			rsp := toDriver.RetrieveOutgoing().(protocol.GeneralRsp)
+			rsp, ok := toDriver.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
 			Expect(rsp.RspTo).To(Equal(req.ID))
 			Expect(rsp.Dst).To(Equal(driverPort))
 		}
-		Expect(toDriver.RetrieveOutgoing()).To(BeNil())
+		Expect(toDriver.OutgoingBuf().Size()).To(BeZero())
 	})
 
 	It("should handle a shootdown command", func() {
-		cmd := protocol.ShootDownCommand{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-			VAddr: []uint64{0x1000},
-			PID:   1,
-		}
+		cmd := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.ShootDownCommand{VAddr: []uint64{0x1000},
+				PID: 1}}
+
 		toDriver.Deliver(cmd)
 
 		tickUntilQuiet()
@@ -417,26 +394,23 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(cp.State.ShootDownInProcess).To(BeTrue())
 
 		// Step 1: flush the CU pipelines.
-		var cuFlushReqs []protocol.CUPipelineFlushReq
+		var cuFlushReqs []messaging.Msg
 		for {
-			msg := toCUs.RetrieveOutgoing()
-			if msg == nil {
+			msg, ok := toCUs.RetrieveOutgoing()
+			if !ok {
 				break
 			}
 			cuFlushReqs = append(
-				cuFlushReqs, msg.(protocol.CUPipelineFlushReq))
+				cuFlushReqs, msg)
 		}
 		Expect(cuFlushReqs).To(HaveLen(10))
 		Expect(cp.State.PendingAcks).To(Equal(uint64(10)))
 
 		for range cuFlushReqs {
-			rsp := protocol.CUPipelineFlushRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: "CU",
-					Dst: toCUs.AsRemote(),
-				},
-			}
+			rsp := messaging.Msg{ID: cp.NewID(),
+				Src: "CU",
+				Dst: toCUs.AsRemote(), Payload: protocol.CUPipelineFlushRsp{}}
+
 			toCUs.Deliver(rsp)
 		}
 		tickUntilQuiet()
@@ -466,28 +440,26 @@ var _ = Describe("CommandProcessor", func() {
 		tlbReqs := collectCtrlReqs(toTLBs)
 		Expect(tlbReqs).To(HaveLen(10))
 		for _, req := range tlbReqs {
-			Expect(req.Command).To(Equal(memcontrolprotocol.CmdInvalidate))
-			Expect(req.Addresses).To(Equal([]uint64{0x1000}))
-			Expect(req.PID).To(Equal(cmd.PID))
+			Expect(req.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdInvalidate))
+			Expect(req.Payload.(memcontrolprotocol.Req).Addresses).To(Equal([]uint64{0x1000}))
+			Expect(req.Payload.(memcontrolprotocol.Req).PID).To(Equal(cmd.Payload.(protocol.ShootDownCommand).PID))
 		}
 		ackCtrlReqs(toTLBs, tlbReqs)
 
 		// Finally, the CP responds to the driver.
-		rsp := toDriver.RetrieveOutgoing()
-		Expect(rsp).To(BeAssignableToTypeOf(protocol.ShootDownCompleteRsp{}))
-		Expect(rsp.Meta().Dst).To(Equal(driverPort))
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+		Expect(rsp.Payload).To(BeAssignableToTypeOf(protocol.ShootDownCompleteRsp{}))
+		Expect(rsp.Dst).To(Equal(driverPort))
 		Expect(cp.State.ShootDownInProcess).To(BeFalse())
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 	})
 
 	It("should handle a GPU restart request", func() {
-		req := protocol.GPURestartReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.GPURestartReq{}}
+
 		toDriver.Deliver(req)
 
 		tickUntilQuiet()
@@ -504,9 +476,9 @@ var _ = Describe("CommandProcessor", func() {
 		for _, r := range atReqs {
 			switch {
 			case r.Dst[:2] == "AT":
-				Expect(r.Command).To(Equal(memcontrolprotocol.CmdEnable))
+				Expect(r.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdEnable))
 			case r.Dst[:3] == "ROB":
-				Expect(r.Command).To(Equal(memcontrolprotocol.CmdReset))
+				Expect(r.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdReset))
 			default:
 				Fail("unexpected destination " + string(r.Dst))
 			}
@@ -514,100 +486,96 @@ var _ = Describe("CommandProcessor", func() {
 		ackCtrlReqs(toATs, atReqs)
 
 		// Step 4: restart the CU pipelines.
-		var cuRestartReqs []protocol.CUPipelineRestartReq
+		var cuRestartReqs []messaging.Msg
 		for {
-			msg := toCUs.RetrieveOutgoing()
-			if msg == nil {
+			msg, ok := toCUs.RetrieveOutgoing()
+			if !ok {
 				break
 			}
 			cuRestartReqs = append(
-				cuRestartReqs, msg.(protocol.CUPipelineRestartReq))
+				cuRestartReqs, msg)
 		}
 		Expect(cuRestartReqs).To(HaveLen(10))
 
 		for range cuRestartReqs {
-			rsp := protocol.CUPipelineRestartRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: "CU",
-					Dst: toCUs.AsRemote(),
-				},
-			}
+			rsp := messaging.Msg{ID: cp.NewID(),
+				Src: "CU",
+				Dst: toCUs.AsRemote(), Payload: protocol.CUPipelineRestartRsp{}}
+
 			toCUs.Deliver(rsp)
 		}
 		tickUntilQuiet()
 
-		rsp := toDriver.RetrieveOutgoing()
-		Expect(rsp).To(BeAssignableToTypeOf(protocol.GPURestartRsp{}))
-		Expect(rsp.Meta().Dst).To(Equal(driverPort))
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+		Expect(rsp.Payload).To(BeAssignableToTypeOf(protocol.GPURestartRsp{}))
+		Expect(rsp.Dst).To(Equal(driverPort))
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 	})
 
 	It("should handle a RDMA drain command from the driver", func() {
-		cmd := protocol.RDMADrainCmdFromDriver{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		cmd := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.RDMADrainCmdFromDriver{}}
+
 		toDriver.Deliver(cmd)
 
 		tickUntilQuiet()
 
-		drainReq := toRDMA.RetrieveOutgoing()
-		Expect(drainReq).To(BeAssignableToTypeOf(rdma.DrainReq{}))
-		Expect(drainReq.Meta().Dst).To(Equal(rdmaPort))
+		drainReq, ok := toRDMA.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+		Expect(drainReq.Payload).To(BeAssignableToTypeOf(rdma.DrainReq{}))
+		Expect(drainReq.Dst).To(Equal(rdmaPort))
 	})
 
 	It("should handle a RDMA drain response", func() {
-		rsp := rdma.DrainRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: rdmaPort,
-				Dst: toRDMA.AsRemote(),
-			},
-		}
+		rsp := messaging.Msg{ID: cp.NewID(),
+			Src: rdmaPort,
+			Dst: toRDMA.AsRemote(), Payload: rdma.DrainRsp{}}
+
 		toRDMA.Deliver(rsp)
 
 		tickUntilQuiet()
 
-		driverRsp := toDriver.RetrieveOutgoing()
+		driverRsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(driverRsp).
-			To(BeAssignableToTypeOf(protocol.RDMADrainRspToDriver{}))
-		Expect(driverRsp.Meta().Dst).To(Equal(driverPort))
+			To(BeAssignableToTypeOf(messaging.Msg{Payload: protocol.RDMADrainRspToDriver{}}))
+		Expect(driverRsp.Dst).To(Equal(driverPort))
 	})
 
 	It("should handle a RDMA restart command and response", func() {
-		cmd := protocol.RDMARestartCmdFromDriver{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: driverPort,
-				Dst: toDriver.AsRemote(),
-			},
-		}
+		cmd := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.RDMARestartCmdFromDriver{}}
+
 		toDriver.Deliver(cmd)
 
 		tickUntilQuiet()
 
-		restartReq := toRDMA.RetrieveOutgoing()
-		Expect(restartReq).To(BeAssignableToTypeOf(rdma.RestartReq{}))
-		Expect(restartReq.Meta().Dst).To(Equal(rdmaPort))
+		restartReq, ok := toRDMA.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+		Expect(restartReq.Payload).To(BeAssignableToTypeOf(rdma.RestartReq{}))
+		Expect(restartReq.Dst).To(Equal(rdmaPort))
 
-		rsp := rdma.RestartRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: rdmaPort,
-				Dst: toRDMA.AsRemote(),
-			},
-		}
+		rsp := messaging.Msg{ID: cp.NewID(),
+			Src: rdmaPort,
+			Dst: toRDMA.AsRemote(), Payload: rdma.RestartRsp{}}
+
 		toRDMA.Deliver(rsp)
 
 		tickUntilQuiet()
 
-		driverRsp := toDriver.RetrieveOutgoing()
+		driverRsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
 		Expect(driverRsp).
-			To(BeAssignableToTypeOf(protocol.RDMARestartRspToDriver{}))
-		Expect(driverRsp.Meta().Dst).To(Equal(driverPort))
+			To(BeAssignableToTypeOf(messaging.Msg{Payload: protocol.RDMARestartRspToDriver{}}))
+		Expect(driverRsp.Dst).To(Equal(driverPort))
 	})
 })
+
+func tickCP(c *Comp) bool {
+	a := c.Middlewares.Data.Tick()
+	b := c.Middlewares.Control.Tick()
+	return a || b
+}

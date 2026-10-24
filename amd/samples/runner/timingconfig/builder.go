@@ -4,14 +4,18 @@ package timingconfig
 import (
 	"fmt"
 
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
@@ -29,7 +33,9 @@ const (
 
 // Builder builds a hardware platform for timing simulation.
 type Builder struct {
+	sampler    *sampling.SampledEngine
 	simulation *simulation.Simulation
+	monitor    *monitoring2.Monitor
 
 	numGPUs            int
 	numCUPerSA         int
@@ -44,7 +50,7 @@ type Builder struct {
 	h2dCycles          int
 
 	globalStorage     *mem.Storage
-	rdmaAddressMapper *mem.BankedAddressPortMapper
+	rdmaAddressMapper *mem.AddressMapper
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -63,6 +69,9 @@ func MakeBuilder() Builder {
 		h2dCycles:          500,
 	}
 }
+
+// WithMonitor sets the optional dispatch progress monitor.
+func (b Builder) WithMonitor(m *monitoring2.Monitor) Builder { b.monitor = m; return b }
 
 // WithSimulation sets the simulation to use.
 func (b Builder) WithSimulation(sim *simulation.Simulation) Builder {
@@ -92,10 +101,18 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 // GPUs, and all the connections register themselves with the simulation.
 func (b Builder) Build() *driver.Driver {
 	b.adjustConfigForGPUType()
+	b.sampler = sampling.NewSimulationEngine(
+		b.simulation,
+		*sampling.SampledRunnerGranularyFlag,
+		*sampling.SampledRunnerThresholdFlag,
+		*sampling.SampledRunnerFlag,
+	)
 	b.cpuGPUMemSizeMustEqual()
 
-	b.globalStorage = mem.NewStorage(
-		uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize)
+	b.globalStorage = mem.MakeStorageBuilder().
+		WithSimulation(b.simulation).
+		WithCapacity(uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize).
+		Build("GlobalStorage")
 
 	mmuComp, pageTable := b.createMMU()
 	gpuDriver := b.buildGPUDriver(pageTable)
@@ -140,17 +157,18 @@ func (b *Builder) adjustConfigForGPUType() {
 	}
 }
 
-func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
-	pageTable := vm.NewPageTable(b.log2PageSize)
+func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
+	pageTable := vm.MakePageTableBuilder().
+		WithSimulation(b.simulation).
+		WithLog2PageSize(b.log2PageSize).
+		Build("PageTable")
 
 	spec := mmu.DefaultSpec()
 	spec.Freq = 1 * timing.GHz
 	spec.Latency = 100 // v4: page walking latency
 	spec.Log2PageSize = b.log2PageSize
 
-	mmuComponent := mmu.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(spec).
+	mmuComponent := modeling.MakeBuilder[*mmu.Comp](spec).WithSimulation(b.simulation).
 		WithResources(mmu.Resources{PageTable: pageTable}).
 		Build("MMU")
 
@@ -161,7 +179,7 @@ func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
 }
 
 func (b *Builder) buildGPUDriver(
-	pageTable vm.PageTable,
+	pageTable *vm.PageTable,
 ) *driver.Driver {
 	spec := driver.DefaultSpec()
 	spec.Log2PageSize = b.log2PageSize
@@ -170,7 +188,7 @@ func (b *Builder) buildGPUDriver(
 	spec.H2DCycles = b.h2dCycles
 
 	gpuDriver := driver.MakeBuilder().
-		WithRegistrar(b.simulation).
+		WithSimulation(b.simulation).
 		WithSpec(spec).
 		WithResources(driver.Resources{
 			PageTable:     pageTable,
@@ -178,12 +196,7 @@ func (b *Builder) buildGPUDriver(
 		}).
 		Build("Driver")
 
-	gpuPort := modeling.MakePortBuilder().
-		WithRegistrar(b.simulation).
-		WithComponent(gpuDriver.Comp).
-		WithSpec(modeling.PortSpec{BufSize: driverGPUPortBufSize}).
-		Build(driver.GPUPortName)
-	gpuDriver.AssignPort(driver.GPUPortName, gpuPort)
+	b.buildPort(gpuDriver.Comp, driver.GPUPortName, driverGPUPortBufSize)
 
 	return gpuDriver
 }
@@ -191,16 +204,15 @@ func (b *Builder) buildGPUDriver(
 // buildPort creates a port instance for a declared port and assigns it to
 // the component.
 func (b *Builder) buildPort(
-	comp messaging.Component,
+	comp interface{ BindPort(string, messaging.Port) },
 	name string,
 	bufSize int,
 ) messaging.Port {
-	port := modeling.MakePortBuilder().
-		WithRegistrar(b.simulation).
-		WithComponent(comp).
-		WithSpec(modeling.PortSpec{BufSize: bufSize}).
-		Build(name)
-	comp.AssignPort(name, port)
+	port := twowaybuffered.MakeBuilder().
+		WithSimulation(b.simulation).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: bufSize, OutgoingCapacity: bufSize}).
+		Build()
+	comp.BindPort(name, port)
 
 	return port
 }
@@ -211,18 +223,18 @@ func (b *Builder) createGPUBuilder(
 ) gpubuilder.GPUBuilder {
 	b.createRDMAAddressMapper()
 
-	driverPort := gpuDriver.GetPortByName(driver.GPUPortName).AsRemote()
+	driverPort := gpuDriver.Ports.GPU.AsRemote()
 
 	switch b.gpuType {
 	case "mi300x":
-		return mi300x.MakeBuilder().
+		return mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort)
 	default:
-		return r9nano.MakeBuilder().
+		return r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
@@ -232,7 +244,7 @@ func (b *Builder) createGPUBuilder(
 }
 
 func (b *Builder) createGPUs(
-	interDeviceConn *directconnection.Comp,
+	interDeviceConn *directconnection.Connection,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
 ) {
@@ -253,22 +265,19 @@ func (b *Builder) createGPUs(
 func (b *Builder) createConnection(
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.Comp,
-) *directconnection.Comp {
-	conn := directconnection.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(directconnection.Spec{Freq: 1 * timing.GHz}).
-		Build("InterDeviceConn")
+) *directconnection.Connection {
+	conn := directconnection.NewConnection("InterDeviceConn", b.simulation, 1*timing.GHz)
 
-	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
-	conn.PlugIn(mmuComponent.GetPortByName("Top"))
+	conn.BindPort(gpuDriver.Ports.GPU)
+	conn.BindPort(mmuComponent.Ports.Top)
 
 	return conn
 }
 
 func (b *Builder) createRDMAAddressMapper() {
-	b.rdmaAddressMapper = new(mem.BankedAddressPortMapper)
-	b.rdmaAddressMapper.BankSize = b.gpuMemSize
-	b.rdmaAddressMapper.LowModules = append(b.rdmaAddressMapper.LowModules,
+	b.rdmaAddressMapper = new(mem.AddressMapper)
+	b.rdmaAddressMapper.InterleavingSize = b.gpuMemSize
+	b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
 		messaging.RemotePort("CPU"))
 }
 
@@ -276,7 +285,7 @@ func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-	interDeviceConn *directconnection.Comp,
+	interDeviceConn *directconnection.Connection,
 ) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * b.gpuMemSize
@@ -297,7 +306,7 @@ func (b *Builder) createGPU(
 	b.configRDMAEngine(gpu)
 
 	for _, port := range gpu.ExternalPorts() {
-		interDeviceConn.PlugIn(port)
+		interDeviceConn.BindPort(port)
 	}
 
 	return gpu
@@ -306,7 +315,7 @@ func (b *Builder) createGPU(
 func (b *Builder) configRDMAEngine(
 	gpu *gpubuilder.GPU,
 ) {
-	b.rdmaAddressMapper.LowModules = append(
-		b.rdmaAddressMapper.LowModules,
+	b.rdmaAddressMapper.Destinations = append(
+		b.rdmaAddressMapper.Destinations,
 		gpu.RDMADataPort.AsRemote())
 }

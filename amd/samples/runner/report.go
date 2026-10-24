@@ -4,11 +4,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sarchlab/akita/v5/datarecording"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/naming"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/datarecording"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks/tracing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -32,32 +35,32 @@ type metric struct {
 
 type kernelTimeTracer struct {
 	tracer *tracing.BusyTimeTracer
-	comp   tracing.NamedHookable
+	comp   naming.Named
 }
 
 type instCountTracer struct {
 	tracer *instTracer
-	cu     tracing.NamedHookable
+	cu     naming.Named
 }
 
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
-	cache  tracing.NamedHookable
+	cache  naming.Named
 }
 
 type cacheHitRateTracer struct {
 	tracer *tracing.TagCountTracer
-	cache  tracing.NamedHookable
+	cache  naming.Named
 }
 
 type tlbHitRateTracer struct {
 	tracer *tracing.TagCountTracer
-	tlb    tracing.NamedHookable
+	tlb    naming.Named
 }
 
 type dramTransactionCountTracer struct {
 	tracer *dramTracer
-	dram   tracing.NamedHookable
+	dram   naming.Named
 }
 
 type rdmaTransactionCountTracer struct {
@@ -68,11 +71,11 @@ type rdmaTransactionCountTracer struct {
 
 type simdBusyTimeTracer struct {
 	tracer *tracing.BusyTimeTracer
-	simd   tracing.NamedHookable
+	simd   naming.Named
 }
 
 type cuCPIStackTracer struct {
-	cu     tracing.NamedHookable
+	cu     naming.Named
 	tracer *cu.CPIStackTracer
 }
 
@@ -102,7 +105,7 @@ type reporter struct {
 
 func newReporter(s *simulation.Simulation) *reporter {
 	r := &reporter{
-		dataRecorder: s.GetDataRecorder(),
+		dataRecorder: s.DataRecorder(),
 	}
 
 	r.injectTracers(s)
@@ -125,24 +128,33 @@ func (r *reporter) injectTracers(s *simulation.Simulation) {
 }
 
 func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
-	driverComp := s.GetComponentByName("Driver").(tracing.NamedHookable)
+	var driverComp naming.Named
+	for _, c := range s.Components() {
+		if c.Name() == "Driver" {
+			driverComp = c
+			break
+		}
+	}
+	if driverComp == nil {
+		panic("runner: missing driver")
+	}
 
 	if *unifiedGPUFlag != "" {
 		tracer := tracing.NewBusyTimeTracer(
-			func(task tracing.TaskStart) bool {
+			func(task tasks.Task) bool {
 				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
 			})
-		tracing.CollectTrace(driverComp, tracer)
+		s.TaskTracker().Subscribe(tracer, driverComp)
 		r.kernelTimeTracer = &kernelTimeTracer{
 			tracer: tracer,
 			comp:   driverComp,
 		}
 	} else {
 		tracer := tracing.NewBusyTimeTracer(
-			func(task tracing.TaskStart) bool {
+			func(task tasks.Task) bool {
 				return task.What == "*driver.LaunchKernelCommand"
 			})
-		tracing.CollectTrace(driverComp, tracer)
+		s.TaskTracker().Subscribe(tracer, driverComp)
 		r.kernelTimeTracer = &kernelTimeTracer{
 			tracer: tracer,
 			comp:   driverComp,
@@ -152,17 +164,15 @@ func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "CommandProcessor") {
 			tracer := tracing.NewBusyTimeTracer(
-				func(task tracing.TaskStart) bool {
+				func(task tasks.Task) bool {
 					return task.What == "LaunchKernelReq"
 				})
-			tracing.CollectTrace(
-				comp.(tracing.NamedHookable),
-				tracer)
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 			r.perGPUKernelTimeTracers = append(
 				r.perGPUKernelTimeTracers,
 				&kernelTimeTracer{
 					tracer: tracer,
-					comp:   comp.(tracing.NamedHookable),
+					comp:   comp.(naming.Named),
 				})
 		}
 	}
@@ -179,9 +189,9 @@ func (r *reporter) injectInstCountTracer(s *simulation.Simulation) {
 			r.instCountTracers = append(r.instCountTracers,
 				&instCountTracer{
 					tracer: tracer,
-					cu:     comp.(tracing.NamedHookable),
+					cu:     comp.(naming.Named),
 				})
-			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 		}
 	}
 }
@@ -194,13 +204,13 @@ func (r *reporter) injectCUCPIHook(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "CU") {
 			tracer := cu.NewCPIStackInstHook(
-				comp.(*cu.Comp), s.GetEngine())
-			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
+				comp.(*cu.Comp), s.Engine())
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 
 			r.cuCPITraces = append(r.cuCPITraces,
 				&cuCPIStackTracer{
 					tracer: tracer,
-					cu:     comp.(tracing.NamedHookable),
+					cu:     comp.(naming.Named),
 				})
 		}
 	}
@@ -214,15 +224,15 @@ func (r *reporter) injectCacheLatencyTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "Cache") {
 			tracer := tracing.NewAverageTimeTracer(
-				func(task tracing.TaskStart) bool {
+				func(task tasks.Task) bool {
 					return task.Kind == "req_in"
 				})
 			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
 				&cacheLatencyTracer{
 					tracer: tracer,
-					cache:  comp.(tracing.NamedHookable),
+					cache:  comp.(naming.Named),
 				})
-			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 		}
 	}
 }
@@ -235,13 +245,13 @@ func (r *reporter) injectCacheHitRateTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "Cache") {
 			tracer := tracing.NewTagCountTracer(
-				func(task tracing.TaskStart) bool { return true })
+				func(task tasks.Task) bool { return true })
 			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				&cacheHitRateTracer{
 					tracer: tracer,
-					cache:  comp.(tracing.NamedHookable),
+					cache:  comp.(naming.Named),
 				})
-			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 		}
 	}
 }
@@ -254,13 +264,13 @@ func (r *reporter) injectTLBHitRateTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "TLB") {
 			tracer := tracing.NewTagCountTracer(
-				func(task tracing.TaskStart) bool { return true })
+				func(task tasks.Task) bool { return true })
 			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
 				&tlbHitRateTracer{
 					tracer: tracer,
-					tlb:    comp.(tracing.NamedHookable),
+					tlb:    comp.(naming.Named),
 				})
-			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
+			s.TaskTracker().Subscribe(tracer, comp.(naming.Named))
 		}
 	}
 }
@@ -275,7 +285,7 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 			t := &rdmaTransactionCountTracer{}
 			t.rdmaEngine = comp.(*rdma.Comp)
 			t.incomingTracer = tracing.NewAverageTimeTracer(
-				func(task tracing.TaskStart) bool {
+				func(task tasks.Task) bool {
 					if task.Kind != "req_in" {
 						return false
 					}
@@ -286,7 +296,7 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 					}
 
 					isFromOutside := strings.Contains(
-						string(msg.Meta().Src), "RDMA")
+						string(msg.Src), "RDMA")
 					if !isFromOutside {
 						return false
 					}
@@ -294,7 +304,7 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 					return true
 				})
 			t.outgoingTracer = tracing.NewAverageTimeTracer(
-				func(task tracing.TaskStart) bool {
+				func(task tasks.Task) bool {
 					if task.Kind != "req_in" {
 						return false
 					}
@@ -305,7 +315,7 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 					}
 
 					isFromOutside := strings.Contains(
-						string(msg.Meta().Src), "RDMA")
+						string(msg.Src), "RDMA")
 					if isFromOutside {
 						return false
 					}
@@ -313,8 +323,8 @@ func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
 					return true
 				})
 
-			tracing.CollectTrace(t.rdmaEngine, t.incomingTracer)
-			tracing.CollectTrace(t.rdmaEngine, t.outgoingTracer)
+			s.TaskTracker().Subscribe(t.incomingTracer, t.rdmaEngine)
+			s.TaskTracker().Subscribe(t.outgoingTracer, t.rdmaEngine)
 
 			r.rdmaTransactionCounters = append(r.rdmaTransactionCounters, t)
 		}
@@ -329,10 +339,10 @@ func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "DRAM") {
 			t := &dramTransactionCountTracer{}
-			t.dram = comp.(tracing.NamedHookable)
+			t.dram = comp.(naming.Named)
 			t.tracer = newDramTracer()
 
-			tracing.CollectTrace(t.dram, t.tracer)
+			s.TaskTracker().Subscribe(t.tracer, t.dram)
 
 			r.dramTracers = append(r.dramTracers, t)
 		}
@@ -355,13 +365,13 @@ func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 		}
 
 		for _, simdUnit := range cu.MiddlewareOf(cuComp).SIMDUnit {
-			simd, ok := simdUnit.(tracing.NamedHookable)
+			simd, ok := simdUnit.(naming.Named)
 			if !ok {
 				continue
 			}
 
 			perSIMDBusyTimeTracer := tracing.NewBusyTimeTracer(
-				func(task tracing.TaskStart) bool {
+				func(task tasks.Task) bool {
 					return task.Kind == "pipeline"
 				})
 			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers,
@@ -369,7 +379,7 @@ func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 					tracer: perSIMDBusyTimeTracer,
 					simd:   simd,
 				})
-			tracing.CollectTrace(simd, perSIMDBusyTimeTracer)
+			s.TaskTracker().Subscribe(perSIMDBusyTimeTracer, simd)
 		}
 	}
 }
@@ -415,7 +425,7 @@ func (r *reporter) reportKernelTime() {
 func (r *reporter) reportInstCount() {
 	kernelTime := secondsOf(r.kernelTimeTracer.tracer.BusyTime())
 	for _, t := range r.instCountTracers {
-		cuFreq := float64(t.cu.(*cu.Comp).Spec().Freq)
+		cuFreq := float64(t.cu.(*cu.Comp).Spec.Freq)
 		numCycle := kernelTime * cuFreq
 
 		r.dataRecorder.InsertData(
@@ -472,7 +482,7 @@ func (r *reporter) reportCPIStack() {
 
 func (r *reporter) reportCPIStackEntries(
 	hook *cu.CPIStackTracer,
-	cu tracing.NamedHookable,
+	cu naming.Named,
 	simdStack bool,
 ) {
 	cpiStack := hook.GetCPIStack()
@@ -539,12 +549,12 @@ func (r *reporter) reportCacheLatency() {
 
 func (r *reporter) reportCacheHitRate() {
 	for _, tracer := range r.cacheHitRateTracers {
-		readHit := tracer.tracer.GetTagCount("read-hit")
-		readMiss := tracer.tracer.GetTagCount("read-miss")
-		readMSHRHit := tracer.tracer.GetTagCount("read-mshr-hit")
-		writeHit := tracer.tracer.GetTagCount("write-hit")
-		writeMiss := tracer.tracer.GetTagCount("write-miss")
-		writeMSHRHit := tracer.tracer.GetTagCount("write-mshr-hit")
+		readHit := tracer.tracer.TagCount("read-hit")
+		readMiss := tracer.tracer.TagCount("read-miss")
+		readMSHRHit := tracer.tracer.TagCount("read-mshr-hit")
+		writeHit := tracer.tracer.TagCount("write-hit")
+		writeMiss := tracer.tracer.TagCount("write-miss")
+		writeMSHRHit := tracer.tracer.TagCount("write-mshr-hit")
 
 		totalTransaction := readHit + readMiss + readMSHRHit +
 			writeHit + writeMiss + writeMSHRHit
@@ -594,9 +604,9 @@ func (r *reporter) reportCacheHitRate() {
 
 func (r *reporter) reportTLBHitRate() {
 	for _, tracer := range r.tlbHitRateTracers {
-		hit := tracer.tracer.GetTagCount("hit")
-		miss := tracer.tracer.GetTagCount("miss")
-		mshrHit := tracer.tracer.GetTagCount("mshr-hit")
+		hit := tracer.tracer.TagCount("hit")
+		miss := tracer.tracer.TagCount("miss")
+		mshrHit := tracer.tracer.TagCount("mshr-hit")
 
 		totalTransaction := hit + miss + mshrHit
 

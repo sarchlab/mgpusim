@@ -3,8 +3,8 @@ package cu
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -71,7 +71,7 @@ func (t taskType) ToString() string {
 }
 
 //nolint:gocyclo
-func taskTypeFromString(thisTask tracing.TaskStart) (t taskType) {
+func taskTypeFromString(thisTask tasks.Task) (t taskType) {
 	switch thisTask.What {
 	case "idle":
 		t = taskTypeIdle
@@ -100,7 +100,7 @@ func taskTypeFromString(thisTask tracing.TaskStart) (t taskType) {
 	return
 }
 
-func separateScalarTask(thisTask tracing.TaskStart) (t taskType) {
+func separateScalarTask(thisTask tasks.Task) (t taskType) {
 	detail := thisTask.Detail.(map[string]interface{})
 	inst := detail["inst"].(*wavefront.Inst)
 
@@ -136,7 +136,7 @@ type CPIStackTracer struct {
 	// this CU's own goroutine, so the maps below must not be touched unlocked.
 	mu sync.Mutex
 
-	inflightTasks        map[uint64]tracing.TaskStart
+	inflightTasks        map[uint64]tasks.Task
 	firstWFStarted       bool
 	firstWFStartTime     float64
 	lastWFEndTime        float64
@@ -157,7 +157,7 @@ func NewCPIStackInstHook(
 		timeTeller: timeTeller,
 		cu:         cu,
 
-		inflightTasks: make(map[uint64]tracing.TaskStart),
+		inflightTasks: make(map[uint64]tasks.Task),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
 			taskTypeIdle:          0,
@@ -184,7 +184,7 @@ func (h *CPIStackTracer) totalCycle() float64 {
 	}
 
 	totalTime := endTime - h.firstWFStartTime
-	totalCycle := totalTime * float64(h.cu.Spec().Freq)
+	totalCycle := totalTime * float64(h.cu.Spec.Freq)
 	return totalCycle
 }
 
@@ -197,7 +197,7 @@ func (h *CPIStackTracer) GetCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.instCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Spec().Freq)
+		cycle := duration * float64(h.cu.Spec.Freq)
 		stack[taskType] = cycle / float64(h.instCount)
 	}
 
@@ -214,7 +214,7 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 	stack["total"] = totalCycle / float64(h.valuInstCount)
 
 	for taskType, duration := range h.timeStack {
-		cycle := duration * float64(h.cu.Spec().Freq)
+		cycle := duration * float64(h.cu.Spec.Freq)
 		stack[taskType] = cycle / float64(h.valuInstCount)
 	}
 
@@ -222,7 +222,7 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 }
 
 // StartTask is called when a task is started.
-func (h *CPIStackTracer) StartTask(task tracing.TaskStart) {
+func (h *CPIStackTracer) TaskStarted(task tasks.Task) {
 	// Only track the task kinds the CPI stack models. Other kinds — notably the
 	// port-level "incoming_queue" tasks akita emits — are hooked in from a
 	// different component's goroutine under the parallel engine; dropping them
@@ -242,12 +242,12 @@ func (h *CPIStackTracer) StartTask(task tracing.TaskStart) {
 }
 
 // AddTaskTag does nothing.
-func (h *CPIStackTracer) AddTaskTag(tag tracing.TaskTag) {
+func (h *CPIStackTracer) TagAdded(tag tasks.Tag) {
 	// Do nothing
 }
 
 // AddMilestone does nothing.
-func (h *CPIStackTracer) AddMilestone(milestone tracing.Milestone) {
+func (h *CPIStackTracer) MilestoneAdded(milestone tasks.Milestone) {
 	// Do nothing
 }
 
@@ -257,23 +257,23 @@ func (h *CPIStackTracer) AddMilestone(milestone tracing.Milestone) {
 // way to tell whether this is a task we track. The lock makes that lookup safe
 // against StartTask running on another goroutine; untracked tasks (e.g.
 // incoming_queue, never stored by StartTask) are simply not found and ignored.
-func (h *CPIStackTracer) EndTask(task tracing.TaskEnd) {
+func (h *CPIStackTracer) TaskEnded(task tasks.Task) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	originalTask, found := h.inflightTasks[task.ID]
 	if found {
 		delete(h.inflightTasks, task.ID)
-		h.handleTaskEnd(originalTask, task.Time)
+		h.handleTaskEnd(originalTask, task.EndTime)
 	}
 }
 
-func (h *CPIStackTracer) handleTaskStart(task tracing.TaskStart) {
+func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 	switch task.Kind {
 	case "wavefront":
 		if !h.firstWFStarted {
 			h.firstWFStarted = true
-			h.firstWFStartTime = secondsOf(task.Time)
+			h.firstWFStartTime = secondsOf(task.StartTime)
 			h.lastRecordedTime = h.firstWFStartTime
 			h.runningWFCount++
 		}
@@ -292,11 +292,11 @@ func (h *CPIStackTracer) handleTaskStart(task tracing.TaskStart) {
 	}
 }
 
-func (h *CPIStackTracer) handleRegularTaskStart(task tracing.TaskStart) {
+func (h *CPIStackTracer) handleRegularTaskStart(task tasks.Task) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
-	currentTime := secondsOf(task.Time)
+	currentTime := secondsOf(task.StartTime)
 	duration := currentTime - h.lastRecordedTime
 	h.timeStack[highestTaskType.ToString()] += duration
 	h.lastRecordedTime = currentTime
@@ -304,7 +304,7 @@ func (h *CPIStackTracer) handleRegularTaskStart(task tracing.TaskStart) {
 	h.inFlightTaskCountMap[currentTaskType]++
 }
 
-func (h *CPIStackTracer) handleReqStart(task tracing.TaskStart) {
+func (h *CPIStackTracer) handleReqStart(task tasks.Task) {
 	if task.What != "ReadReq" && task.What != "WriteReq" {
 		return
 	}
@@ -335,7 +335,7 @@ func (h *CPIStackTracer) handleReqStart(task tracing.TaskStart) {
 }
 
 func (h *CPIStackTracer) handleRegularTaskEnd(
-	task tracing.TaskStart,
+	task tasks.Task,
 	endTime timing.VTimeInPicoSec,
 ) {
 	currentTaskType := taskTypeFromString(task)
@@ -359,7 +359,7 @@ func (h *CPIStackTracer) handleRegularTaskEnd(
 }
 
 func (h *CPIStackTracer) handleReqEnd(
-	task tracing.TaskStart,
+	task tasks.Task,
 	endTime timing.VTimeInPicoSec,
 ) {
 	// task is the request's own task, as persisted by handleReqStart. If the
@@ -385,7 +385,7 @@ func (h *CPIStackTracer) highestRunningTaskType() taskType {
 }
 
 func (h *CPIStackTracer) handleTaskEnd(
-	task tracing.TaskStart,
+	task tasks.Task,
 	endTime timing.VTimeInPicoSec,
 ) {
 	switch task.Kind {

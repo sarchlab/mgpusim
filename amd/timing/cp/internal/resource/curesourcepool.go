@@ -1,8 +1,7 @@
 package resource
 
 import (
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 )
 
 // DispatchableCU handles dispatch resource
@@ -36,6 +35,7 @@ type CUResourcePool interface {
 
 // CUResourcePoolImpl centralizes the resources of CUs.
 type CUResourcePoolImpl struct {
+	name          string
 	registeredCUs map[messaging.RemotePort]bool
 	cus           []CUResource
 }
@@ -65,7 +65,7 @@ func (p *CUResourcePoolImpl) RegisterCU(cu DispatchableCU) {
 	}
 
 	r := &CUResourceImpl{
-		reservedWGs: make(map[*kernels.WorkGroup][]WfLocation),
+		reservedWGs: make(map[uint64][]WfLocation),
 	}
 
 	r.port = cu.DispatchingPort()

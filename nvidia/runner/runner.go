@@ -5,9 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/timing"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v5/nvidia/platform"
@@ -118,41 +117,29 @@ func printStatus(p *platform.Platform, now timing.VTimeInPicoSec, wall time.Dura
 		undispatched, unfinished, warps, insts, unsent, inflight)
 }
 
-// newSimulation creates the engine and the registrar that components are
-// built with.
-//
-// Components registered with an Akita simulation get a tracing hook. The
-// hook keeps every milestone of a task in memory and scans them on each new
-// one, so a request that stalls for many cycles makes the simulation
-// quadratically slow even when no trace is recorded. Without -trace-vis the
-// components are therefore built with a standalone registrar on a bare
-// engine, which attaches no hooks and writes no database.
-func newSimulation(opts Options) (timing.Engine, modeling.Registrar, func()) {
-	if !opts.VisTracing {
-		engine := timing.NewSerialEngine()
-		return engine, modeling.NewStandaloneRegistrar(engine), func() {}
+// newSimulation owns component lifecycle and checkpoint services.
+func newSimulation(opts Options) *simulation.Simulation {
+	builder := simulation.MakeBuilder()
+	if opts.VisTracing {
+		builder = builder.WithVisTracingOnStart()
 	}
-
-	builder := simulation.MakeBuilder().
-		WithoutMonitoring().
-		WithVisTracingOnStart()
-	if opts.OutputFile != "" {
-		builder = builder.WithOutputFileName(opts.OutputFile)
+	if opts.VisTracing && opts.OutputFile != "" {
+		builder = builder.WithOutputPath(opts.OutputFile + ".sqlite3")
 	}
-
-	sim := builder.Build()
-
-	return sim.GetEngine(), sim, sim.Terminate
+	return builder.Build()
 }
 
 // Run simulates the trace in opts.TraceDir on opts.Device.
 func Run(opts Options) (Result, error) {
 	bm := benchmark.Load(opts.TraceDir)
 
-	engine, registrar, done := newSimulation(opts)
-	defer done()
-
-	p := platform.Build(registrar, opts.Device)
+	sim := newSimulation(opts)
+	defer sim.Terminate()
+	engine := sim.Engine()
+	p := platform.Build(sim, opts.Device)
+	if err := sim.Initialize(); err != nil {
+		return Result{}, fmt.Errorf("initialize simulation: %w", err)
+	}
 
 	result := Result{Device: opts.Device.Name, Freq: opts.Device.Freq}
 

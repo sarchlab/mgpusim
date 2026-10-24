@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("Branch Unit", func() {
-
 	var (
 		cu  *ComputeUnit
 		bu  *BranchUnit
@@ -45,7 +44,7 @@ var _ = Describe("Branch Unit", func() {
 		wave3.State = wavefront.WfRunning
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		inst.ByteSize = 4
@@ -76,7 +75,7 @@ var _ = Describe("Branch Unit", func() {
 		wave3.State = wavefront.WfRunning
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		inst.ByteSize = 4

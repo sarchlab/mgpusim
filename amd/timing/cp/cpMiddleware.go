@@ -1,11 +1,10 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 )
 
@@ -15,18 +14,15 @@ import (
 type cpMiddleware struct {
 	comp *Comp
 
-	// TODO(akita5): state purity — the dispatchers hold rich runtime object
-	// graphs (grid builders, in-flight work-group maps), so they live here
-	// rather than in the component State.
 	dispatchers []dispatching.Dispatcher
 }
 
 func (m *cpMiddleware) toDriver() messaging.Port {
-	return m.comp.GetPortByName("ToDriver")
+	return m.comp.Ports.ToDriver
 }
 
 func (m *cpMiddleware) toDMA() messaging.Port {
-	return m.comp.GetPortByName("ToDMA")
+	return m.comp.Ports.ToDMA
 }
 
 func (m *cpMiddleware) Tick() bool {
@@ -48,17 +44,23 @@ func (m *cpMiddleware) tickDispatchers() (madeProgress bool) {
 }
 
 func (m *cpMiddleware) processReqFromDriver() bool {
-	msg := m.toDriver().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.toDriver().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := msg.(type) {
+	switch msg.Payload.(type) {
 	case protocol.LaunchKernelReq:
+		req := msg
+
 		return m.processLaunchKernelReq(req)
 	case protocol.FlushReq:
+		req := msg
+
 		return m.processFlushReq(req)
 	case protocol.MemCopyH2DReq, protocol.MemCopyD2HReq:
+		req := msg
+
 		return m.processMemCopyReq(req)
 	}
 
@@ -67,51 +69,51 @@ func (m *cpMiddleware) processReqFromDriver() bool {
 }
 
 func (m *cpMiddleware) processRspFromDMA() bool {
-	msg := m.toDMA().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.toDMA().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch rsp := msg.(type) {
-	case protocol.GeneralRsp:
+	switch msg.Payload.(type) {
+	case protocol.GeneralRsp, protocol.MemCopyD2HRsp:
+		rsp := msg
+
 		return m.processMemCopyRsp(rsp)
 	}
 
 	panic("never")
 }
 
-func (m *cpMiddleware) processMemCopyRsp(rsp protocol.GeneralRsp) bool {
+func (m *cpMiddleware) processMemCopyRsp(rsp messaging.Msg) bool {
 	if !m.toDriver().CanSend() {
 		return false
 	}
 
 	originalReq := m.findAndRemoveOriginalMemCopyRequest(rsp)
-	originalMeta := originalReq.Meta()
+	originalMeta := originalReq
 
-	rspToDriver := protocol.GeneralRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   m.toDriver().AsRemote(),
-			Dst:   originalMeta.Src,
-			RspTo: originalMeta.ID,
-		},
-	}
+	rspToDriver := messaging.Msg{ID: m.comp.NewID(),
+		Src:   m.toDriver().AsRemote(),
+		Dst:   originalMeta.Src,
+		RspTo: originalMeta.ID, Payload: rsp.Payload}
 
 	m.toDriver().Send(rspToDriver)
 	m.toDMA().RetrieveIncoming()
 
-	tracing.TraceReqComplete(m.comp, originalReq)
+	m.comp.TaskTracker().EndReqIn(m.comp.State.CopyRecvTasks[originalReq.ID])
+	delete(m.comp.State.CopyRecvTasks, originalReq.ID)
 	// End the sender-side task of the cloned request that was sent to the
 	// DMA engine.
-	tracing.EndTask(m.comp, tracing.TaskEnd{ID: rsp.Meta().RspTo})
+	m.comp.TaskTracker().EndReqOut(m.comp.State.CopySendTasks[rsp.RspTo])
+	delete(m.comp.State.CopySendTasks, rsp.RspTo)
 
 	return true
 }
 
 func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
-	rsp protocol.GeneralRsp,
+	rsp messaging.Msg,
 ) messaging.Msg {
-	rspTo := rsp.Meta().RspTo
+	rspTo := rsp.RspTo
 	state := &m.comp.State
 
 	originalH2DReq, ok := state.BottomMemCopyH2DToTop[rspTo]
@@ -130,7 +132,7 @@ func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
 }
 
 func (m *cpMiddleware) processLaunchKernelReq(
-	req protocol.LaunchKernelReq,
+	req messaging.Msg,
 ) bool {
 	state := &m.comp.State
 	if state.CtrlSeq != ctrlSeqNone {
@@ -157,23 +159,17 @@ func (m *cpMiddleware) processLaunchKernelReq(
 
 	state.KernelStartReqID = 0
 
-	if *sampling.SampledRunnerFlag {
-		sampling.SampledEngineInstance.Reset()
+	if m.comp.Resources.Sampler != nil && !m.comp.Resources.Sampler.IfDisable() {
+		m.comp.Resources.Sampler.Reset()
 	}
 	d.StartDispatching(req)
 
 	// A dispatcher was free, so the kernel launch is admitted now. If it had to
 	// wait in the incoming buffer for a free dispatcher, this marks the
 	// resolution of that wait on the buffer task.
-	tracing.AddMilestone(m.comp, tracing.Milestone{
-		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
-		Kind:   tracing.MilestoneKindHardwareResource,
-		What:   m.comp.Name() + ".dispatcher",
-	})
+	m.toDriver().AddIncomingMilestone(tasks.Reason(tasks.MilestoneKindHardwareResource, m.comp.Name()+".dispatcher"))
 
 	m.toDriver().RetrieveIncoming()
-
-	tracing.TraceReqReceive(m.comp, req)
 
 	return true
 }
@@ -190,7 +186,7 @@ func (m *cpMiddleware) findAvailableDispatcher() dispatching.Dispatcher {
 
 // processFlushReq starts the cache-flush control sequence. See
 // ctrlMiddleware.go for the control-verb mapping.
-func (m *cpMiddleware) processFlushReq(req protocol.FlushReq) bool {
+func (m *cpMiddleware) processFlushReq(req messaging.Msg) bool {
 	state := &m.comp.State
 	if state.CtrlSeq != ctrlSeqNone {
 		return false
@@ -208,20 +204,12 @@ func (m *cpMiddleware) processFlushReq(req protocol.FlushReq) bool {
 
 	m.toDriver().RetrieveIncoming()
 
-	tracing.TraceReqReceive(m.comp, req)
+	m.comp.State.FlushTaskID = m.comp.TaskTracker().StartReqIn(m.comp, req)
 
 	return true
 }
 
-func (m *cpMiddleware) ctrlMW() *ctrlMiddleware {
-	for _, mw := range m.comp.Middlewares() {
-		if ctrlMW, ok := mw.(*ctrlMiddleware); ok {
-			return ctrlMW
-		}
-	}
-
-	panic("ctrl middleware not found")
-}
+func (m *cpMiddleware) ctrlMW() *ctrlMiddleware { return m.comp.Middlewares.Control }
 
 func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 	state := &m.comp.State
@@ -234,17 +222,19 @@ func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 	}
 
 	var cloned messaging.Msg
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case protocol.MemCopyH2DReq:
+
 		c := req
-		c.ID = timing.GetIDGenerator().Generate()
+		c.ID = m.comp.NewID()
 		c.Src = m.toDMA().AsRemote()
 		c.Dst = state.DMAEngine
 		state.BottomMemCopyH2DToTop[c.ID] = req
 		cloned = c
 	case protocol.MemCopyD2HReq:
+
 		c := req
-		c.ID = timing.GetIDGenerator().Generate()
+		c.ID = m.comp.NewID()
 		c.Src = m.toDMA().AsRemote()
 		c.Dst = state.DMAEngine
 		state.BottomMemCopyD2HToTop[c.ID] = req
@@ -253,22 +243,19 @@ func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 		panic("unknown type")
 	}
 
+	m.comp.State.CopyRecvTasks[req.ID] = m.comp.TaskTracker().StartReqIn(m.comp, req)
+	m.comp.State.CopySendTasks[cloned.ID] = m.comp.TaskTracker().
+		StartReqOut(m.comp, cloned, m.comp.State.CopyRecvTasks[req.ID])
 	m.toDMA().Send(cloned)
 
 	// The downstream port to the DMA engine was free, so the copy is admitted
 	// now. If it had to wait in the incoming buffer for the port to drain, this
 	// marks the resolution of that wait on the buffer task.
-	tracing.AddMilestone(m.comp, tracing.Milestone{
-		TaskID: tracing.MsgIDAtIncomingBuffer(req, m.comp),
-		Kind:   tracing.MilestoneKindNetworkBusy,
-		What:   "ToDMA",
-	})
+	m.toDriver().AddIncomingMilestone(tasks.Reason(tasks.MilestoneKindNetworkBusy, "ToDMA"))
 
 	m.toDriver().RetrieveIncoming()
 
-	tracing.TraceReqReceive(m.comp, req)
-	tracing.TraceReqInitiate(m.comp, cloned,
-		tracing.MsgIDAtReceiver(req, m.comp))
-
 	return true
 }
+
+func (m *cpMiddleware) Handle(timing.Event) bool { return m.Tick() }

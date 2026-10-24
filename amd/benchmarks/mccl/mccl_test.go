@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/simulation"
+	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
@@ -21,11 +21,12 @@ var _ = Describe("MCCL", func() {
 	)
 
 	BeforeEach(func() {
-		s = simulation.MakeBuilder().WithoutMonitoring().Build()
+		s = simulation.MakeBuilder().Build()
 		gpuDriver = emusystem.MakeBuilder().
 			WithSimulation(s).
 			WithNumGPUs(4).
 			Build()
+		Expect(s.Initialize()).To(Succeed())
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 	})
@@ -137,5 +138,4 @@ var _ = Describe("MCCL", func() {
 			log.Printf("Passed")
 		}
 	})
-
 })

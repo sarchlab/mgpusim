@@ -3,31 +3,27 @@ package driver
 import (
 	"log"
 	"math"
-	"sync/atomic"
 
 	// embed hsaco files
 	_ "embed"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-var nextPID uint64
-
 // Init creates a context to be used in the following API calls.
 func (d *Driver) Init() *Context {
-	atomic.AddUint64(&nextPID, 1)
+	d.contextMutex.Lock()
+	defer d.contextMutex.Unlock()
+	d.State.NextPID++
 
 	c := &Context{
-		pid:          vm.PID(nextPID),
+		pid:          vm.PID(d.State.NextPID),
 		currentGPUID: 1,
 	}
 
-	d.contextMutex.Lock()
 	d.contexts = append(d.contexts, c)
-	d.contextMutex.Unlock()
 
 	return c
 }
@@ -223,7 +219,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 	src interface{},
 ) {
 	cmd := &MemCopyH2DCommand{
-		ID:  timing.GetIDGenerator().Generate(),
+		ID:  d.NewID(),
 		Dst: dst,
 		Src: src,
 	}
@@ -238,7 +234,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 	src Ptr,
 ) {
 	cmd := &MemCopyD2HCommand{
-		ID:  timing.GetIDGenerator().Generate(),
+		ID:  d.NewID(),
 		Dst: dst,
 		Src: src,
 	}

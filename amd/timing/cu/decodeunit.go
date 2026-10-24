@@ -3,8 +3,7 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -117,10 +116,8 @@ func (du *DecodeUnit) startDecodeSubtask(inst *wavefront.Inst) {
 		return
 	}
 
-	taskID := timing.GetIDGenerator().Generate()
-	tracing.StartTask(du.cu.comp, tracing.TaskStart{
-		ID:       taskID,
-		ParentID: inst.ID,
+	taskID := du.cu.comp.TaskTracker().StartTask(du.cu.comp, tasks.StartInfo{
+		ParentID: du.cu.comp.State.InstTasks[inst.ID],
 		Kind:     "pipeline",
 		What:     du.cu.comp.Name() + "." + du.stage,
 	})
@@ -137,10 +134,10 @@ func (du *DecodeUnit) endDecodeSubtask(inst *wavefront.Inst) {
 		return
 	}
 
-	tracing.EndTask(du.cu.comp, tracing.TaskEnd{ID: taskID})
-	tracing.AddMilestone(du.cu.comp, tracing.Milestone{
-		TaskID: inst.ID,
-		Kind:   tracing.MilestoneKindWork,
+	du.cu.comp.TaskTracker().EndTask(taskID)
+	du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: du.cu.comp.State.InstTasks[inst.ID],
+		Kind:   tasks.MilestoneKindWork,
 		What:   du.cu.comp.Name() + "." + du.stage,
 	})
 	delete(du.decodeTaskIDs, inst.ID)
@@ -151,9 +148,9 @@ func (du *DecodeUnit) markExecUnitReady(wave *wavefront.Wavefront) {
 		return
 	}
 
-	tracing.AddMilestone(du.cu.comp, tracing.Milestone{
-		TaskID: wave.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindHardwareResource,
+	du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: du.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		Kind:   tasks.MilestoneKindHardwareResource,
 		What: du.cu.comp.Name() + "." +
 			du.cu.execUnitToString(wave.DynamicInst().ExeUnit),
 	})
@@ -162,10 +159,10 @@ func (du *DecodeUnit) markExecUnitReady(wave *wavefront.Wavefront) {
 // Flush clear the unit
 func (du *DecodeUnit) Flush() {
 	for instID, taskID := range du.decodeTaskIDs {
-		tracing.EndTask(du.cu.comp, tracing.TaskEnd{ID: taskID})
-		tracing.AddMilestone(du.cu.comp, tracing.Milestone{
-			TaskID: instID,
-			Kind:   tracing.MilestoneKindWork,
+		du.cu.comp.TaskTracker().EndTask(taskID)
+		du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+			TaskID: du.cu.comp.State.InstTasks[instID],
+			Kind:   tasks.MilestoneKindWork,
 			What:   "decode",
 		})
 		delete(du.decodeTaskIDs, instID)

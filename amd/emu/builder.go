@@ -1,11 +1,9 @@
 package emu
 
 import (
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // defaultSpec is the default configuration of an emulation ComputeUnit.
@@ -21,13 +19,13 @@ func DefaultSpec() Spec {
 
 // Builder builds emulation ComputeUnits. Configuration is supplied as a
 // whole through WithSpec; shared references (decoder, ALU, storage accessor)
-// through WithResources; wiring through WithRegistrar. The component
+// through WithResources; wiring through WithSimulation. The component
 // declares its "ToDispatcher" port; the port instance is supplied externally
 // after Build with AssignPort.
 type Builder struct {
 	spec      Spec
 	resources Resources
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 }
 
 // MakeBuilder creates a new Builder seeded with the default spec.
@@ -35,11 +33,11 @@ func MakeBuilder() Builder {
 	return Builder{spec: defaultSpec}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation
+// WithSimulation wires the builder to a registrar (a *simulation.Simulation
 // in assembly, or modeling.NewStandaloneRegistrar(engine) in isolated
 // tests). The registrar provides the engine and registers the built
 // component.
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -63,7 +61,7 @@ func (b Builder) WithResources(resources Resources) Builder {
 // with AssignPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("emu: WithRegistrar is required")
+		panic("emu: WithSimulation is required")
 	}
 
 	if b.resources.Decoder == nil ||
@@ -73,25 +71,8 @@ func (b Builder) Build(name string) *Comp {
 			"StorageAccessor is required")
 	}
 
-	processor := &cuProcessor{
-		// TODO(akita5): state purity — the wavefront map, the queued
-		// MapWGReqs, and the decoded-instruction cache hold pointers and
-		// therefore live on the processor instead of the component State.
-		queuedWGs: make([]protocol.MapWGReq, 0),
-		wfs:       make(map[*kernels.WorkGroup][]*Wavefront),
-		instCache: make(map[uint64]*insts.Inst),
+	if d, ok := b.resources.Decoder.(*insts.Disassembler); ok {
+		b.spec.IsCDNA3 = d.IsCDNA3
 	}
-
-	comp := modeling.NewEventDrivenBuilder[Spec, State, Resources]().
-		WithEngine(b.registrar.GetEngine()).
-		WithSpec(b.spec).
-		WithResources(b.resources).
-		WithProcessor(processor).
-		Build(name)
-
-	comp.DeclarePort(DispatchPortName)
-
-	b.registrar.RegisterComponent(comp)
-
-	return comp
+	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 }

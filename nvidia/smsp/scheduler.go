@@ -19,12 +19,13 @@ const (
 )
 
 type SMSPWarpUnit struct {
-	warp                 *trace.WarpTrace
-	status               WarpStatus
-	unfinishedInstsCount uint64
-	nextIssueInstIndex   uint64
-	InFlightPipelines    []*PipelineInstance
-	Scoreboard           *Scoreboard
+	ID                   uint64
+	Trace                trace.WarpTrace
+	Status               WarpStatus
+	UnfinishedInstsCount uint64
+	NextIssueInstIndex   uint64
+	InFlightPipelines    []PipelineInstance
+	Scoreboard           Scoreboard
 }
 
 type IssueDecision struct {
@@ -33,14 +34,15 @@ type IssueDecision struct {
 }
 
 type SMSPSWarpScheduler struct {
-	warpUnitList   []*SMSPWarpUnit
-	nextIssueIndex int
+	WarpUnits      []SMSPWarpUnit
+	NextIssueIndex int
+	NextWarpID     uint64
 }
 
 func NewSMSPScheduler() *SMSPSWarpScheduler {
 	return &SMSPSWarpScheduler{
-		warpUnitList:   []*SMSPWarpUnit{},
-		nextIssueIndex: 0,
+		WarpUnits:      []SMSPWarpUnit{},
+		NextIssueIndex: 0,
 	}
 }
 
@@ -63,38 +65,38 @@ func regsToNames(inst *trace.InstructionTrace) (srcRegs []string, dstRegs []stri
 }
 
 func (wu *SMSPWarpUnit) HasMoreToIssue() bool {
-	return wu.nextIssueInstIndex < wu.warp.InstructionsCount()
+	return wu.NextIssueInstIndex < wu.Trace.InstructionsCount()
 }
 
 func (wu *SMSPWarpUnit) NextInstruction() *trace.InstructionTrace {
 	if !wu.HasMoreToIssue() {
 		return nil
 	}
-	return wu.warp.Instructions[wu.nextIssueInstIndex]
+	return &wu.Trace.Instructions[wu.NextIssueInstIndex]
 }
 
 func (wu *SMSPWarpUnit) updateStatus() {
 	switch {
 	case wu.HasMoreToIssue():
-		wu.status = WarpStatusReady
+		wu.Status = WarpStatusReady
 	case len(wu.InFlightPipelines) > 0:
-		wu.status = WarpStatusRunning
+		wu.Status = WarpStatusRunning
 	default:
-		wu.status = WarpStatusRunning
+		wu.Status = WarpStatusRunning
 	}
 }
 
 func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDecision {
 	issued := []*IssueDecision{}
-	startIndex := s.nextIssueIndex
-	totalWarps := len(s.warpUnitList)
+	startIndex := s.NextIssueIndex
+	totalWarps := len(s.WarpUnits)
 	checked := 0
 
 	for len(issued) < SMSPSchedulerIssueSpeed && checked < totalWarps {
 		idx := (startIndex + checked) % totalWarps
-		wu := s.warpUnitList[idx]
+		wu := &s.WarpUnits[idx]
 
-		if wu.unfinishedInstsCount == 0 || !wu.HasMoreToIssue() {
+		if wu.UnfinishedInstsCount == 0 || !wu.HasMoreToIssue() {
 			checked++
 			continue
 		}
@@ -118,8 +120,9 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDeci
 		}
 
 		wu.Scoreboard.MarkIssued(pipe.SrcRegs, pipe.DstRegs)
-		wu.InFlightPipelines = append(wu.InFlightPipelines, pipe)
-		wu.nextIssueInstIndex++
+		wu.InFlightPipelines = append(wu.InFlightPipelines, *pipe)
+		pipe = &wu.InFlightPipelines[len(wu.InFlightPipelines)-1]
+		wu.NextIssueInstIndex++
 		wu.updateStatus()
 
 		issued = append(issued, &IssueDecision{
@@ -134,33 +137,35 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDeci
 	}
 
 	if SMSPSchedulerIssuepolicy == "ROUND_ROBIN" {
-		s.nextIssueIndex = (startIndex + checked) % totalWarps
+		s.NextIssueIndex = (startIndex + checked) % totalWarps
 	} else if SMSPSchedulerIssuepolicy == "FCFS" {
-		s.nextIssueIndex = 0
+		s.NextIssueIndex = 0
 	} else {
 		panic("unsupported issue policy")
 	}
 	return issued
 }
 
-func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
-	newWarpUnit := &SMSPWarpUnit{
-		warp:                 warp,
-		status:               WarpStatusReady,
-		unfinishedInstsCount: warp.InstructionsCount(),
-		nextIssueInstIndex:   0,
-		InFlightPipelines:    []*PipelineInstance{},
-		Scoreboard:           NewScoreboard(),
+func (s *SMSPSWarpScheduler) insertWarp(warp trace.WarpTrace) bool {
+	s.NextWarpID++
+	newWarpUnit := SMSPWarpUnit{
+		ID:                   s.NextWarpID,
+		Trace:                warp,
+		Status:               WarpStatusReady,
+		UnfinishedInstsCount: warp.InstructionsCount(),
+		NextIssueInstIndex:   0,
+		InFlightPipelines:    []PipelineInstance{},
+		Scoreboard:           *NewScoreboard(),
 	}
 	if len(warp.Instructions) == 0 {
 		panic(fmt.Sprintf("warp (ID: %d) has no instructions", warp.ID))
 	}
 
-	s.warpUnitList = append(s.warpUnitList, newWarpUnit)
+	s.WarpUnits = append(s.WarpUnits, newWarpUnit)
 	return true
 }
 
-func (s *SMSPSWarpScheduler) insertWarps(warps []*trace.WarpTrace) bool {
+func (s *SMSPSWarpScheduler) insertWarps(warps []trace.WarpTrace) bool {
 	for _, warp := range warps {
 		s.insertWarp(warp)
 	}
@@ -168,5 +173,23 @@ func (s *SMSPSWarpScheduler) insertWarps(warps []*trace.WarpTrace) bool {
 }
 
 func (s *SMSPSWarpScheduler) isEmpty() bool {
-	return len(s.warpUnitList) == 0
+	return len(s.WarpUnits) == 0
+}
+
+func (s *SMSPSWarpScheduler) warp(id uint64) *SMSPWarpUnit {
+	for i := range s.WarpUnits {
+		if s.WarpUnits[i].ID == id {
+			return &s.WarpUnits[i]
+		}
+	}
+	panic(fmt.Sprintf("unknown resident warp %d", id))
+}
+func (s *SMSPSWarpScheduler) pipeline(ref PipelineRef) *PipelineInstance {
+	w := s.warp(ref.WarpID)
+	for i := range w.InFlightPipelines {
+		if w.InFlightPipelines[i].InstIndex == ref.InstIndex {
+			return &w.InFlightPipelines[i]
+		}
+	}
+	panic(fmt.Sprintf("unknown pipeline %v", ref))
 }

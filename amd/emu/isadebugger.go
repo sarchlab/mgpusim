@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v5/hooking"
+	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/tebeka/atexit"
 )

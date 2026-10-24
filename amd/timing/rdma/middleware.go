@@ -1,13 +1,13 @@
 package rdma
 
 import (
+	"fmt"
 	"log"
-	"reflect"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // forwardMiddleware forwards memory requests and responses between the
@@ -17,13 +17,24 @@ type forwardMiddleware struct {
 }
 
 func (m *forwardMiddleware) port(name string) messaging.Port {
-	return m.comp.GetPortByName(name)
+	switch name {
+	case "RDMARequestInside":
+		return m.comp.Ports.RDMARequestInside
+	case "RDMARequestOutside":
+		return m.comp.Ports.RDMARequestOutside
+	case "RDMADataInside":
+		return m.comp.Ports.RDMADataInside
+	case "RDMADataOutside":
+		return m.comp.Ports.RDMADataOutside
+	default:
+		panic("unknown RDMA port: " + name)
+	}
 }
 
 // Tick forwards as many messages as the per-cycle limits allow.
 func (m *forwardMiddleware) Tick() bool {
 	madeProgress := false
-	spec := m.comp.Spec()
+	spec := m.comp.Spec
 
 	for i := 0; i < spec.OutgoingReqPerCycle; i++ {
 		madeProgress = m.processFromL1() || madeProgress
@@ -52,30 +63,28 @@ func (m *forwardMiddleware) processFromL1() bool {
 	}
 
 	inPort := m.port("RDMARequestInside")
-	item := inPort.PeekIncoming()
-	if item == nil {
+	item, ok := inPort.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	req, ok := item.(memprotocol.AccessReq)
-	if !ok {
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(item))
-	}
+	req := item
 
 	outPort := m.port("RDMARequestOutside")
 	if !outPort.CanSend() {
 		return false
 	}
 
-	dst := m.comp.Resources().RemoteRDMAAddressTable.Find(req.GetAddress())
-	cloned := cloneReq(req, outPort.AsRemote(), dst)
+	dst := m.comp.Resources.RemoteRDMAAddressTable.Find(requestAddress(req))
+	cloned := cloneReq(m.comp.NewID(), req, outPort.AsRemote(), dst)
 
+	trans := m.startTransaction(req, cloned)
 	outPort.Send(cloned)
 	inPort.RetrieveIncoming()
 
 	m.comp.State.TransactionsFromInside = append(
 		m.comp.State.TransactionsFromInside,
-		m.startTransaction(req, cloned))
+		trans)
 
 	return true
 }
@@ -84,19 +93,16 @@ func (m *forwardMiddleware) processFromL1() bool {
 // requester that initiated the transaction.
 func (m *forwardMiddleware) processIncomingRsp() bool {
 	outPort := m.port("RDMARequestOutside")
-	item := outPort.PeekIncoming()
-	if item == nil {
+	item, ok := outPort.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	rsp, ok := item.(memprotocol.AccessRsp)
-	if !ok {
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(item))
-	}
+	rsp := item
 
 	state := &m.comp.State
 	index := findTransactionByRspTo(
-		rsp.Meta().RspTo, state.TransactionsFromInside)
+		rsp.RspTo, state.TransactionsFromInside)
 	trans := state.TransactionsFromInside[index]
 
 	// The remote response has arrived: end the remote round-trip wait now,
@@ -114,7 +120,7 @@ func (m *forwardMiddleware) processIncomingRsp() bool {
 	}
 
 	inPort.Send(cloneRsp(
-		rsp, inPort.AsRemote(), trans.OriginalSrc, trans.OriginalReqID))
+		m.comp.NewID(), rsp, inPort.AsRemote(), trans.OriginalSrc, trans.OriginalReqID))
 	outPort.RetrieveIncoming()
 
 	m.endTransaction(trans)
@@ -129,30 +135,28 @@ func (m *forwardMiddleware) processIncomingRsp() bool {
 // that owns the address.
 func (m *forwardMiddleware) processIncomingReq() bool {
 	outPort := m.port("RDMADataOutside")
-	item := outPort.PeekIncoming()
-	if item == nil {
+	item, ok := outPort.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	req, ok := item.(memprotocol.AccessReq)
-	if !ok {
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(item))
-	}
+	req := item
 
 	inPort := m.port("RDMADataInside")
 	if !inPort.CanSend() {
 		return false
 	}
 
-	dst := m.comp.Resources().LocalModules.Find(req.GetAddress())
-	cloned := cloneReq(req, inPort.AsRemote(), dst)
+	dst := m.comp.Resources.LocalModules.Find(requestAddress(req))
+	cloned := cloneReq(m.comp.NewID(), req, inPort.AsRemote(), dst)
 
+	trans := m.startTransaction(req, cloned)
 	inPort.Send(cloned)
 	outPort.RetrieveIncoming()
 
 	m.comp.State.TransactionsFromOutside = append(
 		m.comp.State.TransactionsFromOutside,
-		m.startTransaction(req, cloned))
+		trans)
 
 	return true
 }
@@ -161,19 +165,16 @@ func (m *forwardMiddleware) processIncomingReq() bool {
 // remote GPU that initiated the transaction.
 func (m *forwardMiddleware) processFromL2() bool {
 	inPort := m.port("RDMADataInside")
-	item := inPort.PeekIncoming()
-	if item == nil {
+	item, ok := inPort.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	rsp, ok := item.(memprotocol.AccessRsp)
-	if !ok {
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(item))
-	}
+	rsp := item
 
 	state := &m.comp.State
 	index := findTransactionByRspTo(
-		rsp.Meta().RspTo, state.TransactionsFromOutside)
+		rsp.RspTo, state.TransactionsFromOutside)
 	trans := state.TransactionsFromOutside[index]
 
 	// The remote response has arrived: end the remote round-trip wait now,
@@ -191,7 +192,7 @@ func (m *forwardMiddleware) processFromL2() bool {
 	}
 
 	outPort.Send(cloneRsp(
-		rsp, outPort.AsRemote(), trans.OriginalSrc, trans.OriginalReqID))
+		m.comp.NewID(), rsp, outPort.AsRemote(), trans.OriginalSrc, trans.OriginalReqID))
 	inPort.RetrieveIncoming()
 
 	m.endTransaction(trans)
@@ -205,17 +206,18 @@ func (m *forwardMiddleware) processFromL2() bool {
 // startTransaction starts the tracing tasks for a forwarded request and
 // returns the transaction that records it.
 func (m *forwardMiddleware) startTransaction(
-	req, cloned memprotocol.AccessReq,
+	req, cloned messaging.Msg,
 ) transaction {
-	recvTaskID := tracing.MsgIDAtReceiver(req, m.comp)
-	tracing.TraceReqReceive(m.comp, req)
-	tracing.TraceReqInitiate(m.comp, cloned, recvTaskID)
+	tracker := m.comp.TaskTracker()
+	recvTaskID := tracker.StartReqIn(m.comp, req)
+	sendTaskID := tracker.StartReqOut(m.comp, cloned, recvTaskID)
 
 	return transaction{
-		OriginalReqID:  req.Meta().ID,
-		OriginalSrc:    req.Meta().Src,
-		ForwardedReqID: cloned.Meta().ID,
+		OriginalReqID:  req.ID,
+		OriginalSrc:    req.Src,
+		ForwardedReqID: cloned.ID,
 		RecvTaskID:     recvTaskID,
+		SendTaskID:     sendTaskID,
 	}
 }
 
@@ -224,26 +226,14 @@ func (m *forwardMiddleware) startTransaction(
 // the wait to forward the response is not charged to the remote round-trip
 // interval. Callers guard against re-emission via Transaction.RemoteMilestoneEmitted.
 func (m *forwardMiddleware) markRemoteRoundTripDone(trans transaction) {
-	if m.comp.NumHooks() == 0 {
-		return
-	}
-
-	tracing.AddMilestone(m.comp, tracing.Milestone{
-		TaskID: trans.RecvTaskID,
-		Kind:   tracing.MilestoneKindData,
-		What:   "remote",
-	})
+	m.comp.TaskTracker().
+		AddMilestone(tasks.Milestone{TaskID: trans.RecvTaskID, Kind: tasks.MilestoneKindData, What: "remote"})
 }
 
 // endTransaction ends the tracing tasks for a completed transaction.
 func (m *forwardMiddleware) endTransaction(trans transaction) {
-	if m.comp.NumHooks() == 0 {
-		return
-	}
-
-	tracing.EndTask(m.comp, tracing.TaskEnd{ID: trans.ForwardedReqID})
-	tracing.EndTask(m.comp, tracing.TaskEnd{ID: trans.RecvTaskID})
-	tracing.ForgetMsgIDAtReceiver(trans.OriginalReqID, m.comp)
+	m.comp.TaskTracker().EndReqOut(trans.SendTaskID)
+	m.comp.TaskTracker().EndReqIn(trans.RecvTaskID)
 }
 
 func findTransactionByRspTo(rspTo uint64, transactions []transaction) int {
@@ -258,66 +248,28 @@ func findTransactionByRspTo(rspTo uint64, transactions []transaction) int {
 	return 0
 }
 
-func cloneReq(
-	origin memprotocol.AccessReq,
-	src, dst messaging.RemotePort,
-) memprotocol.AccessReq {
-	meta := messaging.MsgMeta{
-		ID:           timing.GetIDGenerator().Generate(),
-		Src:          src,
-		Dst:          dst,
-		TrafficClass: origin.Meta().TrafficClass,
-		TrafficBytes: origin.Meta().TrafficBytes,
-	}
-
-	switch origin := origin.(type) {
+func requestAddress(req messaging.Msg) uint64 {
+	switch p := req.Payload.(type) {
 	case memprotocol.ReadReq:
-		return memprotocol.ReadReq{
-			MsgMeta:        meta,
-			Address:        origin.Address,
-			AccessByteSize: origin.AccessByteSize,
-			PID:            origin.PID,
-		}
+		return p.Address
 	case memprotocol.WriteReq:
-		return memprotocol.WriteReq{
-			MsgMeta:   meta,
-			Address:   origin.Address,
-			Data:      origin.Data,
-			DirtyMask: origin.DirtyMask,
-			PID:       origin.PID,
-		}
+		return p.Address
 	default:
-		log.Panicf("cannot clone request of type %s", reflect.TypeOf(origin))
-		return nil
+		panic(fmt.Sprintf("unexpected RDMA request %T", p))
 	}
 }
-
-func cloneRsp(
-	origin memprotocol.AccessRsp,
-	src, dst messaging.RemotePort,
-	rspTo uint64,
-) memprotocol.AccessRsp {
-	meta := messaging.MsgMeta{
-		ID:           timing.GetIDGenerator().Generate(),
-		Src:          src,
-		Dst:          dst,
-		RspTo:        rspTo,
-		TrafficClass: origin.Meta().TrafficClass,
-		TrafficBytes: origin.Meta().TrafficBytes,
-	}
-
-	switch origin := origin.(type) {
-	case memprotocol.DataReadyRsp:
-		return memprotocol.DataReadyRsp{
-			MsgMeta: meta,
-			Data:    origin.Data,
-		}
-	case memprotocol.WriteDoneRsp:
-		return memprotocol.WriteDoneRsp{
-			MsgMeta: meta,
-		}
-	default:
-		log.Panicf("cannot clone response of type %s", reflect.TypeOf(origin))
-		return nil
-	}
+func cloneReq(id uint64, origin messaging.Msg, src, dst messaging.RemotePort) messaging.Msg {
+	requestAddress(origin)
+	origin.ID, origin.Src, origin.Dst, origin.RspTo = id, src, dst, 0
+	return origin
 }
+func cloneRsp(id uint64, origin messaging.Msg, src, dst messaging.RemotePort, rspTo uint64) messaging.Msg {
+	switch origin.Payload.(type) {
+	case memprotocol.DataReadyRsp, memprotocol.WriteDoneRsp:
+	default:
+		panic(fmt.Sprintf("unexpected RDMA response %T", origin.Payload))
+	}
+	origin.ID, origin.Src, origin.Dst, origin.RspTo = id, src, dst, rspTo
+	return origin
+}
+func (m *forwardMiddleware) Handle(timing.Event) bool { return m.Tick() }

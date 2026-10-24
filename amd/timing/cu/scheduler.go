@@ -4,12 +4,10 @@ import (
 	"log"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -126,7 +124,9 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			inst, err := s.cu.Decoder.Decode(
 				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
-				wf.InstToIssue = wavefront.NewInst(inst)
+				wf.InstToIssue = wavefront.NewInst(s.cu.comp.NewID(), inst)
+				start := wf.PC() - wf.InstBufferStartPC
+				wf.InstToIssue.Raw = append([]byte(nil), wf.InstBuffer[start:start+uint64(inst.ByteSize)]...)
 				madeProgress = true
 			}
 		}
@@ -156,36 +156,28 @@ func (s *SchedulerImpl) DoFetch() bool {
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
-		req := memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: s.cu.instMemPort().AsRemote(),
-				Dst: s.cu.comp.State.InstMem,
-			},
-			Address:        addr,
-			AccessByteSize: 64,
-			PID:            wf.PID(),
-		}
+		req := messaging.Msg{ID: s.cu.comp.NewID(),
+			Src: s.cu.instMemPort().AsRemote(),
+			Dst: s.cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: addr,
+				AccessByteSize: 64,
+				PID:            wf.PID()}}
 
 		if !s.cu.instMemPort().CanSend() {
 			continue
 		}
 
-		s.cu.instMemPort().Send(req)
-
 		info := new(InstFetchReqInfo)
 		info.Wavefront = wf
 		info.Req = req
 		info.Address = addr
-		info.FetchTaskID = timing.GetIDGenerator().Generate()
+
 		s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
 		wf.IsFetching = true
 
 		madeProgress = true
 
-		tracing.StartTask(s.cu.comp, tracing.TaskStart{
-			ID:       info.FetchTaskID,
-			ParentID: wf.UID,
+		info.FetchTaskID = s.cu.comp.TaskTracker().StartTask(s.cu.comp, tasks.StartInfo{
+			ParentID: s.cu.comp.State.WFTasks[wf.UID],
 			Kind:     "fetch",
 			What:     "fetch",
 			// Give instruction fetch its own unit location instead of letting it
@@ -202,10 +194,11 @@ func (s *SchedulerImpl) DoFetch() bool {
 			// a fetch-ahead with decoded/available bytes is also silent because the
 			// real blocker is the execution unit that has not accepted the ready
 			// instruction yet.
-			s.cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
 				s.cu.comp.Name()+".InstFetcher")
 		}
-		tracing.TraceReqInitiate(s.cu.comp, req, info.FetchTaskID)
+		s.cu.startRequest(req, info.FetchTaskID)
+		s.cu.instMemPort().Send(req)
 	}
 
 	return madeProgress
@@ -337,7 +330,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 	// sampling
 	now := s.cu.CurrentTime()
-	if *sampling.SampledRunnerFlag {
+	if s.cu.comp.Resources.Sampler != nil && !s.cu.comp.Resources.Sampler.IfDisable() {
 		issuetime, found := s.cu.wftime[wf.UID]
 		if found {
 			finishtime := now
@@ -365,7 +358,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 	// completes. The tail can keep InFlightInsts > 0 (e.g. a long outstanding
 	// VMem) right up to S_ENDPGM, so no count->0 work milestone fires on its own;
 	// without this the busy tail would be left unattributed.
-	s.cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
+	s.cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
 
 	if allCompleted {
 		s.sendWGCompletionMessage(wf.WG)
@@ -375,22 +368,25 @@ func (s *SchedulerImpl) evalSEndPgm(
 		s.resetRegisterValue(wf)
 		s.cu.clearWGResource(wf.WG)
 
-		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
-		tracing.TraceReqComplete(s.cu.comp, wf.WG.MapReq)
+		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
+		delete(s.cu.comp.State.WFTasks, wf.UID)
+		s.cu.completeWGTask(wf.WG.MapReq.ID)
 	} else if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
 		s.passBarrier(wf.WG)
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
-		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
+		delete(s.cu.comp.State.WFTasks, wf.UID)
 	} else if s.atLeaseOneWfIsExecuting(wf.WG) {
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
 
 		s.cu.logInstTask(wf, wf.DynamicInst(), true)
-		tracing.EndTask(s.cu.comp, tracing.TaskEnd{ID: wf.UID})
+		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
+		delete(s.cu.comp.State.WFTasks, wf.UID)
 	} else {
 		panic("never")
 	}
@@ -433,14 +429,11 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Src
 
-	msg := protocol.WGCompletionMsg{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: s.cu.acePort().AsRemote(),
-			Dst: dispatcher,
-		},
-		RspToIDs: []uint64{mapReq.ID},
-	}
+	msg := messaging.Msg{ID: s.cu.comp.NewID(),
+		Src: s.cu.acePort().AsRemote(),
+		Dst: dispatcher,
+		Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapReq.ID},
+			Timings: workGroupTimings(wg)}}
 
 	if !s.cu.acePort().CanSend() {
 		return false
@@ -591,9 +584,9 @@ func (s *SchedulerImpl) evalSWaitCnt(
 // markMemDrained records a "data" milestone on a wavefront's instruction task,
 // marking the moment the memory accesses it was waiting on have drained.
 func (s *SchedulerImpl) markMemDrained(wf *wavefront.Wavefront, what string) {
-	tracing.AddMilestone(s.cu.comp, tracing.Milestone{
-		TaskID: wf.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindData,
+	s.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: s.cu.comp.State.InstTasks[wf.DynamicInst().ID],
+		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})
 }
@@ -612,4 +605,15 @@ func (s *SchedulerImpl) Resume() {
 func (s *SchedulerImpl) Flush() {
 	s.barrierBuffer = nil
 	s.internalExecuting = nil
+}
+
+func workGroupTimings(wg *wavefront.WorkGroup) []protocol.WavefrontTiming {
+	times := make([]protocol.WavefrontTiming, 0, len(wg.Wfs))
+	for _, w := range wg.Wfs {
+		times = append(
+			times,
+			protocol.WavefrontTiming{WavefrontID: w.UID, IssueTime: w.IssueTime, FinishTime: w.FinishTime},
+		)
+	}
+	return times
 }

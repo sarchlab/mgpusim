@@ -3,18 +3,18 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 )
 
 var _ = Describe("Builder", func() {
 	It("should build a fully equipped compute unit", func() {
-		engine := timing.NewSerialEngine()
-		reg := modeling.NewStandaloneRegistrar(engine)
+		reg := sim.MakeBuilder().Build()
+		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
 		comp := MakeBuilder().
-			WithRegistrar(reg).
+			WithSimulation(reg).
 			WithSpec(DefaultSpec()).
 			Build("GPU.CU")
 
@@ -36,16 +36,19 @@ var _ = Describe("Builder", func() {
 		Expect(cuMW.WfDispatcher).NotTo(BeNil())
 		Expect(cuMW.Decoder).NotTo(BeNil())
 
-		Expect(comp.Resources().Decoder).NotTo(BeNil())
-		Expect(comp.Resources().ALU).NotTo(BeNil())
+		Expect(comp.Resources.Decoder).NotTo(BeNil())
+		Expect(comp.Resources.ALU).NotTo(BeNil())
 
 		// All five ports must be declared so external code can assign them.
 		for _, portName := range []string{
 			DispatchPortName, CtrlPortName,
 			InstMemPortName, ScalarMemPortName, VectorMemPortName,
 		} {
-			p := messaging.NewPort(comp, 4, 4, "GPU.CU."+portName)
-			Expect(func() { comp.AssignPort(portName, p) }).NotTo(Panic())
+			p := twowaybuffered.MakeBuilder().
+				WithSimulation(reg).
+				WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).
+				Build()
+			Expect(func() { comp.BindPort(portName, p) }).NotTo(Panic())
 		}
 
 		view := DispatcherView{CU: comp}

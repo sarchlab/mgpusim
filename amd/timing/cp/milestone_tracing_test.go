@@ -5,26 +5,26 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
-// milestoneRecorder is a tracing.Tracer that captures the milestones a
+// milestoneRecorder is a tasks.Tracer that captures the milestones a
 // component emits, so a test can assert blocked-time is being attributed.
 type milestoneRecorder struct {
-	tracing.NopTracer
+	tasks.NopObserver
 
-	milestones []tracing.Milestone
+	milestones []tasks.Milestone
 }
 
-func (r *milestoneRecorder) AddMilestone(m tracing.Milestone) {
+func (r *milestoneRecorder) MilestoneAdded(m tasks.Milestone) {
 	r.milestones = append(r.milestones, m)
 }
 
-func (r *milestoneRecorder) has(kind tracing.MilestoneKind, what string) bool {
+func (r *milestoneRecorder) has(kind tasks.MilestoneKind, what string) bool {
 	for _, m := range r.milestones {
 		if m.Kind == kind && m.What == what {
 			return true
@@ -39,60 +39,59 @@ func (r *milestoneRecorder) has(kind tracing.MilestoneKind, what string) bool {
 func TestDMARecordsDataMilestoneOnMemCopyComplete(t *testing.T) {
 	const memPort = messaging.RemotePort("Mem.Top")
 
-	engine := timing.NewSerialEngine()
-	reg := modeling.NewStandaloneRegistrar(engine)
+	reg := sim.MakeBuilder().WithTaskTracking().Build()
+	t.Cleanup(func() {
+		if err := reg.Terminate(); err != nil {
+			t.Error(err)
+		}
+	})
 	dma := MakeDMAEngineBuilder().
-		WithRegistrar(reg).
+		WithSimulation(reg).
 		WithResources(DMAResources{
-			LocalDataSource: &mem.SinglePortMapper{Port: memPort},
+			LocalDataSource: mem.AddressMapper{Destinations: []messaging.RemotePort{memPort}},
 		}).
 		Build("DMA")
 
 	assign := func(name string) messaging.Port {
-		p := modeling.MakePortBuilder().
-			WithRegistrar(reg).
-			WithComponent(dma).
-			WithSpec(modeling.PortSpec{BufSize: 16}).
-			Build(name)
-		dma.AssignPort(name, p)
-		(&noopConn{}).PlugIn(p)
+		p := twowaybuffered.MakeBuilder().
+			WithSimulation(reg).
+			WithSpec(twowaybuffered.Spec{IncomingCapacity: 16, OutgoingCapacity: 16}).
+			Build()
+		dma.BindPort(name, p)
+		(&noopConn{}).BindPort(p)
 		return p
 	}
 	_ = assign("ToCP")
 	toMem := assign("ToMem")
 
+	if err := reg.Initialize(); err != nil {
+		t.Fatal(err)
+	}
 	rec := &milestoneRecorder{}
-	tracing.CollectTrace(dma, rec)
-	mw := dma.Middlewares()[0].(*dmaMiddleware)
+	reg.TaskTracker().Subscribe(rec, dma)
+	mw := dma.Middlewares.DMA
 
-	req := protocol.MemCopyD2HReq{
-		MsgMeta: messaging.MsgMeta{
-			ID: timing.GetIDGenerator().Generate(),
-		},
-		SrcAddress: 64,
-		DstBuffer:  make([]byte, 64),
-	}
+	req := messaging.Msg{ID: dma.NewID(), Payload: protocol.MemCopyD2HReq{SrcAddress: 64,
+		ByteSize: 64}}
+
 	rqC := NewRequestCollection(req)
-	mw.processingReqs = append(mw.processingReqs, rqC)
+	rqC.RecvTaskID = dma.TaskTracker().StartReqIn(dma, req)
+	rqC.Data = make([]byte, 64)
+	mw.comp.State.ProcessingReqs = append(mw.comp.State.ProcessingReqs, *rqC)
+	rqC = &mw.comp.State.ProcessingReqs[len(mw.comp.State.ProcessingReqs)-1]
 
-	read := memprotocol.ReadReq{
-		MsgMeta:        messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
-		Address:        64,
-		AccessByteSize: 64,
-	}
-	mw.pendingReqs = append(mw.pendingReqs, read)
-	rqC.appendSubordinateID(read.Meta().ID)
+	read := messaging.Msg{ID: dma.NewID(), Payload: memprotocol.ReadReq{Address: 64,
+		AccessByteSize: 64}}
 
-	toMem.Deliver(memprotocol.DataReadyRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			RspTo: read.ID,
-		},
-		Data: make([]byte, 64),
-	})
+	mw.comp.State.PendingReqs = append(mw.comp.State.PendingReqs, read)
+	rqC.appendSubordinateID(read.ID)
+
+	toMem.Deliver(messaging.Msg{ID: dma.NewID(),
+		RspTo: read.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}},
+	)
 	mw.parseFromMem()
 
-	if !rec.has(tracing.MilestoneKindData, "ToMem") {
+	if !rec.has(tasks.MilestoneKindData, "ToMem") {
 		t.Fatalf("expected a data milestone on memcopy completion, got %+v",
 			rec.milestones)
 	}

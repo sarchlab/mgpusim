@@ -3,12 +3,12 @@ package cu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/queueing"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/queueing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu/gcn3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var defaultSpec = Spec{
@@ -40,7 +40,7 @@ func DefaultSpec() Spec {
 // A Builder can construct a fully functional Compute Unit. Configuration is
 // supplied as a whole through WithSpec; shared references (decoder, ALU,
 // vector memory address mapper) through WithResources; wiring through
-// WithRegistrar. The component declares its "Top", "Ctrl", "InstMem",
+// WithSimulation. The component declares its "Top", "Ctrl", "InstMem",
 // "ScalarMem", and "VectorMem" ports; the port instances are supplied
 // externally after Build with AssignPort. The destinations of instruction
 // and scalar memory accesses are set after Build through comp.State.InstMem
@@ -48,7 +48,7 @@ func DefaultSpec() Spec {
 type Builder struct {
 	spec      Spec
 	resources Resources
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 }
 
 // MakeBuilder returns a builder seeded with the default spec.
@@ -56,10 +56,10 @@ func MakeBuilder() Builder {
 	return Builder{spec: defaultSpec}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation
+// WithSimulation wires the builder to a registrar (a *simulation.Simulation
 // in platform assembly, or modeling.NewStandaloneRegistrar(engine) in
 // isolated tests).
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -81,26 +81,30 @@ func (b Builder) WithResources(resources Resources) Builder {
 // configuration.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("cu: WithRegistrar is required")
+		panic("cu: WithSimulation is required")
 	}
 
 	b.mustHaveValidSpec()
 	b.fillResourceDefaults()
+	if d, ok := b.resources.Decoder.(*insts.Disassembler); ok {
+		b.spec.IsCDNA3 = d.IsCDNA3
+	}
 
-	comp := modeling.NewBuilder[Spec, State, Resources]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		WithResources(b.resources).
-		Build(name)
-	comp.State = State{}
+	comp := modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
+	comp.State = State{
+		InstTasks:    make(map[uint64]uint64),
+		WFTasks:      make(map[uint64]uint64),
+		WGTasks:      make(map[uint64]uint64),
+		RequestTasks: make(map[uint64]uint64),
+	}
 
 	cuMW := &ComputeUnit{
 		comp:                  comp,
-		engine:                b.registrar.GetEngine(),
+		engine:                b.registrar.Engine(),
 		wfCompletionHandlerID: name + ".WfCompletion",
 		wfDispatchHandlerID:   name + ".WfDispatch",
 		Decoder:               b.resources.Decoder,
+		workGroups:            make(map[uint64]*wavefront.WorkGroup),
 		wftime:                make(map[uint64]timing.VTimeInPicoSec),
 	}
 	cuMW.InFlightVectorMemAccessLimit = b.spec.InFlightVectorMemAccessLimit
@@ -113,6 +117,7 @@ func (b Builder) Build(name string) *Comp {
 		cuMW.WfPools = append(cuMW.WfPools, NewWavefrontPool(b.spec.WfPoolSize))
 	}
 
+	b.registrar.RegisterResource(&cuCheckpoint{cuMW})
 	b.equipScheduler(cuMW)
 	b.equipScalarUnits(cuMW)
 	b.equipSIMDUnits(cuMW, name)
@@ -120,20 +125,9 @@ func (b Builder) Build(name string) *Comp {
 	b.equipVectorMemoryUnit(cuMW, name)
 	b.equipRegisterFiles(cuMW)
 
-	comp.AddMiddleware(cuMW)
-
-	comp.DeclarePort(DispatchPortName)
-	comp.DeclarePort(CtrlPortName)
-	comp.DeclarePort(InstMemPortName, memprotocol.Requester)
-	comp.DeclarePort(ScalarMemPortName, memprotocol.Requester)
-	comp.DeclarePort(VectorMemPortName, memprotocol.Requester)
-
-	if hr, ok := b.registrar.GetEngine().(timing.HandlerRegistrar); ok {
-		hr.RegisterHandler(cuMW.wfCompletionHandlerID, cuMW)
-		hr.RegisterHandler(cuMW.wfDispatchHandlerID, cuMW)
-	}
-
-	b.registrar.RegisterComponent(comp)
+	comp.Resources.Runtime = cuMW
+	b.registrar.Engine().RegisterHandler(cuMW.wfCompletionHandlerID, cuMW)
+	b.registrar.Engine().RegisterHandler(cuMW.wfDispatchHandlerID, cuMW)
 
 	return comp
 }
@@ -193,6 +187,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+		b.registrar.RegisterResource(simdUnit)
 	}
 }
 
@@ -215,6 +210,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	cu.VectorMemDecoder = vectorMemDecoder
 
 	coalescer := &defaultCoalescer{
+		ids:               cu.comp,
 		log2CacheLineSize: b.spec.Log2CachelineSize,
 	}
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
@@ -222,12 +218,10 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	vectorMemoryUnit.postInstructionPipelineBuffer =
-		queueing.NewBuffer[vectorMemInst](
-			name+".VectorMemoryUnit.PostInstPipelineBuffer",
-			4*b.spec.SIMDCount)
+		queueing.MakeBuffer[vectorMemInst](4 * b.spec.SIMDCount)
 	// v4 used CyclePerStage=1, so the v5 stage count equals the v4 stage
 	// count and the total latency is preserved.
-	vectorMemoryUnit.instructionPipeline = queueing.NewPipeline[vectorMemInst](
+	vectorMemoryUnit.instructionPipeline = queueing.MakePipeline[vectorMemInst](
 		b.spec.SIMDCount, b.spec.VecMemInstPipelineStages)
 
 	pipelineWidth := b.spec.VecMemTransPipelineWidth
@@ -239,10 +233,9 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 		bufSize = 8
 	}
 	vectorMemoryUnit.postTransactionPipelineBuffer =
-		queueing.NewBuffer[VectorMemAccessInfo](
-			name+".VectorMemoryUnit.PostTransPipelineBuffer", bufSize)
+		queueing.MakeBuffer[uint64](bufSize)
 	vectorMemoryUnit.transactionPipeline =
-		queueing.NewPipeline[VectorMemAccessInfo](
+		queueing.MakePipeline[uint64](
 			pipelineWidth, b.spec.VecMemTransPipelineStages)
 
 	for i := 0; i < b.spec.SIMDCount; i++ {

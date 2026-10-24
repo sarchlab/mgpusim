@@ -4,9 +4,8 @@ import (
 	"log"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -23,7 +22,7 @@ type ScalarUnit struct {
 	toWrite *wavefront.Wavefront
 
 	readBufSize int
-	readBuf     []memprotocol.ReadReq
+	readBuf     []messaging.Msg
 
 	// issueTaskIDs maps an SMEM instruction's task ID to the "pipeline" subtask
 	// that records scalar-address/read-request issue work. The subtask closes
@@ -46,7 +45,7 @@ func NewScalarUnit(
 	u.cu = cu
 	u.alu = alu
 	u.readBufSize = 16
-	u.readBuf = make([]memprotocol.ReadReq, 0, u.readBufSize)
+	u.readBuf = make([]messaging.Msg, 0, u.readBufSize)
 	u.issueTaskIDs = make(map[uint64]uint64)
 	return u
 }
@@ -74,10 +73,8 @@ func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront) {
 }
 
 func (u *ScalarUnit) startIssueSubtask(inst *wavefront.Inst) {
-	taskID := timing.GetIDGenerator().Generate()
-	tracing.StartTask(u.cu.comp, tracing.TaskStart{
-		ID:       taskID,
-		ParentID: inst.ID,
+	taskID := u.cu.comp.TaskTracker().StartTask(u.cu.comp, tasks.StartInfo{
+		ParentID: u.cu.comp.State.InstTasks[inst.ID],
 		Kind:     "pipeline",
 		What:     u.cu.comp.Name() + ".smem_issue",
 	})
@@ -90,10 +87,10 @@ func (u *ScalarUnit) endIssueSubtask(inst *wavefront.Inst) {
 		return
 	}
 
-	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: inst.ID,
-		Kind:   tracing.MilestoneKindWork,
+	u.cu.comp.TaskTracker().EndTask(taskID)
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[inst.ID],
+		Kind:   tasks.MilestoneKindWork,
 		What:   u.cu.comp.Name() + ".smem_issue",
 	})
 	delete(u.issueTaskIDs, inst.ID)
@@ -179,19 +176,12 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
 
-		req := memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: u.cu.scalarMemPort().AsRemote(),
-				Dst: u.cu.comp.State.ScalarMem,
-			},
-			Address:        curr,
-			AccessByteSize: bytesLeftInCacheline,
-			PID:            u.toExec.PID(),
-		}
-		if bytesLeft > 0 {
-			req.CanWaitForCoalesce = true
-		}
+		req := messaging.Msg{ID: u.cu.comp.NewID(),
+			Src: u.cu.scalarMemPort().AsRemote(),
+			Dst: u.cu.comp.State.ScalarMem, Payload: memprotocol.ReadReq{Address: curr,
+				AccessByteSize: bytesLeftInCacheline,
+				PID:            u.toExec.PID()}}
+
 		u.readBuf = append(u.readBuf, req)
 
 		info := &ScalarMemAccessInfo{
@@ -203,7 +193,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		u.cu.InFlightScalarMemAccess = append(
 			u.cu.InFlightScalarMemAccess, info)
 
-		tracing.TraceReqInitiate(u.cu.comp, req, u.toExec.DynamicInst().ID)
+		u.cu.startRequest(req, u.cu.comp.State.InstTasks[u.toExec.DynamicInst().ID])
 
 		curr += bytesLeftInCacheline
 	}
@@ -286,10 +276,10 @@ func (u *ScalarUnit) Flush() {
 	u.toWrite = nil
 	u.readBuf = nil
 	for instID, taskID := range u.issueTaskIDs {
-		tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
-		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-			TaskID: instID,
-			Kind:   tracing.MilestoneKindWork,
+		u.cu.comp.TaskTracker().EndTask(taskID)
+		u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+			TaskID: u.cu.comp.State.InstTasks[instID],
+			Kind:   tasks.MilestoneKindWork,
 			What:   u.cu.comp.Name() + ".smem_issue",
 		})
 		delete(u.issueTaskIDs, instID)

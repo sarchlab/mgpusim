@@ -4,15 +4,16 @@ import (
 	"sync"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 )
 
 // dramTracer can trace DRAM activities.
 type dramTracer struct {
 	sync.Mutex
-	tracing.NopTracer
+	tasks.NopObserver
 
-	inflightTasks map[uint64]tracing.TaskStart
+	inflightTasks map[uint64]tasks.Task
 
 	readCount       int
 	writeCount      int
@@ -24,12 +25,12 @@ type dramTracer struct {
 
 func newDramTracer() *dramTracer {
 	return &dramTracer{
-		inflightTasks: make(map[uint64]tracing.TaskStart),
+		inflightTasks: make(map[uint64]tasks.Task),
 	}
 }
 
 // StartTask records the task start time
-func (t *dramTracer) StartTask(task tracing.TaskStart) {
+func (t *dramTracer) TaskStarted(task tasks.Task) {
 	if task.Kind != "req_in" {
 		return
 	}
@@ -41,7 +42,7 @@ func (t *dramTracer) StartTask(task tracing.TaskStart) {
 }
 
 // EndTask records the end of the task
-func (t *dramTracer) EndTask(task tracing.TaskEnd) {
+func (t *dramTracer) TaskEnded(task tasks.Task) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -50,9 +51,13 @@ func (t *dramTracer) EndTask(task tracing.TaskEnd) {
 		return
 	}
 
-	taskTime := float64(task.Time-originalTask.Time) * 1e-12
+	taskTime := float64(task.EndTime-originalTask.StartTime) * 1e-12
 
-	switch req := originalTask.Detail.(type) {
+	msg, ok := originalTask.Detail.(messaging.Msg)
+	if !ok {
+		return
+	}
+	switch req := msg.Payload.(type) {
 	case memprotocol.ReadReq:
 		t.readAvgLatency = (t.readAvgLatency*float64(t.readCount) +
 			taskTime) / float64(t.readCount+1)

@@ -3,14 +3,16 @@ package driver
 import (
 	"fmt"
 
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/hooking"
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"go.uber.org/mock/gomock"
 )
@@ -23,17 +25,17 @@ type noopConn struct {
 }
 
 func (c *noopConn) Name() string                     { return "NoopConn" }
-func (c *noopConn) PlugIn(port messaging.Port)       { port.SetConnection(c) }
+func (c *noopConn) BindPort(port messaging.Port)     { port.BindConnection(c) }
 func (c *noopConn) Unplug(_ messaging.Port)          {}
 func (c *noopConn) NotifyAvailable(_ messaging.Port) {}
-func (c *noopConn) NotifySend()                      {}
+func (c *noopConn) NotifySend(messaging.Port)        {}
 
 var _ = ginkgo.Describe("Driver", func() {
 	var (
 		mockCtrl     *gomock.Controller
-		pageTable    *MockPageTable
+		pageTable    *vm.PageTable
 		driver       *Driver
-		engine       timing.Engine
+		simulation   *sim.Simulation
 		toGPUs       messaging.Port
 		context      *Context
 		cmdQueue     *CommandQueue
@@ -42,8 +44,8 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.BeforeEach(func() {
 		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
-		engine = timing.NewSerialEngine()
-		pageTable = NewMockPageTable(mockCtrl)
+		simulation = sim.MakeBuilder().Build()
+		pageTable = vm.NewPageTable(11) // Exercise the existing mixed 2KB/4KB page metadata fixture.
 		memAllocator = NewMockMemoryAllocator(mockCtrl)
 		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
 
@@ -53,15 +55,19 @@ var _ = ginkgo.Describe("Driver", func() {
 		spec.H2DCycles = 1
 
 		driver = MakeBuilder().
-			WithRegistrar(modeling.NewStandaloneRegistrar(engine)).
+			WithSimulation(simulation).
 			WithSpec(spec).
 			WithResources(Resources{PageTable: pageTable}).
 			Build("Driver")
 		driver.memAllocator = memAllocator
 
-		toGPUs = messaging.NewPort(driver.Comp, 16, 16, "Driver.GPU")
-		(&noopConn{}).PlugIn(toGPUs)
-		driver.AssignPort(GPUPortName, toGPUs)
+		toGPUs = twowaybuffered.MakeBuilder().
+			WithSimulation(simulation).
+			WithSpec(twowaybuffered.Spec{IncomingCapacity: 16, OutgoingCapacity: 16}).
+			Build()
+		driver.BindPort(GPUPortName, toGPUs)
+		(&noopConn{}).BindPort(toGPUs)
+		Expect(simulation.Initialize()).To(Succeed())
 
 		for i := 0; i < 2; i++ {
 			driver.RegisterGPU(
@@ -80,41 +86,31 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.AfterEach(func() {
 		mockCtrl.Finish()
+		Expect(simulation.Terminate()).To(Succeed())
 	})
 
-	makeMemCopyH2DReq := func(dst uint64, data []byte) protocol.MemCopyH2DReq {
-		return protocol.MemCopyH2DReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: toGPUs.AsRemote(),
-				Dst: driver.GPUs[0],
-			},
-			SrcBuffer:  data,
-			DstAddress: dst,
-		}
+	makeMemCopyH2DReq := func(dst uint64, data []byte) messaging.Msg {
+		return messaging.Msg{ID: driver.NewID(),
+			Src: toGPUs.AsRemote(),
+			Dst: driver.GPUs[0], Payload: protocol.MemCopyH2DReq{SrcBuffer: data,
+				DstAddress: dst}}
+
 	}
 
-	makeMemCopyD2HReq := func(src uint64, data []byte) protocol.MemCopyD2HReq {
-		return protocol.MemCopyD2HReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: toGPUs.AsRemote(),
-				Dst: driver.GPUs[0],
-			},
-			SrcAddress: src,
-			DstBuffer:  data,
-		}
+	makeMemCopyD2HReq := func(src uint64, data []byte) messaging.Msg {
+		return messaging.Msg{ID: driver.NewID(),
+			Src: toGPUs.AsRemote(),
+			Dst: driver.GPUs[0], Payload: protocol.MemCopyD2HReq{SrcAddress: src,
+				ByteSize: uint64(len(data))}}
+
 	}
 
 	deliverGeneralRsp := func(rspTo uint64) {
-		rsp := protocol.GeneralRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   driver.GPUs[0],
-				Dst:   toGPUs.AsRemote(),
-				RspTo: rspTo,
-			},
-		}
+		rsp := messaging.Msg{ID: driver.NewID(),
+			Src:   driver.GPUs[0],
+			Dst:   toGPUs.AsRemote(),
+			RspTo: rspTo, Payload: protocol.GeneralRsp{}}
+
 		toGPUs.Deliver(rsp)
 	}
 
@@ -122,49 +118,41 @@ var _ = ginkgo.Describe("Driver", func() {
 		ginkgo.It("should send request", func() {
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
-				ID:  timing.GetIDGenerator().Generate(),
+				ID:  driver.NewID(),
 				Dst: Ptr(0x200000100),
 				Src: srcData,
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(0x200000100)).
-				Return(vm.Page{
-					PID:      1,
-					VAddr:    0x200000000,
-					PAddr:    0x100000000,
-					PageSize: 0x800,
-					Valid:    true,
-				}, true)
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(0x200000800)).
-				Return(vm.Page{
-					PID:      1,
-					VAddr:    0x200000800,
-					PAddr:    0x100000800,
-					PageSize: 0x800,
-					Valid:    true,
-				}, true)
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(0x200001000)).
-				Return(vm.Page{
-					PID:      1,
-					VAddr:    0x200001000,
-					PAddr:    0x100001000,
-					PageSize: 0x1000,
-					Valid:    true,
-				}, true)
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(0x200002000)).
-				Return(vm.Page{
-					PID:      1,
-					VAddr:    0x200002000,
-					PAddr:    0x100002000,
-					PageSize: 0x1000,
-					Valid:    true,
-				}, true)
+			pageTable.Insert(vm.Page{
+				PID:      1,
+				VAddr:    0x200000000,
+				PAddr:    0x100000000,
+				PageSize: 0x800,
+				Valid:    true,
+			})
+			pageTable.Insert(vm.Page{
+				PID:      1,
+				VAddr:    0x200000800,
+				PAddr:    0x100000800,
+				PageSize: 0x800,
+				Valid:    true,
+			})
+			pageTable.Insert(vm.Page{
+				PID:      1,
+				VAddr:    0x200001000,
+				PAddr:    0x100001000,
+				PageSize: 0x1000,
+				Valid:    true,
+			})
+			pageTable.Insert(vm.Page{
+				PID:      1,
+				VAddr:    0x200002000,
+				PAddr:    0x100002000,
+				PageSize: 0x1000,
+				Valid:    true,
+			})
 			memAllocator.EXPECT().
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
@@ -178,9 +166,9 @@ var _ = ginkgo.Describe("Driver", func() {
 				GetDeviceIDByPAddr(uint64(0x1_0000_2000)).
 				Return(1)
 
-			driver.Tick()
-			driver.Tick()
-			driver.Tick()
+			tickDriver(driver)
+			tickDriver(driver)
+			tickDriver(driver)
 
 			Expect(driver.requestsToSend).To(HaveLen(4))
 			Expect(cmdQueue.IsRunning).To(BeTrue())
@@ -193,7 +181,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			req := makeMemCopyH2DReq(0x104, make([]byte, 4))
 			req2 := makeMemCopyH2DReq(0x100, make([]byte, 4))
 			cmd := &MemCopyH2DCommand{
-				ID:   timing.GetIDGenerator().Generate(),
+				ID:   driver.NewID(),
 				Dst:  Ptr(0x100),
 				Src:  uint32(1),
 				Reqs: []messaging.Msg{req, req2},
@@ -203,7 +191,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			deliverGeneralRsp(req.ID)
 
-			driver.Tick()
+			tickDriver(driver)
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -215,7 +203,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			func() {
 				req := makeMemCopyH2DReq(0x100, make([]byte, 4))
 				cmd := &MemCopyH2DCommand{
-					ID:   timing.GetIDGenerator().Generate(),
+					ID:   driver.NewID(),
 					Dst:  Ptr(0x100),
 					Src:  uint32(1),
 					Reqs: []messaging.Msg{req},
@@ -225,7 +213,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 				deliverGeneralRsp(req.ID)
 
-				driver.Tick()
+				tickDriver(driver)
 
 				Expect(cmdQueue.IsRunning).To(BeFalse())
 				Expect(cmdQueue.NumCommand()).To(Equal(0))
@@ -236,28 +224,27 @@ var _ = ginkgo.Describe("Driver", func() {
 		ginkgo.It("should send request", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
-				ID:  timing.GetIDGenerator().Generate(),
+				ID:  driver.NewID(),
 				Dst: &data,
 				Src: Ptr(0x2_0000_0100),
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			pageTable.EXPECT().Find(vm.PID(1), uint64(0x2_0000_0100)).
-				Return(vm.Page{
-					PID:      1,
-					VAddr:    0x2_0000_0000,
-					PAddr:    0x1_0000_0000,
-					PageSize: 0x1000,
-					Valid:    true,
-				}, true)
+			pageTable.Insert(vm.Page{
+				PID:      1,
+				VAddr:    0x2_0000_0000,
+				PAddr:    0x1_0000_0000,
+				PageSize: 0x1000,
+				Valid:    true,
+			})
 			memAllocator.EXPECT().
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
 
-			driver.Tick()
-			driver.Tick()
-			driver.Tick()
+			tickDriver(driver)
+			tickDriver(driver)
+			tickDriver(driver)
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -271,17 +258,24 @@ var _ = ginkgo.Describe("Driver", func() {
 			req := makeMemCopyD2HReq(0x100, []byte{1, 0, 0, 0})
 			req2 := makeMemCopyD2HReq(0x104, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
-				ID:   timing.GetIDGenerator().Generate(),
-				Dst:  &data,
-				Src:  Ptr(0x100),
-				Reqs: []messaging.Msg{req, req2},
+				ID:      driver.NewID(),
+				Dst:     &data,
+				Src:     Ptr(0x100),
+				Reqs:    []messaging.Msg{req, req2},
+				RawData: make([]byte, 8),
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			deliverGeneralRsp(req.ID)
+			toGPUs.Deliver(
+				messaging.Msg{
+					ID:      driver.NewID(),
+					RspTo:   req.ID,
+					Payload: protocol.MemCopyD2HRsp{Data: []byte{1, 0, 0, 0}},
+				},
+			)
 
-			driver.Tick()
+			tickDriver(driver)
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -293,7 +287,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			data := uint32(0)
 			req := makeMemCopyD2HReq(0x100, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
-				ID:      timing.GetIDGenerator().Generate(),
+				ID:      driver.NewID(),
 				Dst:     &data,
 				RawData: []byte{1, 0, 0, 0},
 				Src:     Ptr(0x100),
@@ -302,9 +296,15 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			deliverGeneralRsp(req.ID)
+			toGPUs.Deliver(
+				messaging.Msg{
+					ID:      driver.NewID(),
+					RspTo:   req.ID,
+					Payload: protocol.MemCopyD2HRsp{Data: []byte{1, 0, 0, 0}},
+				},
+			)
 
-			driver.Tick()
+			tickDriver(driver)
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.commands).To(HaveLen(0))
@@ -321,32 +321,43 @@ var _ = ginkgo.Describe("Driver", func() {
 			if deviceToHost {
 				copyReq = makeMemCopyD2HReq(0x100, payload)
 				cmd = &MemCopyD2HCommand{
-					ID:  timing.GetIDGenerator().Generate(),
+					ID:  driver.NewID(),
 					Src: Ptr(0x100), Dst: &data, RawData: payload,
 				}
 			} else {
 				copyReq = makeMemCopyH2DReq(0x100, payload)
 				cmd = &MemCopyH2DCommand{
-					ID:  timing.GetIDGenerator().Generate(),
+					ID:  driver.NewID(),
 					Dst: Ptr(0x100), Src: uint32(0x12345678),
 				}
 			}
 			reqs := []messaging.Msg{copyReq}
 			for _, gpu := range driver.GPUs {
-				reqs = append(reqs, protocol.FlushReq{MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(), Src: toGPUs.AsRemote(), Dst: gpu,
-				}})
+				reqs = append(
+					reqs,
+					messaging.Msg{ID: driver.NewID(), Src: toGPUs.AsRemote(), Dst: gpu, Payload: protocol.FlushReq{}},
+				)
 			}
 			for _, req := range reqs {
 				cmd.AddReq(req)
 			}
 			cmdQueue.Enqueue(cmd)
-			cmdQueue.Enqueue(&NoopCommand{ID: timing.GetIDGenerator().Generate()})
+			cmdQueue.Enqueue(&NoopCommand{ID: driver.NewID()})
 			cmdQueue.IsRunning = true
 
 			for i, index := range order {
-				deliverGeneralRsp(reqs[index].Meta().ID)
-				driver.Tick()
+				if deviceToHost && index == 0 {
+					toGPUs.Deliver(
+						messaging.Msg{
+							ID:      driver.NewID(),
+							RspTo:   reqs[index].ID,
+							Payload: protocol.MemCopyD2HRsp{Data: payload},
+						},
+					)
+				} else {
+					deliverGeneralRsp(reqs[index].ID)
+				}
+				tickDriver(driver)
 				Expect(cmd.GetReqs()).To(HaveLen(len(order) - i - 1))
 				if i < len(order)-1 {
 					Expect(cmdQueue.IsRunning).To(BeTrue())
@@ -379,53 +390,55 @@ var _ = ginkgo.Describe("Driver", func() {
 	ginkgo.Context("process LaunchKernelCommand", func() {
 		ginkgo.It("should send request to GPU", func() {
 			cmd := &LaunchKernelCommand{
-				ID:         timing.GetIDGenerator().Generate(),
+				ID:         driver.NewID(),
 				CodeObject: nil,
 				GridSize:   [3]uint32{256, 1, 1},
 				WGSize:     [3]uint16{64, 1, 1},
 				KernelArgs: nil,
+				Packet:     &kernels.HsaKernelDispatchPacket{},
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			driver.Tick()
+			tickDriver(driver)
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
-			req := cmd.Reqs[0].(protocol.LaunchKernelReq)
-			Expect(req.PID).To(Equal(vm.PID(1)))
+			req := cmd.Reqs[0]
+			Expect(req.Payload.(protocol.LaunchKernelReq).PID).To(Equal(vm.PID(1)))
 			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
 
 	ginkgo.It("should process LaunchKernel return", func() {
-		req := protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: toGPUs.AsRemote(),
-				Dst: driver.GPUs[0],
-			},
-		}
+		req := messaging.Msg{ID: driver.NewID(),
+			Src: toGPUs.AsRemote(),
+			Dst: driver.GPUs[0], Payload: protocol.LaunchKernelReq{}}
+
 		cmd := &LaunchKernelCommand{
-			ID:   timing.GetIDGenerator().Generate(),
+			ID:   driver.NewID(),
 			Reqs: []messaging.Msg{req},
 		}
 		cmdQueue.Enqueue(cmd)
 		cmdQueue.IsRunning = true
 
-		rsp := protocol.LaunchKernelRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:    timing.GetIDGenerator().Generate(),
-				Src:   driver.GPUs[0],
-				Dst:   toGPUs.AsRemote(),
-				RspTo: req.ID,
-			},
-		}
+		rsp := messaging.Msg{ID: driver.NewID(),
+			Src:   driver.GPUs[0],
+			Dst:   toGPUs.AsRemote(),
+			RspTo: req.ID, Payload: protocol.LaunchKernelRsp{}}
+
 		toGPUs.Deliver(rsp)
 
-		driver.Tick()
+		tickDriver(driver)
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
 })
+
+func tickDriver(d *Driver) bool {
+	a := d.Middlewares.Send.Tick()
+	b := d.Middlewares.Memory.Tick()
+	c := d.Middlewares.Command.Tick()
+	return a || b || c
+}

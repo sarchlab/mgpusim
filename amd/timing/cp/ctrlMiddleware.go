@@ -5,9 +5,8 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -97,27 +96,27 @@ type ctrlMiddleware struct {
 }
 
 func (m *ctrlMiddleware) toDriver() messaging.Port {
-	return m.comp.GetPortByName("ToDriver")
+	return m.comp.Ports.ToDriver
 }
 
 func (m *ctrlMiddleware) toCUs() messaging.Port {
-	return m.comp.GetPortByName("ToCUs")
+	return m.comp.Ports.ToCUs
 }
 
 func (m *ctrlMiddleware) toTLBs() messaging.Port {
-	return m.comp.GetPortByName("ToTLBs")
+	return m.comp.Ports.ToTLBs
 }
 
 func (m *ctrlMiddleware) toATs() messaging.Port {
-	return m.comp.GetPortByName("ToAddressTranslators")
+	return m.comp.Ports.ToAddressTranslators
 }
 
 func (m *ctrlMiddleware) toCaches() messaging.Port {
-	return m.comp.GetPortByName("ToCaches")
+	return m.comp.Ports.ToCaches
 }
 
 func (m *ctrlMiddleware) toRDMA() messaging.Port {
-	return m.comp.GetPortByName("ToRDMA")
+	return m.comp.Ports.ToRDMA
 }
 
 func (m *ctrlMiddleware) Tick() bool {
@@ -165,7 +164,7 @@ func (m *ctrlMiddleware) sendPendingReqs() bool {
 
 func drainCtrlQueue(
 	port messaging.Port,
-	queue *[]memcontrolprotocol.Req,
+	queue *[]messaging.Msg,
 ) bool {
 	madeProgress := false
 
@@ -191,8 +190,8 @@ func (m *ctrlMiddleware) sendPendingDriverRsps() bool {
 	}
 
 	kind := state.PendingDriverRsps[0]
-	meta := messaging.MsgMeta{
-		ID:  timing.GetIDGenerator().Generate(),
+	meta := messaging.Msg{
+		ID:  m.comp.NewID(),
 		Src: m.toDriver().AsRemote(),
 		Dst: state.Driver,
 	}
@@ -201,23 +200,27 @@ func (m *ctrlMiddleware) sendPendingDriverRsps() bool {
 	case driverRspFlushDone:
 		meta.Dst = state.CurrFlushReq.Src
 		meta.RspTo = state.CurrFlushReq.ID
-		m.toDriver().Send(protocol.GeneralRsp{MsgMeta: meta})
-		// Complete the req_in opened for the FlushReq in
-		// cpMiddleware.processFlushReq; otherwise it leaks (the flush is
-		// handled entirely on the control path, which opens no task of its own).
-		tracing.TraceReqComplete(m.comp, state.CurrFlushReq)
-		state.CurrFlushReq = protocol.FlushReq{}
+		meta.Payload = protocol.GeneralRsp{}
 	case driverRspShootdownDone:
-		m.toDriver().Send(protocol.ShootDownCompleteRsp{MsgMeta: meta})
-		state.ShootDownInProcess = false
+		meta.Payload = protocol.ShootDownCompleteRsp{}
 	case driverRspRestartDone:
-		m.toDriver().Send(protocol.GPURestartRsp{MsgMeta: meta})
+		meta.Payload = protocol.GPURestartRsp{}
 	case driverRspRDMADrainDone:
-		m.toDriver().Send(protocol.RDMADrainRspToDriver{MsgMeta: meta})
+		meta.Payload = protocol.RDMADrainRspToDriver{}
 	case driverRspRDMARestartDone:
-		m.toDriver().Send(protocol.RDMARestartRspToDriver{MsgMeta: meta})
+		meta.Payload = protocol.RDMARestartRspToDriver{}
 	default:
 		panic("unknown driver response kind " + kind)
+	}
+	m.toDriver().Send(meta)
+	if kind == driverRspFlushDone {
+		// Close the request opened by cpMiddleware.processFlushReq.
+		m.comp.TaskTracker().EndReqIn(state.FlushTaskID)
+		state.FlushTaskID = 0
+		state.CurrFlushReq = messaging.Msg{Payload: protocol.FlushReq{}}
+	}
+	if kind == driverRspShootdownDone {
+		state.ShootDownInProcess = false
 	}
 
 	state.PendingDriverRsps = state.PendingDriverRsps[1:]
@@ -226,19 +229,27 @@ func (m *ctrlMiddleware) sendPendingDriverRsps() bool {
 }
 
 func (m *ctrlMiddleware) processReqFromDriver() bool {
-	msg := m.toDriver().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.toDriver().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := msg.(type) {
+	switch msg.Payload.(type) {
 	case protocol.RDMADrainCmdFromDriver:
+		req := msg
+
 		return m.processRDMADrainCmd(req)
 	case protocol.RDMARestartCmdFromDriver:
+		req := msg
+
 		return m.processRDMARestartCmd(req)
 	case protocol.ShootDownCommand:
+		req := msg
+
 		return m.processShootdownCommand(req)
 	case protocol.GPURestartReq:
+		req := msg
+
 		return m.processGPURestartReq(req)
 	}
 
@@ -246,19 +257,16 @@ func (m *ctrlMiddleware) processReqFromDriver() bool {
 }
 
 func (m *ctrlMiddleware) processRDMADrainCmd(
-	cmd protocol.RDMADrainCmdFromDriver,
+	cmd messaging.Msg,
 ) bool {
 	if !m.toRDMA().CanSend() {
 		return false
 	}
 
-	req := rdma.DrainReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: m.toRDMA().AsRemote(),
-			Dst: m.comp.State.RDMA,
-		},
-	}
+	req := messaging.Msg{ID: m.comp.NewID(),
+		Src: m.toRDMA().AsRemote(),
+		Dst: m.comp.State.RDMA, Payload: rdma.DrainReq{}}
+
 	m.toRDMA().Send(req)
 
 	m.toDriver().RetrieveIncoming()
@@ -267,19 +275,16 @@ func (m *ctrlMiddleware) processRDMADrainCmd(
 }
 
 func (m *ctrlMiddleware) processRDMARestartCmd(
-	cmd protocol.RDMARestartCmdFromDriver,
+	cmd messaging.Msg,
 ) bool {
 	if !m.toRDMA().CanSend() {
 		return false
 	}
 
-	req := rdma.RestartReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: m.toRDMA().AsRemote(),
-			Dst: m.comp.State.RDMA,
-		},
-	}
+	req := messaging.Msg{ID: m.comp.NewID(),
+		Src: m.toRDMA().AsRemote(),
+		Dst: m.comp.State.RDMA, Payload: rdma.RestartReq{}}
+
 	m.toRDMA().Send(req)
 
 	m.toDriver().RetrieveIncoming()
@@ -288,7 +293,7 @@ func (m *ctrlMiddleware) processRDMARestartCmd(
 }
 
 func (m *ctrlMiddleware) processShootdownCommand(
-	cmd protocol.ShootDownCommand,
+	cmd messaging.Msg,
 ) bool {
 	state := &m.comp.State
 
@@ -306,7 +311,7 @@ func (m *ctrlMiddleware) processShootdownCommand(
 }
 
 func (m *ctrlMiddleware) processGPURestartReq(
-	cmd protocol.GPURestartReq,
+	cmd messaging.Msg,
 ) bool {
 	state := &m.comp.State
 
@@ -322,14 +327,14 @@ func (m *ctrlMiddleware) processGPURestartReq(
 }
 
 func (m *ctrlMiddleware) processRspFromRDMA() bool {
-	msg := m.toRDMA().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.toRDMA().PeekIncoming()
+	if !ok {
 		return false
 	}
 
 	state := &m.comp.State
 
-	switch msg.(type) {
+	switch msg.Payload.(type) {
 	case rdma.DrainRsp:
 		state.PendingDriverRsps = append(
 			state.PendingDriverRsps, driverRspRDMADrainDone)
@@ -346,12 +351,12 @@ func (m *ctrlMiddleware) processRspFromRDMA() bool {
 }
 
 func (m *ctrlMiddleware) processRspFromCUs() bool {
-	msg := m.toCUs().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.toCUs().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch msg.(type) {
+	switch msg.Payload.(type) {
 	case protocol.CUPipelineFlushRsp, protocol.CUPipelineRestartRsp:
 		m.toCUs().RetrieveIncoming()
 		m.ackReceived()
@@ -375,12 +380,12 @@ func (m *ctrlMiddleware) processRspFromATs() bool {
 }
 
 func (m *ctrlMiddleware) processCtrlRsp(port messaging.Port) bool {
-	msg := port.PeekIncoming()
-	if msg == nil {
+	msg, ok := port.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	rsp, ok := msg.(memcontrolprotocol.Rsp)
+	rsp, ok := msg.Payload.(memcontrolprotocol.Rsp)
 	if !ok {
 		panic("never")
 	}
@@ -388,7 +393,7 @@ func (m *ctrlMiddleware) processCtrlRsp(port messaging.Port) bool {
 	if !rsp.Success {
 		panic(fmt.Sprintf(
 			"control command %d to %s failed: %s",
-			rsp.Command, rsp.Src, rsp.Error))
+			rsp.Command, msg.Src, rsp.Error))
 	}
 
 	port.RetrieveIncoming()
@@ -580,9 +585,14 @@ func (m *ctrlMiddleware) execShootdownStep(step int) int {
 		return m.enqueueCtrlReqs(&state.PendingTLBReqs, m.toTLBs(),
 			state.TLBs, memcontrolprotocol.CmdPause, nil, 0)
 	case 10:
-		return m.enqueueCtrlReqs(&state.PendingTLBReqs, m.toTLBs(),
-			state.TLBs, memcontrolprotocol.CmdInvalidate,
-			state.CurrShootdown.VAddr, state.CurrShootdown.PID)
+		return m.enqueueCtrlReqs(
+			&state.PendingTLBReqs,
+			m.toTLBs(),
+			state.TLBs,
+			memcontrolprotocol.CmdInvalidate,
+			state.CurrShootdown.Payload.(protocol.ShootDownCommand).VAddr,
+			state.CurrShootdown.Payload.(protocol.ShootDownCommand).PID,
+		)
 	case 11:
 		state.PendingDriverRsps = append(
 			state.PendingDriverRsps, driverRspShootdownDone)
@@ -622,7 +632,7 @@ func (m *ctrlMiddleware) execRestartStep(step int) int {
 }
 
 func (m *ctrlMiddleware) enqueueCtrlReqs(
-	queue *[]memcontrolprotocol.Req,
+	queue *[]messaging.Msg,
 	port messaging.Port,
 	dsts []messaging.RemotePort,
 	cmd memcontrolprotocol.Command,
@@ -630,17 +640,12 @@ func (m *ctrlMiddleware) enqueueCtrlReqs(
 	pid vm.PID,
 ) int {
 	for _, dst := range dsts {
-		req := memcontrolprotocol.Req{
-			MsgMeta: messaging.MsgMeta{
-				ID:           timing.GetIDGenerator().Generate(),
-				Src:          port.AsRemote(),
-				Dst:          dst,
-				TrafficClass: "memcontrolprotocol.Req",
-			},
-			Command:   cmd,
-			Addresses: addresses,
-			PID:       pid,
-		}
+		req := messaging.Msg{ID: m.comp.NewID(),
+			Src: port.AsRemote(),
+			Dst: dst, Payload: memcontrolprotocol.Req{Command: cmd,
+				Addresses: addresses,
+				PID:       pid}}
+
 		*queue = append(*queue, req)
 	}
 
@@ -651,13 +656,10 @@ func (m *ctrlMiddleware) enqueueCUFlushReqs() int {
 	state := &m.comp.State
 
 	for _, cu := range state.CUs {
-		req := protocol.CUPipelineFlushReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.toCUs().AsRemote(),
-				Dst: cu,
-			},
-		}
+		req := messaging.Msg{ID: m.comp.NewID(),
+			Src: m.toCUs().AsRemote(),
+			Dst: cu, Payload: protocol.CUPipelineFlushReq{}}
+
 		state.PendingCUFlushReqs = append(state.PendingCUFlushReqs, req)
 	}
 
@@ -668,15 +670,14 @@ func (m *ctrlMiddleware) enqueueCURestartReqs() int {
 	state := &m.comp.State
 
 	for _, cu := range state.CUs {
-		req := protocol.CUPipelineRestartReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.toCUs().AsRemote(),
-				Dst: cu,
-			},
-		}
+		req := messaging.Msg{ID: m.comp.NewID(),
+			Src: m.toCUs().AsRemote(),
+			Dst: cu, Payload: protocol.CUPipelineRestartReq{}}
+
 		state.PendingCURestartReqs = append(state.PendingCURestartReqs, req)
 	}
 
 	return len(state.CUs)
 }
+
+func (m *ctrlMiddleware) Handle(timing.Event) bool { return m.Tick() }

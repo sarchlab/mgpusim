@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 	"github.com/tebeka/atexit"
@@ -20,7 +20,7 @@ type ISADebugger struct {
 
 	isFirstEntry  bool
 	cu            *ComputeUnit
-	executingInst map[uint64]tracing.TaskStart
+	executingInst map[uint64]tasks.Task
 }
 
 // NewISADebugger returns a new ISADebugger that keeps instruction log in
@@ -30,7 +30,7 @@ func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h.Logger = logger
 	h.isFirstEntry = true
 	h.cu = cu
-	h.executingInst = make(map[uint64]tracing.TaskStart)
+	h.executingInst = make(map[uint64]tasks.Task)
 
 	h.Logger.Print("[")
 	atexit.Register(func() { h.Logger.Print("\n]") })
@@ -39,7 +39,7 @@ func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 }
 
 // StartTask marks the start of an instruction.
-func (h *ISADebugger) StartTask(task tracing.TaskStart) {
+func (h *ISADebugger) TaskStarted(task tasks.Task) {
 	if task.Kind != "inst" {
 		return
 	}
@@ -55,17 +55,17 @@ func (h *ISADebugger) StartTask(task tracing.TaskStart) {
 }
 
 // AddTaskTag does nothing as of now.
-func (h *ISADebugger) AddTaskTag(tag tracing.TaskTag) {
+func (h *ISADebugger) TagAdded(tag tasks.Tag) {
 	// Do nothing.
 }
 
 // AddMilestone does nothing as of now.
-func (h *ISADebugger) AddMilestone(milestone tracing.Milestone) {
+func (h *ISADebugger) MilestoneAdded(milestone tasks.Milestone) {
 	// Do nothing.
 }
 
 // EndTask marks the end of an instruction.
-func (h *ISADebugger) EndTask(task tracing.TaskEnd) {
+func (h *ISADebugger) TaskEnded(task tasks.Task) {
 	originalTask, found := h.executingInst[task.ID]
 
 	if !found {

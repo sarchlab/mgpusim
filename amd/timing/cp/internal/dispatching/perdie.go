@@ -29,6 +29,7 @@ type dieState struct {
 // HW-accurate cross-XCD distribution is undocumented; this is a modeling choice
 // and is irrelevant to uniform grids (e.g. empty_kernel). See issue #282.
 type perDieAlgorithm struct {
+	ids     interface{ NewID() uint64 }
 	cuPool  resource.CUResourcePool
 	numDies int
 
@@ -50,7 +51,7 @@ func (a *perDieAlgorithm) NumDies() int {
 
 // StartNewKernel partitions the grid into one contiguous block per die.
 func (a *perDieAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
-	gb := kernels.NewGridBuilder()
+	gb := kernels.NewGridBuilder(a.ids)
 	gb.SetKernel(info)
 	a.numWG = gb.NumWG()
 	a.numDispatchedWG = 0
@@ -70,7 +71,7 @@ func (a *perDieAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
 		}
 
 		ds := &dieState{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: kernels.NewGridBuilder(a.ids),
 			numWGInDie:  n,
 			firstCU:     d * a.cusPerDie,
 		}

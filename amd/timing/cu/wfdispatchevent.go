@@ -1,9 +1,8 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // WfDispatchEvent is the event that the dispatcher dispatches a wavefront.
@@ -13,19 +12,22 @@ import (
 type WfDispatchEvent struct {
 	timing.EventBase
 
-	ManagedWf  *wavefront.Wavefront
-	IsLastInWG bool
-	MapWGReq   protocol.MapWGReq
+	WavefrontID uint64
+	IsLastInWG  bool
+	MapWGReq    messaging.Msg
 }
 
 // NewWfDispatchEvent creates a new WfDispatchEvent.
 func NewWfDispatchEvent(
+	id uint64,
 	t timing.VTimeInPicoSec,
 	handlerID string,
-	wf *wavefront.Wavefront,
+	wfID uint64,
 ) WfDispatchEvent {
 	return WfDispatchEvent{
-		EventBase: timing.MakeEventBase(t, handlerID),
-		ManagedWf: wf,
+		EventBase:   timing.MakeEventBase(id, t, handlerID),
+		WavefrontID: wfID,
 	}
 }
+
+func init() { timing.RegisterEvent(WfDispatchEvent{}) }

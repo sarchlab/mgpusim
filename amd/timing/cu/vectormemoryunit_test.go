@@ -5,10 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/queueing"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/queueing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -27,7 +25,6 @@ func (c *fakeCoalescer) generateMemTransactions(
 }
 
 var _ = Describe("Vector Memory Unit", func() {
-
 	var (
 		cu          *ComputeUnit
 		coalescer   *fakeCoalescer
@@ -37,20 +34,9 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	BeforeEach(func() {
 		engine := newFakeEngine()
-		comp := modeling.NewBuilder[Spec, State, Resources]().
-			WithEngine(engine).
-			WithFreq(1 * timing.GHz).
-			WithSpec(DefaultSpec()).
-			WithResources(Resources{
-				VectorMemModules: &mem.SinglePortMapper{Port: "VectorMem"},
-			}).
-			Build("CU")
+		cu = newTestComputeUnit("CU", engine)
+		cu.comp.Resources.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 
-		cu = &ComputeUnit{
-			comp:   comp,
-			engine: engine,
-			wftime: make(map[uint64]timing.VTimeInPicoSec),
-		}
 		cu.InFlightVectorMemAccessLimit = 128
 
 		coalescer = new(fakeCoalescer)
@@ -59,13 +45,13 @@ var _ = Describe("Vector Memory Unit", func() {
 		cu.ToVectorMem = toVectorMem
 
 		vecMemUnit.instructionPipeline =
-			queueing.NewPipeline[vectorMemInst](1, 6)
+			queueing.MakePipeline[vectorMemInst](1, 6)
 		vecMemUnit.postInstructionPipelineBuffer =
-			queueing.NewBuffer[vectorMemInst]("CU.PostInstBuf", 16)
+			queueing.MakeBuffer[vectorMemInst](16)
 		vecMemUnit.transactionPipeline =
-			queueing.NewPipeline[VectorMemAccessInfo](2, 10)
+			queueing.MakePipeline[uint64](2, 10)
 		vecMemUnit.postTransactionPipelineBuffer =
-			queueing.NewBuffer[VectorMemAccessInfo]("CU.PostTransBuf", 8)
+			queueing.MakeBuffer[uint64](8)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -79,7 +65,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should accept wave", func() {
-		wave := new(wavefront.Wavefront)
+		wave := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
 
 		vecMemUnit.AcceptWave(wave)
 
@@ -88,9 +74,9 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_load_dword", func() {
-		kernelWave := kernels.NewWavefront()
+		kernelWave := kernels.NewWavefront(testIDs.NewID())
 		wave := wavefront.NewWavefront(kernelWave)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
@@ -98,19 +84,15 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			read := &memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-				Address:        0x100,
-				AccessByteSize: 4,
-			}
+			read := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
+				AccessByteSize: 4}}
+
 			transactions[i].Read = read
 		}
 		coalescer.toReturn = transactions
 
-		vecMemUnit.postInstructionPipelineBuffer.PushTyped(
-			vectorMemInst{wavefront: wave})
+		registerTestWave(cu, wave)
+		vecMemUnit.postInstructionPipelineBuffer.Push(vectorMemInst{WavefrontID: wave.UID})
 		vecMemUnit.numInstInFlight = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
@@ -121,17 +103,15 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
-		Expect(cu.InFlightVectorMemAccess[3].Read.CanWaitForCoalesce).
-			To(BeFalse())
 		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(4))
 		Expect(vecMemUnit.postInstructionPipelineBuffer.Size()).To(Equal(0))
 		Expect(vecMemUnit.numInstInFlight).To(Equal(uint64(0)))
 	})
 
 	It("should run flat_store_dword", func() {
-		kernelWave := kernels.NewWavefront()
+		kernelWave := kernels.NewWavefront(testIDs.NewID())
 		wave := wavefront.NewWavefront(kernelWave)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
@@ -139,18 +119,14 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			write := &memprotocol.WriteReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-				Address: 0x100,
-			}
+			write := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.WriteReq{Address: 0x100}}
+
 			transactions[i].Write = write
 		}
 		coalescer.toReturn = transactions
 
-		vecMemUnit.postInstructionPipelineBuffer.PushTyped(
-			vectorMemInst{wavefront: wave})
+		registerTestWave(cu, wave)
+		vecMemUnit.postInstructionPipelineBuffer.Push(vectorMemInst{WavefrontID: wave.UID})
 		vecMemUnit.numInstInFlight = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
@@ -160,20 +136,14 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
-		Expect(cu.InFlightVectorMemAccess[3].Write.CanWaitForCoalesce).
-			To(BeFalse())
 		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(4))
 	})
 
 	It("should add transactions to pipeline", func() {
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			write := &memprotocol.WriteReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-				Address: 0x100,
-			}
+			write := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.WriteReq{Address: 0x100}}
+
 			transactions[i].Write = write
 		}
 		vecMemUnit.transactionsWaiting = transactions
@@ -188,28 +158,25 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should send memory access requests", func() {
-		inst := wavefront.NewInst(nil)
-		loadReq := &memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: cu.ToVectorMem.AsRemote(),
-				Dst: "VectorMem",
-			},
-			Address:        0,
-			AccessByteSize: 4,
-		}
+		inst := wavefront.NewInst(testIDs.NewID(), nil)
+		loadReq := messaging.Msg{ID: testIDs.NewID(),
+			Src: cu.ToVectorMem.AsRemote(),
+			Dst: "VectorMem", Payload: memprotocol.ReadReq{Address: 0,
+				AccessByteSize: 4}}
+
 		trans := VectorMemAccessInfo{
 			Read: loadReq,
 			Inst: inst,
 		}
 		vecMemUnit.numTransactionInFlight = 1
 
-		vecMemUnit.postTransactionPipelineBuffer.PushTyped(trans)
+		cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, trans)
+		vecMemUnit.postTransactionPipelineBuffer.Push(trans.Read.ID)
 
 		vecMemUnit.sendRequest()
 
 		Expect(toVectorMem.sent).To(HaveLen(1))
-		Expect(toVectorMem.sent[0]).To(Equal(*loadReq))
+		Expect(toVectorMem.sent[0]).To(Equal(loadReq))
 		Expect(vecMemUnit.numTransactionInFlight).To(Equal(uint64(0)))
 		Expect(vecMemUnit.postTransactionPipelineBuffer.Size()).To(Equal(0))
 	})
@@ -220,7 +187,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		vecMemUnit.transactionsWaiting = append(vecMemUnit.transactionsWaiting,
 			VectorMemAccessInfo{})
 		vecMemUnit.instructionPipeline.Accept(vectorMemInst{})
-		vecMemUnit.postInstructionPipelineBuffer.PushTyped(vectorMemInst{})
+		vecMemUnit.postInstructionPipelineBuffer.Push(vectorMemInst{})
 
 		vecMemUnit.Flush()
 

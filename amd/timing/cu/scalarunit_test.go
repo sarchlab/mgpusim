@@ -4,8 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -77,7 +76,6 @@ func (m *mockRegFileAccessor) setRegValue(
 }
 
 var _ = Describe("Scalar Unit", func() {
-
 	var (
 		cu          *ComputeUnit
 		bu          *ScalarUnit
@@ -117,7 +115,7 @@ var _ = Describe("Scalar Unit", func() {
 	It("should run", func() {
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOP2
 		wave2.SetDynamicInst(inst)
 		wave3 := new(wavefront.Wavefront)
@@ -144,7 +142,7 @@ var _ = Describe("Scalar Unit", func() {
 		regAccessor := newMockRegFileAccessor()
 		wave.RegAccessor = regAccessor
 
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 0
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
@@ -173,7 +171,7 @@ var _ = Describe("Scalar Unit", func() {
 		regAccessor := newMockRegFileAccessor()
 		wave.RegAccessor = regAccessor
 
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
@@ -201,7 +199,7 @@ var _ = Describe("Scalar Unit", func() {
 		regAccessor := newMockRegFileAccessor()
 		wave.RegAccessor = regAccessor
 
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 2
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
@@ -222,49 +220,39 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(bu.readBuf).To(HaveLen(2))
-		Expect(bu.readBuf[0].CanWaitForCoalesce).To(BeTrue())
-		Expect(bu.readBuf[0].Address).To(Equal(uint64(0x1038)))
-		Expect(bu.readBuf[0].AccessByteSize).To(Equal(uint64(8)))
-		Expect(bu.readBuf[1].CanWaitForCoalesce).To(BeFalse())
-		Expect(bu.readBuf[1].Address).To(Equal(uint64(0x1040)))
-		Expect(bu.readBuf[1].AccessByteSize).To(Equal(uint64(8)))
+		Expect(bu.readBuf[0].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1038)))
+		Expect(bu.readBuf[0].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
+		Expect(bu.readBuf[1].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1040)))
+		Expect(bu.readBuf[1].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
 	})
 
 	It("should send request out", func() {
-		req := memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: cu.ToScalarMem.AsRemote(),
-				Dst: cu.comp.State.ScalarMem,
-			},
-			Address:        1024,
-			AccessByteSize: 4,
-		}
+		req := messaging.Msg{ID: testIDs.NewID(),
+			Src: cu.ToScalarMem.AsRemote(),
+			Dst: cu.comp.State.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
+				AccessByteSize: 4}}
+
 		bu.readBuf = append(bu.readBuf, req)
 
 		bu.Run()
 
 		Expect(toScalarMem.sent).To(HaveLen(1))
-		sentReq := toScalarMem.sent[0].(memprotocol.ReadReq)
+		sentReq := toScalarMem.sent[0]
 		Expect(sentReq.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
 		Expect(sentReq.Dst).To(
 			BeIdenticalTo(messaging.RemotePort("ScalarMem")))
-		Expect(sentReq.Address).To(Equal(uint64(1024)))
-		Expect(sentReq.AccessByteSize).To(Equal(uint64(4)))
+		Expect(sentReq.Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(1024)))
+		Expect(sentReq.Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(4)))
 
 		Expect(bu.readBuf).To(HaveLen(0))
 	})
 
 	It("should retry if send request failed", func() {
-		req := memprotocol.ReadReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: cu.ToScalarMem.AsRemote(),
-				Dst: cu.comp.State.ScalarMem,
-			},
-			Address:        1024,
-			AccessByteSize: 4,
-		}
+		req := messaging.Msg{ID: testIDs.NewID(),
+			Src: cu.ToScalarMem.AsRemote(),
+			Dst: cu.comp.State.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
+				AccessByteSize: 4}}
+
 		bu.readBuf = append(bu.readBuf, req)
 
 		toScalarMem.full = true
@@ -276,7 +264,7 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should flush the scalar unit", func() {
 		wave := wavefront.NewWavefront(nil)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)

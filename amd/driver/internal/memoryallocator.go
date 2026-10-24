@@ -26,7 +26,7 @@ type MemoryAllocator interface {
 
 // NewMemoryAllocator creates a new memory allocator.
 func NewMemoryAllocator(
-	pageTable vm.PageTable,
+	pageTable *vm.PageTable,
 	log2PageSize uint64,
 ) MemoryAllocator {
 	a := &memoryAllocatorImpl{
@@ -49,7 +49,7 @@ type processMemoryState struct {
 // memoryAllocator
 type memoryAllocatorImpl struct {
 	sync.Mutex
-	pageTable            vm.PageTable
+	pageTable            *vm.PageTable
 	log2PageSize         uint64
 	vAddrToPageMapping   map[uint64]vm.Page
 	processMemoryStates  map[vm.PID]*processMemoryState

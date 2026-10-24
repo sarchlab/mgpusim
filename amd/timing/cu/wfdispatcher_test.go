@@ -3,6 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -30,18 +31,18 @@ var _ = Describe("WfDispatcher", func() {
 	})
 
 	It("should dispatch wavefront", func() {
-		rawWf := kernels.NewWavefront()
-		rawWG := kernels.NewWorkGroup()
+		rawWf := kernels.NewWavefront(testIDs.NewID())
+		rawWG := kernels.NewWorkGroup(testIDs.NewID())
 		rawWf.WG = rawWG
 		rawWG.SizeX = 256
 		rawWG.SizeY = 1
 		rawWG.SizeZ = 1
 		wfDispatchInfo := protocol.WfDispatchLocation{
-			Wavefront:  rawWf,
-			SIMDID:     1,
-			VGPROffset: 16,
-			SGPROffset: 8,
-			LDSOffset:  512,
+			WavefrontID: rawWf.UID,
+			SIMDID:      1,
+			VGPROffset:  16,
+			SGPROffset:  8,
+			LDSOffset:   512,
 		}
 
 		co := &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}}
@@ -50,7 +51,7 @@ var _ = Describe("WfDispatcher", func() {
 		packet.KernelObject = 65536
 
 		wf := wavefront.NewWavefront(rawWf)
-		wg := wavefront.NewWorkGroup(rawWG, protocol.MapWGReq{})
+		wg := wavefront.NewWorkGroup(rawWG, messaging.Msg{Payload: protocol.MapWGReq{}})
 		wf.WG = wg
 		wf.CodeObject = co
 		wf.Packet = packet

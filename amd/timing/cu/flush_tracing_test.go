@@ -4,10 +4,8 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
-	"github.com/sarchlab/akita/v5/tracing/tracingtest"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -19,12 +17,12 @@ import (
 // ended on flush or they leak.
 func TestEndInflightTracingTasksEndsRunningInstTasks(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	rec := &tracingtest.LeakRecorder{}
-	tracing.CollectTrace(cu.comp, rec)
+	rec := &leakRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	pool := NewWavefrontPool(4)
-	wf := wavefront.NewWavefront(kernels.NewWavefront())
-	inst := wavefront.NewInst(insts.NewInst())
+	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVALU
 	wf.SetDynamicInst(inst)
 	wf.State = wavefront.WfRunning
@@ -48,12 +46,12 @@ func TestEndInflightTracingTasksEndsRunningInstTasks(t *testing.T) {
 // shadowed response returns, so the flush sweep must not end it.
 func TestEndInflightTracingTasksSkipsNonRunningWavefronts(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	rec := &tracingtest.LeakRecorder{}
-	tracing.CollectTrace(cu.comp, rec)
+	rec := &leakRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	pool := NewWavefrontPool(4)
-	wf := wavefront.NewWavefront(kernels.NewWavefront())
-	inst := wavefront.NewInst(insts.NewInst())
+	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVMem
 	wf.SetDynamicInst(inst)
 	wf.State = wavefront.WfReady
@@ -75,17 +73,13 @@ func TestEndInflightTracingTasksSkipsNonRunningWavefronts(t *testing.T) {
 // finalized. populateShadowBuffers must end them.
 func TestPopulateShadowBuffersEndsReqOutTasks(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	rec := &tracingtest.LeakRecorder{}
-	tracing.CollectTrace(cu.comp, rec)
+	rec := &leakRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	fetchTaskID := timing.GetIDGenerator().Generate()
-	tracing.StartTask(cu.comp, tracing.TaskStart{
-		ID: fetchTaskID, Kind: "fetch", What: "fetch",
-	})
-	req := memprotocol.ReadReq{
-		MsgMeta: messaging.MsgMeta{ID: timing.GetIDGenerator().Generate()},
-	}
-	tracing.TraceReqInitiate(cu.comp, req, fetchTaskID)
+	fetchTaskID := cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{Kind: "fetch", What: "fetch"})
+	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
+
+	cu.startRequest(req, fetchTaskID)
 
 	cu.InFlightInstFetch = []*InstFetchReqInfo{
 		{Req: req, FetchTaskID: fetchTaskID},
@@ -94,7 +88,7 @@ func TestPopulateShadowBuffersEndsReqOutTasks(t *testing.T) {
 	cu.populateShadowBuffers()
 
 	for _, open := range rec.OpenTasks() {
-		if open.Kind == tracing.ReqOutTaskKind {
+		if open.Kind == tasks.KindReqOut {
 			t.Fatalf("populateShadowBuffers leaked a req_out task")
 		}
 	}
@@ -106,17 +100,14 @@ func TestPopulateShadowBuffersEndsReqOutTasks(t *testing.T) {
 func TestShadowResendOpensReplacementReqOut(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
 	cu.ToInstMem = newFakePort("CU.ToInstMem")
-	rec := &tracingtest.LeakRecorder{}
-	tracing.CollectTrace(cu.comp, rec)
+	rec := &leakRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	cu.shadowInFlightInstFetch = []*InstFetchReqInfo{
 		{
-			Req: memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-			},
-			FetchTaskID: timing.GetIDGenerator().Generate(),
+			Req: messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}},
+
+			FetchTaskID: testIDs.NewID(),
 		},
 	}
 
@@ -125,7 +116,7 @@ func TestShadowResendOpensReplacementReqOut(t *testing.T) {
 	resentID := cu.InFlightInstFetch[0].Req.ID
 	found := false
 	for _, open := range rec.OpenTasks() {
-		if open.Kind == tracing.ReqOutTaskKind && open.ID == resentID {
+		if open.Kind == tasks.KindReqOut && open.MsgID == resentID {
 			found = true
 		}
 	}
@@ -141,11 +132,11 @@ func TestShadowResendOpensReplacementReqOut(t *testing.T) {
 func TestSIMDFlushEndsPipelineTasks(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
 	simd := NewSIMDUnit(cu, "CU.SIMD", new(mockALU))
-	rec := &tracingtest.LeakRecorder{}
-	tracing.CollectTrace(simd, rec)
+	rec := &leakRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, simd)
 
-	wave := wavefront.NewWavefront(kernels.NewWavefront())
-	inst := wavefront.NewInst(insts.NewInst())
+	wave := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVALU
 	wave.SetDynamicInst(inst)
 

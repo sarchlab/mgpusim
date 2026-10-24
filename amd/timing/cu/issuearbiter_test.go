@@ -37,7 +37,7 @@ var _ = Describe("IssueArbiter", func() {
 		for i := 0; i < len(wfState); i++ {
 			wf := new(wavefront.Wavefront)
 			wf.State = wfState[i]
-			wf.InstToIssue = wavefront.NewInst(insts.NewInst())
+			wf.InstToIssue = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 			wf.InstToIssue.ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			wfPools[0].AddWf(wf)
@@ -66,28 +66,28 @@ var _ = Describe("IssueArbiter", func() {
 		// Put a VALU wavefront in SIMD 0
 		wf0 := new(wavefront.Wavefront)
 		wf0.State = wavefront.WfReady
-		wf0.InstToIssue = wavefront.NewInst(insts.NewInst())
+		wf0.InstToIssue = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wf0.InstToIssue.ExeUnit = insts.ExeUnitVALU
 		wfPools[0].AddWf(wf0)
 
 		// Put a Scalar wavefront in SIMD 1
 		wf1 := new(wavefront.Wavefront)
 		wf1.State = wavefront.WfReady
-		wf1.InstToIssue = wavefront.NewInst(insts.NewInst())
+		wf1.InstToIssue = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wf1.InstToIssue.ExeUnit = insts.ExeUnitScalar
 		wfPools[1].AddWf(wf1)
 
 		// Put a VMem wavefront in SIMD 2
 		wf2 := new(wavefront.Wavefront)
 		wf2.State = wavefront.WfReady
-		wf2.InstToIssue = wavefront.NewInst(insts.NewInst())
+		wf2.InstToIssue = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wf2.InstToIssue.ExeUnit = insts.ExeUnitVMem
 		wfPools[2].AddWf(wf2)
 
 		// Put a Branch wavefront in SIMD 3
 		wf3 := new(wavefront.Wavefront)
 		wf3.State = wavefront.WfReady
-		wf3.InstToIssue = wavefront.NewInst(insts.NewInst())
+		wf3.InstToIssue = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wf3.InstToIssue.ExeUnit = insts.ExeUnitBranch
 		wfPools[3].AddWf(wf3)
 

@@ -3,13 +3,12 @@ package cp
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/monitoring2"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
@@ -38,26 +37,29 @@ func DefaultSpec() Spec {
 }
 
 // Builder can build Command Processors. Configuration is supplied as a whole
-// through WithSpec; wiring is supplied through WithRegistrar. The component
+// through WithSpec; wiring is supplied through WithSimulation. The component
 // declares its ports; the port instances are supplied externally after Build
 // with AssignPort.
 type Builder struct {
+	sampler   *sampling.SampledEngine
 	spec      Spec
-	registrar modeling.Registrar
-	visTracer tracing.Tracer
+	registrar modeling.Simulation
 	monitor   *monitoring2.Monitor
 	driver    messaging.RemotePort
 	cus       []CUInterfaceForCP
 }
+
+// WithSampler shares the simulation's recoverable wavefront sampling state.
+func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s; return b }
 
 // MakeBuilder creates a new builder with default configuration values.
 func MakeBuilder() Builder {
 	return Builder{spec: defaultSpec}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// WithSimulation wires the builder to a registrar (a *simulation.Simulation in
 // assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -65,13 +67,6 @@ func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
 // WithSpec sets the entire configuration. Start from DefaultSpec() and tweak.
 func (b Builder) WithSpec(spec Spec) Builder {
 	b.spec = spec
-	return b
-}
-
-// WithVisTracer enables tracing for visualization on the command processor's
-// dispatchers.
-func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
-	b.visTracer = tracer
 	return b
 }
 
@@ -99,57 +94,41 @@ func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
 // AssignPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("cp: WithRegistrar is required")
+		panic("cp: WithSimulation is required")
 	}
 
-	comp := modeling.NewBuilder[Spec, State, modeling.None]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		Build(name)
+	comp := modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).Build(name)
 	comp.State = State{
 		Driver:                b.driver,
-		BottomMemCopyH2DToTop: make(map[uint64]protocol.MemCopyH2DReq),
-		BottomMemCopyD2HToTop: make(map[uint64]protocol.MemCopyD2HReq),
+		BottomMemCopyH2DToTop: make(map[uint64]messaging.Msg),
+		BottomMemCopyD2HToTop: make(map[uint64]messaging.Msg),
+		CopyRecvTasks:         make(map[uint64]uint64),
+		CopySendTasks:         make(map[uint64]uint64),
 	}
-
-	cpMW := &cpMiddleware{comp: comp}
-	ctrlMW := &ctrlMiddleware{comp: comp}
-	comp.AddMiddleware(cpMW)
-	comp.AddMiddleware(ctrlMW)
-
-	b.buildDispatchers(comp, cpMW)
-
+	comp.Resources.Sampler = b.sampler
+	b.buildDispatchers(comp)
 	for _, cu := range b.cus {
 		RegisterCU(comp, cu)
 	}
 
-	comp.DeclarePort("ToDriver")
-	comp.DeclarePort("ToDMA")
-	comp.DeclarePort("ToCUs")
-	comp.DeclarePort("ToTLBs", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToAddressTranslators", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToCaches", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToRDMA")
-
-	b.registrar.RegisterComponent(comp)
-
 	return comp
 }
 
-func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
+func (b Builder) buildDispatchers(comp *Comp) {
 	cuResourcePool := resource.NewCUResourcePool()
+	cuResourcePool.SetName(comp.Name() + ".CUResources")
+	b.registrar.RegisterResource(cuResourcePool)
 	alg := b.spec.Alg
 	if alg == "" {
 		alg = "round-robin"
 	}
-	builder := dispatching.MakeBuilder().
+	builder := dispatching.MakeBuilder().WithSampler(b.sampler).
 		WithCP(comp).
 		WithAlg(alg).
 		WithNumDies(b.spec.NumDies).
 		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
-		WithPortSource(comp).
+		WithPortSource(dispatcherPorts{comp}).
 		WithDispatchingPortName("ToCUs").
 		WithRespondingPortName("ToDriver").
 		WithMonitor(b.monitor).
@@ -166,10 +145,7 @@ func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
 	for i := 0; i < b.spec.NumDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", comp.Name(), i))
 
-		if b.visTracer != nil {
-			tracing.CollectTrace(disp, b.visTracer)
-		}
-
-		cpMW.dispatchers = append(cpMW.dispatchers, disp)
+		b.registrar.RegisterResource(disp)
+		comp.Resources.Dispatchers = append(comp.Resources.Dispatchers, disp)
 	}
 }

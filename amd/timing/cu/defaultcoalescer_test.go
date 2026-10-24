@@ -17,6 +17,7 @@ var _ = Describe("Default Coalescer", func() {
 	BeforeEach(func() {
 		wf = wavefront.NewWavefront(nil)
 		c = defaultCoalescer{
+			ids:               &testIDs,
 			log2CacheLineSize: 6,
 		}
 		regAccessor = newMockRegFileAccessor()
@@ -29,7 +30,7 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 20 // flat_load_dword
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
-		wf.SetDynamicInst(wavefront.NewInst(inst))
+		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		// Set all 64 lanes' ADDR (v2:v3) to 0x1000
@@ -51,7 +52,7 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 20 // flat_load_dword
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
-		wf.SetDynamicInst(wavefront.NewInst(inst))
+		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {
@@ -75,7 +76,7 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 21 // flat_load_dwordx2
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(4, 4, 2)
-		wf.SetDynamicInst(wavefront.NewInst(inst))
+		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {
@@ -100,7 +101,7 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 28 // flat_store_dword
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
 		inst.Data = insts.NewVRegOperand(4, 4, 1)
-		wf.SetDynamicInst(wavefront.NewInst(inst))
+		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {

@@ -3,16 +3,16 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/queueing"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/queueing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemInst struct {
-	wavefront *wavefront.Wavefront
+	WavefrontID uint64
 }
 
 // A VectorMemoryUnit is the block in a compute unit that can performs vector
@@ -32,8 +32,8 @@ type VectorMemoryUnit struct {
 	instructionPipeline           queueing.Pipeline[vectorMemInst]
 	postInstructionPipelineBuffer queueing.Buffer[vectorMemInst]
 	transactionsWaiting           []VectorMemAccessInfo
-	transactionPipeline           queueing.Pipeline[VectorMemAccessInfo]
-	postTransactionPipelineBuffer queueing.Buffer[VectorMemAccessInfo]
+	transactionPipeline           queueing.Pipeline[uint64]
+	postTransactionPipelineBuffer queueing.Buffer[uint64]
 
 	// issueTaskIDs maps an instruction's task ID to the "pipeline" subtask
 	// that records its coalescing / transaction-issue work — opened when its
@@ -61,10 +61,8 @@ func NewVectorMemoryUnit(
 // first transaction send), parented to the instruction's task. It is the child
 // subtask that backs the "work" milestone emitted at first send.
 func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
-	taskID := timing.GetIDGenerator().Generate()
-	tracing.StartTask(u.cu.comp, tracing.TaskStart{
-		ID:       taskID,
-		ParentID: inst.ID,
+	taskID := u.cu.comp.TaskTracker().StartTask(u.cu.comp, tasks.StartInfo{
+		ParentID: u.cu.comp.State.InstTasks[inst.ID],
 		Kind:     "pipeline",
 		What:     u.cu.comp.Name() + ".coalesce",
 	})
@@ -83,10 +81,10 @@ func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
 		return
 	}
 
-	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: inst.ID,
-		Kind:   tracing.MilestoneKindWork,
+	u.cu.comp.TaskTracker().EndTask(taskID)
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[inst.ID],
+		Kind:   tasks.MilestoneKindWork,
 		What:   u.cu.comp.Name() + ".coalesce",
 	})
 	delete(u.issueTaskIDs, inst.ID)
@@ -101,7 +99,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *wavefront.Wavefront,
 ) {
-	u.instructionPipeline.Accept(vectorMemInst{wavefront: wave})
+	u.instructionPipeline.Accept(vectorMemInst{WavefrontID: wave.UID})
 	u.numInstInFlight++
 }
 
@@ -156,7 +154,7 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 		}
 
 		txn := u.transactionsWaiting[0]
-		u.transactionPipeline.Accept(txn)
+		u.transactionPipeline.Accept(txn.requestID())
 		u.transactionsWaiting = u.transactionsWaiting[1:]
 		madeProgress = true
 
@@ -173,7 +171,7 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 func (u *VectorMemoryUnit) computeCoalescingPenalty(
 	txn VectorMemAccessInfo,
 ) int {
-	if txn.Read == nil {
+	if txn.Read.ID == 0 {
 		return 0
 	}
 
@@ -195,9 +193,9 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 		return false
 	}
 
-	item := u.postInstructionPipelineBuffer.Peek()
+	item, _ := u.postInstructionPipelineBuffer.Peek()
 
-	wave := item.wavefront
+	wave := u.cu.wavefrontByID(item.WavefrontID)
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:
@@ -256,9 +254,9 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	// transactions: mark the resolution of any wait for a free slot, then open
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: wave.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindHardwareResource,
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
 	u.startIssueSubtask(wave.DynamicInst())
@@ -266,17 +264,16 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++
 
-	for i, t := range transactions {
-		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i != len(transactions)-1 {
-			t.Read.CanWaitForCoalesce = true
-		}
+	for _, t := range transactions {
+		payload := t.Read.Payload.(memprotocol.ReadReq)
 
-		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
-			t.Read.Address)
+		lowModule := u.cu.comp.Resources.VectorMemModules.Find(
+			t.Read.Payload.(memprotocol.ReadReq).Address)
 		t.Read.Dst = lowModule
 		t.Read.Src = u.cu.vectorMemPort().AsRemote()
-		t.Read.PID = wave.PID()
+		payload.PID = wave.PID()
+		t.Read.Payload = payload
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}
 
@@ -306,9 +303,9 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	// transactions: mark the resolution of any wait for a free slot, then open
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: wave.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindHardwareResource,
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
 	u.startIssueSubtask(wave.DynamicInst())
@@ -316,16 +313,15 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	wave.OutstandingVectorMemAccess++
 	wave.OutstandingScalarMemAccess++
 
-	for i, t := range transactions {
-		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i != len(transactions)-1 {
-			t.Write.CanWaitForCoalesce = true
-		}
-		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
-			t.Write.Address)
+	for _, t := range transactions {
+		payload := t.Write.Payload.(memprotocol.WriteReq)
+		lowModule := u.cu.comp.Resources.VectorMemModules.Find(
+			t.Write.Payload.(memprotocol.WriteReq).Address)
 		t.Write.Dst = lowModule
 		t.Write.Src = u.cu.vectorMemPort().AsRemote()
-		t.Write.PID = wave.PID()
+		payload.PID = wave.PID()
+		t.Write.Payload = payload
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}
 
@@ -339,7 +335,8 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 			break
 		}
 
-		info := u.postTransactionPipelineBuffer.Peek()
+		id, _ := u.postTransactionPipelineBuffer.Peek()
+		info := u.cu.vectorTransactionByID(id)
 
 		// The transaction has reached the head of the send buffer: the
 		// coalescing / transaction-issue work is done. Close the issue subtask
@@ -351,21 +348,21 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.endIssueSubtask(info.Inst)
 
 		var req messaging.Msg
-		if info.Read != nil {
-			req = *info.Read
+		if info.Read.ID != 0 {
+			req = info.Read
 		} else {
-			req = *info.Write
+			req = info.Write
 		}
 
 		if !u.cu.vectorMemPort().CanSend() {
 			break
 		}
 
+		u.cu.startRequest(req, u.cu.comp.State.InstTasks[info.Inst.ID])
 		u.cu.vectorMemPort().Send(req)
 		u.postTransactionPipelineBuffer.Pop()
 		u.numTransactionInFlight--
 
-		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
 		madeProgress = true
 	}
 	return madeProgress
@@ -380,12 +377,12 @@ func (u *VectorMemoryUnit) Flush() {
 	// its subtask here, so the issue work is still attributed (and the subtask
 	// does not leak) rather than folding into the post-flush data wait.
 	for instID, id := range u.issueTaskIDs {
-		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-			TaskID: instID,
-			Kind:   tracing.MilestoneKindWork,
+		u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+			TaskID: u.cu.comp.State.InstTasks[instID],
+			Kind:   tasks.MilestoneKindWork,
 			What:   u.cu.comp.Name() + ".coalesce",
 		})
-		tracing.EndTaskOnReset(u.cu.comp, id)
+		u.cu.comp.TaskTracker().EndTask(id)
 	}
 	u.issueTaskIDs = make(map[uint64]uint64)
 

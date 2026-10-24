@@ -3,8 +3,9 @@ package dispatching
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -24,7 +25,7 @@ var _ = Describe("Dispatcher", func() {
 	var (
 		ctrl *gomock.Controller
 
-		cp              *MockNamedHookable
+		cp              *testParent
 		alg             *MockAlgorithm
 		dispatchingPort *MockPort
 		respondingPort  *MockPort
@@ -32,23 +33,17 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher *DispatcherImpl
 	)
 
-	makeLaunchReq := func() protocol.LaunchKernelReq {
-		return protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: "Driver",
-				Dst: "CP.ToDriver",
-			},
-		}
+	makeLaunchReq := func() messaging.Msg {
+		return messaging.Msg{ID: testNewID(),
+			Src: "Driver",
+			Dst: "CP.ToDriver", Payload: protocol.LaunchKernelReq{}}
+
 	}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 
-		cp = NewMockNamedHookable(ctrl)
-		cp.EXPECT().Name().Return("CP").AnyTimes()
-		cp.EXPECT().NumHooks().Return(0).AnyTimes()
-		cp.EXPECT().InvokeHook(gomock.Any()).AnyTimes()
+		cp = &testParent{}
 		alg = NewMockAlgorithm(ctrl)
 		dispatchingPort = NewMockPort(ctrl)
 		respondingPort = NewMockPort(ctrl)
@@ -85,9 +80,11 @@ var _ = Describe("Dispatcher", func() {
 		packetAddr := uint64(0x40)
 
 		req := makeLaunchReq()
-		req.CodeObject = hsaco
-		req.Packet = packet
-		req.PacketAddress = packetAddr
+		req.Payload = protocol.LaunchKernelReq{
+			CodeObject:    insts.CodeObjectSnapshot(hsaco),
+			Packet:        *packet,
+			PacketAddress: packetAddr,
+		}
 
 		alg.EXPECT().StartNewKernel(kernels.KernelLaunchInfo{
 			CodeObject: hsaco,
@@ -117,13 +114,14 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		firstCall := alg.EXPECT().Next().Return(dispatchLocation{
 			valid:     true,
+			wg:        kernels.NewWorkGroup(testNewID()),
 			cu:        "CU0",
 			locations: make([]protocol.WfDispatchLocation, 1),
 		})
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: false,
 		}).After(firstCall).AnyTimes()
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false).AnyTimes()
 		dispatchingPort.EXPECT().CanSend().Return(true)
 		dispatchingPort.EXPECT().Send(gomock.Any())
 
@@ -152,7 +150,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 		dispatcher.isDispatching = true
 
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: false,
@@ -171,7 +169,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 		dispatcher.isDispatching = true
 
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: true,
@@ -194,7 +192,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48
 
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 
 		madeProgress := dispatcher.Tick()
@@ -207,18 +205,13 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 		dispatcher.isDispatching = true
 
-		mapWGReq := protocol.MapWGReq{
-			MsgMeta: messaging.MsgMeta{
-				ID: timing.GetIDGenerator().Generate(),
-			},
-		}
+		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
+
 		location := dispatchLocation{}
 		dispatcher.inflightWGs[mapWGReq.ID] = location
-		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
+		dispatcher.wgTaskIDs[mapWGReq.ID] = 0
 
-		wgCompletionMsg := protocol.WGCompletionMsg{
-			RspToIDs: []uint64{mapWGReq.ID},
-		}
+		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48
@@ -229,10 +222,10 @@ var _ = Describe("Dispatcher", func() {
 
 		firstPeek := dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(wgCompletionMsg)
+			Return(wgCompletionMsg, true)
 		dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(nil).
+			Return(messaging.Msg{}, false).
 			After(firstPeek).
 			AnyTimes()
 		dispatchingPort.EXPECT().
@@ -250,18 +243,13 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 		dispatcher.isDispatching = true
 
-		mapWGReq := protocol.MapWGReq{
-			MsgMeta: messaging.MsgMeta{
-				ID: timing.GetIDGenerator().Generate(),
-			},
-		}
+		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
+
 		location := dispatchLocation{}
 		dispatcher.inflightWGs[mapWGReq.ID] = location
-		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
+		dispatcher.wgTaskIDs[mapWGReq.ID] = 0
 
-		wgCompletionMsg := protocol.WGCompletionMsg{
-			RspToIDs: []uint64{mapWGReq.ID},
-		}
+		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 63
@@ -272,10 +260,10 @@ var _ = Describe("Dispatcher", func() {
 
 		firstPeek := dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(wgCompletionMsg)
+			Return(wgCompletionMsg, true)
 		dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(nil).
+			Return(messaging.Msg{}, false).
 			After(firstPeek).
 			AnyTimes()
 		dispatchingPort.EXPECT().
@@ -295,15 +283,9 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatching = req
 		dispatcher.isDispatching = true
 
-		mapWGReq := protocol.MapWGReq{
-			MsgMeta: messaging.MsgMeta{
-				ID: timing.GetIDGenerator().Generate(),
-			},
-		}
+		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
 
-		wgCompletionMsg := protocol.WGCompletionMsg{
-			RspToIDs: []uint64{mapWGReq.ID},
-		}
+		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48
@@ -311,7 +293,7 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		dispatchingPort.EXPECT().
 			PeekIncoming().
-			Return(wgCompletionMsg).
+			Return(wgCompletionMsg, true).
 			AnyTimes()
 
 		madeProgress := dispatcher.Tick()
@@ -328,11 +310,11 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.numCompletedWGs = 64
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		respondingPort.EXPECT().CanSend().Return(true)
 		respondingPort.EXPECT().Send(gomock.Any()).
 			Do(func(rsp messaging.Msg) {
-				launchRsp := rsp.(protocol.LaunchKernelRsp)
+				launchRsp := rsp
 				Expect(launchRsp.RspTo).To(Equal(req.ID))
 				Expect(launchRsp.Dst).To(Equal(req.Src))
 			})
@@ -352,7 +334,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.numCompletedWGs = 64
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
-		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
+		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		respondingPort.EXPECT().CanSend().Return(false)
 
 		madeProgress := dispatcher.Tick()
@@ -362,3 +344,10 @@ var _ = Describe("Dispatcher", func() {
 		Expect(dispatcher.dispatching.ID).To(Equal(req.ID))
 	})
 })
+
+type testParent struct{}
+
+func (*testParent) Name() string                       { return "CP" }
+func (*testParent) CurrentTime() timing.VTimeInPicoSec { return 0 }
+func (*testParent) NewID() uint64                      { return testNewID() }
+func (*testParent) TaskTracker() *tasks.Tracker        { return nil }

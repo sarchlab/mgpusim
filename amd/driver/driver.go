@@ -6,9 +6,11 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"context"
+
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
@@ -22,9 +24,8 @@ import (
 type Driver struct {
 	*Comp
 
-	// TODO(akita5): state purity. The fields below are complex runtime state
-	// (pointers, interfaces, channels, mutexes) that cannot live in the
-	// checkpointable State struct yet.
+	// Runtime graphs are saved as values by driverCheckpoint. Host channels
+	// and mutexes are recreated; result buffers are explicitly rebound.
 	memAllocator internal.MemoryAllocator
 	distributor  distributor
 
@@ -55,12 +56,13 @@ type Driver struct {
 	Log2PageSize uint64
 
 	codeObjGPUAddrs map[*insts.KernelCodeObject]Ptr
+	unboundResults  map[uint64][]byte
 }
 
 // gpuPort returns the port that connects the driver to the GPUs' command
 // processors. The port instance is assigned externally after Build.
 func (d *Driver) gpuPort() messaging.Port {
-	return d.GetPortByName(GPUPortName)
+	return d.Ports.GPU
 }
 
 // Run starts a new thread that handles all commands in the command queues.
@@ -76,17 +78,10 @@ func (d *Driver) Terminate() {
 }
 
 func (d *Driver) logSimulationStart() {
-	d.simulationID = timing.GetIDGenerator().Generate()
-	tracing.StartTask(d, tracing.TaskStart{
-		ID:   d.simulationID,
-		Kind: "Simulation",
-		What: "Simulation",
-	})
+	d.simulationID = d.TaskTracker().StartTask(d, tasks.StartInfo{Kind: "Simulation", What: "Simulation"})
 }
 
-func (d *Driver) logSimulationTerminate() {
-	tracing.EndTask(d, tracing.TaskEnd{ID: d.simulationID})
-}
+func (d *Driver) logSimulationTerminate() { d.TaskTracker().EndTask(d.simulationID) }
 
 func (d *Driver) runAsync() {
 	for {
@@ -104,9 +99,13 @@ func (d *Driver) runAsync() {
 			// leaving the freshly scheduled tick stranded with no runner.
 			d.engineRunningMutex.Lock()
 
-			d.engine.Pause()
+			if err := d.engine.RequestPause().Wait(context.Background()); err != nil {
+				panic(err)
+			}
 			d.TickLater()
-			d.engine.Continue()
+			if err := d.engine.Continue(); err != nil {
+				panic(err)
+			}
 
 			if d.engineRunning {
 				// An engine goroutine owns the queue. Record that more work
@@ -263,13 +262,14 @@ func (d *Driver) sendToGPUs() bool {
 }
 
 func (d *Driver) processReturnReq() bool {
-	req := d.gpuPort().PeekIncoming()
-	if req == nil {
+	req, ok := d.gpuPort().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case protocol.LaunchKernelRsp:
+
 		d.gpuPort().RetrieveIncoming()
 		return d.processLaunchKernelReturn(req)
 	}
@@ -344,7 +344,6 @@ func (d *Driver) processCommandWithMiddleware(
 		processed := m.ProcessCommand(cmd, cmdQueue)
 
 		if processed {
-			d.logCmdStart(cmd)
 			return true
 		}
 	}
@@ -353,16 +352,15 @@ func (d *Driver) processCommandWithMiddleware(
 }
 
 func (d *Driver) logCmdStart(cmd Command) {
-	tracing.StartTask(d, tracing.TaskStart{
-		ID:       cmd.GetID(),
-		ParentID: d.simulationID,
-		Kind:     "Driver Command",
-		What:     reflect.TypeOf(cmd).String(),
-	})
+	d.State.CommandTasks[cmd.GetID()] = d.TaskTracker().
+		StartTask(d,
+			tasks.StartInfo{ParentID: d.simulationID,
+				Kind: "Driver Command",
+				What: reflect.TypeOf(cmd).String()})
 }
-
 func (d *Driver) logCmdComplete(cmd Command) {
-	tracing.EndTask(d, tracing.TaskEnd{ID: cmd.GetID()})
+	d.TaskTracker().EndTask(d.State.CommandTasks[cmd.GetID()])
+	delete(d.State.CommandTasks, cmd.GetID())
 }
 
 func (d *Driver) processNoopCommand(
@@ -370,6 +368,7 @@ func (d *Driver) processNoopCommand(
 	queue *CommandQueue,
 ) bool {
 	queue.Dequeue()
+	d.logCmdComplete(cmd)
 	return true
 }
 
@@ -377,30 +376,26 @@ func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
 	req messaging.Msg,
 ) {
-	tracing.TraceReqInitiate(d, req, cmd.GetID())
+	d.State.RequestTasks[req.ID] = d.TaskTracker().StartReqOut(d, req, d.State.CommandTasks[cmd.GetID()])
 }
 
 func (d *Driver) logTaskToGPUClear(
 	req messaging.Msg,
 ) {
-	tracing.TraceReqFinalize(d, req)
+	d.TaskTracker().EndReqOut(d.State.RequestTasks[req.ID])
+	delete(d.State.RequestTasks, req.ID)
 }
 
 func (d *Driver) processLaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	req := protocol.LaunchKernelReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: d.gpuPort().AsRemote(),
-			Dst: d.GPUs[queue.GPUID-1],
-		},
-		PID:           queue.Context.pid,
-		CodeObject:    cmd.CodeObject,
-		Packet:        cmd.Packet,
-		PacketAddress: uint64(cmd.DPacket),
-	}
+	req := messaging.Msg{ID: d.NewID(),
+		Src: d.gpuPort().AsRemote(),
+		Dst: d.GPUs[queue.GPUID-1], Payload: protocol.LaunchKernelReq{PID: queue.Context.pid,
+			CodeObject:    insts.CodeObjectSnapshot(cmd.CodeObject),
+			Packet:        *cmd.Packet,
+			PacketAddress: uint64(cmd.DPacket)}}
 
 	queue.IsRunning = true
 	cmd.Reqs = append(cmd.Reqs, req)
@@ -427,37 +422,17 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 			continue
 		}
 
-		currentGPUIndex := i
-		req := protocol.LaunchKernelReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: d.gpuPort().AsRemote(),
-				Dst: d.GPUs[gpuID-1],
-			},
-			PID:           queue.Context.pid,
-			CodeObject:    cmd.CodeObject,
-			Packet:        cmd.PacketArray[i],
-			PacketAddress: uint64(cmd.DPacketArray[i]),
-			WGFilter: func(
-				pkt *kernels.HsaKernelDispatchPacket,
-				wg *kernels.WorkGroup,
-			) bool {
-				numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
-				numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
-
-				flattenedID :=
-					wg.IDZ*int(numWGX)*int(numWGY) +
-						wg.IDY*int(numWGX) +
-						wg.IDX
-
-				if flattenedID >= wgDist[currentGPUIndex] &&
-					flattenedID < wgDist[currentGPUIndex+1] {
-					return true
-				}
-
-				return false
-			},
-		}
+		req := messaging.Msg{ID: d.NewID(),
+			Src: d.gpuPort().AsRemote(),
+			Dst: d.GPUs[gpuID-1], Payload: protocol.LaunchKernelReq{PID: queue.Context.pid,
+				CodeObject:    insts.CodeObjectSnapshot(cmd.CodeObject),
+				Packet:        *cmd.PacketArray[i],
+				PacketAddress: uint64(cmd.DPacketArray[i]),
+				Selection: kernels.WGSelection{
+					Partitioned: true,
+					First:       uint64(wgDist[i]),
+					End:         uint64(wgDist[i+1]),
+				}}}
 
 		queue.IsRunning = true
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -508,7 +483,7 @@ func (d *Driver) distributeWGToGPUs(
 }
 
 func (d *Driver) processLaunchKernelReturn(
-	rsp protocol.LaunchKernelRsp,
+	rsp messaging.Msg,
 ) bool {
 	req, cmd, cmdQueue := d.findCommandByReqID(rsp.RspTo)
 	cmd.RemoveReq(req)
@@ -544,7 +519,7 @@ func (d *Driver) findCommandByReqID(reqID uint64) (
 
 			reqs := cmd.GetReqs()
 			for _, r := range reqs {
-				if r.Meta().ID == reqID {
+				if r.ID == reqID {
 					ctx.queueMutex.Unlock()
 					return r, cmd, q
 				}
@@ -556,3 +531,9 @@ func (d *Driver) findCommandByReqID(reqID uint64) (
 
 	panic("cannot find command")
 }
+
+func (m *sendMW) Handle(timing.Event) bool { return m.Tick() }
+
+func (m *driverMiddlewaresMW) Handle(timing.Event) bool { return m.Tick() }
+
+func (m *commandMW) Handle(timing.Event) bool { return m.Tick() }

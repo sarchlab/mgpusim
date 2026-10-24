@@ -3,7 +3,7 @@ package cu
 import (
 	"math"
 
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 

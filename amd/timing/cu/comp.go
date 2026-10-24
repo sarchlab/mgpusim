@@ -2,10 +2,11 @@ package cu
 
 import (
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 // Port names of the ComputeUnit. The port instances are created externally
@@ -36,7 +37,9 @@ const numWfPools = 4
 
 // Spec is the immutable configuration of a timing ComputeUnit.
 type Spec struct {
-	Freq timing.Freq `json:"freq"`
+	// IsCDNA3 is captured from the configured decoder by the builder.
+	IsCDNA3 bool        `json:"is_cdna3"`
+	Freq    timing.Freq `json:"freq"`
 
 	// SIMDCount is the number of SIMD units in the compute unit.
 	SIMDCount int `json:"simd_count"`
@@ -99,8 +102,9 @@ type Spec struct {
 //
 // The complex runtime structures (wavefront pools, in-flight access records,
 // sub-unit pipeline contents) hold pointers and live on the ComputeUnit
-// middleware instead. // TODO(akita5): state purity
+// runtime resource, which serializes values and reconstructs shared links.
 type State struct {
+	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
 	// InstMem is the port instruction fetches are sent to.
 	InstMem messaging.RemotePort `json:"inst_mem"`
 
@@ -130,6 +134,8 @@ type State struct {
 
 // Resources holds the shared references that a timing ComputeUnit needs.
 type Resources struct {
+	Sampler *sampling.SampledEngine
+	Runtime *ComputeUnit
 	// Decoder decodes raw instruction bytes. Defaults to
 	// insts.NewDisassembler() when nil at Build time.
 	Decoder emu.Decoder
@@ -143,21 +149,25 @@ type Resources struct {
 }
 
 // Comp is the timing ComputeUnit component.
-type Comp = modeling.Component[Spec, State, Resources]
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Ports struct {
+	Top       messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
+	Ctrl      messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
+	InstMem   messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	ScalarMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	VectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+}
+type Middlewares struct{ CU *cuMiddleware }
+type cuMiddleware struct{ cu *ComputeUnit }
+
+func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
+func (m *Middlewares) Initialize(c *Comp)        { m.CU = &cuMiddleware{cu: c.Resources.Runtime} }
 
 // MiddlewareOf returns the ComputeUnit middleware attached to a timing
 // compute-unit component. It is used by external code (e.g., the ISA
 // debugger) that needs access to the register files and other complex
 // runtime state.
-func MiddlewareOf(comp *Comp) *ComputeUnit {
-	for _, mw := range comp.Middlewares() {
-		if cuMW, ok := mw.(*ComputeUnit); ok {
-			return cuMW
-		}
-	}
-
-	panic("cu: component does not carry a ComputeUnit middleware")
-}
+func MiddlewareOf(comp *Comp) *ComputeUnit { return comp.Resources.Runtime }
 
 // DispatcherView adapts a timing ComputeUnit to the interface that the
 // command processor's resource pool expects from a dispatchable CU.
@@ -168,13 +178,13 @@ type DispatcherView struct {
 // DispatchingPort returns the port that the dispatcher can use to dispatch
 // work-groups to the CU.
 func (v DispatcherView) DispatchingPort() messaging.RemotePort {
-	return v.CU.GetPortByName(DispatchPortName).AsRemote()
+	return v.CU.Ports.Top.AsRemote()
 }
 
 // ControlPort returns the port that can receive controlling messages from
 // the Command Processor.
 func (v DispatcherView) ControlPort() messaging.RemotePort {
-	return v.CU.GetPortByName(CtrlPortName).AsRemote()
+	return v.CU.Ports.Ctrl.AsRemote()
 }
 
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD
@@ -182,7 +192,7 @@ func (v DispatcherView) ControlPort() messaging.RemotePort {
 func (v DispatcherView) WfPoolSizes() []int {
 	sizes := make([]int, numWfPools)
 	for i := range sizes {
-		sizes[i] = v.CU.Spec().WfPoolSize
+		sizes[i] = v.CU.Spec.WfPoolSize
 	}
 
 	return sizes
@@ -191,15 +201,15 @@ func (v DispatcherView) WfPoolSizes() []int {
 // VRegCounts returns an array of the numbers of vector registers in each
 // SIMD unit.
 func (v DispatcherView) VRegCounts() []int {
-	return v.CU.Spec().VGPRCounts
+	return v.CU.Spec.VGPRCounts
 }
 
 // SRegCount returns the number of scalar registers in the Compute Unit.
 func (v DispatcherView) SRegCount() int {
-	return v.CU.Spec().SGPRCount
+	return v.CU.Spec.SGPRCount
 }
 
 // LDSBytes returns the number of bytes in the LDS of the CU.
 func (v DispatcherView) LDSBytes() int {
-	return v.CU.Spec().LDSBytes
+	return v.CU.Spec.LDSBytes
 }

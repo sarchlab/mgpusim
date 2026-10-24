@@ -2,18 +2,12 @@ package kernels
 
 import "github.com/sarchlab/mgpusim/v5/amd/insts"
 
-// WGFilterFunc is a filter
-type WGFilterFunc func(
-	*HsaKernelDispatchPacket,
-	*WorkGroup,
-) bool
-
 // KernelLaunchInfo includes the necessary information to launch a kernel.
 type KernelLaunchInfo struct {
 	CodeObject *insts.KernelCodeObject
 	Packet     *HsaKernelDispatchPacket
 	PacketAddr uint64
-	WGFilter   WGFilterFunc
+	Selection  WGSelection
 }
 
 // A GridBuilder is the unit that can build a grid and its internal structure
@@ -23,17 +17,20 @@ type GridBuilder interface {
 	NumWG() int
 	NextWG() *WorkGroup
 	Skip(n int)
+	Snapshot() GridBuilderState
+	Restore(GridBuilderState)
 }
 
 // NewGridBuilder creates a default grid builder
-func NewGridBuilder() GridBuilder {
-	return &gridBuilderImpl{}
+func NewGridBuilder(ids interface{ NewID() uint64 }) GridBuilder {
+	return &gridBuilderImpl{ids: ids}
 }
 
 type gridBuilderImpl struct {
+	ids        interface{ NewID() uint64 }
 	hsaco      *insts.KernelCodeObject
 	packet     *HsaKernelDispatchPacket
-	filter     WGFilterFunc
+	selection  WGSelection
 	packetAddr uint64
 	numWG      int
 
@@ -46,7 +43,7 @@ func (b *gridBuilderImpl) SetKernel(
 	b.hsaco = info.CodeObject
 	b.packet = info.Packet
 	b.packetAddr = info.PacketAddr
-	b.filter = info.WGFilter
+	b.selection = info.Selection
 	b.xid = 0
 	b.yid = 0
 	b.zid = 0
@@ -65,27 +62,7 @@ func (b *gridBuilderImpl) countWG() {
 	y := int(b.packet.GridSizeY-1)/int(b.packet.WorkgroupSizeY) + 1
 	z := int(b.packet.GridSizeZ-1)/int(b.packet.WorkgroupSizeZ) + 1
 
-	if b.filter == nil {
-		b.numWG = x * y * z
-		return
-	}
-
-	b.numWG = 0
-	for i := 0; i < x; i++ {
-		for j := 0; j < y; j++ {
-			for k := 0; k < z; k++ {
-				wg := WorkGroup{
-					IDX: i,
-					IDY: j,
-					IDZ: k,
-				}
-
-				if b.filter(b.packet, &wg) {
-					b.numWG++
-				}
-			}
-		}
-	}
+	b.numWG = int(b.selection.Count(uint64(x) * uint64(y) * uint64(z)))
 }
 
 func (b *gridBuilderImpl) NumWG() int {
@@ -93,7 +70,9 @@ func (b *gridBuilderImpl) NumWG() int {
 }
 
 func (b *gridBuilderImpl) NextWG() *WorkGroup {
-	wg := NewWorkGroup()
+	x := (uint64(b.packet.GridSizeX)-1)/uint64(b.packet.WorkgroupSizeX) + 1
+	y := (uint64(b.packet.GridSizeY)-1)/uint64(b.packet.WorkgroupSizeY) + 1
+	wg := NewWorkGroup(b.ids.NewID())
 
 	for {
 		xLeft := int(b.packet.GridSizeX) - b.xid*int(b.packet.WorkgroupSizeX)
@@ -132,11 +111,11 @@ func (b *gridBuilderImpl) NextWG() *WorkGroup {
 			}
 		}
 
-		if b.filter == nil {
+		if !b.selection.Partitioned {
 			break
 		}
 
-		if b.filter(b.packet, wg) {
+		if b.selection.Includes(uint64(wg.IDX) + uint64(wg.IDY)*x + uint64(wg.IDZ)*x*y) {
 			break
 		}
 	}
@@ -169,7 +148,7 @@ func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 		wg := wi.WG
 		inWGID := wi.IDZ*wg.SizeX*wg.SizeY + wi.IDY*wg.SizeX + wi.IDX
 		if inWGID%wavefrontSize == 0 {
-			wf = NewWavefront()
+			wf = NewWavefront(b.ids.NewID())
 			wf.FirstWiFlatID = wg.WorkItems[i].FlattenedID()
 			wf.CodeObject = b.hsaco
 			wf.Packet = b.packet
@@ -187,4 +166,37 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// GridBuilderState records the next work-group position and launch data. The
+// ID allocator belongs to the rebuilt simulation and is never serialized.
+type GridBuilderState struct {
+	CodeObject    insts.CodeObjectValue
+	Packet        PacketValue
+	Selection     WGSelection
+	PacketAddress uint64
+	NumWG         int
+	X, Y, Z       int
+}
+
+func (b *gridBuilderImpl) Snapshot() GridBuilderState {
+	return GridBuilderState{
+		CodeObject:    insts.CodeObjectSnapshot(b.hsaco),
+		Packet:        PacketSnapshot(b.packet),
+		Selection:     b.selection,
+		PacketAddress: b.packetAddr,
+		NumWG:         b.numWG,
+		X:             b.xid,
+		Y:             b.yid,
+		Z:             b.zid,
+	}
+}
+
+func (b *gridBuilderImpl) Restore(state GridBuilderState) {
+	b.hsaco = state.CodeObject.Restore()
+	b.packet = state.Packet.Restore()
+	b.selection = state.Selection
+	b.packetAddr = state.PacketAddress
+	b.numWG = state.NumWG
+	b.xid, b.yid, b.zid = state.X, state.Y, state.Z
 }
