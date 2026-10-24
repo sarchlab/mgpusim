@@ -68,8 +68,8 @@ github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
-github.com/sarchlab/akita/v5 v5.0.0-rc.1 h1:KolSECrdKb0gB9wEpcKBaLH0hBQPHoWFKnO20xmV8Wk=
-github.com/sarchlab/akita/v5 v5.0.0-rc.1/go.mod h1:Ouj8E1q/q1dhNDRX5z6N/iBQXjj5gJy2dIugXsbe2QU=
+github.com/sarchlab/akita/v5 v5.0.0-rc.1.0.20261024225446-e7c68c1ad36f h1:Z6hQkZUSsfztndPpD9gjI9HQ8MNaGZGsYzN9Kg8XvKc=
+github.com/sarchlab/akita/v5 v5.0.0-rc.1.0.20261024225446-e7c68c1ad36f/go.mod h1:Ouj8E1q/q1dhNDRX5z6N/iBQXjj5gJy2dIugXsbe2QU=
 github.com/shirou/gopsutil/v4 v4.26.7 h1:IXzpHz/dkMRYAhKkOXr1HB6SuzWU3eoyyeWe7g3bNZc=
 github.com/shirou/gopsutil/v4 v4.26.7/go.mod h1:5O9FjBiXoTDFatIWjZZosqj4pV0DRtLx598xGbBehzM=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
