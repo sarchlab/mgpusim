@@ -118,22 +118,30 @@ func printStatus(p *platform.Platform, now timing.VTimeInPicoSec, wall time.Dura
 }
 
 // newSimulation owns component lifecycle and checkpoint services.
-func newSimulation(opts Options) *simulation.Simulation {
+func newSimulation(opts Options) (*simulation.Simulation, error) {
 	builder := simulation.MakeBuilder()
 	if opts.VisTracing {
 		builder = builder.WithVisTracingOnStart()
 	}
 	if opts.VisTracing && opts.OutputFile != "" {
-		builder = builder.WithOutputPath(opts.OutputFile + ".sqlite3")
+		// beta.10 treats OutputFile as a base name and replaces the recording.
+		path := opts.OutputFile + ".sqlite3"
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("replace recording %s: %w", path, err)
+		}
+		builder = builder.WithOutputPath(path)
 	}
-	return builder.Build()
+	return builder.Build(), nil
 }
 
 // Run simulates the trace in opts.TraceDir on opts.Device.
 func Run(opts Options) (Result, error) {
 	bm := benchmark.Load(opts.TraceDir)
 
-	sim := newSimulation(opts)
+	sim, err := newSimulation(opts)
+	if err != nil {
+		return Result{}, err
+	}
 	defer sim.Terminate()
 	engine := sim.Engine()
 	p := platform.Build(sim, opts.Device)

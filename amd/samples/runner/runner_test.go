@@ -3,8 +3,8 @@ package runner
 import (
 	"database/sql"
 	"flag"
+	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -34,8 +34,11 @@ func TestExplicitMetricFileReplacesPreviousRun(t *testing.T) {
 			second := new(Runner)
 			second.initSimulation()
 			t.Cleanup(func() { _ = second.simulation.DataRecorder().Close() })
-			if !strings.HasSuffix(path, ".sqlite3") {
-				path += ".sqlite3"
+			// beta.10 treats the option as a base name and always appends
+			// the suffix, even when the base name already ends in it.
+			path += ".sqlite3"
+			if _, err := os.Stat(path); err != nil {
+				t.Fatal(err)
 			}
 			db, err := sql.Open("sqlite", path)
 			if err != nil {
@@ -52,5 +55,26 @@ func TestExplicitMetricFileReplacesPreviousRun(t *testing.T) {
 				t.Fatal("the second run retained the previous recording")
 			}
 		})
+	}
+}
+
+func TestEmptyMetricFileUsesUniqueDefault(t *testing.T) {
+	oldFlags, oldFilename, oldDisableRTM := flag.CommandLine, filenameFlag, disableAkitaRTM
+	t.Cleanup(func() {
+		flag.CommandLine, filenameFlag, disableAkitaRTM = oldFlags, oldFilename, oldDisableRTM
+	})
+	t.Chdir(t.TempDir())
+	flag.CommandLine = flag.NewFlagSet("runner", flag.ContinueOnError)
+	filenameFlag = flag.CommandLine.String("metric-file-name", "metrics", "")
+	disableAkitaRTM = flag.CommandLine.Bool("disable-rtm", true, "")
+	if err := flag.CommandLine.Parse([]string{"-metric-file-name="}); err != nil {
+		t.Fatal(err)
+	}
+	r := new(Runner)
+	r.initSimulation()
+	t.Cleanup(func() { _ = r.simulation.DataRecorder().Close() })
+	files, err := filepath.Glob("akita_sim_*.sqlite3")
+	if err != nil || len(files) != 1 {
+		t.Fatalf("expected one default recording, got %v: %v", files, err)
 	}
 }

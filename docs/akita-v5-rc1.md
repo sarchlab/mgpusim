@@ -6,6 +6,10 @@ message envelopes, task tracking and checkpoint resources. Platform frequencies,
 cache geometry, dispatch policies, instruction semantics and sample CLI flags
 are preserved. See the validation notes below for dependency timing differences.
 
+Explicit AMD `-metric-file-name` and NVIDIA `-output` names keep beta.10's
+base-name convention: `.sqlite3` is always appended, and a rerun replaces that
+recording. NVIDIA uses `-output` only with visualization tracing enabled.
+
 ## Message and construction APIs
 
 Messages are `messaging.Msg` envelopes with a pure value `Payload`. Routing and
@@ -108,6 +112,11 @@ The dependency upgrade changes TLB timing: beta.10 used
 `Pipeline.AcceptWithDelay(..., 1)`, while rc1 uses `Pipeline.Accept(...)` and
 removes that extra dwell cycle. MGPUSim retains its configured TLB latency and
 width; this migration does not add compensating latency or retune the GPU.
+
+rc1 also removes the `CanWaitForCoalesce` request field. In beta.10 the address
+translator only copied this field; no memory component used it to schedule
+requests. Completion still waits for every transaction of an instruction, so
+out-of-order responses cannot release its registers early.
 
 An isolated comparison against main `62a691424fe3bcde9c3815bc6dd65ed5b95f16d2`
 queued two identical 256-element FIR kernels before starting the engine. All

@@ -4,7 +4,6 @@ package runner
 import (
 	"log"
 	"os"
-	"strings"
 
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v5/monitoring"
@@ -93,15 +92,15 @@ func (r *Runner) initSimulation() {
 	// Only honor -metric-file-name when it is explicitly set, so the
 	// default output name stays the v4-compatible "akita_sim_<id>".
 	output := "akita_sim_" + xid.New().String()
-	if metricFileNameFlagIsSet() {
+	explicitOutput := metricFileNameFlagIsSet() && *filenameFlag != ""
+	if explicitOutput {
 		output = *filenameFlag
 	}
-	if !strings.HasSuffix(output, ".sqlite3") {
-		output += ".sqlite3"
-	}
+	// beta.10 always appends this suffix to the supplied base name.
+	output += ".sqlite3"
 	// Preserve the sample CLI's replacement behavior for an explicit filename.
 	// Akita rc1 itself only creates recordings at previously unused paths.
-	if metricFileNameFlagIsSet() {
+	if explicitOutput {
 		if err := os.Remove(output); err != nil && !os.IsNotExist(err) {
 			panic(err)
 		}

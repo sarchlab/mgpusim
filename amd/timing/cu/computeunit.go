@@ -796,8 +796,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
-	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
-	// last request generated) is not necessarily the last received. Release
+	// Coalesced responses can return out of order, so the last request
+	// generated is not necessarily the last received. Release
 	// the s_waitcnt counters, end the inst task and mark the data wait only
 	// once no transaction for this instruction is still in flight; releasing
 	// the counter earlier lets the wavefront reuse the destination VGPRs
