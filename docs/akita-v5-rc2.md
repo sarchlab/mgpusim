@@ -1,11 +1,10 @@
-# Akita v5 rc1 migration and checkpoints
+# Akita v5 RC2 migration and checkpoints
 
-MGPUSim uses the Akita rc1 APIs and currently pins
-`github.com/sarchlab/akita/v5 v5.0.0-rc.1.0.20261024225446-e7c68c1ad36f`,
-the exact commit from [Akita PR #567](https://github.com/sarchlab/akita/pull/567).
-This includes the scoped task-notification indexing fix for rc1's reporting
-performance regression. It is an untagged commit, not a new release; no local
-module replacement is required. AMD GCN3,
+MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.2`
+release. RC2 includes the scoped task-notification index and redundant-map
+cleanup from [Akita PR #567](https://github.com/sarchlab/akita/pull/567), fixing
+rc1's reporting performance regression without changing its APIs or checkpoint
+format. No local module replacement is required. AMD GCN3,
 AMD CDNA3 and the NVIDIA trace simulator use native Akita components, ports,
 message envelopes, task tracking and checkpoint resources. Platform frequencies,
 cache geometry, dispatch policies, instruction semantics and sample CLI flags
