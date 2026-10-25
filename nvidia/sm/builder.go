@@ -17,6 +17,11 @@ import (
 
 const portBufSize = 4096
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
+}
+
 // SMBuilder builds SMs. Each SM contains its SMSPs and one L1 vector cache
 // per SMSP.
 type SMBuilder struct {
@@ -36,7 +41,7 @@ type SMBuilder struct {
 // MakeBuilder creates an SMBuilder with default parameters.
 func MakeBuilder() SMBuilder {
 	return SMBuilder{
-		freq:              1 * timing.GHz,
+		freq:              DefaultSpec().Freq,
 		smspsCount:        4,
 		log2CacheLineSize: 7,
 	}
@@ -171,7 +176,6 @@ func (b SMBuilder) buildL1VCaches(s *SMController) {
 			spec,
 		).WithResources(writethroughcache.Resources{Storage: storage}).
 			WithSimulation(b.registrar).
-			WithSpec(spec).
 			Build(fmt.Sprintf("%s.L1VCache[%d]", s.Name(), i))
 
 		b.buildPort(cache, "Top", spec.NumReqPerCycle)

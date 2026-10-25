@@ -9,6 +9,11 @@ import (
 
 const portBufSize = 4096
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
+}
+
 // SMSPBuilder builds SMSPs.
 type SMSPBuilder struct {
 	registrar              modeling.Simulation

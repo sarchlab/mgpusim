@@ -539,8 +539,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		driverRsp, ok := toDriver.RetrieveOutgoing()
 		Expect(ok).To(BeTrue())
-		Expect(driverRsp).
-			To(BeAssignableToTypeOf(messaging.Msg{Payload: protocol.RDMADrainRspToDriver{}}))
+		Expect(driverRsp.Payload).To(BeAssignableToTypeOf(protocol.RDMADrainRspToDriver{}))
 		Expect(driverRsp.Dst).To(Equal(driverPort))
 	})
 
@@ -568,8 +567,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		driverRsp, ok := toDriver.RetrieveOutgoing()
 		Expect(ok).To(BeTrue())
-		Expect(driverRsp).
-			To(BeAssignableToTypeOf(messaging.Msg{Payload: protocol.RDMARestartRspToDriver{}}))
+		Expect(driverRsp.Payload).To(BeAssignableToTypeOf(protocol.RDMARestartRspToDriver{}))
 		Expect(driverRsp.Dst).To(Equal(driverPort))
 	})
 })

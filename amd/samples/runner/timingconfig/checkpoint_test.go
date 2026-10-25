@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"testing"
 
@@ -21,6 +22,9 @@ import (
 const checkpointLength = 256
 
 func TestTimingCheckpointFreshProcess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("fresh-process checkpoint test builds full simulations; run without -short")
+	}
 	if path := os.Getenv("MGPUSIM_AMD_TIMING_RESTORE"); path != "" {
 		a, err := strconv.Atoi(os.Getenv("MGPUSIM_AMD_ARCH"))
 		if err != nil {
@@ -61,6 +65,39 @@ func TestTimingCheckpointFreshProcess(t *testing.T) {
 
 func runTimingCheckpointFreshProcess(t *testing.T, a arch.Type) {
 	t.Helper()
+	path := filepath.Join(t.TempDir(), "mid-kernel.tar.gz")
+	// End the parent run and its cleanup scope before building a second
+	// simulation in the restore process. No simulation escapes this subtest.
+	if !t.Run("uninterrupted", func(t *testing.T) {
+		prepareTimingCheckpoint(t, a, path)
+	}) {
+		return
+	}
+	// Return the now-unreachable parent heap to the OS before starting the child.
+	debug.FreeOSMemory()
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestTimingCheckpointFreshProcess$", "-test.v")
+	cmd.Env = append(os.Environ(), "MGPUSIM_AMD_TIMING_RESTORE="+path, "MGPUSIM_AMD_ARCH="+strconv.Itoa(int(a)))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("restore child: %v\n%s", err, out)
+	} else {
+		t.Logf("%s", out)
+	}
+	want, err := os.ReadFile(path + ".uninterrupted")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path + ".restored")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(want, got) {
+		t.Fatal("final restored archive differs from uninterrupted run")
+	}
+	t.Logf("%s: FIR output verified; full final checkpoints match", a)
+}
+
+func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
+	t.Helper()
 	s, d := checkpointSystem(t, a)
 	output := submitFIR(t, d, a)
 	d.TickLater()
@@ -96,30 +133,10 @@ func runTimingCheckpointFreshProcess(t *testing.T, a arch.Type) {
 			t.Fatal("host copy completed before checkpoint")
 		}
 	}
-	path := filepath.Join(t.TempDir(), "mid-kernel.tar.gz")
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
 	finishTiming(t, s, output, path+".uninterrupted")
-	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestTimingCheckpointFreshProcess$", "-test.v")
-	cmd.Env = append(os.Environ(), "MGPUSIM_AMD_TIMING_RESTORE="+path, "MGPUSIM_AMD_ARCH="+strconv.Itoa(int(a)))
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("restore child: %v\n%s", err, out)
-	} else {
-		t.Logf("%s", out)
-	}
-	want, err := os.ReadFile(path + ".uninterrupted")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(path + ".restored")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(want, got) {
-		t.Fatal("final restored archive differs from uninterrupted run")
-	}
-	t.Logf("%s: FIR output verified; full final checkpoints match", a)
 }
 
 func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Driver) {

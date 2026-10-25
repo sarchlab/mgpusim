@@ -205,8 +205,7 @@ var _ = Describe("RDMA Engine", func() {
 			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(0))
 
 			forwarded, _ := requestInside.RetrieveOutgoing()
-			Expect(forwarded).
-				To(BeAssignableToTypeOf(messaging.Msg{Payload: memprotocol.DataReadyRsp{}}))
+			Expect(forwarded.Payload).To(BeAssignableToTypeOf(memprotocol.DataReadyRsp{}))
 			Expect(forwarded.Dst).To(Equal(localCache))
 			Expect(forwarded.RspTo).To(Equal(trans.OriginalReqID))
 		})
@@ -249,8 +248,7 @@ var _ = Describe("RDMA Engine", func() {
 			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(0))
 
 			forwarded, _ := dataOutside.RetrieveOutgoing()
-			Expect(forwarded).
-				To(BeAssignableToTypeOf(messaging.Msg{Payload: memprotocol.DataReadyRsp{}}))
+			Expect(forwarded.Payload).To(BeAssignableToTypeOf(memprotocol.DataReadyRsp{}))
 			Expect(forwarded.Dst).To(Equal(remoteGPU))
 			Expect(forwarded.RspTo).To(Equal(trans.OriginalReqID))
 		})

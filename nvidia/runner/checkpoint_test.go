@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
@@ -17,6 +18,9 @@ import (
 // A fresh process only rebuilds the topology. It does not read the trace or
 // resubmit kernels; the archive must contain all submitted work and progress.
 func TestCheckpointFreshProcess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("fresh-process checkpoint test builds full simulations; run without -short")
+	}
 	if path := os.Getenv("MGPUSIM_NVIDIA_RESTORE"); path != "" {
 		s, p := checkpointPlatform(t)
 		if err := s.LoadCheckpoint(path); err != nil {
@@ -33,6 +37,39 @@ func TestCheckpointFreshProcess(t *testing.T) {
 }
 
 func runCheckpointFreshProcess(t *testing.T, phase string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "mid-kernel.tar.gz")
+	// End the parent run and its cleanup scope before building a second
+	// simulation in the restore process. No simulation escapes this subtest.
+	if !t.Run("uninterrupted", func(t *testing.T) {
+		prepareCheckpoint(t, phase, path)
+	}) {
+		return
+	}
+	// Return the now-unreachable parent heap to the OS before starting the child.
+	debug.FreeOSMemory()
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestCheckpointFreshProcess$", "-test.v")
+	cmd.Env = append(os.Environ(), "MGPUSIM_NVIDIA_RESTORE="+path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("restore process: %v\n%s", err, output)
+	} else {
+		t.Logf("%s", output)
+	}
+	want, err := os.ReadFile(path + ".uninterrupted")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path + ".restored")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatal("restored final checkpoint differs from uninterrupted execution")
+	}
+	t.Logf("%s: complete final archives match, including engine time, IDs, memory and component state", phase)
+}
+
+func prepareCheckpoint(t *testing.T, phase string, path string) {
 	t.Helper()
 	s, p := checkpointPlatform(t)
 	for range 2 {
@@ -65,30 +102,10 @@ func runCheckpointFreshProcess(t *testing.T, phase string) {
 	if p.Driver.UnfinishedKernels() != 2 {
 		t.Fatal("checkpoint must retain active and queued work")
 	}
-	path := filepath.Join(t.TempDir(), "mid-kernel.tar.gz")
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
 	finishCheckpointRun(t, s, p, path+".uninterrupted")
-	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestCheckpointFreshProcess$", "-test.v")
-	cmd.Env = append(os.Environ(), "MGPUSIM_NVIDIA_RESTORE="+path)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("restore process: %v\n%s", err, output)
-	} else {
-		t.Logf("%s", output)
-	}
-	want, err := os.ReadFile(path + ".uninterrupted")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(path + ".restored")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatal("restored final checkpoint differs from uninterrupted execution")
-	}
-	t.Logf("%s: complete final archives match, including engine time, IDs, memory and component state", phase)
 }
 
 func checkpointPlatform(t *testing.T) (*sim.Simulation, *platform.Platform) {

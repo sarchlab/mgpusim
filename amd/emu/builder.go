@@ -6,15 +6,12 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// defaultSpec is the default configuration of an emulation ComputeUnit.
-var defaultSpec = Spec{
-	Freq: 1 * timing.GHz,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers obtain
 // it, tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq: 1 * timing.GHz,
+	}
 }
 
 // Builder builds emulation ComputeUnits. Configuration is supplied as a
@@ -30,7 +27,7 @@ type Builder struct {
 
 // MakeBuilder creates a new Builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar (a *simulation.Simulation

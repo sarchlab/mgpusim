@@ -103,10 +103,18 @@ Fresh-process tests rebuild only the topology and load a mid-kernel archive:
   allocator free-list and unified-GPU continuation, sampling prediction windows,
   serializable partition cursors and invalid result destinations.
 
+Fresh-process checkpoint tests build full GPU simulations, can take several
+minutes, and require several GiB of memory (especially CDNA3/MI300X). They skip
+under `go test -short`; normal CI continues to run them without `-short`. The
+uninterrupted simulation is terminated and its heap released before starting
+the restore subprocess, so the two simulation heaps do not overlap. On
+memory-constrained machines, use `-p 1` to avoid running multiple checkpoint
+packages concurrently.
+
 Run these tests with:
 
 ```sh
-go test ./amd/samples/runner/emusystem ./amd/samples/runner/timingconfig ./nvidia/runner -run Checkpoint -v
+go test -p 1 ./amd/samples/runner/emusystem ./amd/samples/runner/timingconfig ./nvidia/runner -run Checkpoint -v
 go test ./amd/driver/... ./amd/kernels ./amd/sampling ./amd/timing/cu
 ```
 

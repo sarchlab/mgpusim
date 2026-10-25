@@ -18,6 +18,11 @@ import (
 
 const portBufSize = 4096
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
+}
+
 // Driver models the CUDA driver. It launches the traced kernels, in order,
 // on the free GPUs, and records when the last kernel finishes.
 type Driver struct {
@@ -65,7 +70,7 @@ type Builder struct {
 
 // MakeBuilder creates a driver builder.
 func MakeBuilder() Builder {
-	return Builder{freq: 1 * timing.GHz}
+	return Builder{freq: DefaultSpec().Freq}
 }
 
 // WithSimulation sets the simulation that the driver registers to.

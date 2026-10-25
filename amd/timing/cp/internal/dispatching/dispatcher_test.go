@@ -314,6 +314,7 @@ var _ = Describe("Dispatcher", func() {
 		respondingPort.EXPECT().CanSend().Return(true)
 		respondingPort.EXPECT().Send(gomock.Any()).
 			Do(func(rsp messaging.Msg) {
+				Expect(rsp.Payload).To(BeAssignableToTypeOf(protocol.LaunchKernelRsp{}))
 				launchRsp := rsp
 				Expect(launchRsp.RspTo).To(Equal(req.ID))
 				Expect(launchRsp.Dst).To(Equal(req.Src))

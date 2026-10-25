@@ -5,7 +5,11 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 func TestExplicitMetricFileReplacesPreviousRun(t *testing.T) {
@@ -76,5 +80,56 @@ func TestEmptyMetricFileUsesUniqueDefault(t *testing.T) {
 	files, err := filepath.Glob("akita_sim_*.sqlite3")
 	if err != nil || len(files) != 1 {
 		t.Fatalf("expected one default recording, got %v: %v", files, err)
+	}
+}
+
+// Akita converts service cleanup panics into Terminate errors. The runner must
+// surface those errors instead of returning successfully after a failed close.
+type cleanupMonitor struct {
+	fail    bool
+	stopped bool
+}
+
+func (*cleanupMonitor) Start(*sim.Simulation) {}
+func (m *cleanupMonitor) Stop() {
+	m.stopped = true
+	if m.fail {
+		panic("test cleanup failure")
+	}
+}
+
+func TestRunReportsTerminationFailure(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		name := "success"
+		if fail {
+			name = "cleanup failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			monitor := &cleanupMonitor{fail: fail}
+			s := sim.MakeBuilder().WithTaskTracking().WithMonitor(monitor).Build()
+			d := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(0).Build()
+			if err := s.Initialize(); err != nil {
+				t.Fatal(err)
+			}
+			r := &Runner{simulation: s, gpuDriver: d}
+			var caught any
+			func() {
+				defer func() { caught = recover() }()
+				r.Run()
+			}()
+			if !monitor.stopped {
+				t.Fatal("runner did not terminate simulation services")
+			}
+			if !fail {
+				if caught != nil {
+					t.Fatalf("successful cleanup panicked: %v", caught)
+				}
+				return
+			}
+			err, ok := caught.(error)
+			if !ok || !strings.Contains(err.Error(), "test cleanup failure") {
+				t.Fatalf("runner did not surface the cleanup error: %v", caught)
+			}
+		})
 	}
 }

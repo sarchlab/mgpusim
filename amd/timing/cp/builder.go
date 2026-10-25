@@ -13,27 +13,24 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
-// defaultSpec provides the default configuration for the Command Processor.
-var defaultSpec = Spec{
-	Freq:           1 * timing.GHz,
-	NumDispatchers: 8,
-	Alg:            "round-robin",
-	NumDies:        1,
-	// Per-kernel constant overhead (cycles after all WGs complete). Kept
-	// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
-	// events coincide, which exposes a latent tie-break ordering in the
-	// instruction-cache latency accounting and makes the deterministic test
-	// see run-to-run differences. Platforms that want a different value set
-	// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
-	// value falls through to the dispatcher default, since cp/builder only
-	// applies ConstantKernelOverhead when it is > 0).
-	ConstantKernelOverhead: 3600,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers typically
 // obtain it, tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:           1 * timing.GHz,
+		NumDispatchers: 8,
+		Alg:            "round-robin",
+		NumDies:        1,
+		// Per-kernel constant overhead (cycles after all WGs complete). Kept
+		// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
+		// events coincide, which exposes a latent tie-break ordering in the
+		// instruction-cache latency accounting and makes the deterministic test
+		// see run-to-run differences. Platforms that want a different value set
+		// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
+		// value falls through to the dispatcher default, since cp/builder only
+		// applies ConstantKernelOverhead when it is > 0).
+		ConstantKernelOverhead: 3600,
+	}
 }
 
 // Builder can build Command Processors. Configuration is supplied as a whole
@@ -54,7 +51,7 @@ func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s;
 
 // MakeBuilder creates a new builder with default configuration values.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar (a *simulation.Simulation in

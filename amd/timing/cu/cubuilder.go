@@ -11,30 +11,28 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-var defaultSpec = Spec{
-	Freq:                         1 * timing.GHz,
-	SIMDCount:                    4,
-	WfPoolSize:                   10,
-	VGPRCounts:                   []int{16384, 16384, 16384, 16384},
-	SGPRCount:                    3200,
-	LDSBytes:                     64 * 1024,
-	Log2CachelineSize:            6,
-	NumSinglePrecisionUnits:      16,
-	VecMemInstPipelineStages:     6,
-	VecMemTransPipelineStages:    10,
-	VecMemTransPipelineWidth:     1,
-	MemPipelineBufferSize:        8,
-	MaxCoalescingPenalty:         0,
-	RegisterScoreboard:           false,
-	InFlightVectorMemAccessLimit: 512,
-	InstBufByteSize:              256,
-}
-
 // DefaultSpec returns a copy of the default compute-unit configuration.
 // Callers obtain it, tweak the fields they care about, and pass it to
 // WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:                         1 * timing.GHz,
+		SIMDCount:                    4,
+		WfPoolSize:                   10,
+		VGPRCounts:                   []int{16384, 16384, 16384, 16384},
+		SGPRCount:                    3200,
+		LDSBytes:                     64 * 1024,
+		Log2CachelineSize:            6,
+		NumSinglePrecisionUnits:      16,
+		VecMemInstPipelineStages:     6,
+		VecMemTransPipelineStages:    10,
+		VecMemTransPipelineWidth:     1,
+		MemPipelineBufferSize:        8,
+		MaxCoalescingPenalty:         0,
+		RegisterScoreboard:           false,
+		InFlightVectorMemAccessLimit: 512,
+		InstBufByteSize:              256,
+	}
 }
 
 // A Builder can construct a fully functional Compute Unit. Configuration is
@@ -53,7 +51,7 @@ type Builder struct {
 
 // MakeBuilder returns a builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar (a *simulation.Simulation

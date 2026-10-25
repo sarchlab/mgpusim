@@ -5,20 +5,17 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
-// defaultSpec provides the default configuration for the RDMA engine.
-var defaultSpec = Spec{
-	Freq:                1 * timing.GHz,
-	BufferSize:          128,
-	IncomingReqPerCycle: 1,
-	IncomingRspPerCycle: 1,
-	OutgoingReqPerCycle: 1,
-	OutgoingRspPerCycle: 1,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers typically
 // obtain it, tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:                1 * timing.GHz,
+		BufferSize:          128,
+		IncomingReqPerCycle: 1,
+		IncomingRspPerCycle: 1,
+		OutgoingReqPerCycle: 1,
+		OutgoingRspPerCycle: 1,
+	}
 }
 
 // Builder builds RDMA engines. Configuration is supplied as a whole through
@@ -34,7 +31,7 @@ type Builder struct {
 
 // MakeBuilder returns a new Builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar (a *simulation.Simulation in

@@ -205,7 +205,9 @@ func (r *Runner) Run() {
 	}
 
 	r.Driver().Terminate()
-	r.simulation.Terminate()
+	if err := r.simulation.Terminate(); err != nil {
+		panic(err)
+	}
 }
 
 // Driver returns the GPU driver used by the current runner.

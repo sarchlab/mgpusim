@@ -26,6 +26,11 @@ const (
 	storageCapacity = 1 << 48
 )
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz, MaxCTAPerSM: 1}
+}
+
 // Config describes the GPU to build.
 type Config struct {
 	NumSMs            uint64
@@ -59,7 +64,7 @@ type Builder struct {
 
 // MakeBuilder creates a GPU builder.
 func MakeBuilder() Builder {
-	return Builder{freq: 1 * timing.GHz}
+	return Builder{freq: DefaultSpec().Freq}
 }
 
 // WithSimulation sets the simulation that components register to.
@@ -176,7 +181,6 @@ func (b Builder) buildDRAMs(gpuName string) []*idealmemcontroller.Comp {
 	for i := range b.cfg.NumMemoryBanks {
 		dram := modeling.MakeBuilder[*idealmemcontroller.Comp](spec).
 			WithSimulation(b.registrar).
-			WithSpec(spec).
 			WithResources(idealmemcontroller.Resources{Storage: storage}).
 			Build(fmt.Sprintf("%s.DRAM[%d]", gpuName, i))
 
@@ -214,7 +218,6 @@ func (b Builder) buildL2Caches(
 			Build(fmt.Sprintf("%s.L2Cache[%d].Storage", gpuName, i))
 		l2 := modeling.MakeBuilder[*writeback.Comp](spec).WithResources(writeback.Resources{Storage: storage}).
 			WithSimulation(b.registrar).
-			WithSpec(spec).
 			Build(fmt.Sprintf("%s.L2Cache[%d]", gpuName, i))
 
 		b.buildPort(l2, "Top", memPortBufSize)

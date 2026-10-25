@@ -10,16 +10,13 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// defaultSpec provides the default configuration of the driver.
-var defaultSpec = Spec{
-	Freq:         1 * timing.GHz,
-	Log2PageSize: 12,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers obtain it,
 // tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:         1 * timing.GHz,
+		Log2PageSize: 12,
+	}
 }
 
 // A Builder can build a driver.
@@ -31,7 +28,7 @@ type Builder struct {
 
 // MakeBuilder creates a driver builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar (a *simulation.Simulation in

@@ -507,8 +507,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromCP()
 
 			Expect(toCP.sent).To(HaveLen(1))
-			Expect(toCP.sent[0]).To(
-				BeAssignableToTypeOf(messaging.Msg{Payload: protocol.CUPipelineRestartRsp{}}))
+			Expect(toCP.sent[0].Payload).To(BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
 			Expect(cu.comp.State.IsPaused).To(BeTrue())
 			Expect(cu.comp.State.IsSendingOutShadowBufferReqs).To(BeTrue())
 		})
