@@ -162,18 +162,16 @@ func (b *Benchmark) Step() error {
 		if err := b.driver.ReadResult(b.outputResult, b.hCost); err != nil {
 			return err
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.Ended = true
 	}
 	return nil
 }
 func (b *Benchmark) finishTraversal() {
-	if !b.Verification {
-		b.Ended = true
-		return
-	}
 	b.outputResult = b.driver.EnqueueMemCopyD2H(b.queue, b.dFrontier, len(b.hCost)*4)
 	b.Phase = 2
 }

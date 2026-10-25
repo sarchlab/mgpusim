@@ -3,6 +3,10 @@ package sample
 import (
 	"database/sql"
 	"flag"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -127,5 +131,59 @@ func TestRunReportsTerminationFailure(t *testing.T) {
 				t.Fatalf("sample cleanup did not surface the cleanup error: %v", caught)
 			}
 		})
+	}
+}
+
+// A unified launch uses the same Driver task as an ordinary launch. Exercise
+// the real reporting pipeline so stale task filters cannot silently zero both
+// kernel time and the CPI derived from it.
+func TestUnifiedKernelMetrics(t *testing.T) {
+	oldUnified, oldInstCount := *unifiedGPUFlag, *instCountReportFlag
+	*unifiedGPUFlag, *instCountReportFlag = "1,2", true
+	t.Cleanup(func() { *unifiedGPUFlag, *instCountReportFlag = oldUnified, oldInstCount })
+	path := filepath.Join(t.TempDir(), "unified.sqlite3")
+	s := sim.MakeBuilder().WithTaskTracking().WithOutputPath(path).Build()
+	rt := timingconfig.MakeBuilder().WithSimulation(s).WithNumGPUs(2).Build()
+	gpu := rt.CreateUnifiedGPU(0, []int{1, 2})
+	b := fir.NewBenchmark(rt)
+	b.Length, b.NumTapsParam = 64, 4
+	b.SelectGPU([]int{gpu})
+	b.SetVerification(true)
+	r := runner.New(s, rt)
+	r.AddBenchmark(b)
+	report := newReporter(s)
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := finishSimulation(s, report); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var kernelTime float64
+	if err := db.QueryRowContext(t.Context(), `
+ SELECT Value FROM mgpusim_metrics
+ WHERE Location = 'Driver' AND What = 'kernel_time'`).Scan(&kernelTime); err != nil {
+		t.Fatal(err)
+	}
+	if kernelTime <= 0 {
+		t.Fatalf("unified kernel time is %g", kernelTime)
+	}
+	var activeCPI float64
+	if err := db.QueryRowContext(t.Context(), `
+ SELECT c.Value FROM mgpusim_metrics c
+ JOIN mgpusim_metrics i ON c.Location = i.Location
+ WHERE c.What = 'cu_CPI' AND i.What = 'cu_inst_count' AND i.Value > 0
+ LIMIT 1`).Scan(&activeCPI); err != nil {
+		t.Fatal(err)
+	}
+	if activeCPI <= 0 || math.IsInf(activeCPI, 0) || math.IsNaN(activeCPI) {
+		t.Fatalf("active CU CPI is %g", activeCPI)
 	}
 }

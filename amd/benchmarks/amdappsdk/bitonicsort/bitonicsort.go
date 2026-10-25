@@ -353,18 +353,16 @@ func (b *Benchmark) Step() error {
 		}
 		b.nextPass()
 	case 5:
-		if !b.Verification {
-			b.Ended = true
-			return nil
-		}
 		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.gInputData, b.Length*4)
 		b.Phase = 6
 	case 6:
 		if err := b.driver.ReadResult(b.readback, b.outputData); err != nil {
 			return err
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.Ended = true
 	}

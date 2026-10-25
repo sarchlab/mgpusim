@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
@@ -123,6 +124,7 @@ func finishCollectiveTraining(t *testing.T, s *sim.Simulation, r *runner.Runner,
 	if err := r.Run(); err != nil {
 		t.Fatal(err)
 	}
+	checkReplicatedParameters(t, s, b)
 	state, err := b.trainer.Snapshot()
 	if err != nil {
 		t.Fatal(err)
@@ -142,6 +144,52 @@ func finishCollectiveTraining(t *testing.T, s *sim.Simulation, r *runner.Runner,
 		t.Fatal(err)
 	}
 	t.Logf("two GPU conv/relu/maxpool/FC training: losses %v, time %d ps", state.LastLoss, s.Engine().CurrentTime())
+}
+
+// The two replicas see different input batches, but reduced gradients and Adam
+// must leave every trainable parameter identical after the final update.
+func checkReplicatedParameters(t *testing.T, s *sim.Simulation, b *trainingWorkload) {
+	t.Helper()
+	trainer := &b.trainer
+	ids := make([][]driver.CommandID, len(trainer.Networks))
+	for gpu, network := range trainer.Networks {
+		ids[gpu] = make([]driver.CommandID, len(network.Layers))
+		for i, layer := range network.Layers {
+			if p := layer.Parameters(); p != nil {
+				ids[gpu][i] = trainer.TensorOperators[gpu].EnqueueReadback(p)
+			}
+		}
+	}
+	for _, c := range s.Components() {
+		if c.Name() == "Driver" {
+			c.(interface{ TickLater() }).TickLater()
+		}
+	}
+	if err := s.Run(); err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for i, layer := range trainer.Networks[0].Layers {
+		p := layer.Parameters()
+		if p == nil {
+			continue
+		}
+		other := trainer.Networks[1].Layers[i].Parameters()
+		if err := trainer.TensorOperators[0].ReadTensor(ids[0][i], p); err != nil {
+			t.Fatal(err)
+		}
+		if err := trainer.TensorOperators[1].ReadTensor(ids[1][i], other); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(p.Vector(), other.Vector()) {
+			t.Fatalf("layer %d parameters differ after reduction and Adam", i)
+		}
+		checked += p.NumElement()
+	}
+	if checked == 0 {
+		t.Fatal("no trainable parameters checked")
+	}
+	t.Logf("checked %d replicated parameters", checked)
 }
 
 //nolint:funlen,gocognit // Keep the fresh-process collective recovery scenario together.

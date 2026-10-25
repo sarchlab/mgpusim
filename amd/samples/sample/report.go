@@ -139,27 +139,12 @@ func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
 		panic("runner: missing driver")
 	}
 
-	if *unifiedGPUFlag != "" {
-		tracer := tracing.NewBusyTimeTracer(
-			func(task tasks.Task) bool {
-				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
-			})
-		s.TaskTracker().Subscribe(tracer, driverComp)
-		r.kernelTimeTracer = &kernelTimeTracer{
-			tracer: tracer,
-			comp:   driverComp,
-		}
-	} else {
-		tracer := tracing.NewBusyTimeTracer(
-			func(task tasks.Task) bool {
-				return task.What == "*driver.LaunchKernelCommand"
-			})
-		s.TaskTracker().Subscribe(tracer, driverComp)
-		r.kernelTimeTracer = &kernelTimeTracer{
-			tracer: tracer,
-			comp:   driverComp,
-		}
-	}
+	tracer := tracing.NewBusyTimeTracer(
+		func(task tasks.Task) bool {
+			return task.What == "*driver.LaunchKernelCommand"
+		})
+	s.TaskTracker().Subscribe(tracer, driverComp)
+	r.kernelTimeTracer = &kernelTimeTracer{tracer: tracer, comp: driverComp}
 
 	for _, comp := range s.Components() {
 		if strings.Contains(comp.Name(), "CommandProcessor") {

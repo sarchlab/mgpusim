@@ -286,11 +286,6 @@ func (b *Benchmark) Step() error {
 		b.exec()
 		b.Phase = 2
 	case 2:
-		if !b.Verification {
-			b.readbacks = nil
-			b.Ended = true
-			return nil
-		}
 		for i := range b.readbacks {
 			var dst any
 			switch b.readbacks[i].Target {
@@ -311,8 +306,10 @@ func (b *Benchmark) Step() error {
 				return err
 			}
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.readbacks = nil
 		b.Ended = true

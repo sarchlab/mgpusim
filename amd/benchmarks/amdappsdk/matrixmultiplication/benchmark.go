@@ -116,18 +116,16 @@ func (b *Benchmark) Step() error {
 		b.launchKernel(b.gA, b.gB, b.gC, &b.MatrixA, &b.MatrixC)
 		b.Phase = 2
 	case 2:
-		if !b.Verification {
-			b.Ended = true
-			return nil
-		}
 		b.readback = b.driver.EnqueueMemCopyD2H(b.queue, b.gC, len(b.MatrixC.Data)*4)
 		b.Phase = 3
 	case 3:
 		if err := b.driver.ReadResult(b.readback, b.MatrixC.Data); err != nil {
 			return err
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.Ended = true
 	}

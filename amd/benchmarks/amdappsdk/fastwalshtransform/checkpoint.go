@@ -12,8 +12,6 @@ type checkpointState struct {
 	Progress         benchmarks.Progress
 	InitialConfig    checkpointConfig
 	ConfigCaptured   bool
-	Stage            uint32
-	QueueIndex       int
 	Readback         driver.CommandID
 	Context          driver.Context
 	Gpus             []int
@@ -52,8 +50,6 @@ func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
 		Progress:         b.Progress,
 		InitialConfig:    b.initialConfig,
 		ConfigCaptured:   b.configCaptured,
-		Stage:            b.stage,
-		QueueIndex:       b.queueIndex,
 		Readback:         b.readback,
 		Context:          b.context,
 		Gpus:             b.gpus,
@@ -74,8 +70,6 @@ func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
 	b.Progress = s.Progress
 	b.initialConfig = s.InitialConfig
 	b.configCaptured = s.ConfigCaptured
-	b.stage = s.Stage
-	b.queueIndex = s.QueueIndex
 	b.readback = s.Readback
 	b.context = s.Context
 	b.gpus = s.Gpus

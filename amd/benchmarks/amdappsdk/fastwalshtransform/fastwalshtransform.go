@@ -50,8 +50,6 @@ type Benchmark struct {
 	benchmarks.Progress
 	initialConfig  checkpointConfig
 	configCaptured bool
-	stage          uint32
-	queueIndex     int
 	readback       driver.CommandID
 	driver         *driver.Runtime
 	context        driver.Context
@@ -144,11 +142,9 @@ func printArray(array []float32, n uint32) {
 	}
 }
 
-func (b *Benchmark) execStage() {
+func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
 	globalThreadSize := b.Length / 2
 	localThreadSize := uint16(256)
-
-	queue, step := b.queues[b.queueIndex], b.stage
 
 	if b.Arch == arch.CDNA3 {
 		wgSizeX := localThreadSize
@@ -232,33 +228,25 @@ func (b *Benchmark) Step() error {
 		b.initialConfig = b.checkpointConfig()
 		b.configCaptured = true
 		b.setup()
-		b.stage = 1
 		b.Phase = 1
 	case 1:
-		if b.stage < b.Length {
-			b.execStage()
-			b.stage <<= 1
-			return nil
-		}
-		b.queueIndex++
-		if b.queueIndex < len(b.queues) {
-			b.stage = 1
-			return nil
+		for _, queue := range b.queues {
+			for step := uint32(1); step < b.Length; step <<= 1 {
+				b.execStage(queue, step)
+			}
 		}
 		b.Phase = 2
 	case 2:
-		if !b.Verification {
-			b.Ended = true
-			return nil
-		}
 		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.dInputArray, int(b.Length)*4)
 		b.Phase = 3
 	case 3:
 		if err := b.driver.ReadResult(b.readback, b.hInputArray); err != nil {
 			return err
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.Ended = true
 	}
