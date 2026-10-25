@@ -127,3 +127,5 @@ MIT © Project Akita Developers.
 <!-- Security scan triggered at 2026-09-10 04:14:39 -->
 
 <!-- Security scan triggered at 2026-09-11 07:33:00 -->
+The V5 host API and checkpoint migration are described in
+[Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md).
