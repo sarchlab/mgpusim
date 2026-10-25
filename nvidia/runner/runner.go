@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -135,21 +136,25 @@ func newSimulation(opts Options) (*simulation.Simulation, error) {
 }
 
 // Run simulates the trace in opts.TraceDir on opts.Device.
-func Run(opts Options) (Result, error) {
+func Run(opts Options) (result Result, err error) {
 	bm := benchmark.Load(opts.TraceDir)
 
 	sim, err := newSimulation(opts)
 	if err != nil {
 		return Result{}, err
 	}
-	defer sim.Terminate()
+	defer func() {
+		if termErr := sim.Terminate(); termErr != nil {
+			err = errors.Join(err, fmt.Errorf("terminate simulation: %w", termErr))
+		}
+	}()
 	engine := sim.Engine()
 	p := platform.Build(sim, opts.Device)
 	if err := sim.Initialize(); err != nil {
 		return Result{}, fmt.Errorf("initialize simulation: %w", err)
 	}
 
-	result := Result{Device: opts.Device.Name, Freq: opts.Device.Freq}
+	result = Result{Device: opts.Device.Name, Freq: opts.Device.Freq}
 
 	for _, exec := range bm.TraceExecs {
 		if k, ok := exec.(*benchmark.ExecKernel); ok {
