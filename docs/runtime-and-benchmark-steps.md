@@ -119,3 +119,11 @@ shift slightly even though device latency settings are unchanged; deterministic
 repeated runs are required, rather than bitwise timing parity with the old loop.
 KMeans requires a positive `MaxIter`; nonpositive limits return an error before
 allocation or command submission.
+
+The VGG16 checkpoint regression constructs the real full layer/parameter/view
+graph and uses a synthetic ImageNet image plus bounded first-layer transfers.
+It seeds the trainer at epoch completion to test wrapper serialization and
+fresh-process restore without allocating giant randomization buffers or running
+full 224×224 training. Separate small-network tests exercise convolution,
+max-pooling, fully connected layers, Adam and multi-GPU collective recovery.
+This bounded graph test does not establish full VGG16 training accuracy.

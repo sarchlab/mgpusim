@@ -4,7 +4,6 @@ package kmeans
 import (
 	"fmt"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -461,7 +460,9 @@ func (b *Benchmark) verify() error {
 
 	b.cpuKMeans()
 
-	b.compareCentroids(b.hClusters, gpuCentroids)
+	if err := b.compareCentroids(b.hClusters, gpuCentroids); err != nil {
+		return err
+	}
 
 	cpuRMSE := b.calculateRMSE()
 	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
@@ -524,16 +525,17 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 	return delta
 }
 
-func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
+func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) error {
 	for i := 0; i < b.NumClusters; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			index := i*b.NumFeatures + j
 			if cpuCentroids[index] != gpuCentroids[index] {
-				log.Panicf("centroid %d feature %d mismatch, CPU %f, GPU %f",
+				return fmt.Errorf("centroid %d feature %d mismatch, CPU %f, GPU %f",
 					i, j, cpuCentroids[index], gpuCentroids[index])
 			}
 		}
 	}
+	return nil
 }
 
 func (b *Benchmark) Step() error {
