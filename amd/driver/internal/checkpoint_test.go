@@ -28,7 +28,7 @@ func checkAllocatorContinuation(t *testing.T, buddy bool) {
 	block := original.Allocate(1, 3*4096, 1)
 	original.Allocate(1, 5*4096, 2)
 	original.Allocate(1, 4096, 3)
-	original.Free(block) // Preserve a partly freed buddy block's shared tracker.
+	original.Free(1, block, 4096) // Preserve a partly freed buddy block's shared tracker.
 	var data bytes.Buffer
 	if err := modeling.WriteCheckpoint(&data, struct{}{}, SnapshotAllocator(original, devices), nil); err != nil {
 		t.Fatal(err)
@@ -38,8 +38,12 @@ func checkAllocatorContinuation(t *testing.T, buddy bool) {
 		t.Fatal(err)
 	}
 	restoredTable := vm.NewPageTable(12)
-	for _, page := range saved.Pages {
-		restoredTable.Insert(page)
+	var tableData bytes.Buffer
+	if err := table.SaveCheckpoint(&tableData); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoredTable.LoadCheckpoint(&tableData); err != nil {
+		t.Fatal(err)
 	}
 	restored, restoredDevices, err := RestoreAllocator(saved, restoredTable)
 	if err != nil {
@@ -49,8 +53,8 @@ func checkAllocatorContinuation(t *testing.T, buddy bool) {
 		t.Fatal("unified GPU lost shared device identity")
 	}
 	for _, allocator := range []MemoryAllocator{original, restored} {
-		allocator.Free(block + 4096)
-		allocator.Free(block + 8192)
+		allocator.Free(1, block+4096, 4096)
+		allocator.Free(1, block+8192, 4096)
 	}
 	for _, request := range []struct {
 		size   uint64

@@ -7,7 +7,7 @@ import (
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.
 type distributor interface {
 	Distribute(
-		ctx *Context,
+		ctx *contextData,
 		addr, byteSize uint64,
 		gpuIDs []int,
 	) (byteAllocatedOnEachGPU []uint64)
@@ -25,7 +25,7 @@ func newDistributorImpl(memAllocator internal.MemoryAllocator) *distributorImpl 
 }
 
 func (d *distributorImpl) Distribute(
-	ctx *Context,
+	ctx *contextData,
 	addr, byteSize uint64,
 	gpuIDs []int,
 ) (byteAllocatedOnEachGPU []uint64) {
@@ -51,7 +51,7 @@ func (d *distributorImpl) Distribute(
 	var lastAllocatedGPU uint64
 	for i = 0; i < numGPUsToUse; i++ {
 		d.memAllocator.Remap(
-			ctx.pid,
+			ctx.PID,
 			addr+i*numPagesPerGPU*pageSize,
 			numPagesPerGPU*pageSize,
 			gpuIDs[i],
@@ -62,7 +62,7 @@ func (d *distributorImpl) Distribute(
 
 	for i := uint64(0); i < remainingPages; i++ {
 		d.memAllocator.Remap(
-			ctx.pid,
+			ctx.PID,
 			addr+(numPagesPerGPU*numGPUsToUse+i)*pageSize,
 			pageSize,
 			gpuIDs[lastAllocatedGPU],

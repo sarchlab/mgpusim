@@ -2,190 +2,81 @@ package driver
 
 import (
 	"encoding/binary"
-	"reflect"
-
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"reflect"
 )
 
-// EnqueueLaunchKernel schedules kernel to be launched later
-func (d *Driver) EnqueueLaunchKernel(
-	queue *CommandQueue,
+// EnqueueLaunchKernel captures code, dispatch dimensions and argument values.
+func (r *Runtime) EnqueueLaunchKernel(
+	q CommandQueue,
 	co *insts.KernelCodeObject,
-	gridSize [3]uint32,
-	wgSize [3]uint16,
-	kernelArgs interface{},
-) {
-	dev := d.devices[queue.GPUID]
-
-	if dev.Type == internal.DeviceTypeUnifiedGPU {
-		d.enqueueLaunchUnifiedKernel(queue, co, gridSize, wgSize, kernelArgs)
-	} else {
-		dCoData, cached := d.codeObjGPUAddrs[co]
-		if !cached {
-			dCoData = d.AllocateMemory(queue.Context, uint64(len(co.Data)))
-			d.codeObjGPUAddrs[co] = dCoData
-		}
-
-		dKernArgData := d.AllocateMemory(queue.Context, co.KernargSegmentByteSize)
-
-		packet := kernels.HsaKernelDispatchPacket{}
-		dPacket := d.AllocateMemory(queue.Context, uint64(binary.Size(packet)))
-
-		aqlPacket := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, aqlPacket)
-
-		if !cached {
-			d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-		}
-		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
-		d.EnqueueMemCopyH2D(queue, dPacket, aqlPacket)
-
-		d.enqueueLaunchKernelCommand(queue, co, aqlPacket, dPacket)
+	grid [3]uint32,
+	group [3]uint16,
+	args any,
+) CommandID {
+	queue := r.queue(q)
+	h := queue.Context
+	ctx := r.context(h)
+	gpu := ctx.GPU
+	defer func() { r.context(h).GPU = gpu }()
+	gpus := []int{queue.GPU}
+	if dev := r.devices[queue.GPU]; dev.Type == internal.DeviceTypeUnifiedGPU {
+		gpus = append([]int(nil), dev.UnifiedGPUIDs...)
 	}
+	cmd := Command{Kind: launchKernel, Code: insts.CodeObjectSnapshot(co), GPUs: gpus}
+	for _, device := range gpus {
+		ctx.GPU = device
+		var code Ptr
+		for _, entry := range r.state.Codes {
+			if entry.Queue == q && entry.PID == ctx.PID && entry.GPU == device && reflect.DeepEqual(entry.Code, cmd.Code) {
+				code = entry.Address
+				break
+			}
+		}
+		if code == 0 {
+			code = r.AllocateMemory(h, uint64(len(co.Data)))
+			r.state.Codes = append(r.state.Codes, codeAddress{q, ctx.PID, device, cmd.Code, code})
+			r.EnqueueMemCopyH2D(q, code, co.Data)
+		}
+		argAddress := r.AllocateMemory(h, co.KernargSegmentByteSize)
+		packet := kernels.HsaKernelDispatchPacket{
+			GridSizeX:      grid[0],
+			GridSizeY:      grid[1],
+			GridSizeZ:      grid[2],
+			WorkgroupSizeX: group[0],
+			WorkgroupSizeY: group[1],
+			WorkgroupSizeZ: group[2],
+			KernelObject:   uint64(code),
+			KernargAddress: uint64(argAddress),
+		}
+		captured := prepareLocalMemory(co, args, &packet)
+		packetAddress := r.AllocateMemory(h, uint64(binary.Size(packet)))
+		r.EnqueueMemCopyH2D(q, argAddress, captured)
+		r.EnqueueMemCopyH2D(q, packetAddress, packet)
+		cmd.Packets = append(cmd.Packets, kernels.PacketSnapshot(&packet))
+		cmd.PacketAddresses = append(cmd.PacketAddresses, packetAddress)
+	}
+	return r.enqueue(q, cmd)
 }
-
-func (d *Driver) allocateGPUMemory(
-	ctx *Context,
-	co *insts.KernelCodeObject,
-) (dCoData, dKernArgData, dPacket Ptr) {
-	dCoData = d.AllocateMemory(ctx, uint64(len(co.Data)))
-	dKernArgData = d.AllocateMemory(ctx, co.KernargSegmentByteSize)
-
-	packet := kernels.HsaKernelDispatchPacket{}
-	dPacket = d.AllocateMemory(ctx, uint64(binary.Size(packet)))
-
-	return dCoData, dKernArgData, dPacket
-}
-
-func (d *Driver) prepareLocalMemory(
-	co *insts.KernelCodeObject,
-	kernelArgs interface{},
-	packet *kernels.HsaKernelDispatchPacket,
-) (newKernelArgs interface{}) {
-	newKernelArgs = reflect.New(reflect.TypeOf(kernelArgs).Elem()).Interface()
-	reflect.ValueOf(newKernelArgs).Elem().
-		Set(reflect.ValueOf(kernelArgs).Elem())
-
-	ldsSize := co.GroupSegmentByteSize
-
-	if reflect.TypeOf(newKernelArgs).Kind() == reflect.Slice {
-		// From server, do nothing
-	} else {
-		kernArgStruct := reflect.ValueOf(newKernelArgs).Elem()
-		for i := 0; i < kernArgStruct.NumField(); i++ {
-			arg := kernArgStruct.Field(i).Interface()
-
-			switch ldsPtr := arg.(type) {
-			case LocalPtr:
-				kernArgStruct.Field(i).SetUint(uint64(ldsSize))
-				ldsSize += uint32(ldsPtr)
+func prepareLocalMemory(co *insts.KernelCodeObject, args any, packet *kernels.HsaKernelDispatchPacket) any {
+	value := reflect.ValueOf(args)
+	if value.Kind() != reflect.Pointer || value.IsNil() {
+		panic("runtime: kernel arguments must be a non-nil pointer")
+	}
+	captured := reflect.New(value.Elem().Type())
+	captured.Elem().Set(value.Elem())
+	lds := co.GroupSegmentByteSize
+	if captured.Elem().Kind() == reflect.Struct {
+		fields := captured.Elem()
+		for i := 0; i < fields.NumField(); i++ {
+			if size, ok := fields.Field(i).Interface().(LocalPtr); ok {
+				fields.Field(i).SetUint(uint64(lds))
+				lds += uint32(size)
 			}
 		}
 	}
-
-	packet.GroupSegmentSize = ldsSize
-
-	return newKernelArgs
-}
-
-// LaunchKernel is an easy way to run a kernel on the GCN3 simulator. It
-// launches the kernel immediately.
-func (d *Driver) LaunchKernel(
-	ctx *Context,
-	co *insts.KernelCodeObject,
-	gridSize [3]uint32,
-	wgSize [3]uint16,
-	kernelArgs interface{},
-) {
-	queue := d.CreateCommandQueue(ctx)
-	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, kernelArgs)
-	d.DrainCommandQueue(queue)
-}
-
-func (d *Driver) createAQLPacket(
-	gridSize [3]uint32,
-	wgSize [3]uint16,
-	dCoData Ptr,
-	dKernArgData Ptr,
-) *kernels.HsaKernelDispatchPacket {
-	packet := new(kernels.HsaKernelDispatchPacket)
-	packet.GridSizeX = gridSize[0]
-	packet.GridSizeY = gridSize[1]
-	packet.GridSizeZ = gridSize[2]
-	packet.WorkgroupSizeX = wgSize[0]
-	packet.WorkgroupSizeY = wgSize[1]
-	packet.WorkgroupSizeZ = wgSize[2]
-	packet.KernelObject = uint64(dCoData)
-	packet.KernargAddress = uint64(dKernArgData)
-	return packet
-}
-
-func (d *Driver) enqueueLaunchKernelCommand(
-	queue *CommandQueue,
-	co *insts.KernelCodeObject,
-	packet *kernels.HsaKernelDispatchPacket,
-	dPacket Ptr,
-) {
-	cmd := &LaunchKernelCommand{
-		ID:         d.NewID(),
-		CodeObject: co,
-		DPacket:    dPacket,
-		Packet:     packet,
-	}
-	d.Enqueue(queue, cmd)
-}
-
-func (d *Driver) enqueueLaunchUnifiedKernelCommand(
-	queue *CommandQueue,
-	co *insts.KernelCodeObject,
-	packet []*kernels.HsaKernelDispatchPacket,
-	dPacket []Ptr,
-) {
-	cmd := &LaunchUnifiedMultiGPUKernelCommand{
-		ID:           d.NewID(),
-		CodeObject:   co,
-		DPacketArray: dPacket,
-		PacketArray:  packet,
-	}
-	d.Enqueue(queue, cmd)
-}
-func (d *Driver) enqueueLaunchUnifiedKernel(
-	queue *CommandQueue,
-	co *insts.KernelCodeObject,
-	gridSize [3]uint32,
-	wgSize [3]uint16,
-	kernelArgs interface{},
-) {
-	dev := d.devices[queue.GPUID]
-	initGPUID := queue.Context.currentGPUID
-	queueArray := make([]*CommandQueue, len(dev.UnifiedGPUIDs)+1)
-	dCoDataArray := make([]Ptr, len(dev.UnifiedGPUIDs)+1)
-	dKernArgDataArray := make([]Ptr, len(dev.UnifiedGPUIDs)+1)
-	dPacketArray := make([]Ptr, len(dev.UnifiedGPUIDs)+1)
-	packetArray := make([]*kernels.HsaKernelDispatchPacket, len(dev.UnifiedGPUIDs)+1)
-	// fmt.Printf("# of GPUs : %v \n", len(dev.UnifiedGPUIDs))
-
-	for i, gpuID := range dev.UnifiedGPUIDs {
-		queueArray[i] = queue
-		queueArray[i].Context.currentGPUID = gpuID
-		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
-
-		packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, packet)
-
-		d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
-		d.EnqueueMemCopyH2D(queue, dPacket, packet)
-
-		dCoDataArray[i] = dCoData
-		dKernArgDataArray[i] = dKernArgData
-		dPacketArray[i] = dPacket
-		packetArray[i] = packet
-		// fmt.Printf("packetArray: %v \n", packetArray[i])
-	}
-
-	queue.Context.currentGPUID = initGPUID
-	d.enqueueLaunchUnifiedKernelCommand(queue, co, packetArray, dPacketArray)
+	packet.GroupSegmentSize = lds
+	return captured.Interface()
 }

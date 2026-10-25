@@ -2,443 +2,274 @@ package driver
 
 import (
 	"fmt"
-
-	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-
-	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"go.uber.org/mock/gomock"
+	"testing"
 )
 
-// noopConn is a minimal messaging.Connection used to drive the driver's real
-// GPU port in isolation. Tests feed responses via Deliver and read sent
-// requests via RetrieveOutgoing.
-type noopConn struct {
-	hooking.HookableBase
+// noopConn leaves outgoing messages available to protocol assertions.
+type noopConn struct{ hooking.HookableBase }
+
+func (c *noopConn) Name() string                   { return "NoopConn" }
+func (c *noopConn) BindPort(p messaging.Port)      { p.BindConnection(c) }
+func (c *noopConn) Unplug(messaging.Port)          {}
+func (c *noopConn) NotifyAvailable(messaging.Port) {}
+func (c *noopConn) NotifySend(messaging.Port)      {}
+
+type fixture struct {
+	s    *sim.Simulation
+	c    *Comp
+	r    *Runtime
+	ctx  Context
+	q    CommandQueue
+	p    *vm.PageTable
+	port messaging.Port
 }
 
-func (c *noopConn) Name() string                     { return "NoopConn" }
-func (c *noopConn) BindPort(port messaging.Port)     { port.BindConnection(c) }
-func (c *noopConn) Unplug(_ messaging.Port)          {}
-func (c *noopConn) NotifyAvailable(_ messaging.Port) {}
-func (c *noopConn) NotifySend(messaging.Port)        {}
-
-var _ = ginkgo.Describe("Driver", func() {
-	var (
-		mockCtrl     *gomock.Controller
-		pageTable    *vm.PageTable
-		driver       *Driver
-		simulation   *sim.Simulation
-		toGPUs       messaging.Port
-		context      *Context
-		cmdQueue     *CommandQueue
-		memAllocator *MockMemoryAllocator
-	)
-
-	ginkgo.BeforeEach(func() {
-		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
-		simulation = sim.MakeBuilder().Build()
-		pageTable = vm.NewPageTable(11) // Exercise the existing mixed 2KB/4KB page metadata fixture.
-		memAllocator = NewMockMemoryAllocator(mockCtrl)
-		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
-
-		spec := DefaultSpec()
-		spec.Log2PageSize = 12
-		spec.D2HCycles = 1
-		spec.H2DCycles = 1
-
-		driver = MakeBuilder().
-			WithSimulation(simulation).
-			WithSpec(spec).
-			WithResources(Resources{PageTable: pageTable}).
-			Build("Driver")
-		driver.memAllocator = memAllocator
-
-		toGPUs = twowaybuffered.MakeBuilder().
-			WithSimulation(simulation).
-			WithSpec(twowaybuffered.Spec{IncomingCapacity: 16, OutgoingCapacity: 16}).
-			Build()
-		driver.BindPort(GPUPortName, toGPUs)
-		(&noopConn{}).BindPort(toGPUs)
-		Expect(simulation.Initialize()).To(Succeed())
-
-		for i := 0; i < 2; i++ {
-			driver.RegisterGPU(
-				messaging.RemotePort(
-					fmt.Sprintf("GPU[%d].CommandProcessor", i+1)),
-				DeviceProperties{
-					CUCount:  4,
-					DRAMSize: 4 * mem.GB,
-				})
+func newFixture(t *testing.T, mixed bool) *fixture {
+	t.Helper()
+	f := &fixture{s: sim.MakeBuilder().Build()}
+	pageBits := uint64(12)
+	if mixed {
+		pageBits = 11
+	}
+	f.p = vm.NewPageTable(pageBits)
+	spec := DefaultSpec()
+	spec.H2DCycles = 1
+	spec.D2HCycles = 1
+	for i := 0; i < 2; i++ {
+		spec.GPUs = append(spec.GPUs, messaging.RemotePort(fmt.Sprintf("GPU[%d].CommandProcessor", i+1)))
+		spec.Devices = append(spec.Devices, DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
+	}
+	f.r = NewRuntime(f.s, "Runtime", spec, f.p)
+	f.c = MakeBuilder().WithSimulation(f.s).WithSpec(spec).WithResources(Resources{
+		Runtime:   f.r,
+		PageTable: f.p,
+	}).Build("Driver")
+	f.port = twowaybuffered.MakeBuilder().WithSimulation(f.s).WithSpec(twowaybuffered.Spec{
+		IncomingCapacity: 16,
+		OutgoingCapacity: 16,
+	}).Build()
+	f.c.BindPort(GPUPortName, f.port)
+	(&noopConn{}).BindPort(f.port)
+	if err := f.s.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := f.s.Terminate(); err != nil {
+			t.Error(err)
 		}
-
-		context = driver.Init()
-		context.pid = 1
-		cmdQueue = driver.CreateCommandQueue(context)
 	})
+	f.ctx = f.r.Init()
+	f.q = f.r.CreateCommandQueue(f.ctx)
+	return f
+}
+func tickDriver(c *Comp) bool { return c.Middlewares.Execute.Tick() }
+func (f *fixture) running(cmd Command, reqs []messaging.Msg) CommandID {
+	id := f.r.enqueue(f.q, cmd)
+	cmd, _ = f.r.take(f.q)
+	f.c.State.Executing = append(
+		f.c.State.Executing,
+		Execution{Queue: f.q, Command: cmd, Requests: append([]messaging.Msg(nil), reqs...)},
+	)
+	return id
+}
+func (f *fixture) request(payload any) messaging.Msg {
+	return messaging.Msg{ID: f.c.NewID(), Src: f.port.AsRemote(), Dst: f.c.Spec.GPUs[0], Payload: payload}
+}
+func (f *fixture) reply(req messaging.Msg, payload any) {
+	f.port.Deliver(messaging.Msg{ID: f.c.NewID(), RspTo: req.ID, Src: req.Dst, Dst: req.Src, Payload: payload})
+	tickDriver(f.c)
+}
 
-	ginkgo.AfterEach(func() {
-		mockCtrl.Finish()
-		Expect(simulation.Terminate()).To(Succeed())
-	})
-
-	makeMemCopyH2DReq := func(dst uint64, data []byte) messaging.Msg {
-		return messaging.Msg{ID: driver.NewID(),
-			Src: toGPUs.AsRemote(),
-			Dst: driver.GPUs[0], Payload: protocol.MemCopyH2DReq{SrcBuffer: data,
-				DstAddress: dst}}
-
-	}
-
-	makeMemCopyD2HReq := func(src uint64, data []byte) messaging.Msg {
-		return messaging.Msg{ID: driver.NewID(),
-			Src: toGPUs.AsRemote(),
-			Dst: driver.GPUs[0], Payload: protocol.MemCopyD2HReq{SrcAddress: src,
-				ByteSize: uint64(len(data))}}
-
-	}
-
-	deliverGeneralRsp := func(rspTo uint64) {
-		rsp := messaging.Msg{ID: driver.NewID(),
-			Src:   driver.GPUs[0],
-			Dst:   toGPUs.AsRemote(),
-			RspTo: rspTo, Payload: protocol.GeneralRsp{}}
-
-		toGPUs.Deliver(rsp)
-	}
-
-	ginkgo.Context("process MemCopyH2D command", func() {
-		ginkgo.It("should send request", func() {
-			srcData := make([]byte, 0x2200)
-			cmd := &MemCopyH2DCommand{
-				ID:  driver.NewID(),
-				Dst: Ptr(0x200000100),
-				Src: srcData,
+//nolint:gocognit // Keep each recovery/protocol scenario with its complete assertions.
+func TestCopyRequestPartitioning(t *testing.T) {
+	for _, read := range []bool{false, true} {
+		t.Run(fmt.Sprint("D2H=", read), func(t *testing.T) {
+			f := newFixture(t, true)
+			mock := NewMockMemoryAllocator(gomock.NewController(t))
+			f.r.allocator = mock
+			sizes := []uint64{0x800, 0x800, 0x1000, 0x1000}
+			v, p := uint64(0x200000000), uint64(0x100000000)
+			for _, size := range sizes {
+				f.p.Insert(vm.Page{PID: 1, VAddr: v, PAddr: p, PageSize: size, Valid: true})
+				v += size
+				p += size
 			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = false
-
-			pageTable.Insert(vm.Page{
-				PID:      1,
-				VAddr:    0x200000000,
-				PAddr:    0x100000000,
-				PageSize: 0x800,
-				Valid:    true,
-			})
-			pageTable.Insert(vm.Page{
-				PID:      1,
-				VAddr:    0x200000800,
-				PAddr:    0x100000800,
-				PageSize: 0x800,
-				Valid:    true,
-			})
-			pageTable.Insert(vm.Page{
-				PID:      1,
-				VAddr:    0x200001000,
-				PAddr:    0x100001000,
-				PageSize: 0x1000,
-				Valid:    true,
-			})
-			pageTable.Insert(vm.Page{
-				PID:      1,
-				VAddr:    0x200002000,
-				PAddr:    0x100002000,
-				PageSize: 0x1000,
-				Valid:    true,
-			})
-			memAllocator.EXPECT().
-				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
-				Return(1)
-			memAllocator.EXPECT().
-				GetDeviceIDByPAddr(uint64(0x1_0000_0800)).
-				Return(1)
-			memAllocator.EXPECT().
-				GetDeviceIDByPAddr(uint64(0x1_0000_1000)).
-				Return(1)
-			memAllocator.EXPECT().
-				GetDeviceIDByPAddr(uint64(0x1_0000_2000)).
-				Return(1)
-
-			tickDriver(driver)
-			tickDriver(driver)
-			tickDriver(driver)
-
-			Expect(driver.requestsToSend).To(HaveLen(4))
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmd.Reqs).To(HaveLen(4))
-		})
-	})
-
-	ginkgo.Context("process MemCopyH2D return", func() {
-		ginkgo.It("should remove one request", func() {
-			req := makeMemCopyH2DReq(0x104, make([]byte, 4))
-			req2 := makeMemCopyH2DReq(0x100, make([]byte, 4))
-			cmd := &MemCopyH2DCommand{
-				ID:   driver.NewID(),
-				Dst:  Ptr(0x100),
-				Src:  uint32(1),
-				Reqs: []messaging.Msg{req, req2},
+			count := 4
+			if read {
+				count = 1
 			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = true
-
-			deliverGeneralRsp(req.ID)
-
-			tickDriver(driver)
-
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmdQueue.commands).To(HaveLen(1))
-			Expect(cmd.Reqs).NotTo(ContainElement(req))
-			Expect(cmd.Reqs).To(ContainElement(req2))
-		})
-
-		ginkgo.It("should remove command from queue if no more pending request",
-			func() {
-				req := makeMemCopyH2DReq(0x100, make([]byte, 4))
-				cmd := &MemCopyH2DCommand{
-					ID:   driver.NewID(),
-					Dst:  Ptr(0x100),
-					Src:  uint32(1),
-					Reqs: []messaging.Msg{req},
-				}
-				cmdQueue.Enqueue(cmd)
-				cmdQueue.IsRunning = true
-
-				deliverGeneralRsp(req.ID)
-
-				tickDriver(driver)
-
-				Expect(cmdQueue.IsRunning).To(BeFalse())
-				Expect(cmdQueue.NumCommand()).To(Equal(0))
-			})
-	})
-
-	ginkgo.Context("process MemCopyD2HCommand", func() {
-		ginkgo.It("should send request", func() {
-			data := uint32(1)
-			cmd := &MemCopyD2HCommand{
-				ID:  driver.NewID(),
-				Dst: &data,
-				Src: Ptr(0x2_0000_0100),
+			for _, a := range []uint64{0x100000100, 0x100000800, 0x100001000, 0x100002000}[:count] {
+				mock.EXPECT().GetDeviceIDByPAddr(a).Return(1)
 			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = false
-
-			pageTable.Insert(vm.Page{
-				PID:      1,
-				VAddr:    0x2_0000_0000,
-				PAddr:    0x1_0000_0000,
-				PageSize: 0x1000,
-				Valid:    true,
-			})
-			memAllocator.EXPECT().
-				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
-				Return(1)
-
-			tickDriver(driver)
-			tickDriver(driver)
-			tickDriver(driver)
-
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmd.Reqs).To(HaveLen(1))
-			Expect(driver.requestsToSend).To(HaveLen(1))
-		})
-	})
-
-	ginkgo.Context("process MemCopyD2H return", func() {
-		ginkgo.It("should remove request", func() {
-			data := uint64(0)
-			req := makeMemCopyD2HReq(0x100, []byte{1, 0, 0, 0})
-			req2 := makeMemCopyD2HReq(0x104, []byte{1, 0, 0, 0})
-			cmd := &MemCopyD2HCommand{
-				ID:      driver.NewID(),
-				Dst:     &data,
-				Src:     Ptr(0x100),
-				Reqs:    []messaging.Msg{req, req2},
-				RawData: make([]byte, 8),
-			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = true
-
-			toGPUs.Deliver(
-				messaging.Msg{
-					ID:      driver.NewID(),
-					RspTo:   req.ID,
-					Payload: protocol.MemCopyD2HRsp{Data: []byte{1, 0, 0, 0}},
-				},
-			)
-
-			tickDriver(driver)
-
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmdQueue.commands).To(HaveLen(1))
-			Expect(cmd.Reqs).To(ContainElement(req2))
-			Expect(cmd.Reqs).NotTo(ContainElement(req))
-		})
-
-		ginkgo.It("should continue queue", func() {
-			data := uint32(0)
-			req := makeMemCopyD2HReq(0x100, []byte{1, 0, 0, 0})
-			cmd := &MemCopyD2HCommand{
-				ID:      driver.NewID(),
-				Dst:     &data,
-				RawData: []byte{1, 0, 0, 0},
-				Src:     Ptr(0x100),
-				Reqs:    []messaging.Msg{req},
-			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = true
-
-			toGPUs.Deliver(
-				messaging.Msg{
-					ID:      driver.NewID(),
-					RspTo:   req.ID,
-					Payload: protocol.MemCopyD2HRsp{Data: []byte{1, 0, 0, 0}},
-				},
-			)
-
-			tickDriver(driver)
-
-			Expect(cmdQueue.IsRunning).To(BeFalse())
-			Expect(cmdQueue.commands).To(HaveLen(0))
-			Expect(data).To(Equal(uint32(1)))
-		})
-	})
-
-	ginkgo.DescribeTable("complete memory copy regardless of response order",
-		func(deviceToHost bool, order []int) {
-			data := uint32(0)
-			payload := []byte{0x78, 0x56, 0x34, 0x12}
-			var copyReq messaging.Msg
-			var cmd Command
-			if deviceToHost {
-				copyReq = makeMemCopyD2HReq(0x100, payload)
-				cmd = &MemCopyD2HCommand{
-					ID:  driver.NewID(),
-					Src: Ptr(0x100), Dst: &data, RawData: payload,
-				}
+			if read {
+				f.r.EnqueueMemCopyD2H(f.q, Ptr(0x200000100), 4)
 			} else {
-				copyReq = makeMemCopyH2DReq(0x100, payload)
-				cmd = &MemCopyH2DCommand{
-					ID:  driver.NewID(),
-					Dst: Ptr(0x100), Src: uint32(0x12345678),
+				f.r.EnqueueMemCopyH2D(f.q, Ptr(0x200000100), make([]byte, 0x2200))
+			}
+			for i := 0; i < 3; i++ {
+				tickDriver(f.c)
+			}
+			if len(f.r.queue(f.q).Pending) != 0 || f.r.Unfinished()[0] != 1 || len(f.c.State.Executing) != 1 {
+				t.Fatal("command did not transfer exactly once to Driver.State")
+			}
+			e := f.c.State.Executing[0]
+			if len(e.Requests) != count || len(f.c.State.RequestsToSend) != count {
+				t.Fatalf("requests: %+v", e)
+			}
+			if !read {
+				want := []int{0x700, 0x800, 0x1000, 0x300}
+				for i, req := range e.Requests {
+					if got := len(req.Payload.(protocol.MemCopyH2DReq).SrcBuffer); got != want[i] {
+						t.Fatalf("chunk %d=%d, want %d", i, got, want[i])
+					}
 				}
 			}
-			reqs := []messaging.Msg{copyReq}
-			for _, gpu := range driver.GPUs {
-				reqs = append(
-					reqs,
-					messaging.Msg{ID: driver.NewID(), Src: toGPUs.AsRemote(), Dst: gpu, Payload: protocol.FlushReq{}},
-				)
-			}
-			for _, req := range reqs {
-				cmd.AddReq(req)
-			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.Enqueue(&NoopCommand{ID: driver.NewID()})
-			cmdQueue.IsRunning = true
-
-			for i, index := range order {
-				if deviceToHost && index == 0 {
-					toGPUs.Deliver(
-						messaging.Msg{
-							ID:      driver.NewID(),
-							RspTo:   reqs[index].ID,
-							Payload: protocol.MemCopyD2HRsp{Data: payload},
-						},
-					)
-				} else {
-					deliverGeneralRsp(reqs[index].ID)
-				}
-				tickDriver(driver)
-				Expect(cmd.GetReqs()).To(HaveLen(len(order) - i - 1))
-				if i < len(order)-1 {
-					Expect(cmdQueue.IsRunning).To(BeTrue())
-					Expect(cmdQueue.NumCommand()).To(Equal(2))
-					Expect(data).To(BeZero())
-				}
-			}
-			// The last reply must release the copy and allow the next command
-			// to run, including when the last reply acknowledges a remote flush.
-			Expect(cmdQueue.IsRunning).To(BeFalse())
-			Expect(cmdQueue.NumCommand()).To(BeZero())
-			if deviceToHost {
-				Expect(data).To(Equal(uint32(0x12345678)))
-			}
-		},
-		ginkgo.Entry("H2D copy, flush 1, flush 2", false, []int{0, 1, 2}),
-		ginkgo.Entry("H2D copy, flush 2, flush 1", false, []int{0, 2, 1}),
-		ginkgo.Entry("H2D flush 1, copy, flush 2", false, []int{1, 0, 2}),
-		ginkgo.Entry("H2D flush 2, copy, flush 1", false, []int{2, 0, 1}),
-		ginkgo.Entry("H2D flush 1, flush 2, copy", false, []int{1, 2, 0}),
-		ginkgo.Entry("H2D flush 2, flush 1, copy", false, []int{2, 1, 0}),
-		ginkgo.Entry("D2H copy, flush 1, flush 2", true, []int{0, 1, 2}),
-		ginkgo.Entry("D2H copy, flush 2, flush 1", true, []int{0, 2, 1}),
-		ginkgo.Entry("D2H flush 1, copy, flush 2", true, []int{1, 0, 2}),
-		ginkgo.Entry("D2H flush 2, copy, flush 1", true, []int{2, 0, 1}),
-		ginkgo.Entry("D2H flush 1, flush 2, copy", true, []int{1, 2, 0}),
-		ginkgo.Entry("D2H flush 2, flush 1, copy", true, []int{2, 1, 0}),
-	)
-
-	ginkgo.Context("process LaunchKernelCommand", func() {
-		ginkgo.It("should send request to GPU", func() {
-			cmd := &LaunchKernelCommand{
-				ID:         driver.NewID(),
-				CodeObject: nil,
-				GridSize:   [3]uint32{256, 1, 1},
-				WGSize:     [3]uint16{64, 1, 1},
-				KernelArgs: nil,
-				Packet:     &kernels.HsaKernelDispatchPacket{},
-			}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = false
-
-			tickDriver(driver)
-
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmd.Reqs).To(HaveLen(1))
-			req := cmd.Reqs[0]
-			Expect(req.Payload.(protocol.LaunchKernelReq).PID).To(Equal(vm.PID(1)))
-			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
-	})
+	}
+}
 
-	ginkgo.It("should process LaunchKernel return", func() {
-		req := messaging.Msg{ID: driver.NewID(),
-			Src: toGPUs.AsRemote(),
-			Dst: driver.GPUs[0], Payload: protocol.LaunchKernelReq{}}
-
-		cmd := &LaunchKernelCommand{
-			ID:   driver.NewID(),
-			Reqs: []messaging.Msg{req},
+//nolint:gocognit // Keep each recovery/protocol scenario with its complete assertions.
+func TestCopyResponseOwnership(t *testing.T) {
+	for _, read := range []bool{false, true} {
+		for _, count := range []int{1, 2} {
+			t.Run(fmt.Sprintf("D2H=%v/requests=%d", read, count), func(t *testing.T) {
+				f := newFixture(t, false)
+				cmd := Command{Kind: copyH2D, Data: make([]byte, count*4)}
+				if read {
+					cmd.Kind = copyD2H
+					cmd.ByteSize = count * 4
+				}
+				reqs := make([]messaging.Msg, count)
+				for i := range reqs {
+					var p any = protocol.MemCopyH2DReq{DstAddress: uint64(0x100 + i*4)}
+					if read {
+						p = protocol.MemCopyD2HReq{SrcAddress: uint64(0x100 + i*4), ByteSize: 4, DstOffset: uint64(i * 4)}
+					}
+					reqs[i] = f.request(p)
+				}
+				id := f.running(cmd, reqs)
+				for i, req := range reqs {
+					var p any = protocol.GeneralRsp{}
+					if read {
+						p = protocol.MemCopyD2HRsp{Data: []byte{byte(i + 1), 0, 0, 0}}
+					}
+					f.reply(req, p)
+					if i+1 < count {
+						if len(f.c.State.Executing) != 1 || len(f.c.State.Executing[0].Requests) != count-i-1 ||
+							f.r.Unfinished()[0] != 1 {
+							t.Fatal("copy completed before all replies")
+						}
+						if err := f.r.ReadResult(id, make([]uint32, count)); err == nil {
+							t.Fatal("partial bytes became host-visible")
+						}
+					}
+				}
+				if len(f.c.State.Executing) != 0 || f.r.Unfinished()[0] != 0 {
+					t.Fatal("copy did not complete")
+				}
+				if read {
+					out := make([]uint32, count)
+					if err := f.r.ReadResult(id, out); err != nil {
+						t.Fatal(err)
+					}
+					for i, v := range out {
+						if v != uint32(i+1) {
+							t.Fatalf("output %v", out)
+						}
+					}
+				}
+			})
 		}
-		cmdQueue.Enqueue(cmd)
-		cmdQueue.IsRunning = true
+	}
+}
 
-		rsp := messaging.Msg{ID: driver.NewID(),
-			Src:   driver.GPUs[0],
-			Dst:   toGPUs.AsRemote(),
-			RspTo: req.ID, Payload: protocol.LaunchKernelRsp{}}
-
-		toGPUs.Deliver(rsp)
-
-		tickDriver(driver)
-
-		Expect(cmdQueue.IsRunning).To(BeFalse())
-		Expect(cmdQueue.commands).To(HaveLen(0))
-	})
-})
-
-func tickDriver(d *Driver) bool {
-	a := d.Middlewares.Send.Tick()
-	b := d.Middlewares.Memory.Tick()
-	c := d.Middlewares.Command.Tick()
-	return a || b || c
+//nolint:gocognit // Keep each recovery/protocol scenario with its complete assertions.
+func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
+	orders := [][]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}, {1, 2, 0}, {2, 1, 0}}
+	for _, read := range []bool{false, true} {
+		for _, order := range orders {
+			t.Run(fmt.Sprintf("D2H=%v/%v", read, order), func(t *testing.T) {
+				f := newFixture(t, false)
+				payload := []byte{0x78, 0x56, 0x34, 0x12}
+				cmd := Command{Kind: copyH2D, Data: make([]byte, 4)}
+				var copyPayload any = protocol.MemCopyH2DReq{SrcBuffer: payload}
+				if read {
+					cmd.Kind = copyD2H
+					cmd.ByteSize = 4
+					copyPayload = protocol.MemCopyD2HReq{ByteSize: 4}
+				}
+				reqs := []messaging.Msg{f.request(copyPayload), f.request(protocol.FlushReq{}), f.request(protocol.FlushReq{})}
+				id := f.running(cmd, reqs)
+				f.r.enqueue(f.q, Command{Kind: noop})
+				for i, index := range order {
+					var p any = protocol.GeneralRsp{}
+					if read && index == 0 {
+						p = protocol.MemCopyD2HRsp{Data: payload}
+					}
+					f.reply(reqs[index], p)
+					if i < 2 {
+						if f.r.Unfinished()[0] != 2 || len(f.r.queue(f.q).Pending) != 1 || len(f.c.State.Executing[0].Requests) != 2-i {
+							t.Fatal("flush/copy ownership released early")
+						}
+						if read {
+							var out uint32
+							if err := f.r.ReadResult(id, &out); err == nil || out != 0 {
+								t.Fatal("result delivered before last flush")
+							}
+						}
+					}
+				}
+				if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 || len(f.r.queue(f.q).Pending) != 0 {
+					t.Fatal("last reply did not release the copy and next noop")
+				}
+				if read {
+					var out uint32
+					if err := f.r.ReadResult(id, &out); err != nil {
+						t.Fatal(err)
+					}
+					if out != 0x12345678 {
+						t.Fatalf("result %x", out)
+					}
+				}
+			})
+		}
+	}
+}
+func TestKernelSubmitAndCompletion(t *testing.T) {
+	f := newFixture(t, false)
+	cmd := Command{
+		Kind: launchKernel,
+		GPUs: []int{1},
+		Packets: []kernels.PacketValue{{Packet: kernels.HsaKernelDispatchPacket{
+			GridSizeX:      256,
+			GridSizeY:      1,
+			GridSizeZ:      1,
+			WorkgroupSizeX: 64,
+			WorkgroupSizeY: 1,
+			WorkgroupSizeZ: 1,
+		}}},
+		PacketAddresses: []Ptr{0},
+	}
+	f.r.enqueue(f.q, cmd)
+	tickDriver(f.c)
+	if len(f.c.State.Executing) != 1 || len(f.c.State.Executing[0].Requests) != 1 || len(f.c.State.RequestsToSend) != 1 {
+		t.Fatal("kernel not submitted")
+	}
+	req := f.c.State.Executing[0].Requests[0]
+	if req.Payload.(protocol.LaunchKernelReq).PID != 1 {
+		t.Fatal("kernel lost PID")
+	}
+	f.reply(req, protocol.LaunchKernelRsp{})
+	if len(f.c.State.Executing) != 0 || f.r.Unfinished()[0] != 0 {
+		t.Fatal("kernel did not complete")
+	}
 }

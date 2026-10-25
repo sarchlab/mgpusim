@@ -11,7 +11,6 @@ import (
 // and physical storage are checkpointed by their registered Akita resources.
 type AllocatorState struct {
 	Log2PageSize, TotalStorageBytes uint64
-	Pages                           map[uint64]vm.Page
 	NextVAddr                       map[vm.PID]uint64
 	Devices                         []DeviceState
 }
@@ -137,7 +136,6 @@ func SnapshotAllocator(allocator MemoryAllocator, devices []*Device) AllocatorSt
 	s := AllocatorState{
 		Log2PageSize:      a.log2PageSize,
 		TotalStorageBytes: a.totalStorageByteSize,
-		Pages:             a.vAddrToPageMapping,
 		NextVAddr:         make(map[vm.PID]uint64),
 	}
 	for pid, p := range a.processMemoryStates {
@@ -164,7 +162,6 @@ func SnapshotAllocator(allocator MemoryAllocator, devices []*Device) AllocatorSt
 func RestoreAllocator(s AllocatorState, table *vm.PageTable) (MemoryAllocator, []*Device, error) {
 	a := NewMemoryAllocator(table, s.Log2PageSize).(*memoryAllocatorImpl)
 	a.totalStorageByteSize = s.TotalStorageBytes
-	a.vAddrToPageMapping = s.Pages
 	for pid, next := range s.NextVAddr {
 		a.processMemoryStates[pid] = &processMemoryState{pid: pid, nextVAddr: next}
 	}

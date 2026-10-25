@@ -16,7 +16,7 @@ type bitField struct {
 }
 
 func newBitField(size uint64) *bitField {
-	n := size / 64 + 1
+	n := size/64 + 1
 	bf := &bitField{
 		field: make([]uint64, n),
 		size:  size,
@@ -34,5 +34,5 @@ func (bf *bitField) checkBit(index uint64) bool {
 	arrayIndex := index / 64
 	bitIndex := index % 64
 	bits := bf.field[arrayIndex]
-	return bits & (1 << bitIndex) != 0
+	return bits&(1<<bitIndex) != 0
 }

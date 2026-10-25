@@ -1,4 +1,4 @@
-package runner
+package sample
 
 import (
 	"github.com/sarchlab/akita/v5/sim/tasks"

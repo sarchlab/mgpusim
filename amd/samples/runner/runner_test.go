@@ -1,135 +1,111 @@
 package runner
 
 import (
-	"database/sql"
-	"flag"
-	"os"
+	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
-func TestExplicitMetricFileReplacesPreviousRun(t *testing.T) {
-	oldFlags, oldFilename, oldDisableRTM := flag.CommandLine, filenameFlag, disableAkitaRTM
-	t.Cleanup(func() {
-		flag.CommandLine, filenameFlag, disableAkitaRTM = oldFlags, oldFilename, oldDisableRTM
-	})
-
-	for _, name := range []string{"results", "results.sqlite3"} {
-		t.Run(name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), name)
-			flag.CommandLine = flag.NewFlagSet("runner", flag.ContinueOnError)
-			filenameFlag = flag.CommandLine.String("metric-file-name", "metrics", "")
-			disableAkitaRTM = flag.CommandLine.Bool("disable-rtm", true, "")
-			if err := flag.CommandLine.Parse([]string{"-metric-file-name", path}); err != nil {
-				t.Fatal(err)
-			}
-
-			first := new(Runner)
-			first.initSimulation()
-			first.simulation.DataRecorder().CreateTable("previous_run", struct{ Value int }{})
-			if err := first.simulation.DataRecorder().Close(); err != nil {
-				t.Fatal(err)
-			}
-
-			second := new(Runner)
-			second.initSimulation()
-			t.Cleanup(func() { _ = second.simulation.DataRecorder().Close() })
-			// beta.10 treats the option as a base name and always appends
-			// the suffix, even when the base name already ends in it.
-			path += ".sqlite3"
-			if _, err := os.Stat(path); err != nil {
-				t.Fatal(err)
-			}
-			db, err := sql.Open("sqlite", path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			var tables int
-			err = db.QueryRowContext(t.Context(),
-				"SELECT count(*) FROM sqlite_master WHERE name = 'previous_run'").Scan(&tables)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if tables != 0 {
-				t.Fatal("the second run retained the previous recording")
-			}
-		})
-	}
+type stepBenchmark struct {
+	benchmarks.Progress
+	step func() error
 }
 
-func TestEmptyMetricFileUsesUniqueDefault(t *testing.T) {
-	oldFlags, oldFilename, oldDisableRTM := flag.CommandLine, filenameFlag, disableAkitaRTM
+func (b *stepBenchmark) Step() error                  { return b.step() }
+func (*stepBenchmark) SelectGPU([]int)                {}
+func (*stepBenchmark) SetUnifiedMemory()              {}
+func (*stepBenchmark) SaveCheckpoint(io.Writer) error { return nil }
+func (*stepBenchmark) LoadCheckpoint(io.Reader) error { return nil }
+
+func newTestRunner(t *testing.T) (*Runner, *driver.Runtime) {
+	t.Helper()
+	s := sim.MakeBuilder().Build()
+	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
+	r := New(s, rt)
 	t.Cleanup(func() {
-		flag.CommandLine, filenameFlag, disableAkitaRTM = oldFlags, oldFilename, oldDisableRTM
+		if err := s.Terminate(); err != nil {
+			t.Error(err)
+		}
 	})
-	t.Chdir(t.TempDir())
-	flag.CommandLine = flag.NewFlagSet("runner", flag.ContinueOnError)
-	filenameFlag = flag.CommandLine.String("metric-file-name", "metrics", "")
-	disableAkitaRTM = flag.CommandLine.Bool("disable-rtm", true, "")
-	if err := flag.CommandLine.Parse([]string{"-metric-file-name="}); err != nil {
+	return r, rt
+}
+func initializeRunner(t *testing.T, r *Runner) {
+	t.Helper()
+	if err := r.simulation.Initialize(); err != nil {
 		t.Fatal(err)
 	}
-	r := new(Runner)
-	r.initSimulation()
-	t.Cleanup(func() { _ = r.simulation.DataRecorder().Close() })
-	files, err := filepath.Glob("akita_sim_*.sqlite3")
-	if err != nil || len(files) != 1 {
-		t.Fatalf("expected one default recording, got %v: %v", files, err)
-	}
 }
-
-// Akita converts service cleanup panics into Terminate errors. The runner must
-// surface those errors instead of returning successfully after a failed close.
-type cleanupMonitor struct {
-	fail    bool
-	stopped bool
-}
-
-func (*cleanupMonitor) Start(*sim.Simulation) {}
-func (m *cleanupMonitor) Stop() {
-	m.stopped = true
-	if m.fail {
-		panic("test cleanup failure")
-	}
-}
-
-func TestRunReportsTerminationFailure(t *testing.T) {
-	for _, fail := range []bool{false, true} {
-		name := "success"
-		if fail {
-			name = "cleanup failure"
+func TestRunnerVisitsActiveBenchmarksInFixedRounds(t *testing.T) {
+	r, _ := newTestRunner(t)
+	var visits []int
+	for i, rounds := range []int{2, 1, 3} {
+		b := &stepBenchmark{}
+		b.step = func() error {
+			visits = append(visits, i)
+			b.Phase++
+			b.Ended = b.Phase == rounds
+			if r.betweenRounds {
+				t.Error("marked checkpoint-safe during Step")
+			}
+			if err := r.SaveCheckpoint(filepath.Join(t.TempDir(), "partial")); err == nil {
+				t.Error("accepted checkpoint in partial round")
+			}
+			return nil
 		}
-		t.Run(name, func(t *testing.T) {
-			monitor := &cleanupMonitor{fail: fail}
-			s := sim.MakeBuilder().WithTaskTracking().WithMonitor(monitor).Build()
-			d := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(0).Build()
-			if err := s.Initialize(); err != nil {
-				t.Fatal(err)
-			}
-			r := &Runner{simulation: s, gpuDriver: d}
-			var caught any
-			func() {
-				defer func() { caught = recover() }()
-				r.Run()
-			}()
-			if !monitor.stopped {
-				t.Fatal("runner did not terminate simulation services")
-			}
-			if !fail {
-				if caught != nil {
-					t.Fatalf("successful cleanup panicked: %v", caught)
-				}
-				return
-			}
-			err, ok := caught.(error)
-			if !ok || !strings.Contains(err.Error(), "test cleanup failure") {
-				t.Fatalf("runner did not surface the cleanup error: %v", caught)
-			}
-		})
+		r.AddBenchmark(b)
+	}
+	initializeRunner(t, r)
+	if err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	want := []int{0, 1, 2, 0, 2, 2}
+	if len(visits) != len(want) {
+		t.Fatalf("visits %v", visits)
+	}
+	for i := range want {
+		if visits[i] != want[i] {
+			t.Fatalf("visits %v, want %v", visits, want)
+		}
+	}
+	if !r.betweenRounds {
+		t.Fatal("completed round is not checkpoint safe")
+	}
+	if err := r.SaveCheckpoint(filepath.Join(t.TempDir(), "complete")); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestRunnerPropagatesStepFailureAndRetainsUnsafeBoundary(t *testing.T) {
+	r, _ := newTestRunner(t)
+	sentinel := errors.New("host input unavailable")
+	r.AddBenchmark(&stepBenchmark{step: func() error { return sentinel }})
+	initializeRunner(t, r)
+	if _, err := r.Step(); !errors.Is(err, sentinel) || !strings.Contains(err.Error(), "Benchmark[0]") {
+		t.Fatalf("Step error %v", err)
+	}
+	if err := r.SaveCheckpoint(filepath.Join(t.TempDir(), "partial")); err == nil {
+		t.Fatal("accepted checkpoint after partial failed round")
+	}
+}
+func TestRunnerReportsUnscheduledQueueBeforeHostStep(t *testing.T) {
+	r, rt := newTestRunner(t)
+	ctx := rt.Init()
+	rt.SelectGPU(ctx, 1)
+	q := rt.CreateCommandQueue(ctx)
+	rt.EnqueueRecordEvent(q)
+	visited := false
+	r.AddBenchmark(&stepBenchmark{step: func() error { visited = true; return nil }})
+	initializeRunner(t, r)
+	if _, err := r.Step(); err == nil || !strings.Contains(err.Error(), "queue 1 stalled with 1 unfinished") {
+		t.Fatalf("stall error %v", err)
+	}
+	if visited {
+		t.Fatal("host Step ran despite unfinished command")
 	}
 }

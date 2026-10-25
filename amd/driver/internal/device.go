@@ -20,9 +20,6 @@ const (
 	AllocatorTypeBuddy
 )
 
-// MemoryAllocatorType global flag variable for setting the allocator type
-var MemoryAllocatorType = AllocatorTypeDefault
-
 // DeviceProperties defines the properties of a device
 type DeviceProperties struct {
 	CUCount  int

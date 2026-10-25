@@ -1,51 +1,32 @@
 package driver
 
-import (
-	"sync"
+import "github.com/sarchlab/akita/v5/mem/vm"
 
-	"github.com/sarchlab/akita/v5/mem/vm"
-)
+// Context identifies a Runtime-owned address space and device selection.
+type Context uint64
+
+// CommandQueue identifies a Runtime-owned ordered stream.
+type CommandQueue uint64
+
+// CommandID identifies a submitted command or completed readback.
+type CommandID uint64
+
+// Event identifies a zero-duration timestamp marker.
+type Event uint64
 
 type buffer struct {
-	vAddr Ptr
-	size  uint64
-	freed bool
-
-	// After a kernel is launched, the l2 cache contain dirty data that belongs
-	// to this buffer. Therefore, copying from or to this buffer triggers L2
-	// flushing.
-	l2Dirty bool
+	Address      Ptr
+	Size         uint64
+	Freed, Dirty bool
 }
-
-// Context is an opaque struct that carries the information used by the driver.
-type Context struct {
-	pid           vm.PID
-	currentGPUID  int
-	prevPageVAddr uint64
-	l2Dirty       bool
-
-	queueMutex sync.Mutex
-	queues     []*CommandQueue
-
-	buffers []*buffer
+type contextData struct {
+	PID     vm.PID
+	GPU     int
+	Buffers []buffer
 }
-
-func (c *Context) markAllBuffersDirty() {
-	for _, b := range c.buffers {
-		b.l2Dirty = true
-	}
-}
-
-func (c *Context) markAllBuffersClean() {
-	for _, b := range c.buffers {
-		b.l2Dirty = false
-	}
-}
-
-func (c *Context) removeFreedBuffers() {
-	for i, b := range c.buffers {
-		if b.freed {
-			c.buffers = append(c.buffers[:i], c.buffers[i+1:]...)
-		}
-	}
+type queueData struct {
+	Context    Context
+	GPU        int
+	Pending    []Command
+	Unfinished uint64
 }

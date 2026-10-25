@@ -1,4 +1,4 @@
-package runner
+package sample
 
 import (
 	"flag"
@@ -94,14 +94,14 @@ func metricFileNameFlagIsSet() bool {
 }
 
 // parseFlag applies the runner flag to runner object
-func (r *Runner) parseFlag() *Runner {
+func (r *Config) parseFlag() *Config {
 	r.parseSimulationFlags()
 	r.parseGPUFlag()
 
 	return r
 }
 
-func (r *Runner) parseSimulationFlags() {
+func (r *Config) parseSimulationFlags() {
 	if *parallelFlag {
 		r.Parallel = true
 	}
@@ -122,7 +122,7 @@ func (r *Runner) parseSimulationFlags() {
 	r.GPUType = parseGPUTypeFlag()
 }
 
-func (r *Runner) parseGPUFlag() {
+func (r *Config) parseGPUFlag() {
 	if *gpuFlag == "" && *unifiedGPUFlag == "" {
 		r.GPUIDs = []int{1}
 		return
@@ -142,7 +142,7 @@ func (r *Runner) parseGPUFlag() {
 	r.GPUIDs = gpuIDs
 }
 
-func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
+func (r *Config) gpuIDStringToList(gpuIDsString string) []int {
 	gpuIDs := make([]int, 0)
 	gpuIDTokens := strings.Split(gpuIDsString, ",")
 

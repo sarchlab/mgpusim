@@ -13,8 +13,8 @@ type DeviceMemoryState interface {
 }
 
 // NewDeviceMemoryState creates a new device memory state based on allocator type.
-func NewDeviceMemoryState(log2pagesize uint64) DeviceMemoryState {
-	switch MemoryAllocatorType {
+func NewDeviceMemoryState(log2pagesize uint64, allocator AllocatorType) DeviceMemoryState {
+	switch allocator {
 	case AllocatorTypeDefault:
 		return newDeviceRegularMemoryState(log2pagesize)
 	case AllocatorTypeBuddy:
@@ -30,7 +30,7 @@ func newDeviceRegularMemoryState(log2pagesize uint64) DeviceMemoryState {
 	}
 }
 
-//original implementation of DeviceMemoryState holding free addresses in array
+// original implementation of DeviceMemoryState holding free addresses in array
 type deviceMemoryStateImpl struct {
 	log2PageSize    uint64
 	initialAddress  uint64
@@ -49,7 +49,7 @@ func (dms *deviceMemoryStateImpl) setInitialAddress(addr uint64) {
 }
 
 func (dms *deviceMemoryStateImpl) getInitialAddress() uint64 {
-		return dms.initialAddress
+	return dms.initialAddress
 }
 
 func (dms *deviceMemoryStateImpl) setStorageSize(size uint64) {
@@ -64,10 +64,10 @@ func (dms *deviceMemoryStateImpl) addSinglePAddr(addr uint64) {
 	dms.availablePAddrs = append(dms.availablePAddrs, addr)
 }
 
-func (dms *deviceMemoryStateImpl) popNextAvailablePAddrs() uint64  {
+func (dms *deviceMemoryStateImpl) popNextAvailablePAddrs() uint64 {
 	nextPAddr := dms.availablePAddrs[0]
 	dms.availablePAddrs = dms.availablePAddrs[1:]
-	return  nextPAddr
+	return nextPAddr
 }
 
 func (dms *deviceMemoryStateImpl) noAvailablePAddrs() bool {

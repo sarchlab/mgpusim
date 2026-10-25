@@ -10,7 +10,7 @@ import (
 var _ = ginkgo.Describe("Distributor", func() {
 	var (
 		ctrl         *gomock.Controller
-		ctx          *Context
+		ctx          *contextData
 		memAllocator *MockMemoryAllocator
 		dist         *distributorImpl
 	)
@@ -21,9 +21,9 @@ var _ = ginkgo.Describe("Distributor", func() {
 		dist = newDistributorImpl(memAllocator)
 		dist.pageSizeAsPowerOf2 = 12
 
-		ctx = &Context{
-			pid:          1,
-			currentGPUID: 1,
+		ctx = &contextData{
+			PID: 1,
+			GPU: 1,
 		}
 	})
 

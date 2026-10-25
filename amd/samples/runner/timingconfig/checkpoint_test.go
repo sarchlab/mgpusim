@@ -2,6 +2,8 @@ package timingconfig_test
 
 import (
 	"bytes"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,30 +32,18 @@ func TestTimingCheckpointFreshProcess(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		s, d := checkpointSystem(t, arch.Type(a))
+		s, d, results := checkpointSystem(t, arch.Type(a))
 		if err := s.LoadCheckpoint(path); err != nil {
 			t.Fatal(err)
 		}
-		buffers := d.ResultBuffers()
-		if len(buffers) != 2 {
-			t.Fatalf("got %d unbound results", len(buffers))
+		if len(results.IDs) != 2 {
+			t.Fatalf("expected two saved readbacks: %v", results.IDs)
 		}
-		output := [][]float32{make([]float32, checkpointLength), make([]float32, checkpointLength)}
-		if err := d.BindResultBuffer(buffers[0].CommandID, output[0]); err != nil {
-			t.Fatal(err)
+		output := []uint32{101}
+		if err := d.ReadResult(results.IDs[0], output); err == nil || output[0] != 101 {
+			t.Fatal("pending result unexpectedly consumed")
 		}
-		// Let the second copy finish without a host buffer, then attach it.
-		if err := s.Engine().Run(); err != nil {
-			t.Fatal(err)
-		}
-		remaining := d.ResultBuffers()
-		if len(remaining) != 1 || !remaining[0].Complete || remaining[0].CommandID != buffers[1].CommandID {
-			t.Fatalf("missing completed unbound result: %+v", remaining)
-		}
-		if err := d.BindResultBuffer(buffers[1].CommandID, output[1]); err != nil {
-			t.Fatal(err)
-		}
-		finishTiming(t, s, output, path+".restored")
+		finishTiming(t, s, d, results, path+".restored")
 		return
 	}
 	for _, a := range []arch.Type{arch.GCN3, arch.CDNA3} {
@@ -98,9 +88,13 @@ func runTimingCheckpointFreshProcess(t *testing.T, a arch.Type) {
 
 func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	t.Helper()
-	s, d := checkpointSystem(t, a)
-	output := submitFIR(t, d, a)
-	d.TickLater()
+	s, d, results := checkpointSystem(t, a)
+	results.IDs = submitFIR(t, d, a)
+	for _, c := range s.Components() {
+		if d, ok := c.(*driver.Comp); ok {
+			d.TickLater()
+		}
+	}
 	e := s.Engine().(*timing.SerialEngine)
 	reached := false
 	for cycle := 0; cycle < 20000; cycle++ {
@@ -128,18 +122,18 @@ func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	if !reached {
 		t.Fatal("never reached an in-flight work-group")
 	}
-	for _, v := range output[0] {
-		if v != 0 {
-			t.Fatal("host copy completed before checkpoint")
-		}
+	out := make([]float32, checkpointLength)
+	if err := d.ReadResult(results.IDs[0], out); err == nil {
+		t.Fatal("host copy completed before checkpoint")
 	}
+
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
-	finishTiming(t, s, output, path+".uninterrupted")
+	finishTiming(t, s, d, results, path+".uninterrupted")
 }
 
-func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Driver) {
+func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Runtime, *firResults) {
 	t.Helper()
 	s := sim.MakeBuilder().WithTaskTracking().Build()
 	gpuType := "r9nano"
@@ -147,6 +141,8 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Drive
 		gpuType = "mi300x"
 	}
 	d := timingconfig.MakeBuilder().WithSimulation(s).WithNumGPUs(1).WithGPUType(gpuType).Build()
+	results := &firResults{}
+	s.RegisterResource(results)
 	if err := s.Initialize(); err != nil {
 		t.Fatal(err)
 	}
@@ -155,10 +151,10 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Drive
 			t.Error(err)
 		}
 	})
-	return s, d
+	return s, d, results
 }
 
-func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
+func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.CommandID {
 	t.Helper()
 	ctx := d.Init()
 	q := d.CreateCommandQueue(ctx)
@@ -188,7 +184,13 @@ func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
 	if code == nil {
 		t.Fatal("missing FIR kernel")
 	}
-	var args any = &fir.GCN3KernelArgs{Output: outPtr, Input: inPtr, Filter: filterPtr, History: historyPtr, NumTaps: 4}
+	var args any = &fir.GCN3KernelArgs{
+		Output:  outPtr,
+		Input:   inPtr,
+		Filter:  filterPtr,
+		History: historyPtr,
+		NumTaps: 4,
+	}
 	if a == arch.CDNA3 {
 		args = &fir.CDNA3KernelArgs{
 			Output:            outPtr,
@@ -205,25 +207,31 @@ func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
 		}
 	}
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	d.EnqueueMemCopyD2H(q, out, outPtr)
-	second := make([]float32, checkpointLength)
+	first := d.EnqueueMemCopyD2H(q, outPtr, len(out)*4)
+
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	d.EnqueueMemCopyD2H(q, second, outPtr)
-	return [][]float32{out, second}
+	second := d.EnqueueMemCopyD2H(q, outPtr, checkpointLength*4)
+	return []driver.CommandID{first, second}
 }
 
-func finishTiming(t *testing.T, s *sim.Simulation, outputs [][]float32, path string) {
+func finishTiming(t *testing.T, s *sim.Simulation, d *driver.Runtime, results *firResults, path string) {
 	t.Helper()
 	if err := s.Engine().Run(); err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range outputs {
+	for _, id := range results.IDs {
+		out := make([]float32, checkpointLength)
+		if err := d.ReadResult(id, out); err != nil {
+			t.Fatal(err)
+		}
 		verifyFIR(t, out)
+		results.Outputs = append(results.Outputs, out)
 	}
+	results.IDs = nil
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("verified %d FIR outputs at %d ps", len(outputs)*checkpointLength, s.Engine().CurrentTime())
+	t.Logf("verified %d FIR outputs at %d ps", len(results.Outputs)*checkpointLength, s.Engine().CurrentTime())
 }
 
 func verifyFIR(t *testing.T, out []float32) {
@@ -239,4 +247,17 @@ func verifyFIR(t *testing.T, out []float32) {
 			t.Fatalf("FIR[%d]=%v, want %v", i, v, want)
 		}
 	}
+}
+
+type firResults struct {
+	IDs     []driver.CommandID
+	Outputs [][]float32
+}
+
+func (r *firResults) Name() string { return "FIRResults" }
+func (r *firResults) SaveCheckpoint(w io.Writer) error {
+	return modeling.WriteCheckpoint(w, checkpointLength, r, nil)
+}
+func (r *firResults) LoadCheckpoint(reader io.Reader) error {
+	return modeling.ReadCheckpoint(reader, checkpointLength, r, nil)
 }
