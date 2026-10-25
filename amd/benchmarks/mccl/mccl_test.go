@@ -1,6 +1,7 @@
 package mccl_test
 
 import (
+	"encoding/binary"
 	"log"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,12 +15,37 @@ import (
 var _ = Describe("MCCL", func() {
 	var (
 		s         *simulation.Simulation
-		gpuDriver *driver.Driver
-		context   *driver.Context
+		gpuDriver *driver.Runtime
+		context   driver.Context
 		gpuIDs    []int
 		comms     []*mccl.Communicator
 	)
 
+	drain := func() {
+		for _, c := range s.Components() {
+			if d, ok := c.(*driver.Comp); ok {
+				d.TickLater()
+			}
+		}
+		Expect(s.Run()).To(Succeed())
+	}
+	upload := func(ctx driver.Context, p driver.Ptr, data any) {
+		q := gpuDriver.CreateCommandQueue(ctx)
+		gpuDriver.EnqueueMemCopyH2D(q, p, data)
+		drain()
+	}
+	read := func(ctx driver.Context, data any, p driver.Ptr) {
+		q := gpuDriver.CreateCommandQueue(ctx)
+		id := gpuDriver.EnqueueMemCopyD2H(q, p, binary.Size(data))
+		drain()
+		Expect(gpuDriver.ReadResult(id, data)).To(Succeed())
+	}
+	collective := func(c *mccl.Collective) {
+		for !c.IsEnded() {
+			Expect(c.Step(gpuDriver)).To(Succeed())
+			drain()
+		}
+	}
 	BeforeEach(func() {
 		s = simulation.MakeBuilder().Build()
 		gpuDriver = emusystem.MakeBuilder().
@@ -27,12 +53,10 @@ var _ = Describe("MCCL", func() {
 			WithNumGPUs(4).
 			Build()
 		Expect(s.Initialize()).To(Succeed())
-		gpuDriver.Run()
 		context = gpuDriver.Init()
 	})
 
 	AfterEach(func() {
-		gpuDriver.Terminate()
 		s.Terminate()
 	})
 
@@ -55,16 +79,16 @@ var _ = Describe("MCCL", func() {
 		}
 
 		gpuDriver.SelectGPU(context, root)
-		gpuDriver.MemCopyH2D(context, datas[root-1], tmp)
+		upload(context, datas[root-1], tmp)
 		comms = mccl.CommInitAll(gpuNum, gpuDriver, context, gpuIDs)
-		mccl.BroadcastRing(gpuDriver, comms, root, datas, dataSize)
+		collective(mccl.BroadcastRing(gpuDriver, comms, root, datas, dataSize))
 
 		for i := 0; i < gpuNum; i++ {
 			tmp := make([]float32, uint64(dataSize))
 			gpuDriver.SelectGPU(context, i+1)
-			gpuDriver.MemCopyD2H(context, tmp, datas[i])
+			read(context, tmp, datas[i])
 			for j := 0; j < dataSize; j++ {
-				Expect(tmp[i]).To(Equal(float32(-0.0000123)))
+				Expect(tmp[j]).To(Equal(float32(-0.0000123)))
 			}
 		}
 	})
@@ -82,7 +106,7 @@ var _ = Describe("MCCL", func() {
 			}
 			gpuDriver.SelectGPU(context, i+1)
 			data := gpuDriver.AllocateMemory(context, uint64(dataSize*4))
-			gpuDriver.MemCopyH2D(context, data, tmp)
+			upload(context, data, tmp)
 			buf := gpuDriver.AllocateMemory(context, uint64(bufSize*4))
 			gpuIDs = append(gpuIDs, i+1)
 			datas[i] = data
@@ -90,15 +114,15 @@ var _ = Describe("MCCL", func() {
 		}
 
 		comms = mccl.CommInitAll(gpuNum, gpuDriver, context, gpuIDs)
-		mccl.AllReduceRing(
-			gpuDriver, comms, datas, int(dataSize), bufs, int(bufSize))
+		collective(mccl.AllReduceRing(
+			gpuDriver, comms, datas, int(dataSize), bufs, int(bufSize)))
 
 		for i := 0; i < gpuNum; i++ {
 			tmp := make([]float32, uint64(dataSize))
 			gpuDriver.SelectGPU(context, i+1)
-			gpuDriver.MemCopyD2H(context, tmp, datas[i])
+			read(context, tmp, datas[i])
 			for j := 0; j < int(dataSize); j++ {
-				Expect(tmp[i]).To(Equal(float32(2.5)))
+				Expect(tmp[j]).To(Equal(float32(2.5)))
 			}
 			log.Printf("Passed")
 		}
@@ -117,7 +141,7 @@ var _ = Describe("MCCL", func() {
 			}
 			gpuDriver.SelectGPU(context, i+1)
 			data := gpuDriver.AllocateMemory(context, uint64(dataSize*4))
-			gpuDriver.MemCopyH2D(context, data, tmp)
+			upload(context, data, tmp)
 			buf := gpuDriver.AllocateMemory(context, uint64(bufSize*4))
 			gpuIDs = append(gpuIDs, i+1)
 			datas[i] = data
@@ -125,15 +149,15 @@ var _ = Describe("MCCL", func() {
 		}
 
 		comms = mccl.CommInitAll(gpuNum, gpuDriver, context, gpuIDs)
-		mccl.AllReduceRing(
-			gpuDriver, comms, datas, int(dataSize), bufs, int(bufSize))
+		collective(mccl.AllReduceRing(
+			gpuDriver, comms, datas, int(dataSize), bufs, int(bufSize)))
 
 		for i := 0; i < gpuNum; i++ {
 			tmp := make([]float32, uint64(dataSize))
 			gpuDriver.SelectGPU(context, i+1)
-			gpuDriver.MemCopyD2H(context, tmp, datas[i])
+			read(context, tmp, datas[i])
 			for j := 0; j < int(dataSize); j++ {
-				Expect(tmp[i]).To(Equal(float32(2.5)))
+				Expect(tmp[j]).To(Equal(float32(2.5)))
 			}
 			log.Printf("Passed")
 		}

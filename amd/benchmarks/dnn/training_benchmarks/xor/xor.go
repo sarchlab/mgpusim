@@ -1,105 +1,81 @@
-// Package xor implements a extremely simple network that can perform the xor
-// operation.
+// Package xor trains a small fully connected network on XOR.
 package xor
 
 import (
-	"fmt"
-
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
-// Benchmark defines the XOR network training benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	to      *gputensor.GPUOperator
-
-	gpus []int
-
-	network training.Network
-	trainer training.Trainer
+	benchmarks.Progress
+	driver                             *driver.Runtime
+	ctx                                driver.Context
+	gpus                               []int
+	Arch                               arch.Type
+	Epoch, MaxBatchPerEpoch, BatchSize int
+	EnableVerification, EnableTesting  bool
+	trainer                            gputraining.DataParallelismMultiGPUTrainer
 }
 
-// NewBenchmark creates a new benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
-	b := new(Benchmark)
-
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.to = gputensor.NewGPUOperator(b.driver, b.context)
-	b.to.EnableVerification()
-
-	b.network = training.Network{
-		Layers: []layers.Layer{
-			layers.NewFullyConnectedLayer(
-				0,
-				b.to,
-				2, 4,
-			),
-			layers.NewReluLayer(b.to),
-			layers.NewFullyConnectedLayer(
-				2,
-				b.to,
-				4, 2,
-			),
-		},
+func NewBenchmark(r *driver.Runtime) *Benchmark {
+	return &Benchmark{driver: r, ctx: r.Init(), Epoch: 50, MaxBatchPerEpoch: 1, BatchSize: 4}
+}
+func (b *Benchmark) SelectGPU(ids []int) {
+	if len(ids) != 1 {
+		panic("XOR requires one GPU")
 	}
-
-	b.trainer = training.Trainer{
-		TO:              b.to,
-		DataSource:      NewDataSource(b.to),
-		Network:         b.network,
-		LossFunc:        training.NewSoftmaxCrossEntropy(b.to),
-		OptimizationAlg: optimization.NewAdam(b.to, 0.03),
-		Epoch:           50,
-		BatchSize:       4,
-		ShowBatchInfo:   true,
+	b.gpus = append([]int(nil), ids...)
+}
+func (b *Benchmark) SetUnifiedMemory() { panic("unified memory is not supported by dnn workloads") }
+func (b *Benchmark) SetVerification(enabled bool) {
+	b.Progress.SetVerification(enabled)
+	b.EnableVerification = enabled
+}
+func (b *Benchmark) init() {
+	b.driver.SelectGPU(b.ctx, b.gpus[0])
+	o := gputensor.NewGPUOperator(b.driver, b.ctx)
+	o.Arch = b.Arch
+	o.SetVerification(b.EnableVerification)
+	n := training.Network{Layers: []layers.Layer{
+		layers.NewFullyConnectedLayer(0, o, 2, 4),
+		layers.NewReluLayer(o),
+		layers.NewFullyConnectedLayer(2, o, 4, 2),
+	}}
+	b.trainer = gputraining.DataParallelismMultiGPUTrainer{
+		Driver:           b.driver,
+		TensorOperators:  []*gputensor.GPUOperator{o},
+		Networks:         []training.Network{n},
+		DataSource:       []training.DataSource{NewDataSource(o)},
+		LossFunc:         []training.LossFunction{training.NewSoftmaxCrossEntropy(o)},
+		OptimizationAlg:  []optimization.Alg{optimization.NewAdam(o, 0.03)},
+		GPUs:             b.gpus,
+		Contexts:         []driver.Context{b.ctx},
+		Epoch:            b.Epoch,
+		MaxBatchPerEpoch: b.MaxBatchPerEpoch,
+		BatchSize:        b.BatchSize,
+		ShowBatchInfo:    true,
 	}
-
-	b.enableLayerVerification(&b.network)
-
-	return b
-}
-
-func (b *Benchmark) enableLayerVerification(network *training.Network) {
-
-}
-
-// SelectGPU selects the GPU to use.
-func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	if len(gpuIDs) > 1 {
-		panic("multi-GPU is not supported by DNN workloads")
+	if b.EnableTesting {
+		b.trainer.Tester = []*training.Tester{{DataSource: NewDataSource(o), Network: n, BatchSize: 4}}
 	}
 }
-
-// Run executes the benchmark.
-func (b *Benchmark) Run() {
-	for _, l := range b.network.Layers {
-		l.Randomize()
+func (b *Benchmark) Step() error {
+	if b.Ended {
+		return nil
 	}
-
-	b.trainer.Train()
-}
-
-func (b *Benchmark) printLayerParams() {
-	for i, l := range b.network.Layers {
-		params := l.Parameters()
-		if params != nil {
-			fmt.Println("Layer ", i, params.Vector())
-		}
+	if b.Phase == 0 {
+		b.init()
+		b.Phase = 1
 	}
-}
-
-// Verify runs the benchmark on the CPU and checks the result.
-func (b *Benchmark) Verify() {
-	panic("not implemented")
-}
-
-// SetUnifiedMemory asks the benchmark to use unified memory.
-func (b *Benchmark) SetUnifiedMemory() {
-	panic("unified memory is not supported by dnn workloads")
+	if err := b.trainer.Step(); err != nil {
+		return err
+	}
+	b.Ended = b.trainer.IsEnded()
+	return nil
 }

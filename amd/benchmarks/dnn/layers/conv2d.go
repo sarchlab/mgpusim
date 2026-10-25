@@ -1,8 +1,6 @@
 package layers
 
 import (
-	"math/rand"
-
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 )
 
@@ -78,14 +76,14 @@ func (l *Conv2D) Randomize() {
 	// numWeightPerKernel := l.numWeight() / l.kernelSize[0]
 	weights := make([]float64, l.numWeight())
 	for i := 0; i < l.numWeight(); i++ {
-		weights[i] = (rand.Float64() - 0.5) / float64(l.numWeight())
+		weights[i] = (randomFloat64(l.to) - 0.5) / float64(l.numWeight())
 	}
 	l.to.Init(l.weights, weights)
 
 	numBias := l.numBias()
 	bias := make([]float64, numBias)
 	for i := 0; i < numBias; i++ {
-		bias[i] = rand.Float64()*2 - 1
+		bias[i] = randomFloat64(l.to)*2 - 1
 	}
 	l.to.Init(l.bias, bias)
 }

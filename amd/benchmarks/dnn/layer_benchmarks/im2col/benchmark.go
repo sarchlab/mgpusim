@@ -2,7 +2,7 @@
 package im2col
 
 import (
-	"math/rand"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
@@ -12,8 +12,11 @@ import (
 
 // A Benchmark is a benchmark for the im2col operation.
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig    checkpointConfig
+	configCaptured   bool
+	driver           *driver.Runtime
+	context          driver.Context
 	gpus             []int
 	useUnifiedMemory bool
 
@@ -33,21 +36,19 @@ type Benchmark struct {
 
 // NewBenchmark creates a new Im2Col benchmark. It requires the GPU driver as an
 // argument.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := &Benchmark{
 		driver: driver,
 	}
 
 	b.context = b.driver.Init()
-	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
-	b.operator.ReportTime()
 
 	return b
 }
 
 // EnableVerification configures the benchmark to verify the result.
 func (b *Benchmark) EnableVerification() {
-	b.operator.EnableVerification()
+	b.SetVerification(true)
 }
 
 // SelectGPU selects the GPU to run the benchmark on.
@@ -64,10 +65,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
-	b.operator.Arch = b.Arch
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
+	b.operator.Arch = b.Arch
+	b.operator.ReportTime()
+	b.operator.SetVerification(b.Verification)
 	b.calculateOutputSize()
 	b.initMem()
 	b.exec()
@@ -82,7 +86,7 @@ func (b *Benchmark) initMem() {
 	input := make([]float64, b.N*b.C*b.H*b.W)
 
 	for i := 0; i < b.N*b.C*b.H*b.W; i++ {
-		input[i] = rand.Float64()
+		input[i] = b.operator.RandomFloat64()
 	}
 
 	b.Input = b.operator.CreateWithData(
@@ -98,6 +102,18 @@ func (b *Benchmark) exec() {
 	)
 }
 
-// Verify does nothing for now.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if err := b.operator.CompleteStep(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

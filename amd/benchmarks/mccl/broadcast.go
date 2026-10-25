@@ -7,26 +7,36 @@ import (
 
 // BroadcastRing broadcast data from the root to other GPUs.
 func BroadcastRing(
-	d *driver.Driver,
+	d *driver.Runtime,
 	comms []*Communicator,
 	root int,
 	data []driver.Ptr,
 	dataSize int,
-) {
-	numGPU := len(comms)
-
-	cmdQs := make([]*driver.CommandQueue, numGPU)
-	for i := 0; i < numGPU; i++ {
-		cmdQ := d.CreateCommandQueue(comms[i].Ctx)
-		cmdQs[i] = cmdQ
+) *Collective {
+	return &Collective{
+		Kind:   "broadcast",
+		Comms:  copyCommunicators(comms),
+		Queues: createCommandQueues(d, comms),
+		Root:   root,
+		Data:   append([]driver.Ptr(nil), data...),
+		Size:   dataSize,
 	}
+}
 
+func (c *Collective) broadcast(d *driver.Runtime) {
+	comms, data, dataSize, root, cmdQs := c.communicators(), c.Data, c.Size, c.Root, c.Queues
+	numGPU := len(comms)
 	chunkSize := int(4 * mem.KB)
 	chunkNum := (dataSize-1)/chunkSize + 1
 
 	distance := computeGPUDist(comms, root)
 
-	for step := 0; step < (chunkNum + (numGPU - 2)); step++ {
+	if c.Stage >= chunkNum+numGPU-2 {
+		c.Ended = true
+		return
+	}
+	step := c.Stage
+	{
 		for i := 0; i < numGPU; i++ {
 			if distance[i] == numGPU-1 {
 				//last gpu should do nothing
@@ -61,9 +71,6 @@ func BroadcastRing(
 				kernelArgs,
 			)
 		}
-
-		for i := 0; i < numGPU; i++ {
-			d.DrainCommandQueue(cmdQs[i])
-		}
 	}
+	c.Stage++
 }

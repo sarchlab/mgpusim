@@ -1,6 +1,9 @@
 package xor
 
-import "github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+import (
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
+)
 
 // DataSource defines the training dataset for the xor operation.
 type DataSource struct {
@@ -34,6 +37,9 @@ func (ds *DataSource) NextBatch(batchSize int) (
 	data tensor.Tensor,
 	label []int,
 ) {
+	if ds.currPtr >= len(ds.allLabel) {
+		return nil, nil
+	}
 	start := ds.currPtr
 	end := start + batchSize
 
@@ -58,4 +64,14 @@ func (ds *DataSource) NextBatch(batchSize int) (
 // Rewind moves the pointer to the beginning of the training set.
 func (ds *DataSource) Rewind() {
 	ds.currPtr = 0
+}
+
+func (ds *DataSource) SnapshotData() training.DataState {
+	return training.DataState{
+		Data:       ds.allData,
+		Labels:     ds.allLabel,
+		Shape:      []int{2},
+		Descriptor: "",
+		Cursor:     ds.currPtr,
+	}
 }

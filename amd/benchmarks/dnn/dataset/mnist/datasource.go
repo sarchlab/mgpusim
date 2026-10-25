@@ -2,6 +2,7 @@ package mnist
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 )
 
 // A DataSource provides convenient solution to feed data to neural networks.
@@ -63,6 +64,9 @@ func (ds *DataSource) NextBatch(batchSize int) (
 	data tensor.Tensor,
 	label []int,
 ) {
+	if ds.currPtr >= len(ds.allLabel) {
+		return nil, nil
+	}
 	start := ds.currPtr
 	end := start + batchSize
 
@@ -84,4 +88,14 @@ func (ds *DataSource) NextBatch(batchSize int) (
 // Rewind resets the pointer to the beginning of the dataset.
 func (ds *DataSource) Rewind() {
 	ds.currPtr = 0
+}
+
+func (ds *DataSource) SnapshotData() training.DataState {
+	return training.DataState{
+		Data:       ds.allData,
+		Labels:     ds.allLabel,
+		Shape:      []int{1, 28, 28},
+		Descriptor: "NCHW",
+		Cursor:     ds.currPtr,
+	}
 }

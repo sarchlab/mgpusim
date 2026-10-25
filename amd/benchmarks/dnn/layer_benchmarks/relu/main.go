@@ -2,6 +2,9 @@
 package relu
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 
 	// embed hsaco files
@@ -49,8 +52,14 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver  *driver.Runtime
+	context driver.Context
 	gpus    []int
 	hsaco   *insts.KernelCodeObject
 
@@ -71,7 +80,7 @@ var gcn3HSACOBytes []byte
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
@@ -103,12 +112,14 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -132,7 +143,7 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gInputData, b.inputData)
 }
 
 func (b *Benchmark) createKernelArgs(
@@ -184,7 +195,7 @@ func (b *Benchmark) createKernelArgs(
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.gpus))
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -206,26 +217,69 @@ func (b *Benchmark) exec() {
 		)
 	}
 
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	b.driver.MemCopyD2H(b.context, b.outputData, b.gOutputData)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.gOutputData, Target: 0})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	for i := 0; i < b.Length; i++ {
 		if b.inputData[i] > 0 && b.outputData[i] != b.inputData[i] {
-			log.Panicf("mismatch at %d, input %f, output %f", i,
+			return fmt.Errorf("mismatch at %d, input %f, output %f", i,
 				b.inputData[i], b.outputData[i])
 		}
 
 		if b.inputData[i] <= 0 && b.outputData[i] != 0 {
-			log.Panicf("mismatch at %d, input %f, output %f", i,
+			return fmt.Errorf("mismatch at %d, input %f, output %f", i,
 				b.inputData[i], b.outputData[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.outputData
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.outputData
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

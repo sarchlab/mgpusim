@@ -5,8 +5,13 @@ import "github.com/sarchlab/mgpusim/v5/amd/driver"
 
 // A Tensor is a multi-dementional array.
 type Tensor struct {
-	driver *driver.Driver
-	ctx    *driver.Context
+	owner     *GPUOperator
+	hostEpoch uint64
+	host      []float64
+	hostReady bool
+
+	driver *driver.Runtime
+	ctx    driver.Context
 
 	size []int
 	ptr  driver.Ptr
@@ -51,18 +56,12 @@ func (t *Tensor) SetDescriptor(d string) {
 	t.descriptor = d
 }
 
-// Vector copies the data from the GPU to the simulator.
+// Vector returns a completed explicit readback, invalidated by later mutations.
 func (t *Tensor) Vector() []float64 {
-	raw := make([]float32, t.NumElement())
-
-	t.driver.MemCopyD2H(t.ctx, raw, t.ptr)
-
-	out := make([]float64, t.NumElement())
-	for i := 0; i < t.NumElement(); i++ {
-		out[i] = float64(raw[i])
+	if !t.hostReady || t.owner != nil && t.hostEpoch != t.owner.mutationEpoch {
+		panic("gputensor: Vector requires a completed explicit readback")
 	}
-
-	return out
+	return append([]float64(nil), t.host...)
 }
 
 // Ptr returns the GPU pointer of the tensor.

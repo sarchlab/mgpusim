@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layer_benchmarks/conv2d"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var n = flag.Int("N", 1, "batch size")
@@ -23,9 +24,11 @@ var enableBackward = flag.Bool("enable-backward", false, "enable backward")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := conv2d.NewBenchmark(runner.Driver())
+	benchmark := conv2d.NewBenchmark(runtime)
 	benchmark.N = *n
 	benchmark.C = *c
 	benchmark.H = *h
@@ -38,9 +41,18 @@ func main() {
 	benchmark.StrideX = *strideX
 	benchmark.StrideY = *strideY
 	benchmark.EnableBackward = *enableBackward
-	benchmark.Arch = runner.ArchType
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

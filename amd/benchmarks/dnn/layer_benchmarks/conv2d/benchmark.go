@@ -3,6 +3,7 @@ package conv2d
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
@@ -11,8 +12,11 @@ import (
 
 // A Benchmark is a benchmark for the Convolutional Layer.
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig    checkpointConfig
+	configCaptured   bool
+	driver           *driver.Runtime
+	context          driver.Context
 	gpus             []int
 	useUnifiedMemory bool
 
@@ -33,21 +37,19 @@ type Benchmark struct {
 }
 
 // NewBenchmark creates a new Conv2D benchmark. It requires the GPU driver as an argument.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := &Benchmark{
 		driver: driver,
 	}
 
 	b.context = b.driver.Init()
-	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
-	b.operator.ReportTime()
 
 	return b
 }
 
 // EnableVerification configures the benchmark to verify the result.
 func (b *Benchmark) EnableVerification() {
-	b.operator.EnableVerification()
+	b.SetVerification(true)
 }
 
 // SelectGPU selects the GPU to run the benchmark on.
@@ -64,10 +66,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
-	b.operator.Arch = b.Arch
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
+	b.operator.Arch = b.Arch
+	b.operator.ReportTime()
+	b.operator.SetVerification(b.Verification)
 	b.calculateOutputSize()
 	b.initMem()
 	b.exec()
@@ -105,6 +110,18 @@ func (b *Benchmark) exec() {
 	}
 }
 
-// Verify does nothing for now.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if err := b.operator.CompleteStep(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

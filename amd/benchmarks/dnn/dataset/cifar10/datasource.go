@@ -2,6 +2,7 @@ package cifar10
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	//"fmt"
 )
 
@@ -68,6 +69,9 @@ func (ds *DataSource) NextBatch(batchSize int) (
 	label []int,
 ) {
 	channelPerImage := 3
+	if ds.currPtr >= len(ds.allLabel) {
+		return nil, nil
+	}
 	start := ds.currPtr
 	end := start + batchSize
 
@@ -93,3 +97,13 @@ func (ds *DataSource) Rewind() {
 }
 
 // to test with lenet, add test function to change the dimension of a picture, currently 3*32*32, to 1*28*28
+
+func (ds *DataSource) SnapshotData() training.DataState {
+	return training.DataState{
+		Data:       ds.allData,
+		Labels:     ds.allLabel,
+		Shape:      []int{3, 32, 32},
+		Descriptor: "NCHW",
+		Cursor:     ds.currPtr,
+	}
+}

@@ -22,6 +22,7 @@ var imagenetDataFolder = flag.String("imagenet-data-folder", "",
 
 // The DataSet can provide imagenet data.
 type DataSet struct {
+	directory       string
 	mapClassToLabel map[string]int
 	mapTestToClass  map[string]string
 	classes         []string
@@ -33,7 +34,7 @@ type DataSet struct {
 // NewDataSet creates a new imagenet dataset.
 func NewDataSet(isTrain bool) *DataSet {
 	fileDir := getDirPath()
-	d := &DataSet{
+	d := &DataSet{directory: fileDir,
 		curClass:        0,
 		curImage:        0,
 		isTrain:         isTrain,
@@ -100,7 +101,7 @@ func (d *DataSet) Next() (imageData []byte, labelData byte) {
 	var imagePath string
 	var className string
 
-	fileDir := getDirPath()
+	fileDir := d.directory
 
 	if d.isTrain {
 		className = d.classes[d.curClass]

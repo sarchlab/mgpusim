@@ -2,6 +2,7 @@ package gputensor
 
 import (
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,11 +14,26 @@ import (
 var _ = Describe("Operator", func() {
 	var (
 		s         *simulation.Simulation
-		gpuDriver *driver.Driver
-		ctx       *driver.Context
+		gpuDriver *driver.Runtime
+		ctx       driver.Context
 		to        *GPUOperator
 	)
 
+	drain := func() {
+		for _, c := range s.Components() {
+			if d, ok := c.(*driver.Comp); ok {
+				d.TickLater()
+			}
+		}
+		Expect(s.Run()).To(Succeed())
+		Expect(to.CompleteStep()).To(Succeed())
+	}
+	read := func(t tensor.Tensor) []float64 {
+		id := to.EnqueueReadback(t)
+		drain()
+		Expect(to.ReadTensor(id, t)).To(Succeed())
+		return t.Vector()
+	}
 	BeforeEach(func() {
 		s = simulation.MakeBuilder().Build()
 
@@ -27,7 +43,6 @@ var _ = Describe("Operator", func() {
 			Build()
 
 		Expect(s.Initialize()).To(Succeed())
-		gpuDriver.Run()
 
 		ctx = gpuDriver.Init()
 
@@ -35,7 +50,7 @@ var _ = Describe("Operator", func() {
 	})
 
 	AfterEach(func() {
-		gpuDriver.Terminate()
+		drain()
 		s.Terminate()
 	})
 
@@ -71,7 +86,7 @@ var _ = Describe("Operator", func() {
 
 		out := to.Transpose(in, []int{1, 0, 2, 3})
 
-		outV := out.Vector()
+		outV := read(out)
 		for i := range outData {
 			Expect(outV[i]).To(BeNumerically("~", outData[i], 1e-3))
 		}
@@ -89,7 +104,7 @@ var _ = Describe("Operator", func() {
 
 		out := to.Rotate180(in)
 
-		Expect(out.Vector()).To(Equal(
+		Expect(read(out)).To(Equal(
 			[]float64{
 				12, 11, 10, 9,
 				8, 7, 6, 5,
@@ -153,7 +168,7 @@ var _ = Describe("Operator", func() {
 			2.314, 2.313, 2.312, 2.311,
 		}
 
-		outV := out.Vector()
+		outV := read(out)
 		for i := 0; i < len(goldOut); i++ {
 			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
 		}
@@ -180,7 +195,7 @@ var _ = Describe("Operator", func() {
 			7, 0, 8, 0, 9,
 		}
 
-		outV := out.Vector()
+		outV := read(out)
 		for i := 0; i < len(goldOut); i++ {
 			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
 		}
@@ -205,7 +220,7 @@ var _ = Describe("Operator", func() {
 		output := to.Im2Col(input, kernelSize, padding, stride, dilation)
 
 		Expect(output.Size()).To(Equal([]int{9, 9}))
-		Expect(output.Vector()).To(Equal([]float64{
+		Expect(read(output)).To(Equal([]float64{
 			0, 0, 0, 0, 1, 1, 0, 2, 2,
 			0, 0, 0, 1, 1, 1, 2, 2, 2,
 			0, 0, 0, 1, 1, 0, 2, 2, 0,
@@ -282,7 +297,7 @@ var _ = Describe("Operator", func() {
 		dilation := []int{2, 2}
 
 		output := to.Im2Col(input, kernelSize, padding, stride, dilation)
-		outputV := output.Vector()
+		outputV := read(output)
 		outputGold := []float64{
 			0.0,
 			0.0,
@@ -322,7 +337,7 @@ var _ = Describe("Operator", func() {
 		output := to.Im2Col(input, kernelSize, padding, stride, dilation)
 
 		Expect(output.Size()).To(Equal([]int{27, 18}))
-		Expect(output.Vector()).To(Equal([]float64{
+		Expect(read(output)).To(Equal([]float64{
 			0, 0, 0, 0, 1111, 1112, 0, 1121, 1122, 0, 0, 0, 0, 2111, 2112, 0, 2121, 2122,
 			0, 0, 0, 1111, 1112, 1113, 1121, 1122, 1123, 0, 0, 0, 2111, 2112, 2113, 2121, 2122, 2123,
 			0, 0, 0, 1112, 1113, 0, 1122, 1123, 0, 0, 0, 0, 2112, 2113, 0, 2122, 2123, 0,
@@ -376,7 +391,7 @@ var _ = Describe("Operator", func() {
 			3422, 3424, 3426, 3442, 3444, 3446, 3462, 3464, 3466,
 			3622, 3624, 3626, 3642, 3644, 3646, 3662, 3664, 3666,
 		}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(Equal(outputGold[i]))
 		}
@@ -405,7 +420,7 @@ var _ = Describe("Operator", func() {
 			10272, 10332, 10392,
 			10872, 10932, 10992,
 		}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(Equal(outputGold[i]))
 		}
@@ -423,7 +438,7 @@ var _ = Describe("Operator", func() {
 		outputGold := []float64{
 			0.02364054, 0.06426166, 0.1746813, 0.474833,
 			0.02364054, 0.06426166, 0.1746813}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(BeNumerically("~", outputGold[i], 1e-3))
 		}
@@ -446,7 +461,7 @@ var _ = Describe("Operator", func() {
 			0.02364054, 0.06426166, 0.1746813, 0.474833,
 			0.02364054, 0.06426166, 0.1746813,
 		}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(BeNumerically("~", outputGold[i], 1e-3))
 		}
@@ -466,7 +481,7 @@ var _ = Describe("Operator", func() {
 		outputGold := []float64{
 			-0.5, -1.0, -1.5, -2.0, -2.5, -3.0, -3.5, -4.0,
 		}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(BeNumerically("~", outputGold[i], 1e-3))
 		}
@@ -486,7 +501,7 @@ var _ = Describe("Operator", func() {
 		outputGold := []float64{
 			-1, -4, -9, -16, -25, -36, -49, -64,
 		}
-		outputVector := output.Vector()
+		outputVector := read(output)
 		for i := range outputGold {
 			Expect(outputVector[i]).To(BeNumerically("~", outputGold[i], 1e-3))
 		}
@@ -502,12 +517,12 @@ var _ = Describe("Operator", func() {
 		sHistoryGold := []float64{1.8, 4.4, 8.6, 14.4}
 		paramsGold := []float64{1.224, 2.286, 3.307, 4.316}
 
-		sHistoryV := sHistory.Vector()
+		sHistoryV := read(sHistory)
 		for i := range sHistoryGold {
 			Expect(sHistoryV[i]).To(BeNumerically("~", sHistoryGold[i], 1e-3))
 		}
 
-		paramsV := params.Vector()
+		paramsV := read(params)
 		for i := range paramsGold {
 			Expect(paramsV[i]).To(BeNumerically("~", paramsGold[i], 1e-3))
 		}
@@ -525,17 +540,17 @@ var _ = Describe("Operator", func() {
 		sHistoryGold := []float64{1.8, 4.4, 8.6, 14.4}
 		paramsGold := []float64{1, 2.114, 3.164, 4.189}
 
-		vHistoryV := vHistory.Vector()
+		vHistoryV := read(vHistory)
 		for i := range vHistoryGold {
 			Expect(vHistoryV[i]).To(BeNumerically("~", vHistoryGold[i], 1e-3))
 		}
 
-		sHistoryV := sHistory.Vector()
+		sHistoryV := read(sHistory)
 		for i := range sHistoryGold {
 			Expect(sHistoryV[i]).To(BeNumerically("~", sHistoryGold[i], 1e-3))
 		}
 
-		paramsV := params.Vector()
+		paramsV := read(params)
 		for i := range paramsGold {
 			Expect(paramsV[i]).To(BeNumerically("~", paramsGold[i], 1e-3))
 		}
@@ -548,7 +563,7 @@ var _ = Describe("Operator", func() {
 		output := to.ReluForward(in)
 
 		outputGold := []float64{2, 3, 0, 0}
-		outputV := output.Vector()
+		outputV := read(output)
 
 		for i := range outputGold {
 			Expect(outputV[i]).To(BeNumerically("~", outputGold[i], 1e-3))
@@ -561,7 +576,7 @@ var _ = Describe("Operator", func() {
 		output := to.ReluBackward(in, backin)
 
 		outputGold := []float64{-2, 3, 8, 0}
-		outputV := output.Vector()
+		outputV := read(output)
 
 		for i := range outputGold {
 			Expect(outputV[i]).To(BeNumerically("~", outputGold[i], 1e-3))
@@ -681,13 +696,15 @@ var _ = Describe("Operator", func() {
 		}
 
 		Expect(out.Size()).To(Equal([]int{2, 3, 4, 4}))
-		outV := out.Vector()
+		outV := read(out)
 		for i := range goldOut {
 			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
 		}
 
 		maskV := make([]int32, mask.NumElement())
-		gpuDriver.MemCopyD2H(ctx, maskV, mask.(*Tensor).ptr)
+		id := gpuDriver.EnqueueMemCopyD2H(to.queue, mask.(*Tensor).ptr, len(maskV)*4)
+		drain()
+		Expect(gpuDriver.ReadResult(id, maskV)).To(Succeed())
 
 		for i := range goldMask {
 			Expect(int(maskV[i])).To(Equal(goldMask[i]))
@@ -801,7 +818,7 @@ var _ = Describe("Operator", func() {
 			198, 200, 202, 203,
 			210, 212, 214, 215,
 		}
-		gpuDriver.MemCopyH2D(ctx, maskTensor.(*Tensor).ptr, maskRaw)
+		gpuDriver.EnqueueMemCopyH2D(to.queue, maskTensor.(*Tensor).ptr, maskRaw)
 
 		out := to.MaxPoolingBackward(
 			forwardInTensor, backwardInTensor, maskTensor,
@@ -852,7 +869,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		Expect(out.Size()).To(Equal([]int{2, 3, 6, 6}))
-		outV := out.Vector()
+		outV := read(out)
 		for i := range goldOut {
 			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
 		}
@@ -915,7 +932,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		Expect(out.Size()).To(Equal([]int{4, 4}))
-		outV := out.Vector()
+		outV := read(out)
 		for i := range outGold {
 			Expect(outV[i]).To(BeNumerically("~", outGold[i], 1e-3))
 		}
@@ -951,7 +968,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		Expect(out.Size()).To(Equal([]int{4, 2}))
-		outV := out.Vector()
+		outV := read(out)
 
 		fmt.Println(outV)
 		for i := range outGold {
@@ -989,7 +1006,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		Expect(out.Size()).To(Equal([]int{4, 4}))
-		outV := out.Vector()
+		outV := read(out)
 		for i := range outGold {
 			Expect(outV[i]).To(BeNumerically("~", outGold[i], 1e-3))
 		}
@@ -1008,7 +1025,7 @@ var _ = Describe("Operator", func() {
 			0.1, -0.8, 0.3, 0.4,
 			0.5, 0.6, -0.3, 0.8,
 		}
-		outV := output.Vector()
+		outV := read(output)
 
 		Expect(output.Size()).To(Equal([]int{2, 4}))
 		for i := range outGold {

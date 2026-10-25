@@ -1,8 +1,6 @@
 package layers
 
 import (
-	"math/rand"
-
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 )
 
@@ -55,14 +53,14 @@ func (l *FullyConnectedLayer) Randomize() {
 	numWeight := l.InputSize * l.OutputSize
 	weights := make([]float64, numWeight)
 	for i := 0; i < numWeight; i++ {
-		weights[i] = (rand.Float64() - 0.5) / float64(l.InputSize) * 2
+		weights[i] = (randomFloat64(l.to) - 0.5) / float64(l.InputSize) * 2
 	}
 	l.to.Init(l.weights, weights)
 
 	numBias := l.OutputSize
 	bias := make([]float64, numBias)
 	for i := 0; i < numBias; i++ {
-		bias[i] = rand.Float64()*2 - 1
+		bias[i] = randomFloat64(l.to)*2 - 1
 	}
 	l.to.Init(l.bias, bias)
 }
