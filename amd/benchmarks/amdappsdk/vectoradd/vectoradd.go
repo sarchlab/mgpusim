@@ -2,6 +2,9 @@
 package vectoradd
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 
 	// embed hsaco files
@@ -38,8 +41,14 @@ type KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver  *driver.Runtime
+	context driver.Context
 	kernel  *insts.KernelCodeObject
 	gpus    []int
 
@@ -58,7 +67,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -87,11 +96,13 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -119,12 +130,12 @@ func (b *Benchmark) initMem() {
 		b.driver.Distribute(b.context, b.dC, uint64(numData*4), b.gpus)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dB, b.hB)
-	b.driver.MemCopyH2D(b.context, b.dC, b.hC)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dB, b.hB)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dC, b.hC)
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.gpus))
 	numData := b.Width * b.Height
 
 	// Workgroup size is fixed at 64x1x1
@@ -165,15 +176,11 @@ func (b *Benchmark) exec() {
 		)
 	}
 
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	b.driver.MemCopyD2H(b.context, b.hA, b.dA)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dA, Target: 0})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	numData := b.Width * b.Height
 	mismatch := false
 
@@ -187,8 +194,55 @@ func (b *Benchmark) Verify() {
 	}
 
 	if mismatch {
-		panic("verification failed")
+		return fmt.Errorf("verification failed")
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.hA
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.hA
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

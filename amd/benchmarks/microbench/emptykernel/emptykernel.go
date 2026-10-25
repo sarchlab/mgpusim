@@ -10,6 +10,7 @@
 package emptykernel
 
 import (
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 
 	// embed hsaco files
@@ -29,11 +30,15 @@ type emptyArgs struct {
 
 // Benchmark defines the empty_kernel benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readback       driver.CommandID
+	driver         *driver.Runtime
+	context        driver.Context
+	queue          driver.CommandQueue
+	hsaco          *insts.KernelCodeObject
+	gpus           []int
 
 	Arch arch.Type
 
@@ -49,12 +54,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new empty_kernel benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -77,8 +81,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the empty_kernel benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -87,7 +91,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.exec()
+	b.queue = b.driver.CreateCommandQueue(b.context)
 }
 
 func (b *Benchmark) exec() {
@@ -116,11 +120,30 @@ func (b *Benchmark) exec() {
 		[3]uint16{uint16(b.BlockSize), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify is a no-op: the empty kernel produces no output to check.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.exec()
+		b.Phase = 1
+	case 1:
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Ended = true
+	}
+	return nil
 }

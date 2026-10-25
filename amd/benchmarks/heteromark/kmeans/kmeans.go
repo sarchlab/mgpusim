@@ -3,6 +3,7 @@ package kmeans
 
 import (
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"math/rand"
@@ -98,10 +99,16 @@ type CDNA3ComputeArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	gpus    []int
-	queues  []*driver.CommandQueue
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	iteration      int
+	readback       driver.CommandID
+	swapReadback   driver.CommandID
+	driver         *driver.Runtime
+	context        driver.Context
+	gpus           []int
+	queues         []driver.CommandQueue
 
 	computeKernel *insts.KernelCodeObject
 	swapKernel    *insts.KernelCodeObject
@@ -125,7 +132,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
@@ -157,7 +164,7 @@ func (b *Benchmark) loadKernels() {
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpus = gpuIDs
-	b.queues = make([]*driver.CommandQueue, len(b.gpus))
+	b.queues = make([]driver.CommandQueue, len(b.gpus))
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues[i] = b.driver.CreateCommandQueue(b.context)
@@ -169,13 +176,12 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	b.loadKernels()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -229,13 +235,7 @@ func (b *Benchmark) initMem() {
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dFeatures, b.hFeatures)
-}
-
-func (b *Benchmark) exec() {
-	b.transposeFeatures()
-	b.kmeansClustering()
-	b.gpuRMSE = b.calculateRMSE()
+	b.driver.EnqueueMemCopyH2D(b.queues[0], b.dFeatures, b.hFeatures)
 }
 
 func (b *Benchmark) transposeFeatures() {
@@ -290,22 +290,18 @@ func (b *Benchmark) transposeFeatures() {
 			)
 		}
 	}
-
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	b.verifySwap()
 }
 
-func (b *Benchmark) verifySwap() {
+func (b *Benchmark) verifySwap() error {
 	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
-	b.driver.MemCopyD2H(b.context, gpuSwap, b.dFeaturesSwap)
+	if err := b.driver.ReadResult(b.swapReadback, gpuSwap); err != nil {
+		return err
+	}
 
 	for i := 0; i < b.NumPoints; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			if gpuSwap[j*b.NumPoints+i] != b.hFeatures[i*b.NumFeatures+j] {
-				log.Printf("Swap error (%d, %d) expected %f, but get %f",
+				return fmt.Errorf("Swap error (%d, %d) expected %f, but get %f",
 					i, j,
 					b.hFeatures[i*b.NumFeatures+j],
 					gpuSwap[j*b.NumPoints+i],
@@ -313,22 +309,7 @@ func (b *Benchmark) verifySwap() {
 			}
 		}
 	}
-}
-
-func (b *Benchmark) kmeansClustering() {
-	numIterations := 0
-	delta := float64(1.0)
-
-	b.initializeClusters()
-	b.initializeMembership()
-
-	for delta > 0 && numIterations < b.MaxIter {
-		delta = b.updateMembership()
-		numIterations++
-		b.updateCentroids()
-	}
-
-	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", numIterations)
+	return nil
 }
 
 func (b *Benchmark) initializeClusters() {
@@ -345,7 +326,7 @@ func (b *Benchmark) initializeMembership() {
 	}
 }
 
-func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
+func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
 	numWI := b.NumPoints / len(b.gpus)
 
 	if b.Arch == arch.CDNA3 {
@@ -405,18 +386,17 @@ func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 	}
 }
 
-func (b *Benchmark) updateMembership() float64 {
+func (b *Benchmark) submitMembership() {
 	for i, q := range b.queues {
 		b.driver.EnqueueMemCopyH2D(q, b.dClusters[i], b.hClusters)
 		b.enqueueComputeKernel(q, i)
 	}
-
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
+}
+func (b *Benchmark) consumeMembership() (float64, error) {
 	newMembership := make([]int32, b.NumPoints)
-	b.driver.MemCopyD2H(b.context, newMembership, b.dMembership)
+	if err := b.driver.ReadResult(b.readback, newMembership); err != nil {
+		return 0, err
+	}
 
 	delta := 0.0
 	for i := 0; i < b.NumPoints; i++ {
@@ -427,7 +407,7 @@ func (b *Benchmark) updateMembership() float64 {
 		}
 	}
 
-	return delta
+	return delta, nil
 }
 
 func (b *Benchmark) updateCentroids() {
@@ -475,7 +455,7 @@ func (b *Benchmark) calculateRMSE() float64 {
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuCentroids := make([]float32, b.NumClusters*b.NumFeatures)
 	copy(gpuCentroids, b.hClusters)
 
@@ -487,8 +467,10 @@ func (b *Benchmark) Verify() {
 	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
 		fmt.Fprintf(os.Stderr, "Passsed, RMSE %f\n", cpuRMSE)
 	} else {
-		log.Fatal("error")
+		return fmt.Errorf("error")
 	}
+
+	return nil
 }
 
 func (b *Benchmark) cpuKMeans() {
@@ -552,4 +534,64 @@ func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
 			}
 		}
 	}
+}
+
+func (b *Benchmark) Step() error {
+	if b.MaxIter <= 0 {
+		return fmt.Errorf("kmeans requires MaxIter > 0")
+	}
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.transposeFeatures()
+		b.Phase = 2
+	case 2:
+		if b.Verification {
+			b.swapReadback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.dFeaturesSwap, b.NumPoints*b.NumFeatures*4)
+		}
+		b.Phase = 3
+	case 3:
+		if b.Verification {
+			if err := b.verifySwap(); err != nil {
+				return err
+			}
+		}
+		b.initializeClusters()
+		b.initializeMembership()
+		b.submitMembership()
+		b.Phase = 4
+	case 4:
+		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.dMembership, b.NumPoints*4)
+		b.Phase = 5
+	case 5:
+		return b.finishIteration()
+	}
+	return nil
+}
+
+func (b *Benchmark) finishIteration() error {
+	delta, err := b.consumeMembership()
+	if err != nil {
+		return err
+	}
+	b.iteration++
+	b.updateCentroids()
+	if delta > 0 && b.iteration < b.MaxIter {
+		b.submitMembership()
+		b.Phase = 4
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", b.iteration)
+	b.gpuRMSE = b.calculateRMSE()
+	if b.Verification {
+		if err := b.verify(); err != nil {
+			return err
+		}
+	}
+	b.Ended = true
+	return nil
 }

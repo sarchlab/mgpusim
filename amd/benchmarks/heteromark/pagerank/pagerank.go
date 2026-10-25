@@ -2,7 +2,9 @@
 package pagerank
 
 import (
+	"encoding/binary"
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"os"
@@ -60,10 +62,16 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver  *driver.Runtime
+	context driver.Context
 	gpus    []int
-	queues  []*driver.CommandQueue
+	queues  []driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
 	Arch           arch.Type
@@ -87,7 +95,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -124,8 +132,11 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 
 	for _, gpu := range b.gpus {
@@ -134,7 +145,6 @@ func (b *Benchmark) Run() {
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -220,8 +230,7 @@ func (b *Benchmark) launchCDNA3PageRank(
 		HiddenGridDims:      1,
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
+	b.driver.EnqueueLaunchKernel(b.queue,
 		b.kernel,
 		globalSize,
 		localSize,
@@ -257,8 +266,7 @@ func (b *Benchmark) launchGCN3PageRank(
 		}
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
+	b.driver.EnqueueLaunchKernel(b.queue,
 		b.kernel,
 		globalSize,
 		localSize,
@@ -279,12 +287,12 @@ func (b *Benchmark) launchPageRankKernel(
 }
 
 func (b *Benchmark) exec() {
-	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
-	b.driver.MemCopyH2D(b.context, b.dRowOffsets,
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dPageRank, b.hPageRank)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dRowOffsets,
 		b.hMatrix.RowOffsets)
-	b.driver.MemCopyH2D(b.context, b.dColumnNumbers,
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dColumnNumbers,
 		b.hMatrix.ColumnNumbers)
-	b.driver.MemCopyH2D(b.context, b.dValues,
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dValues,
 		b.hMatrix.Values)
 
 	b.dLocalValues = driver.LocalPtr(256)
@@ -299,14 +307,14 @@ func (b *Benchmark) exec() {
 	}
 
 	if i%2 != 0 {
-		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRankTemp)
+		b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPageRankTemp, Target: 0})
 	} else {
-		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRank)
+		b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPageRank, Target: 1})
 	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	var i uint32
 	m := b.hMatrix
 	for i = 0; i < b.MaxIterations; i++ {
@@ -322,10 +330,61 @@ func (b *Benchmark) Verify() {
 
 	for i := uint32(0); i < b.NumNodes; i++ {
 		if math.Abs(float64(b.verPageRank[i]-b.hPageRank[i])) > 1e-5 {
-			log.Panicf("Mismatch at %d, expected %f, but get %f\n",
+			return fmt.Errorf("Mismatch at %d, expected %f, but get %f\n",
 				i, b.verPageRank[i], b.hPageRank[i])
 		}
 	}
 
 	fmt.Fprintf(os.Stderr, "Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.hPageRank
+			case 1:
+				dst = b.hPageRank
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.hPageRank
+			case 1:
+				dst = b.hPageRank
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

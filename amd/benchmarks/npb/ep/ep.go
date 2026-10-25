@@ -16,6 +16,8 @@
 package ep
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -50,11 +52,15 @@ type KernelArgs struct {
 
 // Benchmark defines the NPB EP benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 	N    int
@@ -68,12 +74,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new NPB EP benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -95,8 +100,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the npb ep benchmark ships only a gfx942 kernel; " +
 			"run with -arch cdna3 -gpu mi300x")
@@ -105,6 +110,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -140,8 +146,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // lcgNext mirrors the device-side ANSI C LCG (mod 2^32 by overflow).
@@ -184,10 +188,12 @@ func cpuBin(idx int) int32 {
 
 // Verify checks the GPU per-thread bin indices against a CPU reference and
 // confirms the resulting bin histogram matches.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	gpuBins := make([]int32, n)
-	b.driver.MemCopyD2H(b.context, gpuBins, b.gBinOut)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuBins); err != nil {
+		return err
+	}
 
 	cpuHist := make([]int64, numBins)
 	gpuHist := make([]int64, numBins)
@@ -197,12 +203,12 @@ func (b *Benchmark) Verify() {
 		got := gpuBins[i]
 
 		if got < 0 || got >= numBins {
-			log.Fatalf("At index %d, GPU produced out-of-range bin %d.\n",
+			return fmt.Errorf("At index %d, GPU produced out-of-range bin %d.\n",
 				i, got)
 		}
 
 		if expected != got {
-			log.Fatalf("At index %d, expected bin %d, but got %d.\n",
+			return fmt.Errorf("At index %d, expected bin %d, but got %d.\n",
 				i, expected, got)
 		}
 
@@ -212,10 +218,41 @@ func (b *Benchmark) Verify() {
 
 	for i := 0; i < numBins; i++ {
 		if cpuHist[i] != gpuHist[i] {
-			log.Fatalf("Bin %d histogram mismatch: CPU=%d, GPU=%d.\n",
+			return fmt.Errorf("Bin %d histogram mismatch: CPU=%d, GPU=%d.\n",
 				i, cpuHist[i], gpuHist[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gBinOut, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

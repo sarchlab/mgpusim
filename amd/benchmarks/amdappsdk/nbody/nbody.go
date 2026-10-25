@@ -2,6 +2,9 @@
 package nbody
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"math/rand"
@@ -58,10 +61,16 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver           *driver.Runtime
+	context          driver.Context
 	gpus             []int
-	queues           []*driver.CommandQueue
+	queues           []driver.CommandQueue
 	useUnifiedMemory bool
 	nbodyKernel      *insts.KernelCodeObject
 
@@ -83,15 +92,15 @@ type Benchmark struct {
 	currVel       driver.Ptr
 	newPos        driver.Ptr
 	newVel        driver.Ptr
-	dPos          *driver.Ptr
-	dVel          *driver.Ptr
-	dNewPos       *driver.Ptr
-	dNewVel       *driver.Ptr
+	dPos          driver.Ptr
+	dVel          driver.Ptr
+	dNewPos       driver.Ptr
+	dNewVel       driver.Ptr
 	localPosBuf   driver.Ptr
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -134,8 +143,11 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	if b.NumParticles < b.groupSize {
 		b.NumParticles = b.groupSize
 	}
@@ -149,7 +161,6 @@ func (b *Benchmark) Run() {
 			b.driver.CreateCommandQueue(b.context))
 	}
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -179,13 +190,13 @@ func (b *Benchmark) initMem() {
 		b.newVel = b.driver.AllocateMemory(b.context,
 			uint64(b.numBodies*4*4))
 	}
-	b.driver.MemCopyH2D(b.context, b.currPos, b.pos)
-	b.driver.MemCopyH2D(b.context, b.currVel, b.vel)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.currPos, b.pos)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.currVel, b.vel)
 
-	b.dPos = &b.currPos
-	b.dVel = &b.currVel
-	b.dNewPos = &b.newPos
-	b.dNewVel = &b.newVel
+	b.dPos = b.currPos
+	b.dVel = b.currVel
+	b.dNewPos = b.newPos
+	b.dNewVel = b.newVel
 
 	if b.Arch == arch.CDNA3 {
 		// CDNA3 HIP kernel uses global memory for localPos instead of LDS
@@ -201,14 +212,14 @@ func (b *Benchmark) exec() {
 	for i := int32(0); i < b.NumIterations; i++ {
 		if b.Arch == arch.CDNA3 {
 			args := CDNA3KernelArgs{
-				Pos:                 *b.dPos,
-				Vel:                 *b.dVel,
+				Pos:                 b.dPos,
+				Vel:                 b.dVel,
 				NumBodies:           b.numBodies,
 				DeltaTime:           b.delT,
 				EpsSqr:              b.espSqr,
 				LocalPos:            b.localPosBuf,
-				NewPosition:         *b.dNewPos,
-				NewVelocity:         *b.dNewVel,
+				NewPosition:         b.dNewPos,
+				NewVelocity:         b.dNewVel,
 				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
 				HiddenBlockCountY:   1,
 				HiddenBlockCountZ:   1,
@@ -223,26 +234,26 @@ func (b *Benchmark) exec() {
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      1,
 			}
-			b.driver.LaunchKernel(b.context,
+			b.driver.EnqueueLaunchKernel(b.queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
 			)
 		} else {
 			args := KernelArgs{
-				Pos:                 *b.dPos,
-				Vel:                 *b.dVel,
+				Pos:                 b.dPos,
+				Vel:                 b.dVel,
 				NumBodies:           b.numBodies,
 				DeltaTime:           b.delT,
 				EpsSqr:              b.espSqr,
 				LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
-				NewPosition:         *b.dNewPos,
-				NewVelocity:         *b.dNewVel,
+				NewPosition:         b.dNewPos,
+				NewVelocity:         b.dNewVel,
 				HiddenGlobalOffsetX: 0,
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
 			}
-			b.driver.LaunchKernel(b.context,
+			b.driver.EnqueueLaunchKernel(b.queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
@@ -253,11 +264,11 @@ func (b *Benchmark) exec() {
 		b.dVel, b.dNewVel = b.dNewVel, b.dVel
 	}
 
-	b.driver.MemCopyD2H(b.context, b.pos, *b.dPos)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPos, Target: 0})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	b.refPos = make([]float32, b.numBodies*4)
 	b.refVel = make([]float32, b.numBodies*4)
 	copy(b.refPos, b.initPos)
@@ -278,10 +289,12 @@ func (b *Benchmark) Verify() {
 	}
 
 	if mismatch {
-		panic("Mismatch!\n")
+		return fmt.Errorf("Mismatch!\n")
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) nbodyCPU() {
@@ -347,4 +360,49 @@ func (b *Benchmark) fill() {
 
 	copy(b.pos, b.initPos)
 	copy(b.vel, b.initVel)
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.pos
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.pos
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

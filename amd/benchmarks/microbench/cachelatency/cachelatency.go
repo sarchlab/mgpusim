@@ -13,6 +13,8 @@
 package cachelatency
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 
 	// embed hsaco files
@@ -40,11 +42,15 @@ type KernelArgs struct {
 
 // Benchmark defines the cache_latency benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -80,12 +86,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new cache_latency benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -108,8 +113,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the cache_latency benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -118,6 +123,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -225,10 +231,10 @@ func (b *Benchmark) initMem() {
 		b.gResult = b.driver.AllocateMemory(b.context, uint64(4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gArr, b.chain)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gArr, b.chain)
 	// Initialize the result buffer so its page is resident on the GPU before
 	// the kernel writes to it (output-only buffers are otherwise never mapped).
-	b.driver.MemCopyH2D(b.context, b.gResult, []uint32{0})
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gResult, []uint32{0})
 }
 
 func (b *Benchmark) exec() {
@@ -249,15 +255,15 @@ func (b *Benchmark) exec() {
 		[3]uint16{1, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference walk of the same chain.
 // The thread starts at startIdx and applies num_accesses chain hops.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuResult := make([]uint32, 1)
-	b.driver.MemCopyD2H(b.context, gpuResult, b.gResult)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuResult); err != nil {
+		return err
+	}
 
 	idx := b.startIdx
 	for i := 0; i < b.NumAccesses; i++ {
@@ -265,9 +271,40 @@ func (b *Benchmark) Verify() {
 	}
 
 	if gpuResult[0] != idx {
-		log.Fatalf("Mismatch: expected final index %d, but got %d.\n",
+		return fmt.Errorf("Mismatch: expected final index %d, but got %d.\n",
 			idx, gpuResult[0])
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gResult, 4*(1)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

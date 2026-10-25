@@ -16,6 +16,8 @@
 package srad
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -73,12 +75,16 @@ type Srad2Args struct {
 
 // Benchmark defines the SRAD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco1  *insts.KernelCodeObject
-	hsaco2  *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco1    *insts.KernelCodeObject
+	hsaco2    *insts.KernelCodeObject
+	gpus      []int
 
 	Arch          arch.Type
 	ImageSize     int // image is ImageSize x ImageSize
@@ -100,12 +106,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new SRAD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -131,8 +136,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia srad benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -141,6 +146,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -178,7 +184,7 @@ func (b *Benchmark) initMem() {
 		b.gC = b.driver.AllocateMemory(b.context, uint64(total*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gJ, b.jInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gJ, b.jInit)
 }
 
 func (b *Benchmark) exec() {
@@ -225,19 +231,19 @@ func (b *Benchmark) exec() {
 			[3]uint16{blockSize, blockSize, 1},
 			&args2,
 		)
-
-		b.driver.DrainCommandQueue(b.queue)
 	}
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same two-phase SRAD iteration exactly.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.ImageSize
 	total := n * n
 
 	gpu := make([]float32, total)
-	b.driver.MemCopyD2H(b.context, gpu, b.gJ)
+	if err := b.driver.ReadResult(b.readbacks[0], gpu); err != nil {
+		return err
+	}
 
 	jc := make([]float32, total)
 	copy(jc, b.jInit)
@@ -334,10 +340,41 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 			denom = 1.0
 		}
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("At pixel %d (row %d, col %d), expected %f, but got %f.\n",
+			return fmt.Errorf("At pixel %d (row %d, col %d), expected %f, but got %f.\n",
 				i, i/n, i%n, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gJ, 4*((b.ImageSize)*(b.ImageSize))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

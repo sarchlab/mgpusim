@@ -2,6 +2,8 @@
 package fir
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -53,11 +55,15 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch         arch.Type
 	Length       int
@@ -80,12 +86,11 @@ var gcn3HSACOBytes []byte
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -113,13 +118,13 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -161,7 +166,7 @@ func (b *Benchmark) initMem() {
 			b.gOutputData, uint64(b.Length*4), b.gpus)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gInputData, b.inputData)
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -172,11 +177,11 @@ func (b *Benchmark) initMem() {
 			b.gFilterData[i] = b.driver.AllocateMemory(
 				b.context, uint64(b.numTaps*4))
 		}
-		b.driver.MemCopyH2D(b.context, b.gFilterData[i], b.filterData)
+		b.driver.EnqueueMemCopyH2D(b.queue, b.gFilterData[i], b.filterData)
 	}
 }
 
-func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex, numGPUs int) {
+func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs int) {
 	numWi := b.Length
 	gridSize := uint32(numWi / numGPUs)
 
@@ -234,23 +239,21 @@ func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex, numGPUs 
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.gpus))
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
 		b.enqueueKernel(queues[i], i, len(b.gpus))
 	}
-
-	for i := range b.gpus {
-		b.driver.DrainCommandQueue(queues[i])
-	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuOutput := make([]float32, b.Length)
-	b.driver.MemCopyD2H(b.context, gpuOutput, b.gOutputData)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuOutput); err != nil {
+		return err
+	}
 
 	for i := 0; i < b.Length; i++ {
 		var sum float32
@@ -264,10 +267,44 @@ func (b *Benchmark) Verify() {
 		}
 
 		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
-			log.Fatalf("At position %d, expected %f, but get %f.\n",
+			return fmt.Errorf("At position %d, expected %f, but get %f.\n",
 				i, sum, gpuOutput[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOutputData, 4*(b.Length)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 3
+	case 3:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

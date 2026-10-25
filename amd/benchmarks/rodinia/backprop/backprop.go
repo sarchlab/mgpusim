@@ -11,6 +11,8 @@
 package backprop
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -24,7 +26,7 @@ import (
 
 const (
 	blockSz = 256 // 1D block width (matches BLOCK_SZ in the kernel; HW uses 256)
-	tile2D  = 16 // 2D block dim for update_w1 (matches TILE2D in the kernel)
+	tile2D  = 16  // 2D block dim for update_w1 (matches TILE2D in the kernel)
 	lr      = float32(0.1)
 )
 
@@ -88,10 +90,14 @@ type updateW2Args struct {
 
 // Benchmark defines the Backprop benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	gpus      []int
 
 	kForwardHidden       *insts.KernelCodeObject
 	kForwardOutput       *insts.KernelCodeObject
@@ -131,12 +137,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Backprop benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -168,8 +173,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia backprop benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -178,6 +183,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -250,12 +256,12 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	b.gDeltaOut = alloc(out)
 	b.gDeltaHid = alloc(hid)
 
-	b.driver.MemCopyH2D(b.context, b.gInput, b.hInput)
-	b.driver.MemCopyH2D(b.context, b.gW1, b.hW1)
-	b.driver.MemCopyH2D(b.context, b.gB1, b.hB1)
-	b.driver.MemCopyH2D(b.context, b.gW2, b.hW2)
-	b.driver.MemCopyH2D(b.context, b.gB2, b.hB2)
-	b.driver.MemCopyH2D(b.context, b.gTarget, b.hTarget)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gInput, b.hInput)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gW1, b.hW1)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB1, b.hB1)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gW2, b.hW2)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB2, b.hB2)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gTarget, b.hTarget)
 }
 
 func grid1D(n int) uint32 {
@@ -335,8 +341,6 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 			HiddenN: int32(hid), OutputN: int32(out), LR: lr,
 		},
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 func sigmoid(x float64) float64 {
@@ -345,7 +349,7 @@ func sigmoid(x float64) float64 {
 
 // Verify recomputes the full epoch on the CPU and compares the updated weight
 // matrices (w1, w2) against the GPU results.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	in := b.InputN
 	hid := b.HiddenN
 	out := b.OutputN
@@ -404,26 +408,68 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 
 	gpuW1 := make([]float32, in*hid)
 	gpuW2 := make([]float32, hid*out)
-	b.driver.MemCopyD2H(b.context, gpuW1, b.gW1)
-	b.driver.MemCopyD2H(b.context, gpuW2, b.gW2)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuW1); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuW2); err != nil {
+		return err
+	}
 
-	check := func(name string, idx int, ref float64, got float64) {
+	check := func(name string, idx int, ref float64, got float64) error {
 		denom := math.Abs(ref)
 		if denom < 1e-3 {
 			denom = 1e-3
 		}
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("%s[%d]: expected %f, but got %f.\n",
+			return fmt.Errorf("%s[%d]: expected %f, but got %f.\n",
 				name, idx, ref, got)
 		}
+
+		return nil
 	}
 
 	for i := range refW1 {
-		check("w1", i, refW1[i], float64(gpuW1[i]))
+		if err := check("w1", i, refW1[i], float64(gpuW1[i])); err != nil {
+			return err
+		}
 	}
 	for i := range refW2 {
-		check("w2", i, refW2[i], float64(gpuW2[i]))
+		if err := check("w2", i, refW2[i], float64(gpuW2[i])); err != nil {
+			return err
+		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gW1, 4*((b.InputN)*(b.HiddenN))))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gW2, 4*((b.HiddenN)*(b.OutputN))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

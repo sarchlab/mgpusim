@@ -24,6 +24,8 @@ type launchKernelInput struct {
 }
 
 func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	dataStr, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -52,8 +54,8 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	serverInstance.driver.LaunchKernel(
-		serverInstance.ctx,
+	serverInstance.driver.EnqueueLaunchKernel(
+		serverInstance.queue,
 		hsaCo,
 		[3]uint32{
 			uint32(dataJSON.NumBlocks.X * dataJSON.DimBlocks.X),
@@ -65,8 +67,12 @@ func handleLaunchKernel(w http.ResponseWriter, r *http.Request) {
 			uint16(dataJSON.DimBlocks.Y),
 			uint16(dataJSON.DimBlocks.Z),
 		},
-		rawArgs,
+		&rawArgs,
 	)
 
+	if err := serverInstance.run(); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	w.Write([]byte("{}"))
 }

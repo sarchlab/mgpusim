@@ -22,6 +22,8 @@
 package sharedmembandwidth
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -56,12 +58,16 @@ type KernelArgs struct {
 
 // Benchmark defines the shared-memory bandwidth benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	conf    *insts.KernelCodeObject
-	gpus    []int
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readback       driver.CommandID
+	driver         *driver.Runtime
+	context        driver.Context
+	queue          driver.CommandQueue
+	hsaco          *insts.KernelCodeObject
+	conf           *insts.KernelCodeObject
+	gpus           []int
 
 	Arch arch.Type
 
@@ -90,12 +96,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new shared-memory bandwidth benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -124,8 +129,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the shared_mem_bandwidth benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -134,8 +139,8 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -172,11 +177,11 @@ func (b *Benchmark) initMem() {
 	for i := range in {
 		in[i] = 1.0
 	}
-	b.driver.MemCopyH2D(b.context, b.gIn, in)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gIn, in)
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
-	b.driver.MemCopyH2D(b.context, b.gSink, zeros)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gSink, zeros)
 }
 
 // launch runs one kernel (no_conflict or conflict) with the configured block
@@ -195,33 +200,15 @@ func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 		[3]uint16{uint16(b.BlockSize), 1, 1},
 		&args,
 	)
-	b.driver.DrainCommandQueue(b.queue)
-}
-
-func (b *Benchmark) exec() {
-	runNoConflict := b.AccessPattern != "conflict"
-	runConflict := b.AccessPattern == "conflict" || b.AccessPattern == "both"
-
-	if runNoConflict {
-		b.launch(b.hsaco)
-		// Snapshot the deterministic no-conflict result before any conflict
-		// launch overwrites the shared sink.
-		b.noConflictResult = make([]float32, b.NumBlocks)
-		b.driver.MemCopyD2H(b.context, b.noConflictResult, b.gSink)
-	}
-
-	if runConflict {
-		b.launch(b.conf)
-	}
 }
 
 // Verify checks the GPU result against the CPU reference. With d_in all 1.0,
 // each block's thread 0 accumulates 1.0 once per (iteration, accumulator), so
 // the result is exactly unroll*InnerIters and independent of scheduling.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	if b.noConflictResult == nil {
 		log.Printf("Verify skipped (no_conflict kernel not run).\n")
-		return
+		return nil
 	}
 	ref := float32(unroll * b.InnerIters)
 
@@ -233,10 +220,50 @@ func (b *Benchmark) Verify() {
 			denom = 1.0
 		}
 		if math.Abs(float64(ref-got))/denom > 1e-3 {
-			log.Fatalf("Block %d: expected sink %f, but got %f.\n",
+			return fmt.Errorf("Block %d: expected sink %f, but got %f.\n",
 				blk, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		if b.AccessPattern != "conflict" {
+			b.launch(b.hsaco)
+		}
+		b.Phase = 1
+	case 1:
+		if b.Verification && b.AccessPattern != "conflict" {
+			b.noConflictResult = make([]float32, b.NumBlocks)
+			b.readback = b.driver.EnqueueMemCopyD2H(b.queue, b.gSink, b.NumBlocks*4)
+		}
+		b.Phase = 2
+	case 2:
+		if b.readback != 0 {
+			if err := b.driver.ReadResult(b.readback, b.noConflictResult); err != nil {
+				return err
+			}
+			b.readback = 0
+		}
+		if b.AccessPattern == "conflict" || b.AccessPattern == "both" {
+			b.launch(b.conf)
+		}
+		b.Phase = 3
+	case 3:
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Ended = true
+	}
+	return nil
 }

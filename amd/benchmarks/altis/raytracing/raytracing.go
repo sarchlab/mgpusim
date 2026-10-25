@@ -11,6 +11,8 @@
 package raytracing
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -49,11 +51,15 @@ type KernelArgs struct {
 
 // Benchmark defines the ray tracing benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch    arch.Type
 	Width   int
@@ -71,12 +77,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new ray tracing benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -99,8 +104,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the altis raytracing benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -109,6 +114,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -161,7 +167,7 @@ func (b *Benchmark) initMem() {
 		b.gSpheres = b.driver.AllocateMemory(b.context, sphereBytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gSpheres, b.spheres)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gSpheres, b.spheres)
 }
 
 func (b *Benchmark) exec() {
@@ -183,8 +189,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuShadePixel computes the RGBA bytes for a single pixel using the exact
@@ -322,10 +326,12 @@ func f32sqrt(x float32) float32 {
 // Verify checks the GPU result against a CPU reference computation, comparing
 // every pixel channel. A small ±1 tolerance is allowed to account for
 // float-rounding differences between the GPU sqrt and the host sqrt.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	totalPixels := b.Width * b.Height
 	gpuImage := make([]byte, totalPixels*4)
-	b.driver.MemCopyD2H(b.context, gpuImage, b.gImage)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuImage); err != nil {
+		return err
+	}
 
 	errors := 0
 	for py := 0; py < b.Height; py++ {
@@ -347,9 +353,40 @@ func (b *Benchmark) Verify() {
 	}
 
 	if errors > 0 {
-		log.Fatalf("%d channel errors in %d verified pixels\n",
+		return fmt.Errorf("%d channel errors in %d verified pixels\n",
 			errors, totalPixels)
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gImage, 1*((b.Width*b.Height)*4)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

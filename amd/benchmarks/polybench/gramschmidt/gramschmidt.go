@@ -23,6 +23,8 @@
 package gramschmidt
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -73,10 +75,14 @@ type ProjectArgs struct {
 
 // Benchmark defines the Gram-Schmidt benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	gpus      []int
 
 	normFinish *insts.KernelCodeObject
 	normalize  *insts.KernelCodeObject
@@ -99,12 +105,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Gram-Schmidt benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -139,8 +144,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench gramschmidt benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -149,6 +154,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -185,11 +191,11 @@ func (b *Benchmark) initMem() {
 	}
 
 	// A starts as aInit; Q and R start at zero.
-	b.driver.MemCopyH2D(b.context, b.gA, b.aInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.aInit)
 	zeroQ := make([]float32, m*n)
 	zeroR := make([]float32, n*n)
-	b.driver.MemCopyH2D(b.context, b.gQ, zeroQ)
-	b.driver.MemCopyH2D(b.context, b.gR, zeroR)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gQ, zeroQ)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gR, zeroR)
 }
 
 func (b *Benchmark) exec() {
@@ -236,19 +242,24 @@ func (b *Benchmark) exec() {
 
 		// Kernels for column k must complete before column k+1 starts
 		// (gram_project mutates A in place), so drain between iterations.
-		b.driver.DrainCommandQueue(b.queue)
 	}
 }
 
 // Verify checks the GPU Q and R against a CPU reference that reproduces the
 // exact same sequential Gram-Schmidt computation.
-func (b *Benchmark) Verify() {
+//
+//nolint:funlen // Keep the CPU reference algorithm and comparison together.
+func (b *Benchmark) verify() error {
 	m, n := b.M, b.N
 
 	gpuQ := make([]float32, m*n)
 	gpuR := make([]float32, n*n)
-	b.driver.MemCopyD2H(b.context, gpuQ, b.gQ)
-	b.driver.MemCopyD2H(b.context, gpuR, b.gR)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuQ); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuR); err != nil {
+		return err
+	}
 
 	cpuQ, cpuR := b.cpuGramSchmidt()
 
@@ -264,7 +275,7 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < m; i++ {
 		for j := 0; j < n; j++ {
 			if relErr(cpuQ[i*n+j], gpuQ[i*n+j]) > tol {
-				log.Fatalf("Q mismatch at (%d,%d): expected %f, got %f",
+				return fmt.Errorf("Q mismatch at (%d,%d): expected %f, got %f",
 					i, j, cpuQ[i*n+j], gpuQ[i*n+j])
 			}
 		}
@@ -272,7 +283,7 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
 			if relErr(cpuR[i*n+j], gpuR[i*n+j]) > tol {
-				log.Fatalf("R mismatch at (%d,%d): expected %f, got %f",
+				return fmt.Errorf("R mismatch at (%d,%d): expected %f, got %f",
 					i, j, cpuR[i*n+j], gpuR[i*n+j])
 			}
 		}
@@ -294,13 +305,20 @@ func (b *Benchmark) Verify() {
 				expected = 1.0
 			}
 			if math.Abs(dot-expected) > 1e-2 {
-				log.Fatalf("orthogonality fail: dot(Q[:,%d],Q[:,%d])=%f, "+
+				return fmt.Errorf("orthogonality fail: dot(Q[:,%d],Q[:,%d])=%f, "+
 					"expected %f", ci, cj, dot, expected)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gQ, 4*(b.M*b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gR, 4*(b.N*b.N)))
 }
 
 // cpuGramSchmidt reproduces the GPU computation exactly using float32 math
@@ -342,4 +360,29 @@ func (b *Benchmark) cpuGramSchmidt() (q, r []float32) {
 	}
 
 	return q, r
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

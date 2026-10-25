@@ -11,6 +11,8 @@
 package pathfinder
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -46,11 +48,15 @@ type KernelArgs struct {
 
 // Benchmark defines the PathFinder benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 	Rows int
@@ -68,12 +74,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new PathFinder benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -96,8 +101,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia pathfinder benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -106,6 +111,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -146,12 +152,12 @@ func (b *Benchmark) initMem() {
 		b.gBuf[1] = b.driver.AllocateMemory(b.context, rowBytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gWall, b.wall)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gWall, b.wall)
 
 	// Initialize src buffer (gBuf[0]) with row 0 of the wall.
 	row0 := make([]int32, cols)
 	copy(row0, b.wall[:cols])
-	b.driver.MemCopyH2D(b.context, b.gBuf[0], row0)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gBuf[0], row0)
 }
 
 func (b *Benchmark) exec() {
@@ -184,20 +190,20 @@ func (b *Benchmark) exec() {
 		src = dst
 	}
 
-	b.driver.DrainCommandQueue(b.queue)
-
 	// After the loop, the most recent result is in b.gBuf[src].
 	b.finalGBuf = b.gBuf[src]
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the exact double-buffered sweep performed on the GPU.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	cols := b.Cols
 	rows := b.Rows
 
 	gpuResult := make([]int32, cols)
-	b.driver.MemCopyD2H(b.context, gpuResult, b.finalGBuf)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuResult); err != nil {
+		return err
+	}
 
 	src := make([]int32, cols)
 	dst := make([]int32, cols)
@@ -230,10 +236,41 @@ func (b *Benchmark) Verify() {
 
 	for c := 0; c < cols; c++ {
 		if gpuResult[c] != src[c] {
-			log.Fatalf("At column %d, expected %d, but got %d.\n",
+			return fmt.Errorf("At column %d, expected %d, but got %d.\n",
 				c, src[c], gpuResult[c])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.finalGBuf, 4*(b.Cols)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

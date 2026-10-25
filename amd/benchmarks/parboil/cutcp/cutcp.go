@@ -13,6 +13,8 @@
 package cutcp
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -46,11 +48,15 @@ type KernelArgs struct {
 
 // Benchmark defines the CUTCP benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -76,12 +82,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new CUTCP benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -104,8 +109,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the parboil cutcp benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -114,6 +119,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -174,7 +180,7 @@ func (b *Benchmark) initMem() {
 			b.context, uint64(totalPoints*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gAtoms, b.atoms)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gAtoms, b.atoms)
 }
 
 func (b *Benchmark) exec() {
@@ -199,8 +205,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuPotential computes the reference potential at a single grid point.
@@ -219,10 +223,12 @@ func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	totalPoints := b.GridSide * b.GridSide * b.GridSide
 	gpuPot := make([]float32, totalPoints)
-	b.driver.MemCopyD2H(b.context, gpuPot, b.gPot)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuPot); err != nil {
+		return err
+	}
 
 	cutoff2 := b.Cutoff * b.Cutoff
 	side := b.GridSide
@@ -241,10 +247,44 @@ func (b *Benchmark) Verify() {
 		diff := math.Abs(float64(got - ref))
 		tol := 1e-3 * (math.Abs(float64(ref)) + 1e-6)
 		if diff > tol {
-			log.Fatalf("At grid[%d] (%d,%d,%d), expected %f, but got %f.\n",
+			return fmt.Errorf("At grid[%d] (%d,%d,%d), expected %f, but got %f.\n",
 				idx, gx, gy, gz, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(
+		b.readbacks,
+		b.driver.EnqueueMemCopyD2H(b.queue, b.gPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
+	)
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

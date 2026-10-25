@@ -4,6 +4,7 @@ package fastwalshtransform
 
 import (
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
@@ -46,11 +47,17 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	gpus    []int
-	queues  []*driver.CommandQueue
-	kernel  *insts.KernelCodeObject
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	stage          uint32
+	queueIndex     int
+	readback       driver.CommandID
+	driver         *driver.Runtime
+	context        driver.Context
+	gpus           []int
+	queues         []driver.CommandQueue
+	kernel         *insts.KernelCodeObject
 
 	Arch           arch.Type
 	Length         uint32
@@ -62,7 +69,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -98,8 +105,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	b.loadProgram()
 
 	for _, gpu := range b.gpus {
@@ -108,17 +115,16 @@ func (b *Benchmark) Run() {
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
-	rand.Seed(123)
+	rng := rand.New(rand.NewSource(123))
 
 	b.hInputArray = make([]float32, b.Length)
 	b.hVerInputArray = make([]float32, b.Length)
 
 	for i := uint32(0); i < b.Length; i++ {
-		temp := rand.Float32() + float32(rand.Int31n(255))
+		temp := rng.Float32() + float32(rng.Int31n(255))
 		b.hInputArray[i] = temp
 		b.hVerInputArray[i] = temp
 	}
@@ -129,7 +135,7 @@ func (b *Benchmark) initMem() {
 		b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dInputArray, b.hInputArray)
+	b.driver.EnqueueMemCopyH2D(b.queues[0], b.dInputArray, b.hInputArray)
 }
 
 func printArray(array []float32, n uint32) {
@@ -138,69 +144,61 @@ func printArray(array []float32, n uint32) {
 	}
 }
 
-func (b *Benchmark) exec() {
+func (b *Benchmark) execStage() {
 	globalThreadSize := b.Length / 2
 	localThreadSize := uint16(256)
 
-	for _, queue := range b.queues {
-		for step := uint32(1); step < b.Length; step <<= 1 {
-			if b.Arch == arch.CDNA3 {
-				wgSizeX := localThreadSize
-				wgSizeY := uint16(1)
-				wgSizeZ := uint16(1)
+	queue, step := b.queues[b.queueIndex], b.stage
 
-				kernArg := CDNA3KernelArgs{
-					TArray: b.dInputArray,
-					Step:   step,
-					// Hidden kernel arguments for GFX942
-					HiddenBlockCountX:   globalThreadSize / uint32(wgSizeX),
-					HiddenBlockCountY:   1,
-					HiddenBlockCountZ:   1,
-					HiddenGroupSizeX:    wgSizeX,
-					HiddenGroupSizeY:    wgSizeY,
-					HiddenGroupSizeZ:    wgSizeZ,
-					HiddenRemainderX:    uint16(globalThreadSize % uint32(wgSizeX)),
-					HiddenRemainderY:    0,
-					HiddenRemainderZ:    0,
-					HiddenGlobalOffsetX: 0,
-					HiddenGlobalOffsetY: 0,
-					HiddenGlobalOffsetZ: 0,
-					HiddenGridDims:      1,
-				}
+	if b.Arch == arch.CDNA3 {
+		wgSizeX := localThreadSize
+		wgSizeY := uint16(1)
+		wgSizeZ := uint16(1)
 
-				b.driver.EnqueueLaunchKernel(
-					queue,
-					b.kernel,
-					[3]uint32{globalThreadSize, 1, 1},
-					[3]uint16{localThreadSize, 1, 1},
-					&kernArg,
-				)
-			} else {
-				kernArg := GCN3KernelArgs{
-					TArray: b.dInputArray,
-					Step:   step,
-				}
-
-				b.driver.EnqueueLaunchKernel(
-					queue,
-					b.kernel,
-					[3]uint32{globalThreadSize, 1, 1},
-					[3]uint16{localThreadSize, 1, 1},
-					&kernArg,
-				)
-			}
+		kernArg := CDNA3KernelArgs{
+			TArray: b.dInputArray,
+			Step:   step,
+			// Hidden kernel arguments for GFX942
+			HiddenBlockCountX:   globalThreadSize / uint32(wgSizeX),
+			HiddenBlockCountY:   1,
+			HiddenBlockCountZ:   1,
+			HiddenGroupSizeX:    wgSizeX,
+			HiddenGroupSizeY:    wgSizeY,
+			HiddenGroupSizeZ:    wgSizeZ,
+			HiddenRemainderX:    uint16(globalThreadSize % uint32(wgSizeX)),
+			HiddenRemainderY:    0,
+			HiddenRemainderZ:    0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+			HiddenGridDims:      1,
 		}
-	}
 
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
-	}
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.kernel,
+			[3]uint32{globalThreadSize, 1, 1},
+			[3]uint16{localThreadSize, 1, 1},
+			&kernArg,
+		)
+	} else {
+		kernArg := GCN3KernelArgs{
+			TArray: b.dInputArray,
+			Step:   step,
+		}
 
-	b.driver.MemCopyD2H(b.context, b.hInputArray, b.dInputArray)
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.kernel,
+			[3]uint32{globalThreadSize, 1, 1},
+			[3]uint16{localThreadSize, 1, 1},
+			&kernArg,
+		)
+	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	for step := uint32(1); step < b.Length; step <<= 1 {
 		jump := step << 1
 		for group := uint32(0); group < step; group++ {
@@ -218,10 +216,51 @@ func (b *Benchmark) Verify() {
 
 	for i := uint32(0); i < b.Length; i++ {
 		if b.hInputArray[i] != b.hVerInputArray[i] {
-			panic(fmt.Sprintf("Mismatch at %d, expected %f found %f",
-				i, b.hInputArray[i], b.hVerInputArray[i]))
+			return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at %d, expected %f found %f",
+				i, b.hInputArray[i], b.hVerInputArray[i])))
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.stage = 1
+		b.Phase = 1
+	case 1:
+		if b.stage < b.Length {
+			b.execStage()
+			b.stage <<= 1
+			return nil
+		}
+		b.queueIndex++
+		if b.queueIndex < len(b.queues) {
+			b.stage = 1
+			return nil
+		}
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.dInputArray, int(b.Length)*4)
+		b.Phase = 3
+	case 3:
+		if err := b.driver.ReadResult(b.readback, b.hInputArray); err != nil {
+			return err
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

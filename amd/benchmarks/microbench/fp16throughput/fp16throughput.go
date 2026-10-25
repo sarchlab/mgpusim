@@ -12,6 +12,8 @@
 package fp16throughput
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -38,11 +40,15 @@ type KernelArgs struct {
 
 // Benchmark defines the fp16_throughput benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -62,12 +68,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new fp16_throughput benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -90,8 +95,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp16_throughput benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -100,6 +105,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -134,7 +140,7 @@ func (b *Benchmark) initMem() {
 
 	// Initialize to zero so a missing write is detectable.
 	zero := []uint32{0}
-	b.driver.MemCopyH2D(b.context, b.gOut, zero)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gOut, zero)
 }
 
 func (b *Benchmark) exec() {
@@ -152,8 +158,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // half2ToFloats unpacks a packed __half2 dword into its two fp32 lane values.
@@ -198,9 +202,11 @@ func float16ToFloat32(h uint16) float32 {
 // 1.0, 1.1, 1.2, 1.3. The multiplier (1.0000001) rounds to exactly 1.0 in
 // fp16 and the addend (0.0000001) rounds to 0.0, so each __hfma2 leaves the
 // accumulators unchanged. The written value is a0+a1+a2+a3 per lane.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	out := make([]uint32, 1)
-	b.driver.MemCopyD2H(b.context, out, b.gOut)
+	if err := b.driver.ReadResult(b.readbacks[0], out); err != nil {
+		return err
+	}
 
 	lo, hi := half2ToFloats(out[0])
 
@@ -221,20 +227,32 @@ func (b *Benchmark) Verify() {
 	}
 	ref := roundToHalf(roundToHalf(a0+a1) + roundToHalf(a2+a3))
 
-	checkLane := func(name string, got float32) {
+	checkLane := func(name string, got float32) error {
 		denom := math.Abs(float64(ref))
 		if denom < 1.0 {
 			denom = 1.0
 		}
 		if math.Abs(float64(ref-got))/denom > 1e-2 {
-			log.Fatalf("Mismatch in %s lane: expected %f, but got %f.\n",
+			return fmt.Errorf("Mismatch in %s lane: expected %f, but got %f.\n",
 				name, ref, got)
 		}
+
+		return nil
 	}
-	checkLane("lo", lo)
-	checkLane("hi", hi)
+	if err := checkLane("lo", lo); err != nil {
+		return err
+	}
+	if err := checkLane("hi", hi); err != nil {
+		return err
+	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOut, 4*(1)))
 }
 
 // roundToHalf rounds a float32 value to the nearest representable fp16 value
@@ -289,4 +307,29 @@ func float32ToFloat16(f float32) uint16 {
 		half++
 	}
 	return sign | half
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

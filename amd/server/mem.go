@@ -20,6 +20,8 @@ type mallocOutput struct {
 }
 
 func handleMalloc(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	query := r.URL.Query()
 	dataStr := query.Get("data")
 	dataJSON := mallocInput{}
@@ -43,6 +45,8 @@ func handleMalloc(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFree(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	ptrStr := mux.Vars(r)["ptr"]
 	ptr, err := strconv.ParseUint(ptrStr, 10, 64)
 	if err != nil {
@@ -64,6 +68,8 @@ type memcopyH2DInput struct {
 }
 
 func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	dataStr, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -80,8 +86,12 @@ func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid input", 400)
 	}
 
-	serverInstance.driver.MemCopyH2D(serverInstance.ctx,
+	serverInstance.driver.EnqueueMemCopyH2D(serverInstance.queue,
 		driver.Ptr(input.Ptr), rawData)
+	if err := serverInstance.run(); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	output := "{}"
 	w.Write([]byte(output))
@@ -97,6 +107,8 @@ type memcopyD2HOutput struct {
 }
 
 func handleMemcopyD2H(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	query := r.URL.Query()
 	dataStr := query.Get("data")
 	dataJSON := memcopyD2HInput{}
@@ -108,8 +120,15 @@ func handleMemcopyD2H(w http.ResponseWriter, r *http.Request) {
 
 	rawData := make([]byte, dataJSON.Size)
 
-	serverInstance.driver.MemCopyD2H(serverInstance.ctx,
-		rawData, driver.Ptr(dataJSON.Ptr))
+	id := serverInstance.driver.EnqueueMemCopyD2H(serverInstance.queue, driver.Ptr(dataJSON.Ptr), len(rawData))
+	if err := serverInstance.run(); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := serverInstance.driver.ReadResult(id, rawData); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	encodedData := base64.StdEncoding.EncodeToString(rawData)
 

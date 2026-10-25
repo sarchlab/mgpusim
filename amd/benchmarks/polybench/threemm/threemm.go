@@ -15,6 +15,8 @@
 package threemm
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -48,13 +50,17 @@ type KernelArgs struct {
 
 // Benchmark defines the 3MM benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco1  *insts.KernelCodeObject
-	hsaco2  *insts.KernelCodeObject
-	hsaco3  *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco1    *insts.KernelCodeObject
+	hsaco2    *insts.KernelCodeObject
+	hsaco3    *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -85,12 +91,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new 3MM benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -117,8 +122,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 3mm benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -127,6 +132,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -180,10 +186,10 @@ func (b *Benchmark) initMem() {
 	b.gF = alloc(b.context, uint64(b.NJ*b.NL*4))
 	b.gG = alloc(b.context, uint64(b.NI*b.NL*4))
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.a)
-	b.driver.MemCopyH2D(b.context, b.gB, b.b)
-	b.driver.MemCopyH2D(b.context, b.gC, b.c)
-	b.driver.MemCopyH2D(b.context, b.gD, b.d)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.a)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, b.b)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gC, b.c)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gD, b.d)
 }
 
 // gridDim returns the smallest multiple of blockSize that is >= n.
@@ -231,14 +237,14 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, blockSize, 1},
 		&args3,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuG := make([]float32, b.NI*b.NL)
-	b.driver.MemCopyD2H(b.context, gpuG, b.gG)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuG); err != nil {
+		return err
+	}
 
 	// E = A * B  (NI×NJ)
 	e := make([]float64, b.NI*b.NJ)
@@ -279,11 +285,42 @@ func (b *Benchmark) Verify() {
 				denom = 1.0
 			}
 			if math.Abs(ref-got)/denom > 1e-3 {
-				log.Fatalf("At (%d,%d), expected %f, but got %f.\n",
+				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, l, ref, got)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gG, 4*(b.NI*b.NL)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

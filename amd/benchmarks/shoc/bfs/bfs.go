@@ -2,6 +2,8 @@
 package bfs
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -54,18 +56,26 @@ type CDNA3KernelArg struct {
 
 // Benchmark is the BFS benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	depth          int
+	flagResult     driver.CommandID
+	outputResult   driver.CommandID
+	queue          driver.CommandQueue
+
+	driver  *driver.Runtime
+	context driver.Context
 	gpus    []int
-	queues  []*driver.CommandQueue
+	queues  []driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
-	Arch          arch.Type
-	Path          string
-	NumNode       int
-	Degree        int
-	MaxDepth      int
-	graph         graph
+	Arch     arch.Type
+	Path     string
+	NumNode  int
+	Degree   int
+	MaxDepth int
+
 	sourceNode    int
 	hEdgeOffsets  []int32
 	hEdgeList     []int32
@@ -81,7 +91,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark creates a new BFS benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -120,28 +130,64 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs the benchmark
-func (b *Benchmark) Run() {
-	b.loadProgram()
-
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+// Step advances one breadth-first frontier after the previous global batch.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.loadProgram()
+		b.driver.SelectGPU(b.context, b.gpus[0])
+		b.queue = b.driver.CreateCommandQueue(b.context)
+		b.initMem()
+		b.driver.EnqueueMemCopyH2D(b.queue, b.dFrontier, b.hFrontier)
+		b.driver.EnqueueMemCopyH2D(b.queue, b.dEdgeArray, b.hEdgeOffsets)
+		b.driver.EnqueueMemCopyH2D(b.queue, b.dEdgeArrayAux, b.hEdgeList)
+		if b.MaxDepth > 0 {
+			b.submitIteration()
+		} else {
+			b.finishTraversal()
+		}
+	case 1:
+		var flag int32
+		if err := b.driver.ReadResult(b.flagResult, &flag); err != nil {
+			return err
+		}
+		if flag != 0 && b.depth < b.MaxDepth {
+			b.submitIteration()
+		} else {
+			b.finishTraversal()
+		}
+	case 2:
+		if err := b.driver.ReadResult(b.outputResult, b.hCost); err != nil {
+			return err
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Ended = true
 	}
-
-	b.initMem()
-	b.exec()
+	return nil
+}
+func (b *Benchmark) finishTraversal() {
+	if !b.Verification {
+		b.Ended = true
+		return
+	}
+	b.outputResult = b.driver.EnqueueMemCopyD2H(b.queue, b.dFrontier, len(b.hCost)*4)
+	b.Phase = 2
 }
 
 func (b *Benchmark) initMem() {
+	var graph graph
 	if b.Path == "" {
-		b.graph.generate(b.NumNode, b.Degree)
+		graph.generate(b.NumNode, b.Degree)
 	} else {
-		b.graph.loadGraph(b.Path)
-		b.NumNode = len(b.graph.nodes)
+		graph.loadGraph(b.Path)
+		b.NumNode = len(graph.nodes)
 	}
 
-	b.hEdgeOffsets, b.hEdgeList = b.graph.asEdgeList()
+	b.hEdgeOffsets, b.hEdgeList = graph.asEdgeList()
 	b.hFrontier = make([]uint32, b.NumNode)
 	b.hCost = make([]uint32, b.NumNode)
 
@@ -172,10 +218,7 @@ func (b *Benchmark) initMem() {
 	}
 }
 
-func (b *Benchmark) exec() {
-	b.driver.MemCopyH2D(b.context, b.dFrontier, b.hFrontier)
-	b.driver.MemCopyH2D(b.context, b.dEdgeArray, b.hEdgeOffsets)
-	b.driver.MemCopyH2D(b.context, b.dEdgeArrayAux, b.hEdgeList)
+func (b *Benchmark) submitIteration() {
 	maxTheadsPerCore := 1024
 	globalSize := uint32(((b.NumNode-1)/maxTheadsPerCore + 1) * maxTheadsPerCore)
 	localSize := uint16(maxTheadsPerCore)
@@ -206,47 +249,43 @@ func (b *Benchmark) exec() {
 		HiddenGroupSizeZ:  1,
 	}
 
-	for i := 0; i < b.MaxDepth; i++ {
-		flag := int32(0)
-		b.driver.MemCopyH2D(b.context, b.dFlag, flag)
+	flag := int32(0)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dFlag, flag)
 
-		if b.Arch == arch.CDNA3 {
-			cdna3Args.Curr = int32(i)
-			b.driver.LaunchKernel(b.context, b.kernel,
-				[3]uint32{globalSize, 1, 1},
-				[3]uint16{localSize, 1, 1},
-				&cdna3Args)
-		} else {
-			args.Curr = int32(i)
-			b.driver.LaunchKernel(b.context, b.kernel,
-				[3]uint32{globalSize, 1, 1},
-				[3]uint16{localSize, 1, 1},
-				&args)
-		}
-
-		b.driver.MemCopyD2H(b.context, &flag, b.dFlag)
-
-		if flag == 0 {
-			break
-		}
+	if b.Arch == arch.CDNA3 {
+		cdna3Args.Curr = int32(b.depth)
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel,
+			[3]uint32{globalSize, 1, 1},
+			[3]uint16{localSize, 1, 1},
+			&cdna3Args)
+	} else {
+		args.Curr = int32(b.depth)
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel,
+			[3]uint32{globalSize, 1, 1},
+			[3]uint16{localSize, 1, 1},
+			&args)
 	}
 
-	b.driver.MemCopyD2H(b.context, b.hCost, b.dFrontier)
+	b.flagResult = b.driver.EnqueueMemCopyD2H(b.queue, b.dFlag, 4)
+	b.depth++
+	b.Phase = 1
 }
 
 // Verify runs the benchmark on the CPU and compares if the result matches
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	b.cpuBFS()
 
 	for i := 0; i < b.NumNode; i++ {
 		if b.cpuCost[i] != b.hCost[i] {
-			log.Panicf(
+			return fmt.Errorf(
 				"mismatch at node %d, expected cost %d, but get %d\n",
 				i, b.cpuCost[i], b.hCost[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuBFS() {

@@ -11,6 +11,7 @@
 package lavamd
 
 import (
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -57,11 +58,15 @@ type KernelArgs struct {
 
 // Benchmark defines the LavaMD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -97,12 +102,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new LavaMD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -125,8 +129,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia lavamd benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -135,6 +139,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -234,11 +239,11 @@ func (b *Benchmark) initMem() {
 	b.gNeighborList = alloc(b.context, neighBytes)
 	b.gNeighborCount = alloc(b.context, ncountBytes)
 
-	b.driver.MemCopyH2D(b.context, b.gPosX, b.hPosX)
-	b.driver.MemCopyH2D(b.context, b.gPosY, b.hPosY)
-	b.driver.MemCopyH2D(b.context, b.gPosZ, b.hPosZ)
-	b.driver.MemCopyH2D(b.context, b.gNeighborList, b.hNeighborList)
-	b.driver.MemCopyH2D(b.context, b.gNeighborCount, b.hNeighborCount)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosX, b.hPosX)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosY, b.hPosY)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosZ, b.hPosZ)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gNeighborList, b.hNeighborList)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gNeighborCount, b.hNeighborCount)
 }
 
 func (b *Benchmark) exec() {
@@ -266,20 +271,28 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+//
+//nolint:funlen // Keep the CPU reference algorithm and comparison together.
+func (b *Benchmark) verify() error {
 	gpuFX := make([]float32, b.totalParticles)
 	gpuFY := make([]float32, b.totalParticles)
 	gpuFZ := make([]float32, b.totalParticles)
 	gpuPE := make([]float32, b.totalParticles)
-	b.driver.MemCopyD2H(b.context, gpuFX, b.gForceX)
-	b.driver.MemCopyD2H(b.context, gpuFY, b.gForceY)
-	b.driver.MemCopyD2H(b.context, gpuFZ, b.gForceZ)
-	b.driver.MemCopyD2H(b.context, gpuPE, b.gEnergy)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuFX); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuFY); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[2], gpuFZ); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[3], gpuPE); err != nil {
+		return err
+	}
 
 	ppb := b.ParticlesPerBox
 
@@ -330,6 +343,15 @@ func (b *Benchmark) Verify() {
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceX, 4*(b.totalParticles)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceY, 4*(b.totalParticles)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceZ, 4*(b.totalParticles)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEnergy, 4*(b.totalParticles)))
 }
 
 func checkClose(idx int, name string, ref, got float32) {
@@ -341,4 +363,29 @@ func checkClose(idx int, name string, ref, got float32) {
 		log.Fatalf("At particle %d, %s expected %f, but got %f.\n",
 			idx, name, ref, got)
 	}
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

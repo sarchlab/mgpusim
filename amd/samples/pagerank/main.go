@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/pagerank"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var numNode = flag.Int("node", 16, "The number of nodes")
@@ -16,10 +17,12 @@ var maxIterations = flag.Int("iterations", 16, "The number of iterations")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := pagerank.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
+	benchmark := pagerank.NewBenchmark(runtime)
+	benchmark.Arch = config.ArchType
 	benchmark.NumNodes = uint32(*numNode)
 
 	if *sparsity > 1 {
@@ -35,7 +38,16 @@ func main() {
 	benchmark.NumConnections = uint32(numConn)
 	benchmark.MaxIterations = uint32(*maxIterations)
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

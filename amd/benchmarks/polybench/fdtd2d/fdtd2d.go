@@ -23,6 +23,8 @@
 package fdtd2d
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -64,9 +66,13 @@ type HzKernelArgs struct {
 
 // Benchmark defines the FDTD-2D benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
 
 	kernelEx *insts.KernelCodeObject
 	kernelEy *insts.KernelCodeObject
@@ -93,12 +99,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new FDTD-2D benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -125,8 +130,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench fdtd2d benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -135,6 +140,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -179,9 +185,9 @@ func (b *Benchmark) initMem() {
 		b.gHz = b.driver.AllocateMemory(b.context, uint64(numElem*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gEx, b.exInit)
-	b.driver.MemCopyH2D(b.context, b.gEy, b.eyInit)
-	b.driver.MemCopyH2D(b.context, b.gHz, b.hzInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gEx, b.exInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gEy, b.eyInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gHz, b.hzInit)
 }
 
 func (b *Benchmark) exec() {
@@ -204,7 +210,6 @@ func (b *Benchmark) exec() {
 	// default configuration. (See the package doc comment about the
 	// multi-workgroup timing-mode cache-coherency limitation.)
 	cohere := func() {
-		b.driver.DrainCommandQueue(b.queue)
 	}
 
 	for t := 0; t < b.TMax; t++ {
@@ -235,16 +240,22 @@ func (b *Benchmark) exec() {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.N
 	numElem := n * n
 
 	gpuEx := make([]float32, numElem)
 	gpuEy := make([]float32, numElem)
 	gpuHz := make([]float32, numElem)
-	b.driver.MemCopyD2H(b.context, gpuEx, b.gEx)
-	b.driver.MemCopyD2H(b.context, gpuEy, b.gEy)
-	b.driver.MemCopyD2H(b.context, gpuHz, b.gHz)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuEx); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuEy); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[2], gpuHz); err != nil {
+		return err
+	}
 
 	// CPU reference: same field init, same TMax time steps, in float32 to
 	// mirror the GPU arithmetic.
@@ -285,7 +296,7 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 		}
 	}
 
-	check := func(name string, ref, got []float32) {
+	check := func(name string, ref, got []float32) error {
 		for idx := 0; idx < numElem; idx++ {
 			r := float64(ref[idx])
 			g := float64(got[idx])
@@ -294,15 +305,56 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 				denom = 1.0
 			}
 			if math.Abs(r-g)/denom > 1e-3 {
-				log.Fatalf("%s mismatch at (%d,%d): expected %f, got %f.\n",
+				return fmt.Errorf("%s mismatch at (%d,%d): expected %f, got %f.\n",
 					name, idx/n, idx%n, r, g)
 			}
 		}
+
+		return nil
 	}
 
-	check("ex", ex, gpuEx)
-	check("ey", ey, gpuEy)
-	check("hz", hz, gpuHz)
+	if err := check("ex", ex, gpuEx); err != nil {
+		return err
+	}
+	if err := check("ey", ey, gpuEy); err != nil {
+		return err
+	}
+	if err := check("hz", hz, gpuHz); err != nil {
+		return err
+	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEx, 4*((b.N)*(b.N))))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEy, 4*((b.N)*(b.N))))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gHz, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

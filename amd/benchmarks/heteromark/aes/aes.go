@@ -3,6 +3,8 @@ package aes
 
 import (
 	"crypto/aes"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
@@ -99,10 +101,15 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	queue          driver.CommandQueue
+	readback       driver.CommandID
+	driver         *driver.Runtime
+	context        driver.Context
+	hsaco          *insts.KernelCodeObject
+	gpus           []int
 
 	Arch         arch.Type
 	Length       int
@@ -118,7 +125,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = b.driver.Init()
@@ -197,24 +204,25 @@ func (b *Benchmark) initMem() {
 			b.gS[i] = b.driver.AllocateMemory(b.context, uint64(len(b.s)))
 		}
 
-		b.driver.MemCopyH2D(b.context, b.gExpandedKey[i], b.expandedKey)
-		b.driver.MemCopyH2D(b.context, b.gS[i], b.s)
+		b.driver.EnqueueMemCopyH2D(b.queue, b.gExpandedKey[i], b.expandedKey)
+		b.driver.EnqueueMemCopyH2D(b.queue, b.gS[i], b.s)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInput, b.input)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gInput, b.input)
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
-	b.LaunchKernel()
 }
 
 // LaunchKernel launches kernel
 func (b *Benchmark) LaunchKernel() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.gpus))
 	numWi := b.Length / 16
 	localSize := [3]uint16{64, 1, 1}
 
@@ -267,27 +275,27 @@ func (b *Benchmark) LaunchKernel() {
 				&kernArg)
 		}
 	}
-
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuOutput := make([]byte, b.Length)
-	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInput)
+	if err := b.driver.ReadResult(b.readback, gpuOutput); err != nil {
+		return err
+	}
 
 	cpuOutput := b.cpuEncrypt()
 
 	for i := 0; i < b.Length; i++ {
 		if cpuOutput[i] != gpuOutput[i] {
-			log.Panicf("Mismatch at position %d: should be %02x but get %02x",
+			return fmt.Errorf("Mismatch at position %d: should be %02x but get %02x",
 				i, cpuOutput[i], gpuOutput[i])
 		}
 	}
 
 	log.Printf("\nPassed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuEncrypt() []byte {
@@ -300,4 +308,30 @@ func (b *Benchmark) cpuEncrypt() []byte {
 		cipherBlock.Encrypt(cpuOutput[i*16:], b.input[i*16:])
 	}
 	return cpuOutput
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.LaunchKernel()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.readback = b.driver.EnqueueMemCopyD2H(b.queue, b.gInput, b.Length)
+		b.Phase = 3
+	case 3:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

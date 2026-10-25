@@ -2,6 +2,9 @@
 package nw
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
@@ -76,12 +79,17 @@ var blosum62 = [][]int32{
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+
+	driver           *driver.Runtime
+	context          driver.Context
 	gpuIDs           []int
 	useUnifiedMemory bool
 	kernel1, kernel2 *insts.KernelCodeObject
-	queue            *driver.CommandQueue
+	queue            driver.CommandQueue
 
 	Arch arch.Type
 
@@ -99,7 +107,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark creates a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -158,12 +166,14 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpuIDs = gpuIDs
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpuIDs[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 	b.driver.SelectGPU(b.context, b.gpuIDs[0])
 	b.initMem()
-	b.exec()
 }
 
 // SetUnifiedMemory Use Unified Memory
@@ -177,16 +187,17 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) initData() {
+	rng := rand.New(rand.NewSource(1))
 	b.reference = make([]int32, b.row*b.col)
 	b.inputItemSets = make([]int32, b.row*b.col)
 	b.outputItemSets = make([]int32, b.row*b.col)
 
 	for i := 0; i < b.row; i++ {
-		b.inputItemSets[i*b.col] = int32(rand.Int()%10 + 1)
+		b.inputItemSets[i*b.col] = int32(rng.Int()%10 + 1)
 	}
 
 	for i := 0; i < b.col; i++ {
-		b.inputItemSets[i] = int32(rand.Int()%10 + 1)
+		b.inputItemSets[i] = int32(rng.Int()%10 + 1)
 	}
 
 	for i := 0; i < b.col; i++ {
@@ -231,12 +242,12 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) copyInputDataToGPU() {
-	b.driver.MemCopyH2D(b.context, b.dInputItemSets, b.inputItemSets)
-	b.driver.MemCopyH2D(b.context, b.dReference, b.reference)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dInputItemSets, b.inputItemSets)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dReference, b.reference)
 }
 
 func (b *Benchmark) copyOutputDataFromGPU() {
-	b.driver.MemCopyD2H(b.context, b.outputItemSets, b.dInputItemSets)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dInputItemSets, Target: 0})
 }
 
 func (b *Benchmark) runKernel1() {
@@ -263,7 +274,7 @@ func (b *Benchmark) runKernel1() {
 				OffsetR:        int32(offsetR),
 				OffsetC:        int32(offsetC),
 			}
-			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &cdna3Args)
+			b.driver.EnqueueLaunchKernel(b.queue, b.kernel1, globalSize, localSize, &cdna3Args)
 		} else {
 			args := KernelArgs{
 				Reference:          b.dReference,
@@ -280,7 +291,7 @@ func (b *Benchmark) runKernel1() {
 				OffsetR:            int32(offsetR),
 				OffsetC:            int32(offsetC),
 			}
-			b.driver.LaunchKernel(b.context, b.kernel1, globalSize, localSize, &args)
+			b.driver.EnqueueLaunchKernel(b.queue, b.kernel1, globalSize, localSize, &args)
 		}
 	}
 }
@@ -309,7 +320,7 @@ func (b *Benchmark) runKernel2() {
 				OffsetR:        int32(offsetR),
 				OffsetC:        int32(offsetC),
 			}
-			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &cdna3Args)
+			b.driver.EnqueueLaunchKernel(b.queue, b.kernel2, globalSize, localSize, &cdna3Args)
 		} else {
 			args := KernelArgs{
 				Reference:          b.dReference,
@@ -326,25 +337,27 @@ func (b *Benchmark) runKernel2() {
 				OffsetR:            int32(offsetR),
 				OffsetC:            int32(offsetC),
 			}
-			b.driver.LaunchKernel(b.context, b.kernel2, globalSize, localSize, &args)
+			b.driver.EnqueueLaunchKernel(b.queue, b.kernel2, globalSize, localSize, &args)
 		}
 	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	b.cpuNW()
 
 	for i := 0; i < b.row; i++ {
 		for j := 0; j < b.col; j++ {
 			if b.outputItemSets[i*b.col+j] != b.inputItemSets[i*b.col+j] {
-				log.Panicf(
+				return fmt.Errorf(
 					"mismatch at (%d,%d), expected %d, but got %d\n",
 					i, j, b.inputItemSets[i*b.col+j],
 					b.outputItemSets[i*b.col+j])
 			}
 		}
 	}
+
+	return nil
 }
 
 func (b *Benchmark) cpuNW() {
@@ -366,4 +379,49 @@ func (b *Benchmark) cpuNW() {
 			b.inputItemSets[i*b.col+j] = max
 		}
 	}
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.outputItemSets
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.outputItemSets
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

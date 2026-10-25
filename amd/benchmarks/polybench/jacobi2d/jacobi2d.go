@@ -13,6 +13,8 @@
 package jacobi2d
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -43,11 +45,15 @@ type KernelArgs struct {
 
 // Benchmark defines the Jacobi-2D benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch   arch.Type
 	N      int
@@ -64,12 +70,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Jacobi-2D benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -92,8 +97,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench jacobi2d benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -102,6 +107,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -135,9 +141,9 @@ func (b *Benchmark) initMem() {
 	}
 
 	// A holds the initial grid; B starts zeroed.
-	b.driver.MemCopyH2D(b.context, b.gA, b.aInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.aInit)
 	zeros := make([]float32, numElem)
-	b.driver.MemCopyH2D(b.context, b.gB, zeros)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -163,7 +169,6 @@ func (b *Benchmark) exec() {
 			[3]uint16{blockDim, blockDim, 1},
 			&args,
 		)
-		b.driver.DrainCommandQueue(b.queue)
 
 		src, dst = dst, src
 	}
@@ -186,12 +191,14 @@ func cpuStep(a, out []float32, n int) {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	numElem := n * n
 
 	gpuResult := make([]float32, numElem)
-	b.driver.MemCopyD2H(b.context, gpuResult, b.gA)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuResult); err != nil {
+		return err
+	}
 
 	// CPU reference: same double-buffered iteration the GPU ran.
 	ca := make([]float32, numElem)
@@ -215,11 +222,42 @@ func (b *Benchmark) Verify() {
 				denom = 1.0
 			}
 			if math.Abs(ref-got)/denom > 1e-3 {
-				log.Fatalf("At (%d,%d), expected %f, but got %f.\n",
+				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, ref, got)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gA, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

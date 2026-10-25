@@ -3,7 +3,10 @@
 package server
 
 import (
+	"fmt"
+	simulation "github.com/sarchlab/akita/v5/sim"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/mux"
 
@@ -11,15 +14,20 @@ import (
 )
 
 type server struct {
-	driver *driver.Driver
-	ctx    *driver.Context
+	mu         sync.Mutex
+	simulation *simulation.Simulation
+	component  interface{ TickLater() }
+	queue      driver.CommandQueue
+	driver     *driver.Runtime
+	ctx        driver.Context
 }
 
 var serverInstance server
 
 // Builder can help building the server instance with parameters.
 type Builder struct {
-	driver *driver.Driver
+	simulation *simulation.Simulation
+	driver     *driver.Runtime
 }
 
 // MakeBuilder creates a builder with default configurations.
@@ -27,23 +35,45 @@ func MakeBuilder() Builder {
 	return Builder{}
 }
 
-// WithDriver sets the driver the the server works with.
-func (b Builder) WithDriver(d *driver.Driver) Builder {
+// WithRuntime sets the driver the the server works with.
+func (b Builder) WithRuntime(d *driver.Runtime) Builder {
 	b.driver = d
 	return b
 }
+
+func (b Builder) WithSimulation(s *simulation.Simulation) Builder { b.simulation = s; return b }
 
 // Build creates the server instance. This function should be called after
 // all the configuration is completed, and before the server start to listen
 // to a port.
 func (b Builder) Build() {
-	serverInstance = server{
-		driver: b.driver,
+	if b.driver == nil || b.simulation == nil {
+		panic("server requires runtime and simulation")
 	}
-
-	b.driver.Run()
-
-	serverInstance.ctx = serverInstance.driver.Init()
+	serverInstance = server{driver: b.driver, simulation: b.simulation}
+	for _, c := range b.simulation.Components() {
+		if c.Name() == "Driver" {
+			serverInstance.component = c.(interface{ TickLater() })
+		}
+	}
+	if serverInstance.component == nil {
+		panic("server requires Driver")
+	}
+	serverInstance.ctx = b.driver.Init()
+	b.driver.SelectGPU(serverInstance.ctx, 1)
+	serverInstance.queue = b.driver.CreateCommandQueue(serverInstance.ctx)
+}
+func (s *server) run() error {
+	s.component.TickLater()
+	if err := s.simulation.Run(); err != nil {
+		return err
+	}
+	for i, n := range s.driver.Unfinished() {
+		if n != 0 {
+			return fmt.Errorf("queue %d stalled with %d commands", i+1, n)
+		}
+	}
+	return nil
 }
 
 // RegisterHandlers registers all the handlers of the MGPUSim server

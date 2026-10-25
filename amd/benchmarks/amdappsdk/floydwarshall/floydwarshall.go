@@ -2,7 +2,9 @@
 package floydwarshall
 
 import (
+	"encoding/binary"
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
@@ -47,10 +49,16 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver  *driver.Runtime
+	context driver.Context
 	gpus    []int
-	queues  []*driver.CommandQueue
+	queues  []driver.CommandQueue
 	kernel  *insts.KernelCodeObject
 
 	Arch                      arch.Type
@@ -68,7 +76,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark creates a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -104,8 +112,11 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs the benchmark
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 
 	for _, gpu := range b.gpus {
@@ -118,7 +129,6 @@ func (b *Benchmark) Run() {
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -174,8 +184,8 @@ func (b *Benchmark) initMem() {
 			uint64(numNodes*numNodes*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
-	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dOutputPathMatrix, b.hOutputPathMatrix)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
 }
 
 func printMatrix(matrix []uint32, n uint32) {
@@ -214,8 +224,7 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 			HiddenGridDims:      2,
 		}
 
-		b.driver.LaunchKernel(
-			b.context,
+		b.driver.EnqueueLaunchKernel(b.queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -229,8 +238,7 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 			Pass:                     pass,
 		}
 
-		b.driver.LaunchKernel(
-			b.context,
+		b.driver.EnqueueLaunchKernel(b.queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -251,13 +259,12 @@ func (b *Benchmark) exec() {
 		b.launchKernelIteration(numNodes, blockSize, k)
 	}
 
-	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
-	b.driver.MemCopyD2H(b.context,
-		b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dOutputPathMatrix, Target: 0})
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dOutputPathDistanceMatrix, Target: 1})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32
 	width := numNodes
@@ -285,17 +292,68 @@ func (b *Benchmark) Verify() {
 	for i := uint32(0); i < n; i++ {
 		for j := uint32(0); j < n; j++ {
 			if b.hOutputPathMatrix[i*n+j] != b.hVerificationPathMatrix[i*n+j] {
-				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+				return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
 					b.hVerificationPathMatrix[i*n+j],
-					b.hOutputPathMatrix[i*n+j]))
+					b.hOutputPathMatrix[i*n+j])))
 			}
 			if b.hOutputPathDistanceMatrix[i*n+j] != b.hVerificationPathDistanceMatrix[i*n+j] {
-				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+				return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
 					b.hVerificationPathDistanceMatrix[i*n+j],
-					b.hOutputPathDistanceMatrix[i*n+j]))
+					b.hOutputPathDistanceMatrix[i*n+j])))
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.hOutputPathMatrix
+			case 1:
+				dst = b.hOutputPathDistanceMatrix
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.hOutputPathMatrix
+			case 1:
+				dst = b.hOutputPathDistanceMatrix
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

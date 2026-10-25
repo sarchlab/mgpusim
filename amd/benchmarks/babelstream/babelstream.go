@@ -20,6 +20,8 @@
 package babelstream
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -73,10 +75,14 @@ type TriadKernelArgs struct {
 
 // Benchmark defines the BabelStream benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	gpus      []int
 
 	copyKernel  *insts.KernelCodeObject
 	scaleKernel *insts.KernelCodeObject
@@ -102,12 +108,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new BabelStream benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -138,8 +143,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the babelstream benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -148,6 +153,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -182,9 +188,9 @@ func (b *Benchmark) initMem() {
 		b.gC = b.driver.AllocateMemory(b.context, uint64(n*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.a)
-	b.driver.MemCopyH2D(b.context, b.gB, b.b)
-	b.driver.MemCopyH2D(b.context, b.gC, b.c)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.a)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, b.b)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gC, b.c)
 }
 
 func (b *Benchmark) exec() {
@@ -223,13 +229,11 @@ func (b *Benchmark) exec() {
 		[3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1},
 		&triadArgs,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same copy -> scale -> add -> triad sequence.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	s := float64(b.Scalar)
 
@@ -252,26 +256,73 @@ func (b *Benchmark) Verify() {
 	gpuA := make([]float32, n)
 	gpuB := make([]float32, n)
 	gpuC := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuA, b.gA)
-	b.driver.MemCopyD2H(b.context, gpuB, b.gB)
-	b.driver.MemCopyD2H(b.context, gpuC, b.gC)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuA); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuB); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[2], gpuC); err != nil {
+		return err
+	}
 
-	check := func(name string, idx int, ref float64, got float32) {
+	check := func(name string, idx int, ref float64, got float32) error {
 		denom := math.Abs(ref)
 		if denom < 1.0 {
 			denom = 1.0
 		}
 		if math.Abs(ref-float64(got))/denom > 1e-3 {
-			log.Fatalf("%s mismatch at %d, expected %f, but got %f.\n",
+			return fmt.Errorf("%s mismatch at %d, expected %f, but got %f.\n",
 				name, idx, ref, got)
 		}
+
+		return nil
 	}
 
 	for i := 0; i < n; i++ {
-		check("a", i, refA[i], gpuA[i])
-		check("b", i, refB[i], gpuB[i])
-		check("c", i, refC[i], gpuC[i])
+		if err := check("a", i, refA[i], gpuA[i]); err != nil {
+			return err
+		}
+		if err := check("b", i, refB[i], gpuB[i]); err != nil {
+			return err
+		}
+		if err := check("c", i, refC[i], gpuC[i]); err != nil {
+			return err
+		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gA, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gB, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gC, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

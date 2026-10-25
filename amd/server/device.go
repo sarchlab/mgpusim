@@ -14,10 +14,12 @@ type deviceCountRsp struct {
 }
 
 func handleDeviceCount(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	fmt.Println("handleDeviceCount")
 
 	rsp := deviceCountRsp{}
-	rsp.DeviceCount = len(serverInstance.driver.GPUs)
+	rsp.DeviceCount = serverInstance.driver.GetNumGPUs()
 
 	fmt.Println(rsp)
 
@@ -84,6 +86,8 @@ type DeviceProperty struct {
 }
 
 func handleDeviceProperties(w http.ResponseWriter, r *http.Request) {
+	serverInstance.mu.Lock()
+	defer serverInstance.mu.Unlock()
 	deviceIDStr := mux.Vars(r)["id"]
 
 	deviceID, err := strconv.Atoi(deviceIDStr)
@@ -95,7 +99,7 @@ func handleDeviceProperties(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "device id must be a positive number", 400)
 	}
 
-	if deviceID > len(serverInstance.driver.GPUs) {
+	if deviceID > serverInstance.driver.GetNumGPUs() {
 		http.Error(w, "GPU does not exist", 404)
 	}
 

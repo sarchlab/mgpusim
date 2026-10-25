@@ -17,36 +17,6 @@ type MatrixMultiplier interface {
 	Multiply(mA, mB *Matrix) *Matrix
 }
 
-// A GPUMatrixMultiplier is a MatrixMultiplier that runs the
-// MatrixMultiplication on GCN3 simulator.
-type GPUMatrixMultiplier struct {
-	driver           *driver.Driver
-	context          *driver.Context
-	gpus             []int
-	kernel           *insts.KernelCodeObject
-	Arch             arch.Type
-	useUnifiedMemory bool
-	blockABuf        driver.Ptr
-}
-
-// NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
-// dependency of driver and the GPU context.
-func NewGPUMatrixMultiplier(
-	gpuDriver *driver.Driver,
-	context *driver.Context,
-) *GPUMatrixMultiplier {
-	m := &GPUMatrixMultiplier{
-		driver:  gpuDriver,
-		context: context,
-	}
-	return m
-}
-
-// SelectGPU selects GPU
-func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
-	m.gpus = gpus
-}
-
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
 	MatrixA             driver.Ptr
@@ -114,27 +84,12 @@ type COV5KernelArgs struct {
 	HiddenGridDims      uint16
 }
 
-// Multiply multiplies two matrice
-func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
-	mC := new(Matrix)
-	mC.Width = mB.Width
-	mC.Height = mA.Height
-	mC.Data = make([]float32, mC.Width*mC.Height)
-
-	m.loadKernel()
-	gA, gB, gC := m.initMemory(mA, mB, mC)
-	m.launchKernel(gA, gB, gC, mA, mC)
-	m.copyDataBackFromGPU(mC, gC)
-
-	return mC
-}
-
-func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
+func (m *Benchmark) launchKernel( //nolint:funlen
 	gA, gB, gC driver.Ptr,
 	mA *Matrix,
 	mC *Matrix,
 ) {
-	queues := make([]*driver.CommandQueue, len(m.gpus))
+	queues := make([]driver.CommandQueue, len(m.gpus))
 
 	for i, gpu := range m.gpus {
 		m.driver.SelectGPU(m.context, gpu)
@@ -226,21 +181,17 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 			)
 		}
 	}
-
-	for _, q := range queues {
-		m.driver.DrainCommandQueue(q)
-	}
 }
 
-func (m *GPUMatrixMultiplier) initMemory(
+func (m *Benchmark) initMemory(
 	mA, mB, mC *Matrix,
 ) (driver.Ptr, driver.Ptr, driver.Ptr) {
 	if m.useUnifiedMemory {
 		gA := m.driver.AllocateUnifiedMemory(m.context, uint64(mA.Width*mA.Height*4))
 		gB := m.driver.AllocateUnifiedMemory(m.context, uint64(mB.Width*mB.Height*4))
 		gC := m.driver.AllocateUnifiedMemory(m.context, uint64(mC.Width*mC.Height*4))
-		m.driver.MemCopyH2D(m.context, gA, mA.Data)
-		m.driver.MemCopyH2D(m.context, gB, mB.Data)
+		m.driver.EnqueueMemCopyH2D(m.queue, gA, mA.Data)
+		m.driver.EnqueueMemCopyH2D(m.queue, gB, mB.Data)
 
 		return gA, gB, gC
 	}
@@ -252,17 +203,10 @@ func (m *GPUMatrixMultiplier) initMemory(
 
 	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
 	m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
-	m.driver.MemCopyH2D(m.context, gA, mA.Data)
-	m.driver.MemCopyH2D(m.context, gB, mB.Data)
+	m.driver.EnqueueMemCopyH2D(m.queue, gA, mA.Data)
+	m.driver.EnqueueMemCopyH2D(m.queue, gB, mB.Data)
 
 	return gA, gB, gC
-}
-
-func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
-	matrix *Matrix,
-	gm driver.Ptr,
-) {
-	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }
 
 //go:embed kernels.hsaco
@@ -271,7 +215,7 @@ var hsacoBytes []byte
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-func (m *GPUMatrixMultiplier) loadKernel() {
+func (m *Benchmark) loadKernel() {
 	var kernelBytes []byte
 	if m.Arch == arch.CDNA3 {
 		kernelBytes = cdna3HSACOBytes

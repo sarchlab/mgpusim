@@ -15,6 +15,8 @@
 package gaussian
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -60,9 +62,13 @@ type Fan2KernelArgs struct {
 
 // Benchmark defines the Gaussian elimination benchmark.
 type Benchmark struct {
-	driver     *driver.Driver
-	context    *driver.Context
-	queue      *driver.CommandQueue
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks  []driver.CommandID
+	driver     *driver.Runtime
+	context    driver.Context
+	queue      driver.CommandQueue
 	fan1Kernel *insts.KernelCodeObject
 	fan2Kernel *insts.KernelCodeObject
 	gpus       []int
@@ -84,12 +90,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Gaussian elimination benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -116,8 +121,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia gaussian benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -126,6 +131,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -174,12 +180,12 @@ func (b *Benchmark) initMem() {
 		b.gM = b.driver.AllocateMemory(b.context, bytesA)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.aInit)
-	b.driver.MemCopyH2D(b.context, b.gB, b.bInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.aInit)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, b.bInit)
 
 	// Zero-initialize the multiplier matrix.
 	mZero := make([]float32, n*n)
-	b.driver.MemCopyH2D(b.context, b.gM, mZero)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gM, mZero)
 }
 
 func (b *Benchmark) exec() {
@@ -221,20 +227,22 @@ func (b *Benchmark) exec() {
 			&fan2Args,
 		)
 	}
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU forward-elimination result by performing CPU
 // back-substitution on the factored system and comparing the relative
 // residual ||A*x - b|| / ||b|| of the original system against a tolerance.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 
 	a := make([]float32, n*n)
 	bb := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, a, b.gA)
-	b.driver.MemCopyD2H(b.context, bb, b.gB)
+	if err := b.driver.ReadResult(b.readbacks[0], a); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], bb); err != nil {
+		return err
+	}
 
 	// CPU back-substitution: solve upper-triangular U x = b.
 	x := make([]float64, n)
@@ -259,10 +267,42 @@ func (b *Benchmark) Verify() {
 	relErr := math.Sqrt(normRes / (normB + 1e-30))
 
 	if math.IsNaN(relErr) || math.IsInf(relErr, 0) || relErr >= 1e-3 {
-		log.Fatalf("Verification failed: relative residual = %.3e "+
+		return fmt.Errorf("Verification failed: relative residual = %.3e "+
 			"(tolerance 1e-3)\n", relErr)
 	}
 
 	log.Printf("Verification: rel_err = %.3e\n", relErr)
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gA, 4*((b.N)*(b.N))))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gB, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

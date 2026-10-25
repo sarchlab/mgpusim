@@ -2,6 +2,9 @@
 package atax
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"math/rand"
@@ -43,11 +46,11 @@ type CDNA3Kernel1Args struct {
 	NX  int32      // offset 24
 	NY  int32      // offset 28
 	// Implicit args expected by CDNA3 runtime
-	Pad1             [12]byte   // offset 32-43 (padding)
-	HiddenGroupSizeX uint16     // offset 44 (0x2c)
-	HiddenGroupSizeY uint16     // offset 46
-	HiddenGroupSizeZ uint16     // offset 48
-	Pad2             [238]byte  // offset 50-287 (rest of implicit args)
+	Pad1             [12]byte  // offset 32-43 (padding)
+	HiddenGroupSizeX uint16    // offset 44 (0x2c)
+	HiddenGroupSizeY uint16    // offset 46
+	HiddenGroupSizeZ uint16    // offset 48
+	Pad2             [238]byte // offset 50-287 (rest of implicit args)
 }
 
 // CDNA3Kernel2Args defines kernel arguments for CDNA3 architecture (GFX942)
@@ -58,19 +61,25 @@ type CDNA3Kernel2Args struct {
 	NX  int32      // offset 24
 	NY  int32      // offset 28
 	// Implicit args expected by CDNA3 runtime
-	Pad1             [12]byte   // offset 32-43 (padding)
-	HiddenGroupSizeX uint16     // offset 44 (0x2c)
-	HiddenGroupSizeY uint16     // offset 46
-	HiddenGroupSizeZ uint16     // offset 48
-	Pad2             [238]byte  // offset 50-287 (rest of implicit args)
+	Pad1             [12]byte  // offset 32-43 (padding)
+	HiddenGroupSizeX uint16    // offset 44 (0x2c)
+	HiddenGroupSizeY uint16    // offset 46
+	HiddenGroupSizeZ uint16    // offset 48
+	Pad2             [238]byte // offset 50-287 (rest of implicit args)
 }
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver           *driver.Runtime
+	context          driver.Context
 	gpus             []int
-	queues           []*driver.CommandQueue
+	queues           []driver.CommandQueue
 	kernel1, kernel2 *insts.KernelCodeObject
 
 	Arch                  arch.Type
@@ -83,7 +92,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -127,8 +136,11 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 
 	for _, gpu := range b.gpus {
@@ -137,7 +149,6 @@ func (b *Benchmark) Run() {
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -188,9 +199,9 @@ func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32) {
 			HiddenGroupSizeY: localSize[1],
 			HiddenGroupSizeZ: localSize[2],
 		}
-		b.driver.LaunchKernel(b.context, b.kernel1,
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel1,
 			globalSize, localSize, &kernel1Arg)
-	} else{
+	} else {
 		kernel1Arg := Kernel1Args{
 			A:   b.dA,
 			X:   b.dX,
@@ -198,7 +209,7 @@ func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32) {
 			NX:  int32(b.NX),
 			NY:  int32(b.NY),
 		}
-		b.driver.LaunchKernel(b.context, b.kernel1,
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel1,
 			globalSize, localSize, &kernel1Arg)
 	}
 }
@@ -215,7 +226,7 @@ func (b *Benchmark) launchKernel2(localSize [3]uint16, globalSize [3]uint32) {
 			HiddenGroupSizeY: localSize[1],
 			HiddenGroupSizeZ: localSize[2],
 		}
-		b.driver.LaunchKernel(b.context, b.kernel2,
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel2,
 			globalSize, localSize, &kernel2Arg)
 	} else {
 		kernel2Arg := Kernel2Args{
@@ -225,14 +236,14 @@ func (b *Benchmark) launchKernel2(localSize [3]uint16, globalSize [3]uint32) {
 			NX:  int32(b.NX),
 			NY:  int32(b.NY),
 		}
-		b.driver.LaunchKernel(b.context, b.kernel2,
+		b.driver.EnqueueLaunchKernel(b.queue, b.kernel2,
 			globalSize, localSize, &kernel2Arg)
 	}
 }
 
 func (b *Benchmark) exec() {
-	b.driver.MemCopyH2D(b.context, b.dA, b.a)
-	b.driver.MemCopyH2D(b.context, b.dX, b.x)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dA, b.a)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dX, b.x)
 
 	localSize := [3]uint16{256, 1, 1}
 	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
@@ -245,21 +256,23 @@ func (b *Benchmark) exec() {
 
 	b.launchKernel2(localSize, globalSize)
 
-	b.driver.MemCopyD2H(b.context, b.yOutput, b.dY)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dY, Target: 0})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	b.cpuAtax()
 
 	for i := 0; i < b.NY; i++ {
 		if b.cpuY[i] != b.yOutput[i] {
-			log.Panicf("Mismatch at %d, expected %f, but get %f",
+			return fmt.Errorf("Mismatch at %d, expected %f, but get %f",
 				i, b.cpuY[i], b.yOutput[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuAtax() {
@@ -281,4 +294,49 @@ func (b *Benchmark) cpuAtax() {
 			b.cpuY[j] += b.a[i*b.NY+j] * tmp[i]
 		}
 	}
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.yOutput
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.yOutput
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

@@ -14,6 +14,8 @@
 package cfd
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -59,11 +61,15 @@ type KernelArgs struct {
 
 // Benchmark defines the Altis CFD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 	N    int
@@ -100,12 +106,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Altis CFD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -128,8 +133,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the altis cfd benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -138,6 +143,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -235,14 +241,14 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	b.gFluxMz = alloc(b.context, cellBytes)
 	b.gFluxEnergy = alloc(b.context, cellBytes)
 
-	b.driver.MemCopyH2D(b.context, b.gRho, b.hRho)
-	b.driver.MemCopyH2D(b.context, b.gMx, b.hMx)
-	b.driver.MemCopyH2D(b.context, b.gMy, b.hMy)
-	b.driver.MemCopyH2D(b.context, b.gMz, b.hMz)
-	b.driver.MemCopyH2D(b.context, b.gEnergy, b.hEnergy)
-	b.driver.MemCopyH2D(b.context, b.gNeighbors, b.hNeighbors)
-	b.driver.MemCopyH2D(b.context, b.gNormals, b.hNormals)
-	b.driver.MemCopyH2D(b.context, b.gAreas, b.hAreas)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gRho, b.hRho)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gMx, b.hMx)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gMy, b.hMy)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gMz, b.hMz)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gEnergy, b.hEnergy)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gNeighbors, b.hNeighbors)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gNormals, b.hNormals)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gAreas, b.hAreas)
 }
 
 func (b *Benchmark) exec() {
@@ -274,8 +280,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuPressure / cpuSpeedOfSound mirror the device helpers.
@@ -366,7 +370,7 @@ func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) { //nolin
 }
 
 // Verify checks the GPU flux output against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 
 	gpuFluxRho := make([]float32, n)
@@ -374,11 +378,21 @@ func (b *Benchmark) Verify() {
 	gpuFluxMy := make([]float32, n)
 	gpuFluxMz := make([]float32, n)
 	gpuFluxEnergy := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuFluxRho, b.gFluxRho)
-	b.driver.MemCopyD2H(b.context, gpuFluxMx, b.gFluxMx)
-	b.driver.MemCopyD2H(b.context, gpuFluxMy, b.gFluxMy)
-	b.driver.MemCopyD2H(b.context, gpuFluxMz, b.gFluxMz)
-	b.driver.MemCopyD2H(b.context, gpuFluxEnergy, b.gFluxEnergy)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuFluxRho); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[1], gpuFluxMx); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[2], gpuFluxMy); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[3], gpuFluxMz); err != nil {
+		return err
+	}
+	if err := b.driver.ReadResult(b.readbacks[4], gpuFluxEnergy); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
 		refRho, refMx, refMy, refMz, refE := b.cpuFlux(i)
@@ -395,11 +409,46 @@ func (b *Benchmark) Verify() {
 				denom = 1e-3
 			}
 			if math.Abs(float64(ref[k]-got[k]))/denom > 1e-3 {
-				log.Fatalf("At cell %d %s, expected %f, but got %f.\n",
+				return fmt.Errorf("At cell %d %s, expected %f, but got %f.\n",
 					i, names[k], ref[k], got[k])
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gFluxRho, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gFluxMx, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gFluxMy, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gFluxMz, 4*(b.N)))
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gFluxEnergy, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

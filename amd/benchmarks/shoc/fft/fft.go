@@ -2,6 +2,9 @@
 package fft
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
@@ -66,10 +69,16 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
+	benchmarks.Progress
+	initialConfig  checkpointConfig
+	configCaptured bool
+	readbacks      []benchmarks.Readback
+	queue          driver.CommandQueue
+
+	driver           *driver.Runtime
+	context          driver.Context
 	gpus             []int
-	queues           []*driver.CommandQueue
+	queues           []driver.CommandQueue
 	useUnifiedMemory bool
 	fftKernel        *insts.KernelCodeObject
 
@@ -87,7 +96,7 @@ type Benchmark struct {
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.context = driver.Init()
@@ -125,8 +134,11 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
+
 	b.loadProgram()
 
 	for _, gpu := range b.gpus {
@@ -136,7 +148,6 @@ func (b *Benchmark) Run() {
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -159,7 +170,7 @@ func (b *Benchmark) initMem() {
 		b.dSource = b.driver.AllocateMemory(b.context,
 			b.usedBytes)
 	}
-	b.driver.MemCopyH2D(b.context, b.dSource, b.source)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.dSource, b.source)
 }
 
 func (b *Benchmark) exec() {
@@ -176,7 +187,7 @@ func (b *Benchmark) exec() {
 			b.execGCN3(globalSize, localSize)
 		}
 	}
-	b.driver.MemCopyD2H(b.context, b.result, b.dSource)
+	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dSource, Target: 0})
 }
 
 func (b *Benchmark) execGCN3(
@@ -192,7 +203,7 @@ func (b *Benchmark) execGCN3(
 		HiddenGlobalOffsetZ: 0,
 	}
 
-	b.driver.LaunchKernel(b.context,
+	b.driver.EnqueueLaunchKernel(b.queue,
 		b.fftKernel,
 		globalSize, localSize,
 		&args,
@@ -207,7 +218,7 @@ func (b *Benchmark) execCDNA3(
 		Work: b.dSource,
 	}
 
-	b.driver.LaunchKernel(b.context,
+	b.driver.EnqueueLaunchKernel(b.queue,
 		b.fftKernel,
 		globalSize, localSize,
 		&args,
@@ -215,7 +226,7 @@ func (b *Benchmark) execCDNA3(
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	mismatch := false
 
 	if b.fftCPU() == 1 {
@@ -223,9 +234,11 @@ func (b *Benchmark) Verify() {
 	}
 
 	if mismatch {
-		panic("Mismatch!\n")
+		return fmt.Errorf("Mismatch!\n")
 	}
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) fftCPU() int32 {
@@ -260,4 +273,49 @@ func (b *Benchmark) fill() {
 		b.source[i+b.halfNCmplx].X = b.source[i].X
 		b.source[i+b.halfNCmplx].Y = b.source[i].Y
 	}
+}
+
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.readbacks = nil
+			b.Ended = true
+			return nil
+		}
+		for i := range b.readbacks {
+			var dst any
+			switch b.readbacks[i].Target {
+			case 0:
+				dst = b.result
+			}
+			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.result
+			}
+			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+				return err
+			}
+		}
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

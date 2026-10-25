@@ -12,6 +12,8 @@
 package fp64throughput
 
 import (
+	"fmt"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
@@ -60,11 +62,15 @@ type KernelArgs struct {
 
 // Benchmark defines the fp64_throughput benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	initialConfig  checkpointConfig
+	configCaptured bool
+	benchmarks.Progress
+	readbacks []driver.CommandID
+	driver    *driver.Runtime
+	context   driver.Context
+	queue     driver.CommandQueue
+	hsaco     *insts.KernelCodeObject
+	gpus      []int
 
 	Arch arch.Type
 
@@ -91,12 +97,11 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new fp64_throughput benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
 
 	return b
 }
@@ -119,8 +124,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp64_throughput benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -129,6 +134,7 @@ func (b *Benchmark) Run() {
 	b.loadProgram()
 
 	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.queue = b.driver.CreateCommandQueue(b.context)
 	b.initMem()
 	b.exec()
 }
@@ -195,9 +201,9 @@ func (b *Benchmark) initMem() {
 		b.gOut = b.driver.AllocateMemory(b.context, outBytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gIn, b.in)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gIn, b.in)
 	// Initialize the output to zero so a missing store is detectable.
-	b.driver.MemCopyH2D(b.context, b.gOut, make([]float64, b.numThreads))
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gOut, make([]float64, b.numThreads))
 }
 
 func (b *Benchmark) exec() {
@@ -217,8 +223,6 @@ func (b *Benchmark) exec() {
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuReference reproduces, in pure Go, the value the kernel stores. Every
@@ -241,9 +245,11 @@ func (b *Benchmark) cpuReference() float64 {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuOut := make([]float64, b.numThreads)
-	b.driver.MemCopyD2H(b.context, gpuOut, b.gOut)
+	if err := b.driver.ReadResult(b.readbacks[0], gpuOut); err != nil {
+		return err
+	}
 
 	ref := b.cpuReference()
 	denom := math.Abs(ref)
@@ -254,10 +260,41 @@ func (b *Benchmark) Verify() {
 	for gid := 0; gid < b.numThreads; gid++ {
 		got := gpuOut[gid]
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("At gid %d, expected %.12f, but got %.12f.\n",
+			return fmt.Errorf("At gid %d, expected %.12f, but got %.12f.\n",
 				gid, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOut, 8*(b.numThreads)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	switch b.Phase {
+	case 0:
+		b.initialConfig = b.checkpointConfig()
+		b.configCaptured = true
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }
