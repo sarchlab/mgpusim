@@ -3,9 +3,11 @@ package smsp
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v5/sim/timing"
+
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
@@ -15,29 +17,43 @@ import (
 // trace instructions into per-opcode pipelines and sends global memory
 // accesses to its L1 vector cache.
 type SMSPController struct {
-	*modeling.TickingComponent
+	*Comp
+	*topology
+}
 
-	ID string
-
-	toSM              messaging.Port
-	toSMRemote        messaging.RemotePort
-	toVectorMem       messaging.Port
-	toVectorMemRemote messaging.RemotePort
-
-	scheduler    *SMSPSWarpScheduler
-	ResourcePool *ResourcePool
-
-	// Memory pipelines whose request has not been sent yet.
-	unsentMemPipelines []*PipelineInstance
-	// Memory pipelines waiting for a response, keyed by request ID.
-	inflightMemPipelines map[uint64]*PipelineInstance
-
-	finishedWarps []*trace.WarpTrace
-
-	instsCount             uint64
-	log2CacheLineSize      uint64
+type Spec struct {
+	Freq                   timing.Freq
+	Log2CacheLineSize      uint64
 	MemResponseHandleWidth uint64
 }
+
+type State struct {
+	Scheduler            SMSPSWarpScheduler
+	ResourcePool         ResourcePool
+	UnsentMemPipelines   []PipelineRef
+	InflightMemPipelines map[uint64]PipelineRef
+	FinishedWarps        []trace.WarpTrace
+	InstsCount           uint64
+}
+
+type topology struct {
+	ID                string
+	toSMRemote        messaging.RemotePort
+	toVectorMemRemote messaging.RemotePort
+}
+
+type Resources struct{ Topology *topology }
+type Ports struct {
+	ToSM        messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.smsp"`
+	ToVectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+}
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Middlewares struct{ Controller *SMSPController }
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Controller = &SMSPController{Comp: c, topology: c.Resources.Topology}
+}
+func (c *SMSPController) Handle(timing.Event) bool { return c.Tick() }
 
 // SetSMRemotePort sets the SM port that finished warps are reported to.
 func (s *SMSPController) SetSMRemotePort(remote messaging.RemotePort) {
@@ -54,7 +70,7 @@ func (s *SMSPController) SetVectorMemRemote(remote messaging.RemotePort) {
 func (s *SMSPController) Tick() bool {
 	madeProgress := false
 
-	s.ResourcePool.Reset()
+	s.State.ResourcePool.Reset()
 	madeProgress = s.reportFinishedWarps() || madeProgress
 	madeProgress = s.processSMInput() || madeProgress
 	madeProgress = s.run() || madeProgress
@@ -65,19 +81,19 @@ func (s *SMSPController) Tick() bool {
 }
 
 func (s *SMSPController) processSMInput() bool {
-	msg := s.toSM.PeekIncoming()
-	if msg == nil {
+	msg, ok := s.Ports.ToSM.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch msg := msg.(type) {
+	switch msg := msg.Payload.(type) {
 	case message.SMToSMSPMsg:
-		s.scheduler.insertWarps(msg.WarpList)
+		s.State.Scheduler.insertWarps(msg.WarpList)
 	default:
 		panic(fmt.Sprintf("%s: unexpected message %T from SM", s.Name(), msg))
 	}
 
-	s.toSM.RetrieveIncoming()
+	s.Ports.ToSM.RetrieveIncoming()
 
 	return true
 }
@@ -87,7 +103,7 @@ func (s *SMSPController) releasePipelineSrcRegs(pipe *PipelineInstance) bool {
 		return false
 	}
 
-	pipe.Warp.Scoreboard.MarkSrcRegsConsumed(pipe.SrcRegs)
+	s.State.Scheduler.warp(pipe.WarpID).Scoreboard.MarkSrcRegsConsumed(pipe.SrcRegs)
 	pipe.MarkSrcRegsReleased()
 
 	return true
@@ -98,7 +114,7 @@ func (s *SMSPController) releasePipelineDstRegs(pipe *PipelineInstance) bool {
 		return false
 	}
 
-	pipe.Warp.Scoreboard.MarkDstRegsCompleted(pipe.DstRegs)
+	s.State.Scheduler.warp(pipe.WarpID).Scoreboard.MarkDstRegsCompleted(pipe.DstRegs)
 	pipe.MarkDstRegsReleased()
 
 	return true
@@ -107,13 +123,13 @@ func (s *SMSPController) releasePipelineDstRegs(pipe *PipelineInstance) bool {
 func (s *SMSPController) processMemRsp() bool {
 	madeProgress := false
 
-	for range max(s.MemResponseHandleWidth, 1) {
-		msg := s.toVectorMem.PeekIncoming()
-		if msg == nil {
+	for range max(s.Spec.MemResponseHandleWidth, 1) {
+		msg, ok := s.Ports.ToVectorMem.PeekIncoming()
+		if !ok {
 			break
 		}
 
-		switch msg := msg.(type) {
+		switch msg.Payload.(type) {
 		case memprotocol.DataReadyRsp:
 			s.completeMemPipeline(msg.RspTo)
 		case memprotocol.WriteDoneRsp:
@@ -123,7 +139,7 @@ func (s *SMSPController) processMemRsp() bool {
 				s.Name(), msg))
 		}
 
-		s.toVectorMem.RetrieveIncoming()
+		s.Ports.ToVectorMem.RetrieveIncoming()
 
 		madeProgress = true
 	}
@@ -132,18 +148,19 @@ func (s *SMSPController) processMemRsp() bool {
 }
 
 func (s *SMSPController) completeMemPipeline(reqID uint64) {
-	pipe, found := s.inflightMemPipelines[reqID]
+	ref, found := s.State.InflightMemPipelines[reqID]
 	if !found {
 		panic(fmt.Sprintf("%s: memory response to unknown request %d",
 			s.Name(), reqID))
 	}
 
-	delete(s.inflightMemPipelines, reqID)
+	delete(s.State.InflightMemPipelines, reqID)
+	pipe := s.State.Scheduler.pipeline(ref)
 
 	s.releasePipelineSrcRegs(pipe)
 	s.releasePipelineDstRegs(pipe)
 	pipe.MarkMemoryResponseReady()
-	pipe.Warp.updateStatus()
+	s.State.Scheduler.warp(pipe.WarpID).updateStatus()
 }
 
 // skipMaskedControlOps retires fully-masked BRA/EXIT instructions without
@@ -151,16 +168,17 @@ func (s *SMSPController) completeMemPipeline(reqID uint64) {
 func (s *SMSPController) skipMaskedControlOps() bool {
 	madeProgress := false
 
-	for _, wu := range s.scheduler.warpUnitList {
+	for wi := range s.State.Scheduler.WarpUnits {
+		wu := &s.State.Scheduler.WarpUnits[wi]
 		for wu.HasMoreToIssue() {
 			inst := wu.NextInstruction()
 			if inst.Mask != 0 || (inst.OpCode != "BRA" && inst.OpCode != "EXIT") {
 				break
 			}
 
-			wu.nextIssueInstIndex++
-			wu.unfinishedInstsCount--
-			s.instsCount++
+			wu.NextIssueInstIndex++
+			wu.UnfinishedInstsCount--
+			s.State.InstsCount++
 			madeProgress = true
 		}
 
@@ -173,12 +191,12 @@ func (s *SMSPController) skipMaskedControlOps() bool {
 func (s *SMSPController) launchIssuedPipelines(issued []*IssueDecision) {
 	for _, decision := range issued {
 		pipe := decision.Pipeline
-		s.instsCount++
+		s.State.InstsCount++
 
 		if pipe.IsMemoryPipeline() {
 			pipe.MarkMemoryRequestSent()
 			s.releasePipelineSrcRegs(pipe)
-			s.unsentMemPipelines = append(s.unsentMemPipelines, pipe)
+			s.State.UnsentMemPipelines = append(s.State.UnsentMemPipelines, pipe.Ref())
 		}
 
 		decision.WarpUnit.updateStatus()
@@ -188,10 +206,12 @@ func (s *SMSPController) launchIssuedPipelines(issued []*IssueDecision) {
 func (s *SMSPController) tickInFlightPipelines() bool {
 	madeProgress := false
 
-	for _, wu := range s.scheduler.warpUnitList {
-		remaining := make([]*PipelineInstance, 0, len(wu.InFlightPipelines))
+	for wi := range s.State.Scheduler.WarpUnits {
+		wu := &s.State.Scheduler.WarpUnits[wi]
+		remaining := make([]PipelineInstance, 0, len(wu.InFlightPipelines))
 
-		for _, pipe := range wu.InFlightPipelines {
+		for pi := range wu.InFlightPipelines {
+			pipe := &wu.InFlightPipelines[pi]
 			if !pipe.Done && !pipe.IsMemoryPipeline() {
 				madeProgress = pipe.Tick() || madeProgress
 
@@ -203,13 +223,13 @@ func (s *SMSPController) tickInFlightPipelines() bool {
 			if pipe.Done {
 				s.releasePipelineSrcRegs(pipe)
 				s.releasePipelineDstRegs(pipe)
-				wu.unfinishedInstsCount--
+				wu.UnfinishedInstsCount--
 				madeProgress = true
 
 				continue
 			}
 
-			remaining = append(remaining, pipe)
+			remaining = append(remaining, *pipe)
 		}
 
 		wu.InFlightPipelines = remaining
@@ -221,32 +241,33 @@ func (s *SMSPController) tickInFlightPipelines() bool {
 
 func (s *SMSPController) collectFinishedWarps() bool {
 	madeProgress := false
-	remaining := s.scheduler.warpUnitList[:0]
+	remaining := s.State.Scheduler.WarpUnits[:0]
 
-	for _, wu := range s.scheduler.warpUnitList {
-		if wu.unfinishedInstsCount == 0 && len(wu.InFlightPipelines) == 0 {
-			s.finishedWarps = append(s.finishedWarps, wu.warp)
+	for wi := range s.State.Scheduler.WarpUnits {
+		wu := &s.State.Scheduler.WarpUnits[wi]
+		if wu.UnfinishedInstsCount == 0 && len(wu.InFlightPipelines) == 0 {
+			s.State.FinishedWarps = append(s.State.FinishedWarps, wu.Trace)
 			madeProgress = true
 
 			continue
 		}
 
-		remaining = append(remaining, wu)
+		remaining = append(remaining, *wu)
 	}
 
-	s.scheduler.warpUnitList = remaining
+	s.State.Scheduler.WarpUnits = remaining
 
 	return madeProgress
 }
 
 func (s *SMSPController) run() bool {
-	if s.scheduler.isEmpty() {
+	if s.State.Scheduler.isEmpty() {
 		return false
 	}
 
 	madeProgress := s.skipMaskedControlOps()
 
-	issued := s.scheduler.issueWarps(s.ResourcePool)
+	issued := s.State.Scheduler.issueWarps(&s.State.ResourcePool)
 	if len(issued) > 0 {
 		s.launchIssuedPipelines(issued)
 
@@ -260,18 +281,17 @@ func (s *SMSPController) run() bool {
 }
 
 func (s *SMSPController) reportFinishedWarps() bool {
-	if len(s.finishedWarps) == 0 || !s.toSM.CanSend() {
+	if len(s.State.FinishedWarps) == 0 || !s.Ports.ToSM.CanSend() {
 		return false
 	}
 
-	msg := message.SMSPToSMMsg{
-		MsgMeta:      message.NewMeta(s.toSM.AsRemote(), s.toSMRemote),
+	msg := messaging.Msg{ID: s.NewID(), Src: s.Ports.ToSM.AsRemote(), Dst: s.toSMRemote, Payload: message.SMSPToSMMsg{
 		WarpFinished: true,
 		SMSPID:       s.ID,
-		Warp:         s.finishedWarps[0],
-	}
-	s.toSM.Send(msg)
-	s.finishedWarps = s.finishedWarps[1:]
+		Warp:         s.State.FinishedWarps[0],
+	}}
+	s.Ports.ToSM.Send(msg)
+	s.State.FinishedWarps = s.State.FinishedWarps[1:]
 
 	return true
 }
@@ -279,23 +299,24 @@ func (s *SMSPController) reportFinishedWarps() bool {
 func (s *SMSPController) sendMemRequests() bool {
 	madeProgress := false
 
-	for len(s.unsentMemPipelines) > 0 && s.toVectorMem.CanSend() {
-		pipe := s.unsentMemPipelines[0]
+	for len(s.State.UnsentMemPipelines) > 0 && s.Ports.ToVectorMem.CanSend() {
+		ref := s.State.UnsentMemPipelines[0]
+		pipe := s.State.Scheduler.pipeline(ref)
 
 		var msg messaging.Msg
 
 		switch pipe.CurrentStage().Def.Name {
 		case "MemoryPipeRead":
-			msg = s.readReq(pipe.Inst)
+			msg = s.readReq(&pipe.Inst)
 		case "MemoryPipeWrite":
-			msg = s.writeReq(pipe.Inst)
+			msg = s.writeReq(&pipe.Inst)
 		default:
 			panic("unknown memory pipeline stage " + pipe.CurrentStage().Def.Name)
 		}
 
-		s.toVectorMem.Send(msg)
-		s.inflightMemPipelines[msg.Meta().ID] = pipe
-		s.unsentMemPipelines = s.unsentMemPipelines[1:]
+		s.Ports.ToVectorMem.Send(msg)
+		s.State.InflightMemPipelines[msg.ID] = ref
+		s.State.UnsentMemPipelines = s.State.UnsentMemPipelines[1:]
 		madeProgress = true
 	}
 
@@ -304,7 +325,7 @@ func (s *SMSPController) sendMemRequests() bool {
 
 // accessRange clips an access so that it does not cross a cache line.
 func (s *SMSPController) accessRange(addr, byteSize uint64) (uint64, uint64) {
-	lineSize := uint64(1) << s.log2CacheLineSize
+	lineSize := uint64(1) << s.Spec.Log2CacheLineSize
 	byteSize = max(byteSize, 1)
 
 	if byteSize > lineSize {
@@ -318,38 +339,52 @@ func (s *SMSPController) accessRange(addr, byteSize uint64) (uint64, uint64) {
 	return addr, byteSize
 }
 
-func (s *SMSPController) readReq(inst *trace.InstructionTrace) memprotocol.ReadReq {
+func (s *SMSPController) readReq(inst *trace.InstructionTrace) messaging.Msg {
 	addr, byteSize := s.accessRange(
 		inst.MemAddress, uint64(max(inst.MemAddressSuffix1, inst.MemWidth)))
 
-	return memprotocol.ReadReq{
-		MsgMeta:        message.NewMeta(s.toVectorMem.AsRemote(), s.toVectorMemRemote),
-		Address:        addr,
-		AccessByteSize: byteSize,
-		PID:            1,
+	return messaging.Msg{
+		ID:  s.NewID(),
+		Src: s.Ports.ToVectorMem.AsRemote(),
+		Dst: s.toVectorMemRemote,
+		Payload: memprotocol.ReadReq{
+			Address:        addr,
+			AccessByteSize: byteSize,
+			PID:            1,
+		},
 	}
 }
 
-func (s *SMSPController) writeReq(inst *trace.InstructionTrace) memprotocol.WriteReq {
+func (s *SMSPController) writeReq(inst *trace.InstructionTrace) messaging.Msg {
 	addr, byteSize := s.accessRange(inst.MemAddress, 4)
 
-	return memprotocol.WriteReq{
-		MsgMeta: message.NewMeta(s.toVectorMem.AsRemote(), s.toVectorMemRemote),
-		Address: addr,
-		Data:    make([]byte, byteSize),
-		PID:     1,
+	return messaging.Msg{
+		ID:  s.NewID(),
+		Src: s.Ports.ToVectorMem.AsRemote(),
+		Dst: s.toVectorMemRemote,
+		Payload: memprotocol.WriteReq{
+			Address: addr,
+			Data:    make([]byte, byteSize),
+			PID:     1,
+		},
 	}
 }
 
 // GetTotalInstsCount returns the number of instructions issued or skipped
 // so far.
 func (s *SMSPController) GetTotalInstsCount() uint64 {
-	return s.instsCount
+	return s.State.InstsCount
 }
 
 // Status reports how much work the SMSP holds: resident warps, memory
 // requests waiting to be sent, and memory requests waiting for a response.
 func (s *SMSPController) Status() (warps, unsentMem, inflightMem int) {
-	return len(s.scheduler.warpUnitList), len(s.unsentMemPipelines),
-		len(s.inflightMemPipelines)
+	return len(s.State.Scheduler.WarpUnits), len(s.State.UnsentMemPipelines),
+		len(s.State.InflightMemPipelines)
+}
+
+func (s *State) Initialize(c *Comp) {
+	s.Scheduler = *NewSMSPScheduler()
+	s.ResourcePool = *NewH100SMSPResourcePool()
+	s.InflightMemPipelines = make(map[uint64]PipelineRef)
 }

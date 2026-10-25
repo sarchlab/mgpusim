@@ -3,9 +3,12 @@ package sampling
 import (
 	"flag"
 	"log"
+	"sync"
 	"time"
 
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // SampledRunnerFlag is used to enable wf sampling
@@ -25,6 +28,9 @@ const picosPerSecond = 1e12
 // Internal time statistics are float64 seconds; the public API exchanges
 // timing.VTimeInPicoSec.
 type SampledEngine struct {
+	mu                   sync.Mutex
+	name                 string
+	boundary             float64
 	predTime             float64
 	enableSampled        bool
 	disableEngine        bool
@@ -42,6 +48,8 @@ type SampledEngine struct {
 
 // Reset all status
 func (se *SampledEngine) Reset() {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	se.FullSimWallTimeStart = time.Now()
 	se.stableEngine.Reset()
 	se.shortStableEngine.Reset()
@@ -69,6 +77,7 @@ func NewSampledEngine(
 	}
 
 	ret := &SampledEngine{
+		boundary:          boundary,
 		stableEngine:      stableEngine,
 		shortStableEngine: shortStableEngine,
 		granularity:       granularity / 2,
@@ -82,33 +91,39 @@ func NewSampledEngine(
 	return ret
 }
 
-// SampledEngineInstance is used to monitor wavefront sampling
-var SampledEngineInstance *SampledEngine
-
-// InitSampledEngine is used to initial all status and data structure
-func InitSampledEngine() {
-	SampledEngineInstance = NewSampledEngine(
-		*SampledRunnerGranularyFlag, *SampledRunnerThresholdFlag, false)
-
-	if *SampledRunnerFlag {
-		SampledEngineInstance.Enable()
-	} else {
-		SampledEngineInstance.Disabled()
+// NewSimulationEngine constructs and registers the simulation's sampling state.
+// The same engine is shared by its command processors and compute units.
+func NewSimulationEngine(s modeling.Simulation, granularity int, boundary float64, enabled bool) *SampledEngine {
+	engine := NewSampledEngine(granularity, boundary, false)
+	engine.name = "WavefrontSampling"
+	if !enabled {
+		engine.Disabled()
 	}
+	s.RegisterResource(engine)
+	return engine
 }
+
+// Name identifies the sampling checkpoint resource.
+func (se *SampledEngine) Name() string { return se.name }
 
 // Disabled the sampling engine
 func (se *SampledEngine) Disabled() {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	se.disableEngine = true
 }
 
 // Enable the sampling engine
 func (se *SampledEngine) Enable() {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	se.disableEngine = false
 }
 
 // IfDisable the sampling engine
 func (se *SampledEngine) IfDisable() bool {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	return se.disableEngine
 }
 
@@ -117,6 +132,8 @@ func (se *SampledEngine) Collect(
 	issueTime timing.VTimeInPicoSec,
 	finishTime timing.VTimeInPicoSec,
 ) {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	if se.enableSampled || se.disableEngine { //we do not need to collect data if sampling is enabled
 		return
 	}
@@ -139,7 +156,7 @@ func (se *SampledEngine) Collect(
 		shortTime := shortStableEngine.predTime
 		se.predTime = shortStableEngine.predTime
 		diff := (longTime - shortTime) / (longTime + shortTime)
-		diffBoundary := *SampledRunnerThresholdFlag
+		diffBoundary := se.boundary
 		if diff <= diffBoundary && diff >= -diffBoundary {
 			se.enableSampled = true
 			se.predTime = shortTime
@@ -157,5 +174,7 @@ func (se *SampledEngine) Collect(
 
 // Predict the execution time of the next wavefronts
 func (se *SampledEngine) Predict() (timing.VTimeInPicoSec, bool) {
+	se.mu.Lock()
+	defer se.mu.Unlock()
 	return timing.VTimeInPicoSec(se.predTime * picosPerSecond), se.enableSampled
 }

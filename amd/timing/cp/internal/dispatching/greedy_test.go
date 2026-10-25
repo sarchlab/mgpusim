@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	"go.uber.org/mock/gomock"
@@ -72,7 +72,7 @@ var _ = Describe("Greedy Algorithm", func() {
 	})
 
 	It("should dispatch next wg", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 
 		gridBuilder.EXPECT().NextWG().Return(wg)
 		cus[0].EXPECT().ReserveResourceForWG(wg).
@@ -85,7 +85,7 @@ var _ = Describe("Greedy Algorithm", func() {
 	})
 
 	It("should return invalid location is dispatch is not possible", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 
 		gridBuilder.EXPECT().NextWG().Return(wg)
 		call1 := cus[0].EXPECT().ReserveResourceForWG(wg).

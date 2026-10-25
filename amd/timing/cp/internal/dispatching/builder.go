@@ -1,16 +1,17 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v5/monitoring2"
-	"github.com/sarchlab/akita/v5/tracing"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
 // A Builder can build dispatchers
 type Builder struct {
-	cp                             tracing.NamedHookable
+	sampler                        *sampling.SampledEngine
+	cp                             Parent
 	cuResourcePool                 resource.CUResourcePool
 	alg                            string
 	portSource                     PortSource
@@ -24,6 +25,9 @@ type Builder struct {
 	numDies                        int
 	wavefrontDispatchCycles        int
 }
+
+// WithSampler shares the simulation's recoverable wavefront sampling state.
+func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s; return b }
 
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
@@ -42,7 +46,7 @@ func MakeBuilder() Builder {
 }
 
 // WithCP sets the Command Processor that the Dispatcher belongs to.
-func (b Builder) WithCP(cp tracing.NamedHookable) Builder {
+func (b Builder) WithCP(cp Parent) Builder {
 	b.cp = cp
 	return b
 }
@@ -143,13 +147,14 @@ func (b Builder) WithWGScalingThreshold(n int) Builder {
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
+		sampler:             b.sampler,
 		name:                name,
 		cp:                  b.cp,
 		portSource:          b.portSource,
 		respondingPortName:  b.respondingPortName,
 		dispatchingPortName: b.dispatchingPortName,
 		inflightWGs:         make(map[uint64]dispatchLocation),
-		originalReqs:        make(map[uint64]protocol.MapWGReq),
+		wgTaskIDs:           make(map[uint64]uint64),
 		latencyTable: []int{
 			0,          // 0 WFs
 			0, 0, 0, 0, // 1-4 WFs
@@ -167,20 +172,22 @@ func (b Builder) Build(name string) Dispatcher {
 	switch b.alg {
 	case "round-robin":
 		d.alg = &roundRobinAlgorithm{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: kernels.NewGridBuilder(b.cp),
 			cuPool:      b.cuResourcePool,
 		}
 	case "greedy":
 		d.alg = &greedyAlgorithm{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: kernels.NewGridBuilder(b.cp),
 			cuPool:      b.cuResourcePool,
 		}
 	case "partition":
 		d.alg = &partitionAlgorithm{
+			ids:    b.cp,
 			cuPool: b.cuResourcePool,
 		}
 	case "per-die":
 		d.alg = &perDieAlgorithm{
+			ids:     b.cp,
 			cuPool:  b.cuResourcePool,
 			numDies: b.numDies,
 		}

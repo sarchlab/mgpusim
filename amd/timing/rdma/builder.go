@@ -1,46 +1,42 @@
 package rdma
 
 import (
-	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
-
-// defaultSpec provides the default configuration for the RDMA engine.
-var defaultSpec = Spec{
-	Freq:                1 * timing.GHz,
-	BufferSize:          128,
-	IncomingReqPerCycle: 1,
-	IncomingRspPerCycle: 1,
-	OutgoingReqPerCycle: 1,
-	OutgoingRspPerCycle: 1,
-}
 
 // DefaultSpec returns a copy of the default configuration. Callers typically
 // obtain it, tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:                1 * timing.GHz,
+		BufferSize:          128,
+		IncomingReqPerCycle: 1,
+		IncomingRspPerCycle: 1,
+		OutgoingReqPerCycle: 1,
+		OutgoingRspPerCycle: 1,
+	}
 }
 
 // Builder builds RDMA engines. Configuration is supplied as a whole through
-// WithSpec; wiring is supplied through WithRegistrar and WithResources. The
+// WithSpec; wiring is supplied through WithSimulation and WithResources. The
 // component declares its "RDMARequestInside", "RDMARequestOutside",
 // "RDMADataInside", "RDMADataOutside", and "Ctrl" ports; the port instances
 // are supplied externally after Build with AssignPort.
 type Builder struct {
 	spec      Spec
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 	resources Resources
 }
 
 // MakeBuilder returns a new Builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// WithSimulation wires the builder to a registrar (a *simulation.Simulation in
 // assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -62,27 +58,8 @@ func (b Builder) WithResources(r Resources) Builder {
 // instances after Build with AssignPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("rdma: WithRegistrar is required")
+		panic("rdma: WithSimulation is required")
 	}
 
-	comp := modeling.NewBuilder[Spec, State, Resources]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		WithResources(b.resources).
-		Build(name)
-	comp.State = State{}
-
-	comp.AddMiddleware(&ctrlMiddleware{comp: comp})
-	comp.AddMiddleware(&forwardMiddleware{comp: comp})
-
-	comp.DeclarePort("RDMARequestInside", memprotocol.Responder)
-	comp.DeclarePort("RDMARequestOutside", memprotocol.Requester)
-	comp.DeclarePort("RDMADataInside", memprotocol.Requester)
-	comp.DeclarePort("RDMADataOutside", memprotocol.Responder)
-	comp.DeclarePort("Ctrl")
-
-	b.registrar.RegisterComponent(comp)
-
-	return comp
+	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 }

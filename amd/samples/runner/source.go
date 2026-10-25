@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/sarchlab/akita/v5/simulation"
+	simulation "github.com/sarchlab/akita/v5/sim"
 )
 
 // mgpusimModulePath is mgpusim's Go module path. The source archive recorded into

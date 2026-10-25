@@ -17,8 +17,10 @@ func (m *globalStorageMemoryCopyMiddleware) ProcessCommand(
 ) (processed bool) {
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
+		m.driver.logCmdStart(cmd)
 		return m.processMemCopyH2DCommand(cmd, queue)
 	case *MemCopyD2HCommand:
+		m.driver.logCmdStart(cmd)
 		return m.processMemCopyD2HCommand(cmd, queue)
 	}
 
@@ -40,7 +42,7 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
+		page, found := m.driver.Resources.PageTable.
 			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
@@ -53,7 +55,7 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		m.driver.Resources().GlobalStorage.
+		m.driver.Resources.GlobalStorage.
 			Write(pAddr, rawBytes[offset:offset+sizeToCopy])
 
 		sizeLeft -= sizeToCopy
@@ -63,6 +65,7 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 
 	queue.IsRunning = false
 	queue.Dequeue()
+	m.driver.logCmdComplete(cmd)
 
 	return true
 }
@@ -71,13 +74,13 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) bool {
-	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
+	cmd.RawData = make([]byte, copyByteSize(cmd))
 
 	offset := uint64(0)
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
+		page, found := m.driver.Resources.PageTable.
 			Find(queue.Context.pid, addr)
 		if !found {
 			panic("page not found")
@@ -90,7 +93,7 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		data, _ := m.driver.Resources().GlobalStorage.Read(pAddr, sizeToCopy)
+		data := m.driver.Resources.GlobalStorage.Read(pAddr, sizeToCopy)
 		copy(cmd.RawData[offset:], data)
 
 		sizeLeft -= sizeToCopy
@@ -98,14 +101,11 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 		offset += sizeToCopy
 	}
 
-	buf := bytes.NewReader(cmd.RawData)
-	err := binary.Read(buf, binary.LittleEndian, cmd.Dst)
-	if err != nil {
-		panic(err)
-	}
+	m.driver.deliverResult(cmd)
 
 	queue.IsRunning = false
 	queue.Dequeue()
+	m.driver.logCmdComplete(cmd)
 	return true
 }
 

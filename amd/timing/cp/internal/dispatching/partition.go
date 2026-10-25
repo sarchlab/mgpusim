@@ -14,6 +14,7 @@ type partition struct {
 // partitionAlgorithm can dispatch workgroups to CUs in a round robin
 // fasion.
 type partitionAlgorithm struct {
+	ids        interface{ NewID() uint64 }
 	partitions []*partition
 	cuPool     resource.CUResourcePool
 
@@ -35,7 +36,7 @@ func (a *partitionAlgorithm) RegisterCU(cu resource.DispatchableCU) {
 func (a *partitionAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
 	a.numDispatchedWG = 0
 
-	gb := kernels.NewGridBuilder()
+	gb := kernels.NewGridBuilder(a.ids)
 	gb.SetKernel(info)
 	a.numWG = gb.NumWG()
 	numCU := a.cuPool.NumCU()
@@ -44,7 +45,7 @@ func (a *partitionAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
 	a.partitions = nil
 	for i := 0; i < numCU; i++ {
 		p := &partition{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: kernels.NewGridBuilder(a.ids),
 		}
 
 		p.gridBuilder.SetKernel(info)

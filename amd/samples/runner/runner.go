@@ -3,19 +3,22 @@ package runner
 
 import (
 	"log"
+	"os"
+
+	"github.com/rs/xid"
+	"github.com/sarchlab/akita/v5/monitoring"
 
 	// Enable profiling
 	_ "net/http/pprof"
 	"sync"
 
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 type verificationPreEnablingBenchmark interface {
@@ -29,6 +32,7 @@ type Runner struct {
 	simulation *simulation.Simulation
 	gpuDriver  *driver.Driver
 	reporter   *reporter
+	monitor    *monitoring.Monitor
 
 	Timing           bool
 	Verify           bool
@@ -55,22 +59,29 @@ func (r *Runner) Init() *Runner {
 		r.buildEmuPlatform()
 	}
 
+	if err := r.simulation.Initialize(); err != nil {
+		panic(err)
+	}
+
 	r.createUnifiedGPUs()
 
 	return r
 }
 
 func (r *Runner) initSimulation() {
-	builder := simulation.MakeBuilder()
+	builder := simulation.MakeBuilder().WithTaskTracking()
 
 	if *parallelFlag {
 		builder = builder.WithParallelEngine()
 	}
 
-	if *disableAkitaRTM {
-		builder = builder.WithoutMonitoring()
-	} else if *customPortForAkitaRTM > 0 {
-		builder = builder.WithMonitorPort(*customPortForAkitaRTM)
+	if !*disableAkitaRTM {
+		mb := monitoring.MakeBuilder()
+		if *customPortForAkitaRTM > 0 {
+			mb = mb.WithPortNumber(*customPortForAkitaRTM)
+		}
+		r.monitor = mb.Build()
+		builder = builder.WithMonitor(r.monitor)
 	}
 
 	if *visTracing {
@@ -80,9 +91,21 @@ func (r *Runner) initSimulation() {
 
 	// Only honor -metric-file-name when it is explicitly set, so the
 	// default output name stays the v4-compatible "akita_sim_<id>".
-	if metricFileNameFlagIsSet() {
-		builder = builder.WithOutputFileName(*filenameFlag)
+	output := "akita_sim_" + xid.New().String()
+	explicitOutput := metricFileNameFlagIsSet() && *filenameFlag != ""
+	if explicitOutput {
+		output = *filenameFlag
 	}
+	// beta.10 always appends this suffix to the supplied base name.
+	output += ".sqlite3"
+	// Preserve the sample CLI's replacement behavior for an explicit filename.
+	// Akita rc1 itself only creates recordings at previously unused paths.
+	if explicitOutput {
+		if err := os.Remove(output); err != nil && !os.IsNotExist(err) {
+			panic(err)
+		}
+	}
+	builder = builder.WithOutputPath(output)
 
 	r.simulation = builder.Build()
 }
@@ -101,9 +124,7 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildTimingPlatform() {
-	sampling.InitSampledEngine()
-
-	b := timingconfig.MakeBuilder().
+	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
 		WithSimulation(r.simulation).
 		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
 		WithGPUType(r.GPUType)
@@ -184,7 +205,9 @@ func (r *Runner) Run() {
 	}
 
 	r.Driver().Terminate()
-	r.simulation.Terminate()
+	if err := r.simulation.Terminate(); err != nil {
+		panic(err)
+	}
 }
 
 // Driver returns the GPU driver used by the current runner.
@@ -194,5 +217,5 @@ func (r *Runner) Driver() *driver.Driver {
 
 // Engine returns the event-driven simulation engine used by the current runner.
 func (r *Runner) Engine() timing.Engine {
-	return r.simulation.GetEngine()
+	return r.simulation.Engine()
 }

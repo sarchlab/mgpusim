@@ -3,9 +3,11 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
+
+	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
@@ -18,35 +20,48 @@ const warpSize = 32
 // from the GPU, spreads their warps over its SMSPs, and reports finished
 // thread blocks back to the GPU.
 type SMController struct {
-	*modeling.TickingComponent
+	*Comp
+	*topology
+}
 
-	ID string
+type Spec struct {
+	Freq                    timing.Freq
+	SM2SMSPWarpIssueLatency uint64
+	SMReceiveGPULatency     uint64
+	SMSPResponseHandleWidth uint64
+}
 
-	toGPU       messaging.Port
-	toGPURemote messaging.RemotePort
-	toSMSPs     messaging.Port
-
-	SMSPs     []*smsp.SMSPController
-	L1VCaches []*writethroughcache.Comp
-
-	undispatchedWarps []*trace.WarpTrace
-	warpsCount        uint64
-	smspIssueIndex    int
-
-	// Unfinished and total warp counts of the thread blocks on this SM.
-	threadblockWarpCount       map[trace.Dim3]uint64
-	threadblockWarpCountOrigin map[trace.Dim3]uint64
-	finishedThreadblocks       []trace.Dim3
-
-	SM2SMSPWarpIssueLatency          uint64
-	SM2SMSPWarpIssueLatencyRemaining uint64
-
-	SMReceiveGPULatency          uint64
-	SMReceiveGPULatencyRemaining uint64
-
-	SMSPResponseHandleWidth              uint64
+type State struct {
+	UndispatchedWarps                    []trace.WarpTrace
+	WarpsCount                           uint64
+	SmspIssueIndex                       int
+	ThreadblockWarpCount                 map[string]uint64
+	ThreadblockWarpCountOrigin           map[string]uint64
+	FinishedThreadblocks                 []trace.Dim3
+	SM2SMSPWarpIssueLatencyRemaining     uint64
+	SMReceiveGPULatencyRemaining         uint64
 	CWDAdmissionPathCostLatencyRemaining uint64
 }
+
+type topology struct {
+	ID          string
+	toGPURemote messaging.RemotePort
+	SMSPs       []*smsp.SMSPController
+	L1VCaches   []*writethroughcache.Comp
+}
+
+type Resources struct{ Topology *topology }
+type Ports struct {
+	ToGPU   messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
+	ToSMSPs messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
+}
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Middlewares struct{ Controller *SMController }
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Controller = &SMController{Comp: c, topology: c.Resources.Topology}
+}
+func (c *SMController) Handle(timing.Event) bool { return c.Tick() }
 
 // SetGPURemotePort sets the GPU port that finished thread blocks are
 // reported to.
@@ -66,24 +81,24 @@ func (s *SMController) Tick() bool {
 }
 
 func (s *SMController) processGPUInput() bool {
-	msg := s.toGPU.PeekIncoming()
-	if msg == nil {
+	msg, ok := s.Ports.ToGPU.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	if s.SMReceiveGPULatencyRemaining > 0 {
-		s.SMReceiveGPULatencyRemaining--
+	if s.State.SMReceiveGPULatencyRemaining > 0 {
+		s.State.SMReceiveGPULatencyRemaining--
 		return true
 	}
 
-	switch msg := msg.(type) {
+	switch msg := msg.Payload.(type) {
 	case message.DeviceToSMMsg:
-		s.processThreadblock(msg.Threadblock)
+		s.processThreadblock(&msg.Threadblock)
 	default:
 		panic(fmt.Sprintf("%s: unexpected message %T from GPU", s.Name(), msg))
 	}
 
-	s.SMReceiveGPULatencyRemaining = s.SMReceiveGPULatency
+	s.State.SMReceiveGPULatencyRemaining = s.Spec.SMReceiveGPULatency
 
 	return true
 }
@@ -91,13 +106,13 @@ func (s *SMController) processGPUInput() bool {
 func (s *SMController) processSMSPsInput() bool {
 	madeProgress := false
 
-	for range max(s.SMSPResponseHandleWidth, 1) {
-		msg := s.toSMSPs.PeekIncoming()
-		if msg == nil {
+	for range max(s.Spec.SMSPResponseHandleWidth, 1) {
+		msg, ok := s.Ports.ToSMSPs.PeekIncoming()
+		if !ok {
 			break
 		}
 
-		switch msg := msg.(type) {
+		switch msg := msg.Payload.(type) {
 		case message.SMSPToSMMsg:
 			s.processWarpFinished(msg)
 		default:
@@ -105,7 +120,7 @@ func (s *SMController) processSMSPsInput() bool {
 				s.Name(), msg))
 		}
 
-		s.toSMSPs.RetrieveIncoming()
+		s.Ports.ToSMSPs.RetrieveIncoming()
 
 		madeProgress = true
 	}
@@ -116,28 +131,28 @@ func (s *SMController) processSMSPsInput() bool {
 // processThreadblock admits a thread block. Admission takes a few cycles
 // that grow with the number of SMSPs the thread block occupies.
 func (s *SMController) processThreadblock(tb *trace.ThreadblockTrace) {
-	if s.CWDAdmissionPathCostLatencyRemaining == 0 {
+	if s.State.CWDAdmissionPathCostLatencyRemaining == 0 {
 		nSMSPToUse := max((tb.WarpsCount()+15)/16, 1)
-		s.CWDAdmissionPathCostLatencyRemaining = 2*nSMSPToUse - 1
+		s.State.CWDAdmissionPathCostLatencyRemaining = 2*nSMSPToUse - 1
 
-		if s.CWDAdmissionPathCostLatencyRemaining > 0 {
+		if s.State.CWDAdmissionPathCostLatencyRemaining > 0 {
 			return
 		}
 	}
 
-	if s.CWDAdmissionPathCostLatencyRemaining > 1 {
-		s.CWDAdmissionPathCostLatencyRemaining--
+	if s.State.CWDAdmissionPathCostLatencyRemaining > 1 {
+		s.State.CWDAdmissionPathCostLatencyRemaining--
 		return
 	}
 
-	s.CWDAdmissionPathCostLatencyRemaining = 0
+	s.State.CWDAdmissionPathCostLatencyRemaining = 0
 
-	s.threadblockWarpCount[tb.ID] = tb.WarpsCount()
-	s.threadblockWarpCountOrigin[tb.ID] = tb.WarpsCount()
-	s.undispatchedWarps = append(s.undispatchedWarps, tb.Warps...)
-	s.warpsCount += tb.WarpsCount()
+	s.State.ThreadblockWarpCount[fmt.Sprint(tb.ID)] = tb.WarpsCount()
+	s.State.ThreadblockWarpCountOrigin[fmt.Sprint(tb.ID)] = tb.WarpsCount()
+	s.State.UndispatchedWarps = append(s.State.UndispatchedWarps, tb.Warps...)
+	s.State.WarpsCount += tb.WarpsCount()
 
-	s.toGPU.RetrieveIncoming()
+	s.Ports.ToGPU.RetrieveIncoming()
 }
 
 func (s *SMController) processWarpFinished(msg message.SMSPToSMMsg) {
@@ -146,33 +161,37 @@ func (s *SMController) processWarpFinished(msg message.SMSPToSMMsg) {
 	}
 
 	tbID := msg.Warp.FatherThreadblockID
-	if s.threadblockWarpCount[tbID] == 0 {
+	if s.State.ThreadblockWarpCount[fmt.Sprint(tbID)] == 0 {
 		panic(fmt.Sprintf("%s: unexpected finished warp of thread block %v",
 			s.Name(), tbID))
 	}
 
-	s.threadblockWarpCount[tbID]--
-	if s.threadblockWarpCount[tbID] == 0 {
-		delete(s.threadblockWarpCount, tbID)
-		s.finishedThreadblocks = append(s.finishedThreadblocks, tbID)
+	s.State.ThreadblockWarpCount[fmt.Sprint(tbID)]--
+	if s.State.ThreadblockWarpCount[fmt.Sprint(tbID)] == 0 {
+		delete(s.State.ThreadblockWarpCount, fmt.Sprint(tbID))
+		s.State.FinishedThreadblocks = append(s.State.FinishedThreadblocks, tbID)
 	}
 }
 
 func (s *SMController) reportFinishedThreadblocks() bool {
-	if len(s.finishedThreadblocks) == 0 || !s.toGPU.CanSend() {
+	if len(s.State.FinishedThreadblocks) == 0 || !s.Ports.ToGPU.CanSend() {
 		return false
 	}
 
-	tbID := s.finishedThreadblocks[0]
-	msg := message.SMToDeviceMsg{
-		MsgMeta:           message.NewMeta(s.toGPU.AsRemote(), s.toGPURemote),
-		NumThreadFinished: s.threadblockWarpCountOrigin[tbID] * warpSize,
-		SMID:              s.ID,
+	tbID := s.State.FinishedThreadblocks[0]
+	msg := messaging.Msg{
+		ID:  s.NewID(),
+		Src: s.Ports.ToGPU.AsRemote(),
+		Dst: s.toGPURemote,
+		Payload: message.SMToDeviceMsg{
+			NumThreadFinished: s.State.ThreadblockWarpCountOrigin[fmt.Sprint(tbID)] * warpSize,
+			SMID:              s.ID,
+		},
 	}
-	s.toGPU.Send(msg)
+	s.Ports.ToGPU.Send(msg)
 
-	delete(s.threadblockWarpCountOrigin, tbID)
-	s.finishedThreadblocks = s.finishedThreadblocks[1:]
+	delete(s.State.ThreadblockWarpCountOrigin, fmt.Sprint(tbID))
+	s.State.FinishedThreadblocks = s.State.FinishedThreadblocks[1:]
 
 	return true
 }
@@ -180,23 +199,23 @@ func (s *SMController) reportFinishedThreadblocks() bool {
 // dispatchWarpsToSMSPs sends all waiting warps to the SMSPs round-robin, one
 // message per SMSP.
 func (s *SMController) dispatchWarpsToSMSPs() bool {
-	if len(s.SMSPs) == 0 || len(s.undispatchedWarps) == 0 {
+	if len(s.SMSPs) == 0 || len(s.State.UndispatchedWarps) == 0 {
 		return false
 	}
 
-	if s.SM2SMSPWarpIssueLatencyRemaining > 0 {
-		s.SM2SMSPWarpIssueLatencyRemaining--
+	if s.State.SM2SMSPWarpIssueLatencyRemaining > 0 {
+		s.State.SM2SMSPWarpIssueLatencyRemaining--
 		return true
 	}
 
-	if s.toSMSPs.NumOutgoing()+len(s.SMSPs) > portBufSize {
+	if s.Ports.ToSMSPs.OutgoingBuf().Size()+len(s.SMSPs) > portBufSize {
 		return false
 	}
 
-	warpLists := make([][]*trace.WarpTrace, len(s.SMSPs))
-	for _, warp := range s.undispatchedWarps {
-		warpLists[s.smspIssueIndex] = append(warpLists[s.smspIssueIndex], warp)
-		s.smspIssueIndex = (s.smspIssueIndex + 1) % len(s.SMSPs)
+	warpLists := make([][]trace.WarpTrace, len(s.SMSPs))
+	for _, warp := range s.State.UndispatchedWarps {
+		warpLists[s.State.SmspIssueIndex] = append(warpLists[s.State.SmspIssueIndex], warp)
+		s.State.SmspIssueIndex = (s.State.SmspIssueIndex + 1) % len(s.SMSPs)
 	}
 
 	for i, warps := range warpLists {
@@ -204,20 +223,28 @@ func (s *SMController) dispatchWarpsToSMSPs() bool {
 			continue
 		}
 
-		dst := s.SMSPs[i].GetPortByName("ToSM").AsRemote()
-		s.toSMSPs.Send(message.SMToSMSPMsg{
-			MsgMeta:  message.NewMeta(s.toSMSPs.AsRemote(), dst),
-			WarpList: warps,
-		})
+		dst := s.SMSPs[i].Ports.ToSM.AsRemote()
+		s.Ports.ToSMSPs.Send(
+			messaging.Msg{ID: s.NewID(), Src: s.Ports.ToSMSPs.AsRemote(), Dst: dst, Payload: message.SMToSMSPMsg{
+				WarpList: warps,
+			}},
+		)
 	}
 
-	s.undispatchedWarps = nil
-	s.SM2SMSPWarpIssueLatencyRemaining = s.SM2SMSPWarpIssueLatency
+	s.State.UndispatchedWarps = nil
+	s.State.SM2SMSPWarpIssueLatencyRemaining = s.Spec.SM2SMSPWarpIssueLatency
 
 	return true
 }
 
 // GetTotalWarpsCount returns the number of warps this SM has received.
 func (s *SMController) GetTotalWarpsCount() uint64 {
-	return s.warpsCount
+	return s.State.WarpsCount
+}
+
+func (s *State) Initialize(c *Comp) {
+	s.ThreadblockWarpCount = make(map[string]uint64)
+	s.ThreadblockWarpCountOrigin = make(map[string]uint64)
+	s.SM2SMSPWarpIssueLatencyRemaining = c.Spec.SM2SMSPWarpIssueLatency
+	s.SMReceiveGPULatencyRemaining = c.Spec.SMReceiveGPULatency
 }

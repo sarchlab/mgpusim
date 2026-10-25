@@ -3,13 +3,13 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("LDS Unit", func() {
-
 	var (
 		cu  *ComputeUnit
 		bu  *LDSUnit
@@ -42,10 +42,10 @@ var _ = Describe("LDS Unit", func() {
 	It("should run", func() {
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)
-		wave2.WG = wavefront.NewWorkGroup(nil, protocol.MapWGReq{})
+		wave2.WG = wavefront.NewWorkGroup(nil, messaging.Msg{Payload: protocol.MapWGReq{}})
 		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.DS
 		inst.Opcode = 0
 		inst.Addr = insts.NewVRegOperand(0, 0, 1)
@@ -95,13 +95,12 @@ var _ = Describe("LDS Unit", func() {
 
 	})
 	It("should flush the LDS", func() {
-
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)
-		wave2.WG = wavefront.NewWorkGroup(nil, protocol.MapWGReq{})
+		wave2.WG = wavefront.NewWorkGroup(nil, messaging.Msg{Payload: protocol.MapWGReq{}})
 		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.DS
 		inst.Opcode = 0
 		inst.Addr = insts.NewVRegOperand(0, 0, 1)

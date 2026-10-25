@@ -9,7 +9,7 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"

@@ -2,7 +2,6 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -11,14 +10,16 @@ type Inst struct {
 	*insts.Inst
 
 	ID uint64
+	// Raw holds the decoded instruction bytes for portable checkpoint restoration.
+	Raw []byte
 }
 
 // NewInst creates a newly created Inst
-func NewInst(raw *insts.Inst) *Inst {
+func NewInst(id uint64, raw *insts.Inst) *Inst {
 	i := new(Inst)
 	i.Inst = raw
 
-	i.ID = timing.GetIDGenerator().Generate()
+	i.ID = id
 
 	return i
 }

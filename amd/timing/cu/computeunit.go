@@ -4,16 +4,15 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/sarchlab/akita/v5/hooking"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -23,9 +22,8 @@ import (
 // also serves as the timing.Handler for the CU's custom events
 // (WfCompletionEvent, WfDispatchEvent).
 //
-// TODO(akita5): state purity — the fields below (wavefront pools, in-flight
-// access records, sub-units, register files) hold pointers and cannot live in
-// the component State yet.
+// Its registered checkpoint resource flattens the runtime graph into values
+// and stable IDs, and restores canonical work-group and instruction identities.
 type ComputeUnit struct {
 	comp   *Comp
 	engine timing.EventScheduler
@@ -69,7 +67,8 @@ type ComputeUnit struct {
 	ToCP        messaging.Port
 
 	// wftime records, for sampling, the time each wavefront was mapped.
-	wftime map[uint64]timing.VTimeInPicoSec
+	wftime     map[uint64]timing.VTimeInPicoSec
+	workGroups map[uint64]*wavefront.WorkGroup
 }
 
 // Comp returns the component this middleware belongs to.
@@ -79,7 +78,7 @@ func (cu *ComputeUnit) Comp() *Comp {
 
 func (cu *ComputeUnit) acePort() messaging.Port {
 	if cu.ToACE == nil {
-		cu.ToACE = cu.comp.GetPortByName(DispatchPortName)
+		cu.ToACE = cu.comp.Ports.Top
 	}
 
 	return cu.ToACE
@@ -87,7 +86,7 @@ func (cu *ComputeUnit) acePort() messaging.Port {
 
 func (cu *ComputeUnit) instMemPort() messaging.Port {
 	if cu.ToInstMem == nil {
-		cu.ToInstMem = cu.comp.GetPortByName(InstMemPortName)
+		cu.ToInstMem = cu.comp.Ports.InstMem
 	}
 
 	return cu.ToInstMem
@@ -95,7 +94,7 @@ func (cu *ComputeUnit) instMemPort() messaging.Port {
 
 func (cu *ComputeUnit) scalarMemPort() messaging.Port {
 	if cu.ToScalarMem == nil {
-		cu.ToScalarMem = cu.comp.GetPortByName(ScalarMemPortName)
+		cu.ToScalarMem = cu.comp.Ports.ScalarMem
 	}
 
 	return cu.ToScalarMem
@@ -103,7 +102,7 @@ func (cu *ComputeUnit) scalarMemPort() messaging.Port {
 
 func (cu *ComputeUnit) vectorMemPort() messaging.Port {
 	if cu.ToVectorMem == nil {
-		cu.ToVectorMem = cu.comp.GetPortByName(VectorMemPortName)
+		cu.ToVectorMem = cu.comp.Ports.VectorMem
 	}
 
 	return cu.ToVectorMem
@@ -111,7 +110,7 @@ func (cu *ComputeUnit) vectorMemPort() messaging.Port {
 
 func (cu *ComputeUnit) cpPort() messaging.Port {
 	if cu.ToCP == nil {
-		cu.ToCP = cu.comp.GetPortByName(CtrlPortName)
+		cu.ToCP = cu.comp.Ports.Ctrl
 	}
 
 	return cu.ToCP
@@ -193,15 +192,17 @@ func (cu *ComputeUnit) processInput() bool {
 }
 
 func (cu *ComputeUnit) processInputFromCP() bool {
-	req := cu.cpPort().PeekIncoming()
-	if req == nil {
+	req, ok := cu.cpPort().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case protocol.CUPipelineRestartReq:
+
 		return cu.handlePipelineResume(req)
 	case protocol.CUPipelineFlushReq:
+
 		return cu.handlePipelineFlushReq(req)
 	default:
 		panic("unknown msg type")
@@ -209,7 +210,7 @@ func (cu *ComputeUnit) processInputFromCP() bool {
 }
 
 func (cu *ComputeUnit) handlePipelineFlushReq(
-	req protocol.CUPipelineFlushReq,
+	req messaging.Msg,
 ) bool {
 	state := &cu.comp.State
 	state.IsFlushing = true
@@ -223,7 +224,7 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 }
 
 func (cu *ComputeUnit) handlePipelineResume(
-	req protocol.CUPipelineRestartReq,
+	req messaging.Msg,
 ) bool {
 	// v4 sent the restart response unconditionally and panicked when the
 	// port was full. v5 ports panic on Send when full, so the request stays
@@ -235,14 +236,11 @@ func (cu *ComputeUnit) handlePipelineResume(
 	state := &cu.comp.State
 	state.IsSendingOutShadowBufferReqs = true
 
-	rsp := protocol.CUPipelineRestartRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   cu.cpPort().AsRemote(),
-			Dst:   req.Src,
-			RspTo: req.ID,
-		},
-	}
+	rsp := messaging.Msg{ID: cu.comp.NewID(),
+		Src:   cu.cpPort().AsRemote(),
+		Dst:   req.Src,
+		RspTo: req.ID, Payload: protocol.CUPipelineRestartRsp{}}
+
 	cu.cpPort().Send(rsp)
 
 	cu.cpPort().RetrieveIncoming()
@@ -260,14 +258,11 @@ func (cu *ComputeUnit) sendToCP() bool {
 		return false
 	}
 
-	rsp := protocol.CUPipelineFlushRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   cu.cpPort().AsRemote(),
-			Dst:   state.PendingCPRspDst,
-			RspTo: state.PendingCPRspTo,
-		},
-	}
+	rsp := messaging.Msg{ID: cu.comp.NewID(),
+		Src:   cu.cpPort().AsRemote(),
+		Dst:   state.PendingCPRspDst,
+		RspTo: state.PendingCPRspTo, Payload: protocol.CUPipelineFlushRsp{}}
+
 	cu.cpPort().Send(rsp)
 
 	state.HasPendingCPRsp = false
@@ -352,20 +347,22 @@ func (cu *ComputeUnit) endInflightTracingTasks() {
 				if wf.InFlightInsts > 0 {
 					wf.InFlightInsts--
 				}
-				tracing.EndTaskOnReset(cu.comp, inst.ID)
+				cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
+				delete(cu.comp.State.InstTasks, inst.ID)
 			}
 		}
 	}
 }
 
 func (cu *ComputeUnit) processInputFromACE() bool {
-	req := cu.acePort().RetrieveIncoming()
-	if req == nil {
+	req, ok := cu.acePort().RetrieveIncoming()
+	if !ok {
 		return false
 	}
 
-	switch req := req.(type) {
+	switch req.Payload.(type) {
 	case protocol.MapWGReq:
+
 		return cu.handleMapWGReq(req)
 	default:
 		panic("unknown req type")
@@ -374,7 +371,7 @@ func (cu *ComputeUnit) processInputFromACE() bool {
 
 // Handle processes the custom events of the compute unit (the regular tick
 // events are dispatched to the component's own handler).
-func (cu *ComputeUnit) Handle(evt timing.Event) error {
+func (cu *ComputeUnit) Handle(evt timing.Event) {
 	ctx := hooking.HookCtx{
 		Domain: cu.comp,
 		Pos:    timing.HookPosBeforeEvent,
@@ -395,14 +392,12 @@ func (cu *ComputeUnit) Handle(evt timing.Event) error {
 
 	ctx.Pos = timing.HookPosAfterEvent
 	cu.comp.InvokeHook(ctx)
-
-	return nil
 }
 
 func (cu *ComputeUnit) handleWfCompletionEvent(
 	evt wavefront.WfCompletionEvent,
 ) {
-	wf := evt.Wf
+	wf := cu.wavefrontByID(evt.WavefrontID)
 	wf.State = wavefront.WfCompleted
 	s := cu.Scheduler.(*SchedulerImpl)
 
@@ -415,7 +410,8 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 	done := s.sendWGCompletionMessage(wf.WG)
 	if !done {
 		newEvent := wavefront.NewWfCompletionEvent(
-			cu.comp.Spec().Freq.NextTick(now), cu.wfCompletionHandlerID, wf)
+			cu.comp.NewID(),
+			cu.comp.Spec.Freq.NextTick(now), cu.wfCompletionHandlerID, wf.UID)
 		cu.engine.Schedule(newEvent)
 
 		return
@@ -429,62 +425,37 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 	// here, so end every wavefront's task, not just the one whose completion
 	// event fired — otherwise the other wavefronts' tasks leak.
 	for _, wgWf := range wf.WG.Wfs {
-		tracing.EndTask(cu.comp, tracing.TaskEnd{ID: wgWf.UID})
+		cu.comp.TaskTracker().EndTask(cu.comp.State.WFTasks[wgWf.UID])
+		delete(cu.comp.State.WFTasks, wgWf.UID)
 	}
-	tracing.TraceReqComplete(cu.comp, wf.WG.MapReq)
+	cu.completeWGTask(wf.WG.MapReq.ID)
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
-	req protocol.MapWGReq,
+	req messaging.Msg,
 ) bool {
 	now := cu.CurrentTime()
 
-	wg := cu.wrapWG(req.WorkGroup, req)
-
-	tracing.TraceReqReceive(cu.comp, req)
-
-	// sampling
-	skipSimulate := false
-	if *sampling.SampledRunnerFlag {
-		for _, wf := range wg.Wfs {
-			cu.wftime[wf.UID] = now
-		}
-
-		wfpredicttime, wfsampled := sampling.SampledEngineInstance.Predict()
-		predtime := wfpredicttime
-		skipSimulate = wfsampled
-
-		for _, wf := range wg.Wfs {
-			if skipSimulate {
-				predictedTime := predtime + now
-				wf.State = wavefront.WfSampledCompleted
-				newEvent := wavefront.NewWfCompletionEvent(
-					predictedTime, cu.wfCompletionHandlerID, wf)
-				cu.engine.Schedule(newEvent)
-				tracing.StartTask(cu.comp, tracing.TaskStart{
-					ID:       wf.UID,
-					ParentID: tracing.MsgIDAtReceiver(req, cu.comp),
-					Kind:     "wavefront",
-					What:     "wavefront",
-					// The sampled fast path forgot the location, so the wavefront task
-					// fell back to the bare CU name and collided with fetch. Pin it to
-					// the same .WFPool location the normal path uses.
-					Location: cu.comp.Name() + ".WFPool",
-				})
-			}
-		}
+	raw, err := req.Payload.(protocol.MapWGReq).WorkGroup.Restore()
+	if err != nil {
+		panic(err)
 	}
+	wg := cu.wrapWG(raw, req)
+	cu.workGroups[wg.UID] = wg
+
+	cu.comp.State.WGTasks[req.ID] = cu.comp.TaskTracker().StartReqIn(cu.comp, req)
+
+	skipSimulate := cu.scheduleSampledWaves(wg, now)
 
 	if !skipSimulate {
 		for i, wf := range wg.Wfs {
-			location := req.Wavefronts[i]
+			location := req.Payload.(protocol.MapWGReq).Wavefronts[i]
 			cu.WfPools[location.SIMDID].AddWf(wf)
-			cu.WfDispatcher.DispatchWf(wf, req.Wavefronts[i])
+			cu.WfDispatcher.DispatchWf(wf, req.Payload.(protocol.MapWGReq).Wavefronts[i])
 			wf.State = wavefront.WfReady
 
-			tracing.StartTask(cu.comp, tracing.TaskStart{
-				ID:       wf.UID,
-				ParentID: tracing.MsgIDAtReceiver(req, cu.comp),
+			cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
+				ParentID: cu.comp.State.WGTasks[req.ID],
 				Kind:     "wavefront",
 				What:     "wavefront",
 				Location: cu.comp.Name() + ".WFPool",
@@ -498,7 +469,44 @@ func (cu *ComputeUnit) handleMapWGReq(
 	return true
 }
 
+func (cu *ComputeUnit) scheduleSampledWaves(wg *wavefront.WorkGroup, now timing.VTimeInPicoSec) bool {
+	// sampling
+	skipSimulate := false
+	if cu.comp.Resources.Sampler != nil && !cu.comp.Resources.Sampler.IfDisable() {
+		for _, wf := range wg.Wfs {
+			cu.wftime[wf.UID] = now
+		}
+
+		wfpredicttime, wfsampled := cu.comp.Resources.Sampler.Predict()
+		predtime := wfpredicttime
+		skipSimulate = wfsampled
+
+		for _, wf := range wg.Wfs {
+			if skipSimulate {
+				predictedTime := predtime + now
+				wf.State = wavefront.WfSampledCompleted
+				newEvent := wavefront.NewWfCompletionEvent(
+					cu.comp.NewID(),
+					predictedTime, cu.wfCompletionHandlerID, wf.UID)
+				cu.engine.Schedule(newEvent)
+				cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
+					ParentID: cu.comp.State.WGTasks[wg.MapReq.ID],
+					Kind:     "wavefront",
+					What:     "wavefront",
+					// The sampled fast path forgot the location, so the wavefront task
+					// fell back to the bare CU name and collided with fetch. Pin it to
+					// the same .WFPool location the normal path uses.
+					Location: cu.comp.Name() + ".WFPool",
+				})
+			}
+		}
+	}
+
+	return skipSimulate
+}
+
 func (cu *ComputeUnit) clearWGResource(wg *wavefront.WorkGroup) {
+	delete(cu.workGroups, wg.UID)
 	for _, wf := range wg.Wfs {
 		wfPool := cu.WfPools[wf.SIMDID]
 		wfPool.RemoveWf(wf)
@@ -525,34 +533,36 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 
 func (cu *ComputeUnit) wrapWG(
 	raw *kernels.WorkGroup,
-	req protocol.MapWGReq,
+	req messaging.Msg,
 ) *wavefront.WorkGroup {
 	wg := wavefront.NewWorkGroup(raw, req)
 
-	lds := make([]byte, req.WorkGroup.Packet.GroupSegmentSize)
+	lds := make([]byte, raw.Packet.GroupSegmentSize)
 	wg.LDS = lds
 
-	for _, rawWf := range req.WorkGroup.Wavefronts {
+	for _, rawWf := range raw.Wavefronts {
 		wf := wavefront.NewWavefront(rawWf)
 		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
 		wg.Wfs = append(wg.Wfs, wf)
 		wf.WG = wg
-		wf.SetPID(req.PID)
+		wf.SetPID(req.Payload.(protocol.MapWGReq).PID)
 	}
 
 	return wg
 }
 
 func (cu *ComputeUnit) processInputFromInstMem() bool {
-	rsp := cu.instMemPort().RetrieveIncoming()
-	if rsp == nil {
+	rsp, ok := cu.instMemPort().RetrieveIncoming()
+	if !ok {
 		return false
 	}
 
-	switch rsp := rsp.(type) {
+	switch rsp.Payload.(type) {
 	case memprotocol.DataReadyRsp:
+
 		cu.handleFetchReturn(rsp)
 	default:
+
 		log.Panicf("cannot handle request of type %s from InstMem port",
 			reflect.TypeOf(rsp))
 	}
@@ -560,7 +570,7 @@ func (cu *ComputeUnit) processInputFromInstMem() bool {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(
-	rsp memprotocol.DataReadyRsp,
+	rsp messaging.Msg,
 ) bool {
 	matchIdx := -1
 	for i, info := range cu.InFlightInstFetch {
@@ -582,7 +592,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 		cu.InFlightInstFetch[matchIdx+1:]...)
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
-		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
+		wf.InstBuffer = append(wf.InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
 	wf.IsFetching = false
@@ -591,24 +601,26 @@ func (cu *ComputeUnit) handleFetchReturn(
 	if wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
 		// interval since the fetch went out was spent waiting for this data.
-		cu.markWfMilestone(wf, tracing.MilestoneKindData, "inst_fetch")
+		cu.markWfMilestone(wf, tasks.MilestoneKindData, "inst_fetch")
 	}
 
-	tracing.TraceReqFinalize(cu.comp, info.Req)
-	tracing.EndTask(cu.comp, tracing.TaskEnd{ID: info.FetchTaskID})
+	cu.completeRequest(info.Req.ID)
+	cu.comp.TaskTracker().EndTask(info.FetchTaskID)
 	return true
 }
 
 func (cu *ComputeUnit) processInputFromScalarMem() bool {
-	rsp := cu.scalarMemPort().RetrieveIncoming()
-	if rsp == nil {
+	rsp, ok := cu.scalarMemPort().RetrieveIncoming()
+	if !ok {
 		return false
 	}
 
-	switch rsp := rsp.(type) {
+	switch rsp.Payload.(type) {
 	case memprotocol.DataReadyRsp:
+
 		cu.handleScalarDataLoadReturn(rsp)
 	default:
+
 		log.Panicf("cannot handle request of type %s from ScalarMem port",
 			reflect.TypeOf(rsp))
 	}
@@ -616,7 +628,7 @@ func (cu *ComputeUnit) processInputFromScalarMem() bool {
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
-	rsp memprotocol.DataReadyRsp,
+	rsp messaging.Msg,
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightScalarMemAccess {
@@ -636,8 +648,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	access := RegisterAccess{
 		WaveOffset: wf.SRegOffset,
 		Reg:        info.DstSGPR,
-		RegCount:   len(rsp.Data) / 4,
-		Data:       rsp.Data,
+		RegCount:   len(rsp.Payload.(memprotocol.DataReadyRsp).Data) / 4,
+		Data:       rsp.Payload.(memprotocol.DataReadyRsp).Data,
 	}
 	cu.SRegFile.Write(access)
 
@@ -645,7 +657,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 		cu.InFlightScalarMemAccess[:matchIdx],
 		cu.InFlightScalarMemAccess[matchIdx+1:]...)
 
-	tracing.TraceReqFinalize(cu.comp, req)
+	cu.completeRequest(req.ID)
 
 	// Coalesced responses can return out of order, so the last request
 	// generated is not necessarily the last received. Release the s_waitcnt
@@ -666,9 +678,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 // memory request going out (or the in-flight slot being acquired) and the data
 // coming back.
 func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
-	tracing.AddMilestone(cu.comp, tracing.Milestone{
-		TaskID: inst.ID,
-		Kind:   tracing.MilestoneKindData,
+	cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: cu.comp.State.InstTasks[inst.ID],
+		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})
 }
@@ -714,17 +726,20 @@ func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
 func (cu *ComputeUnit) processInputFromVectorMem() bool {
 	madeProgress := false
 	for i := 0; i < 16; i++ {
-		rsp := cu.vectorMemPort().RetrieveIncoming()
-		if rsp == nil {
+		rsp, ok := cu.vectorMemPort().RetrieveIncoming()
+		if !ok {
 			break
 		}
 
-		switch rsp := rsp.(type) {
+		switch rsp.Payload.(type) {
 		case memprotocol.DataReadyRsp:
+
 			cu.handleVectorDataLoadReturn(rsp)
 		case memprotocol.WriteDoneRsp:
+
 			cu.handleVectorDataStoreRsp(rsp)
 		default:
+
 			log.Panicf("cannot handle rsp of type %s from vector mem port",
 				reflect.TypeOf(rsp))
 		}
@@ -735,11 +750,11 @@ func (cu *ComputeUnit) processInputFromVectorMem() bool {
 
 //nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
-	rsp memprotocol.DataReadyRsp,
+	rsp messaging.Msg,
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightVectorMemAccess {
-		if info.Read != nil && info.Read.ID == rsp.RspTo {
+		if info.Read.ID != 0 && info.Read.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -752,7 +767,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	cu.InFlightVectorMemAccess = append(
 		cu.InFlightVectorMemAccess[:matchIdx],
 		cu.InFlightVectorMemAccess[matchIdx+1:]...)
-	tracing.TraceReqFinalize(cu.comp, *info.Read)
+	cu.completeRequest(info.Read.ID)
 
 	wf := info.Wavefront
 	inst := info.Inst
@@ -765,24 +780,24 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.RegCount = laneInfo.regCount
 		access.LaneID = laneInfo.laneID
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
-			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+			access.Data = insts.Uint32ToBytes(uint32(rsp.Payload.(memprotocol.DataReadyRsp).Data[offset]))
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
-			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+			access.Data = insts.Uint32ToBytes(uint32(rsp.Payload.(memprotocol.DataReadyRsp).Data[offset]))
 		} else {
 			end := offset + uint64(4*laneInfo.regCount)
-			if end > uint64(len(rsp.Data)) {
-				end = uint64(len(rsp.Data))
+			if end > uint64(len(rsp.Payload.(memprotocol.DataReadyRsp).Data)) {
+				end = uint64(len(rsp.Payload.(memprotocol.DataReadyRsp).Data))
 				if offset >= end {
 					continue
 				}
 			}
-			access.Data = rsp.Data[offset:end]
+			access.Data = rsp.Payload.(memprotocol.DataReadyRsp).Data[offset:end]
 		}
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
-	// Coalesced responses can return out of order, so CanWaitForCoalesce (the
-	// last request generated) is not necessarily the last received. Release
+	// Coalesced responses can return out of order, so the last request
+	// generated is not necessarily the last received. Release
 	// the s_waitcnt counters, end the inst task and mark the data wait only
 	// once no transaction for this instruction is still in flight; releasing
 	// the counter earlier lets the wavefront reuse the destination VGPRs
@@ -799,11 +814,11 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
-	rsp memprotocol.WriteDoneRsp,
+	rsp messaging.Msg,
 ) {
 	matchIdx := -1
 	for i, info := range cu.InFlightVectorMemAccess {
-		if info.Write != nil && info.Write.ID == rsp.RspTo {
+		if info.Write.ID != 0 && info.Write.ID == rsp.RspTo {
 			matchIdx = i
 			break
 		}
@@ -816,7 +831,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	cu.InFlightVectorMemAccess = append(
 		cu.InFlightVectorMemAccess[:matchIdx],
 		cu.InFlightVectorMemAccess[matchIdx+1:]...)
-	tracing.TraceReqFinalize(cu.comp, *info.Write)
+	cu.completeRequest(info.Write.ID)
 
 	wf := info.Wavefront
 
@@ -882,10 +897,10 @@ func (cu *ComputeUnit) flushCUBuffers() {
 // only emitted while nothing is in flight (see logInstTask), so they never
 // overlap and a prefetch overlapping execution stays silent.
 func (cu *ComputeUnit) markWfMilestone(
-	wf *wavefront.Wavefront, kind tracing.MilestoneKind, what string,
+	wf *wavefront.Wavefront, kind tasks.MilestoneKind, what string,
 ) {
-	tracing.AddMilestone(cu.comp, tracing.Milestone{
-		TaskID: wf.UID,
+	cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: cu.comp.State.WFTasks[wf.UID],
 		Kind:   kind,
 		What:   what,
 	})
@@ -901,9 +916,10 @@ func (cu *ComputeUnit) logInstTask(
 		if wf.InFlightInsts == 0 {
 			// The last in-flight instruction finished: close the execution burst
 			// as work, so the gap that follows is attributed separately.
-			cu.markWfMilestone(wf, tracing.MilestoneKindWork, "execution")
+			cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
 		}
-		tracing.EndTask(cu.comp, tracing.TaskEnd{ID: inst.ID})
+		cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
+		delete(cu.comp.State.InstTasks, inst.ID)
 		return
 	}
 
@@ -912,14 +928,13 @@ func (cu *ComputeUnit) logInstTask(
 		// milestone was spent waiting to issue this instruction — decode is ~1
 		// cycle, so it is dominated by waiting for the exec unit to accept the
 		// wave. Attribute it to that unit as a hardware resource.
-		cu.markWfMilestone(wf, tracing.MilestoneKindHardwareResource,
+		cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
 			cu.comp.Name()+"."+cu.execUnitToString(inst.ExeUnit))
 	}
 	wf.InFlightInsts++
 
-	tracing.StartTask(cu.comp, tracing.TaskStart{
-		ID:       inst.ID,
-		ParentID: wf.UID,
+	cu.comp.State.InstTasks[inst.ID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
+		ParentID: cu.comp.State.WFTasks[wf.UID],
 		Kind:     "inst",
 		What:     cu.execUnitToString(inst.ExeUnit),
 		Location: cu.comp.Name() + "." + cu.execUnitToString(inst.ExeUnit),
@@ -1000,13 +1015,13 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightScalarMemAccess) > 0 {
 		info := cu.shadowInFlightScalarMemAccess[0]
 
-		info.Req.ID = timing.GetIDGenerator().Generate()
+		info.Req.ID = cu.comp.NewID()
 		if cu.scalarMemPort().CanSend() {
+			cu.startRequest(info.Req, cu.comp.State.InstTasks[info.Inst.ID])
 			cu.scalarMemPort().Send(info.Req)
 			// The resend has a fresh message ID; open a replacement req_out
 			// task (the original was ended in populateShadowBuffers) so the
-			// post-flush round trip is traced and TraceReqFinalize matches.
-			tracing.TraceReqInitiate(cu.comp, info.Req, info.Inst.ID)
+			// post-flush round trip is traced and completion matches.
 			cu.InFlightScalarMemAccess =
 				append(cu.InFlightScalarMemAccess, info)
 			cu.shadowInFlightScalarMemAccess =
@@ -1021,22 +1036,22 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightVectorMemAccess) > 0 {
 		info := cu.shadowInFlightVectorMemAccess[0]
-		if info.Read != nil {
-			info.Read.ID = timing.GetIDGenerator().Generate()
+		if info.Read.ID != 0 {
+			info.Read.ID = cu.comp.NewID()
 			if cu.vectorMemPort().CanSend() {
-				cu.vectorMemPort().Send(*info.Read)
-				tracing.TraceReqInitiate(cu.comp, *info.Read, info.Inst.ID)
+				cu.startRequest(info.Read, cu.comp.State.InstTasks[info.Inst.ID])
+				cu.vectorMemPort().Send(info.Read)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
 					cu.shadowInFlightVectorMemAccess[1:]
 				return true
 			}
-		} else if info.Write != nil {
-			info.Write.ID = timing.GetIDGenerator().Generate()
+		} else if info.Write.ID != 0 {
+			info.Write.ID = cu.comp.NewID()
 			if cu.vectorMemPort().CanSend() {
-				cu.vectorMemPort().Send(*info.Write)
-				tracing.TraceReqInitiate(cu.comp, *info.Write, info.Inst.ID)
+				cu.startRequest(info.Write, cu.comp.State.InstTasks[info.Inst.ID])
+				cu.vectorMemPort().Send(info.Write)
 				cu.InFlightVectorMemAccess = append(
 					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess =
@@ -1051,10 +1066,10 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightInstFetch) > 0 {
 		info := cu.shadowInFlightInstFetch[0]
-		info.Req.ID = timing.GetIDGenerator().Generate()
+		info.Req.ID = cu.comp.NewID()
 		if cu.instMemPort().CanSend() {
+			cu.startRequest(info.Req, info.FetchTaskID)
 			cu.instMemPort().Send(info.Req)
-			tracing.TraceReqInitiate(cu.comp, info.Req, info.FetchTaskID)
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 			cu.shadowInFlightInstFetch = cu.shadowInFlightInstFetch[1:]
 			return true
@@ -1071,24 +1086,24 @@ func (cu *ComputeUnit) populateShadowBuffers() {
 	// across the flush. EndTaskOnReset is a no-op for an access that was
 	// buffered but never sent (no req_out was opened).
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
-		tracing.EndTaskOnReset(cu.comp, cu.InFlightInstFetch[i].Req.ID)
+		cu.completeRequest(cu.InFlightInstFetch[i].Req.ID)
 		cu.shadowInFlightInstFetch = append(
 			cu.shadowInFlightInstFetch, cu.InFlightInstFetch[i])
 	}
 
 	for i := 0; i < len(cu.InFlightScalarMemAccess); i++ {
-		tracing.EndTaskOnReset(cu.comp, cu.InFlightScalarMemAccess[i].Req.ID)
+		cu.completeRequest(cu.InFlightScalarMemAccess[i].Req.ID)
 		cu.shadowInFlightScalarMemAccess = append(
 			cu.shadowInFlightScalarMemAccess, cu.InFlightScalarMemAccess[i])
 	}
 
 	for i := 0; i < len(cu.InFlightVectorMemAccess); i++ {
 		info := cu.InFlightVectorMemAccess[i]
-		if info.Read != nil {
-			tracing.EndTaskOnReset(cu.comp, info.Read.ID)
+		if info.Read.ID != 0 {
+			cu.completeRequest(info.Read.ID)
 		}
-		if info.Write != nil {
-			tracing.EndTaskOnReset(cu.comp, info.Write.ID)
+		if info.Write.ID != 0 {
+			cu.completeRequest(info.Write.ID)
 		}
 		cu.shadowInFlightVectorMemAccess = append(
 			cu.shadowInFlightVectorMemAccess, info)
@@ -1108,4 +1123,35 @@ func (cu *ComputeUnit) setWavesToReady() {
 			}
 		}
 	}
+}
+
+func (cu *ComputeUnit) wavefrontByID(id uint64) *wavefront.Wavefront {
+	wf := cu.findWavefront(id)
+	if wf == nil {
+		panic("cu: unknown wavefront ID")
+	}
+	return wf
+}
+
+func (cu *ComputeUnit) findWavefront(id uint64) *wavefront.Wavefront {
+	for _, wg := range cu.workGroups {
+		for _, wf := range wg.Wfs {
+			if wf.UID == id {
+				return wf
+			}
+		}
+	}
+	return nil
+}
+
+func (cu *ComputeUnit) startRequest(req messaging.Msg, parent uint64) {
+	cu.comp.State.RequestTasks[req.ID] = cu.comp.TaskTracker().StartReqOut(cu.comp, req, parent)
+}
+func (cu *ComputeUnit) completeRequest(id uint64) {
+	cu.comp.TaskTracker().EndReqOut(cu.comp.State.RequestTasks[id])
+	delete(cu.comp.State.RequestTasks, id)
+}
+func (cu *ComputeUnit) completeWGTask(id uint64) {
+	cu.comp.TaskTracker().EndReqIn(cu.comp.State.WGTasks[id])
+	delete(cu.comp.State.WGTasks, id)
 }

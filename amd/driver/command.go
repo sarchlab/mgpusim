@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
@@ -47,11 +47,13 @@ func (c *MemCopyH2DCommand) RemoveReq(req messaging.Msg) {
 // A MemCopyD2HCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyD2HCommand struct {
-	ID      uint64
-	Dst     interface{}
-	Src     Ptr
-	RawData []byte
-	Reqs    []messaging.Msg
+	// ByteSize preserves the result extent when a restored copy has no host destination.
+	ByteSize int
+	ID       uint64
+	Dst      interface{}
+	Src      Ptr
+	RawData  []byte
+	Reqs     []messaging.Msg
 }
 
 // GetID returns the ID of the command
@@ -171,7 +173,7 @@ func removeMsgFromMsgList(
 	msgs []messaging.Msg,
 ) []messaging.Msg {
 	for i, m := range msgs {
-		if m.Meta().ID == msg.Meta().ID {
+		if m.ID == msg.ID {
 			return append(msgs[:i], msgs[i+1:]...)
 		}
 	}

@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	"go.uber.org/mock/gomock"
@@ -58,8 +58,8 @@ var _ = Describe("Per-Die Algorithm", func() {
 	})
 
 	It("interleaves a die's work-groups round-robin over only that die's CUs", func() {
-		wgA := kernels.NewWorkGroup()
-		wgB := kernels.NewWorkGroup()
+		wgA := kernels.NewWorkGroup(testNewID())
+		wgB := kernels.NewWorkGroup(testNewID())
 
 		gridBuilder0.EXPECT().NextWG().Return(wgA)
 		cus[0].EXPECT().ReserveResourceForWG(wgA).
@@ -80,7 +80,7 @@ var _ = Describe("Per-Die Algorithm", func() {
 	})
 
 	It("dispatches a die onto its own CU range only (die-level block)", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 		gridBuilder1.EXPECT().NextWG().Return(wg)
 		cus[2].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, true)
@@ -99,7 +99,7 @@ var _ = Describe("Per-Die Algorithm", func() {
 	})
 
 	It("holds the pulled work-group and retries when no CU on the die is free", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 		gridBuilder0.EXPECT().NextWG().Return(wg) // pulled exactly once
 		cus[0].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, false)

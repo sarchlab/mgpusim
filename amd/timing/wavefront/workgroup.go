@@ -1,8 +1,8 @@
 package wavefront
 
 import (
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // A WorkGroup is a wrapper for the kernels.WorkGroup
@@ -10,12 +10,12 @@ type WorkGroup struct {
 	*kernels.WorkGroup
 
 	Wfs    []*Wavefront
-	MapReq protocol.MapWGReq
+	MapReq messaging.Msg
 	LDS    []byte
 }
 
 // NewWorkGroup returns a newly constructed WorkGroup
-func NewWorkGroup(raw *kernels.WorkGroup, req protocol.MapWGReq) *WorkGroup {
+func NewWorkGroup(raw *kernels.WorkGroup, req messaging.Msg) *WorkGroup {
 	wg := new(WorkGroup)
 	wg.WorkGroup = raw
 	wg.MapReq = req

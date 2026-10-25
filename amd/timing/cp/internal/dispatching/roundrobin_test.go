@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	"go.uber.org/mock/gomock"
@@ -72,7 +72,7 @@ var _ = Describe("Round Robin Algorithm", func() {
 	})
 
 	It("should dispatch next wg", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 
 		alg.nextCU = 0
 
@@ -87,7 +87,7 @@ var _ = Describe("Round Robin Algorithm", func() {
 	})
 
 	It("should return invalid location is dispatch is not possible", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 
 		alg.nextCU = 1
 

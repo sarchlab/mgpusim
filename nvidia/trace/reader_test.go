@@ -86,7 +86,7 @@ var _ = Describe("Trace reader with tracer version 6", func() {
 		var ldg *trace.InstructionTrace
 		for _, inst := range warp.Instructions {
 			if inst.OpCode == "LDG.E" {
-				ldg = inst
+				ldg = &inst
 				break
 			}
 		}

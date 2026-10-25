@@ -42,7 +42,8 @@ func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
 func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 	bms.storageSize = size
 	var order int
-	for order = int(bms.log2PageSize); (1 << order) < size; order++ {}
+	for order = int(bms.log2PageSize); (1 << order) < size; order++ {
+	}
 	order -= int(bms.log2PageSize)
 	bms.freeList = make([]list.List, order+1)
 	for _, l := range bms.freeList {
@@ -72,7 +73,7 @@ func (bms *deviceBuddyMemoryState) addSinglePAddr(addr uint64) {
 
 func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64 {
 	addrs := bms.allocateMultiplePages(1)
-	return  addrs[0]
+	return addrs[0]
 }
 
 func (bms *deviceBuddyMemoryState) noAvailablePAddrs() bool {
@@ -90,7 +91,8 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 	freeListLen := len(bms.freeList) - 1
 
 	var order int
-	for order = 12; (1 << order) < (numPages * 4096); order++ {}
+	for order = 12; (1 << order) < (numPages * 4096); order++ {
+	}
 	level := freeListLen - (order - 12)
 
 	i := level
@@ -134,7 +136,7 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 }
 
 func (bms *deviceBuddyMemoryState) buddyOf(addr uint64, level int) (buddy uint64) {
-	if bms.indexInLevelOf(addr, level) % 2 == 0 {
+	if bms.indexInLevelOf(addr, level)%2 == 0 {
 		buddy = addr + bms.sizeOfLevel(level)
 	} else {
 		buddy = addr - bms.sizeOfLevel(level)
@@ -143,7 +145,7 @@ func (bms *deviceBuddyMemoryState) buddyOf(addr uint64, level int) (buddy uint64
 }
 
 func (bms *deviceBuddyMemoryState) indexOfBlock(ptr uint64, level int) uint64 {
-	return (1 << level) + bms.indexInLevelOf(ptr,level) - 1
+	return (1 << level) + bms.indexInLevelOf(ptr, level) - 1
 }
 
 func (bms *deviceBuddyMemoryState) indexInLevelOf(ptr uint64, level int) uint64 {
@@ -168,7 +170,7 @@ func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
 		bms.updateMergeListBitField(bms.indexOfBlock(addr, level-1))
 		if !bms.blockOrBuddyIsAllocated(addr, level) {
 			bms.updateSplitBlockBitField(bms.indexOfBlock(addr, level-1))
-			buddy := bms.buddyOf(addr,level)
+			buddy := bms.buddyOf(addr, level)
 			removeByValue(&bms.freeList[level], buddy)
 			if buddy < addr {
 				addr = buddy
@@ -213,6 +215,6 @@ func (bms *deviceBuddyMemoryState) blockHasBeenSplit(ptr uint64, level int) bool
 }
 
 func (bms *deviceBuddyMemoryState) blockOrBuddyIsAllocated(ptr uint64, level int) bool {
-	index := bms.indexOfBlock(ptr, level - 1)
+	index := bms.indexOfBlock(ptr, level-1)
 	return bms.bfMergeList.checkBit(index)
 }

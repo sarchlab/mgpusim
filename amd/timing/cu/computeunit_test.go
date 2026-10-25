@@ -4,8 +4,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -57,12 +57,12 @@ func exampleGrid() *kernels.Grid {
 	packet := new(kernels.HsaKernelDispatchPacket)
 	grid.Packet = packet
 
-	wg := kernels.NewWorkGroup()
+	wg := kernels.NewWorkGroup(testIDs.NewID())
 	wg.Packet = packet
 	wg.CodeObject = grid.CodeObject
 	grid.WorkGroups = append(grid.WorkGroups, wg)
 
-	wf := kernels.NewWavefront()
+	wf := kernels.NewWavefront(testIDs.NewID())
 	wf.WG = wg
 	wg.Wavefronts = append(wg.Wavefronts, wf)
 
@@ -151,39 +151,39 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing MapWGReq", func() {
 		var (
-			req protocol.MapWGReq
+			req messaging.Msg
 		)
 
 		BeforeEach(func() {
 			wg := grid.WorkGroups[0]
 			wg.Wavefronts = make([]*kernels.Wavefront, 2)
-			wg.Wavefronts[0] = kernels.NewWavefront()
-			wg.Wavefronts[1] = kernels.NewWavefront()
+			wg.Wavefronts[0] = kernels.NewWavefront(testIDs.NewID())
+			wg.Wavefronts[1] = kernels.NewWavefront(testIDs.NewID())
+			for _, w := range wg.Wavefronts {
+				w.WG = wg
+				w.Packet = wg.Packet
+				w.CodeObject = wg.CodeObject
+			}
 			location1 := protocol.WfDispatchLocation{
-				Wavefront:  wg.Wavefronts[0],
-				SIMDID:     1,
-				VGPROffset: 100,
-				SGPROffset: 10,
-				LDSOffset:  100,
+				WavefrontID: wg.Wavefronts[0].UID,
+				SIMDID:      1,
+				VGPROffset:  100,
+				SGPROffset:  10,
+				LDSOffset:   100,
 			}
 			location2 := protocol.WfDispatchLocation{
-				Wavefront:  wg.Wavefronts[1],
-				SIMDID:     2,
-				VGPROffset: 200,
-				SGPROffset: 200,
-				LDSOffset:  200,
+				WavefrontID: wg.Wavefronts[1].UID,
+				SIMDID:      2,
+				VGPROffset:  200,
+				SGPROffset:  200,
+				LDSOffset:   200,
 			}
 
-			req = protocol.MapWGReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Dst: cu.ToACE.AsRemote(),
-				},
-				WorkGroup: wg,
-				Wavefronts: []protocol.WfDispatchLocation{
-					location1, location2,
-				},
-			}
+			req = messaging.Msg{ID: testIDs.NewID(),
+				Dst: cu.ToACE.AsRemote(), Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(wg),
+					Wavefronts: []protocol.WfDispatchLocation{
+						location1, location2,
+					}}}
 
 			toACE.incoming = append(toACE.incoming, req)
 		})
@@ -194,8 +194,8 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromACE()
 
 			Expect(wfDispatcher.dispatched).To(HaveLen(2))
-			Expect(wfDispatcher.dispatched[0]).To(Equal(req.Wavefronts[0]))
-			Expect(wfDispatcher.dispatched[1]).To(Equal(req.Wavefronts[1]))
+			Expect(wfDispatcher.dispatched[0]).To(Equal(req.Payload.(protocol.MapWGReq).Wavefronts[0]))
+			Expect(wfDispatcher.dispatched[1]).To(Equal(req.Payload.(protocol.MapWGReq).Wavefronts[1]))
 			Expect(cu.WfPools[1].wfs).To(HaveLen(1))
 			Expect(cu.WfPools[2].wfs).To(HaveLen(1))
 		})
@@ -206,29 +206,20 @@ var _ = Describe("ComputeUnit", func() {
 			wf *wavefront.Wavefront
 		)
 		BeforeEach(func() {
-			wf = wavefront.NewWavefront(kernels.NewWavefront())
-			inst := wavefront.NewInst(nil)
+			wf = wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+			inst := wavefront.NewInst(testIDs.NewID(), nil)
 			wf.SetDynamicInst(inst)
 			wf.SetPC(0x1000)
 
-			req := memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: cu.ToInstMem.AsRemote(),
-					Dst: cu.comp.State.InstMem,
-				},
-				Address:        0x100,
-				AccessByteSize: 64,
-			}
+			req := messaging.Msg{ID: testIDs.NewID(),
+				Src: cu.ToInstMem.AsRemote(),
+				Dst: cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
+					AccessByteSize: 64}}
 
-			dataReady := memprotocol.DataReadyRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:    timing.GetIDGenerator().Generate(),
-					Src:   cu.comp.State.InstMem,
-					Dst:   cu.ToInstMem.AsRemote(),
-					RspTo: req.ID,
-				},
-				Data: []byte{
+			dataReady := messaging.Msg{ID: testIDs.NewID(),
+				Src:   cu.comp.State.InstMem,
+				Dst:   cu.ToInstMem.AsRemote(),
+				RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: []byte{
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
@@ -237,8 +228,7 @@ var _ = Describe("ComputeUnit", func() {
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
 					1, 2, 3, 4, 5, 6, 7, 8,
-				},
-			}
+				}}}
 
 			toInstMem.incoming = append(toInstMem.incoming, dataReady)
 
@@ -274,30 +264,21 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle scalar data load return", func() {
-			read := memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: cu.ToScalarMem.AsRemote(),
-				},
-				Address:        0x100,
-				AccessByteSize: 64,
-			}
+			read := messaging.Msg{ID: testIDs.NewID(),
+				Src: cu.ToScalarMem.AsRemote(), Payload: memprotocol.ReadReq{Address: 0x100,
+					AccessByteSize: 64}}
 
 			info := new(ScalarMemAccessInfo)
-			info.Inst = wavefront.NewInst(insts.NewInst())
+			info.Inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
 			cu.InFlightScalarMemAccess = append(
 				cu.InFlightScalarMemAccess, info)
 
-			rsp := memprotocol.DataReadyRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:    timing.GetIDGenerator().Generate(),
-					RspTo: read.ID,
-				},
-				Data: insts.Uint32ToBytes(32),
-			}
+			rsp := messaging.Msg{ID: testIDs.NewID(),
+				RspTo: read.ID, Payload: memprotocol.DataReadyRsp{Data: insts.Uint32ToBytes(32)}}
+
 			toScalarMem.incoming = append(toScalarMem.incoming, rsp)
 
 			cu.processInputFromScalarMem()
@@ -320,13 +301,13 @@ var _ = Describe("ComputeUnit", func() {
 			rawWf *kernels.Wavefront
 			wf    *wavefront.Wavefront
 			inst  *wavefront.Inst
-			read  *memprotocol.ReadReq
+			read  messaging.Msg
 			info  VectorMemAccessInfo
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(insts.NewInst())
+			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
 			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
@@ -335,14 +316,8 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			read = &memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-				Address:            0x100,
-				AccessByteSize:     16,
-				CanWaitForCoalesce: true,
-			}
+			read = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
+				AccessByteSize: 16}}
 
 			info = VectorMemAccessInfo{}
 			info.Read = read
@@ -357,15 +332,11 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
-			dataReady := memprotocol.DataReadyRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:    timing.GetIDGenerator().Generate(),
-					RspTo: read.ID,
-				},
-				Data: make([]byte, 16),
-			}
+			dataReady := messaging.Msg{ID: testIDs.NewID(),
+				RspTo: read.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 16)}}
+
 			for i := 0; i < 4; i++ {
-				copy(dataReady.Data[i*4:i*4+4],
+				copy(dataReady.Payload.(memprotocol.DataReadyRsp).Data[i*4:i*4+4],
 					insts.Uint32ToBytes(uint32(i)))
 			}
 			toVectorMem.incoming = append(toVectorMem.incoming, dataReady)
@@ -373,13 +344,9 @@ var _ = Describe("ComputeUnit", func() {
 
 		addSiblingRead := func() {
 			sibling := VectorMemAccessInfo{
-				Read: &memprotocol.ReadReq{
-					MsgMeta: messaging.MsgMeta{
-						ID: timing.GetIDGenerator().Generate(),
-					},
-					Address:        0x200,
-					AccessByteSize: 16,
-				},
+				Read: messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x200,
+					AccessByteSize: 16}},
+
 				Wavefront: wf,
 				Inst:      inst,
 			}
@@ -411,7 +378,6 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should not release the wait counters when the last generated "+
 			"request returns before its siblings", func() {
-			read.CanWaitForCoalesce = false
 			addSiblingRead()
 
 			cu.processInputFromVectorMem()
@@ -423,8 +389,6 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle vector data load return, and the return is the "+
 			"last one for an instruction", func() {
-			read.CanWaitForCoalesce = false
-
 			cu.processInputFromVectorMem()
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
@@ -448,12 +412,12 @@ var _ = Describe("ComputeUnit", func() {
 			inst     *wavefront.Inst
 			wf       *wavefront.Wavefront
 			info     VectorMemAccessInfo
-			writeReq *memprotocol.WriteReq
+			writeReq messaging.Msg
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(insts.NewInst())
+			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
 			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
@@ -462,13 +426,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			writeReq = &memprotocol.WriteReq{
-				MsgMeta: messaging.MsgMeta{
-					ID: timing.GetIDGenerator().Generate(),
-				},
-				Address:            0x100,
-				CanWaitForCoalesce: true,
-			}
+			writeReq = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.WriteReq{Address: 0x100}}
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
@@ -477,12 +435,9 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
-			doneRsp := memprotocol.WriteDoneRsp{
-				MsgMeta: messaging.MsgMeta{
-					ID:    timing.GetIDGenerator().Generate(),
-					RspTo: writeReq.ID,
-				},
-			}
+			doneRsp := messaging.Msg{ID: testIDs.NewID(),
+				RspTo: writeReq.ID, Payload: memprotocol.WriteDoneRsp{}}
+
 			toVectorMem.incoming = append(toVectorMem.incoming, doneRsp)
 		})
 
@@ -496,8 +451,6 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle vector data store return and the return is the "+
 			"last one from an instruction", func() {
-			writeReq.CanWaitForCoalesce = false
-
 			cu.processInputFromVectorMem()
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
@@ -508,13 +461,9 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("should handle flush request", func() {
 		It("should handle a pipeline flush request from CU", func() {
-			req := protocol.CUPipelineFlushReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: "CP",
-					Dst: cu.ToCP.AsRemote(),
-				},
-			}
+			req := messaging.Msg{ID: testIDs.NewID(),
+				Src: "CP",
+				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
 
 			toCP.incoming = append(toCP.incoming, req)
 
@@ -549,33 +498,24 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle a restart request", func() {
 			cu.comp.State.IsPaused = true
 
-			req := protocol.CUPipelineRestartReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: "CP",
-					Dst: cu.ToCP.AsRemote(),
-				},
-			}
+			req := messaging.Msg{ID: testIDs.NewID(),
+				Src: "CP",
+				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineRestartReq{}}
 
 			toCP.incoming = append(toCP.incoming, req)
 
 			cu.processInputFromCP()
 
 			Expect(toCP.sent).To(HaveLen(1))
-			Expect(toCP.sent[0]).To(
-				BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
+			Expect(toCP.sent[0].Payload).To(BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
 			Expect(cu.comp.State.IsPaused).To(BeTrue())
 			Expect(cu.comp.State.IsSendingOutShadowBufferReqs).To(BeTrue())
 		})
 
 		It("should flush the full CU", func() {
-			req := protocol.CUPipelineFlushReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: "CP",
-					Dst: cu.ToCP.AsRemote(),
-				},
-			}
+			req := messaging.Msg{ID: testIDs.NewID(),
+				Src: "CP",
+				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
 
 			cu.comp.State.HasFlushReq = true
 			cu.comp.State.FlushReqID = req.ID
@@ -619,15 +559,10 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should not restart a CU where there are shadow buffer reqs "+
 			"pending", func() {
-			req := memprotocol.ReadReq{
-				MsgMeta: messaging.MsgMeta{
-					ID:  timing.GetIDGenerator().Generate(),
-					Src: cu.ToInstMem.AsRemote(),
-					Dst: cu.comp.State.InstMem,
-				},
-				Address:        0x100,
-				AccessByteSize: 64,
-			}
+			req := messaging.Msg{ID: testIDs.NewID(),
+				Src: cu.ToInstMem.AsRemote(),
+				Dst: cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
+					AccessByteSize: 64}}
 
 			info := new(InstFetchReqInfo)
 			info.Req = req
@@ -637,7 +572,7 @@ var _ = Describe("ComputeUnit", func() {
 			// Mem accesses always carry their instruction in production (set
 			// in executeSMEMLoad / the coalescer); the shadow resend parents
 			// the replacement req_out task on it.
-			inst := wavefront.NewInst(insts.NewInst())
+			inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			scalarMemInfo.Req = req
@@ -647,7 +582,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			vectorMemInfo := VectorMemAccessInfo{}
 			readCopy := req
-			vectorMemInfo.Read = &readCopy
+			vectorMemInfo.Read = readCopy
 			vectorMemInfo.Inst = inst
 			cu.shadowInFlightVectorMemAccess = append(
 				cu.shadowInFlightVectorMemAccess, vectorMemInfo)

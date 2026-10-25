@@ -44,12 +44,12 @@ var _ = Describe("cuResource", func() {
 			ldsByteSize:    64 * 1024,
 			ldsGranularity: 256,
 			ldsMask:        newResourceMask(64 * 1024 / 256),
-			reservedWGs:    make(map[*kernels.WorkGroup][]WfLocation),
+			reservedWGs:    make(map[uint64][]WfLocation),
 		}
 
-		wg = kernels.NewWorkGroup()
+		wg = kernels.NewWorkGroup(testNewID())
 		for i := 0; i < 10; i++ {
-			wf := kernels.NewWavefront()
+			wf := kernels.NewWavefront(testNewID())
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 
@@ -264,9 +264,9 @@ var _ = Describe("cuResource", func() {
 	})
 
 	It("should clear reservation when unmap wg", func() {
-		wg := kernels.NewWorkGroup()
+		wg := kernels.NewWorkGroup(testNewID())
 		for i := 0; i < 10; i++ {
-			wf := kernels.NewWavefront()
+			wf := kernels.NewWavefront(testNewID())
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 		co.WIVgprCount = 16

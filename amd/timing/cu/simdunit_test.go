@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("SIMD Unit", func() {
-
 	var (
 		cu   *ComputeUnit
 		bu   *SIMDUnit
@@ -37,7 +36,7 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wave.SetDynamicInst(inst)
 		bu.AcceptWave(wave)
 		Expect(bu.toExec).To(BeIdenticalTo(wave))
@@ -46,7 +45,7 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should run", func() {
 		wave := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
@@ -78,7 +77,7 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should flush SIMD", func() {
 		wave := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(insts.NewInst())
+		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)

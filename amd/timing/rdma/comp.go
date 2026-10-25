@@ -3,9 +3,9 @@ package rdma
 
 import (
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // Spec contains the immutable configuration of the RDMA engine.
@@ -21,6 +21,7 @@ type Spec struct {
 // transaction records one memory request that the RDMA engine has forwarded
 // and whose response has not yet been delivered back to the requester.
 type transaction struct {
+	SendTaskID uint64 `json:"send_task_id"`
 	// OriginalReqID is the ID of the request received by the RDMA engine.
 	OriginalReqID uint64 `json:"original_req_id"`
 
@@ -69,4 +70,20 @@ type Resources struct {
 // another GPU. It forwards memory requests received on its inside ports to
 // remote GPUs, and requests received from remote GPUs to local memory
 // modules.
-type Comp = modeling.Component[Spec, State, Resources]
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Ports struct {
+	RDMARequestInside  messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.responder"`
+	RDMARequestOutside messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	RDMADataInside     messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	RDMADataOutside    messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.responder"`
+	Ctrl               messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/timing/rdma.responder"`
+}
+type Middlewares struct {
+	Ctrl    *ctrlMiddleware
+	Forward *forwardMiddleware
+}
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Ctrl = &ctrlMiddleware{comp: c}
+	m.Forward = &forwardMiddleware{comp: c}
+}

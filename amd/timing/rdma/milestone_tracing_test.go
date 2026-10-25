@@ -5,166 +5,123 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 type milestoneRecorder struct {
-	tracing.NopTracer
-
-	milestones []tracing.Milestone
+	tasks.NopObserver
+	milestones []tasks.Milestone
 }
 
-func (r *milestoneRecorder) AddMilestone(m tracing.Milestone) {
-	r.milestones = append(r.milestones, m)
-}
+func (r *milestoneRecorder) MilestoneAdded(m tasks.Milestone) { r.milestones = append(r.milestones, m) }
 
-const localCache = messaging.RemotePort("LocalCache")
-const remoteGPU = messaging.RemotePort("RemoteGPU")
-
-// buildTracedRDMA builds an RDMA engine with all five ports plugged into a
-// noop connection and a milestone recorder attached, returning the engine, its
-// forward middleware, the outside request port, and the recorder.
-func buildTracedRDMA(t *testing.T) (
-	*Comp, *forwardMiddleware, messaging.Port, *milestoneRecorder,
-) {
+func tracedRDMA(t *testing.T) (*sim.Simulation, *Comp, *milestoneRecorder) {
 	t.Helper()
-
-	rdmaEngine := MakeBuilder().
-		WithRegistrar(modeling.NewStandaloneRegistrar(timing.NewSerialEngine())).
-		WithResources(Resources{
-			LocalModules:           &mem.SinglePortMapper{Port: localCache},
-			RemoteRDMAAddressTable: &mem.SinglePortMapper{Port: remoteGPU},
-		}).
-		Build("RDMAEngine")
-
-	var requestOutside messaging.Port
-	for _, name := range []string{
-		"RDMARequestInside", "RDMARequestOutside",
-		"RDMADataInside", "RDMADataOutside", "Ctrl",
-	} {
-		port := messaging.NewPort(rdmaEngine, 4, 4, rdmaEngine.Name()+"."+name)
-		rdmaEngine.AssignPort(name, port)
-		(&noopConn{}).PlugIn(port)
-		if name == "RDMARequestOutside" {
-			requestOutside = port
+	s := sim.MakeBuilder().WithTaskTracking().Build()
+	t.Cleanup(func() {
+		if err := s.Terminate(); err != nil {
+			t.Error(err)
 		}
+	})
+	c := MakeBuilder().WithSimulation(s).WithResources(Resources{
+		LocalModules:           mem.AddressMapper{Destinations: []messaging.RemotePort{"LocalCache"}},
+		RemoteRDMAAddressTable: mem.AddressMapper{Destinations: []messaging.RemotePort{"RemoteGPU"}},
+	}).Build("RDMAEngine")
+	for _, name := range []string{"RDMARequestInside",
+		"RDMARequestOutside",
+		"RDMADataInside",
+		"RDMADataOutside",
+		"Ctrl"} {
+		p := twowaybuffered.MakeBuilder().
+			WithSimulation(s).
+			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).
+			Build()
+		c.BindPort(name, p)
+		(&noopConn{}).BindPort(p)
 	}
-
 	rec := &milestoneRecorder{}
-	tracing.CollectTrace(rdmaEngine, rec)
-
-	var mw *forwardMiddleware
-	for _, m := range rdmaEngine.Middlewares() {
-		if fm, ok := m.(*forwardMiddleware); ok {
-			mw = fm
-		}
+	s.TaskTracker().Subscribe(rec, c)
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
 	}
-	if mw == nil {
-		t.Fatal("forwardMiddleware not found")
-	}
-
-	return rdmaEngine, mw, requestOutside, rec
+	return s, c, rec
 }
 
-// When a forwarded request's response returns, the RDMA engine must record a
-// "data" milestone on the req_in task, attributing the time spent waiting on
-// the round trip to the other side.
-func TestRDMARecordsDataMilestoneOnResponse(t *testing.T) {
-	rdmaEngine, mw, requestOutside, rec := buildTracedRDMA(t)
-
-	forwardedID := timing.GetIDGenerator().Generate()
-	recvTaskID := timing.GetIDGenerator().Generate()
-	rdmaEngine.State.TransactionsFromInside = append(
-		rdmaEngine.State.TransactionsFromInside,
-		transaction{
-			OriginalReqID:  timing.GetIDGenerator().Generate(),
-			OriginalSrc:    localCache,
-			ForwardedReqID: forwardedID,
-			RecvTaskID:     recvTaskID,
-		})
-
-	requestOutside.Deliver(memprotocol.DataReadyRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   remoteGPU,
-			Dst:   requestOutside.AsRemote(),
-			RspTo: forwardedID,
-		},
-		Data: []byte{1, 2, 3, 4},
-	})
-
-	mw.Tick()
-
-	found := false
-	for _, ms := range rec.milestones {
-		if ms.TaskID == recvTaskID &&
-			ms.Kind == tracing.MilestoneKindData &&
-			ms.What == "remote" {
-			found = true
+// Exercise real request tasks, including their independent sender/receiver IDs.
+// Arrival ends the remote wait even when forwarding is blocked, and retries do
+// not duplicate that milestone.
+func TestRDMARemoteMilestone(t *testing.T) {
+	for _, blocked := range []bool{false, true} {
+		name := "available"
+		if blocked {
+			name = "egress-full"
 		}
-	}
-	if !found {
-		t.Fatalf("expected a data milestone on the req_in, got %+v",
-			rec.milestones)
+		t.Run(name, func(t *testing.T) {
+			checkRemoteMilestone(t, blocked)
+		})
 	}
 }
 
-// Egress-port backpressure must not delay or duplicate the remote milestone:
-// it is emitted when the response arrives, even if the response cannot be
-// forwarded yet, and exactly once across retries.
-func TestRDMARemoteMilestoneNotDelayedByEgressBackpressure(t *testing.T) {
-	rdmaEngine, mw, requestOutside, rec := buildTracedRDMA(t)
-
-	// Saturate the egress port so the arrived response cannot be forwarded.
-	inPort := rdmaEngine.GetPortByName("RDMARequestInside")
-	for i := 0; i < 100 && inPort.CanSend(); i++ {
-		inPort.Send(memprotocol.WriteDoneRsp{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: inPort.AsRemote(),
-				Dst: remoteGPU,
-			},
-		})
-	}
-	if inPort.CanSend() {
-		t.Skip("could not saturate the egress port")
-	}
-
-	forwardedID := timing.GetIDGenerator().Generate()
-	recvTaskID := timing.GetIDGenerator().Generate()
-	rdmaEngine.State.TransactionsFromInside = append(
-		rdmaEngine.State.TransactionsFromInside,
-		transaction{
-			OriginalReqID:  timing.GetIDGenerator().Generate(),
-			OriginalSrc:    localCache,
-			ForwardedReqID: forwardedID,
-			RecvTaskID:     recvTaskID,
-		})
-
-	requestOutside.Deliver(memprotocol.DataReadyRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			RspTo: forwardedID,
+func checkRemoteMilestone(t *testing.T, blocked bool) {
+	t.Helper()
+	s, c, rec := tracedRDMA(t)
+	c.Ports.RDMARequestInside.Deliver(
+		messaging.Msg{
+			ID:      s.NewID(),
+			Src:     "LocalCache",
+			Dst:     c.Ports.RDMARequestInside.AsRemote(),
+			Payload: memprotocol.ReadReq{Address: 64, AccessByteSize: 4},
 		},
-	})
-
-	// Tick twice while the egress port stays full: the response stays
-	// unforwarded, but the remote milestone fires once, at arrival.
-	mw.Tick()
-	mw.Tick()
-
+	)
+	if err := s.Engine().(*timing.SerialEngine).RunUntil(1000); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.State.TransactionsFromInside) != 1 {
+		t.Fatal("request was not forwarded")
+	}
+	trans := c.State.TransactionsFromInside[0]
+	if trans.RecvTaskID == 0 || trans.SendTaskID == 0 || trans.SendTaskID == trans.ForwardedReqID {
+		t.Fatal("missing independent task handles")
+	}
+	if blocked {
+		for c.Ports.RDMARequestInside.CanSend() {
+			c.Ports.RDMARequestInside.Send(
+				messaging.Msg{
+					ID:      s.NewID(),
+					Src:     c.Ports.RDMARequestInside.AsRemote(),
+					Dst:     "LocalCache",
+					Payload: memprotocol.WriteDoneRsp{},
+				},
+			)
+		}
+	}
+	c.Ports.RDMARequestOutside.Deliver(
+		messaging.Msg{
+			ID:      s.NewID(),
+			Src:     "RemoteGPU",
+			Dst:     c.Ports.RDMARequestOutside.AsRemote(),
+			RspTo:   trans.ForwardedReqID,
+			Payload: memprotocol.DataReadyRsp{Data: []byte{1, 2, 3, 4}},
+		},
+	)
+	if err := s.Engine().(*timing.SerialEngine).RunUntil(2000); err != nil {
+		t.Fatal(err)
+	}
+	c.Middlewares.Forward.Tick()
 	count := 0
-	for _, ms := range rec.milestones {
-		if ms.TaskID == recvTaskID &&
-			ms.Kind == tracing.MilestoneKindData && ms.What == "remote" {
+	for _, m := range rec.milestones {
+		if m.TaskID == trans.RecvTaskID && m.Kind == tasks.MilestoneKindData && m.What == "remote" {
 			count++
 		}
 	}
 	if count != 1 {
-		t.Fatalf("remote milestone should be emitted once at arrival even "+
-			"under egress backpressure; got %d", count)
+		t.Fatalf("expected one remote milestone at arrival, got %d: %+v", count, rec.milestones)
+	}
+	if blocked && len(c.State.TransactionsFromInside) != 1 {
+		t.Fatal("response bypassed egress backpressure")
 	}
 }

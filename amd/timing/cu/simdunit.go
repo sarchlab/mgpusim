@@ -3,9 +3,9 @@ package cu
 import (
 	"strings"
 
-	"github.com/sarchlab/akita/v5/hooking"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
@@ -160,10 +160,10 @@ func (u *SIMDUnit) Flush() {
 	// pipeline, so they do not leak as started-never-ended. (The instructions'
 	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
 	if u.toExec != nil {
-		tracing.EndTaskOnReset(u, u.execTaskID)
+		u.cu.comp.TaskTracker().EndTask(u.execTaskID)
 	}
 	for _, slot := range u.pipelineSlots {
-		tracing.EndTaskOnReset(u, slot.taskID)
+		u.cu.comp.TaskTracker().EndTask(slot.taskID)
 	}
 
 	u.toExec = nil
@@ -182,11 +182,8 @@ func (u *SIMDUnit) Flush() {
 // vis DBTracer is the same instance on both domains. Do not move this to
 // cu.comp — it would collapse the per-SIMD busy-time metric.
 func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
-	taskID := timing.GetIDGenerator().Generate()
-
-	tracing.StartTask(u, tracing.TaskStart{
-		ID:       taskID,
-		ParentID: inst.ID,
+	taskID := u.cu.comp.TaskTracker().StartTask(u, tasks.StartInfo{
+		ParentID: u.cu.comp.State.InstTasks[inst.ID],
 		Kind:     "pipeline",
 		What:     u.Name() + "." + u.cu.execUnitToString(inst.ExeUnit),
 	})
@@ -195,7 +192,7 @@ func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
 }
 
 func (u *SIMDUnit) logPipelineTaskEnd(taskID uint64) {
-	tracing.EndTask(u, tracing.TaskEnd{ID: taskID})
+	u.cu.comp.TaskTracker().EndTask(taskID)
 }
 
 // Name names the unit
@@ -208,3 +205,5 @@ func (u *SIMDUnit) Name() string {
 func (u *SIMDUnit) CurrentTime() timing.VTimeInPicoSec {
 	return u.cu.comp.CurrentTime()
 }
+
+func (u *SIMDUnit) TaskTracker() *tasks.Tracker { return u.cu.comp.TaskTracker() }

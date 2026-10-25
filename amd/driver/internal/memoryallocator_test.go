@@ -4,20 +4,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("MemoryAllocatorImpl", func() {
-
 	var (
-		mockCtrl  *gomock.Controller
 		allocator *memoryAllocatorImpl
-		pageTable *MockPageTable
+		pageTable *vm.PageTable
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		pageTable = NewMockPageTable(mockCtrl)
+		pageTable = vm.NewPageTable(12)
 
 		allocator = NewMemoryAllocator(pageTable, 12).(*memoryAllocatorImpl)
 		configAFourGPUSystem(allocator)
@@ -25,11 +21,18 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	})
 
 	AfterEach(func() {
-		mockCtrl.Finish()
 	})
 
+	checkPage := func(want vm.Page) {
+		DeferCleanup(func() {
+			got, found := pageTable.Find(want.PID, want.VAddr)
+			Expect(found).To(BeTrue())
+			Expect(got).To(Equal(want))
+		})
+	}
+
 	It("should allocate memory", func() {
-		pageTable.EXPECT().Insert(
+		checkPage(
 			vm.Page{
 				PID:      1,
 				PAddr:    0x1_0000_1000,
@@ -44,7 +47,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	})
 
 	It("should allocate unified memory", func() {
-		pageTable.EXPECT().Insert(
+		checkPage(
 			vm.Page{
 				PID:      1,
 				PAddr:    0x1_0000_1000,
@@ -61,7 +64,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 
 	It("should allocate memory larger than a page", func() {
 		for i := uint64(0); i < 3; i++ {
-			pageTable.EXPECT().Insert(
+			checkPage(
 				vm.Page{
 					PID:      1,
 					PAddr:    0x1_0000_1000 + 0x1000*i,
@@ -85,14 +88,18 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			DeviceID: 1,
 			Valid:    true,
 		}
-		pageTable.EXPECT().Insert(page)
 		ptr := allocator.Allocate(1, 4000, 1)
+		got, found := pageTable.Find(1, ptr)
+		Expect(found).To(BeTrue())
+		Expect(got).To(Equal(page))
 
 		updatedPage := page
 		updatedPage.PAddr = 0x2_0000_1000
 		updatedPage.DeviceID = 2
-		pageTable.EXPECT().Update(updatedPage)
 		allocator.Remap(1, ptr, 4000, 2)
+		got, found = pageTable.Find(1, ptr)
+		Expect(found).To(BeTrue())
+		Expect(got).To(Equal(updatedPage))
 	})
 })
 

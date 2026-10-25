@@ -3,13 +3,15 @@ package gpu
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
 )
@@ -23,6 +25,11 @@ const (
 	// is allocated lazily, so a large capacity costs nothing.
 	storageCapacity = 1 << 48
 )
+
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz, MaxCTAPerSM: 1}
+}
 
 // Config describes the GPU to build.
 type Config struct {
@@ -50,18 +57,18 @@ type Config struct {
 // Builder builds a GPU: a GPU controller, its SMs, the L2 cache banks, and one
 // DRAM controller per L2 bank.
 type Builder struct {
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 	freq      timing.Freq
 	cfg       Config
 }
 
 // MakeBuilder creates a GPU builder.
 func MakeBuilder() Builder {
-	return Builder{freq: 1 * timing.GHz}
+	return Builder{freq: DefaultSpec().Freq}
 }
 
-// WithRegistrar sets the simulation that components register to.
-func (b Builder) WithRegistrar(r modeling.Registrar) Builder {
+// WithSimulation sets the simulation that components register to.
+func (b Builder) WithSimulation(r modeling.Simulation) Builder {
 	b.registrar = r
 	return b
 }
@@ -88,11 +95,10 @@ func (b Builder) Build(name string) *GPUController {
 
 	// The L1 caches copy the L2 port list when they are built, so the L2
 	// caches must be built first.
-	l1AddressMapper := mem.NewInterleavedAddressPortMapper(
-		1 << b.cfg.Log2CacheLineSize)
+	l1AddressMapper := mem.AddressMapper{InterleavingSize: 1 << b.cfg.Log2CacheLineSize}
 	for _, l2 := range l2s {
-		l1AddressMapper.LowModules = append(l1AddressMapper.LowModules,
-			l2.GetPortByName("Top").AsRemote())
+		l1AddressMapper.Destinations = append(l1AddressMapper.Destinations,
+			l2.Ports.Top.AsRemote())
 	}
 
 	b.buildSMs(g, l1AddressMapper)
@@ -105,54 +111,45 @@ func (b Builder) Build(name string) *GPUController {
 }
 
 func (b Builder) buildController(name string) *GPUController {
-	g := &GPUController{
-		ID:                                 name,
-		SMAssignedThreadTable:              make(map[string]uint64),
-		SMAssignedCTACountTable:            make(map[string]uint64),
+	t := &topology{ID: name}
+	spec := Spec{
+		Freq:                               b.freq,
 		SMThreadCapacity:                   b.cfg.SMThreadCapacity,
 		GPU2SMThreadBlockAllocationLatency: b.cfg.GPU2SMThreadBlockAllocationLatency,
-		GPU2SMThreadBlockAllocationLatencyRemaining: b.cfg.
-			GPU2SMThreadBlockAllocationLatency,
-		GPUReceiveSMLatency:          b.cfg.GPUReceiveSMLatency,
-		GPUReceiveSMLatencyRemaining: b.cfg.GPUReceiveSMLatency,
-		GPUReceiveCTALatencyUnit:     b.cfg.GPUReceiveCTALatencyUnit,
-		CWDIssueWidth:                b.cfg.CWDIssueWidth,
-		SMResponseHandleWidth:        b.cfg.SMResponseHandleWidth,
-		MaxCTAPerSM:                  max(b.cfg.MaxCTAPerSM, 1),
+		GPUReceiveSMLatency:                b.cfg.GPUReceiveSMLatency,
+		GPUReceiveCTALatencyUnit:           b.cfg.GPUReceiveCTALatencyUnit,
+		CWDIssueWidth:                      b.cfg.CWDIssueWidth,
+		SMResponseHandleWidth:              b.cfg.SMResponseHandleWidth,
+		MaxCTAPerSM:                        max(b.cfg.MaxCTAPerSM, 1),
 	}
-	g.TickingComponent = modeling.NewTickingComponent(
-		name, b.registrar.GetEngine(), b.freq, g)
-	b.registrar.RegisterComponent(g)
-
-	g.DeclarePort("ToDriver")
-	g.DeclarePort("ToSMs")
-	g.toDriver = b.buildPort(g, "ToDriver", portBufSize)
-	g.toSMs = b.buildPort(g, "ToSMs", portBufSize)
+	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).
+		WithResources(Resources{Topology: t}).Build(name)
+	g := &GPUController{Comp: c, topology: t}
+	b.buildPort(g, "ToDriver", portBufSize)
+	b.buildPort(g, "ToSMs", portBufSize)
 
 	return g
 }
 
 func (b Builder) buildPort(
-	comp messaging.Component,
+	comp interface{ BindPort(string, messaging.Port) },
 	name string,
 	bufSize int,
 ) messaging.Port {
-	port := modeling.MakePortBuilder().
-		WithRegistrar(b.registrar).
-		WithComponent(comp).
-		WithSpec(modeling.PortSpec{BufSize: bufSize}).
-		Build(name)
-	comp.AssignPort(name, port)
-
+	port := twowaybuffered.MakeBuilder().
+		WithSimulation(b.registrar).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: bufSize, OutgoingCapacity: bufSize}).
+		Build()
+	comp.BindPort(name, port)
 	return port
 }
 
 func (b Builder) buildSMs(
 	g *GPUController,
-	l1AddressMapper mem.AddressToPortMapper,
+	l1AddressMapper mem.AddressMapper,
 ) {
 	smBuilder := sm.MakeBuilder().
-		WithRegistrar(b.registrar).
+		WithSimulation(b.registrar).
 		WithFreq(b.freq).
 		WithSMSPsCount(b.cfg.NumSMSPsPerSM).
 		WithLog2CacheLineSize(b.cfg.Log2CacheLineSize).
@@ -164,7 +161,7 @@ func (b Builder) buildSMs(
 
 	for i := range b.cfg.NumSMs {
 		s := smBuilder.Build(fmt.Sprintf("%s.SM[%d]", g.Name(), i))
-		s.SetGPURemotePort(g.toSMs.AsRemote())
+		s.SetGPURemotePort(g.Ports.ToSMs.AsRemote())
 		g.SMList = append(g.SMList, s)
 	}
 }
@@ -178,14 +175,12 @@ func (b Builder) buildDRAMs(gpuName string) []*idealmemcontroller.Comp {
 	spec := idealmemcontroller.DefaultSpec()
 	spec.Freq = b.freq
 	spec.Latency = b.cfg.DRAMLatency
-	spec.Capacity = storageCapacity
 
 	drams := make([]*idealmemcontroller.Comp, 0, b.cfg.NumMemoryBanks)
 
 	for i := range b.cfg.NumMemoryBanks {
-		dram := idealmemcontroller.MakeBuilder().
-			WithRegistrar(b.registrar).
-			WithSpec(spec).
+		dram := modeling.MakeBuilder[*idealmemcontroller.Comp](spec).
+			WithSimulation(b.registrar).
 			WithResources(idealmemcontroller.Resources{Storage: storage}).
 			Build(fmt.Sprintf("%s.DRAM[%d]", gpuName, i))
 
@@ -206,22 +201,23 @@ func (b Builder) buildL2Caches(
 	spec.Freq = b.freq
 	spec.BankLatency = b.cfg.L2BankLatency
 	spec.Log2BlockSize = b.cfg.Log2CacheLineSize
-	spec.WayAssociativity = 16
-	spec.TotalByteSize = b.cfg.L2CacheSize / uint64(b.cfg.NumMemoryBanks)
-	spec.NumMSHREntry = 64
+	spec.NumWays = 16
+	spec.NumSets = int(b.cfg.L2CacheSize / uint64(b.cfg.NumMemoryBanks) / (uint64(spec.NumWays) << spec.Log2BlockSize))
+	spec.NumMSHREntries = 64
 	spec.NumReqPerCycle = 16
+	spec.DirectoryWidth = 16
+	spec.BankWidth = 16
 
 	l2s := make([]*writeback.Comp, 0, len(drams))
 
 	for i, dram := range drams {
-		l2 := writeback.MakeBuilder().
-			WithRegistrar(b.registrar).
-			WithSpec(spec).
-			WithResources(writeback.Resources{
-				AddressToPortMapper: &mem.SinglePortMapper{
-					Port: dram.GetPortByName("Top").AsRemote(),
-				},
-			}).
+		spec.Bottom = mem.AddressMapper{Destinations: []messaging.RemotePort{dram.Ports.Top.AsRemote()}}
+		storage := mem.MakeStorageBuilder().
+			WithSimulation(b.registrar).
+			WithCapacity(spec.ByteSize()).
+			Build(fmt.Sprintf("%s.L2Cache[%d].Storage", gpuName, i))
+		l2 := modeling.MakeBuilder[*writeback.Comp](spec).WithResources(writeback.Resources{Storage: storage}).
+			WithSimulation(b.registrar).
 			Build(fmt.Sprintf("%s.L2Cache[%d]", gpuName, i))
 
 		b.buildPort(l2, "Top", memPortBufSize)
@@ -234,19 +230,16 @@ func (b Builder) buildL2Caches(
 	return l2s
 }
 
-func (b Builder) newConnection(name string) *directconnection.Comp {
-	return directconnection.MakeBuilder().
-		WithRegistrar(b.registrar).
-		WithSpec(directconnection.Spec{Freq: b.freq}).
-		Build(name)
+func (b Builder) newConnection(name string) *directconnection.Connection {
+	return directconnection.NewConnection(name, b.registrar, b.freq)
 }
 
 func (b Builder) connectGPUAndSMs(g *GPUController) {
 	conn := b.newConnection(g.Name() + ".GPUToSMs")
-	conn.PlugIn(g.toSMs)
+	conn.BindPort(g.Ports.ToSMs)
 
 	for _, s := range g.SMList {
-		conn.PlugIn(s.GetPortByName("ToGPU"))
+		conn.BindPort(s.Ports.ToGPU)
 	}
 }
 
@@ -254,12 +247,12 @@ func (b Builder) connectL1ToL2(g *GPUController, l2s []*writeback.Comp) {
 	conn := b.newConnection(g.Name() + ".L1ToL2")
 
 	for _, l2 := range l2s {
-		conn.PlugIn(l2.GetPortByName("Top"))
+		conn.BindPort(l2.Ports.Top)
 	}
 
 	for _, s := range g.SMList {
 		for _, l1 := range s.L1VCaches {
-			conn.PlugIn(l1.GetPortByName("Bottom"))
+			conn.BindPort(l1.Ports.Bottom)
 		}
 	}
 }
@@ -272,10 +265,10 @@ func (b Builder) connectL2ToDRAM(
 	conn := b.newConnection(gpuName + ".L2ToDRAM")
 
 	for _, l2 := range l2s {
-		conn.PlugIn(l2.GetPortByName("Bottom"))
+		conn.BindPort(l2.Ports.Bottom)
 	}
 
 	for _, dram := range drams {
-		conn.PlugIn(dram.GetPortByName("Top"))
+		conn.BindPort(dram.Ports.Top)
 	}
 }

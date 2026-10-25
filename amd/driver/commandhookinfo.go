@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // CommandHookInfo carries the information provided to hooks that are

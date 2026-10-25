@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v5/daisen2"
-	"github.com/sarchlab/akita/v5/hooking"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/monitoring2"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	daisen2 "github.com/sarchlab/akita/v5/monitoring"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim/hooking"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
@@ -26,23 +26,24 @@ type PortSource interface {
 // A Dispatcher is a sub-component of a command processor that can dispatch
 // work-groups to compute units.
 type Dispatcher interface {
-	tracing.NamedHookable
+	Name() string
+	CurrentTime() timing.VTimeInPicoSec
+	TaskTracker() *tasks.Tracker
 	RegisterCU(cu resource.DispatchableCU)
 	IsDispatching() bool
-	StartDispatching(req protocol.LaunchKernelReq)
+	StartDispatching(req messaging.Msg)
 	Tick() (madeProgress bool)
 }
 
 // A DispatcherImpl is a ticking component that can dispatch work-groups.
 //
-// TODO(akita5): state purity — the dispatcher is a sub-object of the Command
-// Processor and keeps its runtime state (in-flight work-group maps holding
-// messages, the algorithm object graph) in plain fields. It is not
-// checkpointable.
+// Its checkpoint is registered separately from the parent component so each
+// dispatcher retains its algorithm cursors, reservations, and task handles.
 type DispatcherImpl struct {
+	sampler *sampling.SampledEngine
 	hooking.HookableBase
 
-	cp                  tracing.NamedHookable
+	cp                  Parent
 	name                string
 	portSource          PortSource
 	respondingPortName  string
@@ -54,14 +55,15 @@ type DispatcherImpl struct {
 	dieAware                       dieAwareAlgorithm // non-nil iff alg dispatches per-die
 	dieCyclesLeft                  []int             // per-die rate gate (cycles until next dispatch)
 	wavefrontDispatchCycles        int               // per-die cost charged per wavefront dispatched
-	dispatching                    protocol.LaunchKernelReq
+	dispatching                    messaging.Msg
 	isDispatching                  bool
 	currWG                         dispatchLocation
 	cycleLeft                      int
 	numDispatchedWGs               int
 	numCompletedWGs                int
 	inflightWGs                    map[uint64]dispatchLocation
-	originalReqs                   map[uint64]protocol.MapWGReq
+	wgTaskIDs                      map[uint64]uint64
+	launchTaskID                   uint64
 	latencyTable                   []int
 	constantKernelOverhead         int
 	constantKernelLaunchOverhead   int
@@ -112,15 +114,20 @@ func (d *DispatcherImpl) IsDispatching() bool {
 }
 
 // StartDispatching lets the dispatcher to start dispatch another kernel.
-func (d *DispatcherImpl) StartDispatching(req protocol.LaunchKernelReq) {
+func (d *DispatcherImpl) StartDispatching(req messaging.Msg) {
 	d.mustNotBeDispatchingAnotherKernel()
 
-	d.alg.StartNewKernel(kernels.KernelLaunchInfo{
-		CodeObject: req.CodeObject,
-		Packet:     req.Packet,
-		PacketAddr: req.PacketAddress,
-		WGFilter:   req.WGFilter,
-	})
+	payload := req.Payload.(protocol.LaunchKernelReq)
+	d.alg.StartNewKernel(
+		kernels.KernelLaunchInfo{
+			CodeObject: payload.CodeObject.Restore(),
+			Packet:     &payload.Packet,
+			PacketAddr: payload.PacketAddress,
+			Selection:  payload.Selection,
+		},
+	)
+	d.launchTaskID = d.cp.TaskTracker().StartReqIn(d.cp, req)
+
 	d.dispatching = req
 	d.isDispatching = true
 
@@ -190,13 +197,20 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 
 func (d *DispatcherImpl) collectSamplingData(
 	locations []protocol.WfDispatchLocation,
+	times []protocol.WavefrontTiming,
 ) {
-	if *sampling.SampledRunnerFlag {
-		for _, l := range locations {
-			wavefront := l.Wavefront
-			sampling.SampledEngineInstance.Collect(
-				wavefront.IssueTime, wavefront.FinishTime)
+	if d.sampler == nil || d.sampler.IfDisable() {
+		return
+	}
+	for _, l := range locations {
+		var issue, finish timing.VTimeInPicoSec
+		for _, sample := range times {
+			if sample.WavefrontID == l.WavefrontID {
+				issue, finish = sample.IssueTime, sample.FinishTime
+				break
+			}
 		}
+		d.sampler.Collect(issue, finish)
 	}
 }
 
@@ -204,31 +218,32 @@ func (d *DispatcherImpl) processMessagesFromCU() bool {
 	madeProgress := false
 
 	for i := 0; i < 8; i++ {
-		msg := d.getDispatchingPort().PeekIncoming()
-		if msg == nil {
+		msg, ok := d.getDispatchingPort().PeekIncoming()
+		if !ok {
 			break
 		}
 
-		switch msg := msg.(type) {
+		switch msg.Payload.(type) {
 		case protocol.WGCompletionMsg:
+
 			count := 0
-			for _, rspToID := range msg.RspToIDs {
+			for _, rspToID := range msg.Payload.(protocol.WGCompletionMsg).RspToIDs {
 				location, ok := d.inflightWGs[rspToID]
 				if ok {
 					count++
 					///sampling
-					d.collectSamplingData(location.locations)
+					d.collectSamplingData(location.locations, msg.Payload.(protocol.WGCompletionMsg).Timings)
 				}
 			}
 
 			if count == 0 {
 				return madeProgress
-			} else if count < len(msg.RspToIDs) {
+			} else if count < len(msg.Payload.(protocol.WGCompletionMsg).RspToIDs) {
 				log.Panic(
 					"all finished WGs must be from the same dispatcher")
 			}
 
-			for _, rspToID := range msg.RspToIDs {
+			for _, rspToID := range msg.Payload.(protocol.WGCompletionMsg).RspToIDs {
 				location := d.inflightWGs[rspToID]
 				d.alg.FreeResources(location)
 				delete(d.inflightWGs, rspToID)
@@ -237,9 +252,8 @@ func (d *DispatcherImpl) processMessagesFromCU() bool {
 					d.cycleLeft = d.constantKernelOverhead
 				}
 
-				originalReq := d.originalReqs[rspToID]
-				delete(d.originalReqs, rspToID)
-				tracing.TraceReqFinalize(d, originalReq)
+				d.cp.TaskTracker().EndReqOut(d.wgTaskIDs[rspToID])
+				delete(d.wgTaskIDs, rspToID)
 
 				if d.progressBar != nil {
 					d.progressBar.MoveInProgressToFinished(1)
@@ -283,25 +297,23 @@ func (d *DispatcherImpl) completeKernel() (
 		return false
 	}
 
-	rsp := protocol.LaunchKernelRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   port.AsRemote(),
-			Dst:   req.Src,
-			RspTo: req.ID,
-		},
-	}
+	rsp := messaging.Msg{ID: d.cp.NewID(),
+		Src:   port.AsRemote(),
+		Dst:   req.Src,
+		RspTo: req.ID, Payload: protocol.LaunchKernelRsp{}}
+
 	port.Send(rsp)
 
 	d.prevKernelWGCount = d.numDispatchedWGs
-	d.dispatching = protocol.LaunchKernelReq{}
+	d.dispatching = messaging.Msg{Payload: protocol.LaunchKernelReq{}}
 	d.isDispatching = false
 
 	if d.monitor != nil {
 		d.monitor.CompleteProgressBar(d.progressBar)
 	}
 
-	tracing.TraceReqComplete(d.cp, req)
+	d.cp.TaskTracker().EndReqIn(d.launchTaskID)
+	d.launchTaskID = 0
 
 	return true
 }
@@ -322,22 +334,18 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 		return false
 	}
 
-	req := protocol.MapWGReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: port.AsRemote(),
-			Dst: d.currWG.cu,
-		},
-		WorkGroup:  d.currWG.wg,
-		PID:        d.dispatching.PID,
-		Wavefronts: d.currWG.locations,
-	}
+	req := messaging.Msg{ID: d.cp.NewID(),
+		Src: port.AsRemote(),
+		Dst: d.currWG.cu, Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(d.currWG.wg),
+			PID:        d.dispatching.Payload.(protocol.LaunchKernelReq).PID,
+			Wavefronts: d.currWG.locations}}
+
+	d.wgTaskIDs[req.ID] = d.cp.TaskTracker().StartReqOut(d, req, d.launchTaskID)
 	port.Send(req)
 
 	d.currWG.valid = false
 	d.numDispatchedWGs++
 	d.inflightWGs[req.ID] = d.currWG
-	d.originalReqs[req.ID] = req
 	d.cycleLeft = d.latencyTable[len(d.currWG.locations)]
 
 	if d.progressBar != nil {
@@ -350,8 +358,6 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 	// correctly: the vis DBTracer is the same instance attached to both d (via
 	// report.go / the CP builder) and d.cp (via RegisterComponent), so both
 	// tasks land in one trace database keyed by task ID.
-	tracing.TraceReqInitiate(d, req,
-		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 
 	return true
 }
@@ -390,21 +396,17 @@ func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 		return false
 	}
 
-	req := protocol.MapWGReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: port.AsRemote(),
-			Dst: loc.cu,
-		},
-		WorkGroup:  loc.wg,
-		PID:        d.dispatching.PID,
-		Wavefronts: loc.locations,
-	}
+	req := messaging.Msg{ID: d.cp.NewID(),
+		Src: port.AsRemote(),
+		Dst: loc.cu, Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(loc.wg),
+			PID:        d.dispatching.Payload.(protocol.LaunchKernelReq).PID,
+			Wavefronts: loc.locations}}
+
+	d.wgTaskIDs[req.ID] = d.cp.TaskTracker().StartReqOut(d, req, d.launchTaskID)
 	port.Send(req)
 
 	d.numDispatchedWGs++
 	d.inflightWGs[req.ID] = loc
-	d.originalReqs[req.ID] = req
 	// The die is busy dispatching this WG's wavefronts for
 	// wavefrontDispatchCycles*W cycles total. This dispatch consumes the current
 	// cycle (the first busy cycle), so the gate holds the remaining W*cycles-1,
@@ -415,8 +417,15 @@ func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 		d.progressBar.IncrementInProgress(1)
 	}
 
-	tracing.TraceReqInitiate(d, req,
-		tracing.MsgIDAtReceiver(d.dispatching, d.cp))
-
 	return true
 }
+
+// Parent supplies the simulation services owned by the command processor.
+type Parent interface {
+	tasks.Owner
+	CurrentTime() timing.VTimeInPicoSec
+	NewID() uint64
+	TaskTracker() *tasks.Tracker
+}
+
+func (d *DispatcherImpl) TaskTracker() *tasks.Tracker { return d.cp.TaskTracker() }

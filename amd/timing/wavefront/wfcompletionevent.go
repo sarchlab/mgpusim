@@ -1,7 +1,7 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront. Events dispatch by
@@ -10,17 +10,20 @@ import (
 // same handler ID when constructing the event.
 type WfCompletionEvent struct {
 	timing.EventBase
-	Wf *Wavefront
+	WavefrontID uint64
 }
 
 // NewWfCompletionEvent returns a newly constructed WfCompletionEvent
 func NewWfCompletionEvent(
+	id uint64,
 	time timing.VTimeInPicoSec,
 	handlerID string,
-	wf *Wavefront,
+	wfID uint64,
 ) WfCompletionEvent {
 	return WfCompletionEvent{
-		EventBase: timing.MakeEventBase(time, handlerID),
-		Wf:        wf,
+		EventBase:   timing.MakeEventBase(id, time, handlerID),
+		WavefrontID: wfID,
 	}
 }
+
+func init() { timing.RegisterEvent(WfCompletionEvent{}) }

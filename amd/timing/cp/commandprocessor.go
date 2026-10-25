@@ -1,11 +1,11 @@
 package cp
 
 import (
-	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
@@ -66,6 +66,9 @@ const (
 
 // State contains the mutable runtime data of the Command Processor.
 type State struct {
+	CopyRecvTasks map[uint64]uint64
+	CopySendTasks map[uint64]uint64
+	FlushTaskID   uint64
 	// Destinations of the messages that the Command Processor sends. They are
 	// set by the configuration code after Build. The TLB, address translator,
 	// ROB, cache, and DRAM destinations are the "Control" ports of the
@@ -90,8 +93,8 @@ type State struct {
 
 	// In-flight memory-copy bookkeeping: cloned request ID -> original
 	// request from the driver.
-	BottomMemCopyH2DToTop map[uint64]protocol.MemCopyH2DReq `json:"bottom_mem_copy_h2d_to_top"`
-	BottomMemCopyD2HToTop map[uint64]protocol.MemCopyD2HReq `json:"bottom_mem_copy_d2h_to_top"`
+	BottomMemCopyH2DToTop map[uint64]messaging.Msg `json:"bottom_mem_copy_h2d_to_top"`
+	BottomMemCopyD2HToTop map[uint64]messaging.Msg `json:"bottom_mem_copy_d2h_to_top"`
 
 	// Control-sequence bookkeeping. CtrlSeq names the sequence in progress
 	// (flush, shootdown, restart, kernelStart), CtrlStep is the index of the
@@ -104,8 +107,8 @@ type State struct {
 	ShootDownInProcess bool `json:"shoot_down_in_process"`
 
 	// Requests from the driver that are being served by a control sequence.
-	CurrFlushReq  protocol.FlushReq         `json:"curr_flush_req"`
-	CurrShootdown protocol.ShootDownCommand `json:"curr_shootdown"`
+	CurrFlushReq  messaging.Msg `json:"curr_flush_req"`
+	CurrShootdown messaging.Msg `json:"curr_shootdown"`
 
 	// KernelStartReqID is the ID of the LaunchKernelReq whose kernel-start
 	// L1 invalidation has been started. The request stays in the incoming
@@ -115,12 +118,12 @@ type State struct {
 
 	// Outbound message queues, drained by the control middleware as the
 	// corresponding ports become available.
-	PendingCacheReqs     []memcontrolprotocol.Req        `json:"pending_cache_reqs"`
-	PendingTLBReqs       []memcontrolprotocol.Req        `json:"pending_tlb_reqs"`
-	PendingATReqs        []memcontrolprotocol.Req        `json:"pending_at_reqs"`
-	PendingCUFlushReqs   []protocol.CUPipelineFlushReq   `json:"pending_cu_flush_reqs"`
-	PendingCURestartReqs []protocol.CUPipelineRestartReq `json:"pending_cu_restart_reqs"`
-	PendingDriverRsps    []string                        `json:"pending_driver_rsps"`
+	PendingCacheReqs     []messaging.Msg `json:"pending_cache_reqs"`
+	PendingTLBReqs       []messaging.Msg `json:"pending_tlb_reqs"`
+	PendingATReqs        []messaging.Msg `json:"pending_at_reqs"`
+	PendingCUFlushReqs   []messaging.Msg `json:"pending_cu_flush_reqs"`
+	PendingCURestartReqs []messaging.Msg `json:"pending_cu_restart_reqs"`
+	PendingDriverRsps    []string        `json:"pending_driver_rsps"`
 }
 
 // Comp is the Command Processor, an Akita component that is responsible for
@@ -136,7 +139,44 @@ type State struct {
 //     translators and the reorder buffers.
 //   - "ToCaches": connects to the Control ports of the L1/L2 caches.
 //   - "ToRDMA": connects to the Ctrl port of the RDMA engine.
-type Comp = modeling.Component[Spec, State, modeling.None]
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+
+type Resources struct {
+	Dispatchers []dispatching.Dispatcher
+	Sampler     *sampling.SampledEngine
+}
+type Ports struct {
+	ToDriver             messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToDMA                messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToCUs                messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToTLBs               messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
+	ToAddressTranslators messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
+	ToCaches             messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
+	ToRDMA               messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/timing/rdma.requester"`
+}
+type Middlewares struct {
+	Data    *cpMiddleware
+	Control *ctrlMiddleware
+}
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Data = &cpMiddleware{comp: c, dispatchers: c.Resources.Dispatchers}
+	m.Control = &ctrlMiddleware{comp: c}
+}
+
+// dispatcherPorts binds the dispatcher's two connections after native port setup.
+type dispatcherPorts struct{ cp *Comp }
+
+func (p dispatcherPorts) GetPortByName(name string) messaging.Port {
+	switch name {
+	case "ToDriver":
+		return p.cp.Ports.ToDriver
+	case "ToCUs":
+		return p.cp.Ports.ToCUs
+	default:
+		panic("unknown dispatcher port " + name)
+	}
+}
 
 // CommandProcessor is an alias of Comp, kept for readability at use sites.
 type CommandProcessor = Comp
@@ -154,11 +194,7 @@ type CUInterfaceForCP interface {
 func RegisterCU(cp *Comp, cu CUInterfaceForCP) {
 	cp.State.CUs = append(cp.State.CUs, cu.ControlPort())
 
-	for _, mw := range cp.Middlewares() {
-		if cpMW, ok := mw.(*cpMiddleware); ok {
-			for _, d := range cpMW.dispatchers {
-				d.RegisterCU(cu)
-			}
-		}
+	for _, d := range cp.Resources.Dispatchers {
+		d.RegisterCU(cu)
 	}
 }

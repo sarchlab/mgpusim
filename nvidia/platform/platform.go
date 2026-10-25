@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
@@ -81,17 +81,17 @@ func DeviceByName(name string) (Device, error) {
 }
 
 // Build creates a platform with one GPU of the given model.
-func Build(registrar modeling.Registrar, device Device) *Platform {
+func Build(registrar modeling.Simulation, device Device) *Platform {
 	p := &Platform{}
 
 	p.Driver = driver.MakeBuilder().
-		WithRegistrar(registrar).
+		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithLaunchOverheadLatency(device.LaunchOverheadLatency).
 		Build("Driver")
 
 	g := gpu.MakeBuilder().
-		WithRegistrar(registrar).
+		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithConfig(device.GPU).
 		Build("GPU[0]")

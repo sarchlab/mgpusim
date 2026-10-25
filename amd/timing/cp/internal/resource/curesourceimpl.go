@@ -3,7 +3,7 @@ package resource
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
@@ -28,7 +28,7 @@ type CUResourceImpl struct {
 	ldsMask        resourceMask
 
 	nextSIMD    int
-	reservedWGs map[*kernels.WorkGroup][]WfLocation
+	reservedWGs map[uint64][]WfLocation
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
@@ -47,7 +47,7 @@ func (r *CUResourceImpl) ReserveResourceForWG(wg *kernels.WorkGroup) (
 	locations = make([]WfLocation, len(wg.Wavefronts))
 
 	for i, wf := range wg.Wavefronts {
-		locations[i].Wavefront = wf
+		locations[i].WavefrontID = wf.UID
 	}
 
 	if !r.withinSGPRLimitation(wg, locations) {
@@ -185,11 +185,11 @@ func (r *CUResourceImpl) reserveResources(
 	}
 
 	r.neverReserveTwice(wg)
-	r.reservedWGs[wg] = locations
+	r.reservedWGs[wg.UID] = locations
 }
 
 func (r *CUResourceImpl) neverReserveTwice(wg *kernels.WorkGroup) {
-	if _, found := r.reservedWGs[wg]; found {
+	if _, found := r.reservedWGs[wg.UID]; found {
 		panic("reserving a work-group twice")
 	}
 }
@@ -204,7 +204,7 @@ func (r *CUResourceImpl) clearTempReservation(wg *kernels.WorkGroup) {
 
 // FreeResourcesForWG marks all the resources used by a work-group available.
 func (r *CUResourceImpl) FreeResourcesForWG(wg *kernels.WorkGroup) {
-	locations, found := r.reservedWGs[wg]
+	locations, found := r.reservedWGs[wg.UID]
 	if !found {
 		panic("work-group not found")
 	}
@@ -228,5 +228,5 @@ func (r *CUResourceImpl) FreeResourcesForWG(wg *kernels.WorkGroup) {
 			allocStatusFree)
 	}
 
-	delete(r.reservedWGs, wg)
+	delete(r.reservedWGs, wg.UID)
 }

@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -33,8 +36,8 @@ func (a zeroStorageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 
 func (a zeroStorageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {}
 
-func exampleWorkGroup() *kernels.WorkGroup {
-	wg := kernels.NewWorkGroup()
+func exampleWorkGroup(s *sim.Simulation) *kernels.WorkGroup {
+	wg := kernels.NewWorkGroup(s.NewID())
 	wg.SizeX, wg.SizeY, wg.SizeZ = 64, 1, 1
 	wg.CodeObject = &insts.KernelCodeObject{
 		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
@@ -49,7 +52,7 @@ func exampleWorkGroup() *kernels.WorkGroup {
 		KernelObject:   0x1000,
 	}
 
-	wf := kernels.NewWavefront()
+	wf := kernels.NewWavefront(s.NewID())
 	wf.WG = wg
 	wf.CodeObject = wg.CodeObject
 	wf.Packet = wg.Packet
@@ -62,49 +65,57 @@ func exampleWorkGroup() *kernels.WorkGroup {
 // TestComputeUnitRunsWorkGroup dispatches a MapWGReq to the emulation CU and
 // expects a WGCompletionMsg that acknowledges the request.
 func TestComputeUnitRunsWorkGroup(t *testing.T) {
-	engine := timing.NewSerialEngine()
-	registrar := modeling.NewStandaloneRegistrar(engine)
+	registrar := sim.MakeBuilder().Build()
+	t.Cleanup(func() {
+		if err := registrar.Terminate(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	cu := MakeBuilder().
-		WithRegistrar(registrar).
+		WithSimulation(registrar).
 		WithResources(Resources{
 			Decoder:         endpgmDecoder{},
 			ALU:             &mockBenchALU{},
 			StorageAccessor: zeroStorageAccessor{},
 		}).
 		Build("CU")
-	cuPort := messaging.NewPort(cu, 1, 1, "CU.ToDispatcher")
-	cu.AssignPort(DispatchPortName, cuPort)
-
-	dispatcherPort := messaging.NewPort(nil, 4, 4, "Dispatcher.ToCU")
-
-	conn := directconnection.MakeBuilder().
-		WithRegistrar(registrar).
-		Build("Conn")
-	conn.PlugIn(cuPort)
-	conn.PlugIn(dispatcherPort)
-
-	req := protocol.MapWGReq{
-		MsgMeta: messaging.MsgMeta{
-			ID:  timing.GetIDGenerator().Generate(),
-			Src: dispatcherPort.AsRemote(),
-			Dst: cuPort.AsRemote(),
-		},
-		WorkGroup: exampleWorkGroup(),
-		PID:       1,
+	cuPort := twowaybuffered.MakeBuilder().WithSimulation(registrar).Build()
+	cu.BindPort(DispatchPortName, cuPort)
+	endpoint := modeling.MakeBuilder[*testEndpoint](
+		testEndpointSpec{Freq: timing.GHz},
+	).WithSimulation(registrar).
+		Build("Dispatcher")
+	dispatcherPort := twowaybuffered.MakeBuilder().
+		WithSimulation(registrar).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).
+		Build()
+	endpoint.BindPort("ToCU", dispatcherPort)
+	conn := direct.NewConnection("Conn", registrar, timing.GHz)
+	conn.BindPort(cuPort)
+	conn.BindPort(dispatcherPort)
+	if err := registrar.Initialize(); err != nil {
+		t.Fatal(err)
 	}
+
+	req := messaging.Msg{ID: registrar.NewID(),
+		Src: dispatcherPort.AsRemote(),
+		Dst: cuPort.AsRemote(),
+		Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(exampleWorkGroup(registrar)),
+			PID: 1}}
+
 	dispatcherPort.Send(req)
 
-	if err := engine.Run(); err != nil {
+	if err := registrar.Engine().Run(); err != nil {
 		t.Fatalf("engine run failed: %v", err)
 	}
 
-	msg := dispatcherPort.RetrieveIncoming()
-	if msg == nil {
+	msg, ok := dispatcherPort.RetrieveIncoming()
+	if !ok {
 		t.Fatal("expected a WGCompletionMsg, got none")
 	}
 
-	completion, ok := msg.(protocol.WGCompletionMsg)
+	completion, ok := msg.Payload.(protocol.WGCompletionMsg)
 	if !ok {
 		t.Fatalf("expected WGCompletionMsg, got %T", msg)
 	}
@@ -114,3 +125,9 @@ func TestComputeUnitRunsWorkGroup(t *testing.T) {
 			req.ID, completion.RspToIDs)
 	}
 }
+
+type testEndpointSpec struct{ Freq timing.Freq }
+type testEndpointPorts struct {
+	ToCU messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+}
+type testEndpoint = ticking.Component[testEndpointSpec, struct{}, struct{}, testEndpointPorts, struct{}]

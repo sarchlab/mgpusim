@@ -3,8 +3,9 @@ package driver
 import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // GPUPortName is the logical name of the port the driver uses to talk to the
@@ -33,16 +34,18 @@ type Spec struct {
 
 // State contains the mutable runtime data of the driver.
 //
-// The driver's real runtime state (contexts, command queues, in-flight
-// requests, devices) is a complex object graph that cannot be represented as
-// pure data yet. It lives on the Driver struct instead.
-// TODO(akita5): state purity.
-type State struct{}
+// Contexts, queues, allocation state and outstanding copies are serialized by
+// the named Runtime resource, which restores local object links from values.
+type State struct {
+	NextPID                    uint64
+	CommandTasks, RequestTasks map[uint64]uint64
+}
 
 // Resources contains the references to the shared resources the driver uses.
 type Resources struct {
+	Runtime *Driver
 	// PageTable is the global page table shared with the MMUs.
-	PageTable vm.PageTable
+	PageTable *vm.PageTable
 
 	// GlobalStorage is the global storage that backs all the simulated
 	// memories.
@@ -50,4 +53,19 @@ type Resources struct {
 }
 
 // Comp is the Akita component of the driver.
-type Comp = modeling.Component[Spec, State, Resources]
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Ports struct {
+	GPU messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
+}
+type Middlewares struct {
+	Send    *sendMW
+	Memory  *driverMiddlewaresMW
+	Command *commandMW
+}
+
+func (m *Middlewares) Initialize(c *Comp) {
+	d := c.Resources.Runtime
+	m.Send = &sendMW{driver: d}
+	m.Memory = &driverMiddlewaresMW{driver: d}
+	m.Command = &commandMW{driver: d}
+}

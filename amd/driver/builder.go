@@ -4,39 +4,36 @@ import (
 	"sync"
 
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// defaultSpec provides the default configuration of the driver.
-var defaultSpec = Spec{
-	Freq:         1 * timing.GHz,
-	Log2PageSize: 12,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers obtain it,
 // tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:         1 * timing.GHz,
+		Log2PageSize: 12,
+	}
 }
 
 // A Builder can build a driver.
 type Builder struct {
 	spec      Spec
 	resources Resources
-	registrar modeling.Registrar
+	registrar modeling.Simulation
 }
 
 // MakeBuilder creates a driver builder seeded with the default spec.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
+// WithSimulation wires the builder to a registrar (a *simulation.Simulation in
 // assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -58,19 +55,16 @@ func (b Builder) WithResources(resources Resources) Builder {
 // instance is created externally and supplied with AssignPort.
 func (b Builder) Build(name string) *Driver {
 	if b.registrar == nil {
-		panic("driver: WithRegistrar is required")
+		panic("driver: WithSimulation is required")
 	}
 
 	driver := new(Driver)
-	driver.Comp = modeling.NewBuilder[Spec, State, Resources]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		WithResources(b.resources).
-		Build(name)
-	driver.Comp.State = State{}
+	resources := b.resources
+	resources.Runtime = driver
+	driver.Comp = modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(resources).Build(name)
+	driver.State = State{CommandTasks: make(map[uint64]uint64), RequestTasks: make(map[uint64]uint64)}
 
-	driver.engine = b.registrar.GetEngine()
+	driver.engine = b.registrar.Engine()
 	driver.Log2PageSize = b.spec.Log2PageSize
 
 	memAllocatorImpl := internal.NewMemoryAllocator(
@@ -97,22 +91,14 @@ func (b Builder) Build(name string) *Driver {
 			defaultMemoryCopyMiddleware)
 	}
 
-	// The middleware order mirrors the v4 tick order: send, memory-copy
-	// middleware ticks, then return/command processing.
-	driver.Comp.AddMiddleware(&sendMW{driver: driver})
-	driver.Comp.AddMiddleware(&driverMiddlewaresMW{driver: driver})
-	driver.Comp.AddMiddleware(&commandMW{driver: driver})
-
-	driver.Comp.DeclarePort(GPUPortName)
-
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
 	driver.engineIdle = sync.NewCond(&driver.engineRunningMutex)
 	driver.codeObjGPUAddrs = make(map[*insts.KernelCodeObject]Ptr)
 
+	driver.unboundResults = make(map[uint64][]byte)
 	b.createCPU(driver)
-
-	b.registrar.RegisterComponent(driver.Comp)
+	b.registrar.RegisterResource(&driverCheckpoint{driver})
 
 	return driver
 }
