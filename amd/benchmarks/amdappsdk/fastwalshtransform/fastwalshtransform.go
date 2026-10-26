@@ -11,19 +11,19 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	TArray driver.Ptr
+	TArray gpuruntime.Ptr
 	Step   uint32
 }
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	TArray driver.Ptr
+	TArray gpuruntime.Ptr
 	Step   uint32
 	// Padding to align hidden args to next 4-byte boundary
 	Pad uint32
@@ -47,26 +47,21 @@ type CDNA3KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig,
+	benchmarks.Checkpoint[checkpointConfig, State]
 
-		State,
-	]
-
-	driver *driver.Runtime
+	rt *gpuruntime.Runtime
 
 	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig,
-		b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -104,8 +99,8 @@ func (b *Benchmark) setup() {
 	b.loadProgram()
 
 	for _, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.rt.CreateCommandQueue(b.Context))
 	}
 
 	b.initMem()
@@ -124,12 +119,12 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.DInputArray = b.driver.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
+		b.DInputArray = b.rt.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
 	} else {
-		b.DInputArray = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
+		b.DInputArray = b.rt.AllocateMemory(b.Context, uint64(b.Length*4))
 	}
 
-	b.Upload(b.driver, b.Queues[0], b.DInputArray, b.HInputArray)
+	b.Upload(b.rt, b.Queues[0], b.DInputArray, b.HInputArray)
 }
 
 func printArray(array []float32, n uint32) {
@@ -138,7 +133,7 @@ func printArray(array []float32, n uint32) {
 	}
 }
 
-func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
+func (b *Benchmark) execStage(queue gpuruntime.CommandQueue, step uint32) {
 	globalThreadSize := b.Length / 2
 	localThreadSize := uint16(256)
 
@@ -166,7 +161,7 @@ func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
 			HiddenGridDims:      1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{globalThreadSize, 1, 1},
@@ -179,7 +174,7 @@ func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
 			Step:   step,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{globalThreadSize, 1, 1},
@@ -222,7 +217,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -238,10 +233,10 @@ func (b *Benchmark) Step() error {
 		}
 		b.Phase = 2
 	case 2:
-		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.DInputArray, int(b.Length)*4)
+		b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.DInputArray, int(b.Length)*4)
 		b.Phase = 3
 	case 3:
-		if err := benchmarks.Read(b.driver, b.Readback, b.HInputArray); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.HInputArray); err != nil {
 			return err
 		}
 		if b.Verification {

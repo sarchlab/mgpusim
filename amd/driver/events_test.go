@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
@@ -28,7 +29,7 @@ func (k *kernelTimes) TaskEnded(t tasks.Task) {
 		)
 	}
 }
-func eventSystem(t *testing.T) (*sim.Simulation, *driver.Runtime, driver.Ticker) {
+func eventSystem(t *testing.T) (*sim.Simulation, *gpuruntime.Runtime, driver.Ticker) {
 	t.Helper()
 	s := sim.MakeBuilder().WithTaskTracking().Build()
 	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
@@ -48,10 +49,10 @@ func eventSystem(t *testing.T) (*sim.Simulation, *driver.Runtime, driver.Ticker)
 	t.Fatal("missing Driver")
 	return nil, nil, nil
 }
-func eventGroup(rt *driver.Runtime, q driver.CommandQueue) []driver.Event {
-	return []driver.Event{rt.EnqueueRecordEvent(q), rt.EnqueueRecordEvent(q), rt.EnqueueRecordEvent(q)}
+func eventGroup(rt *gpuruntime.Runtime, q gpuruntime.CommandQueue) []gpuruntime.Event {
+	return []gpuruntime.Event{rt.EnqueueRecordEvent(q), rt.EnqueueRecordEvent(q), rt.EnqueueRecordEvent(q)}
 }
-func checkEventGroup(t *testing.T, rt *driver.Runtime, events []driver.Event, want timing.VTimeInPicoSec) {
+func checkEventGroup(t *testing.T, rt *gpuruntime.Runtime, events []gpuruntime.Event, want timing.VTimeInPicoSec) {
 	t.Helper()
 	for _, event := range events {
 		got, err := rt.EventTime(event)
@@ -76,7 +77,7 @@ func TestMarkerOnlyQueueHasOneTriggerTime(t *testing.T) {
 		t.Fatal("markers did not complete")
 	}
 }
-func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.HostBuffer, [][]driver.Event) {
+func submitFIRPair(t *testing.T, rt *gpuruntime.Runtime, markers bool) ([]gpuruntime.HostBuffer, [][]gpuruntime.Event) {
 	t.Helper()
 	ctx := rt.Init()
 	q := rt.CreateCommandQueue(ctx)
@@ -117,8 +118,8 @@ func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.Hos
 		t.Fatal(err)
 	}
 	co := insts.LoadKernelCodeObjectFromBytes(code, "FIR")
-	var events [][]driver.Event
-	var reads []driver.HostBuffer
+	var events [][]gpuruntime.Event
+	var reads []gpuruntime.HostBuffer
 	if markers {
 		events = append(events, eventGroup(rt, q))
 	}
@@ -132,7 +133,7 @@ func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.Hos
 	}
 	return reads, events
 }
-func verifyFIRReads(t *testing.T, rt *driver.Runtime, ids []driver.HostBuffer) {
+func verifyFIRReads(t *testing.T, rt *gpuruntime.Runtime, ids []gpuruntime.HostBuffer) {
 	t.Helper()
 	for _, id := range ids {
 		values := make([]float32, 64)

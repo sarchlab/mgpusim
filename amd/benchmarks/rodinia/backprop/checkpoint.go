@@ -3,14 +3,14 @@ package backprop
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	InputN    int
@@ -23,16 +23,16 @@ type State struct {
 	HB1              []float32
 	HB2              []float32
 	HTarget          []float32
-	GInput           driver.Ptr
-	GW1              driver.Ptr
-	GB1              driver.Ptr
-	GHidden          driver.Ptr
-	GW2              driver.Ptr
-	GB2              driver.Ptr
-	GOutput          driver.Ptr
-	GTarget          driver.Ptr
-	GDeltaOut        driver.Ptr
-	GDeltaHid        driver.Ptr
+	GInput           gpuruntime.Ptr
+	GW1              gpuruntime.Ptr
+	GB1              gpuruntime.Ptr
+	GHidden          gpuruntime.Ptr
+	GW2              gpuruntime.Ptr
+	GB2              gpuruntime.Ptr
+	GOutput          gpuruntime.Ptr
+	GTarget          gpuruntime.Ptr
+	GDeltaOut        gpuruntime.Ptr
+	GDeltaHid        gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

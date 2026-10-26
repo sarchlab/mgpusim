@@ -3,22 +3,22 @@ package pathfinder
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	Rows             int
 	Cols             int
 	Wall             []int32
-	GWall            driver.Ptr
-	GBuf             [2]driver.Ptr
-	FinalGBuf        driver.Ptr
+	GWall            gpuruntime.Ptr
+	GBuf             [2]gpuruntime.Ptr
+	FinalGBuf        gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

@@ -12,18 +12,19 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/sharedmembandwidth"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/sharedmemlatency"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 type sharedCopyFixture struct {
 	benchmark benchmarks.Benchmark
-	queue     driver.CommandQueue
-	sink      driver.Ptr
+	queue     gpuruntime.CommandQueue
+	sink      gpuruntime.Ptr
 	want      []float32
 	output    func() []float32
 }
 
-func sharedCopyBenchmark(rt *driver.Runtime, name, pattern string, verify bool) sharedCopyFixture {
+func sharedCopyBenchmark(rt *gpuruntime.Runtime, name, pattern string, verify bool) sharedCopyFixture {
 	if name == "bandwidth" {
 		b := sharedmembandwidth.NewBenchmark(rt)
 		b.NumBlocks, b.InnerIters, b.BlockSize = 2, 1, 64

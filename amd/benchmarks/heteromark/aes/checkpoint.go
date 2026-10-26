@@ -3,15 +3,15 @@ package aes
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
-	Queue            driver.CommandQueue
-	Readback         driver.HostBuffer
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Readback         gpuruntime.HostBuffer
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	Length           int
@@ -19,9 +19,9 @@ type State struct {
 	Key              []byte
 	ExpandedKey      []uint32
 	S                []byte
-	GInput           driver.Ptr
-	GExpandedKey     []driver.Ptr
-	GS               []driver.Ptr
+	GInput           gpuruntime.Ptr
+	GExpandedKey     []gpuruntime.Ptr
+	GS               []gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

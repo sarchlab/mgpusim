@@ -3,15 +3,15 @@ package fft
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	UseUnifiedMemory bool
 	Arch             arch.Type
@@ -22,7 +22,7 @@ type State struct {
 	NFfts            int64
 	HalfNCmplx       int64
 	UsedBytes        uint64
-	DSource          driver.Ptr
+	DSource          gpuruntime.Ptr
 	Source           []Float2
 	Result           []Float2
 }

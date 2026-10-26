@@ -11,15 +11,15 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	Output              driver.Ptr
-	Input               driver.Ptr
-	Block               driver.LocalPtr
+	Output              gpuruntime.Ptr
+	Input               gpuruntime.Ptr
+	Block               gpuruntime.LocalPtr
 	WIWidth             uint32
 	WIHeight            uint32
 	NumWGWidth          uint32
@@ -32,16 +32,16 @@ type GCN3KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	Output       driver.Ptr      // offset 0
-	Input        driver.Ptr      // offset 8
-	Block        driver.LocalPtr // offset 16 (LDS allocation for HIP_DYNAMIC_SHARED)
-	BlockPad     uint32          // offset 20 (pad to match 8-byte ptr in HSACO)
-	WIWidth      uint32          // offset 24
-	WIHeight     uint32          // offset 28
-	NumWGWidth   uint32          // offset 32
-	GroupXOffset uint32          // offset 36
-	GroupYOffset uint32          // offset 40
-	Pad          uint32          // offset 44 - alignment padding
+	Output       gpuruntime.Ptr      // offset 0
+	Input        gpuruntime.Ptr      // offset 8
+	Block        gpuruntime.LocalPtr // offset 16 (LDS allocation for HIP_DYNAMIC_SHARED)
+	BlockPad     uint32              // offset 20 (pad to match 8-byte ptr in HSACO)
+	WIWidth      uint32              // offset 24
+	WIHeight     uint32              // offset 28
+	NumWGWidth   uint32              // offset 32
+	GroupXOffset uint32              // offset 36
+	GroupYOffset uint32              // offset 40
+	Pad          uint32              // offset 44 - alignment padding
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
 	HiddenBlockCountX   uint32   // offset 48
 	HiddenBlockCountY   uint32   // offset 52
@@ -62,21 +62,20 @@ type CDNA3KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	b.ElemsPerThread1Dim = 4
 	b.BlockSize = 16
 	return b
@@ -113,14 +112,14 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
 
 	for _, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.rt.CreateCommandQueue(b.Context))
 	}
 
 	b.initMem()
@@ -137,24 +136,24 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.DInputData = b.driver.AllocateUnifiedMemory(
+		b.DInputData = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(numData*4))
-		b.DOutputData = b.driver.AllocateUnifiedMemory(
+		b.DOutputData = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(numData*4))
 	} else {
-		b.DInputData = b.driver.AllocateMemory(
+		b.DInputData = b.rt.AllocateMemory(
 			b.Context, uint64(numData*4))
-		b.DOutputData = b.driver.AllocateMemory(
+		b.DOutputData = b.rt.AllocateMemory(
 			b.Context, uint64(numData*4))
-		b.driver.Distribute(b.Context, b.DInputData, uint64(numData*4), b.Gpus)
-		b.driver.Distribute(b.Context, b.DOutputData, uint64(numData*4), b.Gpus)
+		b.rt.Distribute(b.Context, b.DInputData, uint64(numData*4), b.Gpus)
+		b.rt.Distribute(b.Context, b.DOutputData, uint64(numData*4), b.Gpus)
 	}
 
-	b.Upload(b.driver, b.Queue, b.DInputData, b.HInputData)
+	b.Upload(b.rt, b.Queue, b.DInputData, b.HInputData)
 }
 
 func (b *Benchmark) createCDNA3KernelArgs(
-	blockPtr driver.LocalPtr,
+	blockPtr gpuruntime.LocalPtr,
 	wiWidth, wiHeight, numWGWidth, wgXPerGPU uint32,
 	wiWidthPerGPU, gpuIndex int,
 ) CDNA3KernelArgs {
@@ -190,12 +189,12 @@ func (b *Benchmark) createCDNA3KernelArgs(
 }
 
 func (b *Benchmark) enqueueKernel(
-	queue driver.CommandQueue,
+	queue gpuruntime.CommandQueue,
 	wiWidth, wiHeight, numWGWidth, wgXPerGPU uint32,
 	wiWidthPerGPU int,
 	gpuIndex int,
 ) {
-	blockPtr := driver.LocalPtr(b.BlockSize * b.BlockSize *
+	blockPtr := gpuruntime.LocalPtr(b.BlockSize * b.BlockSize *
 		b.ElemsPerThread1Dim * b.ElemsPerThread1Dim * 4)
 
 	if b.Arch == arch.CDNA3 {
@@ -205,7 +204,7 @@ func (b *Benchmark) enqueueKernel(
 		gridSizeX := uint32(wiWidthPerGPU)
 		gridSizeY := wiHeight
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{gridSizeX, gridSizeY, 1},
@@ -222,7 +221,7 @@ func (b *Benchmark) enqueueKernel(
 			0, 0, 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
@@ -273,7 +272,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -291,7 +290,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutputData
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -301,7 +300,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutputData
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

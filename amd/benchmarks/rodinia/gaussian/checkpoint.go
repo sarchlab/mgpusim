@@ -3,22 +3,22 @@ package gaussian
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	N                int
 	AInit            []float32 // original A (row-major NxN)
 	BInit            []float32 // original b (N)
-	GA               driver.Ptr
-	GB               driver.Ptr
-	GM               driver.Ptr
+	GA               gpuruntime.Ptr
+	GB               gpuruntime.Ptr
+	GM               gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

@@ -11,22 +11,22 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	OutputPathDistanceMatrix driver.Ptr
-	OutputPathMatrix         driver.Ptr
+	OutputPathDistanceMatrix gpuruntime.Ptr
+	OutputPathMatrix         gpuruntime.Ptr
 	NumNodes                 uint32
 	Pass                     uint32
 }
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	OutputPathDistanceMatrix driver.Ptr
-	OutputPathMatrix         driver.Ptr
+	OutputPathDistanceMatrix gpuruntime.Ptr
+	OutputPathMatrix         gpuruntime.Ptr
 	NumNodes                 uint32
 	Pass                     uint32
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
@@ -49,22 +49,20 @@ type CDNA3KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -99,8 +97,8 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
 
@@ -149,23 +147,23 @@ func (b *Benchmark) initMem() {
 	copy(b.HVerificationPathMatrix, b.HOutputPathMatrix)
 
 	if b.UseUnifiedMemory {
-		b.DOutputPathMatrix = b.driver.AllocateUnifiedMemory(
+		b.DOutputPathMatrix = b.rt.AllocateUnifiedMemory(
 			b.Context,
 			uint64(numNodes*numNodes*4))
-		b.DOutputPathDistanceMatrix = b.driver.AllocateUnifiedMemory(
+		b.DOutputPathDistanceMatrix = b.rt.AllocateUnifiedMemory(
 			b.Context,
 			uint64(numNodes*numNodes*4))
 	} else {
-		b.DOutputPathMatrix = b.driver.AllocateMemory(
+		b.DOutputPathMatrix = b.rt.AllocateMemory(
 			b.Context,
 			uint64(numNodes*numNodes*4))
-		b.DOutputPathDistanceMatrix = b.driver.AllocateMemory(
+		b.DOutputPathDistanceMatrix = b.rt.AllocateMemory(
 			b.Context,
 			uint64(numNodes*numNodes*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.DOutputPathMatrix, b.HOutputPathMatrix)
-	b.Upload(b.driver, b.Queue, b.DOutputPathDistanceMatrix, b.HOutputPathDistanceMatrix)
+	b.Upload(b.rt, b.Queue, b.DOutputPathMatrix, b.HOutputPathMatrix)
+	b.Upload(b.rt, b.Queue, b.DOutputPathDistanceMatrix, b.HOutputPathDistanceMatrix)
 }
 
 func printMatrix(matrix []uint32, n uint32) {
@@ -204,7 +202,7 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 			HiddenGridDims:      2,
 		}
 
-		b.driver.EnqueueLaunchKernel(b.Queue,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -218,7 +216,7 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 			Pass:                     pass,
 		}
 
-		b.driver.EnqueueLaunchKernel(b.Queue,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -293,7 +291,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -313,7 +311,7 @@ func (b *Benchmark) Step() error {
 			case 1:
 				dst = b.HOutputPathDistanceMatrix
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -325,7 +323,7 @@ func (b *Benchmark) Step() error {
 			case 1:
 				dst = b.HOutputPathDistanceMatrix
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

@@ -3,22 +3,22 @@ package relu
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	Length           int
 	InputData        []float32
 	OutputData       []float32
-	GInputData       driver.Ptr
-	GOutputData      driver.Ptr
+	GInputData       gpuruntime.Ptr
+	GOutputData      gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

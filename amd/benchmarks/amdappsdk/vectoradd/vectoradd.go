@@ -9,18 +9,18 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines kernel arguments
 // Layout must match AMDGPU hidden kernel argument format for GFX942
 type KernelArgs struct {
-	A      driver.Ptr // offset 0 - 8 bytes
-	B      driver.Ptr // offset 8 - 8 bytes
-	C      driver.Ptr // offset 16 - 8 bytes
-	Width  int32      // offset 24 - 4 bytes
-	Height int32      // offset 28 - 4 bytes
+	A      gpuruntime.Ptr // offset 0 - 8 bytes
+	B      gpuruntime.Ptr // offset 8 - 8 bytes
+	C      gpuruntime.Ptr // offset 16 - 8 bytes
+	Width  int32          // offset 24 - 4 bytes
+	Height int32          // offset 28 - 4 bytes
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
 	HiddenBlockCountX   uint32   // offset 32 - number of workgroups in X
 	HiddenBlockCountY   uint32   // offset 36 - number of workgroups in Y
@@ -41,23 +41,20 @@ type KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	b.loadProgram()
 	return b
 }
@@ -85,10 +82,10 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
 }
 
@@ -105,24 +102,24 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.DA = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
-		b.DB = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
-		b.DC = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
+		b.DA = b.rt.AllocateUnifiedMemory(b.Context, uint64(numData*4))
+		b.DB = b.rt.AllocateUnifiedMemory(b.Context, uint64(numData*4))
+		b.DC = b.rt.AllocateUnifiedMemory(b.Context, uint64(numData*4))
 	} else {
-		b.DA = b.driver.AllocateMemory(b.Context, uint64(numData*4))
-		b.driver.Distribute(b.Context, b.DA, uint64(numData*4), b.Gpus)
-		b.DB = b.driver.AllocateMemory(b.Context, uint64(numData*4))
-		b.driver.Distribute(b.Context, b.DB, uint64(numData*4), b.Gpus)
-		b.DC = b.driver.AllocateMemory(b.Context, uint64(numData*4))
-		b.driver.Distribute(b.Context, b.DC, uint64(numData*4), b.Gpus)
+		b.DA = b.rt.AllocateMemory(b.Context, uint64(numData*4))
+		b.rt.Distribute(b.Context, b.DA, uint64(numData*4), b.Gpus)
+		b.DB = b.rt.AllocateMemory(b.Context, uint64(numData*4))
+		b.rt.Distribute(b.Context, b.DB, uint64(numData*4), b.Gpus)
+		b.DC = b.rt.AllocateMemory(b.Context, uint64(numData*4))
+		b.rt.Distribute(b.Context, b.DC, uint64(numData*4), b.Gpus)
 	}
 
-	b.Upload(b.driver, b.Queue, b.DB, b.HB)
-	b.Upload(b.driver, b.Queue, b.DC, b.HC)
+	b.Upload(b.rt, b.Queue, b.DB, b.HB)
+	b.Upload(b.rt, b.Queue, b.DC, b.HC)
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]driver.CommandQueue, len(b.Gpus))
+	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 	numData := b.Width * b.Height
 
 	// Workgroup size is fixed at 64x1x1
@@ -131,8 +128,8 @@ func (b *Benchmark) exec() {
 	wgSizeZ := uint16(1)
 
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, gpu)
+		queues[i] = b.rt.CreateCommandQueue(b.Context)
 
 		gridSize := numData / uint32(len(b.Gpus))
 
@@ -154,7 +151,7 @@ func (b *Benchmark) exec() {
 			HiddenGlobalOffsetZ: 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queues[i],
 			b.kernel,
 			[3]uint32{gridSize, 1, 1},
@@ -193,7 +190,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -211,7 +208,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HA
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -221,7 +218,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HA
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

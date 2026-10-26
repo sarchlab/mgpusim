@@ -4,7 +4,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type checkpointConfig struct {
@@ -15,7 +15,7 @@ type checkpointConfig struct {
 }
 type State struct {
 	benchmarks.Progress
-	Context                            driver.Context
+	Context                            gpuruntime.Context
 	GPUs                               []int
 	Arch                               arch.Type
 	Epoch, BatchSize, MaxBatchPerEpoch int
@@ -36,7 +36,7 @@ func (b *Benchmark) configuration() checkpointConfig {
 }
 
 func (b *Benchmark) bind() error {
-	t, err := gputraining.Bind(b.driver, &b.Trainer)
+	t, err := gputraining.Bind(b.rt, &b.Trainer)
 	if err != nil {
 		return err
 	}

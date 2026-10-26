@@ -10,14 +10,15 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 var _ = Describe("MCCL", func() {
 	var (
 		s         *simulation.Simulation
-		gpuDriver *driver.Runtime
-		context   driver.Context
+		gpuDriver *gpuruntime.Runtime
+		context   gpuruntime.Context
 		gpuIDs    []int
 		comms     []*mccl.Communicator
 	)
@@ -30,12 +31,12 @@ var _ = Describe("MCCL", func() {
 		}
 		Expect(s.Run()).To(Succeed())
 	}
-	upload := func(ctx driver.Context, p driver.Ptr, data any) {
+	upload := func(ctx gpuruntime.Context, p gpuruntime.Ptr, data any) {
 		q := gpuDriver.CreateCommandQueue(ctx)
 		benchmarks.Upload(gpuDriver, q, p, data)
 		drain()
 	}
-	read := func(ctx driver.Context, data any, p driver.Ptr) {
+	read := func(ctx gpuruntime.Context, data any, p gpuruntime.Ptr) {
 		q := gpuDriver.CreateCommandQueue(ctx)
 		id := benchmarks.Download(gpuDriver, q, p, binary.Size(data))
 		drain()
@@ -65,7 +66,7 @@ var _ = Describe("MCCL", func() {
 		gpuNum := 4
 		dataSize := 1024
 		root := 1
-		datas := make([]driver.Ptr, gpuNum)
+		datas := make([]gpuruntime.Ptr, gpuNum)
 
 		for i := 0; i < gpuNum; i++ {
 			gpuDriver.SelectGPU(context, i+1)
@@ -98,8 +99,8 @@ var _ = Describe("MCCL", func() {
 		gpuNum := 4
 		var dataSize uint32 = 1029
 		var bufSize uint32 = 256
-		datas := make([]driver.Ptr, gpuNum)
-		bufs := make([]driver.Ptr, gpuNum)
+		datas := make([]gpuruntime.Ptr, gpuNum)
+		bufs := make([]gpuruntime.Ptr, gpuNum)
 		for i := 0; i < gpuNum; i++ {
 			tmp := make([]float32, uint64(dataSize))
 			for j := 0; j < int(dataSize); j++ {
@@ -133,8 +134,8 @@ var _ = Describe("MCCL", func() {
 		gpuNum := 4
 		var dataSize uint32 = 1029
 		var bufSize uint32 = 1029
-		datas := make([]driver.Ptr, gpuNum)
-		bufs := make([]driver.Ptr, gpuNum)
+		datas := make([]gpuruntime.Ptr, gpuNum)
+		bufs := make([]gpuruntime.Ptr, gpuNum)
 		for i := 0; i < gpuNum; i++ {
 			tmp := make([]float32, uint64(dataSize))
 			for j := 0; j < int(dataSize); j++ {

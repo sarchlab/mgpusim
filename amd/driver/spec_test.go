@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim/timing"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 func TestRuntimeAndDriverCheckpointConfigurationsAreIndependent(t *testing.T) {
@@ -26,8 +27,10 @@ func TestRuntimeAndDriverCheckpointConfigurationsAreIndependent(t *testing.T) {
 	if first.r.GetNumGPUs() != 2 || second.r.GetNumGPUs() != 2 {
 		t.Fatal("GPU count did not come from Runtime devices")
 	}
-	second.r.config.Devices[0].CUCount++
-	if err := second.r.LoadCheckpoint(bytes.NewReader(runtime.Bytes())); err == nil {
+	third := newRuntimeConfiguredFixture(t, false, func(*Spec) {}, func(s *gpuruntime.RuntimeSpec) {
+		s.Devices[0].CUCount++
+	})
+	if err := third.r.LoadCheckpoint(bytes.NewReader(runtime.Bytes())); err == nil {
 		t.Fatal("Runtime device mismatch accepted")
 	}
 }

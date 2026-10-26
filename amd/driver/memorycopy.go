@@ -1,30 +1,28 @@
 package driver
 
-import "github.com/sarchlab/mgpusim/v5/amd/protocol"
+import (
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
+)
 
 func (m *executionMW) copy(e *Execution) {
 	c := m.comp
 	r := c.Resources.Runtime
 	cmd := &e.Command
-	ctx := r.context(r.queue(e.Queue).Context)
+	ctx := r.QueueContext(e.Queue)
 	addr := uint64(cmd.Dst)
 	size := cmd.ByteSize
-	if cmd.Kind == copyD2H {
+	if cmd.Kind == gpuruntime.CopyD2H {
 		addr = uint64(cmd.Src)
 	}
-	if !c.Spec.UseMagicMemoryCopy {
-		for _, buf := range ctx.Buffers {
-			if buf.Dirty && memRangeOverlap(uint64(buf.Address), uint64(buf.Address)+buf.Size, addr, addr+uint64(size)) {
-				for gpu := range c.Spec.GPUs {
-					m.request(e, gpu+1, protocol.FlushReq{}, false)
-				}
-				break
-			}
+	if !c.Spec.UseMagicMemoryCopy && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
+		for gpu := range c.Spec.GPUs {
+			m.request(e, gpu+1, protocol.FlushReq{}, false)
 		}
 	}
 	offset := uint64(0)
 	for offset < uint64(size) {
-		page, ok := c.Resources.PageTable.Find(ctx.PID, addr)
+		page, ok := c.Resources.PageTable.Find(r.QueuePID(e.Queue), addr)
 		if !ok {
 			panic("driver: page not found")
 		}
@@ -32,15 +30,15 @@ func (m *executionMW) copy(e *Execution) {
 		n := min(page.PageSize-pageOffset, uint64(size)-offset)
 		paddr := page.PAddr + pageOffset
 		if c.Spec.UseMagicMemoryCopy {
-			if cmd.Kind == copyH2D {
-				c.Resources.GlobalStorage.Write(paddr, r.readBytes(r.queue(e.Queue).Context, cmd.Src+Ptr(offset), n))
+			if cmd.Kind == gpuruntime.CopyH2D {
+				c.Resources.GlobalStorage.Write(paddr, readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n))
 			} else {
-				r.writeBytes(r.queue(e.Queue).Context, cmd.Dst+Ptr(offset), c.Resources.GlobalStorage.Read(paddr, n))
+				writeHostBytes(r, ctx, cmd.Dst+gpuruntime.Ptr(offset), c.Resources.GlobalStorage.Read(paddr, n))
 			}
 		} else {
-			gpu := r.allocator.GetDeviceIDByPAddr(paddr)
-			if cmd.Kind == copyH2D {
-				data := r.readBytes(r.queue(e.Queue).Context, cmd.Src+Ptr(offset), n)
+			gpu := r.DeviceIDByPAddr(paddr)
+			if cmd.Kind == gpuruntime.CopyH2D {
+				data := readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n)
 				m.request(e, gpu, protocol.MemCopyH2DReq{SrcBuffer: data, DstAddress: paddr}, true)
 			} else {
 				m.request(e, gpu, protocol.MemCopyD2HReq{SrcAddress: paddr, ByteSize: n, DstOffset: offset}, true)
@@ -53,10 +51,21 @@ func (m *executionMW) copy(e *Execution) {
 		m.finish(len(c.State.Executing) - 1)
 		return
 	}
-	if cmd.Kind == copyH2D {
+	if cmd.Kind == gpuruntime.CopyH2D {
 		c.State.CopyCyclesLeft = c.Spec.H2DCycles
 	} else {
 		c.State.CopyCyclesLeft = c.Spec.D2HCycles
 	}
 }
-func memRangeOverlap(start1, end1, start2, end2 uint64) bool { return start1 < end2 && start2 < end1 }
+func readHostBytes(r *gpuruntime.Runtime, ctx gpuruntime.Context, addr gpuruntime.Ptr, n uint64) []byte {
+	data := make([]byte, n)
+	if err := r.ReadHost(gpuruntime.HostBuffer{Context: ctx, Address: addr, ByteSize: int(n)}, data); err != nil {
+		panic(err)
+	}
+	return data
+}
+func writeHostBytes(r *gpuruntime.Runtime, ctx gpuruntime.Context, addr gpuruntime.Ptr, data []byte) {
+	if err := r.WriteHost(gpuruntime.HostBuffer{Context: ctx, Address: addr, ByteSize: len(data)}, data); err != nil {
+		panic(err)
+	}
+}

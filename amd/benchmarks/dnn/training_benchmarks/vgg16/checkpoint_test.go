@@ -19,13 +19,14 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 type graphProbe struct {
-	Result driver.HostBuffer
-	Event  driver.Event
+	Result gpuruntime.HostBuffer
+	Event  gpuruntime.Event
 	Values []float32
 	Time   timing.VTimeInPicoSec
 }
@@ -40,7 +41,7 @@ func (p *graphProbe) LoadCheckpoint(r io.Reader) error {
 
 func graphSystem(
 	t *testing.T, root string,
-) (*sim.Simulation, *driver.Runtime, *runner.Runner, *Benchmark, *graphProbe) {
+) (*sim.Simulation, *gpuruntime.Runtime, *runner.Runner, *Benchmark, *graphProbe) {
 	t.Helper()
 	old := flag.Lookup("imagenet-data-folder").Value.String()
 	if err := flag.Set("imagenet-data-folder", root); err != nil {
@@ -97,7 +98,7 @@ func makeImageFixture(t *testing.T, root string) string {
 	}
 	return path
 }
-func prepareGraph(t *testing.T, s *sim.Simulation, rt *driver.Runtime, b *Benchmark, p *graphProbe) {
+func prepareGraph(t *testing.T, s *sim.Simulation, rt *gpuruntime.Runtime, b *Benchmark, p *graphProbe) {
 	t.Helper()
 	// Exercise the actual full VGG layer/parameter/view constructor. Seed the
 	// trainer at epoch completion to bound this graph test; do not randomize the
@@ -155,7 +156,7 @@ func prepareGraph(t *testing.T, s *sim.Simulation, rt *driver.Runtime, b *Benchm
 func finishGraph(
 	t *testing.T,
 	s *sim.Simulation,
-	rt *driver.Runtime,
+	rt *gpuruntime.Runtime,
 	r *runner.Runner,
 	b *Benchmark,
 	p *graphProbe,

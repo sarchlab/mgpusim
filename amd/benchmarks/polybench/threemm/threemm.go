@@ -23,8 +23,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const blockSize = 16
@@ -39,20 +39,19 @@ const blockSize = 16
 // kernels read only blockIdx/threadIdx with constant block dims, so no
 // hidden ABI arguments are emitted.
 type KernelArgs struct {
-	In0 driver.Ptr // offset 0  (A / C / E)
-	In1 driver.Ptr // offset 8  (B / D / F)
-	Out driver.Ptr // offset 16 (E / F / G)
-	D0  int32      // offset 24 (NI / NJ / NI)
-	D1  int32      // offset 28 (NK / NM / NJ)
-	D2  int32      // offset 32 (NJ / NL / NL)
+	In0 gpuruntime.Ptr // offset 0  (A / C / E)
+	In1 gpuruntime.Ptr // offset 8  (B / D / F)
+	Out gpuruntime.Ptr // offset 16 (E / F / G)
+	D0  int32          // offset 24 (NI / NJ / NI)
+	D1  int32          // offset 28 (NK / NM / NJ)
+	D2  int32          // offset 32 (NJ / NL / NL)
 }
 
 // Benchmark defines the 3MM benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco1 *insts.KernelCodeObject
 	hsaco2 *insts.KernelCodeObject
@@ -63,13 +62,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new 3MM benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -105,8 +104,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -147,9 +146,9 @@ func (b *Benchmark) initMem() {
 		b.D[i] = float32((i*4)%100) / 10.0
 	}
 
-	alloc := b.driver.AllocateMemory
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		alloc = b.driver.AllocateUnifiedMemory
+		alloc = b.rt.AllocateUnifiedMemory
 	}
 
 	b.GA = alloc(b.Context, uint64(b.NI*b.NK*4))
@@ -160,10 +159,10 @@ func (b *Benchmark) initMem() {
 	b.GF = alloc(b.Context, uint64(b.NJ*b.NL*4))
 	b.GG = alloc(b.Context, uint64(b.NI*b.NL*4))
 
-	b.Upload(b.driver, b.Queue, b.GA, b.A)
-	b.Upload(b.driver, b.Queue, b.GB, b.B)
-	b.Upload(b.driver, b.Queue, b.GC, b.C)
-	b.Upload(b.driver, b.Queue, b.GD, b.D)
+	b.Upload(b.rt, b.Queue, b.GA, b.A)
+	b.Upload(b.rt, b.Queue, b.GB, b.B)
+	b.Upload(b.rt, b.Queue, b.GC, b.C)
+	b.Upload(b.rt, b.Queue, b.GD, b.D)
 }
 
 // gridDim returns the smallest multiple of blockSize that is >= n.
@@ -178,7 +177,7 @@ func (b *Benchmark) exec() {
 		In0: b.GA, In1: b.GB, Out: b.GE,
 		D0: int32(b.NI), D1: int32(b.NK), D2: int32(b.NJ),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco1,
 		[3]uint32{gridDim(b.NJ), gridDim(b.NI), 1},
@@ -191,7 +190,7 @@ func (b *Benchmark) exec() {
 		In0: b.GC, In1: b.GD, Out: b.GF,
 		D0: int32(b.NJ), D1: int32(b.NM), D2: int32(b.NL),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco2,
 		[3]uint32{gridDim(b.NL), gridDim(b.NJ), 1},
@@ -204,7 +203,7 @@ func (b *Benchmark) exec() {
 		In0: b.GE, In1: b.GF, Out: b.GG,
 		D0: int32(b.NI), D1: int32(b.NJ), D2: int32(b.NL),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco3,
 		[3]uint32{gridDim(b.NL), gridDim(b.NI), 1},
@@ -216,7 +215,7 @@ func (b *Benchmark) exec() {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuG := make([]float32, b.NI*b.NL)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuG); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuG); err != nil {
 		return err
 	}
 
@@ -271,7 +270,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GG, 4*(b.NI*b.NL)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GG, 4*(b.NI*b.NL)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -279,7 +278,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

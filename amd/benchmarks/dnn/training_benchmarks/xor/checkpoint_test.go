@@ -13,6 +13,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
@@ -93,7 +94,7 @@ func TestTrainingFreshProcessDeferredFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pending-free.tar.gz")
 	if !t.Run("uninterrupted", func(t *testing.T) {
 		s, r, b, pt := trainingSystem(t)
-		var pending []driver.Ptr
+		var pending []gpuruntime.Ptr
 		for i := 0; i < 15; i++ {
 			if _, err := r.Step(); err != nil {
 				t.Fatal(err)
@@ -171,7 +172,7 @@ func TestRepeatedSameProcessLoadRebindsCanonicalState(t *testing.T) {
 		if err := s.LoadCheckpoint(path); err != nil {
 			t.Fatal(err)
 		}
-		if b.State != address || b.Saved.State != address || b.trainer.State != &b.Trainer {
+		if b.State != address || b.Checkpoint.State != address || b.trainer.State != &b.Trainer {
 			t.Fatal("state/binding address diverged")
 		}
 		finishTraining(t, s, r, b, path+".replay")

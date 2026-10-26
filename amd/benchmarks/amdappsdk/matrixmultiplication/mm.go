@@ -6,8 +6,8 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // A MatrixMultiplier is a service type that can calculate the result of matrix
@@ -18,11 +18,11 @@ type MatrixMultiplier interface {
 
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
-	BlockA              driver.LocalPtr
+	BlockA              gpuruntime.LocalPtr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -30,12 +30,12 @@ type KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
 	Padding1            uint32
-	BlockA              driver.Ptr
+	BlockA              gpuruntime.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -62,11 +62,11 @@ type CDNA3KernelArgs struct {
 // the compiled kernel expects (matrixA@0, widthA@24, blockA@28, block
 // counts@32, group sizes@44, remainders@50, global offsets@72, grid dims@96).
 type COV5KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
-	BlockA              driver.LocalPtr
+	BlockA              gpuruntime.LocalPtr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -84,15 +84,15 @@ type COV5KernelArgs struct {
 }
 
 func (m *Benchmark) launchKernel( //nolint:funlen
-	gA, gB, gC driver.Ptr,
+	gA, gB, gC gpuruntime.Ptr,
 	mA *Matrix,
 	mC *Matrix,
 ) {
-	queues := make([]driver.CommandQueue, len(m.Gpus))
+	queues := make([]gpuruntime.CommandQueue, len(m.Gpus))
 
 	for i, gpu := range m.Gpus {
-		m.driver.SelectGPU(m.Context, gpu)
-		q := m.driver.CreateCommandQueue(m.Context)
+		m.rt.SelectGPU(m.Context, gpu)
+		q := m.rt.CreateCommandQueue(m.Context)
 
 		queues[i] = q
 
@@ -106,7 +106,7 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 
 		if m.Arch == arch.CDNA3 {
 			if m.BlockABuf == 0 {
-				m.BlockABuf = m.driver.AllocateMemory(m.Context,
+				m.BlockABuf = m.rt.AllocateMemory(m.Context,
 					uint64(32*32*4))
 			}
 			kernArgs := &CDNA3KernelArgs{
@@ -129,7 +129,7 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      2,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -157,7 +157,7 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      2,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -171,7 +171,7 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 				32 * 32 * 4,
 				0, int64(height * i), 0,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -184,26 +184,26 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 
 func (m *Benchmark) initMemory(
 	mA, mB, mC *Matrix,
-) (driver.Ptr, driver.Ptr, driver.Ptr) {
+) (gpuruntime.Ptr, gpuruntime.Ptr, gpuruntime.Ptr) {
 	if m.UseUnifiedMemory {
-		gA := m.driver.AllocateUnifiedMemory(m.Context, uint64(mA.Width*mA.Height*4))
-		gB := m.driver.AllocateUnifiedMemory(m.Context, uint64(mB.Width*mB.Height*4))
-		gC := m.driver.AllocateUnifiedMemory(m.Context, uint64(mC.Width*mC.Height*4))
-		m.Upload(m.driver, m.Queue, gA, mA.Data)
-		m.Upload(m.driver, m.Queue, gB, mB.Data)
+		gA := m.rt.AllocateUnifiedMemory(m.Context, uint64(mA.Width*mA.Height*4))
+		gB := m.rt.AllocateUnifiedMemory(m.Context, uint64(mB.Width*mB.Height*4))
+		gC := m.rt.AllocateUnifiedMemory(m.Context, uint64(mC.Width*mC.Height*4))
+		m.Upload(m.rt, m.Queue, gA, mA.Data)
+		m.Upload(m.rt, m.Queue, gB, mB.Data)
 
 		return gA, gB, gC
 	}
-	gA := m.driver.AllocateMemory(m.Context, uint64(mA.Width*mA.Height*4))
-	m.driver.Distribute(m.Context, gA, uint64(mA.Width*mA.Height*4), m.Gpus)
+	gA := m.rt.AllocateMemory(m.Context, uint64(mA.Width*mA.Height*4))
+	m.rt.Distribute(m.Context, gA, uint64(mA.Width*mA.Height*4), m.Gpus)
 
-	gB := m.driver.AllocateMemory(m.Context, uint64(mB.Width*mB.Height*4))
-	m.driver.Distribute(m.Context, gB, uint64(mB.Width*mB.Height*4), m.Gpus)
+	gB := m.rt.AllocateMemory(m.Context, uint64(mB.Width*mB.Height*4))
+	m.rt.Distribute(m.Context, gB, uint64(mB.Width*mB.Height*4), m.Gpus)
 
-	gC := m.driver.AllocateMemory(m.Context, uint64(mC.Width*mC.Height*4))
-	m.driver.Distribute(m.Context, gC, uint64(mC.Width*mC.Height*4), m.Gpus)
-	m.Upload(m.driver, m.Queue, gA, mA.Data)
-	m.Upload(m.driver, m.Queue, gB, mB.Data)
+	gC := m.rt.AllocateMemory(m.Context, uint64(mC.Width*mC.Height*4))
+	m.rt.Distribute(m.Context, gC, uint64(mC.Width*mC.Height*4), m.Gpus)
+	m.Upload(m.rt, m.Queue, gA, mA.Data)
+	m.Upload(m.rt, m.Queue, gB, mB.Data)
 
 	return gA, gB, gC
 }

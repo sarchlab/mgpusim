@@ -9,7 +9,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
@@ -24,7 +24,7 @@ func (*stepBenchmark) SetUnifiedMemory()              {}
 func (*stepBenchmark) SaveCheckpoint(io.Writer) error { return nil }
 func (*stepBenchmark) LoadCheckpoint(io.Reader) error { return nil }
 
-func newTestRunner(t *testing.T) (*Runner, *driver.Runtime) {
+func newTestRunner(t *testing.T) (*Runner, *gpuruntime.Runtime) {
 	t.Helper()
 	s := sim.MakeBuilder().Build()
 	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()

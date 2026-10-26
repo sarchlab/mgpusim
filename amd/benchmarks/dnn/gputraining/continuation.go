@@ -10,7 +10,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type SourceState struct {
@@ -51,7 +51,7 @@ type GPUState struct {
 // State is the trainer's actual continuation, including the canonical graph.
 type State struct {
 	GPUs                                []int
-	Contexts                            []driver.Context
+	Contexts                            []gpuruntime.Context
 	Epoch, MaxBatchPerEpoch, BatchSize  int
 	ShowBatchInfo                       bool
 	Networks                            []GPUState
@@ -60,9 +60,9 @@ type State struct {
 	Ended                               bool
 	Values, LossInputs, Derivatives     []tensor.ID
 	Labels                              [][]int
-	Readbacks, LossReadbacks            []driver.HostBuffer
+	Readbacks, LossReadbacks            []gpuruntime.HostBuffer
 	Collective                          *mccl.Collective
-	Buffers                             []driver.Ptr
+	Buffers                             []gpuruntime.Ptr
 	LastLoss, LastAccuracy              []float64
 }
 
@@ -81,8 +81,8 @@ func (t *DataParallelismMultiGPUTrainer) Connect() error {
 }
 
 // Bind reconstructs only runtime/interface bindings to a saved graph.
-func Bind(r *driver.Runtime, s *State) (DataParallelismMultiGPUTrainer, error) {
-	t := DataParallelismMultiGPUTrainer{State: s, Driver: r}
+func Bind(r *gpuruntime.Runtime, s *State) (DataParallelismMultiGPUTrainer, error) {
+	t := DataParallelismMultiGPUTrainer{State: s, Runtime: r}
 	if s == nil {
 		return t, fmt.Errorf("missing trainer state")
 	}
@@ -132,7 +132,7 @@ func (t *DataParallelismMultiGPUTrainer) connectGPU(i int) (GPUState, error) {
 }
 
 func (t *DataParallelismMultiGPUTrainer) bindGPU(g GPUState) error {
-	o := gputensor.BindOperator(t.Driver, g.Operator)
+	o := gputensor.BindOperator(t.Runtime, g.Operator)
 	n := training.Network{}
 	for _, saved := range g.Layers {
 		l, err := layers.Bind(o, saved)

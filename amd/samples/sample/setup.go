@@ -2,17 +2,18 @@
 package sample
 
 import (
+	"log"
+	_ "net/http/pprof"
+	"os"
+
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
-	"log"
-	_ "net/http/pprof"
-	"os"
 )
 
 // Config holds only command-line choices; it owns no hardware or workload.
@@ -28,14 +29,14 @@ func ParseConfig() Config { var c Config; c.parseFlag(); return c }
 type assembly struct {
 	Config
 	simulation *simulation.Simulation
-	gpuDriver  *driver.Runtime
+	gpuDriver  *gpuruntime.Runtime
 	reporter   *reporter
 	monitor    *monitoring.Monitor
 }
 
 // Build registers the chosen platform. The returned finish function flushes
 // reports and terminates the simulation after the caller's Runner completes.
-func (c *Config) Build() (*simulation.Simulation, *driver.Runtime, func() error) {
+func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() error) {
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 	a := assembly{Config: *c}
 	a.initSimulation()

@@ -19,8 +19,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant work-group size baked into the kernel (the native
@@ -41,19 +41,18 @@ const floatsPerSphere = 7
 // The kernel uses a constant block size and reads only blockIdx/threadIdx, so
 // no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Image      driver.Ptr // offset 0
-	Spheres    driver.Ptr // offset 8
-	Width      int32      // offset 16
-	Height     int32      // offset 20
-	NumSpheres int32      // offset 24
+	Image      gpuruntime.Ptr // offset 0
+	Spheres    gpuruntime.Ptr // offset 8
+	Width      int32          // offset 16
+	Height     int32          // offset 20
+	NumSpheres int32          // offset 24
 }
 
 // Benchmark defines the ray tracing benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -62,15 +61,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new ray tracing benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -102,8 +99,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -149,14 +146,14 @@ func (b *Benchmark) initMem() {
 	sphereBytes := uint64(b.Spheres * floatsPerSphere * 4)
 
 	if b.UseUnifiedMemory {
-		b.GImage = b.driver.AllocateUnifiedMemory(b.Context, imageBytes)
-		b.GSpheres = b.driver.AllocateUnifiedMemory(b.Context, sphereBytes)
+		b.GImage = b.rt.AllocateUnifiedMemory(b.Context, imageBytes)
+		b.GSpheres = b.rt.AllocateUnifiedMemory(b.Context, sphereBytes)
 	} else {
-		b.GImage = b.driver.AllocateMemory(b.Context, imageBytes)
-		b.GSpheres = b.driver.AllocateMemory(b.Context, sphereBytes)
+		b.GImage = b.rt.AllocateMemory(b.Context, imageBytes)
+		b.GSpheres = b.rt.AllocateMemory(b.Context, sphereBytes)
 	}
 
-	b.Upload(b.driver, b.Queue, b.GSpheres, b.SphereData)
+	b.Upload(b.rt, b.Queue, b.GSpheres, b.SphereData)
 }
 
 func (b *Benchmark) exec() {
@@ -171,7 +168,7 @@ func (b *Benchmark) exec() {
 		NumSpheres: int32(b.Spheres),
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{gridX, 1, 1},
@@ -318,7 +315,7 @@ func f32sqrt(x float32) float32 {
 func (b *Benchmark) verify() error {
 	totalPixels := b.Width * b.Height
 	gpuImage := make([]byte, totalPixels*4)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuImage); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuImage); err != nil {
 		return err
 	}
 
@@ -352,7 +349,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GImage, 1*((b.Width*b.Height)*4)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GImage, 1*((b.Width*b.Height)*4)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -360,7 +357,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

@@ -3,15 +3,15 @@ package stencil2d
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	WCenter          float32
@@ -21,10 +21,10 @@ type State struct {
 	HOutput          []float32
 	NumIteration     int
 	HaloWidth        int
-	DData1           driver.Ptr
-	DData2           driver.Ptr
-	CurrData         driver.Ptr
-	NewData          driver.Ptr
+	DData1           gpuruntime.Ptr
+	DData2           gpuruntime.Ptr
+	CurrData         gpuruntime.Ptr
+	NewData          gpuruntime.Ptr
 	NumRows          int
 	NumCols          int
 	DataSize         int

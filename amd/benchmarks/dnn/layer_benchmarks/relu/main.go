@@ -10,16 +10,16 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
 	Count               uint32
 	Padding             uint32
-	Input               driver.Ptr
-	Output              driver.Ptr
+	Input               gpuruntime.Ptr
+	Output              gpuruntime.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -28,33 +28,32 @@ type KernelArgs struct {
 // CDNA3KernelArgs defines kernel arguments for CDNA3 (gfx942)
 // Total size: 280 bytes matching HSACO metadata
 type CDNA3KernelArgs struct {
-	Count               uint32     // offset 0, size 4
-	Pad0                uint32     // offset 4 (alignment padding to reach offset 8)
-	Input               driver.Ptr // offset 8, size 8
-	Output              driver.Ptr // offset 16, size 8
-	HiddenBlockCountX   uint32     // offset 24, size 4
-	HiddenBlockCountY   uint32     // offset 28, size 4
-	HiddenBlockCountZ   uint32     // offset 32, size 4
-	HiddenGroupSizeX    uint16     // offset 36, size 2
-	HiddenGroupSizeY    uint16     // offset 38, size 2
-	HiddenGroupSizeZ    uint16     // offset 40, size 2
-	HiddenRemainderX    uint16     // offset 42, size 2
-	HiddenRemainderY    uint16     // offset 44, size 2
-	HiddenRemainderZ    uint16     // offset 46, size 2
-	Pad1                [16]byte   // offset 48, padding to reach offset 64
-	HiddenGlobalOffsetX int64      // offset 64, size 8
-	HiddenGlobalOffsetY int64      // offset 72, size 8
-	HiddenGlobalOffsetZ int64      // offset 80, size 8
-	HiddenGridDims      uint16     // offset 88, size 2
-	Pad2                [190]byte  // offset 90, padding to reach 280 bytes total
+	Count               uint32         // offset 0, size 4
+	Pad0                uint32         // offset 4 (alignment padding to reach offset 8)
+	Input               gpuruntime.Ptr // offset 8, size 8
+	Output              gpuruntime.Ptr // offset 16, size 8
+	HiddenBlockCountX   uint32         // offset 24, size 4
+	HiddenBlockCountY   uint32         // offset 28, size 4
+	HiddenBlockCountZ   uint32         // offset 32, size 4
+	HiddenGroupSizeX    uint16         // offset 36, size 2
+	HiddenGroupSizeY    uint16         // offset 38, size 2
+	HiddenGroupSizeZ    uint16         // offset 40, size 2
+	HiddenRemainderX    uint16         // offset 42, size 2
+	HiddenRemainderY    uint16         // offset 44, size 2
+	HiddenRemainderZ    uint16         // offset 46, size 2
+	Pad1                [16]byte       // offset 48, padding to reach offset 64
+	HiddenGlobalOffsetX int64          // offset 64, size 8
+	HiddenGlobalOffsetY int64          // offset 72, size 8
+	HiddenGlobalOffsetZ int64          // offset 80, size 8
+	HiddenGridDims      uint16         // offset 88, size 2
+	Pad2                [190]byte      // offset 90, padding to reach 280 bytes total
 }
 
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -66,13 +65,13 @@ var gcn3HSACOBytes []byte
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 
 	return b
 }
@@ -102,26 +101,26 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
 	if b.UseUnifiedMemory {
-		b.GInputData = b.driver.AllocateUnifiedMemory(b.Context,
+		b.GInputData = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.Length*4))
-		b.GOutputData = b.driver.AllocateUnifiedMemory(b.Context,
+		b.GOutputData = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.Length*4))
 	} else {
-		b.GInputData = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
-		b.driver.Distribute(b.Context, b.GInputData, uint64(b.Length*4), b.Gpus)
+		b.GInputData = b.rt.AllocateMemory(b.Context, uint64(b.Length*4))
+		b.rt.Distribute(b.Context, b.GInputData, uint64(b.Length*4), b.Gpus)
 
-		b.GOutputData = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
-		b.driver.Distribute(b.Context, b.GOutputData,
+		b.GOutputData = b.rt.AllocateMemory(b.Context, uint64(b.Length*4))
+		b.rt.Distribute(b.Context, b.GOutputData,
 			uint64(b.Length*4), b.Gpus)
 	}
 
@@ -131,7 +130,7 @@ func (b *Benchmark) initMem() {
 		b.InputData[i] = float32(i) - 0.5
 	}
 
-	b.Upload(b.driver, b.Queue, b.GInputData, b.InputData)
+	b.Upload(b.rt, b.Queue, b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createKernelArgs(
@@ -183,11 +182,11 @@ func (b *Benchmark) createKernelArgs(
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]driver.CommandQueue, len(b.Gpus))
+	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		q := b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, gpu)
+		q := b.rt.CreateCommandQueue(b.Context)
 		queues[i] = q
 
 		numWI := b.Length / len(b.Gpus)
@@ -196,7 +195,7 @@ func (b *Benchmark) exec() {
 
 		kernArg := b.createKernelArgs(globalSize, localSize, int64(numWI*i))
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			q,
 			b.hsaco,
 			globalSize,
@@ -231,7 +230,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -249,7 +248,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.OutputData
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -259,7 +258,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.OutputData
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

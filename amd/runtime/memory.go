@@ -1,4 +1,4 @@
-package driver
+package runtime
 
 // Ptr is the type that represent a virtual address in CPU or GPU memory
 type Ptr uint64

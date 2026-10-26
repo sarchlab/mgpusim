@@ -1,14 +1,14 @@
 package gputensor
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 func (o *GPUOperator) launchRepeatCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	output, input driver.Ptr,
+	output, input gpuruntime.Ptr,
 	inputLen, outLen uint32,
 ) {
 	args := cdna3RepeatArgs{
@@ -256,7 +256,7 @@ func (o *GPUOperator) launchAvgPoolBwdCDNA3(
 func (o *GPUOperator) launchSoftmaxExpCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	input, output driver.Ptr,
+	input, output gpuruntime.Ptr,
 	n int32,
 ) {
 	args := cdna3SoftmaxExpArgs{
@@ -272,7 +272,7 @@ func (o *GPUOperator) launchSoftmaxExpCDNA3(
 func (o *GPUOperator) launchSoftmaxDivCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	expInput, output, denominator driver.Ptr,
+	expInput, output, denominator gpuruntime.Ptr,
 	numElement, batchSize int32,
 ) {
 	args := cdna3SoftmaxDivArgs{
@@ -308,7 +308,7 @@ func (o *GPUOperator) launchCrossEntropyDerivCDNA3(
 func (o *GPUOperator) launchElemWiseMulCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	out, in1, in2 driver.Ptr,
+	out, in1, in2 gpuruntime.Ptr,
 	n int32,
 ) {
 	args := cdna3MulArgs{
@@ -381,7 +381,7 @@ func (o *GPUOperator) launchAdamCDNA3(
 func (o *GPUOperator) launchReluForwardCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	in, out driver.Ptr,
+	in, out gpuruntime.Ptr,
 	count int32,
 ) {
 	args := cdna3ReluForwardArgs{
@@ -397,7 +397,7 @@ func (o *GPUOperator) launchReluForwardCDNA3(
 func (o *GPUOperator) launchReluBackwardCDNA3(
 	globalSize [3]uint32,
 	localSize [3]uint16,
-	in, backIn, out driver.Ptr,
+	in, backIn, out gpuruntime.Ptr,
 	count int32,
 ) {
 	args := cdna3ReluBackwardArgs{

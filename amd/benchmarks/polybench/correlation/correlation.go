@@ -26,8 +26,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -43,44 +43,43 @@ const (
 
 // MeanArgs: kernarg_segment_size = 24.
 type MeanArgs struct {
-	Data driver.Ptr // offset 0
-	Mean driver.Ptr // offset 8
-	M    int32      // offset 16
-	N    int32      // offset 20
+	Data gpuruntime.Ptr // offset 0
+	Mean gpuruntime.Ptr // offset 8
+	M    int32          // offset 16
+	N    int32          // offset 20
 }
 
 // StddevArgs: kernarg_segment_size = 32.
 type StddevArgs struct {
-	Data   driver.Ptr // offset 0
-	Mean   driver.Ptr // offset 8
-	Stddev driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	Stddev gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
 }
 
 // NormalizeArgs: kernarg_segment_size = 32.
 type NormalizeArgs struct {
-	Data   driver.Ptr // offset 0
-	Mean   driver.Ptr // offset 8
-	Stddev driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	Stddev gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
 }
 
 // CorrelationArgs: kernarg_segment_size = 24.
 type CorrelationArgs struct {
-	Data driver.Ptr // offset 0
-	Corr driver.Ptr // offset 8
-	M    int32      // offset 16
-	N    int32      // offset 20
+	Data gpuruntime.Ptr // offset 0
+	Corr gpuruntime.Ptr // offset 8
+	M    int32          // offset 16
+	N    int32          // offset 20
 }
 
 // Benchmark defines the Correlation benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	meanKernel        *insts.KernelCodeObject
 	stddevKernel      *insts.KernelCodeObject
@@ -92,14 +91,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Correlation benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -139,8 +137,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -160,18 +158,18 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GData = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
-		b.GMean = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
-		b.GStddev = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
-		b.GCorr = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GData = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GMean = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GStddev = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GCorr = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.GData = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
-		b.GMean = b.driver.AllocateMemory(b.Context, uint64(n*4))
-		b.GStddev = b.driver.AllocateMemory(b.Context, uint64(n*4))
-		b.GCorr = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GData = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GMean = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GStddev = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GCorr = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GData, b.Data)
+	b.Upload(b.rt, b.Queue, b.GData, b.Data)
 }
 
 func (b *Benchmark) exec() { //nolint:funlen,gocognit
@@ -196,7 +194,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		M:    int32(m),
 		N:    int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.meanKernel,
 		[3]uint32{globalN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -210,7 +208,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		M:      int32(m),
 		N:      int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.stddevKernel,
 		[3]uint32{globalN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -224,7 +222,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		M:      int32(m),
 		N:      int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.normalizeKernel,
 		[3]uint32{globalMN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -237,7 +235,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		M:    int32(m),
 		N:    int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.correlationKernel,
 		[3]uint32{globalCorr, globalCorr, 1},
 		[3]uint16{tileSize, tileSize, 1},
@@ -252,7 +250,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	m := n
 
 	gpuCorr := make([]float32, n*n)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuCorr); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuCorr); err != nil {
 		return err
 	}
 
@@ -327,7 +325,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GCorr, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -335,7 +333,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

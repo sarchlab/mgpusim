@@ -3,23 +3,23 @@ package gramschmidt
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	M                int
 	N                int
 	AInit            []float32 // original A, M x N (row-major)
-	GA               driver.Ptr
-	GQ               driver.Ptr
-	GR               driver.Ptr
-	GNrm             driver.Ptr
+	GA               gpuruntime.Ptr
+	GQ               gpuruntime.Ptr
+	GR               gpuruntime.Ptr
+	GNrm             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

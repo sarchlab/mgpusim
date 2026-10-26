@@ -26,8 +26,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize and maxNodes must match the native kernel (BLOCK_SIZE, MAX_NODES).
@@ -53,17 +53,16 @@ type optionData struct {
 // with binary.Write, which does not insert alignment padding). The kernel uses
 // a constant block dimension, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Options  driver.Ptr // offset 0
-	Prices   driver.Ptr // offset 8
-	NumSteps int32      // offset 16
+	Options  gpuruntime.Ptr // offset 0
+	Prices   gpuruntime.Ptr // offset 8
+	NumSteps int32          // offset 16
 }
 
 // Benchmark defines the Binomial Options benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -72,13 +71,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Binomial Options benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -110,8 +109,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -150,14 +149,14 @@ func (b *Benchmark) initMem() {
 	priceBytes := uint64(b.NumOptions * 4)
 
 	if b.UseUnifiedMemory {
-		b.GOptions = b.driver.AllocateUnifiedMemory(b.Context, optBytes)
-		b.GPrices = b.driver.AllocateUnifiedMemory(b.Context, priceBytes)
+		b.GOptions = b.rt.AllocateUnifiedMemory(b.Context, optBytes)
+		b.GPrices = b.rt.AllocateUnifiedMemory(b.Context, priceBytes)
 	} else {
-		b.GOptions = b.driver.AllocateMemory(b.Context, optBytes)
-		b.GPrices = b.driver.AllocateMemory(b.Context, priceBytes)
+		b.GOptions = b.rt.AllocateMemory(b.Context, optBytes)
+		b.GPrices = b.rt.AllocateMemory(b.Context, priceBytes)
 	}
 
-	b.Upload(b.driver, b.Queue, b.GOptions, b.Options)
+	b.Upload(b.rt, b.Queue, b.GOptions, b.Options)
 }
 
 func (b *Benchmark) exec() {
@@ -170,7 +169,7 @@ func (b *Benchmark) exec() {
 		NumSteps: int32(b.NumSteps),
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -223,7 +222,7 @@ func f32max(a, b float32) float32 {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuPrices := make([]float32, b.NumOptions)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuPrices); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuPrices); err != nil {
 		return err
 	}
 
@@ -245,7 +244,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GPrices, 4*(b.NumOptions)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GPrices, 4*(b.NumOptions)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -253,7 +252,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

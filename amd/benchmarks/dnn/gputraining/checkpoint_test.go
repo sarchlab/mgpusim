@@ -19,13 +19,14 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 type trainingWorkload struct {
 	benchmarks.Progress
-	runtime *driver.Runtime
+	runtime *gpuruntime.Runtime
 	trainer DataParallelismMultiGPUTrainer
 }
 
@@ -45,7 +46,7 @@ func (b *trainingWorkload) Step() error {
 func (b *trainingWorkload) initialize() {
 	b.trainer.State = &State{}
 	t := &b.trainer
-	t.Driver = b.runtime
+	t.Runtime = b.runtime
 	t.Epoch = 2
 	t.BatchSize = 1
 	t.MaxBatchPerEpoch = 1
@@ -149,9 +150,9 @@ func finishCollectiveTraining(t *testing.T, s *sim.Simulation, r *runner.Runner,
 func checkReplicatedParameters(t *testing.T, s *sim.Simulation, b *trainingWorkload) {
 	t.Helper()
 	trainer := &b.trainer
-	ids := make([][]driver.HostBuffer, len(trainer.Networks))
+	ids := make([][]gpuruntime.HostBuffer, len(trainer.Networks))
 	for gpu, network := range trainer.Networks {
-		ids[gpu] = make([]driver.HostBuffer, len(network.Layers))
+		ids[gpu] = make([]gpuruntime.HostBuffer, len(network.Layers))
 		for i, layer := range network.Layers {
 			if p := layer.Parameters(); p != nil {
 				ids[gpu][i] = trainer.TensorOperators[gpu].EnqueueReadback(p)
@@ -269,11 +270,11 @@ func TestCrossEntropySharedTensorIdentitySurvivesBinding(t *testing.T) {
 					1,
 				},
 			},
-			LossReadbacks: []driver.HostBuffer{
+			LossReadbacks: []gpuruntime.HostBuffer{
 				o.EnqueueReadback(v),
 			},
 		},
-		Driver: rt,
+		Runtime: rt,
 
 		TensorOperators: []*gputensor.GPUOperator{o}, Networks: []training.Network{{}},
 		DataSource:      []training.DataSource{&training.ResidentDataSource{Operator: o, State: &training.DataState{}}},

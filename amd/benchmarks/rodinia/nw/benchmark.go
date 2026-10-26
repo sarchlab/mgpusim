@@ -11,17 +11,17 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines kernel arguments for GCN3 architecture
 type KernelArgs struct {
-	Reference          driver.Ptr
-	InputItemSets      driver.Ptr
-	OutputItemSets     driver.Ptr
-	LocalInputItemSets driver.LocalPtr
-	LocalReference     driver.LocalPtr
+	Reference          gpuruntime.Ptr
+	InputItemSets      gpuruntime.Ptr
+	OutputItemSets     gpuruntime.Ptr
+	LocalInputItemSets gpuruntime.LocalPtr
+	LocalReference     gpuruntime.LocalPtr
 	Cols               int32
 	Penalty            int32
 	Blk                int32
@@ -36,17 +36,17 @@ type KernelArgs struct {
 // No LocalInputItemSets/LocalReference - those are __shared__ inside the kernel.
 // KernargSegmentByteSize=56 (no hidden args needed - kernel uses AQL packet for dispatch dims)
 type CDNA3KernelArgs struct {
-	Reference      driver.Ptr // offset 0
-	InputItemSets  driver.Ptr // offset 8
-	OutputItemSets driver.Ptr // offset 16
-	Cols           int32      // offset 24
-	Penalty        int32      // offset 28
-	Blk            int32      // offset 32
-	BlockSize      int32      // offset 36
-	BlockWidth     int32      // offset 40
-	WorkSize       int32      // offset 44
-	OffsetR        int32      // offset 48
-	OffsetC        int32      // offset 52
+	Reference      gpuruntime.Ptr // offset 0
+	InputItemSets  gpuruntime.Ptr // offset 8
+	OutputItemSets gpuruntime.Ptr // offset 16
+	Cols           int32          // offset 24
+	Penalty        int32          // offset 28
+	Blk            int32          // offset 32
+	BlockSize      int32          // offset 36
+	BlockWidth     int32          // offset 40
+	WorkSize       int32          // offset 44
+	OffsetR        int32          // offset 48
+	OffsetC        int32          // offset 52
 }
 
 var blosum62 = [][]int32{
@@ -79,22 +79,21 @@ var blosum62 = [][]int32{
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernel1, kernel2 *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
-	b.Queue = driver.CreateCommandQueue(b.Context)
+	b.rt = rt
+	b.Context = rt.Init()
+	b.Queue = rt.CreateCommandQueue(b.Context)
 
 	b.BlockSize = 64
 	b.SetLength(256)
@@ -151,11 +150,11 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.GpuIDs[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.GpuIDs[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
-	b.driver.SelectGPU(b.Context, b.GpuIDs[0])
+	b.rt.SelectGPU(b.Context, b.GpuIDs[0])
 	b.initMem()
 }
 
@@ -204,17 +203,17 @@ func (b *Benchmark) allocateGPUMem() {
 	b.DInputItemSets = b.allocate(uint64(b.Col * b.Row * 4))
 	b.DOutputItemSets = b.allocate(uint64(b.Col * b.Row * 4))
 	b.DReference = b.allocate(uint64(b.Col * b.Row * 4))
-	b.driver.Distribute(b.Context, b.DInputItemSets, uint64(b.Col*b.Row*4), b.GpuIDs)
-	b.driver.Distribute(b.Context, b.DOutputItemSets, uint64(b.Col*b.Row*4), b.GpuIDs)
-	b.driver.Distribute(b.Context, b.DReference, uint64(b.Col*b.Row*4), b.GpuIDs)
+	b.rt.Distribute(b.Context, b.DInputItemSets, uint64(b.Col*b.Row*4), b.GpuIDs)
+	b.rt.Distribute(b.Context, b.DOutputItemSets, uint64(b.Col*b.Row*4), b.GpuIDs)
+	b.rt.Distribute(b.Context, b.DReference, uint64(b.Col*b.Row*4), b.GpuIDs)
 }
 
-func (b *Benchmark) allocate(byteSize uint64) driver.Ptr {
+func (b *Benchmark) allocate(byteSize uint64) gpuruntime.Ptr {
 	if b.UseUnifiedMemory {
-		return b.driver.AllocateUnifiedMemory(b.Context, byteSize)
+		return b.rt.AllocateUnifiedMemory(b.Context, byteSize)
 	}
 
-	return b.driver.AllocateMemory(b.Context, byteSize)
+	return b.rt.AllocateMemory(b.Context, byteSize)
 }
 
 func (b *Benchmark) exec() {
@@ -225,8 +224,8 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) copyInputDataToGPU() {
-	b.Upload(b.driver, b.Queue, b.DInputItemSets, b.InputItemSets)
-	b.Upload(b.driver, b.Queue, b.DReference, b.Reference)
+	b.Upload(b.rt, b.Queue, b.DInputItemSets, b.InputItemSets)
+	b.Upload(b.rt, b.Queue, b.DReference, b.Reference)
 }
 
 func (b *Benchmark) copyOutputDataFromGPU() {
@@ -257,14 +256,14 @@ func (b *Benchmark) runKernel1() {
 				OffsetR:        int32(offsetR),
 				OffsetC:        int32(offsetC),
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &cdna3Args)
+			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &cdna3Args)
 		} else {
 			args := KernelArgs{
 				Reference:          b.DReference,
 				InputItemSets:      b.DInputItemSets,
 				OutputItemSets:     b.DOutputItemSets,
-				LocalInputItemSets: driver.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
-				LocalReference:     driver.LocalPtr(b.BlockSize * b.BlockSize * 4),
+				LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
+				LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
 				Cols:               int32(b.Col),
 				Penalty:            int32(b.Penalty),
 				Blk:                int32(blk),
@@ -274,7 +273,7 @@ func (b *Benchmark) runKernel1() {
 				OffsetR:            int32(offsetR),
 				OffsetC:            int32(offsetC),
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &args)
+			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &args)
 		}
 	}
 }
@@ -303,14 +302,14 @@ func (b *Benchmark) runKernel2() {
 				OffsetR:        int32(offsetR),
 				OffsetC:        int32(offsetC),
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &cdna3Args)
+			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &cdna3Args)
 		} else {
 			args := KernelArgs{
 				Reference:          b.DReference,
 				InputItemSets:      b.DInputItemSets,
 				OutputItemSets:     b.DOutputItemSets,
-				LocalInputItemSets: driver.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
-				LocalReference:     driver.LocalPtr(b.BlockSize * b.BlockSize * 4),
+				LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
+				LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
 				Cols:               int32(b.Col),
 				Penalty:            int32(b.Penalty),
 				Blk:                int32(blk),
@@ -320,7 +319,7 @@ func (b *Benchmark) runKernel2() {
 				OffsetR:            int32(offsetR),
 				OffsetC:            int32(offsetC),
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &args)
+			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &args)
 		}
 	}
 }
@@ -368,7 +367,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -386,7 +385,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.OutputItemSets
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -396,7 +395,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.OutputItemSets
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

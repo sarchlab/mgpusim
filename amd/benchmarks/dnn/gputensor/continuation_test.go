@@ -10,10 +10,11 @@ import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
-func operatorSystem(t *testing.T) (*simulation.Simulation, *driver.Runtime, *driver.Comp, *GPUOperator) {
+func operatorSystem(t *testing.T) (*simulation.Simulation, *gpuruntime.Runtime, *driver.Comp, *GPUOperator) {
 	t.Helper()
 	s := simulation.MakeBuilder().Build()
 	r := emusystem.MakeBuilder().WithSimulation(s).Build()

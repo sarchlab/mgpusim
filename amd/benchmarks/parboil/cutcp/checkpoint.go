@@ -3,14 +3,14 @@ package cutcp
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// NumAtoms is the number of atoms (point charges).
@@ -24,8 +24,8 @@ type State struct {
 	Cutoff           float32
 	Atoms            []float32 // flat float4: [x,y,z,q] per atom
 	Potential        []float32 // GridSide^3 grid points
-	GAtoms           driver.Ptr
-	GPot             driver.Ptr
+	GAtoms           gpuruntime.Ptr
+	GPot             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

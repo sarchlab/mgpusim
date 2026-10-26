@@ -28,6 +28,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/spmv"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/stencil2d"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
@@ -35,7 +36,7 @@ import (
 type outputCase struct {
 	name         string
 	outputs      []string
-	newBenchmark func(*driver.Runtime) benchmarks.Benchmark
+	newBenchmark func(*gpuruntime.Runtime) benchmarks.Benchmark
 }
 type outputCopies struct {
 	tasks.NopObserver
@@ -70,104 +71,104 @@ func savedState(t *testing.T, resource interface{ SaveCheckpoint(io.Writer) erro
 func normalOutputCases() []outputCase {
 	return []outputCase{
 		{name: "relu", outputs: []string{"OutputData"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := relu.NewBenchmark(rt)
 				b.Length = 64
 				return b
 			}},
 		{name: "vectoradd", outputs: []string{"HA"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := vectoradd.NewBenchmark(rt)
 				b.Width, b.Height = 64, 1
 				return b
 			}},
 		{name: "nbody", outputs: []string{"Pos"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := nbody.NewBenchmark(rt)
 				b.NumParticles, b.NumIterations = 64, 1
 				return b
 			}},
 		{name: "spmv", outputs: []string{"Out"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := spmv.NewBenchmark(rt)
 				b.Dim, b.Sparsity = 64, 0.125
 				return b
 			}},
 		{name: "stencil2d", outputs: []string{"HOutput"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := stencil2d.NewBenchmark(rt)
 				b.NumRows, b.NumCols, b.NumIteration = 66, 66, 1
 				return b
 			}},
 		{name: "fft", outputs: []string{"Result"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := fft.NewBenchmark(rt)
 				b.Bytes, b.BytesMode, b.Passes = 8192, true, 1
 				return b
 			}},
 		{name: "floydwarshall", outputs: []string{"HOutputPathMatrix", "HOutputPathDistanceMatrix"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := floydwarshall.NewBenchmark(rt)
 				b.NumNodes = 16
 				return b
 			}},
 		{name: "matrixtranspose", outputs: []string{"HOutputData"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := matrixtranspose.NewBenchmark(rt)
 				b.Width = 64
 				return b
 			}},
 		{name: "pagerank", outputs: []string{"HPageRank"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := pagerank.NewBenchmark(rt)
 				b.NumNodes, b.NumConnections, b.MaxIterations = 16, 32, 2
 				return b
 			}},
 		{name: "bitonicsort", outputs: []string{"OutputData"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := bitonicsort.NewBenchmark(rt)
 				b.Length, b.OrderAscending = 64, true
 				return b
 			}},
 		{name: "nw", outputs: []string{"OutputItemSets"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := nw.NewBenchmark(rt)
 				b.SetLength(64)
 				return b
 			}},
 		{name: "simpleconvolution", outputs: []string{"HOutputData"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := simpleconvolution.NewBenchmark(rt)
 				b.Width, b.Height = 16, 16
 				b.SetMaskSize(3)
 				return b
 			}},
 		{name: "atax", outputs: []string{"YOutput"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := atax.NewBenchmark(rt)
 				b.NX, b.NY = 16, 16
 				return b
 			}},
 		{name: "bicg", outputs: []string{"SOutput", "QOutput"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := bicg.NewBenchmark(rt)
 				b.NX, b.NY = 16, 16
 				return b
 			}},
 		{name: "fastwalshtransform", outputs: []string{"HInputArray"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := fastwalshtransform.NewBenchmark(rt)
 				b.Length = 64
 				return b
 			}},
 		{name: "matrixmultiplication", outputs: []string{"MatrixC"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := matrixmultiplication.NewBenchmark(rt)
 				b.X, b.Y, b.Z = 32, 32, 32
 				return b
 			}},
 		{name: "bfs", outputs: []string{"HCost"},
-			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+			newBenchmark: func(rt *gpuruntime.Runtime) benchmarks.Benchmark {
 				b := bfs.NewBenchmark(rt)
 				b.NumNode, b.Degree, b.MaxDepth = 32, 3, 10
 				return b
@@ -261,7 +262,7 @@ func TestSingleQueueWorkloadsKeepLastSelectedGPU(t *testing.T) {
 	}
 }
 
-func checkLastGPUPlacement(t *testing.T, s *sim.Simulation, rt *driver.Runtime) {
+func checkLastGPUPlacement(t *testing.T, s *sim.Simulation, rt *gpuruntime.Runtime) {
 	t.Helper()
 	var state struct {
 		Queues []struct {
@@ -271,7 +272,7 @@ func checkLastGPUPlacement(t *testing.T, s *sim.Simulation, rt *driver.Runtime) 
 			PID     uint64 `json:"PID"`
 			GPU     int    `json:"GPU"`
 			Buffers []struct {
-				Address driver.Ptr `json:"Address"`
+				Address gpuruntime.Ptr `json:"Address"`
 			} `json:"Buffers"`
 		} `json:"Contexts"`
 	}

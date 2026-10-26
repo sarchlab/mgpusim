@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func TestSavedConfigAndTransactionalLoad(t *testing.T) {
+func TestCheckpointConfigAndTransactionalLoad(t *testing.T) {
 	type state struct{ Requested, Effective int }
 	value := state{Requested: 4}
 	binds := 0
-	saved := NewSaved(&value, func() int { return value.Requested }, func() error {
+	saved := NewCheckpoint(&value, func() int { return value.Requested }, func() error {
 		binds++
 		if value.Effective < 0 {
 			return errors.New("invalid binding")
@@ -27,7 +27,7 @@ func TestSavedConfigAndTransactionalLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	mismatchState := state{Requested: 5}
-	mismatch := NewSaved(&mismatchState, func() int { return mismatchState.Requested }, nil)
+	mismatch := NewCheckpoint(&mismatchState, func() int { return mismatchState.Requested }, nil)
 	for _, data := range [][]byte{initial.Bytes(), normalized.Bytes()} {
 		if err := mismatch.LoadCheckpoint(bytes.NewReader(data)); err == nil {
 			t.Fatal("configuration mismatch accepted")

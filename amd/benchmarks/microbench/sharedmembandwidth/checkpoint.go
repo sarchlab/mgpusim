@@ -3,15 +3,15 @@ package sharedmembandwidth
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
-	Readback driver.HostBuffer
-	Context  driver.Context
-	Queue    driver.CommandQueue
+	Readback gpuruntime.HostBuffer
+	Context  gpuruntime.Context
+	Queue    gpuruntime.CommandQueue
 	Gpus     []int
 	Arch     arch.Type
 	// NumBlocks is the number of work-groups (grid size in the X dimension).
@@ -24,8 +24,8 @@ type State struct {
 	// AccessPattern selects which kernel(s) run: "no_conflict" (default),
 	// "conflict", or "both".
 	AccessPattern string
-	GIn           driver.Ptr
-	GSink         driver.Ptr
+	GIn           gpuruntime.Ptr
+	GSink         gpuruntime.Ptr
 	// noConflictResult holds the d_sink contents after the no-conflict
 	// kernel, snapshotted before the conflict kernel overwrites the sink.
 	NoConflictResult []float32

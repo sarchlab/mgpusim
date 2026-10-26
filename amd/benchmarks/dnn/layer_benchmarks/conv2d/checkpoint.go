@@ -6,7 +6,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
@@ -15,7 +15,7 @@ type State struct {
 	ForwardInID, BackwardInID tensor.ID
 
 	benchmarks.Progress
-	Context          driver.Context
+	Context          gpuruntime.Context
 	Gpus             []int
 	UseUnifiedMemory bool
 	Arch             arch.Type
@@ -75,7 +75,7 @@ func (b *Benchmark) checkpointConfig() checkpointConfig {
 func (b *Benchmark) bind() error {
 	b.operator = nil
 	if b.Operator != nil {
-		b.operator = gputensor.BindOperator(b.driver, b.Operator)
+		b.operator = gputensor.BindOperator(b.rt, b.Operator)
 	}
 	b.layer = nil
 	if b.Operator != nil {

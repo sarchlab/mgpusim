@@ -3,14 +3,14 @@ package fp32throughput
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// NumBlocks is the number of thread blocks to launch.
@@ -23,7 +23,7 @@ type State struct {
 	// value launches correctly and the sweep can match the ground-truth
 	// threads_per_block dimension.
 	ThreadsPerBlock  int
-	GOut             driver.Ptr
+	GOut             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

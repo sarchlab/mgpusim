@@ -3,17 +3,17 @@ package nw
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks         []benchmarks.Readback
-	Context           driver.Context
+	Context           gpuruntime.Context
 	GpuIDs            []int
 	UseUnifiedMemory  bool
-	Queue             driver.CommandQueue
+	Queue             gpuruntime.CommandQueue
 	Arch              arch.Type
 	BlockSize         int
 	Length            int
@@ -24,9 +24,9 @@ type State struct {
 	InputItemSets     []int32
 	OutputItemSets    []int32
 	CpuOutputItemSets []int32
-	DInputItemSets    driver.Ptr
-	DOutputItemSets   driver.Ptr
-	DReference        driver.Ptr
+	DInputItemSets    gpuruntime.Ptr
+	DOutputItemSets   gpuruntime.Ptr
+	DReference        gpuruntime.Ptr
 }
 type checkpointConfig struct {
 	GPUs             []int

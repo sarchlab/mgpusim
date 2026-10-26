@@ -3,14 +3,14 @@ package fp16throughput
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// FmasPerThread is the number of __hfma2 FMAs each thread performs
@@ -19,7 +19,7 @@ type State struct {
 	FmasPerThread    int
 	NumBlocks        int
 	ThreadsPerBlock  int
-	GOut             driver.Ptr
+	GOut             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

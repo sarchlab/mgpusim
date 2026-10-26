@@ -13,9 +13,9 @@ import (
 
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
@@ -32,10 +32,10 @@ type recoveryResult struct {
 func newRecoverySystem(
 	t *testing.T,
 	mode string,
-) (*simulation.Simulation, *driver.Runtime, *runner.Runner, []*Benchmark) {
+) (*simulation.Simulation, *gpuruntime.Runtime, *runner.Runner, []*Benchmark) {
 	t.Helper()
 	s := simulation.MakeBuilder().WithTaskTracking().Build()
-	var rt *driver.Runtime
+	var rt *gpuruntime.Runtime
 	if mode == "d2h" {
 		rt = timingconfig.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
 	} else {
@@ -66,10 +66,10 @@ func newRecoverySystem(
 func writeRecoveryResult(
 	t *testing.T,
 	s *simulation.Simulation,
-	rt *driver.Runtime,
+	rt *gpuruntime.Runtime,
 	r *runner.Runner,
 	bs []*Benchmark,
-	event driver.Event,
+	event gpuruntime.Event,
 	path string,
 ) {
 	t.Helper()
@@ -123,13 +123,13 @@ func TestBFSFreshProcessRecovery(t *testing.T) {
 		if err := s.LoadCheckpoint(path); err != nil {
 			t.Fatal(err)
 		}
-		writeRecoveryResult(t, s, rt, r, bs, driver.Event(id), path+".restored")
+		writeRecoveryResult(t, s, rt, r, bs, gpuruntime.Event(id), path+".restored")
 		return
 	}
 	for _, mode := range []string{"submitted", "kernel", "d2h", "drained"} {
 		t.Run(mode, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "boundary.tar.gz")
-			var marker driver.Event
+			var marker gpuruntime.Event
 			if !t.Run("uninterrupted", func(t *testing.T) {
 				s, rt, r, bs := newRecoverySystem(t, mode)
 				active, err := r.Step()

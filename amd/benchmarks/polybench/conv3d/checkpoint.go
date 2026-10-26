@@ -3,14 +3,14 @@ package conv3d
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// N is the edge length of the NxNxN volume.
@@ -19,9 +19,9 @@ type State struct {
 	FilterSize       int
 	Input            []float32
 	Filter           []float32
-	GInput           driver.Ptr
-	GFilter          driver.Ptr
-	GOutput          driver.Ptr
+	GInput           gpuruntime.Ptr
+	GFilter          gpuruntime.Ptr
+	GOutput          gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

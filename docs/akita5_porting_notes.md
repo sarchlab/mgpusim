@@ -3,7 +3,8 @@
 > Historical notes for the earlier Akita port. The Driver wrapper, asynchronous
 > host execution, and Runner construction APIs below were replaced by the
 > [Runtime and benchmark Step model](runtime-and-benchmark-steps.md). Use that
-> guide for current host APIs and checkpoint integration.
+> guide for current host APIs and checkpoint integration. The AMD HTTP server
+> mentioned below has been removed.
 
 
 Accumulated as packages are ported. Two kinds of entries: (1) exported API

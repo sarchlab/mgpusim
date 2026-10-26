@@ -3,14 +3,14 @@ package fir
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	Length           int
@@ -18,10 +18,10 @@ type State struct {
 	NumTaps          int
 	InputData        []float32
 	FilterData       []float32
-	GFilterData      []driver.Ptr
-	GHistoryData     driver.Ptr
-	GInputData       driver.Ptr
-	GOutputData      driver.Ptr
+	GFilterData      []gpuruntime.Ptr
+	GHistoryData     gpuruntime.Ptr
+	GInputData       gpuruntime.Ptr
+	GOutputData      gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

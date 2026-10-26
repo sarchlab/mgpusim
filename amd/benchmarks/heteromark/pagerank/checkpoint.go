@@ -4,15 +4,15 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/matrix/csr"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	NumNodes         uint32
@@ -22,12 +22,12 @@ type State struct {
 	HPageRank        []float32
 	VerPageRank      []float32
 	VerPageRankTemp  []float32
-	DPageRank        driver.Ptr
-	DPageRankTemp    driver.Ptr
-	DRowOffsets      driver.Ptr
-	DColumnNumbers   driver.Ptr
-	DValues          driver.Ptr
-	DLocalValues     driver.LocalPtr
+	DPageRank        gpuruntime.Ptr
+	DPageRankTemp    gpuruntime.Ptr
+	DRowOffsets      gpuruntime.Ptr
+	DColumnNumbers   gpuruntime.Ptr
+	DValues          gpuruntime.Ptr
+	DLocalValues     gpuruntime.LocalPtr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

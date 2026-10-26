@@ -2,15 +2,15 @@ package mccl
 
 import (
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // BroadcastRing broadcast data from the root to other GPUs.
 func BroadcastRing(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
 	root int,
-	data []driver.Ptr,
+	data []gpuruntime.Ptr,
 	dataSize int,
 ) *Collective {
 	return &Collective{
@@ -18,12 +18,12 @@ func BroadcastRing(
 		Comms:  copyCommunicators(comms),
 		Queues: createCommandQueues(d, comms),
 		Root:   root,
-		Data:   append([]driver.Ptr(nil), data...),
+		Data:   append([]gpuruntime.Ptr(nil), data...),
 		Size:   dataSize,
 	}
 }
 
-func (c *Collective) broadcast(d *driver.Runtime) {
+func (c *Collective) broadcast(d *gpuruntime.Runtime) {
 	comms, data, dataSize, root, cmdQs := c.communicators(), c.Data, c.Size, c.Root, c.Queues
 	numGPU := len(comms)
 	chunkSize := int(4 * mem.KB)
@@ -50,9 +50,9 @@ func (c *Collective) broadcast(d *driver.Runtime) {
 			}
 
 			src := data[i]
-			src += driver.Ptr(4 * (srcChunkNum * chunkSize))
+			src += gpuruntime.Ptr(4 * (srcChunkNum * chunkSize))
 			dst := data[(i+1)%numGPU]
-			dst += driver.Ptr(4 * (srcChunkNum * chunkSize))
+			dst += gpuruntime.Ptr(4 * (srcChunkNum * chunkSize))
 			sizeToPush := min(chunkSize, dataSize-srcChunkNum*chunkSize)
 
 			numThread := 1024

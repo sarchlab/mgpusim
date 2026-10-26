@@ -12,15 +12,15 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3 Kernel Arguments
 
 // BitonicKernelArgs defines kernel arguments for GCN3
 type BitonicKernelArgs struct {
-	Input               driver.Ptr
+	Input               gpuruntime.Ptr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
@@ -34,7 +34,7 @@ type BitonicKernelArgs struct {
 
 // CDNA3BitonicKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3BitonicKernelArgs struct {
-	Input               driver.Ptr
+	Input               gpuruntime.Ptr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
@@ -58,23 +58,21 @@ type CDNA3BitonicKernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new bitonic sort benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
 	b.GpusToUse = []int{1}
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -113,10 +111,10 @@ func (b *Benchmark) setup() {
 	b.loadProgram()
 
 	for _, gpu := range b.GpusToUse {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.rt.CreateCommandQueue(b.Context))
 	}
-	b.driver.SelectGPU(b.Context, b.GpusToUse[0])
+	b.rt.SelectGPU(b.Context, b.GpusToUse[0])
 	b.initMem()
 }
 
@@ -135,16 +133,16 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GInputData = b.driver.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
+		b.GInputData = b.rt.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
 	} else {
-		b.GInputData = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
-		b.driver.Distribute(
+		b.GInputData = b.rt.AllocateMemory(b.Context, uint64(b.Length*4))
+		b.rt.Distribute(
 			b.Context,
 			b.GInputData, uint64(b.Length*4),
 			b.GpusToUse)
 	}
 
-	b.Upload(b.driver, b.Queues[0], b.GInputData, b.InputData)
+	b.Upload(b.rt, b.Queues[0], b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, offset int) CDNA3BitonicKernelArgs {
@@ -183,7 +181,7 @@ func (b *Benchmark) createGCN3KernelArgs(stage, passOfStage, direction, offset i
 func (b *Benchmark) runPass(
 	stage, passOfStage int,
 	direction int,
-	queues []driver.CommandQueue,
+	queues []gpuruntime.CommandQueue,
 ) {
 	totalWIs := b.Length / 2
 	wiPerQueue := totalWIs / len(queues)
@@ -199,7 +197,7 @@ func (b *Benchmark) runPass(
 
 		if b.Arch == arch.CDNA3 {
 			kernArg := b.createCDNA3KernelArgs(stage, passOfStage, direction, numWi, wiPerQueue*i)
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.hsaco,
 				[3]uint32{uint32(numWi), 1, 1},
@@ -208,7 +206,7 @@ func (b *Benchmark) runPass(
 			)
 		} else {
 			kernArg := b.createGCN3KernelArgs(stage, passOfStage, direction, wiPerQueue*i)
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.hsaco,
 				[3]uint32{uint32(numWi), 1, 1},
@@ -307,7 +305,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -320,25 +318,25 @@ func (b *Benchmark) Step() error {
 			return nil
 		}
 		if b.PerPassVerify && b.Verification {
-			b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
+			b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 2
 		} else {
 			b.submitPass()
 		}
 	case 2:
-		if err := benchmarks.Read(b.driver, b.Readback, b.PerPassIn); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.PerPassIn); err != nil {
 			return err
 		}
 		b.submitPass()
 	case 3:
 		if b.PerPassVerify && b.Verification {
-			b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
+			b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 4
 		} else {
 			b.nextPass()
 		}
 	case 4:
-		if err := benchmarks.Read(b.driver, b.Readback, b.PerPassOut); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.PerPassOut); err != nil {
 			return err
 		}
 		if err := b.verifyPass(b.PerPassIn, b.PerPassOut, b.Stage, b.Pass); err != nil {
@@ -346,10 +344,10 @@ func (b *Benchmark) Step() error {
 		}
 		b.nextPass()
 	case 5:
-		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
+		b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
 		b.Phase = 6
 	case 6:
-		if err := benchmarks.Read(b.driver, b.Readback, b.OutputData); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.OutputData); err != nil {
 			return err
 		}
 		if b.Verification {

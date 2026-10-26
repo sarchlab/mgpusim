@@ -11,7 +11,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // DataParallelismMultiGPUTrainer advances a batch one saved phase at a time.
@@ -24,7 +24,7 @@ type DataParallelismMultiGPUTrainer struct {
 	LossFunc        []training.LossFunction
 	OptimizationAlg []optimization.Alg
 	Tester          []*training.Tester
-	Driver          *driver.Runtime
+	Runtime         *gpuruntime.Runtime
 }
 
 func (t *DataParallelismMultiGPUTrainer) IsEnded() bool { return t.Ended }
@@ -99,7 +99,7 @@ func (t *DataParallelismMultiGPUTrainer) stepInitialize() error {
 }
 func (t *DataParallelismMultiGPUTrainer) stepBroadcast() error {
 	if t.Collective != nil {
-		if err := t.Collective.Step(t.Driver); err != nil {
+		if err := t.Collective.Step(t.Runtime); err != nil {
 			return err
 		}
 		if !t.Collective.IsEnded() {
@@ -114,13 +114,13 @@ func (t *DataParallelismMultiGPUTrainer) stepBroadcast() error {
 			t.Layer++
 			continue
 		}
-		data := make([]driver.Ptr, len(t.Networks))
+		data := make([]gpuruntime.Ptr, len(t.Networks))
 		for i, n := range t.Networks {
 			data[i] = n.Layers[t.Layer].Parameters().(*gputensor.Tensor).Ptr()
 		}
-		comms := mccl.CommInitAllMultipleContexts(len(data), t.Driver, t.Contexts, t.GPUs)
-		t.Collective = mccl.BroadcastRing(t.Driver, comms, t.GPUs[0], data, p.NumElement())
-		return t.Collective.Step(t.Driver)
+		comms := mccl.CommInitAllMultipleContexts(len(data), t.Runtime, t.Contexts, t.GPUs)
+		t.Collective = mccl.BroadcastRing(t.Runtime, comms, t.GPUs[0], data, p.NumElement())
+		return t.Collective.Step(t.Runtime)
 	}
 	t.Phase = "epoch"
 	return nil
@@ -182,8 +182,8 @@ func (t *DataParallelismMultiGPUTrainer) stepLoss() error {
 	n := len(t.Networks)
 	t.LossInputs = make([]tensor.ID, n)
 	t.Derivatives = make([]tensor.ID, n)
-	t.Readbacks = make([]driver.HostBuffer, n)
-	t.LossReadbacks = make([]driver.HostBuffer, n)
+	t.Readbacks = make([]gpuruntime.HostBuffer, n)
+	t.LossReadbacks = make([]gpuruntime.HostBuffer, n)
 	for i, o := range t.TensorOperators {
 		switch t.LossFunc[i].(type) {
 		case *training.SoftmaxCrossEntropy:
@@ -251,14 +251,14 @@ func (t *DataParallelismMultiGPUTrainer) stepBackward() error {
 }
 func (t *DataParallelismMultiGPUTrainer) stepReduce() error {
 	if t.Collective != nil {
-		if err := t.Collective.Step(t.Driver); err != nil {
+		if err := t.Collective.Step(t.Runtime); err != nil {
 			return err
 		}
 		if !t.Collective.IsEnded() {
 			return nil
 		}
 		for i, p := range t.Buffers {
-			if err := t.Driver.FreeMemory(t.Contexts[i], p); err != nil {
+			if err := t.Runtime.FreeMemory(t.Contexts[i], p); err != nil {
 				return err
 			}
 		}
@@ -273,23 +273,23 @@ func (t *DataParallelismMultiGPUTrainer) stepReduce() error {
 			continue
 		}
 		n := len(t.Networks)
-		data := make([]driver.Ptr, n)
-		t.Buffers = make([]driver.Ptr, n)
+		data := make([]gpuruntime.Ptr, n)
+		t.Buffers = make([]gpuruntime.Ptr, n)
 		size := min(65536, g.NumElement())
 		for i, network := range t.Networks {
 			data[i] = network.Layers[t.Layer].Gradients().(*gputensor.Tensor).Ptr()
-			t.Driver.SelectGPU(t.Contexts[i], t.GPUs[i])
-			t.Buffers[i] = t.Driver.AllocateMemory(t.Contexts[i], uint64(size*4))
+			t.Runtime.SelectGPU(t.Contexts[i], t.GPUs[i])
+			t.Buffers[i] = t.Runtime.AllocateMemory(t.Contexts[i], uint64(size*4))
 		}
 		t.Collective = mccl.AllReduceRing(
-			t.Driver,
-			mccl.CommInitAllMultipleContexts(n, t.Driver, t.Contexts, t.GPUs),
+			t.Runtime,
+			mccl.CommInitAllMultipleContexts(n, t.Runtime, t.Contexts, t.GPUs),
 			data,
 			g.NumElement(),
 			t.Buffers,
 			size,
 		)
-		return t.Collective.Step(t.Driver)
+		return t.Collective.Step(t.Runtime)
 	}
 	t.Phase = "update"
 	return nil
@@ -338,7 +338,7 @@ func (t *DataParallelismMultiGPUTrainer) stepTestForward() error {
 	layers.ReleaseForward(l, t.TensorOperators[i])
 	t.Layer++
 	if t.Layer == len(t.Networks[i].Layers) {
-		t.Readbacks = []driver.HostBuffer{t.TensorOperators[i].EnqueueReadback(t.TensorOperators[i].Resolve(t.Values[0]))}
+		t.Readbacks = []gpuruntime.HostBuffer{t.TensorOperators[i].EnqueueReadback(t.TensorOperators[i].Resolve(t.Values[0]))}
 		t.Phase = "testRead"
 	}
 	return nil

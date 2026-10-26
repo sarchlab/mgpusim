@@ -6,8 +6,8 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
@@ -22,16 +22,16 @@ type KernelArgs struct {
 // Benchmark defines a benchmark
 type State struct {
 	benchmarks.Progress
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	GPU              int
 	UseUnifiedMemory bool
 }
 type Benchmark struct {
 	*State
-	benchmarks.Saved[[3]int, State]
-	driver *driver.Runtime
-	hsaco  *insts.KernelCodeObject
+	benchmarks.Checkpoint[[3]int, State]
+	rt    *gpuruntime.Runtime
+	hsaco *insts.KernelCodeObject
 }
 
 // SelectGPU selects GPU
@@ -41,9 +41,9 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 
 // Step submits the benchmark once and completes after the global drain.
 func (b *Benchmark) submit() {
-	b.Context = b.driver.Init()
-	b.driver.SelectGPU(b.Context, b.GPU)
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.Context = b.rt.Init()
+	b.rt.SelectGPU(b.Context, b.GPU)
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.loadProgram()
 	b.initMem()
 	b.exec()
@@ -70,7 +70,7 @@ func (b *Benchmark) exec() {
 		0, 0, 0,
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{uint32(64 * *numWfPerWGFlag * *numWGFlag), 1, 1},
@@ -87,8 +87,8 @@ func run() timing.VTimeInPicoSec {
 	simulation, runtime, finish := config.Build()
 	defer finish()
 	r := runner.New(simulation, runtime)
-	b := &Benchmark{State: &State{}, driver: runtime}
-	b.Saved = benchmarks.NewSaved(b.State, b.config, func() error { b.loadProgram(); return nil })
+	b := &Benchmark{State: &State{}, rt: runtime}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.config, func() error { b.loadProgram(); return nil })
 	config.Configure(b)
 	r.AddBenchmark(b)
 	if err := simulation.Initialize(); err != nil {

@@ -3,14 +3,14 @@ package threemm
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// Matrix dimensions. All default to N (set via NewBenchmark caller).
@@ -23,13 +23,13 @@ type State struct {
 	B                []float32 // NK×NJ
 	C                []float32 // NJ×NM
 	D                []float32 // NM×NL
-	GA               driver.Ptr
-	GB               driver.Ptr
-	GC               driver.Ptr
-	GD               driver.Ptr
-	GE               driver.Ptr
-	GF               driver.Ptr
-	GG               driver.Ptr
+	GA               gpuruntime.Ptr
+	GB               gpuruntime.Ptr
+	GC               gpuruntime.Ptr
+	GD               gpuruntime.Ptr
+	GE               gpuruntime.Ptr
+	GF               gpuruntime.Ptr
+	GG               gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

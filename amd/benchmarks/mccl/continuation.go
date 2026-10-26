@@ -2,7 +2,8 @@ package mccl
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Collective contains only saved handles and phase indices. Its caller owns
@@ -10,8 +11,8 @@ import (
 type Collective struct {
 	Kind                   string
 	Comms                  []Communicator
-	Queues                 []driver.CommandQueue
-	Data, Buffers          []driver.Ptr
+	Queues                 []gpuruntime.CommandQueue
+	Data, Buffers          []gpuruntime.Ptr
 	Size, BufferSize, Root int
 	Chunk, Stage           int
 	Ended                  bool
@@ -32,7 +33,7 @@ func (c *Collective) communicators() []*Communicator {
 	return out
 }
 func (c *Collective) IsEnded() bool { return c.Ended }
-func (c *Collective) Step(d *driver.Runtime) error {
+func (c *Collective) Step(d *gpuruntime.Runtime) error {
 	if c.Ended {
 		return nil
 	}

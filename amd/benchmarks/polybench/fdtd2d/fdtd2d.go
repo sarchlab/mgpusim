@@ -31,8 +31,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const blockSize = 16
@@ -44,10 +44,10 @@ const blockSize = 16
 // padding (mgpusim serializes args with binary.Write, which inserts no
 // alignment padding). No hidden ABI arguments are present.
 type ExEyKernelArgs struct {
-	Field driver.Ptr // offset 0  (ex or ey, in/out)
-	Hz    driver.Ptr // offset 8  (hz, read-only)
-	NX    int32      // offset 16
-	NY    int32      // offset 20
+	Field gpuruntime.Ptr // offset 0  (ex or ey, in/out)
+	Hz    gpuruntime.Ptr // offset 8  (hz, read-only)
+	NX    int32          // offset 16
+	NY    int32          // offset 20
 }
 
 // HzKernelArgs matches the layout of fdtd_update_hz.
@@ -56,19 +56,18 @@ type ExEyKernelArgs struct {
 // global_buffer pointers followed by two 4-byte by_value ints. No hidden ABI
 // arguments are present.
 type HzKernelArgs struct {
-	Ex driver.Ptr // offset 0  (read-only)
-	Ey driver.Ptr // offset 8  (read-only)
-	Hz driver.Ptr // offset 16 (in/out)
-	NX int32      // offset 24
-	NY int32      // offset 28
+	Ex gpuruntime.Ptr // offset 0  (read-only)
+	Ey gpuruntime.Ptr // offset 8  (read-only)
+	Hz gpuruntime.Ptr // offset 16 (in/out)
+	NX int32          // offset 24
+	NY int32          // offset 28
 }
 
 // Benchmark defines the FDTD-2D benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernelEx *insts.KernelCodeObject
 	kernelEy *insts.KernelCodeObject
@@ -79,13 +78,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new FDTD-2D benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -121,8 +120,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -158,18 +157,18 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GEx = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
-		b.GEy = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
-		b.GHz = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GEx = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.GEx = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
-		b.GEy = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
-		b.GHz = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GEx = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GEx, b.ExInit)
-	b.Upload(b.driver, b.Queue, b.GEy, b.EyInit)
-	b.Upload(b.driver, b.Queue, b.GHz, b.HzInit)
+	b.Upload(b.rt, b.Queue, b.GEx, b.ExInit)
+	b.Upload(b.rt, b.Queue, b.GEy, b.EyInit)
+	b.Upload(b.rt, b.Queue, b.GHz, b.HzInit)
 }
 
 func (b *Benchmark) exec() {
@@ -195,7 +194,7 @@ func (b *Benchmark) exec() {
 	}
 
 	for t := 0; t < b.TMax; t++ {
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue, b.kernelEx,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -203,7 +202,7 @@ func (b *Benchmark) exec() {
 		)
 		cohere()
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue, b.kernelEy,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -211,7 +210,7 @@ func (b *Benchmark) exec() {
 		)
 		cohere()
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue, b.kernelHz,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -229,13 +228,13 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	gpuEx := make([]float32, numElem)
 	gpuEy := make([]float32, numElem)
 	gpuHz := make([]float32, numElem)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuEx); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuEx); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuEy); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuEy); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuHz); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuHz); err != nil {
 		return err
 	}
 
@@ -311,9 +310,9 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEx, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEy, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GHz, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEx, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEy, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GHz, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -321,7 +320,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

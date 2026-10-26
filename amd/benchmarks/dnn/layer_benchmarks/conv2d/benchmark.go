@@ -5,26 +5,26 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // A Benchmark is a benchmark for the Convolutional Layer.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-	driver   *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt       *gpuruntime.Runtime
 	operator *gputensor.GPUOperator
 	layer    *layers.Conv2D
 }
 
-// NewBenchmark creates a new Conv2D benchmark. It requires the GPU driver as an argument.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+// NewBenchmark creates a new Conv2D benchmark. It requires the GPU Runtime as an argument.
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := &Benchmark{
-		driver: driver, State: &State{},
+		rt: rt, State: &State{},
 	}
 
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
-	b.Context = b.driver.Init()
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -50,8 +50,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) submit() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.operator = gputensor.NewGPUOperator(b.driver, b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.operator = gputensor.NewGPUOperator(b.rt, b.Context)
 	b.Operator = b.operator.OperatorState
 	b.operator.Arch = b.Arch
 	b.operator.ReportTime()
@@ -98,7 +98,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 	switch b.Phase {

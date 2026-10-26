@@ -10,16 +10,16 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	Output              driver.Ptr
-	Filter              driver.Ptr
-	Input               driver.Ptr
-	History             driver.Ptr
+	Output              gpuruntime.Ptr
+	Filter              gpuruntime.Ptr
+	Input               gpuruntime.Ptr
+	History             gpuruntime.Ptr
 	NumTaps             uint32
 	Padding             uint32
 	HiddenGlobalOffsetX int64
@@ -29,12 +29,12 @@ type GCN3KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	Output  driver.Ptr // offset 0
-	Filter  driver.Ptr // offset 8
-	Input   driver.Ptr // offset 16
-	History driver.Ptr // offset 24
-	NumTaps uint32     // offset 32
-	Pad     uint32     // offset 36 - alignment padding
+	Output  gpuruntime.Ptr // offset 0
+	Filter  gpuruntime.Ptr // offset 8
+	Input   gpuruntime.Ptr // offset 16
+	History gpuruntime.Ptr // offset 24
+	NumTaps uint32         // offset 32
+	Pad     uint32         // offset 36 - alignment padding
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
 	HiddenBlockCountX   uint32   // offset 40
 	HiddenBlockCountY   uint32   // offset 44
@@ -55,9 +55,8 @@ type CDNA3KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -69,13 +68,13 @@ var gcn3HSACOBytes []byte
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -107,8 +106,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) submit() {
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 }
 
@@ -130,43 +129,43 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GFilterData = make([]driver.Ptr, len(b.Gpus))
-		b.GHistoryData = b.driver.AllocateUnifiedMemory(
+		b.GFilterData = make([]gpuruntime.Ptr, len(b.Gpus))
+		b.GHistoryData = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.NumTaps*4))
-		b.GInputData = b.driver.AllocateUnifiedMemory(
+		b.GInputData = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.Length*4))
-		b.GOutputData = b.driver.AllocateUnifiedMemory(
+		b.GOutputData = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.Length*4))
 	} else {
-		b.GFilterData = make([]driver.Ptr, len(b.Gpus))
-		b.GHistoryData = b.driver.AllocateMemory(
+		b.GFilterData = make([]gpuruntime.Ptr, len(b.Gpus))
+		b.GHistoryData = b.rt.AllocateMemory(
 			b.Context, uint64(b.NumTaps*4))
-		b.GInputData = b.driver.AllocateMemory(
+		b.GInputData = b.rt.AllocateMemory(
 			b.Context, uint64(b.Length*4))
-		b.driver.Distribute(b.Context,
+		b.rt.Distribute(b.Context,
 			b.GInputData, uint64(b.Length*4), b.Gpus)
-		b.GOutputData = b.driver.AllocateMemory(
+		b.GOutputData = b.rt.AllocateMemory(
 			b.Context, uint64(b.Length*4))
-		b.driver.Distribute(b.Context,
+		b.rt.Distribute(b.Context,
 			b.GOutputData, uint64(b.Length*4), b.Gpus)
 	}
 
-	b.Upload(b.driver, b.Queue, b.GInputData, b.InputData)
+	b.Upload(b.rt, b.Queue, b.GInputData, b.InputData)
 
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
+		b.rt.SelectGPU(b.Context, gpu)
 		if b.UseUnifiedMemory {
-			b.GFilterData[i] = b.driver.AllocateUnifiedMemory(
+			b.GFilterData[i] = b.rt.AllocateUnifiedMemory(
 				b.Context, uint64(b.NumTaps*4))
 		} else {
-			b.GFilterData[i] = b.driver.AllocateMemory(
+			b.GFilterData[i] = b.rt.AllocateMemory(
 				b.Context, uint64(b.NumTaps*4))
 		}
-		b.Upload(b.driver, b.Queue, b.GFilterData[i], b.FilterData)
+		b.Upload(b.rt, b.Queue, b.GFilterData[i], b.FilterData)
 	}
 }
 
-func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs int) {
+func (b *Benchmark) enqueueKernel(queue gpuruntime.CommandQueue, gpuIndex, numGPUs int) {
 	numWi := b.Length
 	gridSize := uint32(numWi / numGPUs)
 
@@ -197,7 +196,7 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 			HiddenGridDims:      1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.hsaco,
 			[3]uint32{gridSize, 1, 1},
@@ -214,7 +213,7 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 			int64(gpuIndex * numWi / numGPUs), 0, 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.hsaco,
 			[3]uint32{gridSize, 1, 1},
@@ -224,11 +223,11 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]driver.CommandQueue, len(b.Gpus))
+	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, gpu)
+		queues[i] = b.rt.CreateCommandQueue(b.Context)
 		b.enqueueKernel(queues[i], i, len(b.Gpus))
 	}
 }
@@ -236,7 +235,7 @@ func (b *Benchmark) exec() {
 // Verify verifies
 func (b *Benchmark) verify() error {
 	gpuOutput := make([]float32, b.Length)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuOutput); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOutput); err != nil {
 		return err
 	}
 
@@ -263,7 +262,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOutputData, 4*(b.Length)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOutputData, 4*(b.Length)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -271,7 +270,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

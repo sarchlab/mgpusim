@@ -3,19 +3,19 @@ package bfs
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Depth            int
-	FlagResult       driver.HostBuffer
-	OutputResult     driver.HostBuffer
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	FlagResult       gpuruntime.HostBuffer
+	OutputResult     gpuruntime.HostBuffer
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
-	Queues           []driver.CommandQueue
+	Queues           []gpuruntime.CommandQueue
 	Arch             arch.Type
 	Path             string
 	NumNode          int
@@ -27,10 +27,10 @@ type State struct {
 	HFrontier        []uint32
 	HCost            []uint32
 	CpuCost          []uint32
-	DFrontier        driver.Ptr
-	DEdgeArray       driver.Ptr
-	DEdgeArrayAux    driver.Ptr
-	DFlag            driver.Ptr
+	DFrontier        gpuruntime.Ptr
+	DEdgeArray       gpuruntime.Ptr
+	DEdgeArrayAux    gpuruntime.Ptr
+	DFlag            gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

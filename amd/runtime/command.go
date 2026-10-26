@@ -1,18 +1,18 @@
-package driver
+package runtime
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
-type commandKind uint8
+type CommandKind uint8
 
 const (
-	copyH2D commandKind = iota
-	copyD2H
-	launchKernel
-	recordEvent
-	noop
+	CopyH2D CommandKind = iota
+	CopyD2H
+	LaunchKernel
+	RecordEvent
+	Noop
 )
 
 // Command contains an immutable submission descriptor. Kernel values are
@@ -20,7 +20,7 @@ const (
 // to component State when execution starts.
 type Command struct {
 	ID              CommandID
-	Kind            commandKind
+	Kind            CommandKind
 	Src, Dst        Ptr
 	Owned           []Ptr // Internal CPU staging allocations released at completion.
 	ByteSize        int

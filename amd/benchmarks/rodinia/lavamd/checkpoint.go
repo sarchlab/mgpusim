@@ -3,14 +3,14 @@ package lavamd
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// NumBoxes is the number of boxes per dimension (the grid is
@@ -25,15 +25,15 @@ type State struct {
 	HPosZ            []float32
 	HNeighborList    []int32
 	HNeighborCount   []int32
-	GPosX            driver.Ptr
-	GPosY            driver.Ptr
-	GPosZ            driver.Ptr
-	GForceX          driver.Ptr
-	GForceY          driver.Ptr
-	GForceZ          driver.Ptr
-	GEnergy          driver.Ptr
-	GNeighborList    driver.Ptr
-	GNeighborCount   driver.Ptr
+	GPosX            gpuruntime.Ptr
+	GPosY            gpuruntime.Ptr
+	GPosZ            gpuruntime.Ptr
+	GForceX          gpuruntime.Ptr
+	GForceY          gpuruntime.Ptr
+	GForceZ          gpuruntime.Ptr
+	GEnergy          gpuruntime.Ptr
+	GNeighborList    gpuruntime.Ptr
+	GNeighborCount   gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

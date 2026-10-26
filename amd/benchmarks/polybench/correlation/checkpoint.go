@@ -3,22 +3,22 @@ package correlation
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	N                int // data matrix is N x N (M = N samples, N features)
 	Data             []float32
-	GData            driver.Ptr
-	GMean            driver.Ptr
-	GStddev          driver.Ptr
-	GCorr            driver.Ptr
+	GData            gpuruntime.Ptr
+	GMean            gpuruntime.Ptr
+	GStddev          gpuruntime.Ptr
+	GCorr            gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

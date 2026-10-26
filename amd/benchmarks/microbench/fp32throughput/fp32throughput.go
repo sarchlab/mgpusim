@@ -19,8 +19,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // FMA multiplier / addend constants, kept identical to the HIP kernel so the
@@ -39,17 +39,16 @@ const (
 // plus these explicit args -- block size is passed as ThreadsPerBlock rather
 // than read from blockDim.x, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Out             driver.Ptr // offset 0, size 8 (global_buffer)
-	FmasPerThread   int32      // offset 8, size 4 (by_value)
-	ThreadsPerBlock int32      // offset 12, size 4 (by_value)
+	Out             gpuruntime.Ptr // offset 0, size 8 (global_buffer)
+	FmasPerThread   int32          // offset 8, size 4 (by_value)
+	ThreadsPerBlock int32          // offset 12, size 4 (by_value)
 }
 
 // Benchmark defines the fp32_throughput benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -58,14 +57,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new fp32_throughput benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -97,8 +95,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -140,13 +138,13 @@ func (b *Benchmark) initMem() {
 	outBytes := uint64(numElem * 4)
 
 	if b.UseUnifiedMemory {
-		b.GOut = b.driver.AllocateUnifiedMemory(b.Context, outBytes)
+		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, outBytes)
 	} else {
-		b.GOut = b.driver.AllocateMemory(b.Context, outBytes)
+		b.GOut = b.rt.AllocateMemory(b.Context, outBytes)
 	}
 
 	// Initialize the output buffer to a known value.
-	b.Upload(b.driver, b.Queue, b.GOut, make([]float32, numElem))
+	b.Upload(b.rt, b.Queue, b.GOut, make([]float32, numElem))
 }
 
 func (b *Benchmark) exec() {
@@ -160,7 +158,7 @@ func (b *Benchmark) exec() {
 		ThreadsPerBlock: int32(tpb),
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -179,7 +177,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) verify() error {
 	numElem := b.numThreads()
 	gpu := make([]float32, numElem)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpu); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -224,7 +222,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOut, 4*(b.numThreads())))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*(b.numThreads())))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -232,7 +230,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

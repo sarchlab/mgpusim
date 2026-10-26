@@ -23,8 +23,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -40,10 +40,10 @@ const (
 // args with binary.Write, which does not insert alignment padding). The
 // kernel uses a constant block dimension, so no hidden ABI args are emitted.
 type Fan1KernelArgs struct {
-	M    driver.Ptr // offset 0
-	A    driver.Ptr // offset 8
-	Size int32      // offset 16
-	T    int32      // offset 20
+	M    gpuruntime.Ptr // offset 0
+	A    gpuruntime.Ptr // offset 8
+	Size int32          // offset 16
+	T    int32          // offset 20
 }
 
 // Fan2KernelArgs defines the kernel arguments for fan2 (gfx942 / CDNA3).
@@ -52,19 +52,18 @@ type Fan1KernelArgs struct {
 // (kernarg_segment_size = 32): three 8-byte global_buffer pointers followed
 // by two 4-byte by_value scalars, packed with no padding. No hidden ABI args.
 type Fan2KernelArgs struct {
-	M    driver.Ptr // offset 0
-	A    driver.Ptr // offset 8
-	B    driver.Ptr // offset 16
-	Size int32      // offset 24
-	T    int32      // offset 28
+	M    gpuruntime.Ptr // offset 0
+	A    gpuruntime.Ptr // offset 8
+	B    gpuruntime.Ptr // offset 16
+	Size int32          // offset 24
+	T    int32          // offset 28
 }
 
 // Benchmark defines the Gaussian elimination benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	fan1Kernel *insts.KernelCodeObject
 	fan2Kernel *insts.KernelCodeObject
@@ -74,14 +73,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Gaussian elimination benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -117,8 +115,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -158,21 +156,21 @@ func (b *Benchmark) initMem() {
 	bytesB := uint64(n * 4)
 
 	if b.UseUnifiedMemory {
-		b.GA = b.driver.AllocateUnifiedMemory(b.Context, bytesA)
-		b.GB = b.driver.AllocateUnifiedMemory(b.Context, bytesB)
-		b.GM = b.driver.AllocateUnifiedMemory(b.Context, bytesA)
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, bytesA)
+		b.GB = b.rt.AllocateUnifiedMemory(b.Context, bytesB)
+		b.GM = b.rt.AllocateUnifiedMemory(b.Context, bytesA)
 	} else {
-		b.GA = b.driver.AllocateMemory(b.Context, bytesA)
-		b.GB = b.driver.AllocateMemory(b.Context, bytesB)
-		b.GM = b.driver.AllocateMemory(b.Context, bytesA)
+		b.GA = b.rt.AllocateMemory(b.Context, bytesA)
+		b.GB = b.rt.AllocateMemory(b.Context, bytesB)
+		b.GM = b.rt.AllocateMemory(b.Context, bytesA)
 	}
 
-	b.Upload(b.driver, b.Queue, b.GA, b.AInit)
-	b.Upload(b.driver, b.Queue, b.GB, b.BInit)
+	b.Upload(b.rt, b.Queue, b.GA, b.AInit)
+	b.Upload(b.rt, b.Queue, b.GB, b.BInit)
 
 	// Zero-initialize the multiplier matrix.
 	mZero := make([]float32, n*n)
-	b.Upload(b.driver, b.Queue, b.GM, mZero)
+	b.Upload(b.rt, b.Queue, b.GM, mZero)
 }
 
 func (b *Benchmark) exec() {
@@ -189,7 +187,7 @@ func (b *Benchmark) exec() {
 			Size: int32(n),
 			T:    int32(t),
 		}
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.fan1Kernel,
 			[3]uint32{grid1 * block1D, 1, 1},
@@ -206,7 +204,7 @@ func (b *Benchmark) exec() {
 			Size: int32(n),
 			T:    int32(t),
 		}
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.fan2Kernel,
 			[3]uint32{grid2 * block2D, grid2 * block2D, 1},
@@ -224,10 +222,10 @@ func (b *Benchmark) verify() error {
 
 	a := make([]float32, n*n)
 	bb := make([]float32, n)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], a); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], a); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[1], bb); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], bb); err != nil {
 		return err
 	}
 
@@ -265,8 +263,8 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GA, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GB, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GB, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -274,7 +272,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

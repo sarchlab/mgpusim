@@ -3,26 +3,26 @@ package bitonicsort
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
-	Queues           []driver.CommandQueue
+	Queues           []gpuruntime.CommandQueue
 	Stage            int
 	Pass             int
 	NumStages        int
-	Readback         driver.HostBuffer
+	Readback         gpuruntime.HostBuffer
 	PerPassVerify    bool
 	GpusToUse        []int
-	Context          driver.Context
+	Context          gpuruntime.Context
 	Arch             arch.Type
 	Length           int
 	OrderAscending   bool
 	InputData        []uint32
 	OutputData       []uint32
-	GInputData       driver.Ptr
+	GInputData       gpuruntime.Ptr
 	PerPassIn        []uint32
 	PerPassOut       []uint32
 	UseUnifiedMemory bool

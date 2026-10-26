@@ -3,15 +3,15 @@ package atax
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	NX               int
@@ -21,10 +21,10 @@ type State struct {
 	Y                []float32
 	YOutput          []float32
 	Tmp              []float32
-	DA               driver.Ptr
-	DX               driver.Ptr
-	DY               driver.Ptr
-	DTmp             driver.Ptr
+	DA               gpuruntime.Ptr
+	DX               gpuruntime.Ptr
+	DY               gpuruntime.Ptr
+	DTmp             gpuruntime.Ptr
 	CpuY             []float32
 	UseUnifiedMemory bool
 }

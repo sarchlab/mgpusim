@@ -1,38 +1,56 @@
 package driver
 
 import (
+	"bytes"
 	"testing"
 
-	"github.com/sarchlab/akita/v5/mem"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 func TestQueuesDrainThroughSimulation(t *testing.T) {
 	for _, count := range []int{1, 3} {
 		f := newFixture(t, false)
 		for i := 0; i < count; i++ {
-			f.r.enqueue(f.q, Command{Kind: noop})
+			f.enqueue(f.q, gpuruntime.Command{Kind: gpuruntime.Noop})
 		}
 		f.c.TickLater()
 		if err := f.s.Run(); err != nil {
 			t.Fatal(err)
 		}
-		if len(f.r.queue(f.q).Pending) != 0 || f.r.Unfinished()[0] != 0 {
+		if len(f.snapshot().Queues[f.q-1].Pending) != 0 || f.r.Unfinished()[0] != 0 {
 			t.Fatal("queue did not drain")
 		}
 	}
 }
-func TestAllocationMetadata(t *testing.T) {
-	for _, unified := range []bool{false, true} {
-		f := newFixture(t, false)
-		var p Ptr
-		if unified {
-			p = f.r.AllocateUnifiedMemory(f.ctx, mem.MB)
-		} else {
-			p = f.r.AllocateMemory(f.ctx, mem.MB)
-		}
-		bufs := f.r.context(f.ctx).Buffers
-		if len(bufs) != 1 || bufs[0].Address != p || bufs[0].Size != mem.MB || bufs[0].Dirty {
-			t.Fatalf("allocation metadata: %+v", bufs)
-		}
+
+func TestZeroByteCopyDrainsThroughDriver(t *testing.T) {
+	f := newFixture(t, false)
+	f.r.EnqueueMemCopyH2D(f.q, 0, 0, 0)
+	marker := f.r.EnqueueRecordEvent(f.q)
+	var runtime, component bytes.Buffer
+	if err := f.r.SaveCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.SaveCheckpoint(&component); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.LoadCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.LoadCheckpoint(&component); err != nil {
+		t.Fatal(err)
+	}
+	f.c.TickLater()
+	if err := f.s.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 || len(f.snapshot().Contexts[f.ctx-1].Buffers) != 0 {
+		t.Fatal("zero-byte copy retained work or allocation")
+	}
+	if _, err := f.r.EventTime(marker); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.ReleaseEvent(marker); err != nil {
+		t.Fatal(err)
 	}
 }

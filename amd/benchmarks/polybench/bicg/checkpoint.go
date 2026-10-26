@@ -3,15 +3,15 @@ package bicg
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	NX               int
@@ -25,11 +25,11 @@ type State struct {
 	QOutput          []float32
 	CpuS             []float32
 	CpuQ             []float32
-	DA               driver.Ptr
-	DR               driver.Ptr
-	DS               driver.Ptr
-	DP               driver.Ptr
-	DQ               driver.Ptr
+	DA               gpuruntime.Ptr
+	DR               gpuruntime.Ptr
+	DS               gpuruntime.Ptr
+	DP               gpuruntime.Ptr
+	DQ               gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

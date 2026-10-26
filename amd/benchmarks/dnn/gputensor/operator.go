@@ -8,8 +8,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 var sizeOfFloat32 = 4
@@ -18,7 +18,7 @@ var sizeOfInt32 = 4
 // GPUOperator can perform operations on GPU tensors.
 type GPUOperator struct {
 	*OperatorState
-	driver        *driver.Runtime
+	rt            *gpuruntime.Runtime
 	tensors       map[tensor.ID]*Tensor
 	kernelsLoaded bool
 	loadedArch    arch.Type
@@ -48,8 +48,8 @@ type GPUOperator struct {
 
 // NewGPUOperator creates a new GPU Operator.
 func NewGPUOperator(
-	gpuDriver *driver.Runtime,
-	ctx driver.Context,
+	gpuDriver *gpuruntime.Runtime,
+	ctx gpuruntime.Context,
 ) *GPUOperator {
 	o := BindOperator(gpuDriver, &OperatorState{
 		Context: ctx, CommandQueue: gpuDriver.CreateCommandQueue(ctx), Tensors: make(map[tensor.ID]*TensorState),
@@ -180,7 +180,7 @@ func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string)
 func (o *GPUOperator) Create(size []int) tensor.Tensor {
 	t := o.newTensor(TensorState{Shape: size})
 
-	t.Address = o.driver.AllocateMemory(o.Context, uint64(t.NumElement()*sizeOfFloat32))
+	t.Address = o.rt.AllocateMemory(o.Context, uint64(t.NumElement()*sizeOfFloat32))
 
 	return t
 }
@@ -199,7 +199,7 @@ func (o *GPUOperator) CreateWithData(
 	f32Data := f64SliceToF32Slice(data)
 
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, t.Address, f32Data)
+	o.Upload(o.rt, o.CommandQueue, t.Address, f32Data)
 
 	return t
 }
@@ -238,7 +238,7 @@ func (o *GPUOperator) Copy(dst tensor.Tensor, src tensor.Tensor) {
 	}
 
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyD2D(o.CommandQueue, d.Address, s.Address, dst.NumElement()*sizeOfFloat32)
+	o.rt.EnqueueMemCopyD2D(o.CommandQueue, d.Address, s.Address, dst.NumElement()*sizeOfFloat32)
 }
 
 // Clone duplicates the input tensor.
@@ -303,20 +303,20 @@ func (o *GPUOperator) Init(t tensor.Tensor, data []float64) {
 	f32Data := f64SliceToF32Slice(data)
 
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, t.(*Tensor).Address, f32Data)
+	o.Upload(o.rt, o.CommandQueue, t.(*Tensor).Address, f32Data)
 }
 
 // Slice will create another tensor that shares part of the buffer with the
 // input tensor.
 func (o *GPUOperator) Slice(t tensor.Tensor, start int, end int) tensor.Tensor {
 	out := o.newTensor(TensorState{Shape: []int{end - start},
-		Address: driver.Ptr(uint64(t.(*Tensor).Address) + uint64(start*sizeOfFloat32))})
+		Address: gpuruntime.Ptr(uint64(t.(*Tensor).Address) + uint64(start*sizeOfFloat32))})
 
 	return out
 }
 
 type repeatArgs struct {
-	Output, Input             driver.Ptr
+	Output, Input             gpuruntime.Ptr
 	InputLength, OutputLength uint32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -381,8 +381,8 @@ func (o *GPUOperator) Reshape(t tensor.Tensor, newSize []int) tensor.Tensor {
 }
 
 type transposeKernelArgs struct {
-	In, Out, InSize, OutSize, Order driver.Ptr
-	InIndexBuf, OutIndexBuf         driver.Ptr
+	In, Out, InSize, OutSize, Order gpuruntime.Ptr
+	InIndexBuf, OutIndexBuf         gpuruntime.Ptr
 	Dim, Padding                    int32
 	OffsetX, OffsetY, OffsetZ       int64
 }
@@ -436,18 +436,18 @@ func (o *GPUOperator) prepareTranspose(
 
 	output := o.Create(outSize).(*Tensor)
 
-	dOrder := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	dOrder := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dOrder, hOrder)
-	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.Upload(o.rt, o.CommandQueue, dOrder, hOrder)
+	dInSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
-	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.Upload(o.rt, o.CommandQueue, dInSize, hInSize)
+	dOutSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.Context,
+	o.Upload(o.rt, o.CommandQueue, dOutSize, hOutSize)
+	dInIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
-	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
+	dOutIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 
 	cleanup := func() {
@@ -479,8 +479,8 @@ func (o *GPUOperator) setTransposeOutputDescriptor(
 }
 
 type rotateKernelArgs struct {
-	In, Out, InSize, OutSize  driver.Ptr
-	InIndexBuf, OutIndexBuf   driver.Ptr
+	In, Out, InSize, OutSize  gpuruntime.Ptr
+	InIndexBuf, OutIndexBuf   gpuruntime.Ptr
 	Dim, Padding              int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -502,18 +502,18 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 
 	output := o.Create(outSize).(*Tensor)
 
-	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	dInSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.rt, o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
-	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	dOutSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.rt, o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.Context,
+	dInIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dInIndexBuf)
-	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
+	dOutIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dOutIndexBuf)
 
@@ -545,9 +545,9 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 }
 
 type dilateKernelArgs struct {
-	In, Out, InSize, OutSize  driver.Ptr
-	Dilate                    driver.Ptr
-	InIndexBuf, OutIndexBuf   driver.Ptr
+	In, Out, InSize, OutSize  gpuruntime.Ptr
+	Dilate                    gpuruntime.Ptr
+	InIndexBuf, OutIndexBuf   gpuruntime.Ptr
 	Dim, Padding              int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -576,22 +576,22 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 		hOutSize[i] = int32(outSize[i])
 	}
 
-	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	dInSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.rt, o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
-	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	dOutSize := o.rt.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.rt, o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
-	dDilate := o.driver.AllocateMemory(o.Context, uint64(2*sizeOfInt32))
+	dDilate := o.rt.AllocateMemory(o.Context, uint64(2*sizeOfInt32))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dDilate, hDilate)
+	o.Upload(o.rt, o.CommandQueue, dDilate, hDilate)
 	defer o.deferFree(dDilate)
-	dInIndexBuf := o.driver.AllocateMemory(o.Context,
+	dInIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(output.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dInIndexBuf)
-	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
+	dOutIndexBuf := o.rt.AllocateMemory(o.Context,
 		uint64(output.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dOutIndexBuf)
 
@@ -657,9 +657,9 @@ func (o *GPUOperator) axisMustBeIncreasing(axis []int) {
 }
 
 type sumOneAxisKernelArgs struct {
-	In, Out, InSize, OutSize  driver.Ptr
+	In, Out, InSize, OutSize  gpuruntime.Ptr
 	InDim, Axis               int32
-	InIndexBuf, OutIndexBuf   driver.Ptr
+	InIndexBuf, OutIndexBuf   gpuruntime.Ptr
 	OffsetX, OffsetY, OffsetZ int64
 }
 
@@ -702,14 +702,14 @@ func (o *GPUOperator) prepareSumOneAxis(
 	}
 
 	globalSize := out.NumElement()
-	dInSize := o.driver.AllocateMemory(o.Context, uint64(t.Dim()*4))
+	dInSize := o.rt.AllocateMemory(o.Context, uint64(t.Dim()*4))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
-	dOutSize := o.driver.AllocateMemory(o.Context, uint64(len(outSize)*4))
+	o.Upload(o.rt, o.CommandQueue, dInSize, hInSize)
+	dOutSize := o.rt.AllocateMemory(o.Context, uint64(len(outSize)*4))
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*t.Dim()*4))
-	dOutIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*out.Dim()*4))
+	o.Upload(o.rt, o.CommandQueue, dOutSize, hOutSize)
+	dInIndexBuf := o.rt.AllocateMemory(o.Context, uint64(globalSize*t.Dim()*4))
+	dOutIndexBuf := o.rt.AllocateMemory(o.Context, uint64(globalSize*out.Dim()*4))
 
 	cleanup := func() {
 		o.deferFree(dInSize)
@@ -732,7 +732,7 @@ type gemmKernArgs struct {
 	M, N, K                   int32
 	Alpha, Beta               float32
 	Padding                   int32
-	A, B, C, D                driver.Ptr
+	A, B, C, D                gpuruntime.Ptr
 	OffsetX, OffsetY, OffsetZ int32
 }
 
@@ -841,7 +841,7 @@ func (o *GPUOperator) gemmDimMustBeValid(a, b, c tensor.Tensor) {
 }
 
 type im2ColKernelArg struct {
-	Input, Output             driver.Ptr
+	Input, Output             gpuruntime.Ptr
 	InputDim, MaskDim         [2]uint32
 	Stride, Pad, Dilation     [2]uint32
 	Channel, Batch            uint32
@@ -918,13 +918,13 @@ func (o *GPUOperator) Im2Col(
 
 type maxPoolingForwardKernelArgs struct {
 	NThreads, Padding            int32
-	BottomData                   driver.Ptr
+	BottomData                   gpuruntime.Ptr
 	Num, Channels, Height, Width int32
 	PooledH, PooledW             int32
 	KernelH, KernelW             int32
 	StrideH, StrideW             int32
 	PadH, PadW                   int32
-	TopData, MaskData            driver.Ptr
+	TopData, MaskData            gpuruntime.Ptr
 	OffsetX, OffsetY, OffsetZ    int64
 }
 
@@ -983,13 +983,13 @@ func (o *GPUOperator) MaxPoolingForward(
 
 type maxPoolingBackwardKernelArgs struct {
 	NThreads, Padding            int32
-	TopDiff, TopMask             driver.Ptr
+	TopDiff, TopMask             gpuruntime.Ptr
 	Num, Channels, Height, Width int32
 	PooledHeight, PooledWidth    int32
 	KernelH, KernelW             int32
 	StrideH, StrideW             int32
 	PadH, PadW                   int32
-	BottomDiff                   driver.Ptr
+	BottomDiff                   gpuruntime.Ptr
 	OffsetX, OffsetY, OffsetZ    int64
 }
 
@@ -1047,7 +1047,7 @@ func (o *GPUOperator) MaxPoolingBackward(
 // AvgPoolingKernelArgsForward defines forward kernel arguments
 type AvgPoolingKernelArgsForward struct {
 	NumThreads uint64
-	Bottom     driver.Ptr
+	Bottom     gpuruntime.Ptr
 	N          int32
 	C          int32
 	H          int32
@@ -1060,7 +1060,7 @@ type AvgPoolingKernelArgsForward struct {
 	StrideW    int32
 	PadH       int32
 	PadW       int32
-	Top        driver.Ptr
+	Top        gpuruntime.Ptr
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -1120,7 +1120,7 @@ func (o *GPUOperator) AvgPoolingForward(
 // AvgPoolingKernelArgsBackward defines forward kernel arguments
 type AvgPoolingKernelArgsBackward struct {
 	NumThreads uint64
-	Top        driver.Ptr
+	Top        gpuruntime.Ptr
 	N          int32
 	C          int32
 	H          int32
@@ -1133,7 +1133,7 @@ type AvgPoolingKernelArgsBackward struct {
 	StrideW    int32
 	PadH       int32
 	PadW       int32
-	Bottom     driver.Ptr
+	Bottom     gpuruntime.Ptr
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -1193,25 +1193,25 @@ func (o *GPUOperator) AvgPoolingBackward(
 }
 
 type softmaxExpKernelArg struct {
-	Input                     driver.Ptr
-	Output                    driver.Ptr
+	Input                     gpuruntime.Ptr
+	Output                    gpuruntime.Ptr
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
 }
 
 type reductionSumKernelArg struct {
-	Data                      driver.Ptr
-	PartialSums               driver.LocalPtr
+	Data                      gpuruntime.Ptr
+	PartialSums               gpuruntime.LocalPtr
 	Padding                   int32
-	Output                    driver.Ptr
+	Output                    gpuruntime.Ptr
 	InputN, Padding2          int32
 	OffsetX, OffsetY, OffsetZ int64
 }
 
 type softmaxDivKernelArg struct {
-	ExpInput                  driver.Ptr
-	Output                    driver.Ptr
-	Denominator               driver.Ptr
+	ExpInput                  gpuruntime.Ptr
+	Output                    gpuruntime.Ptr
+	Denominator               gpuruntime.Ptr
 	NumElement, BatchSize     int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1302,7 +1302,7 @@ func (o *GPUOperator) CrossEntropy(t tensor.Tensor, label []int) float64 {
 }
 
 type crossEntropyDerivativeArgs struct {
-	Output, Input, Label      driver.Ptr
+	Output, Input, Label      gpuruntime.Ptr
 	BatchSize, NumPerImage    int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1318,10 +1318,10 @@ func (o *GPUOperator) CrossEntropyDerivative(
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
 	}
-	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
+	dLabel := o.rt.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dLabel, hLabel)
+	o.Upload(o.rt, o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 
@@ -1363,10 +1363,10 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
 	}
-	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
+	dLabel := o.rt.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
 	o.MutationEpoch++
-	o.Upload(o.driver, o.CommandQueue, dLabel, hLabel)
+	o.Upload(o.rt, o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 
@@ -1398,7 +1398,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 }
 
 type elemWiseMulKernArg struct {
-	Out, In1, In2             driver.Ptr
+	Out, In1, In2             gpuruntime.Ptr
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1442,7 +1442,7 @@ func (o *GPUOperator) ElementWiseMul(
 }
 
 type scaleAddKernArg struct {
-	Out, In1, In2             driver.Ptr
+	Out, In1, In2             gpuruntime.Ptr
 	Alpha, Beta               float32
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
@@ -1488,7 +1488,7 @@ func (o *GPUOperator) ScaleAdd(
 }
 
 type rmsPropKernArg struct {
-	Params, Gradients, SHistory driver.Ptr
+	Params, Gradients, SHistory gpuruntime.Ptr
 	SmoothFactor, LearningRate  float32
 	N, Padding                  int32
 	OffsetX, OffsetY, OffsetZ   int64
@@ -1530,7 +1530,7 @@ func (o *GPUOperator) RMSProp(
 }
 
 type adamKernArg struct {
-	Params, Gradients, SHistory, VHistory      driver.Ptr
+	Params, Gradients, SHistory, VHistory      gpuruntime.Ptr
 	SmoothFactor1, SmoothFactor2, LearningRate float32
 	N                                          int32
 	OffsetX, OffsetY, OffsetZ                  int64
@@ -1583,7 +1583,7 @@ func (o *GPUOperator) Adam(
 }
 
 type reluForwardKernelArgs struct {
-	In, Out                   driver.Ptr
+	In, Out                   gpuruntime.Ptr
 	Count, Padding            int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1623,7 +1623,7 @@ func (o *GPUOperator) ReluForward(
 }
 
 type reluBackwardKernelArgs struct {
-	In, Backin, Out           driver.Ptr
+	In, Backin, Out           gpuruntime.Ptr
 	Count, Padding            int32
 	OffsetX, OffsetY, OffsetZ int64
 }

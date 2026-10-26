@@ -3,7 +3,7 @@ package gputensor
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // A Tensor is a multi-dementional array.
@@ -59,6 +59,6 @@ func (t *Tensor) Vector() []float64 {
 }
 
 // Ptr returns the GPU pointer of the tensor.
-func (t *Tensor) Ptr() driver.Ptr {
+func (t *Tensor) Ptr() gpuruntime.Ptr {
 	return t.Address
 }

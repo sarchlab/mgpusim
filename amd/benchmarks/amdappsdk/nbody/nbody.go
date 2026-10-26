@@ -12,20 +12,20 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Pos                 driver.Ptr
-	Vel                 driver.Ptr
+	Pos                 gpuruntime.Ptr
+	Vel                 gpuruntime.Ptr
 	NumBodies           int32
 	DeltaTime           float32
 	EpsSqr              float32
-	LocalPos            driver.LocalPtr
-	NewPosition         driver.Ptr
-	NewVelocity         driver.Ptr
+	LocalPos            gpuruntime.LocalPtr
+	NewPosition         gpuruntime.Ptr
+	NewVelocity         gpuruntime.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -33,15 +33,15 @@ type KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	Pos                 driver.Ptr
-	Vel                 driver.Ptr
+	Pos                 gpuruntime.Ptr
+	Vel                 gpuruntime.Ptr
 	NumBodies           int32
 	DeltaTime           float32
 	EpsSqr              float32
 	Padding1            uint32
-	LocalPos            driver.Ptr
-	NewPosition         driver.Ptr
-	NewVelocity         driver.Ptr
+	LocalPos            gpuruntime.Ptr
+	NewPosition         gpuruntime.Ptr
+	NewVelocity         gpuruntime.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -61,22 +61,20 @@ type CDNA3KernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	nbodyKernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(
-		b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	b.GroupSize = 256
 	b.DelT = 0.005
 	b.EspSqr = 500.0
@@ -118,8 +116,8 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	if b.NumParticles < b.GroupSize {
 		b.NumParticles = b.GroupSize
@@ -140,26 +138,26 @@ func (b *Benchmark) initMem() {
 	b.fill()
 
 	if b.UseUnifiedMemory {
-		b.CurrPos = b.driver.AllocateUnifiedMemory(b.Context,
+		b.CurrPos = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.NewPos = b.driver.AllocateUnifiedMemory(b.Context,
+		b.NewPos = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.CurrVel = b.driver.AllocateUnifiedMemory(b.Context,
+		b.CurrVel = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.NewVel = b.driver.AllocateUnifiedMemory(b.Context,
+		b.NewVel = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumBodies*4*4))
 	} else {
-		b.CurrPos = b.driver.AllocateMemory(b.Context,
+		b.CurrPos = b.rt.AllocateMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.NewPos = b.driver.AllocateMemory(b.Context,
+		b.NewPos = b.rt.AllocateMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.CurrVel = b.driver.AllocateMemory(b.Context,
+		b.CurrVel = b.rt.AllocateMemory(b.Context,
 			uint64(b.NumBodies*4*4))
-		b.NewVel = b.driver.AllocateMemory(b.Context,
+		b.NewVel = b.rt.AllocateMemory(b.Context,
 			uint64(b.NumBodies*4*4))
 	}
-	b.Upload(b.driver, b.Queue, b.CurrPos, b.Pos)
-	b.Upload(b.driver, b.Queue, b.CurrVel, b.Vel)
+	b.Upload(b.rt, b.Queue, b.CurrPos, b.Pos)
+	b.Upload(b.rt, b.Queue, b.CurrVel, b.Vel)
 
 	b.DPos = b.CurrPos
 	b.DVel = b.CurrVel
@@ -168,7 +166,7 @@ func (b *Benchmark) initMem() {
 
 	if b.Arch == arch.CDNA3 {
 		// CDNA3 HIP kernel uses global memory for localPos instead of LDS
-		b.LocalPosBuf = b.driver.AllocateMemory(b.Context,
+		b.LocalPosBuf = b.rt.AllocateMemory(b.Context,
 			uint64(b.GroupSize*4*4))
 	}
 }
@@ -202,7 +200,7 @@ func (b *Benchmark) exec() {
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      1,
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue,
+			b.rt.EnqueueLaunchKernel(b.Queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
@@ -214,14 +212,14 @@ func (b *Benchmark) exec() {
 				NumBodies:           b.NumBodies,
 				DeltaTime:           b.DelT,
 				EpsSqr:              b.EspSqr,
-				LocalPos:            driver.LocalPtr(b.GroupSize * 4 * 4),
+				LocalPos:            gpuruntime.LocalPtr(b.GroupSize * 4 * 4),
 				NewPosition:         b.DNewPos,
 				NewVelocity:         b.DNewVel,
 				HiddenGlobalOffsetX: 0,
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
 			}
-			b.driver.EnqueueLaunchKernel(b.Queue,
+			b.rt.EnqueueLaunchKernel(b.Queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
@@ -334,7 +332,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -352,7 +350,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.Pos
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -362,7 +360,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.Pos
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

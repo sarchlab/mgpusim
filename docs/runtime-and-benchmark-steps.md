@@ -1,6 +1,6 @@
 # Runtime and benchmark steps
 
-The host API belongs to `driver.Runtime`, a named simulation resource. A runtime
+The AMD host API belongs to `amd/runtime.Runtime`, a named simulation resource. A runtime
 owns contexts, stream queues, allocations, submitted commands, CPU buffer addresses,
 and timestamp events. `driver.Comp`, always named `Driver`, owns only simulated
 execution and protocol state. Its immutable `Spec` describes GPU destinations,
@@ -34,8 +34,6 @@ in registration order, and schedules Driver once after the whole round. It
 repeats until every benchmark has ended and submitted work has drained. There
 is no driver goroutine or benchmark goroutine in this path. A serial engine
 therefore executes the benchmark/driver/simulation loop on one goroutine.
-External HTTP requests are serialized by the server, which drives the same
-queue and simulation operations at the request boundary.
 
 ## Queues, CPU storage, and events
 
@@ -117,26 +115,26 @@ simulation drain before advancing the next stage.
 ## Direct saved state
 
 A benchmark uses one serializable `State` for execution. The common
-`benchmarks.Saved[Config, State]` supplies SaveCheckpoint/LoadCheckpoint;
+`benchmarks.Checkpoint[Config, State]` supplies SaveCheckpoint/LoadCheckpoint;
 there is no second snapshot struct or field-copy synchronization pass.
-The embedded state pointer aliases the exact state owned by Saved:
+The embedded state pointer aliases the exact state owned by Checkpoint:
 
 ```go
 type State struct {
     benchmarks.Progress
     Length int
-    Queue driver.CommandQueue
+    Queue runtime.CommandQueue
     Output []float32
 }
 type Config struct { Length int; Verify bool }
 type Benchmark struct {
     *State
-    benchmarks.Saved[Config, State]
-    runtime *driver.Runtime // transient binding, excluded from State
+    benchmarks.Checkpoint[Config, State]
+    runtime *runtime.Runtime // transient binding, excluded from State
 }
-func NewBenchmark(rt *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *runtime.Runtime) *Benchmark {
     b := &Benchmark{State: &State{}, runtime: rt}
-    b.Saved = benchmarks.NewSaved(b.State,
+    b.Checkpoint = benchmarks.NewCheckpoint(b.State,
         func() Config { return Config{b.Length, b.Verification} },
         b.bind)
     return b
@@ -214,3 +212,8 @@ fresh-process restore without allocating giant randomization buffers or running
 full 224×224 training. Separate small-network tests exercise convolution,
 max-pooling, fully connected layers, Adam and multi-GPU collective recovery.
 This bounded graph test does not establish full VGG16 training accuracy.
+
+The former `amd/server` HTTP API and `amd/samples/server` executable have been
+removed. Compose a simulation and Runtime directly as shown above. Akita
+monitoring and the instruction debugger are unaffected. Runtime handles and
+command types now live in `amd/runtime`; there are no `amd/driver` aliases.

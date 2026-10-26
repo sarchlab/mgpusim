@@ -1,4 +1,4 @@
-package driver
+package runtime
 
 import (
 	"bytes"
@@ -83,7 +83,7 @@ func (r *Runtime) stageUpload(q CommandQueue, dst Ptr, data any) {
 	if err := r.WriteHost(b, data); err != nil {
 		panic(err)
 	}
-	cmd := Command{Kind: copyH2D, Src: b.Address, Dst: dst, ByteSize: b.ByteSize}
+	cmd := Command{Kind: CopyH2D, Src: b.Address, Dst: dst, ByteSize: b.ByteSize}
 	if b.Address != 0 {
 		cmd.Owned = []Ptr{b.Address}
 	}

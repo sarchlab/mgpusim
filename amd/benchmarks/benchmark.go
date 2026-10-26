@@ -4,7 +4,7 @@ package benchmarks
 import (
 	"io"
 
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Benchmark persists its continuation before each Step returns.
@@ -36,7 +36,7 @@ func (p *Progress) SetVerification(v bool) { p.Verification = v }
 
 // Readback is a saved output-copy continuation with a benchmark-local target index.
 type Readback struct {
-	Source driver.Ptr
-	Buffer driver.HostBuffer
+	Source gpuruntime.Ptr
+	Buffer gpuruntime.HostBuffer
 	Target int
 }

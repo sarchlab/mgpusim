@@ -3,22 +3,22 @@ package raytracing
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	Width            int
 	Height           int
 	Spheres          int
 	SphereData       []float32 // flat [numSpheres*7] sphere data
-	GImage           driver.Ptr
-	GSpheres         driver.Ptr
+	GImage           gpuruntime.Ptr
+	GSpheres         gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

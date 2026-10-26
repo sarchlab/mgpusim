@@ -3,14 +3,14 @@ package fdtd2d
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	N                int // grid dimension (NX = NY = N)
@@ -18,9 +18,9 @@ type State struct {
 	ExInit           []float32
 	EyInit           []float32
 	HzInit           []float32
-	GEx              driver.Ptr
-	GEy              driver.Ptr
-	GHz              driver.Ptr
+	GEx              gpuruntime.Ptr
+	GEy              gpuruntime.Ptr
+	GHz              gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

@@ -3,14 +3,14 @@ package cachelatency
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// ArrayBytes is the size of the pointer-chasing array in bytes.
@@ -33,8 +33,8 @@ type State struct {
 	Stride           int // element stride between nodes (CachelineBytes/4)
 	StartIdx         uint32
 	Chain            []uint32
-	GArr             driver.Ptr
-	GResult          driver.Ptr
+	GArr             gpuruntime.Ptr
+	GResult          gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

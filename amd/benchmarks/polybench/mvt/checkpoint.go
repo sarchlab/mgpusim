@@ -3,25 +3,25 @@ package mvt
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	N                int
 	A                []float32
 	Y1               []float32
 	Y2               []float32
-	GA               driver.Ptr
-	GY1              driver.Ptr
-	GY2              driver.Ptr
-	GX1              driver.Ptr
-	GX2              driver.Ptr
+	GA               gpuruntime.Ptr
+	GY1              gpuruntime.Ptr
+	GY2              gpuruntime.Ptr
+	GX1              gpuruntime.Ptr
+	GX2              gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

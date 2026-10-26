@@ -9,14 +9,15 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 var _ = Describe("Operator", func() {
 	var (
 		s         *simulation.Simulation
-		gpuDriver *driver.Runtime
-		ctx       driver.Context
+		gpuDriver *gpuruntime.Runtime
+		ctx       gpuruntime.Context
 		to        *GPUOperator
 	)
 

@@ -1,34 +1,36 @@
 package mccl
 
-import "github.com/sarchlab/mgpusim/v5/amd/driver"
+import (
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
+)
 
 // AllReduceRing creates a resumable average reduction. Call Step only after
 // the preceding global simulation batch has drained.
 func AllReduceRing(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
-	data []driver.Ptr,
+	data []gpuruntime.Ptr,
 	dataSize int,
-	bufs []driver.Ptr,
+	bufs []gpuruntime.Ptr,
 	sizePerBuf int,
 ) *Collective {
 	return &Collective{
 		Kind:       "reduce",
 		Comms:      copyCommunicators(comms),
 		Queues:     createCommandQueues(d, comms),
-		Data:       append([]driver.Ptr(nil), data...),
-		Buffers:    append([]driver.Ptr(nil), bufs...),
+		Data:       append([]gpuruntime.Ptr(nil), data...),
+		Buffers:    append([]gpuruntime.Ptr(nil), bufs...),
 		Size:       dataSize,
 		BufferSize: sizePerBuf,
 	}
 }
 
 func createCommandQueues(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
-) []driver.CommandQueue {
+) []gpuruntime.CommandQueue {
 	numGPU := len(comms)
-	cmdQs := make([]driver.CommandQueue, numGPU)
+	cmdQs := make([]gpuruntime.CommandQueue, numGPU)
 
 	for i := 0; i < numGPU; i++ {
 		d.SelectGPU(comms[i].Ctx, comms[i].GPUID)
@@ -40,19 +42,19 @@ func createCommandQueues(
 }
 
 func allReducePushToBuffer(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
-	cmdQs []driver.CommandQueue,
-	data, bufs []driver.Ptr,
+	cmdQs []gpuruntime.CommandQueue,
+	data, bufs []gpuruntime.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
 	for i := 0; i < numGPU; i++ {
 		chunkIndex := uint64((i + numGPU - step) % numGPU)
 		src := data[i]
-		src += driver.Ptr(4 * (offset + chunkIndex*pushSize))
+		src += gpuruntime.Ptr(4 * (offset + chunkIndex*pushSize))
 		dst := bufs[(i+1)%numGPU]
-		dst += driver.Ptr(4 * chunkIndex * pushSize)
+		dst += gpuruntime.Ptr(4 * chunkIndex * pushSize)
 
 		sizeToPush := uint64(0)
 		if chunkIndex*pushSize < currBufSize {
@@ -77,10 +79,10 @@ func allReducePushToBuffer(
 }
 
 func allReduceReduce(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
-	cmdQs []driver.CommandQueue,
-	data, bufs []driver.Ptr,
+	cmdQs []gpuruntime.CommandQueue,
+	data, bufs []gpuruntime.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
@@ -88,9 +90,9 @@ func allReduceReduce(
 		chunkIndex := uint64((i + numGPU - (step + 1)) % numGPU)
 
 		store := data[i]
-		store += driver.Ptr(4 * (offset + chunkIndex*pushSize))
+		store += gpuruntime.Ptr(4 * (offset + chunkIndex*pushSize))
 		buf := bufs[i]
-		buf += driver.Ptr(4 * (chunkIndex * pushSize))
+		buf += gpuruntime.Ptr(4 * (chunkIndex * pushSize))
 
 		sizeToPush := uint64(0)
 		if chunkIndex*pushSize < currBufSize {
@@ -123,10 +125,10 @@ func allReduceReduce(
 }
 
 func allReducePushToGPU(
-	d *driver.Runtime,
+	d *gpuruntime.Runtime,
 	comms []*Communicator,
-	cmdQs []driver.CommandQueue,
-	data []driver.Ptr,
+	cmdQs []gpuruntime.CommandQueue,
+	data []gpuruntime.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
@@ -134,9 +136,9 @@ func allReducePushToGPU(
 		chunkIndex := uint64((i + 1 + numGPU - step) % numGPU)
 
 		src := data[i]
-		src += driver.Ptr(4 * (offset + chunkIndex*pushSize))
+		src += gpuruntime.Ptr(4 * (offset + chunkIndex*pushSize))
 		dst := data[(i+1)%numGPU]
-		dst += driver.Ptr(4 * (offset + chunkIndex*pushSize))
+		dst += gpuruntime.Ptr(4 * (offset + chunkIndex*pushSize))
 
 		sizeToPush := uint64(0)
 		if chunkIndex*pushSize < currBufSize {

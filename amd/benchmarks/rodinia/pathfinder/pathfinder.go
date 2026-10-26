@@ -19,8 +19,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize matches the constant BLOCK_SIZE in native/rodinia_pathfinder.cpp.
@@ -38,19 +38,18 @@ const intMax int32 = math.MaxInt32
 // kernel uses a constant block size and reads only blockIdx/threadIdx, so no
 // hidden ABI arguments are emitted.
 type KernelArgs struct {
-	GPUWall driver.Ptr // offset 0
-	GPUSrc  driver.Ptr // offset 8
-	GPUDst  driver.Ptr // offset 16
-	Cols    int32      // offset 24
-	T       int32      // offset 28
+	GPUWall gpuruntime.Ptr // offset 0
+	GPUSrc  gpuruntime.Ptr // offset 8
+	GPUDst  gpuruntime.Ptr // offset 16
+	Cols    int32          // offset 24
+	T       int32          // offset 28
 }
 
 // Benchmark defines the PathFinder benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -59,15 +58,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new PathFinder benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -99,8 +96,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -132,21 +129,21 @@ func (b *Benchmark) initMem() {
 	rowBytes := uint64(cols * 4)
 
 	if b.UseUnifiedMemory {
-		b.GWall = b.driver.AllocateUnifiedMemory(b.Context, wallBytes)
-		b.GBuf[0] = b.driver.AllocateUnifiedMemory(b.Context, rowBytes)
-		b.GBuf[1] = b.driver.AllocateUnifiedMemory(b.Context, rowBytes)
+		b.GWall = b.rt.AllocateUnifiedMemory(b.Context, wallBytes)
+		b.GBuf[0] = b.rt.AllocateUnifiedMemory(b.Context, rowBytes)
+		b.GBuf[1] = b.rt.AllocateUnifiedMemory(b.Context, rowBytes)
 	} else {
-		b.GWall = b.driver.AllocateMemory(b.Context, wallBytes)
-		b.GBuf[0] = b.driver.AllocateMemory(b.Context, rowBytes)
-		b.GBuf[1] = b.driver.AllocateMemory(b.Context, rowBytes)
+		b.GWall = b.rt.AllocateMemory(b.Context, wallBytes)
+		b.GBuf[0] = b.rt.AllocateMemory(b.Context, rowBytes)
+		b.GBuf[1] = b.rt.AllocateMemory(b.Context, rowBytes)
 	}
 
-	b.Upload(b.driver, b.Queue, b.GWall, b.Wall)
+	b.Upload(b.rt, b.Queue, b.GWall, b.Wall)
 
 	// Initialize src buffer (gBuf[0]) with row 0 of the wall.
 	row0 := make([]int32, cols)
 	copy(row0, b.Wall[:cols])
-	b.Upload(b.driver, b.Queue, b.GBuf[0], row0)
+	b.Upload(b.rt, b.Queue, b.GBuf[0], row0)
 }
 
 func (b *Benchmark) exec() {
@@ -168,7 +165,7 @@ func (b *Benchmark) exec() {
 			T:       int32(t),
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, 1, 1},
@@ -190,7 +187,7 @@ func (b *Benchmark) verify() error {
 	rows := b.Rows
 
 	gpuResult := make([]int32, cols)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuResult); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
@@ -236,7 +233,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.FinalGBuf, 4*(b.Cols)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.FinalGBuf, 4*(b.Cols)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -244,7 +241,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

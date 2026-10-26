@@ -3,21 +3,21 @@ package fastwalshtransform
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
-	Readback         driver.HostBuffer
-	Context          driver.Context
+	Readback         gpuruntime.HostBuffer
+	Context          gpuruntime.Context
 	Gpus             []int
-	Queues           []driver.CommandQueue
+	Queues           []gpuruntime.CommandQueue
 	Arch             arch.Type
 	Length           uint32
 	HInputArray      []float32
 	HVerInputArray   []float32
-	DInputArray      driver.Ptr
+	DInputArray      gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

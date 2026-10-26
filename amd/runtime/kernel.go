@@ -1,4 +1,4 @@
-package driver
+package runtime
 
 import (
 	"crypto/sha256"
@@ -7,9 +7,9 @@ import (
 	"reflect"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/runtime/internal"
 )
 
 // EnqueueLaunchKernel captures code, dispatch dimensions and argument values.
@@ -29,7 +29,7 @@ func (r *Runtime) EnqueueLaunchKernel(
 	if dev := r.devices[queue.GPU]; dev.Type == internal.DeviceTypeUnifiedGPU {
 		gpus = append([]int(nil), dev.UnifiedGPUIDs...)
 	}
-	cmd := Command{Kind: launchKernel, Code: insts.CodeObjectSnapshot(co), GPUs: gpus}
+	cmd := Command{Kind: LaunchKernel, Code: insts.CodeObjectSnapshot(co), GPUs: gpus}
 	codeHash := hashCode(cmd.Code)
 	for _, device := range gpus {
 		ctx.GPU = device

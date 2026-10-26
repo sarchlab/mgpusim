@@ -20,8 +20,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
@@ -33,18 +33,17 @@ import (
 // alignment padding). The kernel reads only blockIdx.x / threadIdx.x in a
 // guard, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Arr         driver.Ptr // offset 0
-	StartIdx    uint32     // offset 8
-	NumAccesses uint32     // offset 12
-	Result      driver.Ptr // offset 16
+	Arr         gpuruntime.Ptr // offset 0
+	StartIdx    uint32         // offset 8
+	NumAccesses uint32         // offset 12
+	Result      gpuruntime.Ptr // offset 16
 }
 
 // Benchmark defines the cache_latency benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -53,14 +52,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new cache_latency benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -92,8 +90,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -192,19 +190,19 @@ func (b *Benchmark) initMem() {
 	b.buildChain()
 
 	if b.UseUnifiedMemory {
-		b.GArr = b.driver.AllocateUnifiedMemory(
+		b.GArr = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.N*4))
-		b.GResult = b.driver.AllocateUnifiedMemory(
+		b.GResult = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(4))
 	} else {
-		b.GArr = b.driver.AllocateMemory(b.Context, uint64(b.N*4))
-		b.GResult = b.driver.AllocateMemory(b.Context, uint64(4))
+		b.GArr = b.rt.AllocateMemory(b.Context, uint64(b.N*4))
+		b.GResult = b.rt.AllocateMemory(b.Context, uint64(4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GArr, b.Chain)
+	b.Upload(b.rt, b.Queue, b.GArr, b.Chain)
 	// Initialize the result buffer so its page is resident on the GPU before
 	// the kernel writes to it (output-only buffers are otherwise never mapped).
-	b.Upload(b.driver, b.Queue, b.GResult, []uint32{0})
+	b.Upload(b.rt, b.Queue, b.GResult, []uint32{0})
 }
 
 func (b *Benchmark) exec() {
@@ -218,7 +216,7 @@ func (b *Benchmark) exec() {
 	// Launch a single work-item (grid 1, block 1), matching the HIP source.
 	// The kernel guards on blockIdx.x == 0 && threadIdx.x == 0, so only one
 	// thread performs the dependent pointer chase and writes result[0].
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{1, 1, 1},
@@ -231,7 +229,7 @@ func (b *Benchmark) exec() {
 // The thread starts at startIdx and applies num_accesses chain hops.
 func (b *Benchmark) verify() error {
 	gpuResult := make([]uint32, 1)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuResult); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
@@ -251,7 +249,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GResult, 4*(1)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GResult, 4*(1)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -259,7 +257,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

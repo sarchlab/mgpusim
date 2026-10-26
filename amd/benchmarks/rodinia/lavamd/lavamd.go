@@ -18,8 +18,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the workgroup size (compile-time constant in the kernel, so no
@@ -42,25 +42,24 @@ const (
 // The kernel uses a constant block size, so no hidden ABI arguments are
 // emitted.
 type KernelArgs struct {
-	PosX            driver.Ptr // offset 0
-	PosY            driver.Ptr // offset 8
-	PosZ            driver.Ptr // offset 16
-	ForceX          driver.Ptr // offset 24
-	ForceY          driver.Ptr // offset 32
-	ForceZ          driver.Ptr // offset 40
-	EnergyOut       driver.Ptr // offset 48
-	NeighborList    driver.Ptr // offset 56
-	NeighborCount   driver.Ptr // offset 64
-	ParticlesPerBox int32      // offset 72
-	TotalBoxes      int32      // offset 76
+	PosX            gpuruntime.Ptr // offset 0
+	PosY            gpuruntime.Ptr // offset 8
+	PosZ            gpuruntime.Ptr // offset 16
+	ForceX          gpuruntime.Ptr // offset 24
+	ForceY          gpuruntime.Ptr // offset 32
+	ForceZ          gpuruntime.Ptr // offset 40
+	EnergyOut       gpuruntime.Ptr // offset 48
+	NeighborList    gpuruntime.Ptr // offset 56
+	NeighborCount   gpuruntime.Ptr // offset 64
+	ParticlesPerBox int32          // offset 72
+	TotalBoxes      int32          // offset 76
 }
 
 // Benchmark defines the LavaMD benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -69,13 +68,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new LavaMD benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -107,8 +106,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -193,9 +192,9 @@ func (b *Benchmark) initMem() {
 	neighBytes := uint64(b.TotalBoxes * 27 * 4)
 	ncountBytes := uint64(b.TotalBoxes * 4)
 
-	alloc := b.driver.AllocateMemory
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		alloc = b.driver.AllocateUnifiedMemory
+		alloc = b.rt.AllocateUnifiedMemory
 	}
 
 	b.GPosX = alloc(b.Context, posBytes)
@@ -208,11 +207,11 @@ func (b *Benchmark) initMem() {
 	b.GNeighborList = alloc(b.Context, neighBytes)
 	b.GNeighborCount = alloc(b.Context, ncountBytes)
 
-	b.Upload(b.driver, b.Queue, b.GPosX, b.HPosX)
-	b.Upload(b.driver, b.Queue, b.GPosY, b.HPosY)
-	b.Upload(b.driver, b.Queue, b.GPosZ, b.HPosZ)
-	b.Upload(b.driver, b.Queue, b.GNeighborList, b.HNeighborList)
-	b.Upload(b.driver, b.Queue, b.GNeighborCount, b.HNeighborCount)
+	b.Upload(b.rt, b.Queue, b.GPosX, b.HPosX)
+	b.Upload(b.rt, b.Queue, b.GPosY, b.HPosY)
+	b.Upload(b.rt, b.Queue, b.GPosZ, b.HPosZ)
+	b.Upload(b.rt, b.Queue, b.GNeighborList, b.HNeighborList)
+	b.Upload(b.rt, b.Queue, b.GNeighborCount, b.HNeighborCount)
 }
 
 func (b *Benchmark) exec() {
@@ -233,7 +232,7 @@ func (b *Benchmark) exec() {
 	// Grid: one workgroup per box, blockSize work-items per workgroup.
 	globalX := uint32(b.TotalBoxes) * blockSize
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -250,16 +249,16 @@ func (b *Benchmark) verify() error {
 	gpuFY := make([]float32, b.TotalParticles)
 	gpuFZ := make([]float32, b.TotalParticles)
 	gpuPE := make([]float32, b.TotalParticles)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuFX); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuFX); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuFY); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuFY); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuFZ); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuFZ); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[3], gpuPE); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[3], gpuPE); err != nil {
 		return err
 	}
 
@@ -317,10 +316,10 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceX, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceY, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceZ, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEnergy, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceX, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceY, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceZ, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEnergy, 4*(b.TotalParticles)))
 }
 
 func checkClose(idx int, name string, ref, got float32) {
@@ -339,7 +338,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

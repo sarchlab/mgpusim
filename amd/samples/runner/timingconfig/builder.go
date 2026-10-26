@@ -15,6 +15,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
@@ -98,7 +99,7 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 
 // Build registers the hardware platform and returns its Runtime. The Driver,
 // GPUs, and all the connections register themselves with the simulation.
-func (b Builder) Build() *driver.Runtime {
+func (b Builder) Build() *gpuruntime.Runtime {
 	b.adjustConfigForGPUType()
 	b.sampler = sampling.NewSimulationEngine(
 		b.simulation,
@@ -118,7 +119,7 @@ func (b Builder) Build() *driver.Runtime {
 	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
 	interDeviceConn.BindPort(mmuComp.Ports.Top)
 	spec := driver.DefaultSpec()
-	runtimeSpec := driver.DefaultRuntimeSpec()
+	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
 	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
 	spec.D2HCycles = b.d2hCycles
@@ -128,10 +129,10 @@ func (b Builder) Build() *driver.Runtime {
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
 		runtimeSpec.Devices = append(
 			runtimeSpec.Devices,
-			driver.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
+			gpuruntime.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
 		)
 	}
-	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, b.globalStorage)
+	runtime := gpuruntime.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, b.globalStorage)
 	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
 		WithResources(driver.Resources{
 			Runtime:       runtime,

@@ -3,15 +3,15 @@ package nbody
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	UseUnifiedMemory bool
 	Arch             arch.Type
@@ -28,15 +28,15 @@ type State struct {
 	NumIterations    int32
 	Exchange         bool
 	NumBodies        int32
-	CurrPos          driver.Ptr
-	CurrVel          driver.Ptr
-	NewPos           driver.Ptr
-	NewVel           driver.Ptr
-	DPos             driver.Ptr
-	DVel             driver.Ptr
-	DNewPos          driver.Ptr
-	DNewVel          driver.Ptr
-	LocalPosBuf      driver.Ptr
+	CurrPos          gpuruntime.Ptr
+	CurrVel          gpuruntime.Ptr
+	NewPos           gpuruntime.Ptr
+	NewVel           gpuruntime.Ptr
+	DPos             gpuruntime.Ptr
+	DVel             gpuruntime.Ptr
+	DNewPos          gpuruntime.Ptr
+	DNewVel          gpuruntime.Ptr
+	LocalPosBuf      gpuruntime.Ptr
 }
 type checkpointConfig struct {
 	Verification     bool

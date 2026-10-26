@@ -11,18 +11,18 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3 Kernel Arguments
 
 // CopyRectKernelArgs defines kernel arguments for GCN3
 type CopyRectKernelArgs struct {
-	Dst                 driver.Ptr
+	Dst                 gpuruntime.Ptr
 	DOffset             int32
 	DPitch              int32
-	Src                 driver.Ptr
+	Src                 gpuruntime.Ptr
 	SOffset             int32
 	SPitch              int32
 	Width               int32
@@ -34,13 +34,13 @@ type CopyRectKernelArgs struct {
 
 // StencilKernelArgs defines kernel arguments for GCN3
 type StencilKernelArgs struct {
-	Data                driver.Ptr
-	NewData             driver.Ptr
+	Data                gpuruntime.Ptr
+	NewData             gpuruntime.Ptr
 	Alignment           int32
 	WCenter             float32
 	WCardinal           float32
 	WDiagonal           float32
-	Sh                  driver.LocalPtr
+	Sh                  gpuruntime.LocalPtr
 	Padding             int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -51,10 +51,10 @@ type StencilKernelArgs struct {
 
 // CDNA3CopyRectKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3CopyRectKernelArgs struct {
-	Dst                 driver.Ptr
+	Dst                 gpuruntime.Ptr
 	DOffset             int32
 	DPitch              int32
-	Src                 driver.Ptr
+	Src                 gpuruntime.Ptr
 	SOffset             int32
 	SPitch              int32
 	Width               int32
@@ -102,8 +102,8 @@ type CDNA3CopyRectKernelArgs struct {
 //	offset 0x58: HiddenGlobalOffsetZ (8 bytes)
 //	offset 0x60: HiddenGridDims      (2 bytes)
 type CDNA3StencilKernelArgs struct {
-	Data                driver.Ptr
-	NewData             driver.Ptr
+	Data                gpuruntime.Ptr
+	NewData             gpuruntime.Ptr
 	Alignment           int32
 	WCenter             float32
 	WCardinal           float32
@@ -127,24 +127,21 @@ type CDNA3StencilKernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	copyRectKernel *insts.KernelCodeObject
 	stencilKernel  *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	b.HaloWidth = 1
 	b.Pad = 16
 	b.LocalRows = 16
@@ -194,8 +191,8 @@ func (b *Benchmark) loadKernels() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
 	b.loadKernels()
 
@@ -215,14 +212,14 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.DData1 = b.driver.AllocateUnifiedMemory(b.Context,
+		b.DData1 = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.PaddedDataSize*4))
-		b.DData2 = b.driver.AllocateUnifiedMemory(b.Context,
+		b.DData2 = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.PaddedDataSize*4))
 	} else {
-		b.DData1 = b.driver.AllocateMemory(b.Context,
+		b.DData1 = b.rt.AllocateMemory(b.Context,
 			uint64(b.PaddedDataSize*4))
-		b.DData2 = b.driver.AllocateMemory(b.Context,
+		b.DData2 = b.rt.AllocateMemory(b.Context,
 			uint64(b.PaddedDataSize*4))
 	}
 
@@ -257,7 +254,7 @@ func (b *Benchmark) launchStencilKernel(
 			HiddenGlobalOffsetZ: 0,
 			HiddenGridDims:      2,
 		}
-		b.driver.EnqueueLaunchKernel(b.Queue,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.stencilKernel,
 			globalSize, localSize,
 			&args,
@@ -270,13 +267,13 @@ func (b *Benchmark) launchStencilKernel(
 			WCenter:             b.WCenter,
 			WCardinal:           b.WCardinal,
 			WDiagonal:           b.WDiagonal,
-			Sh:                  driver.LocalPtr(ldsSize),
+			Sh:                  gpuruntime.LocalPtr(ldsSize),
 			Padding:             0,
 			HiddenGlobalOffsetX: 0,
 			HiddenGlobalOffsetY: 0,
 			HiddenGlobalOffsetZ: 0,
 		}
-		b.driver.EnqueueLaunchKernel(b.Queue,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.stencilKernel,
 			globalSize, localSize,
 			&args,
@@ -285,8 +282,8 @@ func (b *Benchmark) launchStencilKernel(
 }
 
 func (b *Benchmark) exec() {
-	b.Upload(b.driver, b.Queue, b.CurrData, b.HInput)
-	b.Upload(b.driver, b.Queue, b.NewData, b.HInput)
+	b.Upload(b.rt, b.Queue, b.CurrData, b.HInput)
+	b.Upload(b.rt, b.Queue, b.NewData, b.HInput)
 
 	for i := 0; i < b.NumIteration; i++ {
 		ldsSize := (b.LocalRows + 2) * (b.LocalCols + 2) * 4
@@ -373,7 +370,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -391,7 +388,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutput
 			}
-			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -401,7 +398,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutput
 			}
-			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

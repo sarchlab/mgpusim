@@ -16,23 +16,22 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // emptyArgs is the kernel argument struct: one unused pointer, present only so
-// the kernarg segment is non-zero (the driver cannot allocate 0 bytes). The
+// the kernarg segment is non-zero (Runtime cannot allocate 0 bytes). The
 // kernel never dereferences it.
 type emptyArgs struct {
-	Out driver.Ptr // offset 0
+	Out gpuruntime.Ptr // offset 0
 }
 
 // Benchmark defines the empty_kernel benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -41,14 +40,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new empty_kernel benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State,
-		b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -80,8 +78,8 @@ func (b *Benchmark) setup() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 }
 
 func (b *Benchmark) exec() {
@@ -93,17 +91,17 @@ func (b *Benchmark) exec() {
 	}
 
 	// A tiny unused buffer just to give the kernel a valid (non-zero) kernarg.
-	var out driver.Ptr
+	var out gpuruntime.Ptr
 	if b.UseUnifiedMemory {
-		out = b.driver.AllocateUnifiedMemory(b.Context, 4)
+		out = b.rt.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		out = b.driver.AllocateMemory(b.Context, 4)
+		out = b.rt.AllocateMemory(b.Context, 4)
 	}
 
 	globalX := uint32(b.NumBlocks * b.BlockSize)
 	args := emptyArgs{Out: out}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -123,7 +121,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

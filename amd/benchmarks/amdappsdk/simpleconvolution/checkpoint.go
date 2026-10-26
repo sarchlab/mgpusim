@@ -3,15 +3,15 @@ package simpleconvolution
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	Width            uint32
@@ -22,9 +22,9 @@ type State struct {
 	HInputData       []uint32
 	HOutputData      []uint32
 	HMask            []float32
-	DInputData       driver.Ptr
-	DOutputData      driver.Ptr
-	DMasks           []driver.Ptr
+	DInputData       gpuruntime.Ptr
+	DOutputData      gpuruntime.Ptr
+	DMasks           []gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

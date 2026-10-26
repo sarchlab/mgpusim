@@ -18,6 +18,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 )
@@ -150,7 +151,7 @@ func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	finishTiming(t, s, d, results, path+".uninterrupted")
 }
 
-func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Runtime, *firResults) {
+func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *gpuruntime.Runtime, *firResults) {
 	t.Helper()
 	s := sim.MakeBuilder().WithTaskTracking().Build()
 	gpuType := "r9nano"
@@ -171,7 +172,7 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Runti
 	return s, d, results
 }
 
-func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.HostBuffer {
+func submitFIR(t *testing.T, d *gpuruntime.Runtime, a arch.Type) []gpuruntime.HostBuffer {
 	t.Helper()
 	ctx := d.Init()
 	q := d.CreateCommandQueue(ctx)
@@ -228,10 +229,10 @@ func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.HostBuffer
 
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
 	second := benchmarks.Download(d, q, outPtr, checkpointLength*4)
-	return []driver.HostBuffer{first, second}
+	return []gpuruntime.HostBuffer{first, second}
 }
 
-func finishTiming(t *testing.T, s *sim.Simulation, d *driver.Runtime, results *firResults, path string) {
+func finishTiming(t *testing.T, s *sim.Simulation, d *gpuruntime.Runtime, results *firResults, path string) {
 	t.Helper()
 	if err := s.Engine().Run(); err != nil {
 		t.Fatal(err)
@@ -267,7 +268,7 @@ func verifyFIR(t *testing.T, out []float32) {
 }
 
 type firResults struct {
-	IDs     []driver.HostBuffer
+	IDs     []gpuruntime.HostBuffer
 	Outputs [][]float32
 }
 

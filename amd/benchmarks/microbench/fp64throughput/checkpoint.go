@@ -3,14 +3,14 @@ package fp64throughput
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// NumBlocks is the number of work-groups (grid dim in blocks).
@@ -25,8 +25,8 @@ type State struct {
 	FmasPerThread    int
 	NumThreads       int
 	In               []float64
-	GIn              driver.Ptr
-	GOut             driver.Ptr
+	GIn              gpuruntime.Ptr
+	GOut             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

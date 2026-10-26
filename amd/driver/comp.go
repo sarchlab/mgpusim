@@ -6,22 +6,10 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const GPUPortName = "GPU"
-
-// AllocatorType selects physical-memory allocation for this platform.
-type AllocatorType int
-
-const (
-	AllocatorDefault AllocatorType = iota
-	AllocatorBuddy
-)
-
-type DeviceProperties struct {
-	CUCount  int    `json:"cu_count"`
-	DRAMSize uint64 `json:"dram_size"`
-}
 
 // Spec is the immutable simulated protocol and timing configuration.
 type Spec struct {
@@ -32,19 +20,10 @@ type Spec struct {
 	GPUs               []messaging.RemotePort `json:"gpus"`
 }
 
-// RuntimeSpec owns allocation and device properties independently of Driver timing.
-type RuntimeSpec struct {
-	Log2PageSize uint64             `json:"log2_page_size"`
-	Allocator    AllocatorType      `json:"allocator"`
-	Devices      []DeviceProperties `json:"devices"`
-}
-
-func DefaultRuntimeSpec() RuntimeSpec { return RuntimeSpec{Log2PageSize: 12} }
-
-// Execution holds the sole mutable copy of a command already taken from Runtime.
+// Execution holds the sole mutable copy of a command already taken from gpuruntime.Runtime.
 type Execution struct {
-	Queue    CommandQueue
-	Command  Command
+	Queue    gpuruntime.CommandQueue
+	Command  gpuruntime.Command
 	Requests []messaging.Msg
 }
 
@@ -65,7 +44,7 @@ func (s *State) Initialize(*Comp) {
 
 // Resources are live shared objects supplied before construction.
 type Resources struct {
-	Runtime       *Runtime
+	Runtime       *gpuruntime.Runtime
 	PageTable     *vm.PageTable
 	GlobalStorage *mem.Storage
 }

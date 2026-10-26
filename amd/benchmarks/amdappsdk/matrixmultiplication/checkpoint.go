@@ -3,19 +3,19 @@ package matrixmultiplication
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
-	Queue            driver.CommandQueue
-	BlockABuf        driver.Ptr
-	GA               driver.Ptr
-	GB               driver.Ptr
-	GC               driver.Ptr
-	Readback         driver.HostBuffer
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	BlockABuf        gpuruntime.Ptr
+	GA               gpuruntime.Ptr
+	GB               gpuruntime.Ptr
+	GC               gpuruntime.Ptr
+	Readback         gpuruntime.HostBuffer
+	Context          gpuruntime.Context
 	Gpus             []int
 	Arch             arch.Type
 	X                uint32

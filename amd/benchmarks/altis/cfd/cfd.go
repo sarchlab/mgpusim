@@ -22,8 +22,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -42,28 +42,27 @@ const (
 // insert alignment padding). The kernel uses a constant BLOCK_SIZE for the
 // block geometry, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Rho        driver.Ptr // offset 0
-	Mx         driver.Ptr // offset 8
-	My         driver.Ptr // offset 16
-	Mz         driver.Ptr // offset 24
-	Energy     driver.Ptr // offset 32
-	Neighbors  driver.Ptr // offset 40
-	Normals    driver.Ptr // offset 48
-	Areas      driver.Ptr // offset 56
-	FluxRho    driver.Ptr // offset 64
-	FluxMx     driver.Ptr // offset 72
-	FluxMy     driver.Ptr // offset 80
-	FluxMz     driver.Ptr // offset 88
-	FluxEnergy driver.Ptr // offset 96
-	N          int32      // offset 104
+	Rho        gpuruntime.Ptr // offset 0
+	Mx         gpuruntime.Ptr // offset 8
+	My         gpuruntime.Ptr // offset 16
+	Mz         gpuruntime.Ptr // offset 24
+	Energy     gpuruntime.Ptr // offset 32
+	Neighbors  gpuruntime.Ptr // offset 40
+	Normals    gpuruntime.Ptr // offset 48
+	Areas      gpuruntime.Ptr // offset 56
+	FluxRho    gpuruntime.Ptr // offset 64
+	FluxMx     gpuruntime.Ptr // offset 72
+	FluxMy     gpuruntime.Ptr // offset 80
+	FluxMz     gpuruntime.Ptr // offset 88
+	FluxEnergy gpuruntime.Ptr // offset 96
+	N          int32          // offset 104
 }
 
 // Benchmark defines the Altis CFD benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -72,13 +71,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Altis CFD benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -110,8 +109,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -185,9 +184,9 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 		}
 	}
 
-	alloc := b.driver.AllocateMemory
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		alloc = b.driver.AllocateUnifiedMemory
+		alloc = b.rt.AllocateUnifiedMemory
 	}
 
 	cellBytes := uint64(n * 4)
@@ -209,14 +208,14 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	b.GFluxMz = alloc(b.Context, cellBytes)
 	b.GFluxEnergy = alloc(b.Context, cellBytes)
 
-	b.Upload(b.driver, b.Queue, b.GRho, b.HRho)
-	b.Upload(b.driver, b.Queue, b.GMx, b.HMx)
-	b.Upload(b.driver, b.Queue, b.GMy, b.HMy)
-	b.Upload(b.driver, b.Queue, b.GMz, b.HMz)
-	b.Upload(b.driver, b.Queue, b.GEnergy, b.HEnergy)
-	b.Upload(b.driver, b.Queue, b.GNeighbors, b.HNeighbors)
-	b.Upload(b.driver, b.Queue, b.GNormals, b.HNormals)
-	b.Upload(b.driver, b.Queue, b.GAreas, b.HAreas)
+	b.Upload(b.rt, b.Queue, b.GRho, b.HRho)
+	b.Upload(b.rt, b.Queue, b.GMx, b.HMx)
+	b.Upload(b.rt, b.Queue, b.GMy, b.HMy)
+	b.Upload(b.rt, b.Queue, b.GMz, b.HMz)
+	b.Upload(b.rt, b.Queue, b.GEnergy, b.HEnergy)
+	b.Upload(b.rt, b.Queue, b.GNeighbors, b.HNeighbors)
+	b.Upload(b.rt, b.Queue, b.GNormals, b.HNormals)
+	b.Upload(b.rt, b.Queue, b.GAreas, b.HAreas)
 }
 
 func (b *Benchmark) exec() {
@@ -241,7 +240,7 @@ func (b *Benchmark) exec() {
 		N:          int32(n),
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -346,19 +345,19 @@ func (b *Benchmark) verify() error {
 	gpuFluxMy := make([]float32, n)
 	gpuFluxMz := make([]float32, n)
 	gpuFluxEnergy := make([]float32, n)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuFluxRho); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuFluxRho); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuFluxMx); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuFluxMx); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuFluxMy); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuFluxMy); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[3], gpuFluxMz); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[3], gpuFluxMz); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.driver, b.Readbacks[4], gpuFluxEnergy); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[4], gpuFluxEnergy); err != nil {
 		return err
 	}
 
@@ -389,11 +388,11 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxRho, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMx, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMy, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMz, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxEnergy, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxRho, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMx, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMy, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMz, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxEnergy, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -401,7 +400,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

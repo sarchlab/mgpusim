@@ -8,19 +8,19 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-	driver  *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt      *gpuruntime.Runtime
 	trainer gputraining.DataParallelismMultiGPUTrainer
 }
 
-func NewBenchmark(r *driver.Runtime) *Benchmark {
-	b := &Benchmark{State: &State{Context: r.Init(), Epoch: 50, MaxBatchPerEpoch: 1, BatchSize: 4}, driver: r}
-	b.Saved = benchmarks.NewSaved(b.State, b.configuration, b.bind)
+func NewBenchmark(r *gpuruntime.Runtime) *Benchmark {
+	b := &Benchmark{State: &State{Context: r.Init(), Epoch: 50, MaxBatchPerEpoch: 1, BatchSize: 4}, rt: r}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.configuration, b.bind)
 	return b
 }
 func (b *Benchmark) SelectGPU(ids []int) {
@@ -35,8 +35,8 @@ func (b *Benchmark) SetVerification(enabled bool) {
 	b.EnableVerification = enabled
 }
 func (b *Benchmark) init() error {
-	b.driver.SelectGPU(b.Context, b.GPUs[0])
-	o := gputensor.NewGPUOperator(b.driver, b.Context)
+	b.rt.SelectGPU(b.Context, b.GPUs[0])
+	o := gputensor.NewGPUOperator(b.rt, b.Context)
 	o.Arch = b.Arch
 	o.SetVerification(b.EnableVerification)
 	n := training.Network{Layers: []layers.Layer{
@@ -50,12 +50,12 @@ func (b *Benchmark) init() error {
 		BatchSize:        b.BatchSize,
 		ShowBatchInfo:    true,
 		GPUs:             b.GPUs,
-		Contexts: []driver.Context{
+		Contexts: []gpuruntime.Context{
 			b.Context,
 		},
 	}
 	b.trainer = gputraining.DataParallelismMultiGPUTrainer{State: &b.Trainer,
-		Driver:          b.driver,
+		Runtime:         b.rt,
 		TensorOperators: []*gputensor.GPUOperator{o},
 		Networks:        []training.Network{n},
 		DataSource:      []training.DataSource{NewDataSource(o)},
@@ -71,7 +71,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 	if b.Ended {

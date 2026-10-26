@@ -6,22 +6,22 @@ import (
 	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[config, State]
-	driver *driver.Runtime
+	benchmarks.Checkpoint[config, State]
+	rt *gpuruntime.Runtime
 }
 
 // NewBenchmark creates a new benchmar
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := &Benchmark{State: &State{}}
-	b.Saved = benchmarks.NewSaved(b.State, b.config, nil)
-	b.driver = driver
-	b.Context = driver.Init()
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.config, nil)
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -42,13 +42,13 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 	switch b.Phase {
 	case 0:
-		b.driver.SelectGPU(b.Context, b.GPU)
-		b.Queue = b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, b.GPU)
+		b.Queue = b.rt.CreateCommandQueue(b.Context)
 		rng := rand.New(rand.NewSource(1))
 		b.Data = make([]byte, b.ByteSize)
 		b.Result = make([]byte, b.ByteSize)
@@ -56,17 +56,17 @@ func (b *Benchmark) Step() error {
 			b.Data[i] = byte(rng.Int())
 		}
 		if b.UseUnifiedMemory {
-			b.Ptr = b.driver.AllocateUnifiedMemory(b.Context, b.ByteSize)
+			b.Ptr = b.rt.AllocateUnifiedMemory(b.Context, b.ByteSize)
 		} else {
-			b.Ptr = b.driver.AllocateMemory(b.Context, b.ByteSize)
+			b.Ptr = b.rt.AllocateMemory(b.Context, b.ByteSize)
 		}
-		b.Upload(b.driver, b.Queue, b.Ptr, b.Data)
+		b.Upload(b.rt, b.Queue, b.Ptr, b.Data)
 		b.Phase = 1
 	case 1:
-		b.Readback = benchmarks.Download(b.driver, b.Queue, b.Ptr, int(b.ByteSize))
+		b.Readback = benchmarks.Download(b.rt, b.Queue, b.Ptr, int(b.ByteSize))
 		b.Phase = 2
 	case 2:
-		if err := benchmarks.Read(b.driver, b.Readback, b.Result); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.Result); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -98,10 +98,10 @@ type config struct {
 }
 type State struct {
 	benchmarks.Progress
-	Context          driver.Context
-	Queue            driver.CommandQueue
-	Ptr              driver.Ptr
-	Readback         driver.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
+	Ptr              gpuruntime.Ptr
+	Readback         gpuruntime.HostBuffer
 	Data, Result     []byte
 	GPU              int
 	ByteSize         uint64

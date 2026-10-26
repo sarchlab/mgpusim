@@ -31,8 +31,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -52,17 +52,16 @@ const (
 // (mgpusim serializes args with binary.Write, which inserts no alignment
 // padding). Both kernels share this identical layout.
 type KernelArgs struct {
-	Sink       driver.Ptr // offset 0
-	InnerIters int32      // offset 8
-	BlockSize  int32      // offset 12
+	Sink       gpuruntime.Ptr // offset 0
+	InnerIters int32          // offset 8
+	BlockSize  int32          // offset 12
 }
 
 // Benchmark defines the shared-memory latency benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 	conf  *insts.KernelCodeObject
@@ -72,13 +71,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new shared-memory latency benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -116,8 +115,8 @@ func (b *Benchmark) setup() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 }
 
@@ -136,16 +135,16 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GSink = b.driver.AllocateUnifiedMemory(
+		b.GSink = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.NumBlocks*4))
 	} else {
-		b.GSink = b.driver.AllocateMemory(
+		b.GSink = b.rt.AllocateMemory(
 			b.Context, uint64(b.NumBlocks*4))
 	}
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
-	b.Upload(b.driver, b.Queue, b.GSink, zeros)
+	b.Upload(b.rt, b.Queue, b.GSink, zeros)
 }
 
 // launch runs one kernel (no_conflict or conflict) with the configured
@@ -156,7 +155,7 @@ func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 		InnerIters: int32(b.InnerIters),
 		BlockSize:  int32(b.BlockSize),
 	}
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		kernel,
 		[3]uint32{uint32(b.NumBlocks * b.BlockSize), 1, 1},
@@ -231,7 +230,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -245,15 +244,15 @@ func (b *Benchmark) Step() error {
 	case 1:
 		if b.AccessPattern != "conflict" {
 			b.NoConflictResult = make([]float32, b.NumBlocks)
-			b.Readback = benchmarks.Download(b.driver, b.Queue, b.GSink, b.NumBlocks*4)
+			b.Readback = benchmarks.Download(b.rt, b.Queue, b.GSink, b.NumBlocks*4)
 		}
 		b.Phase = 2
 	case 2:
 		if b.Readback.Address != 0 {
-			if err := benchmarks.Read(b.driver, b.Readback, b.NoConflictResult); err != nil {
+			if err := benchmarks.Read(b.rt, b.Readback, b.NoConflictResult); err != nil {
 				return err
 			}
-			b.Readback = driver.HostBuffer{}
+			b.Readback = gpuruntime.HostBuffer{}
 		}
 		if b.AccessPattern == "conflict" || b.AccessPattern == "both" {
 			b.launch(b.conf)

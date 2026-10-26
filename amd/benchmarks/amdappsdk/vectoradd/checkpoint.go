@@ -2,24 +2,24 @@ package vectoradd
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks        []benchmarks.Readback
-	Queue            driver.CommandQueue
-	Context          driver.Context
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
 	Gpus             []int
 	Width            uint32
 	Height           uint32
 	HA               []float32
 	HB               []float32
 	HC               []float32
-	DA               driver.Ptr
-	DB               driver.Ptr
-	DC               driver.Ptr
+	DA               gpuruntime.Ptr
+	DB               gpuruntime.Ptr
+	DC               gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

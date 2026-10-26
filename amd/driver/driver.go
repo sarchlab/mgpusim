@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // executionMW keeps only its component reference. Every tick reads the current
@@ -28,13 +29,13 @@ func (m *executionMW) Tick() bool {
 	}
 	progress = m.receive() || progress
 	r := c.Resources.Runtime
-	for i := range r.state.Queues {
-		q := CommandQueue(i + 1)
+	for i := range r.QueueCount() {
+		q := gpuruntime.CommandQueue(i + 1)
 		if m.active(q) {
 			continue
 		}
 		m.markers(q)
-		cmd, ok := r.take(q)
+		cmd, ok := r.TakeCommand(q)
 		if !ok {
 			continue
 		}
@@ -42,11 +43,11 @@ func (m *executionMW) Tick() bool {
 		e := &c.State.Executing[len(c.State.Executing)-1]
 		m.startTask(e)
 		switch cmd.Kind {
-		case launchKernel:
+		case gpuruntime.LaunchKernel:
 			m.launch(e)
-		case copyH2D, copyD2H:
+		case gpuruntime.CopyH2D, gpuruntime.CopyD2H:
 			m.copy(e)
-		case noop:
+		case gpuruntime.Noop:
 			m.finish(len(c.State.Executing) - 1)
 		default:
 			panic("driver: unknown command")
@@ -55,7 +56,7 @@ func (m *executionMW) Tick() bool {
 	}
 	return progress
 }
-func (m *executionMW) active(q CommandQueue) bool {
+func (m *executionMW) active(q gpuruntime.CommandQueue) bool {
 	for _, e := range m.comp.State.Executing {
 		if e.Queue == q {
 			return true
@@ -63,13 +64,9 @@ func (m *executionMW) active(q CommandQueue) bool {
 	}
 	return false
 }
-func (m *executionMW) markers(q CommandQueue) {
+func (m *executionMW) markers(q gpuruntime.CommandQueue) {
 	r := m.comp.Resources.Runtime
-	queue := r.queue(q)
-	for len(queue.Pending) > 0 && queue.Pending[0].Kind == recordEvent {
-		cmd, _ := r.take(q)
-		r.complete(q, cmd, m.comp.CurrentTime())
-	}
+	r.CompleteEvents(q, m.comp.CurrentTime())
 }
 func (m *executionMW) send() bool {
 	c := m.comp
@@ -93,7 +90,7 @@ func (m *executionMW) startTask(e *Execution) {
 		}[e.Command.Kind]
 		c.State.CommandTasks[uint64(e.Command.ID)] = tracker.StartTask(
 			c,
-			tasks.StartInfo{Kind: "Driver Command", What: what, ParentID: c.Resources.Runtime.state.SimulationTask},
+			tasks.StartInfo{Kind: "Driver Command", What: what, ParentID: c.Resources.Runtime.SimulationTask()},
 		)
 	}
 }
@@ -113,11 +110,11 @@ func (m *executionMW) request(e *Execution, gpu int, payload any, delayed bool) 
 func (m *executionMW) launch(e *Execution) {
 	c := m.comp
 	r := c.Resources.Runtime
-	ctx := r.context(r.queue(e.Queue).Context)
+	pid := r.QueuePID(e.Queue)
 	cmd := &e.Command
 	totalCU := 0
 	for _, gpu := range cmd.GPUs {
-		totalCU += c.Resources.Runtime.config.Devices[gpu-1].CUCount
+		totalCU += r.DeviceCUCount(gpu)
 	}
 	first := uint64(0)
 	p := cmd.Packets[0].Packet
@@ -126,13 +123,13 @@ func (m *executionMW) launch(e *Execution) {
 		uint64((p.GridSizeZ-1)/uint32(p.WorkgroupSizeZ)+1)
 	for i, gpu := range cmd.GPUs {
 		req := protocol.LaunchKernelReq{
-			PID:           ctx.PID,
+			PID:           pid,
 			CodeObject:    cmd.Code,
 			Packet:        cmd.Packets[i].Packet,
 			PacketAddress: uint64(cmd.PacketAddresses[i]),
 		}
 		if len(cmd.GPUs) > 1 {
-			end := min(totalWG, first+((totalWG-1)/uint64(totalCU)+1)*uint64(c.Resources.Runtime.config.Devices[gpu-1].CUCount))
+			end := min(totalWG, first+((totalWG-1)/uint64(totalCU)+1)*uint64(r.DeviceCUCount(gpu)))
 			if end <= first {
 				continue
 			}
@@ -141,9 +138,7 @@ func (m *executionMW) launch(e *Execution) {
 		}
 		m.request(e, gpu, req, false)
 	}
-	for i := range ctx.Buffers {
-		ctx.Buffers[i].Dirty = true
-	}
+	r.MarkBuffersDirty(r.QueueContext(e.Queue))
 }
 func (m *executionMW) receive() bool {
 	c := m.comp
@@ -168,8 +163,7 @@ func (m *executionMW) receive() bool {
 					panic("driver: D2H response size mismatch")
 				}
 				r := c.Resources.Runtime
-				h := r.queue(e.Queue).Context
-				r.writeBytes(h, e.Command.Dst+Ptr(copyReq.DstOffset), data.Data)
+				writeHostBytes(r, r.QueueContext(e.Queue), e.Command.Dst+gpuruntime.Ptr(copyReq.DstOffset), data.Data)
 			}
 			c.Ports.GPU.RetrieveIncoming()
 			if tracker := c.TaskTracker(); tracker != nil {
@@ -192,7 +186,7 @@ func (m *executionMW) finish(i int) {
 		tracker.EndTask(c.State.CommandTasks[uint64(e.Command.ID)])
 	}
 	delete(c.State.CommandTasks, uint64(e.Command.ID))
-	c.Resources.Runtime.complete(e.Queue, e.Command, c.CurrentTime())
+	c.Resources.Runtime.CompleteCommand(e.Queue, e.Command, c.CurrentTime())
 	c.State.Executing = append(c.State.Executing[:i], c.State.Executing[i+1:]...)
 	m.markers(e.Queue)
 }

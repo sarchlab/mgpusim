@@ -3,14 +3,14 @@ package blackscholes
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks        []driver.HostBuffer
-	Context          driver.Context
-	Queue            driver.CommandQueue
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
 	Gpus             []int
 	Arch             arch.Type
 	N                int
@@ -18,12 +18,12 @@ type State struct {
 	HK               []float32
 	HT               []float32
 	HSigma           []float32
-	GS               driver.Ptr
-	GK               driver.Ptr
-	GT               driver.Ptr
-	GSigma           driver.Ptr
-	GCall            driver.Ptr
-	GPut             driver.Ptr
+	GS               gpuruntime.Ptr
+	GK               gpuruntime.Ptr
+	GT               gpuruntime.Ptr
+	GSigma           gpuruntime.Ptr
+	GCall            gpuruntime.Ptr
+	GPut             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

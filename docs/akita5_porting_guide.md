@@ -1,9 +1,9 @@
 # MGPUSim → Akita v5.0.0-beta.2 Porting Guide
 
-This document defines the conventions for porting MGPUSim from Akita v4 to v5.
-It is the single source of truth during the port; follow it exactly so all
-packages come out consistent. The local Akita v5 checkout is at
-`/Users/yifan/dev/src/github.com/sarchlab/akita` (tag `v5.0.0-beta.2`).
+> Historical notes for the earlier Akita v5 beta port. For current component and
+> host APIs, use [the RC2 migration guide](akita-v5-rc2.md) and
+> [Runtime and benchmark steps](runtime-and-benchmark-steps.md). The AMD HTTP
+> server mentioned below has been removed.
 
 ## Scope decisions (already made)
 

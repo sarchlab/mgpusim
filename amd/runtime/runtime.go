@@ -1,4 +1,4 @@
-package driver
+package runtime
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/runtime/internal"
 )
 
 // Runtime is the host API and the shared command resource. It never advances
@@ -204,7 +204,7 @@ func (r *Runtime) EnqueueMemCopyH2D(q CommandQueue, dst, src Ptr, size int) Comm
 	if size < 0 {
 		panic("runtime: negative copy size")
 	}
-	return r.enqueue(q, Command{Kind: copyH2D, Dst: dst, Src: src, ByteSize: size})
+	return r.enqueue(q, Command{Kind: CopyH2D, Dst: dst, Src: src, ByteSize: size})
 }
 
 // EnqueueMemCopyD2H writes CPU storage. Read/reuse/free the destination only
@@ -213,10 +213,10 @@ func (r *Runtime) EnqueueMemCopyD2H(q CommandQueue, dst, src Ptr, size int) Comm
 	if size < 0 {
 		panic("runtime: negative copy size")
 	}
-	return r.enqueue(q, Command{Kind: copyD2H, Dst: dst, Src: src, ByteSize: size})
+	return r.enqueue(q, Command{Kind: CopyD2H, Dst: dst, Src: src, ByteSize: size})
 }
 func (r *Runtime) EnqueueRecordEvent(q CommandQueue) Event {
-	e := Event(r.enqueue(q, Command{Kind: recordEvent}))
+	e := Event(r.enqueue(q, Command{Kind: RecordEvent}))
 	r.state.Events[e] = eventState{}
 	return e
 }
@@ -237,7 +237,9 @@ func (r *Runtime) Unfinished() []uint64 {
 	}
 	return out
 }
-func (r *Runtime) take(q CommandQueue) (Command, bool) {
+
+// TakeCommand transfers the next command to Driver execution state.
+func (r *Runtime) TakeCommand(q CommandQueue) (Command, bool) {
 	queue := r.queue(q)
 	if len(queue.Pending) == 0 {
 		return Command{}, false
@@ -247,7 +249,9 @@ func (r *Runtime) take(q CommandQueue) (Command, bool) {
 	queue.Pending = queue.Pending[1:]
 	return c, true
 }
-func (r *Runtime) complete(q CommandQueue, c Command, now timing.VTimeInPicoSec) {
+
+// CompleteCommand releases Driver-owned work and any internal staging allocations.
+func (r *Runtime) CompleteCommand(q CommandQueue, c Command, now timing.VTimeInPicoSec) {
 	queue := r.queue(q)
 	if queue.Unfinished == 0 {
 		panic("runtime: duplicate completion")
@@ -258,7 +262,7 @@ func (r *Runtime) complete(q CommandQueue, c Command, now timing.VTimeInPicoSec)
 			panic(err)
 		}
 	}
-	if c.Kind == recordEvent {
+	if c.Kind == RecordEvent {
 		if _, live := r.state.Events[Event(c.ID)]; live {
 			r.state.Events[Event(c.ID)] = eventState{Triggered: true, Time: now}
 		}

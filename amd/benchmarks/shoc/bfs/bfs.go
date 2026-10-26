@@ -10,32 +10,32 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArg represents the arguments to pass to the kernel
 type KernelArg struct {
-	Levels       driver.Ptr
-	EdgeArray    driver.Ptr
-	EdgeArrayAux driver.Ptr
+	Levels       gpuruntime.Ptr
+	EdgeArray    gpuruntime.Ptr
+	EdgeArrayAux gpuruntime.Ptr
 	WSize        int32
 	ChunkSize    int32
 	NumNodes     uint32
 	Curr         int32
-	Flag         driver.Ptr
+	Flag         gpuruntime.Ptr
 }
 
 // CDNA3KernelArg represents the arguments for CDNA3 (gfx942) architecture
 type CDNA3KernelArg struct {
-	Levels       driver.Ptr // offset 0
-	EdgeArray    driver.Ptr // offset 8
-	EdgeArrayAux driver.Ptr // offset 16
-	WSize        int32      // offset 24
-	ChunkSize    int32      // offset 28
-	NumNodes     uint32     // offset 32
-	Curr         int32      // offset 36
-	Flag         driver.Ptr // offset 40
+	Levels       gpuruntime.Ptr // offset 0
+	EdgeArray    gpuruntime.Ptr // offset 8
+	EdgeArrayAux gpuruntime.Ptr // offset 16
+	WSize        int32          // offset 24
+	ChunkSize    int32          // offset 28
+	NumNodes     uint32         // offset 32
+	Curr         int32          // offset 36
+	Flag         gpuruntime.Ptr // offset 40
 	// Hidden args required by HIP runtime for gfx942
 	HiddenBlockCountX   uint32   // offset 48
 	HiddenBlockCountY   uint32   // offset 52
@@ -56,21 +56,20 @@ type CDNA3KernelArg struct {
 // Benchmark is the BFS benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new BFS benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -111,19 +110,19 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
 	switch b.Phase {
 	case 0:
 		b.loadProgram()
-		b.driver.SelectGPU(b.Context, b.Gpus[0])
-		b.Queue = b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, b.Gpus[0])
+		b.Queue = b.rt.CreateCommandQueue(b.Context)
 		b.initMem()
-		b.Upload(b.driver, b.Queue, b.DFrontier, b.HFrontier)
-		b.Upload(b.driver, b.Queue, b.DEdgeArray, b.HEdgeOffsets)
-		b.Upload(b.driver, b.Queue, b.DEdgeArrayAux, b.HEdgeList)
+		b.Upload(b.rt, b.Queue, b.DFrontier, b.HFrontier)
+		b.Upload(b.rt, b.Queue, b.DEdgeArray, b.HEdgeOffsets)
+		b.Upload(b.rt, b.Queue, b.DEdgeArrayAux, b.HEdgeList)
 		if b.MaxDepth > 0 {
 			b.submitIteration()
 		} else {
@@ -131,7 +130,7 @@ func (b *Benchmark) Step() error {
 		}
 	case 1:
 		var flag int32
-		if err := benchmarks.Read(b.driver, b.FlagResult, &flag); err != nil {
+		if err := benchmarks.Read(b.rt, b.FlagResult, &flag); err != nil {
 			return err
 		}
 		if flag != 0 && b.Depth < b.MaxDepth {
@@ -140,7 +139,7 @@ func (b *Benchmark) Step() error {
 			b.finishTraversal()
 		}
 	case 2:
-		if err := benchmarks.Read(b.driver, b.OutputResult, b.HCost); err != nil {
+		if err := benchmarks.Read(b.rt, b.OutputResult, b.HCost); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -153,7 +152,7 @@ func (b *Benchmark) Step() error {
 	return nil
 }
 func (b *Benchmark) finishTraversal() {
-	b.OutputResult = benchmarks.Download(b.driver, b.Queue, b.DFrontier, len(b.HCost)*4)
+	b.OutputResult = benchmarks.Download(b.rt, b.Queue, b.DFrontier, len(b.HCost)*4)
 	b.Phase = 2
 }
 
@@ -179,21 +178,21 @@ func (b *Benchmark) initMem() {
 	b.HCost[b.SourceNode] = 0
 
 	if b.UseUnifiedMemory {
-		b.DFrontier = b.driver.AllocateUnifiedMemory(b.Context,
+		b.DFrontier = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumNode*4))
-		b.DEdgeArray = b.driver.AllocateUnifiedMemory(b.Context,
+		b.DEdgeArray = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64((b.NumNode+1)*4))
-		b.DEdgeArrayAux = b.driver.AllocateUnifiedMemory(b.Context,
+		b.DEdgeArrayAux = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(len(b.HEdgeList)*4))
-		b.DFlag = b.driver.AllocateUnifiedMemory(b.Context, 4)
+		b.DFlag = b.rt.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		b.DFrontier = b.driver.AllocateMemory(b.Context,
+		b.DFrontier = b.rt.AllocateMemory(b.Context,
 			uint64(b.NumNode*4))
-		b.DEdgeArray = b.driver.AllocateMemory(b.Context,
+		b.DEdgeArray = b.rt.AllocateMemory(b.Context,
 			uint64((b.NumNode+1)*4))
-		b.DEdgeArrayAux = b.driver.AllocateMemory(b.Context,
+		b.DEdgeArrayAux = b.rt.AllocateMemory(b.Context,
 			uint64(len(b.HEdgeList)*4))
-		b.DFlag = b.driver.AllocateMemory(b.Context, 4)
+		b.DFlag = b.rt.AllocateMemory(b.Context, 4)
 	}
 }
 
@@ -229,23 +228,23 @@ func (b *Benchmark) submitIteration() {
 	}
 
 	flag := int32(0)
-	b.Upload(b.driver, b.Queue, b.DFlag, flag)
+	b.Upload(b.rt, b.Queue, b.DFlag, flag)
 
 	if b.Arch == arch.CDNA3 {
 		cdna3Args.Curr = int32(b.Depth)
-		b.driver.EnqueueLaunchKernel(b.Queue, b.kernel,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel,
 			[3]uint32{globalSize, 1, 1},
 			[3]uint16{localSize, 1, 1},
 			&cdna3Args)
 	} else {
 		args.Curr = int32(b.Depth)
-		b.driver.EnqueueLaunchKernel(b.Queue, b.kernel,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel,
 			[3]uint32{globalSize, 1, 1},
 			[3]uint16{localSize, 1, 1},
 			&args)
 	}
 
-	b.FlagResult = benchmarks.Download(b.driver, b.Queue, b.DFlag, 4)
+	b.FlagResult = benchmarks.Download(b.rt, b.Queue, b.DFlag, 4)
 	b.Depth++
 	b.Phase = 1
 }

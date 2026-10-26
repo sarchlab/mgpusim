@@ -3,14 +3,15 @@ package sample
 import (
 	"database/sql"
 	"flag"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"

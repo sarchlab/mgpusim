@@ -21,8 +21,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant 1D work-group size baked into the gfx942 kernel.
@@ -37,20 +37,19 @@ const blockSize = 128
 // alignment padding). The kernel uses a constant BLOCK_SIZE for its launch
 // geometry, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Atoms       driver.Ptr // offset 0  (flat float4 array {x,y,z,charge})
-	Potential   driver.Ptr // offset 8
-	NumAtoms    int32      // offset 16
-	GridSide    int32      // offset 20
-	GridSpacing float32    // offset 24
-	Cutoff2     float32    // offset 28
+	Atoms       gpuruntime.Ptr // offset 0  (flat float4 array {x,y,z,charge})
+	Potential   gpuruntime.Ptr // offset 8
+	NumAtoms    int32          // offset 16
+	GridSide    int32          // offset 20
+	GridSpacing float32        // offset 24
+	Cutoff2     float32        // offset 28
 }
 
 // Benchmark defines the CUTCP benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -59,14 +58,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new CUTCP benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(
-		b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -98,8 +96,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -149,18 +147,18 @@ func (b *Benchmark) initMem() {
 	b.Potential = make([]float32, totalPoints)
 
 	if b.UseUnifiedMemory {
-		b.GAtoms = b.driver.AllocateUnifiedMemory(
+		b.GAtoms = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.NumAtoms*4*4))
-		b.GPot = b.driver.AllocateUnifiedMemory(
+		b.GPot = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(totalPoints*4))
 	} else {
-		b.GAtoms = b.driver.AllocateMemory(
+		b.GAtoms = b.rt.AllocateMemory(
 			b.Context, uint64(b.NumAtoms*4*4))
-		b.GPot = b.driver.AllocateMemory(
+		b.GPot = b.rt.AllocateMemory(
 			b.Context, uint64(totalPoints*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GAtoms, b.Atoms)
+	b.Upload(b.rt, b.Queue, b.GAtoms, b.Atoms)
 }
 
 func (b *Benchmark) exec() {
@@ -178,7 +176,7 @@ func (b *Benchmark) exec() {
 		Cutoff2:     cutoff2,
 	}
 
-	b.driver.EnqueueLaunchKernel(
+	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
@@ -206,7 +204,7 @@ func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
 func (b *Benchmark) verify() error {
 	totalPoints := b.GridSide * b.GridSide * b.GridSide
 	gpuPot := make([]float32, totalPoints)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuPot); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuPot); err != nil {
 		return err
 	}
 
@@ -240,7 +238,7 @@ func (b *Benchmark) verify() error {
 func (b *Benchmark) enqueueVerification() {
 	b.Readbacks = append(
 		b.Readbacks,
-		benchmarks.Download(b.driver, b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
+		benchmarks.Download(b.rt, b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
 	)
 }
 
@@ -249,7 +247,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

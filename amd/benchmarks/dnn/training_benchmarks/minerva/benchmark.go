@@ -11,29 +11,29 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Benchmark defines the Mineva network training benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-	driver  *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt      *gpuruntime.Runtime
 	trainer gputraining.DataParallelismMultiGPUTrainer
 
 	to       []*gputensor.GPUOperator
 	networks []training.Network
-	contexts []driver.Context
+	contexts []gpuruntime.Context
 }
 
 // NewBenchmark creates a new benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.configuration, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.configuration, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 
 	return b
 }
@@ -53,9 +53,9 @@ func (b *Benchmark) init() error {
 }
 
 func (b *Benchmark) defineNetwork(gpuID int) {
-	context := b.driver.InitWithExistingPID(b.Context)
-	b.driver.SelectGPU(context, gpuID)
-	to := gputensor.NewGPUOperator(b.driver, context)
+	context := b.rt.InitWithExistingPID(b.Context)
+	b.rt.SelectGPU(context, gpuID)
+	to := gputensor.NewGPUOperator(b.rt, context)
 	to.Arch = b.Arch
 
 	if b.EnableVerification {
@@ -114,7 +114,7 @@ func (b *Benchmark) createTrainer() {
 		LossFunc:        lossFuncs,
 		OptimizationAlg: alg,
 		Tester:          testers,
-		Driver:          b.driver,
+		Runtime:         b.rt,
 	}
 }
 
@@ -123,7 +123,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 	if b.Ended {

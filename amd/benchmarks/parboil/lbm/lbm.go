@@ -25,8 +25,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Q is the number of discrete velocities in the D3Q19 lattice.
@@ -63,20 +63,19 @@ var (
 // uses constant block dimensions and __constant__ tables only, so no hidden
 // ABI arguments are emitted.
 type KernelArgs struct {
-	FSrc  driver.Ptr // offset 0
-	FDst  driver.Ptr // offset 8
-	Nx    int32      // offset 16
-	Ny    int32      // offset 20
-	Nz    int32      // offset 24
-	Omega float32    // offset 28
+	FSrc  gpuruntime.Ptr // offset 0
+	FDst  gpuruntime.Ptr // offset 8
+	Nx    int32          // offset 16
+	Ny    int32          // offset 20
+	Nz    int32          // offset 24
+	Omega float32        // offset 28
 }
 
 // Benchmark defines the LBM benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
 }
@@ -85,13 +84,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new LBM benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -123,8 +122,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -167,19 +166,19 @@ func (b *Benchmark) initMem() {
 	zeros := make([]float32, Q*numCells)
 
 	if b.UseUnifiedMemory {
-		b.GFSrc = b.driver.AllocateUnifiedMemory(
+		b.GFSrc = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(Q*numCells*4))
-		b.GFDst = b.driver.AllocateUnifiedMemory(
+		b.GFDst = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(Q*numCells*4))
 	} else {
-		b.GFSrc = b.driver.AllocateMemory(
+		b.GFSrc = b.rt.AllocateMemory(
 			b.Context, uint64(Q*numCells*4))
-		b.GFDst = b.driver.AllocateMemory(
+		b.GFDst = b.rt.AllocateMemory(
 			b.Context, uint64(Q*numCells*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GFSrc, b.HF)
-	b.Upload(b.driver, b.Queue, b.GFDst, zeros)
+	b.Upload(b.rt, b.Queue, b.GFSrc, b.HF)
+	b.Upload(b.rt, b.Queue, b.GFDst, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -203,7 +202,7 @@ func (b *Benchmark) exec() {
 			Omega: omega,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, 1, 1},
@@ -285,7 +284,7 @@ func (b *Benchmark) verify() error {
 	omega := float32(1.0) / b.Tau
 
 	gpuF := make([]float32, Q*numCells)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuF); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuF); err != nil {
 		return err
 	}
 
@@ -327,7 +326,7 @@ func (b *Benchmark) verify() error {
 func (b *Benchmark) enqueueVerification() {
 	b.Readbacks = append(
 		b.Readbacks,
-		benchmarks.Download(b.driver, b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
+		benchmarks.Download(b.rt, b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
 	)
 }
 
@@ -336,7 +335,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

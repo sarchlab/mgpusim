@@ -8,18 +8,19 @@ import (
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Runner owns only the workload collection and its execution loop.
 type Runner struct {
 	simulation    *simulation.Simulation
-	runtime       *driver.Runtime
+	runtime       *gpuruntime.Runtime
 	benchmarks    []benchmarks.Benchmark
 	driver        driver.Ticker
 	betweenRounds bool
 }
 
-func New(s *simulation.Simulation, r *driver.Runtime) *Runner {
+func New(s *simulation.Simulation, r *gpuruntime.Runtime) *Runner {
 	rnr := &Runner{simulation: s, runtime: r, betweenRounds: true}
 	return rnr
 }

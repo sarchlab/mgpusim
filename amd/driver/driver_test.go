@@ -12,7 +12,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"go.uber.org/mock/gomock"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // noopConn leaves outgoing messages available to protocol assertions.
@@ -27,9 +27,9 @@ func (c *noopConn) NotifySend(messaging.Port)      {}
 type fixture struct {
 	s    *sim.Simulation
 	c    *Comp
-	r    *Runtime
-	ctx  Context
-	q    CommandQueue
+	r    *gpuruntime.Runtime
+	ctx  gpuruntime.Context
+	q    gpuruntime.CommandQueue
 	p    *vm.PageTable
 	port messaging.Port
 }
@@ -40,6 +40,12 @@ func newFixture(t *testing.T, mixed bool) *fixture {
 }
 func newConfiguredFixture(t *testing.T, mixed bool, configure func(*Spec)) *fixture {
 	t.Helper()
+	return newRuntimeConfiguredFixture(t, mixed, configure, func(*gpuruntime.RuntimeSpec) {})
+}
+func newRuntimeConfiguredFixture(
+	t *testing.T, mixed bool, configure func(*Spec), configureRuntime func(*gpuruntime.RuntimeSpec),
+) *fixture {
+	t.Helper()
 	f := &fixture{s: sim.MakeBuilder().Build()}
 	pageBits := uint64(12)
 	if mixed {
@@ -47,17 +53,18 @@ func newConfiguredFixture(t *testing.T, mixed bool, configure func(*Spec)) *fixt
 	}
 	f.p = vm.NewPageTable(pageBits)
 	spec := DefaultSpec()
-	runtimeSpec := DefaultRuntimeSpec()
+	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = pageBits
 	spec.H2DCycles = 1
 	spec.D2HCycles = 1
 	for i := 0; i < 2; i++ {
 		spec.GPUs = append(spec.GPUs, messaging.RemotePort(fmt.Sprintf("GPU[%d].CommandProcessor", i+1)))
-		runtimeSpec.Devices = append(runtimeSpec.Devices, DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
+		runtimeSpec.Devices = append(runtimeSpec.Devices, gpuruntime.DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
 	}
 	configure(&spec)
+	configureRuntime(&runtimeSpec)
 	storage := mem.MakeStorageBuilder().WithSimulation(f.s).WithCapacity(12 * mem.GB).Build("GlobalStorage")
-	f.r = NewRuntime(f.s, "Runtime", runtimeSpec, f.p, storage)
+	f.r = gpuruntime.NewRuntime(f.s, "Runtime", runtimeSpec, f.p, storage)
 	f.c = MakeBuilder().WithSimulation(f.s).WithSpec(spec).WithResources(Resources{
 		Runtime:       f.r,
 		GlobalStorage: storage,
@@ -82,9 +89,9 @@ func newConfiguredFixture(t *testing.T, mixed bool, configure func(*Spec)) *fixt
 	return f
 }
 func tickDriver(c *Comp) bool { return c.Middlewares.Execute.Tick() }
-func (f *fixture) running(cmd Command, reqs []messaging.Msg) CommandID {
-	id := f.r.enqueue(f.q, cmd)
-	cmd, _ = f.r.take(f.q)
+func (f *fixture) running(cmd gpuruntime.Command, reqs []messaging.Msg) gpuruntime.CommandID {
+	id := f.enqueue(f.q, cmd)
+	cmd, _ = f.r.TakeCommand(f.q)
 	f.c.State.Executing = append(
 		f.c.State.Executing,
 		Execution{Queue: f.q, Command: cmd, Requests: append([]messaging.Msg(nil), reqs...)},
@@ -105,10 +112,13 @@ func TestCopyRequestPartitioning(t *testing.T) {
 		t.Run(fmt.Sprint("D2H=", read), func(t *testing.T) {
 			f := newFixture(t, true)
 			host := f.r.AllocateHostBuffer(f.q, 0x2200)
-			mock := NewMockMemoryAllocator(gomock.NewController(t))
-			f.r.allocator = mock
 			sizes := []uint64{0x800, 0x800, 0x1000, 0x1000}
-			v, p := uint64(0x200000000), uint64(0x100000000)
+			gpuAddr := f.r.AllocateMemory(f.ctx, 0x3000)
+			page, ok := f.p.Find(f.r.QueuePID(f.q), uint64(gpuAddr))
+			if !ok {
+				t.Fatal("GPU allocation missing")
+			}
+			v, p := uint64(0x200000000), page.PAddr
 			for _, size := range sizes {
 				f.p.Insert(vm.Page{PID: 1, VAddr: v, PAddr: p, PageSize: size, Valid: true})
 				v += size
@@ -118,21 +128,24 @@ func TestCopyRequestPartitioning(t *testing.T) {
 			if read {
 				count = 1
 			}
-			for _, a := range []uint64{0x100000100, 0x100000800, 0x100001000, 0x100002000}[:count] {
-				mock.EXPECT().GetDeviceIDByPAddr(a).Return(1)
-			}
+
 			if read {
-				f.r.EnqueueMemCopyD2H(f.q, host.Address, Ptr(0x200000100), 4)
+				f.r.EnqueueMemCopyD2H(f.q, host.Address, gpuruntime.Ptr(0x200000100), 4)
 			} else {
-				f.r.EnqueueMemCopyH2D(f.q, Ptr(0x200000100), host.Address, 0x2200)
+				f.r.EnqueueMemCopyH2D(f.q, gpuruntime.Ptr(0x200000100), host.Address, 0x2200)
 			}
 			for i := 0; i < 3; i++ {
 				tickDriver(f.c)
 			}
-			if len(f.r.queue(f.q).Pending) != 0 || f.r.Unfinished()[0] != 1 || len(f.c.State.Executing) != 1 {
+			if len(f.snapshot().Queues[f.q-1].Pending) != 0 || f.r.Unfinished()[0] != 1 || len(f.c.State.Executing) != 1 {
 				t.Fatal("command did not transfer exactly once to Driver.State")
 			}
 			e := f.c.State.Executing[0]
+			for _, req := range e.Requests {
+				if req.Dst != f.c.Spec.GPUs[0] {
+					t.Fatal("partition routed to wrong physical owner", req.Dst)
+				}
+			}
 			if len(e.Requests) != count || len(f.c.State.RequestsToSend) != count {
 				t.Fatalf("requests: %+v", e)
 			}
@@ -155,9 +168,9 @@ func TestCopyResponseOwnership(t *testing.T) {
 			t.Run(fmt.Sprintf("D2H=%v/requests=%d", read, count), func(t *testing.T) {
 				f := newFixture(t, false)
 				host := f.r.AllocateHostBuffer(f.q, count*4)
-				cmd := Command{Kind: copyH2D, Dst: host.Address, ByteSize: count * 4}
+				cmd := gpuruntime.Command{Kind: gpuruntime.CopyH2D, Dst: host.Address, ByteSize: count * 4}
 				if read {
-					cmd.Kind = copyD2H
+					cmd.Kind = gpuruntime.CopyD2H
 					cmd.ByteSize = count * 4
 				}
 				reqs := make([]messaging.Msg, count)
@@ -219,16 +232,16 @@ func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
 				f := newFixture(t, false)
 				payload := []byte{0x78, 0x56, 0x34, 0x12}
 				host := f.r.AllocateHostBuffer(f.q, 4)
-				cmd := Command{Kind: copyH2D, Dst: host.Address, ByteSize: 4}
+				cmd := gpuruntime.Command{Kind: gpuruntime.CopyH2D, Dst: host.Address, ByteSize: 4}
 				var copyPayload any = protocol.MemCopyH2DReq{SrcBuffer: payload}
 				if read {
-					cmd.Kind = copyD2H
+					cmd.Kind = gpuruntime.CopyD2H
 					cmd.ByteSize = 4
 					copyPayload = protocol.MemCopyD2HReq{ByteSize: 4}
 				}
 				reqs := []messaging.Msg{f.request(copyPayload), f.request(protocol.FlushReq{}), f.request(protocol.FlushReq{})}
 				f.running(cmd, reqs)
-				f.r.enqueue(f.q, Command{Kind: noop})
+				f.enqueue(f.q, gpuruntime.Command{Kind: gpuruntime.Noop})
 				for i, index := range order {
 					var p any = protocol.GeneralRsp{}
 					if read && index == 0 {
@@ -236,7 +249,8 @@ func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
 					}
 					f.reply(reqs[index], p)
 					if i < 2 {
-						if f.r.Unfinished()[0] != 2 || len(f.r.queue(f.q).Pending) != 1 || len(f.c.State.Executing[0].Requests) != 2-i {
+						if f.r.Unfinished()[0] != 2 || len(f.snapshot().Queues[f.q-1].Pending) != 1 ||
+							len(f.c.State.Executing[0].Requests) != 2-i {
 							t.Fatal("flush/copy ownership released early")
 						}
 						if read {
@@ -254,8 +268,8 @@ func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
 						}
 					}
 				}
-				if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 || len(f.r.queue(f.q).Pending) != 0 {
-					t.Fatal("last reply did not release the copy and next noop")
+				if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 || len(f.snapshot().Queues[f.q-1].Pending) != 0 {
+					t.Fatal("last reply did not release the copy and next gpuruntime.Noop")
 				}
 				if read {
 					var out uint32
@@ -272,8 +286,8 @@ func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
 }
 func TestKernelSubmitAndCompletion(t *testing.T) {
 	f := newFixture(t, false)
-	cmd := Command{
-		Kind: launchKernel,
+	cmd := gpuruntime.Command{
+		Kind: gpuruntime.LaunchKernel,
 		GPUs: []int{1},
 		Packets: []kernels.PacketValue{{Packet: kernels.HsaKernelDispatchPacket{
 			GridSizeX:      256,
@@ -283,9 +297,9 @@ func TestKernelSubmitAndCompletion(t *testing.T) {
 			WorkgroupSizeY: 1,
 			WorkgroupSizeZ: 1,
 		}}},
-		PacketAddresses: []Ptr{0},
+		PacketAddresses: []gpuruntime.Ptr{0},
 	}
-	f.r.enqueue(f.q, cmd)
+	f.enqueue(f.q, cmd)
 	tickDriver(f.c)
 	if len(f.c.State.Executing) != 1 || len(f.c.State.Executing[0].Requests) != 1 || len(f.c.State.RequestsToSend) != 1 {
 		t.Fatal("kernel not submitted")

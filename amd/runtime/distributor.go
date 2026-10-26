@@ -1,7 +1,7 @@
-package driver
+package runtime
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"github.com/sarchlab/mgpusim/v5/amd/runtime/internal"
 )
 
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.

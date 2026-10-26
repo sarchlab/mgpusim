@@ -6,6 +6,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 func TestRestoredCPUBufferBytes(t *testing.T) {
@@ -18,7 +19,7 @@ func TestRestoredCPUBufferBytes(t *testing.T) {
 	if err := f.r.SaveCheckpoint(&runtime); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.r.storage.SaveCheckpoint(&storage); err != nil {
+	if err := f.c.Resources.GlobalStorage.SaveCheckpoint(&storage); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.r.WriteHost(b, []uint32{99, 101}); err != nil {
@@ -27,7 +28,7 @@ func TestRestoredCPUBufferBytes(t *testing.T) {
 	if err := f.r.LoadCheckpoint(&runtime); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.r.storage.LoadCheckpoint(&storage); err != nil {
+	if err := f.c.Resources.GlobalStorage.LoadCheckpoint(&storage); err != nil {
 		t.Fatal(err)
 	}
 	for _, invalid := range []any{nil, []uint32{1}, uint64(1), (*uint64)(nil)} {
@@ -47,7 +48,7 @@ func TestRestoredCPUBufferBytes(t *testing.T) {
 	if err := f.r.FreeMemory(b.Context, b.Address); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.r.context(f.ctx).Buffers) != 0 {
+	if len(f.snapshot().Contexts[f.ctx-1].Buffers) != 0 {
 		t.Fatal("freed allocation metadata retained")
 	}
 }
@@ -55,7 +56,7 @@ func TestHostCopyReadsStorageAtExecution(t *testing.T) {
 	f := newFixture(t, false)
 	dst := f.r.AllocateMemory(f.ctx, 8)
 	b := f.r.AllocateHostBuffer(f.q, 8)
-	if f.r.context(f.ctx).GPU != 1 {
+	if f.snapshot().Contexts[f.ctx-1].GPU != 1 {
 		t.Fatal("CPU allocation changed selected GPU")
 	}
 	if err := f.r.WriteHost(b, []uint32{11, 13}); err != nil {
@@ -71,7 +72,7 @@ func TestHostCopyReadsStorageAtExecution(t *testing.T) {
 	if err := f.r.SaveCheckpoint(&runtime); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.r.storage.SaveCheckpoint(&storage); err != nil {
+	if err := f.c.Resources.GlobalStorage.SaveCheckpoint(&storage); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.r.WriteHost(b, []uint32{1, 2}); err != nil {
@@ -80,7 +81,7 @@ func TestHostCopyReadsStorageAtExecution(t *testing.T) {
 	if err := f.r.LoadCheckpoint(&runtime); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.r.storage.LoadCheckpoint(&storage); err != nil {
+	if err := f.c.Resources.GlobalStorage.LoadCheckpoint(&storage); err != nil {
 		t.Fatal(err)
 	}
 	tickDriver(f.c)
@@ -96,7 +97,7 @@ func TestQueueCodeUploadDoesNotDependOnAnotherQueue(t *testing.T) {
 	// An older queue cannot confer code readiness while its own upload is
 	// blocked behind earlier work. The second queue must own its upload.
 	for i := 0; i < 5; i++ {
-		f.r.enqueue(f.q, Command{Kind: noop})
+		f.enqueue(f.q, gpuruntime.Command{Kind: gpuruntime.Noop})
 	}
 	code := &insts.KernelCodeObject{
 		Data:                 []byte{1, 2, 3, 4},
@@ -107,19 +108,20 @@ func TestQueueCodeUploadDoesNotDependOnAnotherQueue(t *testing.T) {
 	f.r.EnqueueLaunchKernel(q2, code, [3]uint32{64, 1, 1}, [3]uint16{64, 1, 1}, &args)
 	args = 99
 	code.Data[0] = 99
-	second := f.r.queue(q2).Pending
-	if len(second) != 4 || second[0].Kind != copyH2D ||
-		!bytes.Equal(f.r.readBytes(f.ctx, second[0].Src, uint64(second[0].ByteSize)), []byte{1, 2, 3, 4}) {
+	second := f.snapshot().Queues[q2-1].Pending
+	if len(second) != 4 || second[0].Kind != gpuruntime.CopyH2D ||
+		!bytes.Equal(readHostBytes(f.r, f.ctx, second[0].Src, uint64(second[0].ByteSize)), []byte{1, 2, 3, 4}) {
 		t.Fatal("second queue relies on unfinished first queue upload")
 	}
-	if !bytes.Equal(f.r.readBytes(f.ctx, second[1].Src, uint64(second[1].ByteSize)), []byte{0x78, 0x56, 0x34, 0x12}) {
+	if !bytes.Equal(readHostBytes(f.r, f.ctx, second[1].Src, uint64(second[1].ByteSize)), []byte{0x78, 0x56, 0x34, 0x12}) {
 		t.Fatal("kernel args were not captured at enqueue")
 	}
-	if second[0].Dst == f.r.queue(f.q).Pending[5].Dst {
+	if second[0].Dst == f.snapshot().Queues[f.q-1].Pending[5].Dst {
 		t.Fatal("queues share an unready code allocation")
 	}
 	tickDriver(f.c)
-	if f.r.queue(f.q).Pending[0].Kind != noop || len(f.c.State.Executing) != 1 || f.c.State.Executing[0].Queue != q2 {
+	if f.snapshot().Queues[f.q-1].Pending[0].Kind != gpuruntime.Noop ||
+		len(f.c.State.Executing) != 1 || f.c.State.Executing[0].Queue != q2 {
 		t.Fatal("second upload did not progress independently while first queue was delayed")
 	}
 }

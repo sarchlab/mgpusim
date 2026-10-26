@@ -3,25 +3,25 @@ package matrixtranspose
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
 
 	Readbacks          []benchmarks.Readback
-	Queue              driver.CommandQueue
-	Context            driver.Context
+	Queue              gpuruntime.CommandQueue
+	Context            gpuruntime.Context
 	Gpus               []int
-	Queues             []driver.CommandQueue
+	Queues             []gpuruntime.CommandQueue
 	Arch               arch.Type
 	Width              int
 	ElemsPerThread1Dim int
 	BlockSize          int
 	HInputData         []uint32
 	HOutputData        []uint32
-	DInputData         driver.Ptr
-	DOutputData        driver.Ptr
+	DInputData         gpuruntime.Ptr
+	DOutputData        gpuruntime.Ptr
 	UseUnifiedMemory   bool
 }
 type checkpointConfig struct {

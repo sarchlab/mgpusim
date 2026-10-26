@@ -11,16 +11,16 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3 Kernel Arguments
 
 // SwapArgs defines arguments for GCN3
 type SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
+	Feature             gpuruntime.Ptr
+	FeatureSwap         gpuruntime.Ptr
 	NPoints             int32
 	NFeatures           int32
 	HiddenGlobalOffsetX int64
@@ -30,9 +30,9 @@ type SwapArgs struct {
 
 // ComputeArgs defines arguments for GCN3
 type ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
+	Feature             gpuruntime.Ptr
+	Clusters            gpuruntime.Ptr
+	Membership          gpuruntime.Ptr
 	NPoints             int32
 	NClusters           int32
 	NFeatures           int32
@@ -48,8 +48,8 @@ type ComputeArgs struct {
 
 // CDNA3SwapArgs defines arguments for CDNA3 architecture (GFX942)
 type CDNA3SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
+	Feature             gpuruntime.Ptr
+	FeatureSwap         gpuruntime.Ptr
 	NPoints             int32
 	NFeatures           int32
 	HiddenBlockCountX   uint32
@@ -70,9 +70,9 @@ type CDNA3SwapArgs struct {
 
 // CDNA3ComputeArgs defines arguments for CDNA3 architecture (GFX942)
 type CDNA3ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
+	Feature             gpuruntime.Ptr
+	Clusters            gpuruntime.Ptr
+	Membership          gpuruntime.Ptr
 	NPoints             int32
 	NClusters           int32
 	NFeatures           int32
@@ -98,22 +98,21 @@ type CDNA3ComputeArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	computeKernel *insts.KernelCodeObject
 	swapKernel    *insts.KernelCodeObject
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 
 	return b
 }
@@ -141,10 +140,10 @@ func (b *Benchmark) loadKernels() {
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.Gpus = gpuIDs
-	b.Queues = make([]driver.CommandQueue, len(b.Gpus))
+	b.Queues = make([]gpuruntime.CommandQueue, len(b.Gpus))
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues[i] = b.driver.CreateCommandQueue(b.Context)
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues[i] = b.rt.CreateCommandQueue(b.Context)
 	}
 }
 
@@ -157,45 +156,45 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) setup() {
 	b.loadKernels()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
 	if b.UseUnifiedMemory {
-		b.DFeatures = b.driver.AllocateUnifiedMemory(
+		b.DFeatures = b.rt.AllocateUnifiedMemory(
 			b.Context,
 			uint64(b.NumPoints*b.NumFeatures*4))
-		b.DFeaturesSwap = b.driver.AllocateUnifiedMemory(
+		b.DFeaturesSwap = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.NumPoints*b.NumFeatures*4))
-		b.DMembership = b.driver.AllocateUnifiedMemory(
+		b.DMembership = b.rt.AllocateUnifiedMemory(
 			b.Context, uint64(b.NumPoints*4))
 	} else {
-		b.DFeatures = b.driver.AllocateMemory(
+		b.DFeatures = b.rt.AllocateMemory(
 			b.Context,
 			uint64(b.NumPoints*b.NumFeatures*4))
-		b.driver.Distribute(b.Context, b.DFeatures,
+		b.rt.Distribute(b.Context, b.DFeatures,
 			uint64(b.NumPoints*b.NumFeatures*4), b.Gpus)
 
-		b.DFeaturesSwap = b.driver.AllocateMemory(
+		b.DFeaturesSwap = b.rt.AllocateMemory(
 			b.Context, uint64(b.NumPoints*b.NumFeatures*4))
-		b.driver.Distribute(b.Context, b.DFeaturesSwap,
+		b.rt.Distribute(b.Context, b.DFeaturesSwap,
 			uint64(b.NumPoints*b.NumFeatures*4), b.Gpus)
 
-		b.DMembership = b.driver.AllocateMemory(
+		b.DMembership = b.rt.AllocateMemory(
 			b.Context, uint64(b.NumPoints*4))
-		b.driver.Distribute(b.Context, b.DMembership,
+		b.rt.Distribute(b.Context, b.DMembership,
 			uint64(b.NumPoints*4), b.Gpus)
 	}
 
-	b.DClusters = make([]driver.Ptr, len(b.Gpus))
+	b.DClusters = make([]gpuruntime.Ptr, len(b.Gpus))
 	for i, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
+		b.rt.SelectGPU(b.Context, gpu)
 		if b.UseUnifiedMemory {
-			b.DClusters[i] = b.driver.AllocateUnifiedMemory(
+			b.DClusters[i] = b.rt.AllocateUnifiedMemory(
 				b.Context, uint64(b.NumClusters*b.NumFeatures*4))
 		} else {
-			b.DClusters[i] = b.driver.AllocateMemory(
+			b.DClusters[i] = b.rt.AllocateMemory(
 				b.Context, uint64(b.NumClusters*b.NumFeatures*4))
 		}
 	}
@@ -212,7 +211,7 @@ func (b *Benchmark) initMem() {
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.Upload(b.driver, b.Queues[0], b.DFeatures, b.HFeatures)
+	b.Upload(b.rt, b.Queues[0], b.DFeatures, b.HFeatures)
 }
 
 func (b *Benchmark) transposeFeatures() {
@@ -242,7 +241,7 @@ func (b *Benchmark) transposeFeatures() {
 				HiddenGridDims:      1,
 			}
 
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.swapKernel,
 				globalSize,
@@ -258,7 +257,7 @@ func (b *Benchmark) transposeFeatures() {
 				int64(numWI * i), 0, 0,
 			}
 
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.swapKernel,
 				[3]uint32{uint32(numWI), 1, 1},
@@ -271,7 +270,7 @@ func (b *Benchmark) transposeFeatures() {
 
 func (b *Benchmark) verifySwap() error {
 	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
-	if err := benchmarks.Read(b.driver, b.SwapReadback, gpuSwap); err != nil {
+	if err := benchmarks.Read(b.rt, b.SwapReadback, gpuSwap); err != nil {
 		return err
 	}
 
@@ -303,7 +302,7 @@ func (b *Benchmark) initializeMembership() {
 	}
 }
 
-func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
+func (b *Benchmark) enqueueComputeKernel(q gpuruntime.CommandQueue, gpuIndex int) {
 	numWI := b.NumPoints / len(b.Gpus)
 
 	if b.Arch == arch.CDNA3 {
@@ -334,7 +333,7 @@ func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
 			HiddenGridDims:      1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			q,
 			b.computeKernel,
 			globalSize,
@@ -353,7 +352,7 @@ func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
 			int64(numWI * gpuIndex), 0, 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			q,
 			b.computeKernel,
 			[3]uint32{uint32(numWI), 1, 1},
@@ -365,13 +364,13 @@ func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
 
 func (b *Benchmark) submitMembership() {
 	for i, q := range b.Queues {
-		b.Upload(b.driver, q, b.DClusters[i], b.HClusters)
+		b.Upload(b.rt, q, b.DClusters[i], b.HClusters)
 		b.enqueueComputeKernel(q, i)
 	}
 }
 func (b *Benchmark) consumeMembership() (float64, error) {
 	newMembership := make([]int32, b.NumPoints)
-	if err := benchmarks.Read(b.driver, b.Readback, newMembership); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readback, newMembership); err != nil {
 		return 0, err
 	}
 
@@ -520,7 +519,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -536,7 +535,7 @@ func (b *Benchmark) Step() error {
 		b.Phase = 2
 	case 2:
 		if b.Verification {
-			b.SwapReadback = benchmarks.Download(b.driver, b.Queues[0], b.DFeaturesSwap, b.NumPoints*b.NumFeatures*4)
+			b.SwapReadback = benchmarks.Download(b.rt, b.Queues[0], b.DFeaturesSwap, b.NumPoints*b.NumFeatures*4)
 		}
 		b.Phase = 3
 	case 3:
@@ -550,7 +549,7 @@ func (b *Benchmark) Step() error {
 		b.submitMembership()
 		b.Phase = 4
 	case 4:
-		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.DMembership, b.NumPoints*4)
+		b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.DMembership, b.NumPoints*4)
 		b.Phase = 5
 	case 5:
 		return b.finishIteration()

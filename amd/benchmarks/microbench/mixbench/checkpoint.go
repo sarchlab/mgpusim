@@ -3,14 +3,14 @@ package mixbench
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// NumElements is the number of floats processed (one per work-item).
@@ -18,7 +18,7 @@ type State struct {
 	// NumFmas is the FP32 FMA-chain length per work-item.
 	NumFmas          int
 	Data             []float32
-	GData            driver.Ptr
+	GData            gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
 type checkpointConfig struct {

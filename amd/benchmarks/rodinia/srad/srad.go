@@ -24,8 +24,8 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the (constant) thread-block dimension baked into the kernel.
@@ -46,38 +46,37 @@ const q0sqr float32 = 0.05
 // kernel uses a constant block dimension, so no hidden ABI arguments are
 // emitted.
 type Srad1Args struct {
-	J     driver.Ptr // offset 0
-	DN    driver.Ptr // offset 8
-	DS    driver.Ptr // offset 16
-	DW    driver.Ptr // offset 24
-	DE    driver.Ptr // offset 32
-	C     driver.Ptr // offset 40
-	Rows  int32      // offset 48
-	Cols  int32      // offset 52
-	Q0sqr float32    // offset 56
+	J     gpuruntime.Ptr // offset 0
+	DN    gpuruntime.Ptr // offset 8
+	DS    gpuruntime.Ptr // offset 16
+	DW    gpuruntime.Ptr // offset 24
+	DE    gpuruntime.Ptr // offset 32
+	C     gpuruntime.Ptr // offset 40
+	Rows  int32          // offset 48
+	Cols  int32          // offset 52
+	Q0sqr float32        // offset 56
 }
 
 // Srad2Args defines the kernel arguments for the gfx942 (CDNA3) srad2 kernel.
 // Same layout as Srad1Args (kernarg_segment_size = 60); the final scalar is
 // lambda instead of q0sqr.
 type Srad2Args struct {
-	J      driver.Ptr // offset 0
-	DN     driver.Ptr // offset 8
-	DS     driver.Ptr // offset 16
-	DW     driver.Ptr // offset 24
-	DE     driver.Ptr // offset 32
-	C      driver.Ptr // offset 40
-	Rows   int32      // offset 48
-	Cols   int32      // offset 52
-	Lambda float32    // offset 56
+	J      gpuruntime.Ptr // offset 0
+	DN     gpuruntime.Ptr // offset 8
+	DS     gpuruntime.Ptr // offset 16
+	DW     gpuruntime.Ptr // offset 24
+	DE     gpuruntime.Ptr // offset 32
+	C      gpuruntime.Ptr // offset 40
+	Rows   int32          // offset 48
+	Cols   int32          // offset 52
+	Lambda float32        // offset 56
 }
 
 // Benchmark defines the SRAD benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig, State]
-
-	driver *driver.Runtime
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco1 *insts.KernelCodeObject
 	hsaco2 *insts.KernelCodeObject
@@ -87,13 +86,13 @@ type Benchmark struct {
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new SRAD benchmark.
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = b.driver.Init()
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -128,8 +127,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -152,22 +151,22 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.UseUnifiedMemory {
-		b.GJ = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDN = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDS = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDW = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDE = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GC = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GJ = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDN = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDS = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDW = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDE = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GC = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.GJ = b.driver.AllocateMemory(b.Context, uint64(total*4))
-		b.GDN = b.driver.AllocateMemory(b.Context, uint64(total*4))
-		b.GDS = b.driver.AllocateMemory(b.Context, uint64(total*4))
-		b.GDW = b.driver.AllocateMemory(b.Context, uint64(total*4))
-		b.GDE = b.driver.AllocateMemory(b.Context, uint64(total*4))
-		b.GC = b.driver.AllocateMemory(b.Context, uint64(total*4))
+		b.GJ = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDN = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDS = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDW = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDE = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GC = b.rt.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.Upload(b.driver, b.Queue, b.GJ, b.JInit)
+	b.Upload(b.rt, b.Queue, b.GJ, b.JInit)
 }
 
 func (b *Benchmark) exec() {
@@ -188,7 +187,7 @@ func (b *Benchmark) exec() {
 			Cols:  int32(n),
 			Q0sqr: q0sqr,
 		}
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.hsaco1,
 			[3]uint32{globalX, globalY, 1},
@@ -207,7 +206,7 @@ func (b *Benchmark) exec() {
 			Cols:   int32(n),
 			Lambda: lambda,
 		}
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.hsaco2,
 			[3]uint32{globalX, globalY, 1},
@@ -224,7 +223,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	total := n * n
 
 	gpu := make([]float32, total)
-	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpu); err != nil {
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -334,7 +333,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
@@ -342,7 +341,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 

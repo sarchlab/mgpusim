@@ -3,14 +3,14 @@ package hotspot3d
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 type State struct {
 	benchmarks.Progress
-	Readbacks []driver.HostBuffer
-	Context   driver.Context
-	Queue     driver.CommandQueue
+	Readbacks []gpuruntime.HostBuffer
+	Context   gpuruntime.Context
+	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
 	// GridSize is the edge length N of the NxNxN grid.
@@ -28,8 +28,8 @@ type State struct {
 	TempInit   []float32
 	Power      []float32
 	// Two device temperature buffers (ping-pong) plus the power buffer.
-	GTemp  [2]driver.Ptr
-	GPower driver.Ptr
+	GTemp  [2]gpuruntime.Ptr
+	GPower gpuruntime.Ptr
 	// finalBuf is the index of the device buffer holding the final result.
 	FinalBuf         int
 	UseUnifiedMemory bool

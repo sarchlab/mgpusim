@@ -9,33 +9,28 @@ import (
 	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Saved[checkpointConfig,
-
-		State,
-	]
+	benchmarks.Checkpoint[checkpointConfig, State]
 
 	kernel *insts.KernelCodeObject
 
-	driver *driver.Runtime
+	rt *gpuruntime.Runtime
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Runtime) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State =
-		&State{}
-	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig,
-		b.bind)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.Context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -46,8 +41,8 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.driver.CreateCommandQueue(b.Context)
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.MatrixC = *NewMatrix(b.MatrixB.Width, b.MatrixA.Height)
 	b.loadKernel()
@@ -106,7 +101,7 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
-	if err := b.ReleaseUploads(b.driver); err != nil {
+	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
 
@@ -118,10 +113,10 @@ func (b *Benchmark) Step() error {
 		b.launchKernel(b.GA, b.GB, b.GC, &b.MatrixA, &b.MatrixC)
 		b.Phase = 2
 	case 2:
-		b.Readback = benchmarks.Download(b.driver, b.Queue, b.GC, len(b.MatrixC.Data)*4)
+		b.Readback = benchmarks.Download(b.rt, b.Queue, b.GC, len(b.MatrixC.Data)*4)
 		b.Phase = 3
 	case 3:
-		if err := benchmarks.Read(b.driver, b.Readback, b.MatrixC.Data); err != nil {
+		if err := benchmarks.Read(b.rt, b.Readback, b.MatrixC.Data); err != nil {
 			return err
 		}
 		if b.Verification {
