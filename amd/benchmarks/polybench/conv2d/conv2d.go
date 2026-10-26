@@ -135,8 +135,8 @@ func (b *Benchmark) initMem() {
 
 	// Initialize B to zero so untouched border elements match the reference.
 	zeros := make([]float32, numElem)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.A)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, zeros)
+	b.Upload(b.driver, b.Queue, b.GA, b.A)
+	b.Upload(b.driver, b.Queue, b.GB, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -165,7 +165,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) verify() error {
 	n := b.N
 	gpuB := make([]float32, n*n)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuB); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuB); err != nil {
 		return err
 	}
 
@@ -207,12 +207,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GB, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GB, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

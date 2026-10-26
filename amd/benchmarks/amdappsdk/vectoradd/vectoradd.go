@@ -117,8 +117,8 @@ func (b *Benchmark) initMem() {
 		b.driver.Distribute(b.Context, b.DC, uint64(numData*4), b.Gpus)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DB, b.HB)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DC, b.HC)
+	b.Upload(b.driver, b.Queue, b.DB, b.HB)
+	b.Upload(b.driver, b.Queue, b.DC, b.HC)
 }
 
 func (b *Benchmark) exec() {
@@ -193,6 +193,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -208,7 +211,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HA
 			}
-			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -218,7 +221,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HA
 			}
-			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

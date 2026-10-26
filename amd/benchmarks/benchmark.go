@@ -2,8 +2,9 @@
 package benchmarks
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"io"
+
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
 // Benchmark persists its continuation before each Step returns.
@@ -21,6 +22,7 @@ type Benchmark interface {
 
 // Progress is the small common part of a benchmark's own saved continuation.
 type Progress struct {
+	Transfers
 	ResourceName string
 	Phase        int
 	Ended        bool
@@ -34,7 +36,7 @@ func (p *Progress) SetVerification(v bool) { p.Verification = v }
 
 // Readback is a saved output-copy continuation with a benchmark-local target index.
 type Readback struct {
-	Source  driver.Ptr
-	Command driver.CommandID
-	Target  int
+	Source driver.Ptr
+	Buffer driver.HostBuffer
+	Target int
 }

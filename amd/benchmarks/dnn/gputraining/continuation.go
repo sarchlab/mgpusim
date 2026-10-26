@@ -22,7 +22,7 @@ func sourceState(d training.DataSource) (SourceState, error) {
 	if d, ok := d.(*imagenet.DataSource); ok {
 		return SourceState{Images: d.State}, nil
 	}
-	if d, ok := d.(interface{ SavedData() *training.DataState }); ok {
+	if d, ok := d.(training.SavedDataSource); ok {
 		return SourceState{Resident: d.SavedData()}, nil
 	}
 	return SourceState{}, fmt.Errorf("unsupported saved data source %T", d)
@@ -34,7 +34,7 @@ func bindSource(o *gputensor.GPUOperator, s SourceState) (training.DataSource, e
 	if s.Resident == nil {
 		return nil, fmt.Errorf("missing resident data")
 	}
-	return &training.ResidentDataSource{State: s.Resident, Operator: o}, nil
+	return training.BindResident(o, s.Resident)
 }
 
 type GPUState struct {
@@ -60,7 +60,7 @@ type State struct {
 	Ended                               bool
 	Values, LossInputs, Derivatives     []tensor.ID
 	Labels                              [][]int
-	Readbacks, LossReadbacks            []driver.CommandID
+	Readbacks, LossReadbacks            []driver.HostBuffer
 	Collective                          *mccl.Collective
 	Buffers                             []driver.Ptr
 	LastLoss, LastAccuracy              []float64

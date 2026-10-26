@@ -167,12 +167,12 @@ func (b *Benchmark) initMem() {
 		b.GM = b.driver.AllocateMemory(b.Context, bytesA)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.AInit)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, b.BInit)
+	b.Upload(b.driver, b.Queue, b.GA, b.AInit)
+	b.Upload(b.driver, b.Queue, b.GB, b.BInit)
 
 	// Zero-initialize the multiplier matrix.
 	mZero := make([]float32, n*n)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GM, mZero)
+	b.Upload(b.driver, b.Queue, b.GM, mZero)
 }
 
 func (b *Benchmark) exec() {
@@ -224,10 +224,10 @@ func (b *Benchmark) verify() error {
 
 	a := make([]float32, n*n)
 	bb := make([]float32, n)
-	if err := b.driver.ReadResult(b.Readbacks[0], a); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], a); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], bb); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], bb); err != nil {
 		return err
 	}
 
@@ -265,13 +265,16 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GA, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GB, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GB, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

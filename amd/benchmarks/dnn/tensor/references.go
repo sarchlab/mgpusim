@@ -56,3 +56,6 @@ func (r *localReferences) Replace(old ID, t Tensor) ID {
 	}
 	return next
 }
+
+// RandomSource supplies checkpointed parameter randomness when available.
+type RandomSource interface{ RandomFloat64() float64 }

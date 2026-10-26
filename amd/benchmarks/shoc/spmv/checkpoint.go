@@ -14,7 +14,6 @@ type State struct {
 	Queue            driver.CommandQueue
 	Context          driver.Context
 	Gpus             []int
-	Queues           []driver.CommandQueue
 	UseUnifiedMemory bool
 	Arch             arch.Type
 	Dim              int32

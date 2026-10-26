@@ -167,7 +167,7 @@ func (b *Benchmark) initMem() {
 		b.GC = b.driver.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GJ, b.JInit)
+	b.Upload(b.driver, b.Queue, b.GJ, b.JInit)
 }
 
 func (b *Benchmark) exec() {
@@ -224,7 +224,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	total := n * n
 
 	gpu := make([]float32, total)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpu); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -334,12 +334,15 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

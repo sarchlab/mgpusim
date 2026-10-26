@@ -208,11 +208,11 @@ func (b *Benchmark) initMem() {
 	b.GNeighborList = alloc(b.Context, neighBytes)
 	b.GNeighborCount = alloc(b.Context, ncountBytes)
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosX, b.HPosX)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosY, b.HPosY)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosZ, b.HPosZ)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNeighborList, b.HNeighborList)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNeighborCount, b.HNeighborCount)
+	b.Upload(b.driver, b.Queue, b.GPosX, b.HPosX)
+	b.Upload(b.driver, b.Queue, b.GPosY, b.HPosY)
+	b.Upload(b.driver, b.Queue, b.GPosZ, b.HPosZ)
+	b.Upload(b.driver, b.Queue, b.GNeighborList, b.HNeighborList)
+	b.Upload(b.driver, b.Queue, b.GNeighborCount, b.HNeighborCount)
 }
 
 func (b *Benchmark) exec() {
@@ -250,16 +250,16 @@ func (b *Benchmark) verify() error {
 	gpuFY := make([]float32, b.TotalParticles)
 	gpuFZ := make([]float32, b.TotalParticles)
 	gpuPE := make([]float32, b.TotalParticles)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuFX); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuFX); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuFY); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuFY); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[2], gpuFZ); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuFZ); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[3], gpuPE); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[3], gpuPE); err != nil {
 		return err
 	}
 
@@ -317,10 +317,10 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceX, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceY, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceZ, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEnergy, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceX, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceY, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GForceZ, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEnergy, 4*(b.TotalParticles)))
 }
 
 func checkClose(idx int, name string, ref, got float32) {
@@ -337,6 +337,9 @@ func checkClose(idx int, name string, ref, got float32) {
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

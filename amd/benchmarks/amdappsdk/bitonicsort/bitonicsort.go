@@ -144,7 +144,7 @@ func (b *Benchmark) initMem() {
 			b.GpusToUse)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queues[0], b.GInputData, b.InputData)
+	b.Upload(b.driver, b.Queues[0], b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, offset int) CDNA3BitonicKernelArgs {
@@ -307,6 +307,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -317,25 +320,25 @@ func (b *Benchmark) Step() error {
 			return nil
 		}
 		if b.PerPassVerify && b.Verification {
-			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
+			b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 2
 		} else {
 			b.submitPass()
 		}
 	case 2:
-		if err := b.driver.ReadResult(b.Readback, b.PerPassIn); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.PerPassIn); err != nil {
 			return err
 		}
 		b.submitPass()
 	case 3:
 		if b.PerPassVerify && b.Verification {
-			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
+			b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 4
 		} else {
 			b.nextPass()
 		}
 	case 4:
-		if err := b.driver.ReadResult(b.Readback, b.PerPassOut); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.PerPassOut); err != nil {
 			return err
 		}
 		if err := b.verifyPass(b.PerPassIn, b.PerPassOut, b.Stage, b.Pass); err != nil {
@@ -343,10 +346,10 @@ func (b *Benchmark) Step() error {
 		}
 		b.nextPass()
 	case 5:
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
+		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.GInputData, b.Length*4)
 		b.Phase = 6
 	case 6:
-		if err := b.driver.ReadResult(b.Readback, b.OutputData); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.OutputData); err != nil {
 			return err
 		}
 		if b.Verification {

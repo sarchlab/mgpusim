@@ -4,19 +4,18 @@ package server
 
 import (
 	"fmt"
-	simulation "github.com/sarchlab/akita/v5/sim"
 	"net/http"
 	"sync"
 
 	"github.com/gorilla/mux"
-
+	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
 type server struct {
 	mu         sync.Mutex
 	simulation *simulation.Simulation
-	component  interface{ TickLater() }
+	component  driver.Ticker
 	queue      driver.CommandQueue
 	driver     *driver.Runtime
 	ctx        driver.Context
@@ -53,7 +52,7 @@ func (b Builder) Build() {
 	serverInstance = server{driver: b.driver, simulation: b.simulation}
 	for _, c := range b.simulation.Components() {
 		if c.Name() == "Driver" {
-			serverInstance.component = c.(interface{ TickLater() })
+			serverInstance.component = c.(driver.Ticker)
 		}
 	}
 	if serverInstance.component == nil {

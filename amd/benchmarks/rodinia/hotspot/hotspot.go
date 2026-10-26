@@ -143,8 +143,8 @@ func (b *Benchmark) initMem() {
 		b.GPower = b.driver.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GTempA, b.Temp)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPower, b.Power)
+	b.Upload(b.driver, b.Queue, b.GTempA, b.Temp)
+	b.Upload(b.driver, b.Queue, b.GPower, b.Power)
 }
 
 // thermalParams computes the derived thermal scalars for the current grid.
@@ -211,7 +211,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	total := n * n
 
 	gpu := make([]float32, total)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpu); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -276,12 +276,15 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalSrc, 4*((b.GridSize)*(b.GridSize))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.FinalSrc, 4*((b.GridSize)*(b.GridSize))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

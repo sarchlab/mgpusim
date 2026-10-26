@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -25,7 +26,8 @@ type TensorState struct {
 
 // OperatorState is used directly by the operator and owned by its benchmark.
 type OperatorState struct {
-	ReadbackEpochs             map[driver.CommandID]uint64
+	benchmarks.Transfers
+	ReadbackEpochs             map[driver.Ptr]uint64
 	MutationEpoch              uint64
 	RandomState                uint64
 	Context                    driver.Context
@@ -82,23 +84,23 @@ func (o *GPUOperator) SetVerification(enabled bool) { o.Verification = enabled }
 func (o *GPUOperator) deferFree(ptr driver.Ptr)     { o.PendingFrees = append(o.PendingFrees, ptr) }
 
 // EnqueueReadback snapshots the tensor at its position in the shared stream.
-func (o *GPUOperator) EnqueueReadback(t tensor.Tensor) driver.CommandID {
-	id := o.driver.EnqueueMemCopyD2H(o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)
+func (o *GPUOperator) EnqueueReadback(t tensor.Tensor) driver.HostBuffer {
+	id := benchmarks.Download(o.driver, o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)
 	if o.ReadbackEpochs == nil {
-		o.ReadbackEpochs = make(map[driver.CommandID]uint64)
+		o.ReadbackEpochs = make(map[driver.Ptr]uint64)
 	}
-	o.ReadbackEpochs[id] = o.MutationEpoch
+	o.ReadbackEpochs[id.Address] = o.MutationEpoch
 	return id
 }
 
 // ReadTensor copies a completed result into the tensor's explicit host cache.
-func (o *GPUOperator) ReadTensor(id driver.CommandID, t tensor.Tensor) error {
-	epoch, ok := o.ReadbackEpochs[id]
+func (o *GPUOperator) ReadTensor(id driver.HostBuffer, t tensor.Tensor) error {
+	epoch, ok := o.ReadbackEpochs[id.Address]
 	if !ok {
 		return fmt.Errorf("gputensor: readback %d was not submitted by this operator", id)
 	}
 	raw := make([]float32, t.NumElement())
-	if err := o.driver.ReadResult(id, raw); err != nil {
+	if err := benchmarks.Read(o.driver, id, raw); err != nil {
 		return err
 	}
 	v := t.(*Tensor)
@@ -108,13 +110,13 @@ func (o *GPUOperator) ReadTensor(id driver.CommandID, t tensor.Tensor) error {
 	}
 	v.HostReady = true
 	v.HostEpoch = epoch
-	delete(o.ReadbackEpochs, id)
+	delete(o.ReadbackEpochs, id.Address)
 	return nil
 }
 
 type tensorReadback struct {
 	Tensor  TensorState
-	Command driver.CommandID
+	Command driver.HostBuffer
 }
 type verification struct {
 	Operation                                                  string
@@ -129,7 +131,7 @@ func (o *GPUOperator) capture(t tensor.Tensor) tensorReadback {
 	state := TensorState{Shape: slices.Clone(t.Size()), Description: t.Descriptor()}
 	state.Host = nil
 	state.HostReady = false
-	return tensorReadback{state, o.driver.EnqueueMemCopyD2H(o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)}
+	return tensorReadback{state, benchmarks.Download(o.driver, o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)}
 }
 func (o *GPUOperator) beginVerification(v verification, inputs ...tensor.Tensor) int {
 	if !o.Verification {
@@ -161,7 +163,7 @@ func (o *GPUOperator) endVerification(index int, outputs ...tensor.Tensor) {
 }
 func (o *GPUOperator) readVerification(r tensorReadback) (tensor.Tensor, error) {
 	values := make([]float32, lenOf(r.Tensor.Shape))
-	if err := o.driver.ReadResult(r.Command, values); err != nil {
+	if err := benchmarks.Read(o.driver, r.Command, values); err != nil {
 		return nil, err
 	}
 	data := make([]float64, len(values))
@@ -232,8 +234,11 @@ func (o *GPUOperator) timerEnd(name string) {
 // runner has globally drained simulation. It never drives the engine.
 func (o *GPUOperator) CompleteStep() error {
 	counts := o.driver.Unfinished()
-	if int(o.CommandQueue) > len(counts) || counts[o.CommandQueue-1] != 0 {
+	if o.CommandQueue == 0 || int(o.CommandQueue) > len(counts) || counts[o.CommandQueue-1] != 0 {
 		return fmt.Errorf("gputensor: batch has not completed")
+	}
+	if err := o.ReleaseUploads(o.driver); err != nil {
+		return err
 	}
 	for len(o.Checks) > 0 {
 		if err := o.check(o.Checks[0]); err != nil {
@@ -257,6 +262,12 @@ func (o *GPUOperator) CompleteStep() error {
 			float64(start)*1e-12,
 			float64(end-start)*1e-12,
 		)
+		if err := o.driver.ReleaseEvent(timer.Start); err != nil {
+			return err
+		}
+		if err := o.driver.ReleaseEvent(timer.End); err != nil {
+			return err
+		}
 		o.Timers = o.Timers[1:]
 	}
 	for len(o.PendingFrees) > 0 {

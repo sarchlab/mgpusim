@@ -131,7 +131,7 @@ func (b *Benchmark) initMem() {
 		b.InputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInputData, b.InputData)
+	b.Upload(b.driver, b.Queue, b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createKernelArgs(
@@ -231,6 +231,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -240,18 +243,13 @@ func (b *Benchmark) Step() error {
 		b.exec()
 		b.Phase = 2
 	case 2:
-		if !b.Verification {
-			b.Readbacks = nil
-			b.Ended = true
-			return nil
-		}
 		for i := range b.Readbacks {
 			var dst any
 			switch b.Readbacks[i].Target {
 			case 0:
 				dst = b.OutputData
 			}
-			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -261,12 +259,14 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.OutputData
 			}
-			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}
-		if err := b.verify(); err != nil {
-			return err
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
 		}
 		b.Readbacks = nil
 		b.Ended = true

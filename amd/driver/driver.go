@@ -132,7 +132,10 @@ func (m *executionMW) launch(e *Execution) {
 			PacketAddress: uint64(cmd.PacketAddresses[i]),
 		}
 		if len(cmd.GPUs) > 1 {
-			end := first + ((totalWG-1)/uint64(totalCU)+1)*uint64(c.Resources.Runtime.config.Devices[gpu-1].CUCount)
+			end := min(totalWG, first+((totalWG-1)/uint64(totalCU)+1)*uint64(c.Resources.Runtime.config.Devices[gpu-1].CUCount))
+			if end <= first {
+				continue
+			}
 			req.Selection = kernels.WGSelection{Partitioned: true, First: first, End: end}
 			first = end
 		}
@@ -164,7 +167,9 @@ func (m *executionMW) receive() bool {
 				if uint64(len(data.Data)) != copyReq.ByteSize {
 					panic("driver: D2H response size mismatch")
 				}
-				copy(e.Command.Data[copyReq.DstOffset:copyReq.DstOffset+copyReq.ByteSize], data.Data)
+				r := c.Resources.Runtime
+				h := r.queue(e.Queue).Context
+				r.writeBytes(h, e.Command.Dst+Ptr(copyReq.DstOffset), data.Data)
 			}
 			c.Ports.GPU.RetrieveIncoming()
 			if tracker := c.TaskTracker(); tracker != nil {

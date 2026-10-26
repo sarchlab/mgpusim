@@ -137,8 +137,8 @@ func (b *Benchmark) initMem() {
 	}
 
 	// Both ping-pong buffers start identical (so fixed boundary cells match).
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.HData)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, b.HData)
+	b.Upload(b.driver, b.Queue, b.GA, b.HData)
+	b.Upload(b.driver, b.Queue, b.GB, b.HData)
 }
 
 func (b *Benchmark) exec() {
@@ -184,7 +184,7 @@ func (b *Benchmark) verify() error {
 	total := n * n * n
 
 	gpuOut := make([]float32, total)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuOut); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}
 
@@ -237,12 +237,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalSrc, 4*((b.N)*(b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.FinalSrc, 4*((b.N)*(b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

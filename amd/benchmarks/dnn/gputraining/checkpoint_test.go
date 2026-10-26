@@ -149,9 +149,9 @@ func finishCollectiveTraining(t *testing.T, s *sim.Simulation, r *runner.Runner,
 func checkReplicatedParameters(t *testing.T, s *sim.Simulation, b *trainingWorkload) {
 	t.Helper()
 	trainer := &b.trainer
-	ids := make([][]driver.CommandID, len(trainer.Networks))
+	ids := make([][]driver.HostBuffer, len(trainer.Networks))
 	for gpu, network := range trainer.Networks {
-		ids[gpu] = make([]driver.CommandID, len(network.Layers))
+		ids[gpu] = make([]driver.HostBuffer, len(network.Layers))
 		for i, layer := range network.Layers {
 			if p := layer.Parameters(); p != nil {
 				ids[gpu][i] = trainer.TensorOperators[gpu].EnqueueReadback(p)
@@ -160,7 +160,7 @@ func checkReplicatedParameters(t *testing.T, s *sim.Simulation, b *trainingWorkl
 	}
 	for _, c := range s.Components() {
 		if c.Name() == "Driver" {
-			c.(interface{ TickLater() }).TickLater()
+			c.(driver.Ticker).TickLater()
 		}
 	}
 	if err := s.Run(); err != nil {
@@ -269,7 +269,7 @@ func TestCrossEntropySharedTensorIdentitySurvivesBinding(t *testing.T) {
 					1,
 				},
 			},
-			LossReadbacks: []driver.CommandID{
+			LossReadbacks: []driver.HostBuffer{
 				o.EnqueueReadback(v),
 			},
 		},
@@ -309,7 +309,7 @@ func TestCrossEntropySharedTensorIdentitySurvivesBinding(t *testing.T) {
 	}()
 	for _, c := range s.Components() {
 		if c.Name() == "Driver" {
-			c.(interface{ TickLater() }).TickLater()
+			c.(driver.Ticker).TickLater()
 		}
 	}
 	if err := s.Run(); err != nil {

@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"slices"
@@ -21,6 +19,8 @@ import (
 type Runtime struct {
 	name      string
 	config    RuntimeSpec
+	storage   *mem.Storage
+	codeIndex map[codeKey][]int
 	pageTable *vm.PageTable
 	allocator internal.MemoryAllocator
 	devices   []*internal.Device
@@ -40,8 +40,7 @@ type runtimeState struct {
 	NextCommand              CommandID
 	Contexts                 []contextData
 	Queues                   []queueData
-	Results                  map[CommandID][]byte
-	Events                   map[Event]timing.VTimeInPicoSec
+	Events                   map[Event]eventState
 	Codes                    []codeAddress
 }
 type runtimeCheckpoint struct {
@@ -51,13 +50,15 @@ type runtimeCheckpoint struct {
 
 // NewRuntime constructs and registers the shared resource before Driver.Build.
 // spec must describe the same immutable device topology as the driver.
-func NewRuntime(reg modeling.Simulation, name string, spec RuntimeSpec, pageTable *vm.PageTable) *Runtime {
-	if reg == nil || pageTable == nil {
-		panic("driver: runtime needs simulation and page table")
+func NewRuntime(
+	reg modeling.Simulation, name string, spec RuntimeSpec, pageTable *vm.PageTable, storage *mem.Storage,
+) *Runtime {
+	if reg == nil || pageTable == nil || storage == nil {
+		panic("driver: runtime needs simulation, page table and storage")
 	}
-	r := &Runtime{name: name, config: spec, pageTable: pageTable,
+	r := &Runtime{name: name, config: spec, pageTable: pageTable, storage: storage,
 		allocator: internal.NewMemoryAllocator(pageTable, spec.Log2PageSize),
-		state:     runtimeState{Results: make(map[CommandID][]byte), Events: make(map[Event]timing.VTimeInPicoSec)}}
+		state:     runtimeState{Events: make(map[Event]eventState)}}
 	r.config.Devices = slices.Clone(spec.Devices)
 	r.addDevice(internal.DeviceTypeCPU, DeviceProperties{DRAMSize: 4 * mem.GB})
 	for _, dev := range spec.Devices {
@@ -95,6 +96,7 @@ func (r *Runtime) LoadCheckpoint(reader io.Reader) error {
 	r.state = s.State
 	r.allocator = allocator
 	r.devices = devices
+	r.codeIndex = nil
 	return nil
 }
 func (r *Runtime) context(h Context) *contextData {
@@ -171,11 +173,8 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 		if b.Address != ptr {
 			continue
 		}
-		if b.Freed {
-			return fmt.Errorf("runtime: allocation %d already freed", ptr)
-		}
 		r.allocator.Free(c.PID, uint64(ptr), b.Size)
-		b.Freed = true
+		c.Buffers = append(c.Buffers[:i], c.Buffers[i+1:]...)
 		return nil
 	}
 	return fmt.Errorf("runtime: unknown allocation %d", ptr)
@@ -198,47 +197,35 @@ func (r *Runtime) enqueue(q CommandQueue, c Command) CommandID {
 	queue.Unfinished++
 	return c.ID
 }
-func (r *Runtime) EnqueueMemCopyH2D(q CommandQueue, dst Ptr, src any) CommandID {
-	var b bytes.Buffer
-	if err := binary.Write(&b, binary.LittleEndian, src); err != nil {
-		panic(err)
-	}
-	return r.enqueue(q, Command{Kind: copyH2D, Dst: dst, Data: b.Bytes()})
-}
 
-// EnqueueMemCopyD2H retains bytes in Runtime until ReadResult consumes them.
-func (r *Runtime) EnqueueMemCopyD2H(q CommandQueue, src Ptr, size int) CommandID {
+// EnqueueMemCopyH2D reads CPU storage when the command executes. The caller
+// must keep its source allocated and unchanged until the stream completes.
+func (r *Runtime) EnqueueMemCopyH2D(q CommandQueue, dst, src Ptr, size int) CommandID {
 	if size < 0 {
-		panic("runtime: negative readback size")
+		panic("runtime: negative copy size")
 	}
-	return r.enqueue(q, Command{Kind: copyD2H, Src: src, ByteSize: size})
+	return r.enqueue(q, Command{Kind: copyH2D, Dst: dst, Src: src, ByteSize: size})
 }
 
-// ReadResult copies a completed readback to host memory and consumes it only
-// after successful decoding. It never waits or runs simulation.
-func (r *Runtime) ReadResult(id CommandID, dst any) error {
-	data, ok := r.state.Results[id]
-	if !ok {
-		return fmt.Errorf("runtime: result %d is not available", id)
+// EnqueueMemCopyD2H writes CPU storage. Read/reuse/free the destination only
+// after completion; Runtime does not track host buffer occupancy.
+func (r *Runtime) EnqueueMemCopyD2H(q CommandQueue, dst, src Ptr, size int) CommandID {
+	if size < 0 {
+		panic("runtime: negative copy size")
 	}
-	if binary.Size(dst) != len(data) {
-		return fmt.Errorf("runtime: result %d size mismatch", id)
-	}
-	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, dst); err != nil {
-		return err
-	}
-	delete(r.state.Results, id)
-	return nil
+	return r.enqueue(q, Command{Kind: copyD2H, Dst: dst, Src: src, ByteSize: size})
 }
 func (r *Runtime) EnqueueRecordEvent(q CommandQueue) Event {
-	return Event(r.enqueue(q, Command{Kind: recordEvent}))
+	e := Event(r.enqueue(q, Command{Kind: recordEvent}))
+	r.state.Events[e] = eventState{}
+	return e
 }
 func (r *Runtime) EventTime(e Event) (timing.VTimeInPicoSec, error) {
 	t, ok := r.state.Events[e]
-	if !ok {
-		return 0, fmt.Errorf("runtime: event %d has not triggered", e)
+	if !ok || !t.Triggered {
+		return 0, fmt.Errorf("runtime: event %d is released or has not triggered", e)
 	}
-	return t, nil
+	return t.Time, nil
 }
 
 // Unfinished returns a snapshot in queue-registration order, including work
@@ -266,11 +253,15 @@ func (r *Runtime) complete(q CommandQueue, c Command, now timing.VTimeInPicoSec)
 		panic("runtime: duplicate completion")
 	}
 	queue.Unfinished--
-	if c.Kind == copyD2H {
-		r.state.Results[c.ID] = c.Data
+	for _, ptr := range c.Owned {
+		if err := r.FreeMemory(queue.Context, ptr); err != nil {
+			panic(err)
+		}
 	}
 	if c.Kind == recordEvent {
-		r.state.Events[Event(c.ID)] = now
+		if _, live := r.state.Events[Event(c.ID)]; live {
+			r.state.Events[Event(c.ID)] = eventState{Triggered: true, Time: now}
+		}
 	}
 }
 
@@ -295,4 +286,19 @@ func (r *Runtime) EndSimulationTrace(tracker *tasks.Tracker) {
 		tracker.EndTask(r.state.SimulationTask)
 	}
 	r.state.TraceEnded = true
+}
+
+type eventState struct {
+	Triggered bool
+	Time      timing.VTimeInPicoSec
+}
+
+// ReleaseEvent invalidates a handle, including a pending marker. It does not
+// cancel stream work. Completion cannot recreate a released timestamp.
+func (r *Runtime) ReleaseEvent(e Event) error {
+	if _, ok := r.state.Events[e]; !ok {
+		return fmt.Errorf("runtime: unknown or released event %d", e)
+	}
+	delete(r.state.Events, e)
+	return nil
 }

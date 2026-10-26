@@ -123,6 +123,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 	if b.Ended {
 		return nil
 	}

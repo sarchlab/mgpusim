@@ -191,11 +191,11 @@ func (b *Benchmark) initMem() {
 			b.GS[i] = b.driver.AllocateMemory(b.Context, uint64(len(b.S)))
 		}
 
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.GExpandedKey[i], b.ExpandedKey)
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.GS[i], b.S)
+		b.Upload(b.driver, b.Queue, b.GExpandedKey[i], b.ExpandedKey)
+		b.Upload(b.driver, b.Queue, b.GS[i], b.S)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInput, b.Input)
+	b.Upload(b.driver, b.Queue, b.GInput, b.Input)
 }
 
 // Prepare the inputs for the first queued phase.
@@ -267,7 +267,7 @@ func (b *Benchmark) LaunchKernel() {
 // Verify verifies
 func (b *Benchmark) verify() error {
 	gpuOutput := make([]byte, b.Length)
-	if err := b.driver.ReadResult(b.Readback, gpuOutput); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readback, gpuOutput); err != nil {
 		return err
 	}
 
@@ -301,6 +301,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -314,7 +317,7 @@ func (b *Benchmark) Step() error {
 			b.Ended = true
 			return nil
 		}
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.GInput, b.Length)
+		b.Readback = benchmarks.Download(b.driver, b.Queue, b.GInput, b.Length)
 		b.Phase = 3
 	case 3:
 		if err := b.verify(); err != nil {

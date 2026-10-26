@@ -13,7 +13,7 @@ type State struct {
 	Stage            int
 	Pass             int
 	NumStages        int
-	Readback         driver.CommandID
+	Readback         driver.HostBuffer
 	PerPassVerify    bool
 	GpusToUse        []int
 	Context          driver.Context

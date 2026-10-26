@@ -111,6 +111,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -118,9 +121,9 @@ func (b *Benchmark) Step() error {
 		b.driver.SelectGPU(b.Context, b.Gpus[0])
 		b.Queue = b.driver.CreateCommandQueue(b.Context)
 		b.initMem()
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.DFrontier, b.HFrontier)
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.DEdgeArray, b.HEdgeOffsets)
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.DEdgeArrayAux, b.HEdgeList)
+		b.Upload(b.driver, b.Queue, b.DFrontier, b.HFrontier)
+		b.Upload(b.driver, b.Queue, b.DEdgeArray, b.HEdgeOffsets)
+		b.Upload(b.driver, b.Queue, b.DEdgeArrayAux, b.HEdgeList)
 		if b.MaxDepth > 0 {
 			b.submitIteration()
 		} else {
@@ -128,7 +131,7 @@ func (b *Benchmark) Step() error {
 		}
 	case 1:
 		var flag int32
-		if err := b.driver.ReadResult(b.FlagResult, &flag); err != nil {
+		if err := benchmarks.Read(b.driver, b.FlagResult, &flag); err != nil {
 			return err
 		}
 		if flag != 0 && b.Depth < b.MaxDepth {
@@ -137,7 +140,7 @@ func (b *Benchmark) Step() error {
 			b.finishTraversal()
 		}
 	case 2:
-		if err := b.driver.ReadResult(b.OutputResult, b.HCost); err != nil {
+		if err := benchmarks.Read(b.driver, b.OutputResult, b.HCost); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -150,7 +153,7 @@ func (b *Benchmark) Step() error {
 	return nil
 }
 func (b *Benchmark) finishTraversal() {
-	b.OutputResult = b.driver.EnqueueMemCopyD2H(b.Queue, b.DFrontier, len(b.HCost)*4)
+	b.OutputResult = benchmarks.Download(b.driver, b.Queue, b.DFrontier, len(b.HCost)*4)
 	b.Phase = 2
 }
 
@@ -226,7 +229,7 @@ func (b *Benchmark) submitIteration() {
 	}
 
 	flag := int32(0)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DFlag, flag)
+	b.Upload(b.driver, b.Queue, b.DFlag, flag)
 
 	if b.Arch == arch.CDNA3 {
 		cdna3Args.Curr = int32(b.Depth)
@@ -242,7 +245,7 @@ func (b *Benchmark) submitIteration() {
 			&args)
 	}
 
-	b.FlagResult = b.driver.EnqueueMemCopyD2H(b.Queue, b.DFlag, 4)
+	b.FlagResult = benchmarks.Download(b.driver, b.Queue, b.DFlag, 4)
 	b.Depth++
 	b.Phase = 1
 }

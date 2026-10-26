@@ -14,7 +14,7 @@ type State struct {
 	GA               driver.Ptr
 	GB               driver.Ptr
 	GC               driver.Ptr
-	Readback         driver.CommandID
+	Readback         driver.HostBuffer
 	Context          driver.Context
 	Gpus             []int
 	Arch             arch.Type

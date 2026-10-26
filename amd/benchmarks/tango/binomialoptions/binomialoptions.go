@@ -157,7 +157,7 @@ func (b *Benchmark) initMem() {
 		b.GPrices = b.driver.AllocateMemory(b.Context, priceBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOptions, b.Options)
+	b.Upload(b.driver, b.Queue, b.GOptions, b.Options)
 }
 
 func (b *Benchmark) exec() {
@@ -223,7 +223,7 @@ func f32max(a, b float32) float32 {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuPrices := make([]float32, b.NumOptions)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuPrices); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuPrices); err != nil {
 		return err
 	}
 
@@ -245,12 +245,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GPrices, 4*(b.NumOptions)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GPrices, 4*(b.NumOptions)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

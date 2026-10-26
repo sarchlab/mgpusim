@@ -9,7 +9,7 @@ import (
 type State struct {
 	benchmarks.Progress
 
-	Readback driver.CommandID
+	Readback driver.HostBuffer
 	Context  driver.Context
 	Queue    driver.CommandQueue
 	Gpus     []int

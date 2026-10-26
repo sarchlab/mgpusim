@@ -29,6 +29,9 @@ func (b Builder) Build(name string) *Comp {
 	if b.resources.Runtime.pageTable != b.resources.PageTable {
 		panic("driver: Runtime and component page tables differ")
 	}
+	if b.resources.Runtime.storage != b.resources.GlobalStorage {
+		panic("driver: Runtime and component storage differ")
+	}
 	if b.spec.UseMagicMemoryCopy && b.resources.GlobalStorage == nil {
 		panic("driver: magic copy requires global storage")
 	}

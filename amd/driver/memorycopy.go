@@ -8,11 +8,9 @@ func (m *executionMW) copy(e *Execution) {
 	cmd := &e.Command
 	ctx := r.context(r.queue(e.Queue).Context)
 	addr := uint64(cmd.Dst)
-	size := len(cmd.Data)
+	size := cmd.ByteSize
 	if cmd.Kind == copyD2H {
 		addr = uint64(cmd.Src)
-		size = cmd.ByteSize
-		cmd.Data = make([]byte, size)
 	}
 	if !c.Spec.UseMagicMemoryCopy {
 		for _, buf := range ctx.Buffers {
@@ -35,14 +33,15 @@ func (m *executionMW) copy(e *Execution) {
 		paddr := page.PAddr + pageOffset
 		if c.Spec.UseMagicMemoryCopy {
 			if cmd.Kind == copyH2D {
-				c.Resources.GlobalStorage.Write(paddr, cmd.Data[offset:offset+n])
+				c.Resources.GlobalStorage.Write(paddr, r.readBytes(r.queue(e.Queue).Context, cmd.Src+Ptr(offset), n))
 			} else {
-				copy(cmd.Data[offset:offset+n], c.Resources.GlobalStorage.Read(paddr, n))
+				r.writeBytes(r.queue(e.Queue).Context, cmd.Dst+Ptr(offset), c.Resources.GlobalStorage.Read(paddr, n))
 			}
 		} else {
 			gpu := r.allocator.GetDeviceIDByPAddr(paddr)
 			if cmd.Kind == copyH2D {
-				m.request(e, gpu, protocol.MemCopyH2DReq{SrcBuffer: cmd.Data[offset : offset+n], DstAddress: paddr}, true)
+				data := r.readBytes(r.queue(e.Queue).Context, cmd.Src+Ptr(offset), n)
+				m.request(e, gpu, protocol.MemCopyH2DReq{SrcBuffer: data, DstAddress: paddr}, true)
 			} else {
 				m.request(e, gpu, protocol.MemCopyD2HReq{SrcAddress: paddr, ByteSize: n, DstOffset: offset}, true)
 			}

@@ -9,7 +9,7 @@ import (
 )
 
 func randomFloat64(to tensor.Operator) float64 {
-	if r, ok := to.(interface{ RandomFloat64() float64 }); ok {
+	if r, ok := to.(tensor.RandomSource); ok {
 		return r.RandomFloat64()
 	}
 	return rand.Float64()

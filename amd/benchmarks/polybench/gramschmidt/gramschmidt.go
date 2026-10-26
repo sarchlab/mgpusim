@@ -177,11 +177,11 @@ func (b *Benchmark) initMem() {
 	}
 
 	// A starts as aInit; Q and R start at zero.
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.AInit)
+	b.Upload(b.driver, b.Queue, b.GA, b.AInit)
 	zeroQ := make([]float32, m*n)
 	zeroR := make([]float32, n*n)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GQ, zeroQ)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GR, zeroR)
+	b.Upload(b.driver, b.Queue, b.GQ, zeroQ)
+	b.Upload(b.driver, b.Queue, b.GR, zeroR)
 }
 
 func (b *Benchmark) exec() {
@@ -240,10 +240,10 @@ func (b *Benchmark) verify() error {
 
 	gpuQ := make([]float32, m*n)
 	gpuR := make([]float32, n*n)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuQ); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuQ); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuR); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuR); err != nil {
 		return err
 	}
 
@@ -303,8 +303,8 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GQ, 4*(b.M*b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GR, 4*(b.N*b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GQ, 4*(b.M*b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GR, 4*(b.N*b.N)))
 }
 
 // cpuGramSchmidt reproduces the GPU computation exactly using float32 math
@@ -351,6 +351,9 @@ func (b *Benchmark) cpuGramSchmidt() (q, r []float32) {
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

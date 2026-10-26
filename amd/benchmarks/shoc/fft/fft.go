@@ -120,16 +120,10 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.driver.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
 	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
-
-	for _, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues = append(b.Queues,
-			b.driver.CreateCommandQueue(b.Context))
-	}
 
 	b.initMem()
 }
@@ -154,7 +148,7 @@ func (b *Benchmark) initMem() {
 		b.DSource = b.driver.AllocateMemory(b.Context,
 			b.UsedBytes)
 	}
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DSource, b.Source)
+	b.Upload(b.driver, b.Queue, b.DSource, b.Source)
 }
 
 func (b *Benchmark) exec() {
@@ -263,6 +257,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -278,7 +275,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.Result
 			}
-			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -288,7 +285,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.Result
 			}
-			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

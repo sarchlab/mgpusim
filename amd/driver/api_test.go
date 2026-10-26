@@ -1,8 +1,9 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v5/mem"
 	"testing"
+
+	"github.com/sarchlab/akita/v5/mem"
 )
 
 func TestQueuesDrainThroughSimulation(t *testing.T) {
@@ -30,7 +31,7 @@ func TestAllocationMetadata(t *testing.T) {
 			p = f.r.AllocateMemory(f.ctx, mem.MB)
 		}
 		bufs := f.r.context(f.ctx).Buffers
-		if len(bufs) != 1 || bufs[0].Address != p || bufs[0].Size != mem.MB || bufs[0].Dirty || bufs[0].Freed {
+		if len(bufs) != 1 || bufs[0].Address != p || bufs[0].Size != mem.MB || bufs[0].Dirty {
 			t.Fatalf("allocation metadata: %+v", bufs)
 		}
 	}

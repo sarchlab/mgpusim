@@ -170,11 +170,11 @@ func (b *Benchmark) initMem() {
 				b.Context,
 				uint64(b.MaskSize*b.MaskSize*4))
 		}
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.DMasks[i], b.HMask)
+		b.Upload(b.driver, b.Queue, b.DMasks[i], b.HMask)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DInputData, b.HInputData)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DOutputData, b.HOutputData)
+	b.Upload(b.driver, b.Queue, b.DInputData, b.HInputData)
+	b.Upload(b.driver, b.Queue, b.DOutputData, b.HOutputData)
 }
 
 func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex int, gridSize uint32) {
@@ -312,6 +312,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -327,7 +330,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutputData
 			}
-			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -337,7 +340,7 @@ func (b *Benchmark) Step() error {
 			case 0:
 				dst = b.HOutputData
 			}
-			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

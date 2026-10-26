@@ -15,13 +15,14 @@ const (
 	noop
 )
 
-// Command contains an immutable submission snapshot. Ownership transfers from
-// Runtime to component State when execution starts.
+// Command contains an immutable submission descriptor. Kernel values are
+// captured; copies refer to storage addresses. Ownership transfers from Runtime
+// to component State when execution starts.
 type Command struct {
 	ID              CommandID
 	Kind            commandKind
 	Src, Dst        Ptr
-	Data            []byte
+	Owned           []Ptr // Internal CPU staging allocations released at completion.
 	ByteSize        int
 	Code            insts.CodeObjectValue
 	Packets         []kernels.PacketValue

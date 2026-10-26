@@ -177,7 +177,7 @@ func (b *Benchmark) cpuReferenceForThread(threadIdxX int) int32 {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuOut := make([]int32, b.NumThreads)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuOut); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}
 
@@ -198,12 +198,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 4*(b.NumThreads)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOut, 4*(b.NumThreads)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

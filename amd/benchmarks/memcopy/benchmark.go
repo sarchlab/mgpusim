@@ -42,6 +42,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 	switch b.Phase {
 	case 0:
 		b.driver.SelectGPU(b.Context, b.GPU)
@@ -57,13 +60,13 @@ func (b *Benchmark) Step() error {
 		} else {
 			b.Ptr = b.driver.AllocateMemory(b.Context, b.ByteSize)
 		}
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.Ptr, b.Data)
+		b.Upload(b.driver, b.Queue, b.Ptr, b.Data)
 		b.Phase = 1
 	case 1:
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.Ptr, int(b.ByteSize))
+		b.Readback = benchmarks.Download(b.driver, b.Queue, b.Ptr, int(b.ByteSize))
 		b.Phase = 2
 	case 2:
-		if err := b.driver.ReadResult(b.Readback, b.Result); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.Result); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -98,7 +101,7 @@ type State struct {
 	Context          driver.Context
 	Queue            driver.CommandQueue
 	Ptr              driver.Ptr
-	Readback         driver.CommandID
+	Readback         driver.HostBuffer
 	Data, Result     []byte
 	GPU              int
 	ByteSize         uint64

@@ -10,7 +10,7 @@ type State struct {
 	benchmarks.Progress
 
 	Queue            driver.CommandQueue
-	Readback         driver.CommandID
+	Readback         driver.HostBuffer
 	Context          driver.Context
 	Gpus             []int
 	Arch             arch.Type

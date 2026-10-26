@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
@@ -31,14 +32,14 @@ var _ = Describe("MCCL", func() {
 	}
 	upload := func(ctx driver.Context, p driver.Ptr, data any) {
 		q := gpuDriver.CreateCommandQueue(ctx)
-		gpuDriver.EnqueueMemCopyH2D(q, p, data)
+		benchmarks.Upload(gpuDriver, q, p, data)
 		drain()
 	}
 	read := func(ctx driver.Context, data any, p driver.Ptr) {
 		q := gpuDriver.CreateCommandQueue(ctx)
-		id := gpuDriver.EnqueueMemCopyD2H(q, p, binary.Size(data))
+		id := benchmarks.Download(gpuDriver, q, p, binary.Size(data))
 		drain()
-		Expect(gpuDriver.ReadResult(id, data)).To(Succeed())
+		Expect(benchmarks.Read(gpuDriver, id, data)).To(Succeed())
 	}
 	collective := func(c *mccl.Collective) {
 		for !c.IsEnded() {

@@ -129,7 +129,7 @@ func (b *Benchmark) initMem() {
 		b.DInputArray = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queues[0], b.DInputArray, b.HInputArray)
+	b.Upload(b.driver, b.Queues[0], b.DInputArray, b.HInputArray)
 }
 
 func printArray(array []float32, n uint32) {
@@ -222,6 +222,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -235,10 +238,10 @@ func (b *Benchmark) Step() error {
 		}
 		b.Phase = 2
 	case 2:
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.DInputArray, int(b.Length)*4)
+		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.DInputArray, int(b.Length)*4)
 		b.Phase = 3
 	case 3:
-		if err := b.driver.ReadResult(b.Readback, b.HInputArray); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.HInputArray); err != nil {
 			return err
 		}
 		if b.Verification {

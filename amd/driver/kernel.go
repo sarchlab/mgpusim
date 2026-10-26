@@ -1,11 +1,15 @@
 package driver
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
+	"reflect"
+
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-	"reflect"
 )
 
 // EnqueueLaunchKernel captures code, dispatch dimensions and argument values.
@@ -26,19 +30,26 @@ func (r *Runtime) EnqueueLaunchKernel(
 		gpus = append([]int(nil), dev.UnifiedGPUIDs...)
 	}
 	cmd := Command{Kind: launchKernel, Code: insts.CodeObjectSnapshot(co), GPUs: gpus}
+	codeHash := hashCode(cmd.Code)
 	for _, device := range gpus {
 		ctx.GPU = device
+		key := codeKey{Queue: q, PID: ctx.PID, GPU: device, Hash: codeHash}
+		if r.codeIndex == nil {
+			r.rebuildCodeIndex()
+		}
 		var code Ptr
-		for _, entry := range r.state.Codes {
-			if entry.Queue == q && entry.PID == ctx.PID && entry.GPU == device && reflect.DeepEqual(entry.Code, cmd.Code) {
+		for _, index := range r.codeIndex[key] {
+			entry := r.state.Codes[index]
+			if reflect.DeepEqual(entry.Code, cmd.Code) {
 				code = entry.Address
 				break
 			}
 		}
 		if code == 0 {
 			code = r.AllocateMemory(h, uint64(len(co.Data)))
+			r.codeIndex[key] = append(r.codeIndex[key], len(r.state.Codes))
 			r.state.Codes = append(r.state.Codes, codeAddress{q, ctx.PID, device, cmd.Code, code})
-			r.EnqueueMemCopyH2D(q, code, co.Data)
+			r.stageUpload(q, code, co.Data)
 		}
 		argAddress := r.AllocateMemory(h, co.KernargSegmentByteSize)
 		packet := kernels.HsaKernelDispatchPacket{
@@ -53,8 +64,8 @@ func (r *Runtime) EnqueueLaunchKernel(
 		}
 		captured := prepareLocalMemory(co, args, &packet)
 		packetAddress := r.AllocateMemory(h, uint64(binary.Size(packet)))
-		r.EnqueueMemCopyH2D(q, argAddress, captured)
-		r.EnqueueMemCopyH2D(q, packetAddress, packet)
+		r.stageUpload(q, argAddress, captured)
+		r.stageUpload(q, packetAddress, packet)
 		cmd.Packets = append(cmd.Packets, kernels.PacketSnapshot(&packet))
 		cmd.PacketAddresses = append(cmd.PacketAddresses, packetAddress)
 	}
@@ -79,4 +90,27 @@ func prepareLocalMemory(co *insts.KernelCodeObject, args any, packet *kernels.Hs
 	}
 	packet.GroupSegmentSize = lds
 	return captured.Interface()
+}
+
+type codeKey struct {
+	Queue CommandQueue
+	PID   vm.PID
+	GPU   int
+	Hash  [32]byte
+}
+
+func hashCode(code insts.CodeObjectValue) [32]byte {
+	//nolint:musttag // Hash the complete canonical value; this is not an external JSON schema.
+	data, err := json.Marshal(code)
+	if err != nil {
+		panic(err)
+	}
+	return sha256.Sum256(data)
+}
+func (r *Runtime) rebuildCodeIndex() {
+	r.codeIndex = make(map[codeKey][]int)
+	for i, c := range r.state.Codes {
+		key := codeKey{c.Queue, c.PID, c.GPU, hashCode(c.Code)}
+		r.codeIndex[key] = append(r.codeIndex[key], i)
+	}
 }

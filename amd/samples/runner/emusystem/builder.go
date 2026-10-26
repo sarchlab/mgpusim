@@ -89,7 +89,7 @@ func (b Builder) Build() *driver.Runtime {
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
 		runtimeSpec.Devices = append(runtimeSpec.Devices, driver.DeviceProperties{DRAMSize: 4 * mem.GB, CUCount: 64})
 	}
-	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable)
+	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, storage)
 	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
 		WithResources(driver.Resources{Runtime: runtime, PageTable: pageTable, GlobalStorage: storage}).Build("Driver")
 	port := twowaybuffered.MakeBuilder().WithSimulation(b.simulation).

@@ -178,8 +178,8 @@ func (b *Benchmark) initMem() {
 			b.Context, uint64(Q*numCells*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GFSrc, b.HF)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GFDst, zeros)
+	b.Upload(b.driver, b.Queue, b.GFSrc, b.HF)
+	b.Upload(b.driver, b.Queue, b.GFDst, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -285,7 +285,7 @@ func (b *Benchmark) verify() error {
 	omega := float32(1.0) / b.Tau
 
 	gpuF := make([]float32, Q*numCells)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuF); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuF); err != nil {
 		return err
 	}
 
@@ -327,13 +327,16 @@ func (b *Benchmark) verify() error {
 func (b *Benchmark) enqueueVerification() {
 	b.Readbacks = append(
 		b.Readbacks,
-		b.driver.EnqueueMemCopyD2H(b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
+		benchmarks.Download(b.driver, b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
 	)
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

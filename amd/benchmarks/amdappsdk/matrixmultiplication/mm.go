@@ -189,8 +189,8 @@ func (m *Benchmark) initMemory(
 		gA := m.driver.AllocateUnifiedMemory(m.Context, uint64(mA.Width*mA.Height*4))
 		gB := m.driver.AllocateUnifiedMemory(m.Context, uint64(mB.Width*mB.Height*4))
 		gC := m.driver.AllocateUnifiedMemory(m.Context, uint64(mC.Width*mC.Height*4))
-		m.driver.EnqueueMemCopyH2D(m.Queue, gA, mA.Data)
-		m.driver.EnqueueMemCopyH2D(m.Queue, gB, mB.Data)
+		m.Upload(m.driver, m.Queue, gA, mA.Data)
+		m.Upload(m.driver, m.Queue, gB, mB.Data)
 
 		return gA, gB, gC
 	}
@@ -202,8 +202,8 @@ func (m *Benchmark) initMemory(
 
 	gC := m.driver.AllocateMemory(m.Context, uint64(mC.Width*mC.Height*4))
 	m.driver.Distribute(m.Context, gC, uint64(mC.Width*mC.Height*4), m.Gpus)
-	m.driver.EnqueueMemCopyH2D(m.Queue, gA, mA.Data)
-	m.driver.EnqueueMemCopyH2D(m.Queue, gB, mB.Data)
+	m.Upload(m.driver, m.Queue, gA, mA.Data)
+	m.Upload(m.driver, m.Queue, gB, mB.Data)
 
 	return gA, gB, gC
 }

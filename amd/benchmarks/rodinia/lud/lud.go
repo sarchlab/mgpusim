@@ -156,7 +156,7 @@ func (b *Benchmark) initMem() {
 		b.GA = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.AOrig)
+	b.Upload(b.driver, b.Queue, b.GA, b.AOrig)
 }
 
 // initMatrix builds a diagonally-dominant matrix so that LU without pivoting
@@ -272,7 +272,7 @@ func (b *Benchmark) launchInternal(n, offset, intern int) {
 func (b *Benchmark) verify() error {
 	n := b.N
 	lu := make([]float32, n*n)
-	if err := b.driver.ReadResult(b.Readbacks[0], lu); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], lu); err != nil {
 		return err
 	}
 
@@ -310,12 +310,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GA, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

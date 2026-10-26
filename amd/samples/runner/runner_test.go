@@ -108,4 +108,10 @@ func TestRunnerReportsUnscheduledQueueBeforeHostStep(t *testing.T) {
 	if visited {
 		t.Fatal("host Step ran despite unfinished command")
 	}
+	if r.betweenRounds {
+		t.Fatal("failed drain remained checkpoint-safe")
+	}
+	if err := r.SaveCheckpoint(filepath.Join(t.TempDir(), "failed")); err == nil {
+		t.Fatal("accepted checkpoint after failed drain")
+	}
 }

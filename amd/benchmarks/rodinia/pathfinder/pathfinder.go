@@ -141,12 +141,12 @@ func (b *Benchmark) initMem() {
 		b.GBuf[1] = b.driver.AllocateMemory(b.Context, rowBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GWall, b.Wall)
+	b.Upload(b.driver, b.Queue, b.GWall, b.Wall)
 
 	// Initialize src buffer (gBuf[0]) with row 0 of the wall.
 	row0 := make([]int32, cols)
 	copy(row0, b.Wall[:cols])
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GBuf[0], row0)
+	b.Upload(b.driver, b.Queue, b.GBuf[0], row0)
 }
 
 func (b *Benchmark) exec() {
@@ -190,7 +190,7 @@ func (b *Benchmark) verify() error {
 	rows := b.Rows
 
 	gpuResult := make([]int32, cols)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuResult); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
@@ -236,12 +236,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalGBuf, 4*(b.Cols)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.FinalGBuf, 4*(b.Cols)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

@@ -99,15 +99,10 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.driver.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
 	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
-
-	for _, gpu := range b.Gpus {
-		b.driver.SelectGPU(b.Context, gpu)
-		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
-	}
 
 	if b.NumIterations == 0 || b.NumIterations > b.NumNodes {
 		b.NumIterations = b.NumNodes
@@ -169,8 +164,8 @@ func (b *Benchmark) initMem() {
 			uint64(numNodes*numNodes*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DOutputPathMatrix, b.HOutputPathMatrix)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.DOutputPathDistanceMatrix, b.HOutputPathDistanceMatrix)
+	b.Upload(b.driver, b.Queue, b.DOutputPathMatrix, b.HOutputPathMatrix)
+	b.Upload(b.driver, b.Queue, b.DOutputPathDistanceMatrix, b.HOutputPathDistanceMatrix)
 }
 
 func printMatrix(matrix []uint32, n uint32) {
@@ -298,6 +293,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -315,7 +313,7 @@ func (b *Benchmark) Step() error {
 			case 1:
 				dst = b.HOutputPathDistanceMatrix
 			}
-			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Buffer = benchmarks.Download(b.driver, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
@@ -327,7 +325,7 @@ func (b *Benchmark) Step() error {
 			case 1:
 				dst = b.HOutputPathDistanceMatrix
 			}
-			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
+			if err := benchmarks.Read(b.driver, copy.Buffer, dst); err != nil {
 				return err
 			}
 		}

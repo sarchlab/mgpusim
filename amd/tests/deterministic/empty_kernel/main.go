@@ -2,17 +2,14 @@ package main
 
 import (
 	"flag"
-	"github.com/sarchlab/akita/v5/sim/modeling"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
-	"io"
 	"log"
 
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 // KernelArgs defines kernel arguments
@@ -23,28 +20,30 @@ type KernelArgs struct {
 }
 
 // Benchmark defines a benchmark
-type Benchmark struct {
+type State struct {
 	benchmarks.Progress
-	queue   driver.CommandQueue
-	gpu     int
-	driver  *driver.Runtime
-	context driver.Context
-
-	hsaco *insts.KernelCodeObject
-
-	useUnifiedMemory bool
+	Queue            driver.CommandQueue
+	Context          driver.Context
+	GPU              int
+	UseUnifiedMemory bool
+}
+type Benchmark struct {
+	*State
+	benchmarks.Saved[[3]int, State]
+	driver *driver.Runtime
+	hsaco  *insts.KernelCodeObject
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpu = gpus[0]
+	b.GPU = gpus[0]
 }
 
 // Step submits the benchmark once and completes after the global drain.
 func (b *Benchmark) submit() {
-	b.context = b.driver.Init()
-	b.driver.SelectGPU(b.context, b.gpu)
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.Context = b.driver.Init()
+	b.driver.SelectGPU(b.Context, b.GPU)
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.loadProgram()
 	b.initMem()
 	b.exec()
@@ -56,7 +55,7 @@ func (Benchmark) Verify() {
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -72,7 +71,7 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{uint32(64 * *numWfPerWGFlag * *numWGFlag), 1, 1},
 		[3]uint16{uint16(64 * *numWfPerWGFlag), 1, 1},
@@ -88,7 +87,8 @@ func run() timing.VTimeInPicoSec {
 	simulation, runtime, finish := config.Build()
 	defer finish()
 	r := runner.New(simulation, runtime)
-	b := &Benchmark{driver: runtime}
+	b := &Benchmark{State: &State{}, driver: runtime}
+	b.Saved = benchmarks.NewSaved(b.State, b.config, func() error { b.loadProgram(); return nil })
 	config.Configure(b)
 	r.AddBenchmark(b)
 	if err := simulation.Initialize(); err != nil {
@@ -100,6 +100,9 @@ func run() timing.VTimeInPicoSec {
 	return simulation.Engine().CurrentTime()
 }
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
 	if b.Phase == 0 {
 		b.submit()
 		b.Phase = 1
@@ -109,26 +112,7 @@ func (b *Benchmark) Step() error {
 	return nil
 }
 
-type checkpointState struct {
-	Progress benchmarks.Progress
-	Context  driver.Context
-	Queue    driver.CommandQueue
-}
-
-func (b *Benchmark) config() [3]int { return [3]int{b.gpu, *numWfPerWGFlag, *numWGFlag} }
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, b.config(), checkpointState{b.Progress, b.context, b.queue}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.config(), &s, nil); err != nil {
-		return err
-	}
-	b.Progress = s.Progress
-	b.context = s.Context
-	b.queue = s.Queue
-	return nil
-}
+func (b *Benchmark) config() [3]int { return [3]int{b.GPU, *numWfPerWGFlag, *numWGFlag} }
 
 func main() {
 	flag.Parse()

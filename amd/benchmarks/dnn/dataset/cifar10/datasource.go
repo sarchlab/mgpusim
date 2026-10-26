@@ -1,77 +1,30 @@
 package cifar10
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 )
 
-// A DataSource provides convenient solution to feed data to neural networks.
-type DataSource struct {
-	*training.ResidentDataSource
-	dataSet *DataSet
-}
+// DataSource feeds samples from a validated external dataset.
+type DataSource struct{ *training.ResidentDataSource }
 
-// NewTrainingDataSource returns a DataSource object that fetches data from
-// the training set.
-func NewTrainingDataSource(to tensor.Operator) *DataSource {
-	ds := &DataSource{
-		ResidentDataSource: &training.ResidentDataSource{
-			Operator: to,
-			State: &training.DataState{
-				Shape: []int{
-					3,
-					32,
-					32,
-				},
-				Descriptor: "NCHW",
-			},
-		},
+func NewTrainingDataSource(to tensor.Operator) *DataSource { return newSource(to, true) }
+func NewTestDataSource(to tensor.Operator) *DataSource     { return newSource(to, false) }
+func newSource(to tensor.Operator, train bool) *DataSource {
+	var files []string
+	first := 1
+	if !train {
+		first = 5
+	} // Preserve the existing test source selection.
+	for i := first; i <= 5; i++ {
+		files = append(files, filepath.Join(getDirPath(), "cifar-10-batches-bin", fmt.Sprintf("data_batch_%d.bin", i)))
 	}
-
-	ds.dataSet = new(DataSet)
-	ds.dataSet.initTrain()
-	ds.dataSet.openTrainingFile()
-	ds.loadAllData()
-
-	return ds
-}
-
-// NewTestDataSource creates a DataSource object that fetches data from the
-// test set.
-func NewTestDataSource(to tensor.Operator) *DataSource {
-	ds := &DataSource{
-		ResidentDataSource: &training.ResidentDataSource{
-			Operator: to,
-			State: &training.DataState{
-				Shape: []int{
-					3,
-					32,
-					32,
-				},
-				Descriptor: "NCHW",
-			},
-		},
+	d, err := training.NewExternalDataSource(to, "cifar10", files, []int{3, 32, 32}, "NCHW")
+	if err != nil {
+		panic(err)
 	}
-
-	ds.dataSet = new(DataSet)
-	ds.dataSet.initTest()
-	ds.dataSet.openTestFile()
-	ds.loadAllData()
-
-	return ds
-}
-
-func (ds *DataSource) loadAllData() {
-	for ds.dataSet.HasNext() {
-		d, l := ds.dataSet.Next()
-		normalizedD := make([]float64, len(d))
-		for i := 0; i < len(d); i++ {
-			normalizedD[i] = float64(d[i]) / 255
-		}
-		ds.State.Data = append(ds.State.Data, normalizedD...)
-		if ds.dataSet.isFirstChannel() {
-			// only first channel got label for the whole images
-			ds.State.Labels = append(ds.State.Labels, int(l))
-		}
-	}
+	return &DataSource{d}
 }

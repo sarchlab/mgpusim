@@ -106,6 +106,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -115,10 +118,10 @@ func (b *Benchmark) Step() error {
 		b.launchKernel(b.GA, b.GB, b.GC, &b.MatrixA, &b.MatrixC)
 		b.Phase = 2
 	case 2:
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.GC, len(b.MatrixC.Data)*4)
+		b.Readback = benchmarks.Download(b.driver, b.Queue, b.GC, len(b.MatrixC.Data)*4)
 		b.Phase = 3
 	case 3:
-		if err := b.driver.ReadResult(b.Readback, b.MatrixC.Data); err != nil {
+		if err := benchmarks.Read(b.driver, b.Readback, b.MatrixC.Data); err != nil {
 			return err
 		}
 		if b.Verification {

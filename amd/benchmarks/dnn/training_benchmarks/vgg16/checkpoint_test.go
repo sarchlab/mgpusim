@@ -15,6 +15,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
@@ -23,7 +24,7 @@ import (
 )
 
 type graphProbe struct {
-	Result driver.CommandID
+	Result driver.HostBuffer
 	Event  driver.Event
 	Values []float32
 	Time   timing.VTimeInPicoSec
@@ -139,7 +140,7 @@ func prepareGraph(t *testing.T, s *sim.Simulation, rt *driver.Runtime, b *Benchm
 		[]float32,
 		len(values),
 	)
-	p.Result = rt.EnqueueMemCopyD2H(
+	p.Result = benchmarks.Download(rt,
 		o.Queue(),
 		params.(*gputensor.Tensor).Ptr(),
 		len(values)*4,
@@ -147,7 +148,7 @@ func prepareGraph(t *testing.T, s *sim.Simulation, rt *driver.Runtime, b *Benchm
 	p.Event = rt.EnqueueRecordEvent(o.Queue())
 	for _, c := range s.Components() {
 		if c.Name() == "Driver" {
-			c.(interface{ TickLater() }).TickLater()
+			c.(driver.Ticker).TickLater()
 		}
 	}
 }
@@ -164,7 +165,7 @@ func finishGraph(
 	if err := r.Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := rt.ReadResult(p.Result, p.Values); err != nil {
+	if err := benchmarks.Read(rt, p.Result, p.Values); err != nil {
 		t.Fatal(err)
 	}
 	for i, v := range p.Values {

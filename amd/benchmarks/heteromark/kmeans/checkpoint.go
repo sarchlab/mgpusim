@@ -10,8 +10,8 @@ type State struct {
 	benchmarks.Progress
 
 	Iteration        int
-	Readback         driver.CommandID
-	SwapReadback     driver.CommandID
+	Readback         driver.HostBuffer
+	SwapReadback     driver.HostBuffer
 	Context          driver.Context
 	Gpus             []int
 	Queues           []driver.CommandQueue

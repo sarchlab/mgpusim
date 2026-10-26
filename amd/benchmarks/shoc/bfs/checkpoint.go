@@ -10,8 +10,8 @@ type State struct {
 	benchmarks.Progress
 
 	Depth            int
-	FlagResult       driver.CommandID
-	OutputResult     driver.CommandID
+	FlagResult       driver.HostBuffer
+	OutputResult     driver.HostBuffer
 	Queue            driver.CommandQueue
 	Context          driver.Context
 	Gpus             []int

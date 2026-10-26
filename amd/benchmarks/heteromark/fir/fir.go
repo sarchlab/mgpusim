@@ -151,7 +151,7 @@ func (b *Benchmark) initMem() {
 			b.GOutputData, uint64(b.Length*4), b.Gpus)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInputData, b.InputData)
+	b.Upload(b.driver, b.Queue, b.GInputData, b.InputData)
 
 	for i, gpu := range b.Gpus {
 		b.driver.SelectGPU(b.Context, gpu)
@@ -162,7 +162,7 @@ func (b *Benchmark) initMem() {
 			b.GFilterData[i] = b.driver.AllocateMemory(
 				b.Context, uint64(b.NumTaps*4))
 		}
-		b.driver.EnqueueMemCopyH2D(b.Queue, b.GFilterData[i], b.FilterData)
+		b.Upload(b.driver, b.Queue, b.GFilterData[i], b.FilterData)
 	}
 }
 
@@ -236,7 +236,7 @@ func (b *Benchmark) exec() {
 // Verify verifies
 func (b *Benchmark) verify() error {
 	gpuOutput := make([]float32, b.Length)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuOutput); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuOutput); err != nil {
 		return err
 	}
 
@@ -263,12 +263,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOutputData, 4*(b.Length)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOutputData, 4*(b.Length)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

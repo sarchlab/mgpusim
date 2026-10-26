@@ -160,10 +160,10 @@ func (b *Benchmark) initMem() {
 	b.GF = alloc(b.Context, uint64(b.NJ*b.NL*4))
 	b.GG = alloc(b.Context, uint64(b.NI*b.NL*4))
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.A)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, b.B)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GC, b.C)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GD, b.D)
+	b.Upload(b.driver, b.Queue, b.GA, b.A)
+	b.Upload(b.driver, b.Queue, b.GB, b.B)
+	b.Upload(b.driver, b.Queue, b.GC, b.C)
+	b.Upload(b.driver, b.Queue, b.GD, b.D)
 }
 
 // gridDim returns the smallest multiple of blockSize that is >= n.
@@ -216,7 +216,7 @@ func (b *Benchmark) exec() {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuG := make([]float32, b.NI*b.NL)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuG); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuG); err != nil {
 		return err
 	}
 
@@ -271,12 +271,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GG, 4*(b.NI*b.NL)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GG, 4*(b.NI*b.NL)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

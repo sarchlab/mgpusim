@@ -201,10 +201,10 @@ func (b *Benchmark) initMem() {
 		b.GResult = b.driver.AllocateMemory(b.Context, uint64(4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GArr, b.Chain)
+	b.Upload(b.driver, b.Queue, b.GArr, b.Chain)
 	// Initialize the result buffer so its page is resident on the GPU before
 	// the kernel writes to it (output-only buffers are otherwise never mapped).
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GResult, []uint32{0})
+	b.Upload(b.driver, b.Queue, b.GResult, []uint32{0})
 }
 
 func (b *Benchmark) exec() {
@@ -231,7 +231,7 @@ func (b *Benchmark) exec() {
 // The thread starts at startIdx and applies num_accesses chain hops.
 func (b *Benchmark) verify() error {
 	gpuResult := make([]uint32, 1)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuResult); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
@@ -251,12 +251,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GResult, 4*(1)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GResult, 4*(1)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

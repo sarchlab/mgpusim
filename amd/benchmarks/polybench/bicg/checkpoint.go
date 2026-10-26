@@ -13,7 +13,6 @@ type State struct {
 	Queue            driver.CommandQueue
 	Context          driver.Context
 	Gpus             []int
-	Queues           []driver.CommandQueue
 	Arch             arch.Type
 	NX               int
 	NY               int

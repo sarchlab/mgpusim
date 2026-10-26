@@ -2,7 +2,6 @@ package emusystem_test
 
 import (
 	"bytes"
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"io"
 	"os"
 	"os/exec"
@@ -12,8 +11,10 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
@@ -39,10 +40,18 @@ func TestEmulationCheckpointFreshProcess(t *testing.T) {
 		if len(results.IDs) != 2 {
 			t.Fatalf("expected two saved readbacks: %v", results.IDs)
 		}
-		output := []uint32{101}
-		if err := d.ReadResult(results.IDs[0], output); err == nil || output[0] != 101 {
-			t.Fatal("pending result unexpectedly consumed")
+		// Host reads deliberately do not guard pending destinations. The
+		// saved mid-kernel destination must still hold its initial zero bytes.
+		output := make([]uint32, results.IDs[0].ByteSize/4)
+		if err := d.ReadHost(results.IDs[0], output); err != nil {
+			t.Fatal(err)
 		}
+		for _, v := range output {
+			if v != 0 {
+				t.Fatal("pending destination changed before copy")
+			}
+		}
+
 		finishEmulation(t, s, d, results, path+".restored")
 		return
 	}
@@ -117,8 +126,16 @@ func prepareEmulationCheckpoint(t *testing.T, a arch.Type, path string) {
 		t.Fatal("never reached an in-flight work-group")
 	}
 	out := make([]float32, checkpointLength)
-	if err := d.ReadResult(results.IDs[0], out); err == nil {
-		t.Fatal("host copy completed before checkpoint")
+	if err := d.ReadHost(results.IDs[0], out); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range out {
+		if v != 0 {
+			t.Fatal("destination changed before queued D2H")
+		}
+	}
+	if d.Unfinished()[0] == 0 {
+		t.Fatal("copy pipeline completed before checkpoint")
 	}
 
 	if err := s.SaveCheckpoint(path); err != nil {
@@ -144,7 +161,7 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Runti
 	return s, d, results
 }
 
-func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.CommandID {
+func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.HostBuffer {
 	t.Helper()
 	ctx := d.Init()
 	q := d.CreateCommandQueue(ctx)
@@ -159,9 +176,9 @@ func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.CommandID 
 	outPtr := d.AllocateMemory(ctx, uint64(len(out)*4))
 	filterPtr := d.AllocateMemory(ctx, uint64(len(taps)*4))
 	historyPtr := d.AllocateMemory(ctx, uint64(len(history)*4))
-	d.EnqueueMemCopyH2D(q, inPtr, input)
-	d.EnqueueMemCopyH2D(q, filterPtr, taps)
-	d.EnqueueMemCopyH2D(q, historyPtr, history)
+	benchmarks.Upload(d, q, inPtr, input)
+	benchmarks.Upload(d, q, filterPtr, taps)
+	benchmarks.Upload(d, q, historyPtr, history)
 	filename := "kernels.hsaco"
 	if a == arch.CDNA3 {
 		filename = "kernels_gfx942.hsaco"
@@ -197,11 +214,11 @@ func submitFIR(t *testing.T, d *driver.Runtime, a arch.Type) []driver.CommandID 
 		}
 	}
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	first := d.EnqueueMemCopyD2H(q, outPtr, len(out)*4)
+	first := benchmarks.Download(d, q, outPtr, len(out)*4)
 
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	second := d.EnqueueMemCopyD2H(q, outPtr, checkpointLength*4)
-	return []driver.CommandID{first, second}
+	second := benchmarks.Download(d, q, outPtr, checkpointLength*4)
+	return []driver.HostBuffer{first, second}
 }
 
 func finishEmulation(t *testing.T, s *sim.Simulation, d *driver.Runtime, results *firResults, path string) {
@@ -211,7 +228,7 @@ func finishEmulation(t *testing.T, s *sim.Simulation, d *driver.Runtime, results
 	}
 	for _, id := range results.IDs {
 		out := make([]float32, checkpointLength)
-		if err := d.ReadResult(id, out); err != nil {
+		if err := benchmarks.Read(d, id, out); err != nil {
 			t.Fatal(err)
 		}
 		verifyFIR(t, out)
@@ -240,7 +257,7 @@ func verifyFIR(t *testing.T, out []float32) {
 }
 
 type firResults struct {
-	IDs     []driver.CommandID
+	IDs     []driver.HostBuffer
 	Outputs [][]float32
 }
 

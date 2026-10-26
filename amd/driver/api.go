@@ -2,6 +2,7 @@ package driver
 
 import (
 	_ "embed"
+
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -17,3 +18,6 @@ func (r *Runtime) EnqueueMemCopyD2D(q CommandQueue, dst, src Ptr, size int) Comm
 	args := KernelMemCopyArgs{src, dst, int64(size)}
 	return r.EnqueueLaunchKernel(q, co, [3]uint32{uint32((size + 3) / 4), 1, 1}, [3]uint16{64, 1, 1}, &args)
 }
+
+// Ticker schedules Driver after a complete host round.
+type Ticker interface{ TickLater() }

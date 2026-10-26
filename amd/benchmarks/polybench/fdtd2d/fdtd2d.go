@@ -167,9 +167,9 @@ func (b *Benchmark) initMem() {
 		b.GHz = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GEx, b.ExInit)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GEy, b.EyInit)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GHz, b.HzInit)
+	b.Upload(b.driver, b.Queue, b.GEx, b.ExInit)
+	b.Upload(b.driver, b.Queue, b.GEy, b.EyInit)
+	b.Upload(b.driver, b.Queue, b.GHz, b.HzInit)
 }
 
 func (b *Benchmark) exec() {
@@ -229,13 +229,13 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	gpuEx := make([]float32, numElem)
 	gpuEy := make([]float32, numElem)
 	gpuHz := make([]float32, numElem)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuEx); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuEx); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuEy); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuEy); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[2], gpuHz); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuHz); err != nil {
 		return err
 	}
 
@@ -311,14 +311,17 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEx, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEy, 4*((b.N)*(b.N))))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GHz, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEx, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GEy, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GHz, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

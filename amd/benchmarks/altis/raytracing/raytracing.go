@@ -156,7 +156,7 @@ func (b *Benchmark) initMem() {
 		b.GSpheres = b.driver.AllocateMemory(b.Context, sphereBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GSpheres, b.SphereData)
+	b.Upload(b.driver, b.Queue, b.GSpheres, b.SphereData)
 }
 
 func (b *Benchmark) exec() {
@@ -318,7 +318,7 @@ func f32sqrt(x float32) float32 {
 func (b *Benchmark) verify() error {
 	totalPixels := b.Width * b.Height
 	gpuImage := make([]byte, totalPixels*4)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuImage); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuImage); err != nil {
 		return err
 	}
 
@@ -352,12 +352,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GImage, 1*((b.Width*b.Height)*4)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GImage, 1*((b.Width*b.Height)*4)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

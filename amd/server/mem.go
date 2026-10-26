@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
@@ -86,13 +87,18 @@ func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid input", 400)
 	}
 
-	serverInstance.driver.EnqueueMemCopyH2D(serverInstance.queue,
+	transfers := benchmarks.Transfers{}
+	transfers.Upload(serverInstance.driver, serverInstance.queue,
 		driver.Ptr(input.Ptr), rawData)
 	if err := serverInstance.run(); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
+	if err := transfers.ReleaseUploads(serverInstance.driver); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	output := "{}"
 	w.Write([]byte(output))
 }
@@ -120,12 +126,12 @@ func handleMemcopyD2H(w http.ResponseWriter, r *http.Request) {
 
 	rawData := make([]byte, dataJSON.Size)
 
-	id := serverInstance.driver.EnqueueMemCopyD2H(serverInstance.queue, driver.Ptr(dataJSON.Ptr), len(rawData))
+	id := benchmarks.Download(serverInstance.driver, serverInstance.queue, driver.Ptr(dataJSON.Ptr), len(rawData))
 	if err := serverInstance.run(); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	if err := serverInstance.driver.ReadResult(id, rawData); err != nil {
+	if err := benchmarks.Read(serverInstance.driver, id, rawData); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}

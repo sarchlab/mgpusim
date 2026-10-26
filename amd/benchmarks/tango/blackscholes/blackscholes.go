@@ -155,10 +155,10 @@ func (b *Benchmark) initMem() {
 		b.GPut = b.driver.AllocateMemory(b.Context, bytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GS, b.HS)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GK, b.HK)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GT, b.HT)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GSigma, b.HSigma)
+	b.Upload(b.driver, b.Queue, b.GS, b.HS)
+	b.Upload(b.driver, b.Queue, b.GK, b.HK)
+	b.Upload(b.driver, b.Queue, b.GT, b.HT)
+	b.Upload(b.driver, b.Queue, b.GSigma, b.HSigma)
 }
 
 func (b *Benchmark) exec() {
@@ -213,10 +213,10 @@ func (b *Benchmark) verify() error {
 	n := b.N
 	gpuCall := make([]float32, n)
 	gpuPut := make([]float32, n)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuCall); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuCall); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuPut); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuPut); err != nil {
 		return err
 	}
 
@@ -256,13 +256,16 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GCall, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GPut, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GCall, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GPut, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

@@ -212,7 +212,7 @@ func (b *Benchmark) initMem() {
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queues[0], b.DFeatures, b.HFeatures)
+	b.Upload(b.driver, b.Queues[0], b.DFeatures, b.HFeatures)
 }
 
 func (b *Benchmark) transposeFeatures() {
@@ -271,7 +271,7 @@ func (b *Benchmark) transposeFeatures() {
 
 func (b *Benchmark) verifySwap() error {
 	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
-	if err := b.driver.ReadResult(b.SwapReadback, gpuSwap); err != nil {
+	if err := benchmarks.Read(b.driver, b.SwapReadback, gpuSwap); err != nil {
 		return err
 	}
 
@@ -365,13 +365,13 @@ func (b *Benchmark) enqueueComputeKernel(q driver.CommandQueue, gpuIndex int) {
 
 func (b *Benchmark) submitMembership() {
 	for i, q := range b.Queues {
-		b.driver.EnqueueMemCopyH2D(q, b.DClusters[i], b.HClusters)
+		b.Upload(b.driver, q, b.DClusters[i], b.HClusters)
 		b.enqueueComputeKernel(q, i)
 	}
 }
 func (b *Benchmark) consumeMembership() (float64, error) {
 	newMembership := make([]int32, b.NumPoints)
-	if err := b.driver.ReadResult(b.Readback, newMembership); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readback, newMembership); err != nil {
 		return 0, err
 	}
 
@@ -520,6 +520,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	if b.MaxIter <= 0 {
 		return fmt.Errorf("kmeans requires MaxIter > 0")
@@ -533,7 +536,7 @@ func (b *Benchmark) Step() error {
 		b.Phase = 2
 	case 2:
 		if b.Verification {
-			b.SwapReadback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.DFeaturesSwap, b.NumPoints*b.NumFeatures*4)
+			b.SwapReadback = benchmarks.Download(b.driver, b.Queues[0], b.DFeaturesSwap, b.NumPoints*b.NumFeatures*4)
 		}
 		b.Phase = 3
 	case 3:
@@ -547,7 +550,7 @@ func (b *Benchmark) Step() error {
 		b.submitMembership()
 		b.Phase = 4
 	case 4:
-		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.DMembership, b.NumPoints*4)
+		b.Readback = benchmarks.Download(b.driver, b.Queues[0], b.DMembership, b.NumPoints*4)
 		b.Phase = 5
 	case 5:
 		return b.finishIteration()

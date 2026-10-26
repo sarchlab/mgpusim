@@ -3,6 +3,10 @@ package benchmarks_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"testing"
+
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
@@ -14,6 +18,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/nbody"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/simpleconvolution"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/vectoradd"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layer_benchmarks/relu"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/pagerank"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/polybench/atax"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/polybench/bicg"
@@ -25,8 +30,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
-	"io"
-	"testing"
 )
 
 type outputCase struct {
@@ -61,11 +64,17 @@ func savedState(t *testing.T, resource interface{ SaveCheckpoint(io.Writer) erro
 
 // Baseline Run/exec always materialized these host outputs. Verification may
 // suppress CPU comparisons, but must not remove their simulated transfer or
-// leave Runtime-owned result bytes unconsumed.
+// leave output CPU buffers unprocessed.
 //
 //nolint:funlen // Keep the complete baseline output-copy audit table together.
-func TestNormalOutputsSurviveDisabledVerification(t *testing.T) {
-	cases := []outputCase{
+func normalOutputCases() []outputCase {
+	return []outputCase{
+		{name: "relu", outputs: []string{"OutputData"},
+			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
+				b := relu.NewBenchmark(rt)
+				b.Length = 64
+				return b
+			}},
 		{name: "vectoradd", outputs: []string{"HA"},
 			newBenchmark: func(rt *driver.Runtime) benchmarks.Benchmark {
 				b := vectoradd.NewBenchmark(rt)
@@ -164,7 +173,9 @@ func TestNormalOutputsSurviveDisabledVerification(t *testing.T) {
 				return b
 			}},
 	}
-	for _, tc := range cases {
+}
+func TestNormalOutputsSurviveDisabledVerification(t *testing.T) {
+	for _, tc := range normalOutputCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			want, copies := runOutputCase(t, tc, true)
 			got, uncheckedCopies := runOutputCase(t, tc, false)
@@ -208,14 +219,94 @@ func runOutputCase(t *testing.T, tc outputCase, verify bool) (map[string]json.Ra
 	if err := r.Run(); err != nil {
 		t.Fatal(err)
 	}
+	var state map[string]json.RawMessage
+	if err := json.Unmarshal(savedState(t, rt)["State"], &state); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := state["Results"]; ok {
+		t.Fatal("Runtime retained a result mailbox")
+	}
+	return savedState(t, b), copies.count
+}
+
+// Each of these baseline single-queue workloads allocated and launched on the
+// last selected GPU. CPU staging must not change that placement.
+func TestSingleQueueWorkloadsKeepLastSelectedGPU(t *testing.T) {
+	affected := map[string]bool{
+		"atax": true, "bicg": true, "floydwarshall": true, "nbody": true,
+		"pagerank": true, "spmv": true, "fft": true, "stencil2d": true,
+	}
+	for _, tc := range normalOutputCases() {
+		if !affected[tc.name] {
+			continue
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			s := sim.MakeBuilder().Build()
+			rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(2).Build()
+			b := tc.newBenchmark(rt)
+			b.SelectGPU([]int{1, 2})
+			if err := s.Initialize(); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := s.Terminate(); err != nil {
+					t.Error(err)
+				}
+			}()
+			if err := b.Step(); err != nil {
+				t.Fatal(err)
+			}
+			checkLastGPUPlacement(t, s, rt)
+		})
+	}
+}
+
+func checkLastGPUPlacement(t *testing.T, s *sim.Simulation, rt *driver.Runtime) {
+	t.Helper()
 	var state struct {
-		Results map[driver.CommandID][]byte `json:"Results"`
+		Queues []struct {
+			GPU int `json:"GPU"`
+		} `json:"Queues"`
+		Contexts []struct {
+			PID     uint64 `json:"PID"`
+			GPU     int    `json:"GPU"`
+			Buffers []struct {
+				Address driver.Ptr `json:"Address"`
+			} `json:"Buffers"`
+		} `json:"Contexts"`
 	}
 	if err := json.Unmarshal(savedState(t, rt)["State"], &state); err != nil {
 		t.Fatal(err)
 	}
-	if len(state.Results) != 0 {
-		t.Fatalf("%d Runtime results remain unconsumed", len(state.Results))
+	if len(state.Queues) != 1 || state.Queues[0].GPU != 2 {
+		t.Fatal("queue placement", state.Queues)
 	}
-	return savedState(t, b), copies.count
+	var component *driver.Comp
+	for _, c := range s.Components() {
+		if d, ok := c.(*driver.Comp); ok {
+			component = d
+		}
+	}
+	devicePages := 0
+	for _, context := range state.Contexts {
+		if context.GPU != 2 {
+			t.Fatal("allocation selection changed", context.GPU)
+		}
+		for _, buffer := range context.Buffers {
+			page, ok := component.Resources.PageTable.Find(vm.PID(context.PID), uint64(buffer.Address))
+			if !ok {
+				t.Fatal("allocation has no mapping")
+			}
+			if page.DeviceID == 0 {
+				continue
+			}
+			devicePages++
+			if page.DeviceID != 2 {
+				t.Fatal("GPU allocation placement", page.DeviceID)
+			}
+		}
+	}
+	if devicePages == 0 {
+		t.Fatal("fixture did not allocate GPU data")
+	}
 }

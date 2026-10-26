@@ -209,14 +209,14 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	b.GFluxMz = alloc(b.Context, cellBytes)
 	b.GFluxEnergy = alloc(b.Context, cellBytes)
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GRho, b.HRho)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GMx, b.HMx)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GMy, b.HMy)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GMz, b.HMz)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GEnergy, b.HEnergy)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNeighbors, b.HNeighbors)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNormals, b.HNormals)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GAreas, b.HAreas)
+	b.Upload(b.driver, b.Queue, b.GRho, b.HRho)
+	b.Upload(b.driver, b.Queue, b.GMx, b.HMx)
+	b.Upload(b.driver, b.Queue, b.GMy, b.HMy)
+	b.Upload(b.driver, b.Queue, b.GMz, b.HMz)
+	b.Upload(b.driver, b.Queue, b.GEnergy, b.HEnergy)
+	b.Upload(b.driver, b.Queue, b.GNeighbors, b.HNeighbors)
+	b.Upload(b.driver, b.Queue, b.GNormals, b.HNormals)
+	b.Upload(b.driver, b.Queue, b.GAreas, b.HAreas)
 }
 
 func (b *Benchmark) exec() {
@@ -346,19 +346,19 @@ func (b *Benchmark) verify() error {
 	gpuFluxMy := make([]float32, n)
 	gpuFluxMz := make([]float32, n)
 	gpuFluxEnergy := make([]float32, n)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuFluxRho); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuFluxRho); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuFluxMx); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuFluxMx); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[2], gpuFluxMy); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[2], gpuFluxMy); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[3], gpuFluxMz); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[3], gpuFluxMz); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[4], gpuFluxEnergy); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[4], gpuFluxEnergy); err != nil {
 		return err
 	}
 
@@ -389,16 +389,19 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GFluxRho, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GFluxMx, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GFluxMy, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GFluxMz, 4*(b.N)))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GFluxEnergy, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxRho, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMx, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMy, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxMz, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GFluxEnergy, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

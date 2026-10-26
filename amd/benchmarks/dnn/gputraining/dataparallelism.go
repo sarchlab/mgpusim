@@ -182,8 +182,8 @@ func (t *DataParallelismMultiGPUTrainer) stepLoss() error {
 	n := len(t.Networks)
 	t.LossInputs = make([]tensor.ID, n)
 	t.Derivatives = make([]tensor.ID, n)
-	t.Readbacks = make([]driver.CommandID, n)
-	t.LossReadbacks = make([]driver.CommandID, n)
+	t.Readbacks = make([]driver.HostBuffer, n)
+	t.LossReadbacks = make([]driver.HostBuffer, n)
 	for i, o := range t.TensorOperators {
 		switch t.LossFunc[i].(type) {
 		case *training.SoftmaxCrossEntropy:
@@ -338,7 +338,7 @@ func (t *DataParallelismMultiGPUTrainer) stepTestForward() error {
 	layers.ReleaseForward(l, t.TensorOperators[i])
 	t.Layer++
 	if t.Layer == len(t.Networks[i].Layers) {
-		t.Readbacks = []driver.CommandID{t.TensorOperators[i].EnqueueReadback(t.TensorOperators[i].Resolve(t.Values[0]))}
+		t.Readbacks = []driver.HostBuffer{t.TensorOperators[i].EnqueueReadback(t.TensorOperators[i].Resolve(t.Values[0]))}
 		t.Phase = "testRead"
 	}
 	return nil

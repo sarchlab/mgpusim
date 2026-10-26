@@ -199,7 +199,7 @@ func (o *GPUOperator) CreateWithData(
 	f32Data := f64SliceToF32Slice(data)
 
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, t.Address, f32Data)
+	o.Upload(o.driver, o.CommandQueue, t.Address, f32Data)
 
 	return t
 }
@@ -303,7 +303,7 @@ func (o *GPUOperator) Init(t tensor.Tensor, data []float64) {
 	f32Data := f64SliceToF32Slice(data)
 
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, t.(*Tensor).Address, f32Data)
+	o.Upload(o.driver, o.CommandQueue, t.(*Tensor).Address, f32Data)
 }
 
 // Slice will create another tensor that shares part of the buffer with the
@@ -438,13 +438,13 @@ func (o *GPUOperator) prepareTranspose(
 
 	dOrder := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOrder, hOrder)
+	o.Upload(o.driver, o.CommandQueue, dOrder, hOrder)
 	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
 	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
 	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
@@ -504,11 +504,11 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 
 	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
 	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
 	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
@@ -578,15 +578,15 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 
 	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
 	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
 	dDilate := o.driver.AllocateMemory(o.Context, uint64(2*sizeOfInt32))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dDilate, hDilate)
+	o.Upload(o.driver, o.CommandQueue, dDilate, hDilate)
 	defer o.deferFree(dDilate)
 	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(output.NumElement()*dim*sizeOfInt32))
@@ -704,10 +704,10 @@ func (o *GPUOperator) prepareSumOneAxis(
 	globalSize := out.NumElement()
 	dInSize := o.driver.AllocateMemory(o.Context, uint64(t.Dim()*4))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	o.Upload(o.driver, o.CommandQueue, dInSize, hInSize)
 	dOutSize := o.driver.AllocateMemory(o.Context, uint64(len(outSize)*4))
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	o.Upload(o.driver, o.CommandQueue, dOutSize, hOutSize)
 	dInIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*t.Dim()*4))
 	dOutIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*out.Dim()*4))
 
@@ -1321,7 +1321,7 @@ func (o *GPUOperator) CrossEntropyDerivative(
 	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dLabel, hLabel)
+	o.Upload(o.driver, o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 
@@ -1366,7 +1366,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
 	o.MutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dLabel, hLabel)
+	o.Upload(o.driver, o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 

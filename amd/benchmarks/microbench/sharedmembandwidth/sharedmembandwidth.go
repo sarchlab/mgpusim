@@ -158,11 +158,11 @@ func (b *Benchmark) initMem() {
 	for i := range in {
 		in[i] = 1.0
 	}
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GIn, in)
+	b.Upload(b.driver, b.Queue, b.GIn, in)
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GSink, zeros)
+	b.Upload(b.driver, b.Queue, b.GSink, zeros)
 }
 
 // launch runs one kernel (no_conflict or conflict) with the configured block
@@ -215,6 +215,9 @@ func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
 	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
+		return err
+	}
 
 	switch b.Phase {
 	case 0:
@@ -226,15 +229,15 @@ func (b *Benchmark) Step() error {
 	case 1:
 		if b.Verification && b.AccessPattern != "conflict" {
 			b.NoConflictResult = make([]float32, b.NumBlocks)
-			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.GSink, b.NumBlocks*4)
+			b.Readback = benchmarks.Download(b.driver, b.Queue, b.GSink, b.NumBlocks*4)
 		}
 		b.Phase = 2
 	case 2:
-		if b.Readback != 0 {
-			if err := b.driver.ReadResult(b.Readback, b.NoConflictResult); err != nil {
+		if b.Readback.Address != 0 {
+			if err := benchmarks.Read(b.driver, b.Readback, b.NoConflictResult); err != nil {
 				return err
 			}
-			b.Readback = 0
+			b.Readback = driver.HostBuffer{}
 		}
 		if b.AccessPattern == "conflict" || b.AccessPattern == "both" {
 			b.launch(b.conf)

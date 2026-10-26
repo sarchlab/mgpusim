@@ -126,7 +126,7 @@ func (b *Benchmark) initMem() {
 
 	// Initialize to zero so a missing write is detectable.
 	zero := []uint32{0}
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOut, zero)
+	b.Upload(b.driver, b.Queue, b.GOut, zero)
 }
 
 func (b *Benchmark) exec() {
@@ -190,7 +190,7 @@ func float16ToFloat32(h uint16) float32 {
 // accumulators unchanged. The written value is a0+a1+a2+a3 per lane.
 func (b *Benchmark) verify() error {
 	out := make([]uint32, 1)
-	if err := b.driver.ReadResult(b.Readbacks[0], out); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], out); err != nil {
 		return err
 	}
 
@@ -238,7 +238,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 4*(1)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOut, 4*(1)))
 }
 
 // roundToHalf rounds a float32 value to the nearest representable fp16 value
@@ -298,6 +298,9 @@ func float32ToFloat16(f float32) uint16 {
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

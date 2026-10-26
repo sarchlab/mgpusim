@@ -228,12 +228,12 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	b.GDeltaOut = alloc(out)
 	b.GDeltaHid = alloc(hid)
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInput, b.HInput)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GW1, b.HW1)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB1, b.HB1)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GW2, b.HW2)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB2, b.HB2)
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GTarget, b.HTarget)
+	b.Upload(b.driver, b.Queue, b.GInput, b.HInput)
+	b.Upload(b.driver, b.Queue, b.GW1, b.HW1)
+	b.Upload(b.driver, b.Queue, b.GB1, b.HB1)
+	b.Upload(b.driver, b.Queue, b.GW2, b.HW2)
+	b.Upload(b.driver, b.Queue, b.GB2, b.HB2)
+	b.Upload(b.driver, b.Queue, b.GTarget, b.HTarget)
 }
 
 func grid1D(n int) uint32 {
@@ -380,10 +380,10 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 
 	gpuW1 := make([]float32, in*hid)
 	gpuW2 := make([]float32, hid*out)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuW1); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuW1); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.Readbacks[1], gpuW2); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[1], gpuW2); err != nil {
 		return err
 	}
 
@@ -417,13 +417,16 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GW1, 4*((b.InputN)*(b.HiddenN))))
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GW2, 4*((b.HiddenN)*(b.OutputN))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GW1, 4*((b.InputN)*(b.HiddenN))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GW2, 4*((b.HiddenN)*(b.OutputN))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

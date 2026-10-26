@@ -131,7 +131,7 @@ func (b Builder) Build() *driver.Runtime {
 			driver.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
 		)
 	}
-	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable)
+	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, b.globalStorage)
 	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
 		WithResources(driver.Resources{
 			Runtime:       runtime,

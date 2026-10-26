@@ -1,12 +1,12 @@
 # Runtime and benchmark steps
 
 The host API belongs to `driver.Runtime`, a named simulation resource. A runtime
-owns contexts, stream queues, allocations, submitted commands, readback bytes,
+owns contexts, stream queues, allocations, submitted commands, CPU buffer addresses,
 and timestamp events. `driver.Comp`, always named `Driver`, owns only simulated
 execution and protocol state. Its immutable `Spec` describes GPU destinations,
 frequency, and copy timing. `RuntimeSpec` independently owns page size, allocator
 selection, and device memory/CU properties. Driver reads those shared settings
-through its Runtime resource. Both objects use the same page table; all live
+through its Runtime resource. Both objects use the same page table and GlobalStorage; all live
 resources are supplied before building Driver. Their checkpoint configuration
 checks follow these separate ownership boundaries.
 
@@ -37,41 +37,64 @@ therefore executes the benchmark/driver/simulation loop on one goroutine.
 External HTTP requests are serialized by the server, which drives the same
 queue and simulation operations at the request boundary.
 
-## Queue and result handles
+## Queues, CPU storage, and events
 
 Create a queue after selecting its GPU. Selection is captured by that queue.
 Independent benchmarks use distinct queues; dependent DNN layers share their
-operator's queue. Handles identify Runtime-owned objects and survive restore.
+operator's queue. Handles and buffer addresses survive restore.
+
+Both H2D and D2H copy between addresses. CPU buffers occupy CPU pages in the
+same checkpointed GlobalStorage resource as GPU memory. Host reads/writes
+encode/decode Go values without advancing simulated time:
 
 ```go
 ctx := runtime.Init()
 runtime.SelectGPU(ctx, 1)
 queue := runtime.CreateCommandQueue(ctx)
 ptr := runtime.AllocateMemory(ctx, uint64(len(input)*4))
-runtime.EnqueueMemCopyH2D(queue, ptr, input)
+host := runtime.AllocateHostBuffer(queue, len(input)*4)
+if err := runtime.WriteHost(host, input); err != nil { return err }
+runtime.EnqueueMemCopyH2D(queue, ptr, host.Address, host.ByteSize)
 runtime.EnqueueLaunchKernel(queue, code, grid, group, &args)
 ```
 
-H2D bytes, kernel arguments, code, and dispatch dimensions are captured when
-enqueued. A later host mutation cannot change submitted work. Kernel arguments
-are passed by pointer (including a pointer to raw argument bytes).
+H2D reads CPU storage when it executes. **Keep its source allocated and unchanged
+until completion.** Keep a D2H destination allocated, and do not read, overwrite,
+reuse, or free it until completion. Runtime does not enforce occupancy or detect
+conflicting host accesses; callers own lifetime and ordering. A premature serial
+host write can deterministically change what an already-enqueued H2D reads.
+The current synchronization point is the global simulation drain between Steps.
 
-After the execution phase drains, another Step can request D2H:
+After a drain, the buffer can be reused for output:
 
 ```go
-result := runtime.EnqueueMemCopyD2H(queue, ptr, len(output)*4)
+runtime.EnqueueMemCopyD2H(queue, host.Address, ptr, host.ByteSize)
+// Return from Step; a later Step follows the global drain.
+if err := runtime.ReadHost(host, output); err != nil { return err }
+if err := runtime.FreeMemory(host.Context, host.Address); err != nil { return err }
 ```
 
-Save `result` in the benchmark's continuation. A later Step calls
-`runtime.ReadResult(result, output)` to decode and consume the retained bytes.
-It never waits or runs the engine. An unavailable result or incorrect destination
-returns an error; failed reads do not consume the result. Host pointers and
-callbacks are not retained by Runtime. Data-dependent algorithms such as BFS
-and KMeans perform mandatory control-flow readbacks even with verification off.
+ReadHost is repeatable and does not consume memory. There is no Runtime result
+mailbox. Partial D2H responses write their destination pages directly, so a
+mid-copy checkpoint saves those bytes along with the remaining protocol work.
+Timing platforms retain their DMA/cache/request path; CPU storage access does
+not turn timing-mode copies into magic copies.
 
-`EnqueueRecordEvent(queue)` returns an event handle. `EventTime(handle)` returns
-its trigger time after completion. A marker adds no simulated duration and has
-no special start/end meaning; benchmarks compute intervals from timestamps.
+`benchmarks.Transfers` saves upload staging descriptors and releases them in the
+next drained Step. Its Upload helper explicitly copies Go data into owned CPU
+storage before enqueuing. Download returns a saved CPU-buffer descriptor; Read
+decodes and frees it after completion. Raw Runtime copy APIs always take
+addresses. Kernel code/arguments retain enqueue-time snapshot semantics through
+Runtime-owned CPU staging, released after its upload completes. Per-launch GPU
+argument/packet lifetime remains unchanged. Kernel arguments are passed by
+pointer, including a pointer to raw argument bytes.
+
+`EnqueueRecordEvent(queue)` returns a zero-duration marker handle. EventTime is
+repeatable after triggering. Call ReleaseEvent after consuming statistics.
+Releasing a pending event invalidates its handle but does not cancel queued
+work; completion cannot recreate its timestamp. Released/unknown handles return
+errors and do not require persistent tombstones. Markers have no special
+start/end meaning; benchmarks compute intervals from their timestamps.
 
 ## Verification and memory lifetimes
 
@@ -158,14 +181,23 @@ Do not run benchmark setup or replay submission before loading. `Runner.Run`
 first drains saved simulation work before calling the next benchmark Step.
 Each benchmark saves its phase, host data, handles, and deterministic RNG state.
 DNN saves layer activations/views, optimizer histories, data cursors, deferred
-frees, and pending checks. Resident datasets are saved; lazy ImageNet input files
-must remain unchanged and available at the same configured root. No active file
-handles are serialized or advanced during restore.
+frees, and pending checks. Small synthetic datasets stay embedded. MNIST/CIFAR
+save file identity, SHA-256 integrity metadata, shape, descriptor and cursor;
+bind validates the actual files and reloads normalized host data, sharing an
+unchanged dataset across GPU sources. Missing or changed files fail restoration,
+even if this process previously cached them. Lazy ImageNet input files must
+remain unchanged and available at the same configured root. No active file
+handles are serialized or advanced, and binding does not enqueue GPU work.
+
+Generic JSON checkpoint fields still cannot represent NaN or infinity. Support
+is deferred to [Akita #573](https://github.com/sarchlab/akita/issues/573); no
+MGPUSim-specific float encoding is introduced. Raw storage bytes preserve their
+bit patterns, but remaining JSON float fields retain this limitation.
 
 This is an API break: replace the former blocking Driver `Run`, `Terminate`,
 `LaunchKernel`, `MemCopy*`, and `DrainCommandQueue` calls with Runtime enqueue
 operations and explicit host phases. Replace result-buffer binding with saved
-command handles and `ReadResult`. Move platform construction/reporting out of
+CPU-buffer addresses and explicit ReadHost/FreeMemory. Move platform construction/reporting out of
 Runner. Runtime never owns an engine or a reference to Driver.
 
 The global batch scheduling boundary can remove host scheduling ticks that the

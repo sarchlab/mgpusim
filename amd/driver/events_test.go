@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -27,7 +28,7 @@ func (k *kernelTimes) TaskEnded(t tasks.Task) {
 		)
 	}
 }
-func eventSystem(t *testing.T) (*sim.Simulation, *driver.Runtime, interface{ TickLater() }) {
+func eventSystem(t *testing.T) (*sim.Simulation, *driver.Runtime, driver.Ticker) {
 	t.Helper()
 	s := sim.MakeBuilder().WithTaskTracking().Build()
 	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
@@ -41,7 +42,7 @@ func eventSystem(t *testing.T) (*sim.Simulation, *driver.Runtime, interface{ Tic
 	})
 	for _, c := range s.Components() {
 		if c.Name() == "Driver" {
-			return s, rt, c.(interface{ TickLater() })
+			return s, rt, c.(driver.Ticker)
 		}
 	}
 	t.Fatal("missing Driver")
@@ -75,7 +76,7 @@ func TestMarkerOnlyQueueHasOneTriggerTime(t *testing.T) {
 		t.Fatal("markers did not complete")
 	}
 }
-func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.CommandID, [][]driver.Event) {
+func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.HostBuffer, [][]driver.Event) {
 	t.Helper()
 	ctx := rt.Init()
 	q := rt.CreateCommandQueue(ctx)
@@ -96,17 +97,17 @@ func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.Com
 	for i := range data {
 		data[i] = float32(i)
 	}
-	rt.EnqueueMemCopyH2D(
+	benchmarks.Upload(rt,
 		q,
 		input,
 		data,
 	)
-	rt.EnqueueMemCopyH2D(
+	benchmarks.Upload(rt,
 		q,
 		filter,
 		[]float32{0, 1, 2, 3},
 	)
-	rt.EnqueueMemCopyH2D(
+	benchmarks.Upload(rt,
 		q,
 		history,
 		[]float32{0, 0, 0, 0},
@@ -117,7 +118,7 @@ func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.Com
 	}
 	co := insts.LoadKernelCodeObjectFromBytes(code, "FIR")
 	var events [][]driver.Event
-	var reads []driver.CommandID
+	var reads []driver.HostBuffer
 	if markers {
 		events = append(events, eventGroup(rt, q))
 	}
@@ -127,15 +128,15 @@ func submitFIRPair(t *testing.T, rt *driver.Runtime, markers bool) ([]driver.Com
 		if markers {
 			events = append(events, eventGroup(rt, q))
 		}
-		reads = append(reads, rt.EnqueueMemCopyD2H(q, output, 256))
+		reads = append(reads, benchmarks.Download(rt, q, output, 256))
 	}
 	return reads, events
 }
-func verifyFIRReads(t *testing.T, rt *driver.Runtime, ids []driver.CommandID) {
+func verifyFIRReads(t *testing.T, rt *driver.Runtime, ids []driver.HostBuffer) {
 	t.Helper()
 	for _, id := range ids {
 		values := make([]float32, 64)
-		if err := rt.ReadResult(id, values); err != nil {
+		if err := benchmarks.Read(rt, id, values); err != nil {
 			t.Fatal(err)
 		}
 		for i, v := range values {

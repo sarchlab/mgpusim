@@ -180,9 +180,9 @@ func (b *Benchmark) initMem() {
 		b.GOut = b.driver.AllocateMemory(b.Context, outBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GIn, b.In)
+	b.Upload(b.driver, b.Queue, b.GIn, b.In)
 	// Initialize the output to zero so a missing store is detectable.
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOut, make([]float64, b.NumThreads))
+	b.Upload(b.driver, b.Queue, b.GOut, make([]float64, b.NumThreads))
 }
 
 func (b *Benchmark) exec() {
@@ -226,7 +226,7 @@ func (b *Benchmark) cpuReference() float64 {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuOut := make([]float64, b.NumThreads)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuOut); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}
 
@@ -250,12 +250,15 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 8*(b.NumThreads)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.driver, b.Queue, b.GOut, 8*(b.NumThreads)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

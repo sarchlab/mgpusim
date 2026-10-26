@@ -160,7 +160,7 @@ func (b *Benchmark) initMem() {
 			b.Context, uint64(totalPoints*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.Queue, b.GAtoms, b.Atoms)
+	b.Upload(b.driver, b.Queue, b.GAtoms, b.Atoms)
 }
 
 func (b *Benchmark) exec() {
@@ -206,7 +206,7 @@ func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
 func (b *Benchmark) verify() error {
 	totalPoints := b.GridSide * b.GridSide * b.GridSide
 	gpuPot := make([]float32, totalPoints)
-	if err := b.driver.ReadResult(b.Readbacks[0], gpuPot); err != nil {
+	if err := benchmarks.Read(b.driver, b.Readbacks[0], gpuPot); err != nil {
 		return err
 	}
 
@@ -240,13 +240,16 @@ func (b *Benchmark) verify() error {
 func (b *Benchmark) enqueueVerification() {
 	b.Readbacks = append(
 		b.Readbacks,
-		b.driver.EnqueueMemCopyD2H(b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
+		benchmarks.Download(b.driver, b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
 	)
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.driver); err != nil {
 		return err
 	}
 

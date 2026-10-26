@@ -3,6 +3,7 @@ package runner
 
 import (
 	"fmt"
+
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
@@ -14,7 +15,7 @@ type Runner struct {
 	simulation    *simulation.Simulation
 	runtime       *driver.Runtime
 	benchmarks    []benchmarks.Benchmark
-	driver        interface{ TickLater() }
+	driver        driver.Ticker
 	betweenRounds bool
 }
 
@@ -32,7 +33,7 @@ func (r *Runner) resolveDriver() error {
 		if c.Name() != "Driver" {
 			continue
 		}
-		ticker, ok := c.(interface{ TickLater() })
+		ticker, ok := c.(driver.Ticker)
 		if !ok {
 			return fmt.Errorf("runner: Driver cannot tick")
 		}
@@ -53,6 +54,7 @@ func (r *Runner) stalled() error {
 // Step runs previously submitted work before visiting each active benchmark.
 // False means every workload has completed its final host processing.
 func (r *Runner) Step() (bool, error) {
+	r.betweenRounds = false
 	if r.driver == nil {
 		if err := r.resolveDriver(); err != nil {
 			return false, err
@@ -66,7 +68,6 @@ func (r *Runner) Step() (bool, error) {
 	}
 	r.runtime.BeginSimulationTrace(r.simulation.TaskTracker(), r.traceOwner())
 	active := false
-	r.betweenRounds = false
 	for _, b := range r.benchmarks {
 		if b.IsEnded() {
 			continue
