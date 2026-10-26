@@ -194,3 +194,32 @@ func TestPartialD2HStorageAndContinuationRestore(t *testing.T) {
 		t.Fatal("host allocation metadata accumulated")
 	}
 }
+
+func TestZeroByteStagingCompletesAfterRestore(t *testing.T) {
+	f := newFixture(t, false)
+	f.r.stageUpload(f.q, 0, []byte{})
+	marker := f.r.EnqueueRecordEvent(f.q)
+	if len(f.r.queue(f.q).Pending[0].Owned) != 0 {
+		t.Fatal("zero address was owned")
+	}
+	var saved bytes.Buffer
+	if err := f.r.SaveCheckpoint(&saved); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.LoadCheckpoint(&saved); err != nil {
+		t.Fatal(err)
+	}
+	tickDriver(f.c)
+	if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 {
+		t.Fatal("zero-byte upload did not complete")
+	}
+	if _, err := f.r.EventTime(marker); err != nil {
+		t.Fatal("following marker did not complete", err)
+	}
+	if err := f.r.ReleaseEvent(marker); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.r.context(f.ctx).Buffers) != 0 {
+		t.Fatal("zero-byte staging allocated memory")
+	}
+}

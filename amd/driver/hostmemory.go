@@ -83,5 +83,9 @@ func (r *Runtime) stageUpload(q CommandQueue, dst Ptr, data any) {
 	if err := r.WriteHost(b, data); err != nil {
 		panic(err)
 	}
-	r.enqueue(q, Command{Kind: copyH2D, Src: b.Address, Dst: dst, ByteSize: b.ByteSize, Owned: []Ptr{b.Address}})
+	cmd := Command{Kind: copyH2D, Src: b.Address, Dst: dst, ByteSize: b.ByteSize}
+	if b.Address != 0 {
+		cmd.Owned = []Ptr{b.Address}
+	}
+	r.enqueue(q, cmd)
 }

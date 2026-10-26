@@ -243,7 +243,7 @@ func (b *Benchmark) Step() error {
 		}
 		b.Phase = 1
 	case 1:
-		if b.Verification && b.AccessPattern != "conflict" {
+		if b.AccessPattern != "conflict" {
 			b.NoConflictResult = make([]float32, b.NumBlocks)
 			b.Readback = benchmarks.Download(b.driver, b.Queue, b.GSink, b.NumBlocks*4)
 		}
