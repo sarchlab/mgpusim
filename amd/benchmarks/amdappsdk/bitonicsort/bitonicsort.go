@@ -3,26 +3,24 @@
 package bitonicsort
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
-
-var doPerPassVerify = false
 
 // GCN3 Kernel Arguments
 
 // BitonicKernelArgs defines kernel arguments for GCN3
 type BitonicKernelArgs struct {
-	Input               driver.Ptr
+	Input               gpuruntime.Ptr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
@@ -36,7 +34,7 @@ type BitonicKernelArgs struct {
 
 // CDNA3BitonicKernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3BitonicKernelArgs struct {
-	Input               driver.Ptr
+	Input               gpuruntime.Ptr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
@@ -59,30 +57,22 @@ type CDNA3BitonicKernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	gpusToUse []int
-	driver    *driver.Driver
-	context   *driver.Context
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
-
-	Arch           arch.Type
-	Length         int
-	OrderAscending bool
-
-	inputData             []uint32
-	outputData            []uint32
-	gInputData            driver.Ptr
-	perPassIn, perPassOut []uint32
-
-	useUnifiedMemory bool
 }
 
 // NewBenchmark creates a new bitonic sort benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.gpusToUse = []int{1}
-	b.driver = driver
-	b.context = driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.GpusToUse = []int{1}
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
@@ -108,78 +98,56 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to use.
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpusToUse = gpuIDs
+	b.GpusToUse = gpuIDs
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark on simulated GPU platform
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpusToUse[0])
+	for _, gpu := range b.GpusToUse {
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.rt.CreateCommandQueue(b.Context))
+	}
+	b.rt.SelectGPU(b.Context, b.GpusToUse[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
-	b.inputData = make([]uint32, b.Length)
-	b.outputData = make([]uint32, b.Length)
+	rng := rand.New(rand.NewSource(1))
+	b.InputData = make([]uint32, b.Length)
+	b.OutputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.inputData[i] = rand.Uint32()
+		b.InputData[i] = rng.Uint32()
 		// b.inputData[i] = uint32(i)
 	}
 
-	if doPerPassVerify {
-		b.perPassIn = make([]uint32, b.Length)
-		b.perPassOut = make([]uint32, b.Length)
+	if b.PerPassVerify && b.Verification {
+		b.PerPassIn = make([]uint32, b.Length)
+		b.PerPassOut = make([]uint32, b.Length)
 	}
 
-	if b.useUnifiedMemory {
-		b.gInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+	if b.UseUnifiedMemory {
+		b.GInputData = b.rt.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
 	} else {
-		b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-		b.driver.Distribute(
-			b.context,
-			b.gInputData, uint64(b.Length*4),
-			b.gpusToUse)
+		b.GInputData = b.rt.AllocateMemory(b.Context, uint64(b.Length*4))
+		b.rt.Distribute(
+			b.Context,
+			b.GInputData, uint64(b.Length*4),
+			b.GpusToUse)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
-}
-
-func (b *Benchmark) exec() {
-	numStages := 0
-	for temp := b.Length; temp > 1; temp >>= 1 {
-		numStages++
-	}
-
-	direction := 1
-	if b.OrderAscending == false {
-		direction = 0
-	}
-
-	queues := []*driver.CommandQueue{}
-	for _, gpuID := range b.gpusToUse {
-		b.driver.SelectGPU(b.context, gpuID)
-		queues = append(queues, b.driver.CreateCommandQueue(b.context))
-	}
-
-	for stage := 0; stage < numStages; stage++ {
-		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
-			b.runPass(stage, passOfStage, direction, queues)
-		}
-	}
-
-	b.driver.MemCopyD2H(b.context, b.outputData, b.gInputData)
+	b.Upload(b.rt, b.Queues[0], b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, offset int) CDNA3BitonicKernelArgs {
 	return CDNA3BitonicKernelArgs{
-		Input:               b.gInputData,
+		Input:               b.GInputData,
 		Stage:               uint32(stage),
 		PassOfStage:         uint32(passOfStage),
 		Direction:           uint32(direction),
@@ -201,7 +169,7 @@ func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, 
 
 func (b *Benchmark) createGCN3KernelArgs(stage, passOfStage, direction, offset int) BitonicKernelArgs {
 	return BitonicKernelArgs{
-		b.gInputData,
+		b.GInputData,
 		uint32(stage),
 		uint32(passOfStage),
 		uint32(direction),
@@ -213,17 +181,13 @@ func (b *Benchmark) createGCN3KernelArgs(stage, passOfStage, direction, offset i
 func (b *Benchmark) runPass(
 	stage, passOfStage int,
 	direction int,
-	queues []*driver.CommandQueue,
+	queues []gpuruntime.CommandQueue,
 ) {
 	totalWIs := b.Length / 2
 	wiPerQueue := totalWIs / len(queues)
 	remainder := totalWIs % len(queues)
 
 	fmt.Fprintf(os.Stderr, "Stage %d, pass %d\n", stage, passOfStage)
-
-	if doPerPassVerify {
-		b.driver.MemCopyD2H(b.context, b.perPassIn, b.gInputData)
-	}
 
 	for i, q := range queues {
 		numWi := wiPerQueue
@@ -233,7 +197,7 @@ func (b *Benchmark) runPass(
 
 		if b.Arch == arch.CDNA3 {
 			kernArg := b.createCDNA3KernelArgs(stage, passOfStage, direction, numWi, wiPerQueue*i)
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.hsaco,
 				[3]uint32{uint32(numWi), 1, 1},
@@ -242,7 +206,7 @@ func (b *Benchmark) runPass(
 			)
 		} else {
 			kernArg := b.createGCN3KernelArgs(stage, passOfStage, direction, wiPerQueue*i)
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.hsaco,
 				[3]uint32{uint32(numWi), 1, 1},
@@ -251,18 +215,9 @@ func (b *Benchmark) runPass(
 			)
 		}
 	}
-
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	if doPerPassVerify {
-		b.driver.MemCopyD2H(b.context, b.perPassOut, b.gInputData)
-		b.verifyPass(b.perPassIn, b.perPassOut, stage, passOfStage)
-	}
 }
 
-func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
+func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) error {
 	cpuOut := make([]uint32, b.Length)
 
 	pairDistance := 1 << uint32(stage-pass)
@@ -303,34 +258,128 @@ func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
 	// failed := false
 	for i := 0; i < b.Length; i++ {
 		if cpuOut[i] != out[i] {
-			log.Panicf("Mismatch after stage %d pass %d at pos %d, expected %d, but get %d", stage, pass, i, cpuOut[i], out[i])
+			return fmt.Errorf(
+				"Mismatch after stage %d pass %d at pos %d, expected %d, but get %d",
+				stage,
+				pass,
+				i,
+				cpuOut[i],
+				out[i],
+			)
 			// failed = true
 		}
 	}
 	// if failed {
-	// 	panic("failed")
+	// 	return fmt.Errorf("%s",fmt.Sprint("failed"))
 	// }
+
+	return nil
 }
 
 // Verify checks if the array is sorted
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	// for i := 0; i < b.Length; i++ {
 	// 	fmt.Printf("[%d]: %d\n", i, b.outputData[i])
 	// }
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
-			if b.outputData[i] > b.outputData[i+1] {
-				log.Fatalf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
-					b.outputData[i], b.outputData[i+1])
+			if b.OutputData[i] > b.OutputData[i+1] {
+				return fmt.Errorf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
+					b.OutputData[i], b.OutputData[i+1])
 			}
 		} else {
-			if b.outputData[i] < b.outputData[i+1] {
-				log.Fatalf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
-					b.outputData[i], b.outputData[i+1])
+			if b.OutputData[i] < b.OutputData[i+1] {
+				return fmt.Errorf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
+					b.OutputData[i], b.OutputData[i+1])
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.begin()
+	case 1:
+		if b.Stage == b.NumStages {
+			b.Phase = 5
+			return nil
+		}
+		if b.PerPassVerify && b.Verification {
+			b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
+			b.Phase = 2
+		} else {
+			b.submitPass()
+		}
+	case 2:
+		if err := benchmarks.Read(b.rt, b.Readback, b.PerPassIn); err != nil {
+			return err
+		}
+		b.submitPass()
+	case 3:
+		if b.PerPassVerify && b.Verification {
+			b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
+			b.Phase = 4
+		} else {
+			b.nextPass()
+		}
+	case 4:
+		if err := benchmarks.Read(b.rt, b.Readback, b.PerPassOut); err != nil {
+			return err
+		}
+		if err := b.verifyPass(b.PerPassIn, b.PerPassOut, b.Stage, b.Pass); err != nil {
+			return err
+		}
+		b.nextPass()
+	case 5:
+		b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.GInputData, b.Length*4)
+		b.Phase = 6
+	case 6:
+		if err := benchmarks.Read(b.rt, b.Readback, b.OutputData); err != nil {
+			return err
+		}
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Ended = true
+	}
+	return nil
+}
+func (b *Benchmark) submitPass() {
+	direction := 0
+	if b.OrderAscending {
+		direction = 1
+	}
+	b.runPass(b.Stage, b.Pass, direction, b.Queues)
+	b.Phase = 3
+}
+func (b *Benchmark) nextPass() {
+	b.Pass++
+	if b.Pass > b.Stage {
+		b.Stage++
+		b.Pass = 0
+	}
+	b.Phase = 1
+}
+
+func (b *Benchmark) begin() {
+	b.setup()
+	for n := b.Length; n > 1; n >>= 1 {
+		b.NumStages++
+	}
+	b.Phase = 1
 }

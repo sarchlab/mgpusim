@@ -3,7 +3,6 @@ module github.com/sarchlab/mgpusim/v5
 require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/fatih/color v1.19.0
-	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
 	github.com/rs/xid v1.6.0

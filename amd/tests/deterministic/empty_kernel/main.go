@@ -5,10 +5,11 @@ import (
 	"log"
 
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 // KernelArgs defines kernel arguments
@@ -19,22 +20,30 @@ type KernelArgs struct {
 }
 
 // Benchmark defines a benchmark
+type State struct {
+	benchmarks.Progress
+	Queue            gpuruntime.CommandQueue
+	Context          gpuruntime.Context
+	GPU              int
+	UseUnifiedMemory bool
+}
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-
+	*State
+	benchmarks.Checkpoint[[3]int, State]
+	rt    *gpuruntime.Runtime
 	hsaco *insts.KernelCodeObject
-
-	useUnifiedMemory bool
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
+	b.GPU = gpus[0]
 }
 
-// Run runs
-func (b *Benchmark) Run() {
-	b.context = b.driver.Init()
+// Step submits the benchmark once and completes after the global drain.
+func (b *Benchmark) submit() {
+	b.Context = b.rt.Init()
+	b.rt.SelectGPU(b.Context, b.GPU)
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.loadProgram()
 	b.initMem()
 	b.exec()
@@ -46,7 +55,7 @@ func (Benchmark) Verify() {
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -61,8 +70,8 @@ func (b *Benchmark) exec() {
 		0, 0, 0,
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{uint32(64 * *numWfPerWGFlag * *numWGFlag), 1, 1},
 		[3]uint16{uint16(64 * *numWfPerWGFlag), 1, 1},
@@ -74,17 +83,36 @@ var numWfPerWGFlag = flag.Int("num-wf-per-wg", 1, "The number of wavefronts in e
 var numWGFlag = flag.Int("num-wg", 1, "The number of workgroups in total")
 
 func run() timing.VTimeInPicoSec {
-	runner := new(runner.Runner)
-	runner.Init()
-
-	benchmark := new(Benchmark)
-	benchmark.driver = runner.Driver()
-	runner.AddBenchmark(benchmark)
-
-	runner.Run()
-
-	return runner.Engine().CurrentTime()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	defer finish()
+	r := runner.New(simulation, runtime)
+	b := &Benchmark{State: &State{}, rt: runtime}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.config, func() error { b.loadProgram(); return nil })
+	config.Configure(b)
+	r.AddBenchmark(b)
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := r.Run(); err != nil {
+		panic(err)
+	}
+	return simulation.Engine().CurrentTime()
 }
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if b.Phase == 0 {
+		b.submit()
+		b.Phase = 1
+	} else {
+		b.Ended = true
+	}
+	return nil
+}
+
+func (b *Benchmark) config() [3]int { return [3]int{b.GPU, *numWfPerWGFlag, *numWGFlag} }
 
 func main() {
 	flag.Parse()

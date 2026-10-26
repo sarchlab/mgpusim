@@ -7,11 +7,13 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem/emugpu"
 )
 
@@ -68,37 +70,40 @@ func (b Builder) WithArchitecture(archType arch.Type) Builder {
 	return b
 }
 
-// Build builds the hardware platform and returns the driver. The driver, the
+// Build registers the hardware platform and returns its Runtime. The Driver,
 // GPUs, and all the connections register themselves with the simulation.
-func (b Builder) Build() *driver.Driver {
-	storage := mem.MakeStorageBuilder().
-		WithSimulation(b.simulation).
-		WithCapacity(uint64(b.numGPUs+1) * 4 * mem.GB).
-		Build("GlobalStorage")
-	pageTable := vm.MakePageTableBuilder().
-		WithSimulation(b.simulation).
-		WithLog2PageSize(b.log2PageSize).
-		Build("PageTable")
-
-	gpuDriver := b.buildDriver(storage, pageTable)
-
+func (b Builder) Build() *gpuruntime.Runtime {
+	storage := mem.MakeStorageBuilder().WithSimulation(b.simulation).
+		WithCapacity(uint64(b.numGPUs+1) * 4 * mem.GB).Build("GlobalStorage")
+	pageTable := vm.MakePageTableBuilder().WithSimulation(b.simulation).
+		WithLog2PageSize(b.log2PageSize).Build("PageTable")
+	spec := driver.DefaultSpec()
+	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
+	runtimeSpec.Log2PageSize = b.log2PageSize
+	spec.UseMagicMemoryCopy = true
 	externalConn := directconnection.NewConnection("ExternalConn", b.simulation, timing.GHz)
-	externalConn.BindPort(gpuDriver.Ports.GPU)
-
 	gpuBuilder := b.createGPUBuilder(pageTable, storage)
-
+	var ports []messaging.Port
 	for i := 0; i < b.numGPUs; i++ {
 		gpu := gpuBuilder.Build(fmt.Sprintf("GPU[%d]", i+1))
-
-		cpPort := gpu.CommandProcessorPort
-		gpuDriver.RegisterGPU(cpPort.AsRemote(), driver.DeviceProperties{
-			DRAMSize: 4 * mem.GB,
-			CUCount:  64,
-		})
-		externalConn.BindPort(cpPort)
+		ports = append(ports, gpu.CommandProcessorPort)
+		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
+		runtimeSpec.Devices = append(runtimeSpec.Devices, gpuruntime.DeviceProperties{DRAMSize: 4 * mem.GB, CUCount: 64})
 	}
-
-	return gpuDriver
+	runtime := gpuruntime.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, storage)
+	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
+		WithResources(driver.Resources{Runtime: runtime, PageTable: pageTable, GlobalStorage: storage}).Build("Driver")
+	port := twowaybuffered.MakeBuilder().WithSimulation(b.simulation).
+		WithSpec(twowaybuffered.Spec{
+			IncomingCapacity: driverGPUPortBufSize,
+			OutgoingCapacity: driverGPUPortBufSize,
+		}).Build()
+	comp.BindPort(driver.GPUPortName, port)
+	externalConn.BindPort(port)
+	for _, p := range ports {
+		externalConn.BindPort(p)
+	}
+	return runtime
 }
 
 func (b Builder) createGPUBuilder(
@@ -117,30 +122,4 @@ func (b Builder) createGPUBuilder(
 	}
 
 	return gpuBuilder
-}
-
-func (b Builder) buildDriver(
-	storage *mem.Storage,
-	pageTable *vm.PageTable,
-) *driver.Driver {
-	spec := driver.DefaultSpec()
-	spec.Log2PageSize = b.log2PageSize
-	spec.UseMagicMemoryCopy = true
-
-	gpuDriver := driver.MakeBuilder().
-		WithSimulation(b.simulation).
-		WithSpec(spec).
-		WithResources(driver.Resources{
-			PageTable:     pageTable,
-			GlobalStorage: storage,
-		}).
-		Build("Driver")
-
-	gpuPort := twowaybuffered.MakeBuilder().
-		WithSimulation(b.simulation).
-		WithSpec(twowaybuffered.Spec{IncomingCapacity: driverGPUPortBufSize, OutgoingCapacity: driverGPUPortBufSize}).
-		Build()
-	gpuDriver.BindPort(driver.GPUPortName, gpuPort)
-
-	return gpuDriver
 }

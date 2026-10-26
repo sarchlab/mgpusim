@@ -1,5 +1,12 @@
 # Akita v5 port — cross-package notes
 
+> Historical notes for the earlier Akita port. The Driver wrapper, asynchronous
+> host execution, and Runner construction APIs below were replaced by the
+> [Runtime and benchmark Step model](runtime-and-benchmark-steps.md). Use that
+> guide for current host APIs and checkpoint integration. The AMD HTTP server
+> mentioned below has been removed.
+
+
 Accumulated as packages are ported. Two kinds of entries: (1) exported API
 changes that dependent packages must adopt, (2) behavior deltas vs v4 that
 matter for parity validation.

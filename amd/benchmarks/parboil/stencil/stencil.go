@@ -17,15 +17,16 @@
 package stencil
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const blockSize = 16
@@ -43,48 +44,35 @@ const (
 // args with binary.Write, which does not insert alignment padding). The kernel
 // uses constant block dimensions, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	In  driver.Ptr // offset 0
-	Out driver.Ptr // offset 8
-	Nx  int32      // offset 16
-	Ny  int32      // offset 20
-	Nz  int32      // offset 24
-	C0  float32    // offset 28
-	C1  float32    // offset 32
+	In  gpuruntime.Ptr // offset 0
+	Out gpuruntime.Ptr // offset 8
+	Nx  int32          // offset 16
+	Ny  int32          // offset 20
+	Nz  int32          // offset 24
+	C0  float32        // offset 28
+	C1  float32        // offset 32
 }
 
 // Benchmark defines the stencil benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch         arch.Type
-	N            int // grid dimension (N*N*N)
-	NumTimesteps int
-
-	hData []float32 // initial host data
-	gA    driver.Ptr
-	gB    driver.Ptr
-
-	// finalSrc tracks which device buffer holds the final result after the
-	// ping-pong iterations.
-	finalSrc driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new stencil benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -99,16 +87,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Stencil uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the parboil stencil benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -116,7 +104,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -133,22 +122,22 @@ func (b *Benchmark) initMem() {
 	total := n * n * n
 
 	// Deterministic host init that is reproduced exactly in Verify().
-	b.hData = make([]float32, total)
+	b.HData = make([]float32, total)
 	for i := 0; i < total; i++ {
-		b.hData[i] = float32((i*7919)%1000) / 1000.0
+		b.HData[i] = float32((i*7919)%1000) / 1000.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GB = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gB = b.driver.AllocateMemory(b.context, uint64(total*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GB = b.rt.AllocateMemory(b.Context, uint64(total*4))
 	}
 
 	// Both ping-pong buffers start identical (so fixed boundary cells match).
-	b.driver.MemCopyH2D(b.context, b.gA, b.hData)
-	b.driver.MemCopyH2D(b.context, b.gB, b.hData)
+	b.Upload(b.rt, b.Queue, b.GA, b.HData)
+	b.Upload(b.rt, b.Queue, b.GB, b.HData)
 }
 
 func (b *Benchmark) exec() {
@@ -160,8 +149,8 @@ func (b *Benchmark) exec() {
 
 	// The kernel uses a 2D (x,y) grid and loops over z internally, so the
 	// grid's z-dimension is 1 (see native/parboil_stencil.cpp for the reason).
-	src := b.gA
-	dst := b.gB
+	src := b.GA
+	dst := b.GB
 	for t := 0; t < b.NumTimesteps; t++ {
 		args := KernelArgs{
 			In:  src,
@@ -173,35 +162,36 @@ func (b *Benchmark) exec() {
 			C1:  c1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&args,
 		)
-		b.driver.DrainCommandQueue(b.queue)
 
 		src, dst = dst, src
 	}
 
 	// After the loop, src holds the most recently written result.
-	b.finalSrc = src
+	b.FinalSrc = src
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	total := n * n * n
 
 	gpuOut := make([]float32, total)
-	b.driver.MemCopyD2H(b.context, gpuOut, b.finalSrc)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOut); err != nil {
+		return err
+	}
 
 	// CPU reference: same ping-pong stencil with the same init.
 	cur := make([]float32, total)
 	next := make([]float32, total)
-	copy(cur, b.hData)
-	copy(next, b.hData)
+	copy(cur, b.HData)
+	copy(next, b.HData)
 
 	for t := 0; t < b.NumTimesteps; t++ {
 		for iz := 0; iz < n; iz++ {
@@ -235,10 +225,46 @@ func (b *Benchmark) Verify() {
 			denom = 1.0
 		}
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("At index %d, expected %f, but got %f.\n",
+			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.FinalSrc, 4*((b.N)*(b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

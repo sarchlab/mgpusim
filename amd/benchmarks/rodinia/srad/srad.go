@@ -16,15 +16,16 @@
 package srad
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the (constant) thread-block dimension baked into the kernel.
@@ -45,67 +46,53 @@ const q0sqr float32 = 0.05
 // kernel uses a constant block dimension, so no hidden ABI arguments are
 // emitted.
 type Srad1Args struct {
-	J     driver.Ptr // offset 0
-	DN    driver.Ptr // offset 8
-	DS    driver.Ptr // offset 16
-	DW    driver.Ptr // offset 24
-	DE    driver.Ptr // offset 32
-	C     driver.Ptr // offset 40
-	Rows  int32      // offset 48
-	Cols  int32      // offset 52
-	Q0sqr float32    // offset 56
+	J     gpuruntime.Ptr // offset 0
+	DN    gpuruntime.Ptr // offset 8
+	DS    gpuruntime.Ptr // offset 16
+	DW    gpuruntime.Ptr // offset 24
+	DE    gpuruntime.Ptr // offset 32
+	C     gpuruntime.Ptr // offset 40
+	Rows  int32          // offset 48
+	Cols  int32          // offset 52
+	Q0sqr float32        // offset 56
 }
 
 // Srad2Args defines the kernel arguments for the gfx942 (CDNA3) srad2 kernel.
 // Same layout as Srad1Args (kernarg_segment_size = 60); the final scalar is
 // lambda instead of q0sqr.
 type Srad2Args struct {
-	J      driver.Ptr // offset 0
-	DN     driver.Ptr // offset 8
-	DS     driver.Ptr // offset 16
-	DW     driver.Ptr // offset 24
-	DE     driver.Ptr // offset 32
-	C      driver.Ptr // offset 40
-	Rows   int32      // offset 48
-	Cols   int32      // offset 52
-	Lambda float32    // offset 56
+	J      gpuruntime.Ptr // offset 0
+	DN     gpuruntime.Ptr // offset 8
+	DS     gpuruntime.Ptr // offset 16
+	DW     gpuruntime.Ptr // offset 24
+	DE     gpuruntime.Ptr // offset 32
+	C      gpuruntime.Ptr // offset 40
+	Rows   int32          // offset 48
+	Cols   int32          // offset 52
+	Lambda float32        // offset 56
 }
 
 // Benchmark defines the SRAD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco1  *insts.KernelCodeObject
-	hsaco2  *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch          arch.Type
-	ImageSize     int // image is ImageSize x ImageSize
-	NumIterations int // SRAD iterations (srad1+srad2 pairs) per run
-
-	jInit []float32 // initial image (reproduced in Verify)
-
-	gJ  driver.Ptr
-	gDN driver.Ptr
-	gDS driver.Ptr
-	gDW driver.Ptr
-	gDE driver.Ptr
-	gC  driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco1 *insts.KernelCodeObject
+	hsaco2 *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new SRAD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -123,16 +110,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. SRAD uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia srad benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -140,7 +127,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -157,28 +145,28 @@ func (b *Benchmark) initMem() {
 	total := n * n
 
 	// Deterministic synthetic image in (0, 1], reproducible in Verify.
-	b.jInit = make([]float32, total)
+	b.JInit = make([]float32, total)
 	for i := 0; i < total; i++ {
-		b.jInit[i] = float32((i%97)+1) / 98.0
+		b.JInit[i] = float32((i%97)+1) / 98.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gJ = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gDN = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gDS = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gDW = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gDE = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gC = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
+	if b.UseUnifiedMemory {
+		b.GJ = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDN = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDS = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDW = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GDE = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GC = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.gJ = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gDN = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gDS = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gDW = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gDE = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gC = b.driver.AllocateMemory(b.context, uint64(total*4))
+		b.GJ = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDN = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDS = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDW = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GDE = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GC = b.rt.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gJ, b.jInit)
+	b.Upload(b.rt, b.Queue, b.GJ, b.JInit)
 }
 
 func (b *Benchmark) exec() {
@@ -189,18 +177,18 @@ func (b *Benchmark) exec() {
 
 	for k := 0; k < b.NumIterations; k++ {
 		args1 := Srad1Args{
-			J:     b.gJ,
-			DN:    b.gDN,
-			DS:    b.gDS,
-			DW:    b.gDW,
-			DE:    b.gDE,
-			C:     b.gC,
+			J:     b.GJ,
+			DN:    b.GDN,
+			DS:    b.GDS,
+			DW:    b.GDW,
+			DE:    b.GDE,
+			C:     b.GC,
 			Rows:  int32(n),
 			Cols:  int32(n),
 			Q0sqr: q0sqr,
 		}
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco1,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -208,39 +196,39 @@ func (b *Benchmark) exec() {
 		)
 
 		args2 := Srad2Args{
-			J:      b.gJ,
-			DN:     b.gDN,
-			DS:     b.gDS,
-			DW:     b.gDW,
-			DE:     b.gDE,
-			C:      b.gC,
+			J:      b.GJ,
+			DN:     b.GDN,
+			DS:     b.GDS,
+			DW:     b.GDW,
+			DE:     b.GDE,
+			C:      b.GC,
 			Rows:   int32(n),
 			Cols:   int32(n),
 			Lambda: lambda,
 		}
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco2,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&args2,
 		)
-
-		b.driver.DrainCommandQueue(b.queue)
 	}
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same two-phase SRAD iteration exactly.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.ImageSize
 	total := n * n
 
 	gpu := make([]float32, total)
-	b.driver.MemCopyD2H(b.context, gpu, b.gJ)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
+		return err
+	}
 
 	jc := make([]float32, total)
-	copy(jc, b.jInit)
+	copy(jc, b.JInit)
 
 	dN := make([]float32, total)
 	dS := make([]float32, total)
@@ -334,10 +322,46 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 			denom = 1.0
 		}
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("At pixel %d (row %d, col %d), expected %f, but got %f.\n",
+			return fmt.Errorf("At pixel %d (row %d, col %d), expected %f, but got %f.\n",
 				i, i/n, i%n, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

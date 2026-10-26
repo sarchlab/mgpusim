@@ -11,15 +11,16 @@
 package raytracing
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant work-group size baked into the kernel (the native
@@ -40,43 +41,33 @@ const floatsPerSphere = 7
 // The kernel uses a constant block size and reads only blockIdx/threadIdx, so
 // no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Image      driver.Ptr // offset 0
-	Spheres    driver.Ptr // offset 8
-	Width      int32      // offset 16
-	Height     int32      // offset 20
-	NumSpheres int32      // offset 24
+	Image      gpuruntime.Ptr // offset 0
+	Spheres    gpuruntime.Ptr // offset 8
+	Width      int32          // offset 16
+	Height     int32          // offset 20
+	NumSpheres int32          // offset 24
 }
 
 // Benchmark defines the ray tracing benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch    arch.Type
-	Width   int
-	Height  int
-	Spheres int
-
-	spheres  []float32 // flat [numSpheres*7] sphere data
-	gImage   driver.Ptr
-	gSpheres driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new ray tracing benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -91,16 +82,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Ray tracing uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the altis raytracing benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -108,7 +99,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -117,7 +109,7 @@ func (b *Benchmark) Run() {
 // original benchmark (seed 42).
 func (b *Benchmark) genSpheres() {
 	n := b.Spheres
-	b.spheres = make([]float32, n*floatsPerSphere)
+	b.SphereData = make([]float32, n*floatsPerSphere)
 
 	seed := uint32(42)
 	next := func() float32 {
@@ -127,13 +119,13 @@ func (b *Benchmark) genSpheres() {
 
 	for i := 0; i < n; i++ {
 		base := i * floatsPerSphere
-		b.spheres[base+0] = next()*6.0 - 3.0 // cx
-		b.spheres[base+1] = next()*6.0 - 3.0 // cy
-		b.spheres[base+2] = next()*4.0 - 4.0 // cz
-		b.spheres[base+3] = next()*0.5 + 0.2 // radius
-		b.spheres[base+4] = next()*0.8 + 0.2 // r
-		b.spheres[base+5] = next()*0.8 + 0.2 // g
-		b.spheres[base+6] = next()*0.8 + 0.2 // b
+		b.SphereData[base+0] = next()*6.0 - 3.0 // cx
+		b.SphereData[base+1] = next()*6.0 - 3.0 // cy
+		b.SphereData[base+2] = next()*4.0 - 4.0 // cz
+		b.SphereData[base+3] = next()*0.5 + 0.2 // radius
+		b.SphereData[base+4] = next()*0.8 + 0.2 // r
+		b.SphereData[base+5] = next()*0.8 + 0.2 // g
+		b.SphereData[base+6] = next()*0.8 + 0.2 // b
 	}
 }
 
@@ -153,15 +145,15 @@ func (b *Benchmark) initMem() {
 	imageBytes := uint64(b.Width * b.Height * 4)
 	sphereBytes := uint64(b.Spheres * floatsPerSphere * 4)
 
-	if b.useUnifiedMemory {
-		b.gImage = b.driver.AllocateUnifiedMemory(b.context, imageBytes)
-		b.gSpheres = b.driver.AllocateUnifiedMemory(b.context, sphereBytes)
+	if b.UseUnifiedMemory {
+		b.GImage = b.rt.AllocateUnifiedMemory(b.Context, imageBytes)
+		b.GSpheres = b.rt.AllocateUnifiedMemory(b.Context, sphereBytes)
 	} else {
-		b.gImage = b.driver.AllocateMemory(b.context, imageBytes)
-		b.gSpheres = b.driver.AllocateMemory(b.context, sphereBytes)
+		b.GImage = b.rt.AllocateMemory(b.Context, imageBytes)
+		b.GSpheres = b.rt.AllocateMemory(b.Context, sphereBytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gSpheres, b.spheres)
+	b.Upload(b.rt, b.Queue, b.GSpheres, b.SphereData)
 }
 
 func (b *Benchmark) exec() {
@@ -169,22 +161,20 @@ func (b *Benchmark) exec() {
 	gridX := uint32((totalPixels + blockSize - 1) / blockSize * blockSize)
 
 	args := KernelArgs{
-		Image:      b.gImage,
-		Spheres:    b.gSpheres,
+		Image:      b.GImage,
+		Spheres:    b.GSpheres,
 		Width:      int32(b.Width),
 		Height:     int32(b.Height),
 		NumSpheres: int32(b.Spheres),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{gridX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuShadePixel computes the RGBA bytes for a single pixel using the exact
@@ -212,10 +202,10 @@ func (b *Benchmark) cpuShadePixel(px, py int) [4]byte { //nolint:funlen,gocognit
 
 	for s := 0; s < b.Spheres; s++ {
 		base := s * floatsPerSphere
-		cx := b.spheres[base+0]
-		cy := b.spheres[base+1]
-		cz := b.spheres[base+2]
-		radius := b.spheres[base+3]
+		cx := b.SphereData[base+0]
+		cy := b.SphereData[base+1]
+		cz := b.SphereData[base+2]
+		radius := b.SphereData[base+3]
 		t := intersectSphere(ox, oy, oz, dx, dy, dz, cx, cy, cz, radius)
 		if t > 0.0 && t < closestT {
 			closestT = t
@@ -231,13 +221,13 @@ func (b *Benchmark) cpuShadePixel(px, py int) [4]byte { //nolint:funlen,gocognit
 		hz := oz + closestT*dz
 
 		base := closestID * floatsPerSphere
-		spcx := b.spheres[base+0]
-		spcy := b.spheres[base+1]
-		spcz := b.spheres[base+2]
-		spradius := b.spheres[base+3]
-		spr := b.spheres[base+4]
-		spg := b.spheres[base+5]
-		spb := b.spheres[base+6]
+		spcx := b.SphereData[base+0]
+		spcy := b.SphereData[base+1]
+		spcz := b.SphereData[base+2]
+		spradius := b.SphereData[base+3]
+		spr := b.SphereData[base+4]
+		spg := b.SphereData[base+5]
+		spb := b.SphereData[base+6]
 
 		nx := (hx - spcx) / spradius
 		ny := (hy - spcy) / spradius
@@ -322,10 +312,12 @@ func f32sqrt(x float32) float32 {
 // Verify checks the GPU result against a CPU reference computation, comparing
 // every pixel channel. A small ±1 tolerance is allowed to account for
 // float-rounding differences between the GPU sqrt and the host sqrt.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	totalPixels := b.Width * b.Height
 	gpuImage := make([]byte, totalPixels*4)
-	b.driver.MemCopyD2H(b.context, gpuImage, b.gImage)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuImage); err != nil {
+		return err
+	}
 
 	errors := 0
 	for py := 0; py < b.Height; py++ {
@@ -347,9 +339,45 @@ func (b *Benchmark) Verify() {
 	}
 
 	if errors > 0 {
-		log.Fatalf("%d channel errors in %d verified pixels\n",
+		return fmt.Errorf("%d channel errors in %d verified pixels\n",
 			errors, totalPixels)
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GImage, 1*((b.Width*b.Height)*4)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

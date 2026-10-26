@@ -20,15 +20,16 @@
 package babelstream
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant work-group size baked into the kernels (see
@@ -38,76 +39,62 @@ const blockSize = 256
 // CopyKernelArgs matches copy_kernel (kernarg_segment_size = 20):
 // a(ptr,0), c(ptr,8), n(i32,16).
 type CopyKernelArgs struct {
-	A driver.Ptr // offset 0
-	C driver.Ptr // offset 8
-	N int32      // offset 16
+	A gpuruntime.Ptr // offset 0
+	C gpuruntime.Ptr // offset 8
+	N int32          // offset 16
 }
 
 // ScaleKernelArgs matches scale_kernel (kernarg_segment_size = 24):
 // c(ptr,0), b(ptr,8), s(f32,16), n(i32,20).
 type ScaleKernelArgs struct {
-	C driver.Ptr // offset 0
-	B driver.Ptr // offset 8
-	S float32    // offset 16
-	N int32      // offset 20
+	C gpuruntime.Ptr // offset 0
+	B gpuruntime.Ptr // offset 8
+	S float32        // offset 16
+	N int32          // offset 20
 }
 
 // AddKernelArgs matches add_kernel (kernarg_segment_size = 28):
 // a(ptr,0), b(ptr,8), c(ptr,16), n(i32,24).
 type AddKernelArgs struct {
-	A driver.Ptr // offset 0
-	B driver.Ptr // offset 8
-	C driver.Ptr // offset 16
-	N int32      // offset 24
+	A gpuruntime.Ptr // offset 0
+	B gpuruntime.Ptr // offset 8
+	C gpuruntime.Ptr // offset 16
+	N int32          // offset 24
 }
 
 // TriadKernelArgs matches triad_kernel (kernarg_segment_size = 32):
 // b(ptr,0), c(ptr,8), a(ptr,16), s(f32,24), n(i32,28).
 type TriadKernelArgs struct {
-	B driver.Ptr // offset 0
-	C driver.Ptr // offset 8
-	A driver.Ptr // offset 16
-	S float32    // offset 24
-	N int32      // offset 28
+	B gpuruntime.Ptr // offset 0
+	C gpuruntime.Ptr // offset 8
+	A gpuruntime.Ptr // offset 16
+	S float32        // offset 24
+	N int32          // offset 28
 }
 
 // Benchmark defines the BabelStream benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	copyKernel  *insts.KernelCodeObject
 	scaleKernel *insts.KernelCodeObject
 	addKernel   *insts.KernelCodeObject
 	triadKernel *insts.KernelCodeObject
-
-	Arch   arch.Type
-	N      int
-	Scalar float32
-
-	a []float32
-	b []float32
-	c []float32
-
-	gA driver.Ptr
-	gB driver.Ptr
-	gC driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new BabelStream benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -130,16 +117,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. BabelStream uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the babelstream benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -147,7 +134,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -162,29 +150,29 @@ func (b *Benchmark) initMem() {
 
 	n := b.N
 
-	b.a = make([]float32, n)
-	b.b = make([]float32, n)
-	b.c = make([]float32, n)
+	b.A = make([]float32, n)
+	b.B = make([]float32, n)
+	b.C = make([]float32, n)
 	// Deterministic, varied host init so the verification is meaningful.
 	for i := 0; i < n; i++ {
-		b.a[i] = float32(i%100) / 100.0
-		b.b[i] = float32((i*2)%100) / 100.0
-		b.c[i] = 0.0
+		b.A[i] = float32(i%100) / 100.0
+		b.B[i] = float32((i*2)%100) / 100.0
+		b.C[i] = 0.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gC = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GB = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GC = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gB = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gC = b.driver.AllocateMemory(b.context, uint64(n*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GB = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GC = b.rt.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.a)
-	b.driver.MemCopyH2D(b.context, b.gB, b.b)
-	b.driver.MemCopyH2D(b.context, b.gC, b.c)
+	b.Upload(b.rt, b.Queue, b.GA, b.A)
+	b.Upload(b.rt, b.Queue, b.GB, b.B)
+	b.Upload(b.rt, b.Queue, b.GC, b.C)
 }
 
 func (b *Benchmark) exec() {
@@ -193,43 +181,41 @@ func (b *Benchmark) exec() {
 	globalX := gridDim * blockSize
 
 	// copy: c[i] = a[i]
-	copyArgs := CopyKernelArgs{A: b.gA, C: b.gC, N: int32(n)}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.copyKernel,
+	copyArgs := CopyKernelArgs{A: b.GA, C: b.GC, N: int32(n)}
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.copyKernel,
 		[3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1},
 		&copyArgs,
 	)
 
 	// scale: b[i] = s * c[i]
-	scaleArgs := ScaleKernelArgs{C: b.gC, B: b.gB, S: b.Scalar, N: int32(n)}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.scaleKernel,
+	scaleArgs := ScaleKernelArgs{C: b.GC, B: b.GB, S: b.Scalar, N: int32(n)}
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.scaleKernel,
 		[3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1},
 		&scaleArgs,
 	)
 
 	// add: c[i] = a[i] + b[i]
-	addArgs := AddKernelArgs{A: b.gA, B: b.gB, C: b.gC, N: int32(n)}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.addKernel,
+	addArgs := AddKernelArgs{A: b.GA, B: b.GB, C: b.GC, N: int32(n)}
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.addKernel,
 		[3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1},
 		&addArgs,
 	)
 
 	// triad: a[i] = b[i] + s * c[i]
-	triadArgs := TriadKernelArgs{B: b.gB, C: b.gC, A: b.gA, S: b.Scalar, N: int32(n)}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.triadKernel,
+	triadArgs := TriadKernelArgs{B: b.GB, C: b.GC, A: b.GA, S: b.Scalar, N: int32(n)}
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.triadKernel,
 		[3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1},
 		&triadArgs,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same copy -> scale -> add -> triad sequence.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	s := float64(b.Scalar)
 
@@ -238,8 +224,8 @@ func (b *Benchmark) Verify() {
 	refB := make([]float64, n)
 	refC := make([]float64, n)
 	for i := 0; i < n; i++ {
-		refA[i] = float64(b.a[i])
-		refB[i] = float64(b.b[i])
+		refA[i] = float64(b.A[i])
+		refB[i] = float64(b.B[i])
 		refC[i] = 0.0
 	}
 	for i := 0; i < n; i++ {
@@ -252,26 +238,78 @@ func (b *Benchmark) Verify() {
 	gpuA := make([]float32, n)
 	gpuB := make([]float32, n)
 	gpuC := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuA, b.gA)
-	b.driver.MemCopyD2H(b.context, gpuB, b.gB)
-	b.driver.MemCopyD2H(b.context, gpuC, b.gC)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuA); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuB); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuC); err != nil {
+		return err
+	}
 
-	check := func(name string, idx int, ref float64, got float32) {
+	check := func(name string, idx int, ref float64, got float32) error {
 		denom := math.Abs(ref)
 		if denom < 1.0 {
 			denom = 1.0
 		}
 		if math.Abs(ref-float64(got))/denom > 1e-3 {
-			log.Fatalf("%s mismatch at %d, expected %f, but got %f.\n",
+			return fmt.Errorf("%s mismatch at %d, expected %f, but got %f.\n",
 				name, idx, ref, got)
 		}
+
+		return nil
 	}
 
 	for i := 0; i < n; i++ {
-		check("a", i, refA[i], gpuA[i])
-		check("b", i, refB[i], gpuB[i])
-		check("c", i, refC[i], gpuC[i])
+		if err := check("a", i, refA[i], gpuA[i]); err != nil {
+			return err
+		}
+		if err := check("b", i, refB[i], gpuB[i]); err != nil {
+			return err
+		}
+		if err := check("c", i, refC[i], gpuC[i]); err != nil {
+			return err
+		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GB, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GC, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

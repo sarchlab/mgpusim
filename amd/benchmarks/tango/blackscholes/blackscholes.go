@@ -10,15 +10,16 @@
 package blackscholes
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the work-group size baked into the kernel (BLOCK_SIZE in
@@ -39,53 +40,37 @@ const riskFreeRate float32 = 0.02
 // blockIdx/threadIdx (constant block size), so no hidden ABI arguments are
 // emitted.
 type KernelArgs struct {
-	S         driver.Ptr // offset 0
-	K         driver.Ptr // offset 8
-	T         driver.Ptr // offset 16
-	Sigma     driver.Ptr // offset 24
-	R         float32    // offset 32
-	Pad0      uint32     // offset 36 - alignment padding
-	CallPrice driver.Ptr // offset 40
-	PutPrice  driver.Ptr // offset 48
-	N         int32      // offset 56
+	S         gpuruntime.Ptr // offset 0
+	K         gpuruntime.Ptr // offset 8
+	T         gpuruntime.Ptr // offset 16
+	Sigma     gpuruntime.Ptr // offset 24
+	R         float32        // offset 32
+	Pad0      uint32         // offset 36 - alignment padding
+	CallPrice gpuruntime.Ptr // offset 40
+	PutPrice  gpuruntime.Ptr // offset 48
+	N         int32          // offset 56
 }
 
 // Benchmark defines the Black-Scholes benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	N    int
-
-	hS     []float32
-	hK     []float32
-	hT     []float32
-	hSigma []float32
-
-	gS     driver.Ptr
-	gK     driver.Ptr
-	gT     driver.Ptr
-	gSigma driver.Ptr
-	gCall  driver.Ptr
-	gPut   driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Black-Scholes benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -100,16 +85,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Black-Scholes uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the tango blackscholes benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -117,7 +102,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -137,40 +123,40 @@ func (b *Benchmark) initMem() {
 
 	n := b.N
 
-	b.hS = make([]float32, n)
-	b.hK = make([]float32, n)
-	b.hT = make([]float32, n)
-	b.hSigma = make([]float32, n)
+	b.HS = make([]float32, n)
+	b.HK = make([]float32, n)
+	b.HT = make([]float32, n)
+	b.HSigma = make([]float32, n)
 
 	var seed uint32 = 42
 	for i := 0; i < n; i++ {
-		b.hS[i] = randRange(&seed, 5.0, 200.0)
-		b.hK[i] = randRange(&seed, 1.0, 300.0)
-		b.hT[i] = randRange(&seed, 0.25, 10.0)
-		b.hSigma[i] = randRange(&seed, 0.1, 1.0)
+		b.HS[i] = randRange(&seed, 5.0, 200.0)
+		b.HK[i] = randRange(&seed, 1.0, 300.0)
+		b.HT[i] = randRange(&seed, 0.25, 10.0)
+		b.HSigma[i] = randRange(&seed, 0.1, 1.0)
 	}
 
 	bytes := uint64(n * 4)
-	if b.useUnifiedMemory {
-		b.gS = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gK = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gT = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gSigma = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gCall = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gPut = b.driver.AllocateUnifiedMemory(b.context, bytes)
+	if b.UseUnifiedMemory {
+		b.GS = b.rt.AllocateUnifiedMemory(b.Context, bytes)
+		b.GK = b.rt.AllocateUnifiedMemory(b.Context, bytes)
+		b.GT = b.rt.AllocateUnifiedMemory(b.Context, bytes)
+		b.GSigma = b.rt.AllocateUnifiedMemory(b.Context, bytes)
+		b.GCall = b.rt.AllocateUnifiedMemory(b.Context, bytes)
+		b.GPut = b.rt.AllocateUnifiedMemory(b.Context, bytes)
 	} else {
-		b.gS = b.driver.AllocateMemory(b.context, bytes)
-		b.gK = b.driver.AllocateMemory(b.context, bytes)
-		b.gT = b.driver.AllocateMemory(b.context, bytes)
-		b.gSigma = b.driver.AllocateMemory(b.context, bytes)
-		b.gCall = b.driver.AllocateMemory(b.context, bytes)
-		b.gPut = b.driver.AllocateMemory(b.context, bytes)
+		b.GS = b.rt.AllocateMemory(b.Context, bytes)
+		b.GK = b.rt.AllocateMemory(b.Context, bytes)
+		b.GT = b.rt.AllocateMemory(b.Context, bytes)
+		b.GSigma = b.rt.AllocateMemory(b.Context, bytes)
+		b.GCall = b.rt.AllocateMemory(b.Context, bytes)
+		b.GPut = b.rt.AllocateMemory(b.Context, bytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gS, b.hS)
-	b.driver.MemCopyH2D(b.context, b.gK, b.hK)
-	b.driver.MemCopyH2D(b.context, b.gT, b.hT)
-	b.driver.MemCopyH2D(b.context, b.gSigma, b.hSigma)
+	b.Upload(b.rt, b.Queue, b.GS, b.HS)
+	b.Upload(b.rt, b.Queue, b.GK, b.HK)
+	b.Upload(b.rt, b.Queue, b.GT, b.HT)
+	b.Upload(b.rt, b.Queue, b.GSigma, b.HSigma)
 }
 
 func (b *Benchmark) exec() {
@@ -179,25 +165,23 @@ func (b *Benchmark) exec() {
 	globalX := gridSize * blockSize
 
 	args := KernelArgs{
-		S:         b.gS,
-		K:         b.gK,
-		T:         b.gT,
-		Sigma:     b.gSigma,
+		S:         b.GS,
+		K:         b.GK,
+		T:         b.GT,
+		Sigma:     b.GSigma,
 		R:         riskFreeRate,
-		CallPrice: b.gCall,
-		PutPrice:  b.gPut,
+		CallPrice: b.GCall,
+		PutPrice:  b.GPut,
 		N:         int32(n),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cnd reproduces the device cumulative-normal-distribution approximation in
@@ -223,18 +207,22 @@ func cnd(d float32) float32 {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	gpuCall := make([]float32, n)
 	gpuPut := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuCall, b.gCall)
-	b.driver.MemCopyD2H(b.context, gpuPut, b.gPut)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuCall); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuPut); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
-		s := b.hS[i]
-		k := b.hK[i]
-		t := b.hT[i]
-		v := b.hSigma[i]
+		s := b.HS[i]
+		k := b.HK[i]
+		t := b.HT[i]
+		v := b.HSigma[i]
 
 		sqrtT := float32(math.Sqrt(float64(t)))
 		d1 := (float32(math.Log(float64(s/k))) +
@@ -251,14 +239,51 @@ func (b *Benchmark) Verify() {
 			float32(math.Abs(float64(refPut)))) + 1e-3
 
 		if float32(math.Abs(float64(gpuCall[i]-refCall))) > tol {
-			log.Fatalf("At option %d, call expected %f, but got %f.\n",
+			return fmt.Errorf("At option %d, call expected %f, but got %f.\n",
 				i, refCall, gpuCall[i])
 		}
 		if float32(math.Abs(float64(gpuPut[i]-refPut))) > tol {
-			log.Fatalf("At option %d, put expected %f, but got %f.\n",
+			return fmt.Errorf("At option %d, put expected %f, but got %f.\n",
 				i, refPut, gpuPut[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GCall, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GPut, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

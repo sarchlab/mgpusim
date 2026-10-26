@@ -2,30 +2,31 @@
 package floydwarshall
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	OutputPathDistanceMatrix driver.Ptr
-	OutputPathMatrix         driver.Ptr
+	OutputPathDistanceMatrix gpuruntime.Ptr
+	OutputPathMatrix         gpuruntime.Ptr
 	NumNodes                 uint32
 	Pass                     uint32
 }
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	OutputPathDistanceMatrix driver.Ptr
-	OutputPathMatrix         driver.Ptr
+	OutputPathDistanceMatrix gpuruntime.Ptr
+	OutputPathMatrix         gpuruntime.Ptr
 	NumNodes                 uint32
 	Pass                     uint32
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
@@ -47,42 +48,32 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	gpus    []int
-	queues  []*driver.CommandQueue
-	kernel  *insts.KernelCodeObject
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch                      arch.Type
-	NumNodes                  uint32
-	NumIterations             uint32
-	hOutputPathMatrix         []uint32
-	hOutputPathDistanceMatrix []uint32
-	dOutputPathMatrix         driver.Ptr
-	dOutputPathDistanceMatrix driver.Ptr
-
-	hVerificationPathMatrix         []uint32
-	hVerificationPathDistanceMatrix []uint32
-
-	useUnifiedMemory bool
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.driver = driver
-	b.context = driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
 // SelectGPU selects gpu
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory Use Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -104,21 +95,18 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs the benchmark
-func (b *Benchmark) Run() {
-	b.loadProgram()
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
-	}
+	b.loadProgram()
 
 	if b.NumIterations == 0 || b.NumIterations > b.NumNodes {
 		b.NumIterations = b.NumNodes
 	}
 
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -128,54 +116,54 @@ func (b *Benchmark) initMem() {
 	rng := rand.New(rand.NewSource(1))
 
 	numNodes := b.NumNodes
-	b.hOutputPathMatrix = make([]uint32, numNodes*numNodes)
-	b.hOutputPathDistanceMatrix = make([]uint32, numNodes*numNodes)
+	b.HOutputPathMatrix = make([]uint32, numNodes*numNodes)
+	b.HOutputPathDistanceMatrix = make([]uint32, numNodes*numNodes)
 
 	for i := uint32(0); i < numNodes; i++ {
 		for j := uint32(0); j < i; j++ {
 			temp := uint32(rng.Int31n(10))
-			b.hOutputPathDistanceMatrix[i*numNodes+j] = temp
-			b.hOutputPathDistanceMatrix[j*numNodes+i] = temp
+			b.HOutputPathDistanceMatrix[i*numNodes+j] = temp
+			b.HOutputPathDistanceMatrix[j*numNodes+i] = temp
 		}
 	}
 
 	for i := uint32(0); i < numNodes; i++ {
 		iXWidth := i * numNodes
-		b.hOutputPathDistanceMatrix[iXWidth+i] = 0
+		b.HOutputPathDistanceMatrix[iXWidth+i] = 0
 	}
 
 	for i := uint32(0); i < numNodes; i++ {
 		for j := uint32(0); j < i; j++ {
-			b.hOutputPathMatrix[i*numNodes+j] = i
-			b.hOutputPathMatrix[j*numNodes+i] = j
+			b.HOutputPathMatrix[i*numNodes+j] = i
+			b.HOutputPathMatrix[j*numNodes+i] = j
 		}
-		b.hOutputPathMatrix[i*numNodes+i] = i
+		b.HOutputPathMatrix[i*numNodes+i] = i
 	}
 
-	b.hVerificationPathMatrix = make([]uint32, numNodes*numNodes)
-	b.hVerificationPathDistanceMatrix = make([]uint32, numNodes*numNodes)
+	b.HVerificationPathMatrix = make([]uint32, numNodes*numNodes)
+	b.HVerificationPathDistanceMatrix = make([]uint32, numNodes*numNodes)
 
-	copy(b.hVerificationPathDistanceMatrix, b.hOutputPathDistanceMatrix)
-	copy(b.hVerificationPathMatrix, b.hOutputPathMatrix)
+	copy(b.HVerificationPathDistanceMatrix, b.HOutputPathDistanceMatrix)
+	copy(b.HVerificationPathMatrix, b.HOutputPathMatrix)
 
-	if b.useUnifiedMemory {
-		b.dOutputPathMatrix = b.driver.AllocateUnifiedMemory(
-			b.context,
+	if b.UseUnifiedMemory {
+		b.DOutputPathMatrix = b.rt.AllocateUnifiedMemory(
+			b.Context,
 			uint64(numNodes*numNodes*4))
-		b.dOutputPathDistanceMatrix = b.driver.AllocateUnifiedMemory(
-			b.context,
+		b.DOutputPathDistanceMatrix = b.rt.AllocateUnifiedMemory(
+			b.Context,
 			uint64(numNodes*numNodes*4))
 	} else {
-		b.dOutputPathMatrix = b.driver.AllocateMemory(
-			b.context,
+		b.DOutputPathMatrix = b.rt.AllocateMemory(
+			b.Context,
 			uint64(numNodes*numNodes*4))
-		b.dOutputPathDistanceMatrix = b.driver.AllocateMemory(
-			b.context,
+		b.DOutputPathDistanceMatrix = b.rt.AllocateMemory(
+			b.Context,
 			uint64(numNodes*numNodes*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
-	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
+	b.Upload(b.rt, b.Queue, b.DOutputPathMatrix, b.HOutputPathMatrix)
+	b.Upload(b.rt, b.Queue, b.DOutputPathDistanceMatrix, b.HOutputPathDistanceMatrix)
 }
 
 func printMatrix(matrix []uint32, n uint32) {
@@ -194,8 +182,8 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 		wgSizeZ := uint16(1)
 
 		kernArg := CDNA3KernelArgs{
-			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-			OutputPathMatrix:         b.dOutputPathMatrix,
+			OutputPathDistanceMatrix: b.DOutputPathDistanceMatrix,
+			OutputPathMatrix:         b.DOutputPathMatrix,
 			NumNodes:                 numNodes,
 			Pass:                     pass,
 			// Hidden kernel arguments for GFX942
@@ -214,8 +202,7 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 			HiddenGridDims:      2,
 		}
 
-		b.driver.LaunchKernel(
-			b.context,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -223,14 +210,13 @@ func (b *Benchmark) launchKernelIteration(numNodes, blockSize, pass uint32) {
 		)
 	} else {
 		kernArg := GCN3KernelArgs{
-			OutputPathDistanceMatrix: b.dOutputPathDistanceMatrix,
-			OutputPathMatrix:         b.dOutputPathMatrix,
+			OutputPathDistanceMatrix: b.DOutputPathDistanceMatrix,
+			OutputPathMatrix:         b.DOutputPathMatrix,
 			NumNodes:                 numNodes,
 			Pass:                     pass,
 		}
 
-		b.driver.LaunchKernel(
-			b.context,
+		b.rt.EnqueueLaunchKernel(b.Queue,
 			b.kernel,
 			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
@@ -251,13 +237,12 @@ func (b *Benchmark) exec() {
 		b.launchKernelIteration(numNodes, blockSize, k)
 	}
 
-	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
-	b.driver.MemCopyD2H(b.context,
-		b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DOutputPathMatrix, Target: 0})
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DOutputPathDistanceMatrix, Target: 1})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32
 	width := numNodes
@@ -267,15 +252,15 @@ func (b *Benchmark) Verify() {
 		for y := uint32(0); y < numNodes; y++ {
 			yXwidth = y * numNodes
 			for x := uint32(0); x < numNodes; x++ {
-				distanceYtoX = b.hVerificationPathDistanceMatrix[yXwidth+x]
-				distanceYtoK = b.hVerificationPathDistanceMatrix[yXwidth+k]
-				distanceKtoX = b.hVerificationPathDistanceMatrix[k*width+x]
+				distanceYtoX = b.HVerificationPathDistanceMatrix[yXwidth+x]
+				distanceYtoK = b.HVerificationPathDistanceMatrix[yXwidth+k]
+				distanceKtoX = b.HVerificationPathDistanceMatrix[k*width+x]
 
 				indirectDistance = distanceYtoK + distanceKtoX
 
 				if indirectDistance < distanceYtoX {
-					b.hVerificationPathDistanceMatrix[yXwidth+x] = indirectDistance
-					b.hVerificationPathMatrix[yXwidth+x] = k
+					b.HVerificationPathDistanceMatrix[yXwidth+x] = indirectDistance
+					b.HVerificationPathMatrix[yXwidth+x] = k
 				}
 			}
 		}
@@ -284,18 +269,71 @@ func (b *Benchmark) Verify() {
 	n := numNodes
 	for i := uint32(0); i < n; i++ {
 		for j := uint32(0); j < n; j++ {
-			if b.hOutputPathMatrix[i*n+j] != b.hVerificationPathMatrix[i*n+j] {
-				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
-					b.hVerificationPathMatrix[i*n+j],
-					b.hOutputPathMatrix[i*n+j]))
+			if b.HOutputPathMatrix[i*n+j] != b.HVerificationPathMatrix[i*n+j] {
+				return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+					b.HVerificationPathMatrix[i*n+j],
+					b.HOutputPathMatrix[i*n+j])))
 			}
-			if b.hOutputPathDistanceMatrix[i*n+j] != b.hVerificationPathDistanceMatrix[i*n+j] {
-				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
-					b.hVerificationPathDistanceMatrix[i*n+j],
-					b.hOutputPathDistanceMatrix[i*n+j]))
+			if b.HOutputPathDistanceMatrix[i*n+j] != b.HVerificationPathDistanceMatrix[i*n+j] {
+				return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+					b.HVerificationPathDistanceMatrix[i*n+j],
+					b.HOutputPathDistanceMatrix[i*n+j])))
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		for i := range b.Readbacks {
+			var dst any
+			switch b.Readbacks[i].Target {
+			case 0:
+				dst = b.HOutputPathMatrix
+			case 1:
+				dst = b.HOutputPathDistanceMatrix
+			}
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.Readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.HOutputPathMatrix
+			case 1:
+				dst = b.HOutputPathDistanceMatrix
+			}
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
+				return err
+			}
+		}
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

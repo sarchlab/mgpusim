@@ -12,15 +12,16 @@
 package fp16throughput
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
@@ -32,42 +33,30 @@ import (
 // kernel reads only blockIdx.x / threadIdx.x (no blockDim), so no hidden
 // ABI arguments are emitted.
 type KernelArgs struct {
-	Out           driver.Ptr // offset 0
-	FmasPerThread int32      // offset 8
+	Out           gpuruntime.Ptr // offset 0
+	FmasPerThread int32          // offset 8
 }
 
 // Benchmark defines the fp16_throughput benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-
-	// FmasPerThread is the number of __hfma2 FMAs each thread performs
-	// (rounded down to a multiple of 4). NumBlocks and ThreadsPerBlock
-	// define the launch geometry.
-	FmasPerThread   int
-	NumBlocks       int
-	ThreadsPerBlock int
-
-	gOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new fp16_throughput benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -82,16 +71,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp16_throughput benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -99,7 +88,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -126,34 +116,32 @@ func (b *Benchmark) initMem() {
 	b.initParams()
 
 	// Output is a single __half2 (4 bytes). Allocate a full dword.
-	if b.useUnifiedMemory {
-		b.gOut = b.driver.AllocateUnifiedMemory(b.context, 4)
+	if b.UseUnifiedMemory {
+		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		b.gOut = b.driver.AllocateMemory(b.context, 4)
+		b.GOut = b.rt.AllocateMemory(b.Context, 4)
 	}
 
 	// Initialize to zero so a missing write is detectable.
 	zero := []uint32{0}
-	b.driver.MemCopyH2D(b.context, b.gOut, zero)
+	b.Upload(b.rt, b.Queue, b.GOut, zero)
 }
 
 func (b *Benchmark) exec() {
 	globalX := uint32(b.NumBlocks * b.ThreadsPerBlock)
 
 	args := KernelArgs{
-		Out:           b.gOut,
+		Out:           b.GOut,
 		FmasPerThread: int32(b.FmasPerThread),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // half2ToFloats unpacks a packed __half2 dword into its two fp32 lane values.
@@ -198,9 +186,11 @@ func float16ToFloat32(h uint16) float32 {
 // 1.0, 1.1, 1.2, 1.3. The multiplier (1.0000001) rounds to exactly 1.0 in
 // fp16 and the addend (0.0000001) rounds to 0.0, so each __hfma2 leaves the
 // accumulators unchanged. The written value is a0+a1+a2+a3 per lane.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	out := make([]uint32, 1)
-	b.driver.MemCopyD2H(b.context, out, b.gOut)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], out); err != nil {
+		return err
+	}
 
 	lo, hi := half2ToFloats(out[0])
 
@@ -221,20 +211,32 @@ func (b *Benchmark) Verify() {
 	}
 	ref := roundToHalf(roundToHalf(a0+a1) + roundToHalf(a2+a3))
 
-	checkLane := func(name string, got float32) {
+	checkLane := func(name string, got float32) error {
 		denom := math.Abs(float64(ref))
 		if denom < 1.0 {
 			denom = 1.0
 		}
 		if math.Abs(float64(ref-got))/denom > 1e-2 {
-			log.Fatalf("Mismatch in %s lane: expected %f, but got %f.\n",
+			return fmt.Errorf("Mismatch in %s lane: expected %f, but got %f.\n",
 				name, ref, got)
 		}
+
+		return nil
 	}
-	checkLane("lo", lo)
-	checkLane("hi", hi)
+	if err := checkLane("lo", lo); err != nil {
+		return err
+	}
+	if err := checkLane("hi", hi); err != nil {
+		return err
+	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*(1)))
 }
 
 // roundToHalf rounds a float32 value to the nearest representable fp16 value
@@ -289,4 +291,34 @@ func float32ToFloat16(f float32) uint16 {
 		half++
 	}
 	return sign | half
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

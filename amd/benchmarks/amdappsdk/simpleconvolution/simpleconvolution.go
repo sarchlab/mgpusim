@@ -3,21 +3,23 @@
 package simpleconvolution
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"encoding/binary"
+	"fmt"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3KernelArgs defines kernel arguments for GCN3 architecture
 type GCN3KernelArgs struct {
-	Input                           driver.Ptr
-	Mask                            driver.Ptr
-	Output                          driver.Ptr
+	Input                           gpuruntime.Ptr
+	Mask                            gpuruntime.Ptr
+	Output                          gpuruntime.Ptr
 	InputDimensions, MaskDimensions [2]uint32
 	NExWidth                        uint32
 	Padding                         uint32
@@ -26,13 +28,13 @@ type GCN3KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	Input           driver.Ptr // offset 0
-	Mask            driver.Ptr // offset 8
-	Output          driver.Ptr // offset 16
-	InputDimensions [2]uint32  // offset 24 (inputWidth, inputHeight)
-	MaskDimensions  [2]uint32  // offset 32 (maskWidth, maskHeight)
-	NExWidth        uint32     // offset 40
-	Pad             uint32     // offset 44 - alignment padding
+	Input           gpuruntime.Ptr // offset 0
+	Mask            gpuruntime.Ptr // offset 8
+	Output          gpuruntime.Ptr // offset 16
+	InputDimensions [2]uint32      // offset 24 (inputWidth, inputHeight)
+	MaskDimensions  [2]uint32      // offset 32 (maskWidth, maskHeight)
+	NExWidth        uint32         // offset 40
+	Pad             uint32         // offset 44 - alignment padding
 	// Hidden kernel arguments (required by HIP runtime for GFX942)
 	HiddenBlockCountX   uint32   // offset 48
 	HiddenBlockCountY   uint32   // offset 52
@@ -52,44 +54,33 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	kernel  *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
 
-	Arch      arch.Type
-	Width     uint32
-	Height    uint32
-	maskSize  uint32
-	padWidth  uint32
-	padHeight uint32
+	rt *gpuruntime.Runtime
 
-	hInputData  []uint32
-	hOutputData []uint32
-	hMask       []float32
-	dInputData  driver.Ptr
-	dOutputData driver.Ptr
-	dMasks      []driver.Ptr
-
-	useUnifiedMemory bool
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.driver = driver
-	b.context = driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -113,86 +104,88 @@ func (b *Benchmark) loadProgram() {
 
 // SetMaskSize sets masksize
 func (b *Benchmark) SetMaskSize(maskSize uint32) {
-	b.maskSize = maskSize
-	b.padHeight = maskSize - 1
-	b.padWidth = maskSize - 1
+	b.MaskSize = maskSize
+	b.PadHeight = maskSize - 1
+	b.PadWidth = maskSize - 1
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
+
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
-	numInputData := (b.Width + b.padWidth) * (b.Height + b.padHeight)
+	numInputData := (b.Width + b.PadWidth) * (b.Height + b.PadHeight)
 	numOutputData := b.Width * b.Height
 
-	b.hInputData = make([]uint32, numInputData)
-	b.hOutputData = make([]uint32, numOutputData)
-	b.hMask = make([]float32, b.maskSize*b.maskSize)
+	b.HInputData = make([]uint32, numInputData)
+	b.HOutputData = make([]uint32, numOutputData)
+	b.HMask = make([]float32, b.MaskSize*b.MaskSize)
 
 	for i := uint32(0); i < numInputData; i++ {
 		// b.hInputData[i] = i
-		b.hInputData[i] = 1
+		b.HInputData[i] = 1
 	}
 
-	for i := uint32(0); i < b.maskSize*b.maskSize; i++ {
+	for i := uint32(0); i < b.MaskSize*b.MaskSize; i++ {
 		// b.hMask[i] = float32(i)
-		b.hMask[i] = float32(1)
+		b.HMask[i] = float32(1)
 	}
 
-	if b.useUnifiedMemory {
-		b.dInputData = b.driver.AllocateUnifiedMemory(b.context,
+	if b.UseUnifiedMemory {
+		b.DInputData = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(numInputData*4))
-		b.dOutputData = b.driver.AllocateUnifiedMemory(b.context,
+		b.DOutputData = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(numOutputData*4))
 	} else {
-		b.dInputData = b.driver.AllocateMemory(b.context,
+		b.DInputData = b.rt.AllocateMemory(b.Context,
 			uint64(numInputData*4))
-		b.driver.Distribute(b.context, b.dInputData,
-			uint64(numInputData*4), b.gpus)
-		b.dOutputData = b.driver.AllocateMemory(b.context,
+		b.rt.Distribute(b.Context, b.DInputData,
+			uint64(numInputData*4), b.Gpus)
+		b.DOutputData = b.rt.AllocateMemory(b.Context,
 			uint64(numOutputData*4))
-		b.driver.Distribute(b.context, b.dOutputData,
-			uint64(numOutputData*4), b.gpus)
+		b.rt.Distribute(b.Context, b.DOutputData,
+			uint64(numOutputData*4), b.Gpus)
 	}
 
-	b.dMasks = make([]driver.Ptr, len(b.gpus))
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		if b.useUnifiedMemory {
-			b.dMasks[i] = b.driver.AllocateUnifiedMemory(
-				b.context,
-				uint64(b.maskSize*b.maskSize*4))
+	b.DMasks = make([]gpuruntime.Ptr, len(b.Gpus))
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		if b.UseUnifiedMemory {
+			b.DMasks[i] = b.rt.AllocateUnifiedMemory(
+				b.Context,
+				uint64(b.MaskSize*b.MaskSize*4))
 		} else {
-			b.dMasks[i] = b.driver.AllocateMemory(
-				b.context,
-				uint64(b.maskSize*b.maskSize*4))
+			b.DMasks[i] = b.rt.AllocateMemory(
+				b.Context,
+				uint64(b.MaskSize*b.MaskSize*4))
 		}
-		b.driver.MemCopyH2D(b.context, b.dMasks[i], b.hMask)
+		b.Upload(b.rt, b.Queue, b.DMasks[i], b.HMask)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
-	b.driver.MemCopyH2D(b.context, b.dOutputData, b.hOutputData)
+	b.Upload(b.rt, b.Queue, b.DInputData, b.HInputData)
+	b.Upload(b.rt, b.Queue, b.DOutputData, b.HOutputData)
 }
 
-func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex int, gridSize uint32) {
+func (b *Benchmark) enqueueKernel(queue gpuruntime.CommandQueue, gpuIndex int, gridSize uint32) {
 	if b.Arch == arch.CDNA3 {
 		wgSizeX := uint16(64)
 		wgSizeY := uint16(1)
 		wgSizeZ := uint16(1)
 
 		kernArg := CDNA3KernelArgs{
-			Input:           b.dInputData,
-			Mask:            b.dMasks[gpuIndex],
-			Output:          b.dOutputData,
+			Input:           b.DInputData,
+			Mask:            b.DMasks[gpuIndex],
+			Output:          b.DOutputData,
 			InputDimensions: [2]uint32{b.Width, b.Height},
-			MaskDimensions:  [2]uint32{b.maskSize, b.maskSize},
-			NExWidth:        b.Width + b.padWidth,
+			MaskDimensions:  [2]uint32{b.MaskSize, b.MaskSize},
+			NExWidth:        b.Width + b.PadWidth,
 			// Hidden kernel arguments for GFX942
 			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
 			HiddenBlockCountY:   1,
@@ -209,7 +202,7 @@ func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex int, grid
 			HiddenGridDims:      1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{gridSize, 1, 1},
@@ -218,17 +211,17 @@ func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex int, grid
 		)
 	} else {
 		kernArg := GCN3KernelArgs{
-			b.dInputData,
-			b.dMasks[gpuIndex],
-			b.dOutputData,
+			b.DInputData,
+			b.DMasks[gpuIndex],
+			b.DOutputData,
 			[2]uint32{b.Width, b.Height},
-			[2]uint32{b.maskSize, b.maskSize},
-			b.Width + b.padWidth,
+			[2]uint32{b.MaskSize, b.MaskSize},
+			b.Width + b.PadWidth,
 			0,
 			uint64(gridSize * uint32(gpuIndex)), 0, 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
 			[3]uint32{gridSize, 1, 1},
@@ -239,38 +232,34 @@ func (b *Benchmark) enqueueKernel(queue *driver.CommandQueue, gpuIndex int, grid
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
-	gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) / uint32(len(b.gpus))
+	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
+	gridSize := ((b.Width + b.PadWidth) * (b.Height + b.PadHeight)) / uint32(len(b.Gpus))
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.context)
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		queues[i] = b.rt.CreateCommandQueue(b.Context)
 		b.enqueueKernel(queues[i], i, gridSize)
 	}
 
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DOutputData, Target: 0})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
 	mismatch := false
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j
-			gpuOutput := b.hOutputData[index]
+			gpuOutput := b.HOutputData[index]
 			cpuOutput := cpuOutputImage[index]
 
 			if cpuOutput != gpuOutput {
 				log.Printf("mismatch as position %d, %d (addr 0x%x). "+
 					"Expected %d, but get %d",
 					i, j,
-					uint64(b.dOutputData)+uint64(4*index),
+					uint64(b.DOutputData)+uint64(4*index),
 					cpuOutput, gpuOutput)
 				mismatch = true
 			}
@@ -278,30 +267,32 @@ func (b *Benchmark) Verify() {
 	}
 
 	if mismatch {
-		panic("verification failed")
+		return fmt.Errorf("verification failed")
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuSimpleConvolution() []uint32 {
-	numOutputData := (b.Width + b.padWidth) * (b.Height + b.padHeight)
+	numOutputData := (b.Width + b.PadWidth) * (b.Height + b.PadHeight)
 	cpuOutputData := make([]uint32, numOutputData)
 
-	for y := uint32(0); y < b.Height+b.padHeight; y++ {
-		for x := uint32(0); x < b.Width+b.padWidth; x++ {
+	for y := uint32(0); y < b.Height+b.PadHeight; y++ {
+		for x := uint32(0); x < b.Width+b.PadWidth; x++ {
 			outputIndex := y*b.Width + x
 			if x >= b.Width || y >= b.Height {
 				break
 			}
 
 			sum := float32(0)
-			for j := uint32(0); j < b.maskSize; j++ {
-				for i := uint32(0); i < b.maskSize; i++ {
-					maskIndex := j*b.maskSize + i
-					imageIndex := (y+j)*(b.Width+b.padWidth) + (x + i)
+			for j := uint32(0); j < b.MaskSize; j++ {
+				for i := uint32(0); i < b.MaskSize; i++ {
+					maskIndex := j*b.MaskSize + i
+					imageIndex := (y+j)*(b.Width+b.PadWidth) + (x + i)
 
-					sum += float32(b.hInputData[imageIndex]) * b.hMask[maskIndex]
+					sum += float32(b.HInputData[imageIndex]) * b.HMask[maskIndex]
 				}
 			}
 
@@ -311,4 +302,51 @@ func (b *Benchmark) cpuSimpleConvolution() []uint32 {
 	}
 
 	return cpuOutputData
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		for i := range b.Readbacks {
+			var dst any
+			switch b.Readbacks[i].Target {
+			case 0:
+				dst = b.HOutputData
+			}
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.Readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.HOutputData
+			}
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
+				return err
+			}
+		}
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

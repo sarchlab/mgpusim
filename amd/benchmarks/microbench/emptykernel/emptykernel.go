@@ -10,51 +10,43 @@
 package emptykernel
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // emptyArgs is the kernel argument struct: one unused pointer, present only so
-// the kernarg segment is non-zero (the driver cannot allocate 0 bytes). The
+// the kernarg segment is non-zero (Runtime cannot allocate 0 bytes). The
 // kernel never dereferences it.
 type emptyArgs struct {
-	Out driver.Ptr // offset 0
+	Out gpuruntime.Ptr // offset 0
 }
 
 // Benchmark defines the empty_kernel benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-
-	// NumBlocks is the number of work-groups in the (empty) grid; the scaling axis.
-	NumBlocks int
-	// BlockSize is the number of work-items per work-group.
-	BlockSize int
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new empty_kernel benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -69,16 +61,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. empty_kernel uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the empty_kernel benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -86,8 +78,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.exec()
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 }
 
 func (b *Benchmark) exec() {
@@ -99,28 +91,52 @@ func (b *Benchmark) exec() {
 	}
 
 	// A tiny unused buffer just to give the kernel a valid (non-zero) kernarg.
-	var out driver.Ptr
-	if b.useUnifiedMemory {
-		out = b.driver.AllocateUnifiedMemory(b.context, 4)
+	var out gpuruntime.Ptr
+	if b.UseUnifiedMemory {
+		out = b.rt.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		out = b.driver.AllocateMemory(b.context, 4)
+		out = b.rt.AllocateMemory(b.Context, 4)
 	}
 
 	globalX := uint32(b.NumBlocks * b.BlockSize)
 	args := emptyArgs{Out: out}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.BlockSize), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify is a no-op: the empty kernel produces no output to check.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.exec()
+		b.Phase = 1
+	case 1:
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Ended = true
+	}
+	return nil
 }

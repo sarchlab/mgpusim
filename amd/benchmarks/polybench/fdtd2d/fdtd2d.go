@@ -23,15 +23,16 @@
 package fdtd2d
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const blockSize = 16
@@ -43,10 +44,10 @@ const blockSize = 16
 // padding (mgpusim serializes args with binary.Write, which inserts no
 // alignment padding). No hidden ABI arguments are present.
 type ExEyKernelArgs struct {
-	Field driver.Ptr // offset 0  (ex or ey, in/out)
-	Hz    driver.Ptr // offset 8  (hz, read-only)
-	NX    int32      // offset 16
-	NY    int32      // offset 20
+	Field gpuruntime.Ptr // offset 0  (ex or ey, in/out)
+	Hz    gpuruntime.Ptr // offset 8  (hz, read-only)
+	NX    int32          // offset 16
+	NY    int32          // offset 20
 }
 
 // HzKernelArgs matches the layout of fdtd_update_hz.
@@ -55,50 +56,35 @@ type ExEyKernelArgs struct {
 // global_buffer pointers followed by two 4-byte by_value ints. No hidden ABI
 // arguments are present.
 type HzKernelArgs struct {
-	Ex driver.Ptr // offset 0  (read-only)
-	Ey driver.Ptr // offset 8  (read-only)
-	Hz driver.Ptr // offset 16 (in/out)
-	NX int32      // offset 24
-	NY int32      // offset 28
+	Ex gpuruntime.Ptr // offset 0  (read-only)
+	Ey gpuruntime.Ptr // offset 8  (read-only)
+	Hz gpuruntime.Ptr // offset 16 (in/out)
+	NX int32          // offset 24
+	NY int32          // offset 28
 }
 
 // Benchmark defines the FDTD-2D benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	kernelEx *insts.KernelCodeObject
 	kernelEy *insts.KernelCodeObject
 	kernelHz *insts.KernelCodeObject
-
-	gpus []int
-
-	Arch arch.Type
-	N    int // grid dimension (NX = NY = N)
-	TMax int // number of time steps
-
-	exInit []float32
-	eyInit []float32
-	hzInit []float32
-
-	gEx driver.Ptr
-	gEy driver.Ptr
-	gHz driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new FDTD-2D benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -117,16 +103,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. FDTD-2D uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench fdtd2d benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -134,7 +120,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -158,30 +145,30 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.exInit = make([]float32, numElem)
-	b.eyInit = make([]float32, numElem)
-	b.hzInit = make([]float32, numElem)
+	b.ExInit = make([]float32, numElem)
+	b.EyInit = make([]float32, numElem)
+	b.HzInit = make([]float32, numElem)
 
 	// Deterministic host init reproducible in Verify().
 	for i := 0; i < numElem; i++ {
-		b.exInit[i] = float32(i%100) / 10.0
-		b.eyInit[i] = float32((i*2)%100) / 10.0
-		b.hzInit[i] = float32((i*3)%100) / 10.0
+		b.ExInit[i] = float32(i%100) / 10.0
+		b.EyInit[i] = float32((i*2)%100) / 10.0
+		b.HzInit[i] = float32((i*3)%100) / 10.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gEx = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gEy = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gHz = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GEx = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gEx = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gEy = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gHz = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GEx = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gEx, b.exInit)
-	b.driver.MemCopyH2D(b.context, b.gEy, b.eyInit)
-	b.driver.MemCopyH2D(b.context, b.gHz, b.hzInit)
+	b.Upload(b.rt, b.Queue, b.GEx, b.ExInit)
+	b.Upload(b.rt, b.Queue, b.GEy, b.EyInit)
+	b.Upload(b.rt, b.Queue, b.GHz, b.HzInit)
 }
 
 func (b *Benchmark) exec() {
@@ -190,10 +177,10 @@ func (b *Benchmark) exec() {
 	globalX := gridDim * blockSize
 	globalY := gridDim * blockSize
 
-	exArgs := ExEyKernelArgs{Field: b.gEx, Hz: b.gHz, NX: int32(n), NY: int32(n)}
-	eyArgs := ExEyKernelArgs{Field: b.gEy, Hz: b.gHz, NX: int32(n), NY: int32(n)}
+	exArgs := ExEyKernelArgs{Field: b.GEx, Hz: b.GHz, NX: int32(n), NY: int32(n)}
+	eyArgs := ExEyKernelArgs{Field: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n)}
 	hzArgs := HzKernelArgs{
-		Ex: b.gEx, Ey: b.gEy, Hz: b.gHz, NX: int32(n), NY: int32(n),
+		Ex: b.GEx, Ey: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n),
 	}
 
 	// The three kernels in each time step have read-after-write dependencies:
@@ -204,28 +191,27 @@ func (b *Benchmark) exec() {
 	// default configuration. (See the package doc comment about the
 	// multi-workgroup timing-mode cache-coherency limitation.)
 	cohere := func() {
-		b.driver.DrainCommandQueue(b.queue)
 	}
 
 	for t := 0; t < b.TMax; t++ {
-		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelEx,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue, b.kernelEx,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&exArgs,
 		)
 		cohere()
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelEy,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue, b.kernelEy,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&eyArgs,
 		)
 		cohere()
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelHz,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue, b.kernelHz,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&hzArgs,
@@ -235,25 +221,31 @@ func (b *Benchmark) exec() {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.N
 	numElem := n * n
 
 	gpuEx := make([]float32, numElem)
 	gpuEy := make([]float32, numElem)
 	gpuHz := make([]float32, numElem)
-	b.driver.MemCopyD2H(b.context, gpuEx, b.gEx)
-	b.driver.MemCopyD2H(b.context, gpuEy, b.gEy)
-	b.driver.MemCopyD2H(b.context, gpuHz, b.gHz)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuEx); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuEy); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuHz); err != nil {
+		return err
+	}
 
 	// CPU reference: same field init, same TMax time steps, in float32 to
 	// mirror the GPU arithmetic.
 	ex := make([]float32, numElem)
 	ey := make([]float32, numElem)
 	hz := make([]float32, numElem)
-	copy(ex, b.exInit)
-	copy(ey, b.eyInit)
-	copy(hz, b.hzInit)
+	copy(ex, b.ExInit)
+	copy(ey, b.EyInit)
+	copy(hz, b.HzInit)
 
 	for t := 0; t < b.TMax; t++ {
 		// Update ex.
@@ -285,7 +277,7 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 		}
 	}
 
-	check := func(name string, ref, got []float32) {
+	check := func(name string, ref, got []float32) error {
 		for idx := 0; idx < numElem; idx++ {
 			r := float64(ref[idx])
 			g := float64(got[idx])
@@ -294,15 +286,61 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 				denom = 1.0
 			}
 			if math.Abs(r-g)/denom > 1e-3 {
-				log.Fatalf("%s mismatch at (%d,%d): expected %f, got %f.\n",
+				return fmt.Errorf("%s mismatch at (%d,%d): expected %f, got %f.\n",
 					name, idx/n, idx%n, r, g)
 			}
 		}
+
+		return nil
 	}
 
-	check("ex", ex, gpuEx)
-	check("ey", ey, gpuEy)
-	check("hz", hz, gpuHz)
+	if err := check("ex", ex, gpuEx); err != nil {
+		return err
+	}
+	if err := check("ey", ey, gpuEy); err != nil {
+		return err
+	}
+	if err := check("hz", hz, gpuHz); err != nil {
+		return err
+	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEx, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEy, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GHz, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

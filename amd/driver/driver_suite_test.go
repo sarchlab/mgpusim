@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/gomega"
 )
 
-//go:generate mockgen -destination "mock_internal_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/mgpusim/v5/amd/driver/internal MemoryAllocator
 func TestDriver(t *testing.T) {
 	log.SetOutput(ginkgo.GinkgoWriter)
 	gomega.RegisterFailHandler(ginkgo.Fail)

@@ -2,33 +2,35 @@
 package bicg
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"encoding/binary"
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3 Kernel Arguments
 
 // Kernel1Args list first set of kernel arguments for GCN3
 type Kernel1Args struct {
-	A      driver.Ptr
-	P      driver.Ptr
-	Q      driver.Ptr
+	A      gpuruntime.Ptr
+	P      gpuruntime.Ptr
+	Q      gpuruntime.Ptr
 	NX, NY int32
 }
 
 // Kernel2Args list second set of kernel arguments for GCN3
 type Kernel2Args struct {
-	A      driver.Ptr
-	R      driver.Ptr
-	S      driver.Ptr
+	A      gpuruntime.Ptr
+	R      gpuruntime.Ptr
+	S      gpuruntime.Ptr
 	NX, NY int32
 }
 
@@ -36,9 +38,9 @@ type Kernel2Args struct {
 
 // CDNA3Kernel1Args defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3Kernel1Args struct {
-	A                   driver.Ptr
-	P                   driver.Ptr
-	Q                   driver.Ptr
+	A                   gpuruntime.Ptr
+	P                   gpuruntime.Ptr
+	Q                   gpuruntime.Ptr
 	NX                  int32
 	NY                  int32
 	HiddenBlockCountX   uint32
@@ -59,9 +61,9 @@ type CDNA3Kernel1Args struct {
 
 // CDNA3Kernel2Args defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3Kernel2Args struct {
-	A                   driver.Ptr
-	R                   driver.Ptr
-	S                   driver.Ptr
+	A                   gpuruntime.Ptr
+	R                   gpuruntime.Ptr
+	S                   gpuruntime.Ptr
 	NX                  int32
 	NY                  int32
 	HiddenBlockCountX   uint32
@@ -82,38 +84,32 @@ type CDNA3Kernel2Args struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
-	gpus             []int
-	queues           []*driver.CommandQueue
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
+
 	kernel1, kernel2 *insts.KernelCodeObject
-
-	Arch               arch.Type
-	NX, NY             int
-	a, r, s, p, q      []float32
-	sOutput, qOutput   []float32
-	cpuS, cpuQ         []float32
-	dA, dR, dS, dP, dQ driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.driver = driver
-	b.context = driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -143,61 +139,58 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
+
 	b.loadProgram()
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
-	}
-
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
 	rand.Seed(1)
-	b.a = make([]float32, b.NX*b.NY)
-	b.r = make([]float32, b.NX)
-	b.s = make([]float32, b.NY)
-	b.p = make([]float32, b.NY)
-	b.q = make([]float32, b.NX)
-	b.sOutput = make([]float32, b.NY)
-	b.qOutput = make([]float32, b.NX)
+	b.A = make([]float32, b.NX*b.NY)
+	b.R = make([]float32, b.NX)
+	b.S = make([]float32, b.NY)
+	b.P = make([]float32, b.NY)
+	b.Q = make([]float32, b.NX)
+	b.SOutput = make([]float32, b.NY)
+	b.QOutput = make([]float32, b.NX)
 
 	for i := 0; i < b.NX; i++ {
-		b.r[i] = float32(i) * math.Pi
+		b.R[i] = float32(i) * math.Pi
 		for j := 0; j < b.NY; j++ {
-			b.a[i*b.NY+j] = float32(i) * float32(j) / float32(b.NX)
+			b.A[i*b.NY+j] = float32(i) * float32(j) / float32(b.NX)
 		}
 	}
 
 	for i := 0; i < b.NY; i++ {
-		b.p[i] = float32(i) * math.Pi
+		b.P[i] = float32(i) * math.Pi
 	}
 
-	if b.useUnifiedMemory {
-		b.dA = b.driver.AllocateUnifiedMemory(b.context,
+	if b.UseUnifiedMemory {
+		b.DA = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NY*b.NX*4))
-		b.dR = b.driver.AllocateUnifiedMemory(b.context,
+		b.DR = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NX*4))
-		b.dS = b.driver.AllocateUnifiedMemory(b.context,
+		b.DS = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NY*4))
-		b.dP = b.driver.AllocateUnifiedMemory(b.context,
+		b.DP = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NY*4))
-		b.dQ = b.driver.AllocateUnifiedMemory(b.context,
+		b.DQ = b.rt.AllocateUnifiedMemory(b.Context,
 			uint64(b.NX*4))
 	} else {
-		b.dA = b.driver.AllocateMemory(b.context,
+		b.DA = b.rt.AllocateMemory(b.Context,
 			uint64(b.NY*b.NX*4))
-		b.dR = b.driver.AllocateMemory(b.context,
+		b.DR = b.rt.AllocateMemory(b.Context,
 			uint64(b.NX*4))
-		b.dS = b.driver.AllocateMemory(b.context,
+		b.DS = b.rt.AllocateMemory(b.Context,
 			uint64(b.NY*4))
-		b.dP = b.driver.AllocateMemory(b.context,
+		b.DP = b.rt.AllocateMemory(b.Context,
 			uint64(b.NY*4))
-		b.dQ = b.driver.AllocateMemory(b.context,
+		b.DQ = b.rt.AllocateMemory(b.Context,
 			uint64(b.NX*4))
 	}
 }
@@ -205,9 +198,9 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32, globalSizeX uint32) {
 	if b.Arch == arch.CDNA3 {
 		kernel1Arg := CDNA3Kernel1Args{
-			A:                   b.dA,
-			P:                   b.dP,
-			Q:                   b.dQ,
+			A:                   b.DA,
+			P:                   b.DP,
+			Q:                   b.DQ,
 			NX:                  int32(b.NX),
 			NY:                  int32(b.NY),
 			HiddenBlockCountX:   globalSizeX / uint32(localSize[0]),
@@ -224,17 +217,17 @@ func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32, glo
 			HiddenGlobalOffsetZ: 0,
 			HiddenGridDims:      1,
 		}
-		b.driver.LaunchKernel(b.context, b.kernel1,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1,
 			globalSize, localSize, &kernel1Arg)
 	} else {
 		kernel1Arg := Kernel1Args{
-			A:  b.dA,
-			P:  b.dP,
-			Q:  b.dQ,
+			A:  b.DA,
+			P:  b.DP,
+			Q:  b.DQ,
 			NX: int32(b.NX),
 			NY: int32(b.NY),
 		}
-		b.driver.LaunchKernel(b.context, b.kernel1,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1,
 			globalSize, localSize, &kernel1Arg)
 	}
 }
@@ -242,9 +235,9 @@ func (b *Benchmark) launchKernel1(localSize [3]uint16, globalSize [3]uint32, glo
 func (b *Benchmark) launchKernel2(localSize [3]uint16, globalSize [3]uint32, globalSizeX uint32) {
 	if b.Arch == arch.CDNA3 {
 		kernel2Arg := CDNA3Kernel2Args{
-			A:                   b.dA,
-			R:                   b.dR,
-			S:                   b.dS,
+			A:                   b.DA,
+			R:                   b.DR,
+			S:                   b.DS,
 			NX:                  int32(b.NX),
 			NY:                  int32(b.NY),
 			HiddenBlockCountX:   globalSizeX / uint32(localSize[0]),
@@ -261,25 +254,25 @@ func (b *Benchmark) launchKernel2(localSize [3]uint16, globalSize [3]uint32, glo
 			HiddenGlobalOffsetZ: 0,
 			HiddenGridDims:      1,
 		}
-		b.driver.LaunchKernel(b.context, b.kernel2,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2,
 			globalSize, localSize, &kernel2Arg)
 	} else {
 		kernel2Arg := Kernel2Args{
-			A:  b.dA,
-			R:  b.dR,
-			S:  b.dS,
+			A:  b.DA,
+			R:  b.DR,
+			S:  b.DS,
 			NX: int32(b.NX),
 			NY: int32(b.NY),
 		}
-		b.driver.LaunchKernel(b.context, b.kernel2,
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2,
 			globalSize, localSize, &kernel2Arg)
 	}
 }
 
 func (b *Benchmark) exec() {
-	b.driver.MemCopyH2D(b.context, b.dA, b.a)
-	b.driver.MemCopyH2D(b.context, b.dR, b.r)
-	b.driver.MemCopyH2D(b.context, b.dP, b.p)
+	b.Upload(b.rt, b.Queue, b.DA, b.A)
+	b.Upload(b.rt, b.Queue, b.DR, b.R)
+	b.Upload(b.rt, b.Queue, b.DP, b.P)
 
 	localSize := [3]uint16{256, 1, 1}
 	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
@@ -292,39 +285,92 @@ func (b *Benchmark) exec() {
 
 	b.launchKernel2(localSize, globalSize, globalSizeX)
 
-	b.driver.MemCopyD2H(b.context, b.sOutput, b.dS)
-	b.driver.MemCopyD2H(b.context, b.qOutput, b.dQ)
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DS, Target: 0})
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DQ, Target: 1})
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	b.cpuBicg()
 
 	for i := 0; i < b.NY; i++ {
-		if b.cpuS[i] != b.sOutput[i] {
-			log.Panicf("Mismatch in s at %d, expected %f, but get %f",
-				i, b.cpuS[i], b.sOutput[i])
+		if b.CpuS[i] != b.SOutput[i] {
+			return fmt.Errorf("Mismatch in s at %d, expected %f, but get %f",
+				i, b.CpuS[i], b.SOutput[i])
 		}
 	}
 
 	for i := 0; i < b.NX; i++ {
-		if b.cpuQ[i] != b.qOutput[i] {
-			log.Panicf("Mismatch in q at %d, expected %f, but get %f",
-				i, b.cpuQ[i], b.qOutput[i])
+		if b.CpuQ[i] != b.QOutput[i] {
+			return fmt.Errorf("Mismatch in q at %d, expected %f, but get %f",
+				i, b.CpuQ[i], b.QOutput[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuBicg() {
-	b.cpuS = make([]float32, b.NY)
-	b.cpuQ = make([]float32, b.NX)
+	b.CpuS = make([]float32, b.NY)
+	b.CpuQ = make([]float32, b.NX)
 
 	for i := 0; i < b.NX; i++ {
 		for j := 0; j < b.NY; j++ {
-			b.cpuS[j] += b.r[i] * b.a[i*b.NY+j]
-			b.cpuQ[i] += b.p[j] * b.a[i*b.NY+j]
+			b.CpuS[j] += b.R[i] * b.A[i*b.NY+j]
+			b.CpuQ[i] += b.P[j] * b.A[i*b.NY+j]
 		}
 	}
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		for i := range b.Readbacks {
+			var dst any
+			switch b.Readbacks[i].Target {
+			case 0:
+				dst = b.SOutput
+			case 1:
+				dst = b.QOutput
+			}
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.Readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.SOutput
+			case 1:
+				dst = b.QOutput
+			}
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
+				return err
+			}
+		}
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

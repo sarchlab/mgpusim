@@ -89,4 +89,3 @@ func NewInst() *Inst {
 	i.InstType = new(InstType)
 	return i
 }
-

@@ -17,14 +17,15 @@
 package int32throughput
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"fmt"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // defaultThreadsPerBlock is the work-group size used when ThreadsPerBlock is
@@ -41,49 +42,31 @@ const defaultThreadsPerBlock = 256
 // threads_per_block), packed with no padding (mgpusim serializes args with
 // binary.Write, which does not insert alignment padding).
 type KernelArgs struct {
-	Out             driver.Ptr // offset 0
-	MadsPerThread   int32      // offset 8
-	ThreadsPerBlock int32      // offset 12
+	Out             gpuruntime.Ptr // offset 0
+	MadsPerThread   int32          // offset 8
+	ThreadsPerBlock int32          // offset 12
 }
 
 // Benchmark defines the int32_throughput benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-
-	// MadsPerThread is the number of multiply-add operations per thread.
-	// It is rounded down to a multiple of 4 (and forced to at least 4),
-	// matching the HIP host program.
-	MadsPerThread int
-	// NumBlocks is the number of work-groups (blocks) in the 1D grid.
-	NumBlocks int
-	// ThreadsPerBlock is the work-group (block) size, swept by the
-	// calibration and passed to the kernel as an explicit argument.
-	ThreadsPerBlock int
-
-	madsPerThread int
-	numThreads    int
-
-	gOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new int32_throughput benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -98,16 +81,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the int32_throughput benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -115,7 +98,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -132,40 +116,38 @@ func (b *Benchmark) initMem() {
 	}
 
 	// Match the HIP host: round down to a multiple of 4, min 4.
-	b.madsPerThread = (b.MadsPerThread / 4) * 4
-	if b.madsPerThread == 0 {
-		b.madsPerThread = 4
+	b.EffectiveMadsPerThread = (b.MadsPerThread / 4) * 4
+	if b.EffectiveMadsPerThread == 0 {
+		b.EffectiveMadsPerThread = 4
 	}
 
-	b.numThreads = b.NumBlocks * b.ThreadsPerBlock
+	b.NumThreads = b.NumBlocks * b.ThreadsPerBlock
 
-	if b.useUnifiedMemory {
-		b.gOut = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.numThreads*4))
+	if b.UseUnifiedMemory {
+		b.GOut = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumThreads*4))
 	} else {
-		b.gOut = b.driver.AllocateMemory(
-			b.context, uint64(b.numThreads*4))
+		b.GOut = b.rt.AllocateMemory(
+			b.Context, uint64(b.NumThreads*4))
 	}
 }
 
 func (b *Benchmark) exec() {
-	globalX := uint32(b.numThreads)
+	globalX := uint32(b.NumThreads)
 
 	args := KernelArgs{
-		Out:             b.gOut,
-		MadsPerThread:   int32(b.madsPerThread),
+		Out:             b.GOut,
+		MadsPerThread:   int32(b.EffectiveMadsPerThread),
 		ThreadsPerBlock: int32(b.ThreadsPerBlock),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuReferenceForThread reproduces, exactly, the value a thread with the
@@ -181,7 +163,7 @@ func (b *Benchmark) cpuReferenceForThread(threadIdxX int) int32 {
 	const mul = int32(3)
 	const add = int32(1)
 
-	for i := 0; i < b.madsPerThread; i += 4 {
+	for i := 0; i < b.EffectiveMadsPerThread; i += 4 {
 		a0 = a0*mul + add
 		a1 = a1*mul + add
 		a2 = a2*mul + add
@@ -192,20 +174,58 @@ func (b *Benchmark) cpuReferenceForThread(threadIdxX int) int32 {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
-	gpuOut := make([]int32, b.numThreads)
-	b.driver.MemCopyD2H(b.context, gpuOut, b.gOut)
+func (b *Benchmark) verify() error {
+	gpuOut := make([]int32, b.NumThreads)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOut); err != nil {
+		return err
+	}
 
-	for tid := 0; tid < b.numThreads; tid++ {
+	for tid := 0; tid < b.NumThreads; tid++ {
 		threadIdxX := tid % b.ThreadsPerBlock
 		ref := b.cpuReferenceForThread(threadIdxX)
 		got := gpuOut[tid]
 
 		if ref != got {
-			log.Fatalf("Verification failed at thread %d: "+
+			return fmt.Errorf("Verification failed at thread %d: "+
 				"expected %d, but got %d.\n", tid, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*(b.NumThreads)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

@@ -33,7 +33,7 @@ Custom platforms must build with a simulation, bind each port to its component
 before connecting it, and call `Simulation.Initialize()` after wiring. Shared
 memory, page tables, dispatchers, compute-unit runtime graphs and sampling state
 are registered resources. Sampling history belongs to one simulation. Existing
-sample runners perform initialization automatically.
+sample main functions explicitly initialize the composed simulation.
 
 ## Save and resume submitted work
 
@@ -43,41 +43,23 @@ options. Initialize it, then call `Simulation.LoadCheckpoint(path)`. Do not relo
 traces or resubmit commands: submitted kernels, queued commands, host-to-device
 source bytes and in-flight memory operations are already in the checkpoint.
 
-Save only at a stopped engine boundary, with no host goroutine submitting or
-changing commands. For a manually driven serial engine, a typical sequence is:
+AMD host work uses the checkpointed Runtime and benchmark Step loop described in
+[Runtime and benchmark steps](runtime-and-benchmark-steps.md). Save only after
+an entire host round has returned and the Driver tick has been scheduled.
+`Runner.SaveCheckpoint` enforces that boundary. Lower-level direct callers must
+honor the same precondition. A serial engine may run to an intermediate event
+boundary with `RunUntil` before saving.
 
-```go
-// After building and initializing the platform, enqueue all required work.
-driver.TickLater()
-engine := simulation.Engine().(*timing.SerialEngine)
-if err := engine.RunUntil(stopTime); err != nil {
-    return err
-}
-if err := simulation.SaveCheckpoint(path); err != nil {
-    return err
-}
-```
+D2H submissions write to caller-owned CPU storage described by a `HostBuffer`.
+Benchmarks save that descriptor in their continuation and decode the buffer with
+`Runtime.ReadHost` in a later Step after the global simulation drain. Reads are
+repeatable; callers explicitly release the allocation with `Runtime.FreeMemory`.
+Alternatively, `benchmarks.Read` decodes the buffer and releases it after a
+successful read. No output pointer binding is needed.
+Fresh-process reconstruction registers the same named workload resources before
+loading; `Runner.Run` first drains the saved simulation before the next Step.
+There is no asynchronous Driver host loop.
 
-Use either manual engine control or the driver's asynchronous host execution
-loop. When using the latter, coordinate the engine pause with host submission
-before saving; pausing the engine alone does not stop host goroutines.
-
-AMD device-to-host copies have a persistent command ID and byte extent, but
-host pointers are not serialized. In a fresh process, enumerate
-`driver.ResultBuffers()` and reconnect each desired destination using
-`driver.BindResultBuffer(commandID, destination)`. Preserve the association
-between command IDs and application outputs outside the simulation. The list is
-sorted by command ID. Each destination must have exactly the submitted binary
-size and be writable by `encoding/binary`.
-
-A buffer may be bound before the engine resumes, or after its copy has finished.
-An unbound completed copy retains its bytes in the driver and in subsequent
-checkpoints; binding it delivers the bytes immediately and removes the retained
-result. Binding a pending copy does not change the destination's contents.
-Result inspection and binding require the same stopped-engine/no-submission
-boundary as checkpointing.
-
-After rebinding, `simulation.Engine().Run()` continues already submitted work.
 The NVIDIA trace runner has no AMD host result buffers; its trace progress,
 resident warps, scoreboards and memory pipeline state resume from the archive.
 
@@ -94,7 +76,7 @@ Fresh-process tests rebuild only the topology and load a mid-kernel archive:
 
 - AMD emulation and timing both cover GCN3 and CDNA3 with two submitted FIR
   kernels. Timing checkpoints contain vector memory requests in flight. One
-  output is rebound before continuation; the other is rebound after completion.
+  output is read after continuation; another remains retained until requested.
   All 512 output values and the complete final archive match uninterrupted runs.
 - NVIDIA tests stop at queued, resident-warp and memory-in-flight stages, then
   finish two submitted kernels. They verify 544 instructions, 32 warps and an

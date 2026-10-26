@@ -44,7 +44,8 @@ MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set arch
 
 ### Key Components
 
-- **`amd/driver/`**: GPU driver simulation - memory allocation, kernel launch, command queues
+- **`amd/runtime/`**: Host API and shared resource owning contexts, queues, allocations, commands, and events
+- **`amd/driver/`**: Simulated command execution and GPU protocol state; consumes Runtime through Resources
 - **`amd/insts/`**: GCN3 instruction definitions, decoder, disassembler, HSACO parsing
 - **`amd/kernels/`**: Kernel loading from HSACO (ELF) files
 - **`amd/benchmarks/`**: Benchmark implementations with embedded HSACO binaries
@@ -61,8 +62,8 @@ Multi-kernel ELFs: Each kernel is a symbol pointing to its code object. Loading 
 ### Simulation Flow
 
 1. Benchmark loads HSACO via `kernels.LoadProgramFromMemory(data, "kernelName")`
-2. Driver allocates GPU memory, copies kernel args
-3. Driver creates dispatch packet with kernel address
+2. Runtime allocates GPU/CPU storage and enqueues immutable kernel dispatch values
+3. Benchmark Step rounds submit work; Runner schedules Driver and globally drains Simulation
 4. Command Processor dispatches work-groups to Compute Units
 5. CU executes wavefronts (64 threads) through pipeline
 
@@ -104,3 +105,8 @@ Fix any linting issues before considering the task complete. Common issues inclu
 - Unnecessary type conversions (`unconvert`)
 - Function complexity (`gocognit`, `funlen`) - add `//nolint:gocognit,funlen` if justified
 - Line length (`lll`) - keep lines under 120 characters
+
+The AMD HTTP server and its sample have been removed. Compose simulations through
+`amd/samples/sample` and `amd/samples/runner`; see
+[Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md). Benchmark
+continuation uses `benchmarks.Checkpoint[Config, State]`.

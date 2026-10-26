@@ -1,221 +1,119 @@
-// Package runner defines how default benchmark samples are executed.
+// Package runner schedules checkpointed host phases in a stable order.
 package runner
 
 import (
-	"log"
-	"os"
-
-	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v5/monitoring"
-
-	// Enable profiling
-	_ "net/http/pprof"
-	"sync"
+	"fmt"
 
 	simulation "github.com/sarchlab/akita/v5/sim"
-	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-type verificationPreEnablingBenchmark interface {
-	benchmarks.Benchmark
-
-	EnableVerification()
-}
-
-// Runner is a class that helps running the benchmarks in the official samples.
+// Runner owns only the workload collection and its execution loop.
 type Runner struct {
-	simulation *simulation.Simulation
-	gpuDriver  *driver.Driver
-	reporter   *reporter
-	monitor    *monitoring.Monitor
-
-	Timing           bool
-	Verify           bool
-	Parallel         bool
-	UseUnifiedMemory bool
-	ArchType         arch.Type
-	GPUType          string
-
-	GPUIDs     []int
-	benchmarks []benchmarks.Benchmark
+	simulation    *simulation.Simulation
+	runtime       *gpuruntime.Runtime
+	benchmarks    []benchmarks.Benchmark
+	driver        driver.Ticker
+	betweenRounds bool
 }
 
-// Init initializes the platform simulate
-func (r *Runner) Init() *Runner {
-	r.parseFlag()
-
-	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
-
-	r.initSimulation()
-
-	if r.Timing {
-		r.buildTimingPlatform()
-	} else {
-		r.buildEmuPlatform()
-	}
-
-	if err := r.simulation.Initialize(); err != nil {
-		panic(err)
-	}
-
-	r.createUnifiedGPUs()
-
-	return r
+func New(s *simulation.Simulation, r *gpuruntime.Runtime) *Runner {
+	rnr := &Runner{simulation: s, runtime: r, betweenRounds: true}
+	return rnr
 }
-
-func (r *Runner) initSimulation() {
-	builder := simulation.MakeBuilder().WithTaskTracking()
-
-	if *parallelFlag {
-		builder = builder.WithParallelEngine()
-	}
-
-	if !*disableAkitaRTM {
-		mb := monitoring.MakeBuilder()
-		if *customPortForAkitaRTM > 0 {
-			mb = mb.WithPortNumber(*customPortForAkitaRTM)
-		}
-		r.monitor = mb.Build()
-		builder = builder.WithMonitor(r.monitor)
-	}
-
-	if *visTracing {
-		builder = builder.WithVisTracingOnStart()
-		builder = withRecordedSource(builder)
-	}
-
-	// Only honor -metric-file-name when it is explicitly set, so the
-	// default output name stays the v4-compatible "akita_sim_<id>".
-	output := "akita_sim_" + xid.New().String()
-	explicitOutput := metricFileNameFlagIsSet() && *filenameFlag != ""
-	if explicitOutput {
-		output = *filenameFlag
-	}
-	// beta.10 always appends this suffix to the supplied base name.
-	output += ".sqlite3"
-	// Preserve the sample CLI's replacement behavior for an explicit filename.
-	// Akita rc1 itself only creates recordings at previously unused paths.
-	if explicitOutput {
-		if err := os.Remove(output); err != nil && !os.IsNotExist(err) {
-			panic(err)
-		}
-	}
-	builder = builder.WithOutputPath(output)
-
-	r.simulation = builder.Build()
-}
-
-func (r *Runner) buildEmuPlatform() {
-	b := emusystem.MakeBuilder().
-		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
-		WithArchitecture(r.ArchType)
-
-	if *isaDebug {
-		b = b.WithDebugISA()
-	}
-
-	r.gpuDriver = b.Build()
-}
-
-func (r *Runner) buildTimingPlatform() {
-	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
-		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
-		WithGPUType(r.GPUType)
-
-	if *magicMemoryCopy {
-		b = b.WithMagicMemoryCopy()
-	}
-
-	r.gpuDriver = b.Build()
-	r.reporter = newReporter(r.simulation)
-}
-
-func (r *Runner) createUnifiedGPUs() {
-	if *unifiedGPUFlag == "" {
-		return
-	}
-
-	unifiedGPUID := r.gpuDriver.CreateUnifiedGPU(nil, r.GPUIDs)
-	r.GPUIDs = []int{unifiedGPUID}
-}
-
-// AddBenchmark adds an benchmark that the driver runs
 func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
-	b.SelectGPU(r.GPUIDs)
-	if r.UseUnifiedMemory {
-		b.SetUnifiedMemory()
-	}
-
+	b.SetName(fmt.Sprintf("Benchmark[%d]", len(r.benchmarks)))
 	r.benchmarks = append(r.benchmarks, b)
+	r.simulation.RegisterResource(b)
+}
+func (r *Runner) resolveDriver() error {
+	for _, c := range r.simulation.Components() {
+		if c.Name() != "Driver" {
+			continue
+		}
+		ticker, ok := c.(driver.Ticker)
+		if !ok {
+			return fmt.Errorf("runner: Driver cannot tick")
+		}
+		r.driver = ticker
+		return nil
+	}
+	return fmt.Errorf("runner: Driver component missing")
+}
+func (r *Runner) stalled() error {
+	for i, n := range r.runtime.Unfinished() {
+		if n != 0 {
+			return fmt.Errorf("runner: queue %d stalled with %d unfinished commands", i+1, n)
+		}
+	}
+	return nil
 }
 
-// AddBenchmarkWithoutSettingGPUsToUse allows for user specified GPUs for
-// the benchmark to run.
-func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
-	if r.UseUnifiedMemory {
-		b.SetUnifiedMemory()
+// Step runs previously submitted work before visiting each active benchmark.
+// False means every workload has completed its final host processing.
+func (r *Runner) Step() (bool, error) {
+	r.betweenRounds = false
+	if r.driver == nil {
+		if err := r.resolveDriver(); err != nil {
+			return false, err
+		}
 	}
-
-	r.benchmarks = append(r.benchmarks, b)
-}
-
-// Run runs the benchmark
-func (r *Runner) Run() {
-	r.Driver().Run()
-
-	var wg sync.WaitGroup
+	if err := r.simulation.Run(); err != nil {
+		return false, err
+	}
+	if err := r.stalled(); err != nil {
+		return false, err
+	}
+	r.runtime.BeginSimulationTrace(r.simulation.TaskTracker(), r.traceOwner())
+	active := false
 	for _, b := range r.benchmarks {
-		wg.Add(1)
-		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
-			if r.Verify {
-				if b, ok := b.(verificationPreEnablingBenchmark); ok {
-					b.EnableVerification()
-				}
-			}
-
-			b.Run()
-
-			if r.Verify {
-				b.Verify()
-			}
-			wg.Done()
-		}(b, &wg)
+		if b.IsEnded() {
+			continue
+		}
+		active = true
+		if err := b.Step(); err != nil {
+			return false, fmt.Errorf("%s: %w", b.Name(), err)
+		}
 	}
-	wg.Wait()
-
-	// The benchmark goroutines return as soon as their kernels report
-	// completion, but the driver runs the Akita engine on a background
-	// goroutine that may still be draining the final events (including the
-	// trailing tracing EndTask hooks). Wait for that goroutine to go idle
-	// before reading any results, otherwise report() races it and
-	// order-sensitive metrics (e.g. cache req_average_latency) come out
-	// non-deterministic.
-	r.Driver().WaitForEngineIdle()
-
-	if r.reporter != nil {
-		r.reporter.report()
-		r.reporter.dataRecorder.Flush()
+	if active {
+		r.driver.TickLater()
 	}
-
-	r.Driver().Terminate()
-	if err := r.simulation.Terminate(); err != nil {
-		panic(err)
+	if !active {
+		r.runtime.EndSimulationTrace(r.simulation.TaskTracker())
+	}
+	r.betweenRounds = true
+	return active, nil
+}
+func (r *Runner) Run() error {
+	for {
+		active, err := r.Step()
+		if err != nil {
+			return err
+		}
+		if !active {
+			return nil
+		}
 	}
 }
 
-// Driver returns the GPU driver used by the current runner.
-func (r *Runner) Driver() *driver.Driver {
-	return r.gpuDriver
+// SaveCheckpoint is permitted only after the complete host round. Callers
+// may first use SerialEngine.RunUntil to capture an in-flight event boundary.
+func (r *Runner) SaveCheckpoint(path string) error {
+	if !r.betweenRounds {
+		return fmt.Errorf("runner: checkpoint requested within host round")
+	}
+	return r.simulation.SaveCheckpoint(path)
 }
 
-// Engine returns the event-driven simulation engine used by the current runner.
-func (r *Runner) Engine() timing.Engine {
-	return r.simulation.Engine()
+// traceOwner resolves only the generic task owner, never component execution state.
+func (r *Runner) traceOwner() tasks.Owner {
+	for _, c := range r.simulation.Components() {
+		if c.Name() == "Driver" {
+			return c
+		}
+	}
+	return nil
 }

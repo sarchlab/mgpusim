@@ -13,14 +13,15 @@
 package cachelatency
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"fmt"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
@@ -32,60 +33,32 @@ import (
 // alignment padding). The kernel reads only blockIdx.x / threadIdx.x in a
 // guard, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Arr         driver.Ptr // offset 0
-	StartIdx    uint32     // offset 8
-	NumAccesses uint32     // offset 12
-	Result      driver.Ptr // offset 16
+	Arr         gpuruntime.Ptr // offset 0
+	StartIdx    uint32         // offset 8
+	NumAccesses uint32         // offset 12
+	Result      gpuruntime.Ptr // offset 16
 }
 
 // Benchmark defines the cache_latency benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-
-	// ArrayBytes is the size of the pointer-chasing array in bytes.
-	ArrayBytes int
-	// CachelineBytes is the chase granularity: one chase node per cacheline, so
-	// consecutive accesses land on distinct lines (cache footprint == ArrayBytes).
-	// Matches the real benchmark (gfx942 line = 64 B).
-	CachelineBytes int
-	// MeasureLaps sets the timed access count when NumAccesses is auto (<=0):
-	// clamp(MeasureLaps * lines, minTimedAccesses, maxTimedAccesses), matching the
-	// real benchmark so total kernel time is comparable.
-	MeasureLaps int
-	// NumAccesses is the number of dependent loads the single thread performs.
-	// If <=0 it is derived from MeasureLaps (see initMem); an explicit value wins.
-	NumAccesses int
-	// Seed controls the deterministic chain permutation.
-	Seed uint32
-
-	n        int // total array elements (ArrayBytes/4)
-	m        int // number of cacheline chase nodes (n/stride)
-	stride   int // element stride between nodes (CachelineBytes/4)
-	startIdx uint32
-	chain    []uint32
-
-	gArr    driver.Ptr
-	gResult driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new cache_latency benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -100,16 +73,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. cache_latency uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the cache_latency benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -117,7 +90,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -140,7 +114,7 @@ const (
 // The permutation uses a deterministic Fisher-Yates shuffle driven by a
 // splitmix-style PRNG so the cycle is exactly reproducible in Verify.
 func (b *Benchmark) buildChain() {
-	m, s := b.m, uint32(b.stride)
+	m, s := b.M, uint32(b.Stride)
 
 	perm := make([]uint32, m)
 	for i := 0; i < m; i++ {
@@ -162,13 +136,13 @@ func (b *Benchmark) buildChain() {
 		perm[i], perm[j] = perm[j], perm[i]
 	}
 
-	b.chain = make([]uint32, b.n) // non-node slots stay 0
+	b.Chain = make([]uint32, b.N) // non-node slots stay 0
 	for i := 0; i < m; i++ {
 		node := perm[i] * s
 		nextNode := perm[(i+1)%m] * s
-		b.chain[node] = nextNode
+		b.Chain[node] = nextNode
 	}
-	b.startIdx = perm[0] * s
+	b.StartIdx = perm[0] * s
 }
 
 func (b *Benchmark) initMem() {
@@ -185,17 +159,17 @@ func (b *Benchmark) initMem() {
 		b.Seed = 42
 	}
 
-	b.n = b.ArrayBytes / 4
-	b.stride = b.CachelineBytes / 4
-	if b.stride < 1 {
-		b.stride = 1
+	b.N = b.ArrayBytes / 4
+	b.Stride = b.CachelineBytes / 4
+	if b.Stride < 1 {
+		b.Stride = 1
 	}
 	// Need at least two cachelines to form a cycle.
-	if b.n < b.stride*2 {
-		b.n = b.stride * 2
-		b.ArrayBytes = b.n * 4
+	if b.N < b.Stride*2 {
+		b.N = b.Stride * 2
+		b.ArrayBytes = b.N * 4
 	}
-	b.m = b.n / b.stride // cacheline nodes == touched lines
+	b.M = b.N / b.Stride // cacheline nodes == touched lines
 
 	// Timed accesses: derive from MeasureLaps like the real benchmark unless an
 	// explicit NumAccesses was given. The floor gives tiny resident sizes many
@@ -203,7 +177,7 @@ func (b *Benchmark) initMem() {
 	// records cumulative GPU busy time and cannot run a separate untimed warmup
 	// the way the real benchmark does.
 	if b.NumAccesses <= 0 {
-		na := b.MeasureLaps * b.m
+		na := b.MeasureLaps * b.M
 		if na < minTimedAccesses {
 			na = minTimedAccesses
 		}
@@ -215,59 +189,95 @@ func (b *Benchmark) initMem() {
 
 	b.buildChain()
 
-	if b.useUnifiedMemory {
-		b.gArr = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.n*4))
-		b.gResult = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(4))
+	if b.UseUnifiedMemory {
+		b.GArr = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.N*4))
+		b.GResult = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(4))
 	} else {
-		b.gArr = b.driver.AllocateMemory(b.context, uint64(b.n*4))
-		b.gResult = b.driver.AllocateMemory(b.context, uint64(4))
+		b.GArr = b.rt.AllocateMemory(b.Context, uint64(b.N*4))
+		b.GResult = b.rt.AllocateMemory(b.Context, uint64(4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gArr, b.chain)
+	b.Upload(b.rt, b.Queue, b.GArr, b.Chain)
 	// Initialize the result buffer so its page is resident on the GPU before
 	// the kernel writes to it (output-only buffers are otherwise never mapped).
-	b.driver.MemCopyH2D(b.context, b.gResult, []uint32{0})
+	b.Upload(b.rt, b.Queue, b.GResult, []uint32{0})
 }
 
 func (b *Benchmark) exec() {
 	args := KernelArgs{
-		Arr:         b.gArr,
-		StartIdx:    b.startIdx,
+		Arr:         b.GArr,
+		StartIdx:    b.StartIdx,
 		NumAccesses: uint32(b.NumAccesses),
-		Result:      b.gResult,
+		Result:      b.GResult,
 	}
 
 	// Launch a single work-item (grid 1, block 1), matching the HIP source.
 	// The kernel guards on blockIdx.x == 0 && threadIdx.x == 0, so only one
 	// thread performs the dependent pointer chase and writes result[0].
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{1, 1, 1},
 		[3]uint16{1, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference walk of the same chain.
 // The thread starts at startIdx and applies num_accesses chain hops.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuResult := make([]uint32, 1)
-	b.driver.MemCopyD2H(b.context, gpuResult, b.gResult)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuResult); err != nil {
+		return err
+	}
 
-	idx := b.startIdx
+	idx := b.StartIdx
 	for i := 0; i < b.NumAccesses; i++ {
-		idx = b.chain[idx]
+		idx = b.Chain[idx]
 	}
 
 	if gpuResult[0] != idx {
-		log.Fatalf("Mismatch: expected final index %d, but got %d.\n",
+		return fmt.Errorf("Mismatch: expected final index %d, but got %d.\n",
 			idx, gpuResult[0])
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GResult, 4*(1)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

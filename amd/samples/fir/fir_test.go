@@ -5,20 +5,24 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 func BenchmarkFIR(t *testing.B) {
-	runner := runner.Runner{}
-	runner.Timing = true
-	runner.Verify = true
-	runner.Parallel = true
-	runner.GPUIDs = []int{1}
-	runner.Init()
-
-	benchmark := fir.NewBenchmark(runner.Driver())
+	config := sample.Config{Timing: true, Verify: true, Parallel: true, GPUIDs: []int{1}, GPUType: "r9nano"}
+	simulation, runtime, finish := config.Build()
+	defer finish()
+	r := runner.New(simulation, runtime)
+	benchmark := fir.NewBenchmark(runtime)
 	benchmark.Length = 4096
 
-	runner.AddBenchmark(benchmark)
+	config.Configure(benchmark)
+	r.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -23,15 +23,16 @@
 package gramschmidt
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const blockSize = 256
@@ -43,68 +44,56 @@ const blockSize = 256
 // by three 4-byte by_value int32 scalars, packed with no padding. The kernel
 // uses a constant block size, so no hidden ABI arguments are emitted.
 type NormFinishArgs struct {
-	A      driver.Ptr // offset 0
-	R      driver.Ptr // offset 8
-	NrmBuf driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
-	K      int32      // offset 32
+	A      gpuruntime.Ptr // offset 0
+	R      gpuruntime.Ptr // offset 8
+	NrmBuf gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
+	K      int32          // offset 32
 }
 
 // NormalizeArgs are the arguments for gram_normalize(A, Q, nrm_buf, M, N, k).
 type NormalizeArgs struct {
-	A      driver.Ptr // offset 0
-	Q      driver.Ptr // offset 8
-	NrmBuf driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
-	K      int32      // offset 32
+	A      gpuruntime.Ptr // offset 0
+	Q      gpuruntime.Ptr // offset 8
+	NrmBuf gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
+	K      int32          // offset 32
 }
 
 // ProjectArgs are the arguments for gram_project(A, Q, R, M, N, k).
 type ProjectArgs struct {
-	A driver.Ptr // offset 0
-	Q driver.Ptr // offset 8
-	R driver.Ptr // offset 16
-	M int32      // offset 24
-	N int32      // offset 28
-	K int32      // offset 32
+	A gpuruntime.Ptr // offset 0
+	Q gpuruntime.Ptr // offset 8
+	R gpuruntime.Ptr // offset 16
+	M int32          // offset 24
+	N int32          // offset 28
+	K int32          // offset 32
 }
 
 // Benchmark defines the Gram-Schmidt benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	normFinish *insts.KernelCodeObject
 	normalize  *insts.KernelCodeObject
 	project    *insts.KernelCodeObject
-
-	Arch arch.Type
-	M    int
-	N    int
-
-	aInit []float32 // original A, M x N (row-major)
-	gA    driver.Ptr
-	gQ    driver.Ptr
-	gR    driver.Ptr
-	gNrm  driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Gram-Schmidt benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -131,16 +120,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Gram-Schmidt uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench gramschmidt benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -148,7 +137,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -165,31 +155,31 @@ func (b *Benchmark) initMem() {
 
 	// Deterministic init in [0,1) using a simple LCG so it is exactly
 	// reproducible in Verify(). Values are well-conditioned for QR.
-	b.aInit = make([]float32, m*n)
+	b.AInit = make([]float32, m*n)
 	state := uint32(42)
 	for i := 0; i < m*n; i++ {
 		state = state*1103515245 + 12345
-		b.aInit[i] = float32((state>>16)&0x7fff) / 32768.0
+		b.AInit[i] = float32((state>>16)&0x7fff) / 32768.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(m*n*4))
-		b.gQ = b.driver.AllocateUnifiedMemory(b.context, uint64(m*n*4))
-		b.gR = b.driver.AllocateUnifiedMemory(b.context, uint64(n*n*4))
-		b.gNrm = b.driver.AllocateUnifiedMemory(b.context, uint64(4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(m*n*4))
+		b.GQ = b.rt.AllocateUnifiedMemory(b.Context, uint64(m*n*4))
+		b.GR = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*n*4))
+		b.GNrm = b.rt.AllocateUnifiedMemory(b.Context, uint64(4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(m*n*4))
-		b.gQ = b.driver.AllocateMemory(b.context, uint64(m*n*4))
-		b.gR = b.driver.AllocateMemory(b.context, uint64(n*n*4))
-		b.gNrm = b.driver.AllocateMemory(b.context, uint64(4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(m*n*4))
+		b.GQ = b.rt.AllocateMemory(b.Context, uint64(m*n*4))
+		b.GR = b.rt.AllocateMemory(b.Context, uint64(n*n*4))
+		b.GNrm = b.rt.AllocateMemory(b.Context, uint64(4))
 	}
 
 	// A starts as aInit; Q and R start at zero.
-	b.driver.MemCopyH2D(b.context, b.gA, b.aInit)
+	b.Upload(b.rt, b.Queue, b.GA, b.AInit)
 	zeroQ := make([]float32, m*n)
 	zeroR := make([]float32, n*n)
-	b.driver.MemCopyH2D(b.context, b.gQ, zeroQ)
-	b.driver.MemCopyH2D(b.context, b.gR, zeroR)
+	b.Upload(b.rt, b.Queue, b.GQ, zeroQ)
+	b.Upload(b.rt, b.Queue, b.GR, zeroR)
 }
 
 func (b *Benchmark) exec() {
@@ -199,22 +189,22 @@ func (b *Benchmark) exec() {
 	for k := 0; k < n; k++ {
 		// Step 1: nrm = sqrt(sum A[:,k]^2); R[k,k] = nrm; nrm_buf = nrm.
 		normFinishArgs := NormFinishArgs{
-			A: b.gA, R: b.gR, NrmBuf: b.gNrm,
+			A: b.GA, R: b.GR, NrmBuf: b.GNrm,
 			M: int32(m), N: int32(n), K: int32(k),
 		}
-		b.driver.EnqueueLaunchKernel(
-			b.queue, b.normFinish,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue, b.normFinish,
 			[3]uint32{blockSize, 1, 1}, [3]uint16{blockSize, 1, 1},
 			&normFinishArgs,
 		)
 
 		// Step 2: Q[:,k] = A[:,k] / nrm.
 		normalizeArgs := NormalizeArgs{
-			A: b.gA, Q: b.gQ, NrmBuf: b.gNrm,
+			A: b.GA, Q: b.GQ, NrmBuf: b.GNrm,
 			M: int32(m), N: int32(n), K: int32(k),
 		}
-		b.driver.EnqueueLaunchKernel(
-			b.queue, b.normalize,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue, b.normalize,
 			[3]uint32{gridM, 1, 1}, [3]uint16{blockSize, 1, 1},
 			&normalizeArgs,
 		)
@@ -224,11 +214,11 @@ func (b *Benchmark) exec() {
 			remaining := n - k - 1
 			gridProj := uint32((remaining+blockSize-1)/blockSize) * blockSize
 			projectArgs := ProjectArgs{
-				A: b.gA, Q: b.gQ, R: b.gR,
+				A: b.GA, Q: b.GQ, R: b.GR,
 				M: int32(m), N: int32(n), K: int32(k),
 			}
-			b.driver.EnqueueLaunchKernel(
-				b.queue, b.project,
+			b.rt.EnqueueLaunchKernel(
+				b.Queue, b.project,
 				[3]uint32{gridProj, 1, 1}, [3]uint16{blockSize, 1, 1},
 				&projectArgs,
 			)
@@ -236,19 +226,24 @@ func (b *Benchmark) exec() {
 
 		// Kernels for column k must complete before column k+1 starts
 		// (gram_project mutates A in place), so drain between iterations.
-		b.driver.DrainCommandQueue(b.queue)
 	}
 }
 
 // Verify checks the GPU Q and R against a CPU reference that reproduces the
 // exact same sequential Gram-Schmidt computation.
-func (b *Benchmark) Verify() {
+//
+//nolint:funlen // Keep the CPU reference algorithm and comparison together.
+func (b *Benchmark) verify() error {
 	m, n := b.M, b.N
 
 	gpuQ := make([]float32, m*n)
 	gpuR := make([]float32, n*n)
-	b.driver.MemCopyD2H(b.context, gpuQ, b.gQ)
-	b.driver.MemCopyD2H(b.context, gpuR, b.gR)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuQ); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuR); err != nil {
+		return err
+	}
 
 	cpuQ, cpuR := b.cpuGramSchmidt()
 
@@ -264,7 +259,7 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < m; i++ {
 		for j := 0; j < n; j++ {
 			if relErr(cpuQ[i*n+j], gpuQ[i*n+j]) > tol {
-				log.Fatalf("Q mismatch at (%d,%d): expected %f, got %f",
+				return fmt.Errorf("Q mismatch at (%d,%d): expected %f, got %f",
 					i, j, cpuQ[i*n+j], gpuQ[i*n+j])
 			}
 		}
@@ -272,7 +267,7 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
 			if relErr(cpuR[i*n+j], gpuR[i*n+j]) > tol {
-				log.Fatalf("R mismatch at (%d,%d): expected %f, got %f",
+				return fmt.Errorf("R mismatch at (%d,%d): expected %f, got %f",
 					i, j, cpuR[i*n+j], gpuR[i*n+j])
 			}
 		}
@@ -294,13 +289,20 @@ func (b *Benchmark) Verify() {
 				expected = 1.0
 			}
 			if math.Abs(dot-expected) > 1e-2 {
-				log.Fatalf("orthogonality fail: dot(Q[:,%d],Q[:,%d])=%f, "+
+				return fmt.Errorf("orthogonality fail: dot(Q[:,%d],Q[:,%d])=%f, "+
 					"expected %f", ci, cj, dot, expected)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GQ, 4*(b.M*b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GR, 4*(b.N*b.N)))
 }
 
 // cpuGramSchmidt reproduces the GPU computation exactly using float32 math
@@ -309,7 +311,7 @@ func (b *Benchmark) cpuGramSchmidt() (q, r []float32) {
 	m, n := b.M, b.N
 
 	a := make([]float32, m*n)
-	copy(a, b.aInit)
+	copy(a, b.AInit)
 	q = make([]float32, m*n)
 	r = make([]float32, n*n)
 
@@ -342,4 +344,34 @@ func (b *Benchmark) cpuGramSchmidt() (q, r []float32) {
 	}
 
 	return q, r
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

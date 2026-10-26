@@ -1,87 +1,30 @@
 package mnist
 
 import (
+	"path/filepath"
+
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 )
 
-// A DataSource provides convenient solution to feed data to neural networks.
-type DataSource struct {
-	to        tensor.Operator
-	dataSet   *DataSet
-	imageSize int
-	currPtr   int
-	allData   []float64
-	allLabel  []int
-}
+// DataSource feeds samples from a validated external dataset.
+type DataSource struct{ *training.ResidentDataSource }
 
-// NewTrainingDataSource returns a DataSource object that fetches data from
-// the training set.
-func NewTrainingDataSource(to tensor.Operator) *DataSource {
-	ds := &DataSource{
-		to:        to,
-		imageSize: 784,
+func NewTrainingDataSource(to tensor.Operator) *DataSource { return newSource(to, true) }
+func NewTestDataSource(to tensor.Operator) *DataSource     { return newSource(to, false) }
+func newSource(to tensor.Operator, train bool) *DataSource {
+	var files []string
+	prefix := "train"
+	if !train {
+		prefix = "t10k"
 	}
-
-	ds.dataSet = new(DataSet)
-	ds.dataSet.OpenTrainingFile()
-
-	ds.loadAllData()
-
-	return ds
-}
-
-// NewTestDataSource creates a DataSource object that fetches data from the
-// test set.
-func NewTestDataSource(to tensor.Operator) *DataSource {
-	ds := &DataSource{
-		to:        to,
-		imageSize: 784,
+	files = []string{
+		filepath.Join(getDirPath(), prefix+"-images-idx3-ubyte.gz"),
+		filepath.Join(getDirPath(), prefix+"-labels-idx1-ubyte.gz"),
 	}
-
-	ds.dataSet = new(DataSet)
-	ds.dataSet.OpenTestFile()
-
-	ds.loadAllData()
-
-	return ds
-}
-
-func (ds *DataSource) loadAllData() {
-	for ds.dataSet.HasNext() {
-		d, l := ds.dataSet.Next()
-		normalizedD := make([]float64, len(d))
-		for i := 0; i < len(d); i++ {
-			normalizedD[i] = float64(d[i]) / 255
-		}
-		ds.allData = append(ds.allData, normalizedD...)
-		ds.allLabel = append(ds.allLabel, int(l))
+	d, err := training.NewExternalDataSource(to, "mnist", files, []int{1, 28, 28}, "NCHW")
+	if err != nil {
+		panic(err)
 	}
-}
-
-// NextBatch returns another batch of data.
-func (ds *DataSource) NextBatch(batchSize int) (
-	data tensor.Tensor,
-	label []int,
-) {
-	start := ds.currPtr
-	end := start + batchSize
-
-	if end > len(ds.allLabel) {
-		end = len(ds.allLabel)
-	}
-
-	rawData := ds.allData[start*ds.imageSize : end*ds.imageSize]
-
-	data = ds.to.CreateWithData(rawData, []int{end - start, 1, 28, 28}, "NCHW")
-
-	label = ds.allLabel[start:end]
-
-	ds.currPtr = end
-
-	return data, label
-}
-
-// Rewind resets the pointer to the beginning of the dataset.
-func (ds *DataSource) Rewind() {
-	ds.currPtr = 0
+	return &DataSource{d}
 }

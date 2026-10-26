@@ -11,15 +11,16 @@
 package hotspot
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the (constant) thread-block dimension baked into the kernel.
@@ -44,52 +45,37 @@ const (
 // kernel uses a constant block dimension, so no hidden ABI arguments are
 // emitted.
 type KernelArgs struct {
-	TempSrc    driver.Ptr // offset 0
-	TempDst    driver.Ptr // offset 8
-	Power      driver.Ptr // offset 16
-	GridCols   int32      // offset 24
-	GridRows   int32      // offset 28
-	StepDivCap float32    // offset 32
-	Rx1        float32    // offset 36
-	Ry1        float32    // offset 40
-	Rz1        float32    // offset 44
+	TempSrc    gpuruntime.Ptr // offset 0
+	TempDst    gpuruntime.Ptr // offset 8
+	Power      gpuruntime.Ptr // offset 16
+	GridCols   int32          // offset 24
+	GridRows   int32          // offset 28
+	StepDivCap float32        // offset 32
+	Rx1        float32        // offset 36
+	Ry1        float32        // offset 40
+	Rz1        float32        // offset 44
 }
 
 // Benchmark defines the Hotspot benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch          arch.Type
-	GridSize      int // grid is GridSize x GridSize
-	NumIterations int // stencil time-steps per run
-
-	temp  []float32 // initial temperature grid
-	power []float32 // power density grid
-
-	gTempA driver.Ptr
-	gTempB driver.Ptr
-	gPower driver.Ptr
-
-	// which buffer holds the final result after the iteration loop
-	finalSrc driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Hotspot benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -104,16 +90,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Hotspot uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia hotspot benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -121,7 +107,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -137,26 +124,26 @@ func (b *Benchmark) initMem() {
 	n := b.GridSize
 	total := n * n
 
-	b.temp = make([]float32, total)
-	b.power = make([]float32, total)
+	b.Temp = make([]float32, total)
+	b.Power = make([]float32, total)
 	for i := 0; i < total; i++ {
 		// Deterministic synthetic init (reproducible in Verify).
-		b.temp[i] = float32(ambTemp) + float32(i%200)/10.0
-		b.power[i] = float32(i%100) / 500.0
+		b.Temp[i] = float32(ambTemp) + float32(i%200)/10.0
+		b.Power[i] = float32(i%100) / 500.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gTempA = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gTempB = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gPower = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
+	if b.UseUnifiedMemory {
+		b.GTempA = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GTempB = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GPower = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.gTempA = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gTempB = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gPower = b.driver.AllocateMemory(b.context, uint64(total*4))
+		b.GTempA = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GTempB = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		b.GPower = b.rt.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gTempA, b.temp)
-	b.driver.MemCopyH2D(b.context, b.gPower, b.power)
+	b.Upload(b.rt, b.Queue, b.GTempA, b.Temp)
+	b.Upload(b.rt, b.Queue, b.GPower, b.Power)
 }
 
 // thermalParams computes the derived thermal scalars for the current grid.
@@ -185,14 +172,14 @@ func (b *Benchmark) exec() {
 
 	stepDivCap, rx1, ry1, rz1 := b.thermalParams()
 
-	src := b.gTempA
-	dst := b.gTempB
+	src := b.GTempA
+	dst := b.GTempB
 
 	for k := 0; k < b.NumIterations; k++ {
 		args := KernelArgs{
 			TempSrc:    src,
 			TempDst:    dst,
-			Power:      b.gPower,
+			Power:      b.GPower,
 			GridCols:   int32(n),
 			GridRows:   int32(n),
 			StepDivCap: stepDivCap,
@@ -201,36 +188,37 @@ func (b *Benchmark) exec() {
 			Rz1:        rz1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&args,
 		)
-		b.driver.DrainCommandQueue(b.queue)
 
 		src, dst = dst, src
 	}
 
 	// After the loop, src holds the most recent result.
-	b.finalSrc = src
+	b.FinalSrc = src
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the same iterative stencil exactly.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.GridSize
 	total := n * n
 
 	gpu := make([]float32, total)
-	b.driver.MemCopyD2H(b.context, gpu, b.finalSrc)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
+		return err
+	}
 
 	stepDivCap, rx1, ry1, rz1 := b.thermalParams()
 
 	cur := make([]float32, total)
 	next := make([]float32, total)
-	copy(cur, b.temp)
+	copy(cur, b.Temp)
 
 	for k := 0; k < b.NumIterations; k++ {
 		for row := 0; row < n; row++ {
@@ -256,7 +244,7 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 				}
 
 				delta := stepDivCap *
-					(b.power[idx] +
+					(b.Power[idx] +
 						(tn+ts-2.0*tc)*ry1 +
 						(tw+te-2.0*tc)*rx1 +
 						(float32(ambTemp)-tc)*rz1)
@@ -276,10 +264,46 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 			denom = 1.0
 		}
 		if math.Abs(ref-got)/denom > 1e-3 {
-			log.Fatalf("At cell %d (row %d, col %d), expected %f, but got %f.\n",
+			return fmt.Errorf("At cell %d (row %d, col %d), expected %f, but got %f.\n",
 				i, i/n, i%n, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.FinalSrc, 4*((b.GridSize)*(b.GridSize))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

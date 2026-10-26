@@ -6,23 +6,22 @@ import (
 
 // Momentum runs a exponentially weighted averaging over gradients.
 type Momentum struct {
-	to tensor.Operator
-
-	LearningRate float64
-	SmoothFactor float64
-
-	history map[Layer]tensor.Tensor
+	*State
+	to   tensor.Operator
+	refs tensor.References
 }
 
 // NewMomentum creates a new Momentum SGD algorithm object.
-func NewMomentum(
-	to tensor.Operator,
-	learningRate float64, smoothFactor float64) *Momentum {
+func NewMomentum(to tensor.Operator, learningRate, smoothFactor float64) *Momentum {
 	return &Momentum{
-		to:           to,
-		LearningRate: learningRate,
-		SmoothFactor: smoothFactor,
-		history:      make(map[Layer]tensor.Tensor),
+		State: &State{
+			Kind:         "momentum",
+			LearningRate: learningRate,
+			SmoothFactor: smoothFactor,
+			History:      make(map[tensor.ID]tensor.ID),
+		},
+		to:   to,
+		refs: tensor.NewReferences(to),
 	}
 }
 
@@ -35,10 +34,11 @@ func (m *Momentum) UpdateParameters(layer Layer) {
 		return
 	}
 
-	velocity, found := m.history[layer]
-	if !found {
+	key := m.refs.Reference(params)
+	velocity := m.refs.Resolve(m.History[key])
+	if velocity == nil {
 		velocity = m.to.Clone(gradients)
-		m.history[layer] = velocity
+		m.History[key] = m.refs.Reference(velocity)
 	}
 
 	newVelocity := m.to.ScaleAdd(

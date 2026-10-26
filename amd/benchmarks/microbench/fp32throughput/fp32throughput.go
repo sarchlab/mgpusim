@@ -11,15 +11,16 @@
 package fp32throughput
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // FMA multiplier / addend constants, kept identical to the HIP kernel so the
@@ -38,47 +39,31 @@ const (
 // plus these explicit args -- block size is passed as ThreadsPerBlock rather
 // than read from blockDim.x, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Out             driver.Ptr // offset 0, size 8 (global_buffer)
-	FmasPerThread   int32      // offset 8, size 4 (by_value)
-	ThreadsPerBlock int32      // offset 12, size 4 (by_value)
+	Out             gpuruntime.Ptr // offset 0, size 8 (global_buffer)
+	FmasPerThread   int32          // offset 8, size 4 (by_value)
+	ThreadsPerBlock int32          // offset 12, size 4 (by_value)
 }
 
 // Benchmark defines the fp32_throughput benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-
-	// NumBlocks is the number of thread blocks to launch.
-	NumBlocks int
-	// FmasPerThread is the number of FMA iterations per thread. It is rounded
-	// down to a multiple of 4 to match the kernel's 4-way unrolled loop.
-	FmasPerThread int
-	// ThreadsPerBlock is the work-group (block) size. Defaults to 256; must be
-	// <= 1024 (the gfx942 hardware maximum). The kernel reads blockDim.x, so any
-	// value launches correctly and the sweep can match the ground-truth
-	// threads_per_block dimension.
-	ThreadsPerBlock int
-
-	gOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new fp32_throughput benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -93,16 +78,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the fp32_throughput benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -110,7 +95,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -151,14 +137,14 @@ func (b *Benchmark) initMem() {
 	numElem := b.numThreads()
 	outBytes := uint64(numElem * 4)
 
-	if b.useUnifiedMemory {
-		b.gOut = b.driver.AllocateUnifiedMemory(b.context, outBytes)
+	if b.UseUnifiedMemory {
+		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, outBytes)
 	} else {
-		b.gOut = b.driver.AllocateMemory(b.context, outBytes)
+		b.GOut = b.rt.AllocateMemory(b.Context, outBytes)
 	}
 
 	// Initialize the output buffer to a known value.
-	b.driver.MemCopyH2D(b.context, b.gOut, make([]float32, numElem))
+	b.Upload(b.rt, b.Queue, b.GOut, make([]float32, numElem))
 }
 
 func (b *Benchmark) exec() {
@@ -167,20 +153,18 @@ func (b *Benchmark) exec() {
 	globalX := uint32(numBlocks * tpb)
 
 	args := KernelArgs{
-		Out:             b.gOut,
+		Out:             b.GOut,
 		FmasPerThread:   b.fmasPerThread(),
 		ThreadsPerBlock: int32(tpb),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(tpb), 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
@@ -190,10 +174,12 @@ func (b *Benchmark) exec() {
 // fmas_per_thread/4 times through a = a*mul + add. Since threadIdx.x is the
 // lane index within a block, the reference depends only on threadIdx.x and is
 // reproduced exactly here using float32 arithmetic.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	numElem := b.numThreads()
 	gpu := make([]float32, numElem)
-	b.driver.MemCopyD2H(b.context, gpu, b.gOut)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
+		return err
+	}
 
 	iters := int(b.fmasPerThread()) / 4
 	tpb := b.threadsPerBlock()
@@ -225,10 +211,46 @@ func (b *Benchmark) Verify() {
 			denom = 1.0
 		}
 		if math.Abs(want-got)/denom > 1e-3 {
-			log.Fatalf("At thread %d, expected %f, but got %f.\n",
+			return fmt.Errorf("At thread %d, expected %f, but got %f.\n",
 				tid, want, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*(b.numThreads())))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

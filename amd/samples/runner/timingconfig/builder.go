@@ -4,12 +4,10 @@ package timingconfig
 import (
 	"fmt"
 
-	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
-
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
@@ -17,9 +15,11 @@ import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 // Port buffer sizes. The driver port mirrors the emulation platform's
@@ -97,9 +97,9 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 	return b
 }
 
-// Build builds the hardware platform and returns the driver. The driver, the
+// Build registers the hardware platform and returns its Runtime. The Driver,
 // GPUs, and all the connections register themselves with the simulation.
-func (b Builder) Build() *driver.Driver {
+func (b Builder) Build() *gpuruntime.Runtime {
 	b.adjustConfigForGPUType()
 	b.sampler = sampling.NewSimulationEngine(
 		b.simulation,
@@ -115,14 +115,33 @@ func (b Builder) Build() *driver.Driver {
 		Build("GlobalStorage")
 
 	mmuComp, pageTable := b.createMMU()
-	gpuDriver := b.buildGPUDriver(pageTable)
-
-	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
-	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
-
-	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
-
-	return gpuDriver
+	gpuBuilder := b.createGPUBuilder(mmuComp)
+	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
+	interDeviceConn.BindPort(mmuComp.Ports.Top)
+	spec := driver.DefaultSpec()
+	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
+	runtimeSpec.Log2PageSize = b.log2PageSize
+	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
+	spec.D2HCycles = b.d2hCycles
+	spec.H2DCycles = b.h2dCycles
+	for i := 1; i <= b.numGPUs; i++ {
+		gpu := b.createGPU(i, gpuBuilder, interDeviceConn)
+		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
+		runtimeSpec.Devices = append(
+			runtimeSpec.Devices,
+			gpuruntime.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
+		)
+	}
+	runtime := gpuruntime.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, b.globalStorage)
+	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
+		WithResources(driver.Resources{
+			Runtime:       runtime,
+			PageTable:     pageTable,
+			GlobalStorage: b.globalStorage,
+		}).Build("Driver")
+	port := b.buildPort(comp, driver.GPUPortName, driverGPUPortBufSize)
+	interDeviceConn.BindPort(port)
+	return runtime
 }
 
 func (b *Builder) cpuGPUMemSizeMustEqual() {
@@ -178,29 +197,6 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 	return mmuComponent, pageTable
 }
 
-func (b *Builder) buildGPUDriver(
-	pageTable *vm.PageTable,
-) *driver.Driver {
-	spec := driver.DefaultSpec()
-	spec.Log2PageSize = b.log2PageSize
-	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
-	spec.D2HCycles = b.d2hCycles
-	spec.H2DCycles = b.h2dCycles
-
-	gpuDriver := driver.MakeBuilder().
-		WithSimulation(b.simulation).
-		WithSpec(spec).
-		WithResources(driver.Resources{
-			PageTable:     pageTable,
-			GlobalStorage: b.globalStorage,
-		}).
-		Build("Driver")
-
-	b.buildPort(gpuDriver.Comp, driver.GPUPortName, driverGPUPortBufSize)
-
-	return gpuDriver
-}
-
 // buildPort creates a port instance for a declared port and assigns it to
 // the component.
 func (b *Builder) buildPort(
@@ -219,11 +215,10 @@ func (b *Builder) buildPort(
 
 func (b *Builder) createGPUBuilder(
 	mmuComponent *mmu.Comp,
-	gpuDriver *driver.Driver,
 ) gpubuilder.GPUBuilder {
 	b.createRDMAAddressMapper()
 
-	driverPort := gpuDriver.Ports.GPU.AsRemote()
+	driverPort := messaging.RemotePort("Driver.GPU")
 
 	switch b.gpuType {
 	case "mi300x":
@@ -243,37 +238,6 @@ func (b *Builder) createGPUBuilder(
 	}
 }
 
-func (b *Builder) createGPUs(
-	interDeviceConn *directconnection.Connection,
-	gpuBuilder gpubuilder.GPUBuilder,
-	gpuDriver *driver.Driver,
-) {
-	for i := 1; i < b.numGPUs+1; i++ {
-		b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn)
-	}
-}
-
-// createConnection creates the inter-device connection that links the
-// driver, the MMU, and the GPUs' external ports.
-//
-// NOTE(akita5): v4 used the PCIe network here. The Akita v5.0.0-beta.2
-// switching network (pcie included) is traffic-only — endpoints deliver
-// metadata-only packetization.AssembledMsg values instead of the original
-// messages — so it cannot carry MGPUSim's protocol messages. Until upstream
-// provides payload delivery, the platform uses a direct connection, which
-// delivers real messages but does not model PCIe/switch latency.
-func (b *Builder) createConnection(
-	gpuDriver *driver.Driver,
-	mmuComponent *mmu.Comp,
-) *directconnection.Connection {
-	conn := directconnection.NewConnection("InterDeviceConn", b.simulation, 1*timing.GHz)
-
-	conn.BindPort(gpuDriver.Ports.GPU)
-	conn.BindPort(mmuComponent.Ports.Top)
-
-	return conn
-}
-
 func (b *Builder) createRDMAAddressMapper() {
 	b.rdmaAddressMapper = new(mem.AddressMapper)
 	b.rdmaAddressMapper.InterleavingSize = b.gpuMemSize
@@ -284,7 +248,6 @@ func (b *Builder) createRDMAAddressMapper() {
 func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
-	gpuDriver *driver.Driver,
 	interDeviceConn *directconnection.Connection,
 ) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
@@ -294,14 +257,6 @@ func (b *Builder) createGPU(
 		WithMemAddrOffset(memAddrOffset).
 		WithRDMAAddressMapper(b.rdmaAddressMapper).
 		Build(name)
-
-	gpuDriver.RegisterGPU(
-		gpu.CommandProcessorPort.AsRemote(),
-		driver.DeviceProperties{
-			CUCount:  b.numCUPerSA * b.numSAPerGPU,
-			DRAMSize: b.gpuMemSize,
-		},
-	)
 
 	b.configRDMAEngine(gpu)
 

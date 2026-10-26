@@ -2,71 +2,126 @@ package driver
 
 import (
 	"bytes"
-	"encoding/binary"
-	"reflect"
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-func TestRestoredResultBuffers(t *testing.T) {
-	pending := &MemCopyD2HCommand{ID: 17, ByteSize: 8}
-	d := &Driver{
-		contexts:       []*Context{{queues: []*CommandQueue{{commands: []Command{pending}}}}},
-		unboundResults: map[uint64][]byte{23: {7, 0, 0, 0, 9, 0, 0, 0}},
+func TestRestoredCPUBufferBytes(t *testing.T) {
+	f := newFixture(t, false)
+	b := f.r.AllocateHostBuffer(f.q, 8)
+	if err := f.r.WriteHost(b, []uint32{7, 9}); err != nil {
+		t.Fatal(err)
 	}
-	want := []ResultBuffer{{CommandID: 17, ByteSize: 8}, {CommandID: 23, ByteSize: 8, Complete: true}}
-	if got := d.ResultBuffers(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("results: %+v", got)
+	var runtime, storage bytes.Buffer
+	if err := f.r.SaveCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
 	}
-	for _, id := range []uint64{17, 23} {
-		for _, invalid := range []any{nil, []uint32{1}, uint64(1), (*uint64)(nil)} {
-			if err := d.BindResultBuffer(id, invalid); err == nil {
-				t.Fatalf("accepted invalid destination %T", invalid)
-			}
+	if err := f.c.Resources.GlobalStorage.SaveCheckpoint(&storage); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.WriteHost(b, []uint32{99, 101}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.LoadCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.Resources.GlobalStorage.LoadCheckpoint(&storage); err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []any{nil, []uint32{1}, uint64(1), (*uint64)(nil)} {
+		if err := f.r.ReadHost(b, invalid); err == nil {
+			t.Fatalf("accepted invalid destination %T", invalid)
 		}
 	}
-	output := []uint32{101, 103}
-	if err := d.BindResultBuffer(17, &output); err != nil {
+	for i := 0; i < 2; i++ {
+		output := make([]uint32, 2)
+		if err := f.r.ReadHost(b, output); err != nil {
+			t.Fatal(err)
+		}
+		if output[0] != 7 || output[1] != 9 {
+			t.Fatal(output)
+		}
+	}
+	if err := f.r.FreeMemory(b.Context, b.Address); err != nil {
 		t.Fatal(err)
 	}
-	if output[0] != 101 || output[1] != 103 {
-		t.Fatal("binding changed pending output")
+	if len(f.snapshot().Contexts[f.ctx-1].Buffers) != 0 {
+		t.Fatal("freed allocation metadata retained")
 	}
-	pending.RawData = []byte{3, 0, 0, 0, 5, 0, 0, 0}
-	d.deliverResult(pending)
-	if output[0] != 3 || output[1] != 5 {
-		t.Fatalf("pending delivery: %v", output)
+}
+func TestHostCopyReadsStorageAtExecution(t *testing.T) {
+	f := newFixture(t, false)
+	dst := f.r.AllocateMemory(f.ctx, 8)
+	b := f.r.AllocateHostBuffer(f.q, 8)
+	if f.snapshot().Contexts[f.ctx-1].GPU != 1 {
+		t.Fatal("CPU allocation changed selected GPU")
 	}
-	completed := make([]uint32, 2)
-	if err := d.BindResultBuffer(23, completed); err != nil {
+	if err := f.r.WriteHost(b, []uint32{11, 13}); err != nil {
 		t.Fatal(err)
 	}
-	if completed[0] != 7 || completed[1] != 9 {
-		t.Fatalf("completed delivery: %v", completed)
+	f.r.EnqueueMemCopyH2D(f.q, dst, b.Address, 8)
+	// This intentionally violates source lifetime discipline. There is no
+	// occupancy guard: serial execution deterministically reads overwritten data.
+	if err := f.r.WriteHost(b, []uint32{99, 103}); err != nil {
+		t.Fatal(err)
 	}
-	if len(d.ResultBuffers()) != 0 {
-		t.Fatal("bound copies still reported")
+	var runtime, storage bytes.Buffer
+	if err := f.r.SaveCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
 	}
-	if err := d.BindResultBuffer(23, completed); err == nil {
-		t.Fatal("delivered completed result twice")
+	if err := f.c.Resources.GlobalStorage.SaveCheckpoint(&storage); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.WriteHost(b, []uint32{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.LoadCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.Resources.GlobalStorage.LoadCheckpoint(&storage); err != nil {
+		t.Fatal(err)
+	}
+	tickDriver(f.c)
+	got := f.c.State.Executing[0].Requests[0].Payload.(protocol.MemCopyH2DReq).SrcBuffer
+	if !bytes.Equal(got, []byte{99, 0, 0, 0, 103, 0, 0, 0}) {
+		t.Fatal(got)
 	}
 }
 
-func TestHostCopySnapshotOwnsBytes(t *testing.T) {
-	source := []uint32{11, 13}
-	saved, err := snapshotCommand(&MemCopyH2DCommand{ID: 2, Src: source, Dst: 4096})
-	if err != nil {
-		t.Fatal(err)
+func TestQueueCodeUploadDoesNotDependOnAnotherQueue(t *testing.T) {
+	f := newFixture(t, false)
+	q2 := f.r.CreateCommandQueue(f.ctx)
+	// An older queue cannot confer code readiness while its own upload is
+	// blocked behind earlier work. The second queue must own its upload.
+	for i := 0; i < 5; i++ {
+		f.enqueue(f.q, gpuruntime.Command{Kind: gpuruntime.Noop})
 	}
-	source[0] = 99
-	restored, err := saved.restore()
-	if err != nil {
-		t.Fatal(err)
+	code := &insts.KernelCodeObject{
+		Data:                 []byte{1, 2, 3, 4},
+		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{KernargSegmentByteSize: 4},
 	}
-	var encoded bytes.Buffer
-	if err := binary.Write(&encoded, binary.LittleEndian, restored.(*MemCopyH2DCommand).Src); err != nil {
-		t.Fatal(err)
+	args := uint32(0x12345678)
+	f.r.EnqueueLaunchKernel(f.q, code, [3]uint32{64, 1, 1}, [3]uint16{64, 1, 1}, &args)
+	f.r.EnqueueLaunchKernel(q2, code, [3]uint32{64, 1, 1}, [3]uint16{64, 1, 1}, &args)
+	args = 99
+	code.Data[0] = 99
+	second := f.snapshot().Queues[q2-1].Pending
+	if len(second) != 4 || second[0].Kind != gpuruntime.CopyH2D ||
+		!bytes.Equal(readHostBytes(f.r, f.ctx, second[0].Src, uint64(second[0].ByteSize)), []byte{1, 2, 3, 4}) {
+		t.Fatal("second queue relies on unfinished first queue upload")
 	}
-	if !bytes.Equal(encoded.Bytes(), []byte{11, 0, 0, 0, 13, 0, 0, 0}) {
-		t.Fatal("checkpoint retained a host source reference")
+	if !bytes.Equal(readHostBytes(f.r, f.ctx, second[1].Src, uint64(second[1].ByteSize)), []byte{0x78, 0x56, 0x34, 0x12}) {
+		t.Fatal("kernel args were not captured at enqueue")
+	}
+	if second[0].Dst == f.snapshot().Queues[f.q-1].Pending[5].Dst {
+		t.Fatal("queues share an unready code allocation")
+	}
+	tickDriver(f.c)
+	if f.snapshot().Queues[f.q-1].Pending[0].Kind != gpuruntime.Noop ||
+		len(f.c.State.Executing) != 1 || f.c.State.Executing[0].Queue != q2 {
+		t.Fatal("second upload did not progress independently while first queue was delayed")
 	}
 }

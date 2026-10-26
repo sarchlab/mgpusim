@@ -2,15 +2,17 @@
 package fft
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"encoding/binary"
+	"fmt"
 	"log"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Float2 is two floats
@@ -20,8 +22,8 @@ type Float2 struct {
 
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
-	Work                driver.Ptr
-	Smem                driver.LocalPtr
+	Work                gpuruntime.Ptr
+	Smem                gpuruntime.LocalPtr
 	Paddinng            int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -47,7 +49,7 @@ type KernelArgs struct {
 //	offset 0x40: HiddenGlobalOffsetZ (8 bytes)
 //	offset 0x48: HiddenGridDims     (2 bytes)
 type CDNA3KernelArgs struct {
-	Work                driver.Ptr
+	Work                gpuruntime.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -66,42 +68,32 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
-	gpus             []int
-	queues           []*driver.CommandQueue
-	useUnifiedMemory bool
-	fftKernel        *insts.KernelCodeObject
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch       arch.Type
-	Bytes      int64
-	BytesMode  bool
-	Passes     int32
-	halfNFfts  int64
-	nFfts      int64
-	halfNCmplx int64
-	usedBytes  uint64
-	dSource    driver.Ptr
-	source     []Float2
-	result     []Float2
+	fftKernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.driver = driver
-	b.context = driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.rt = rt
+	b.Context = rt.Init()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed fft.hsaco
@@ -125,46 +117,42 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.rt.SelectGPU(b.Context, b.Gpus[len(b.Gpus)-1])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
+
 	b.loadProgram()
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues,
-			b.driver.CreateCommandQueue(b.context))
-	}
-
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
 	if !b.BytesMode {
 		b.Bytes = b.Bytes * 1024 * 1024
 	}
-	b.halfNFfts = b.Bytes / (512 * 4 * 2 * 2)
-	b.nFfts = b.halfNFfts * 2
-	b.halfNCmplx = b.halfNFfts * 512
-	b.usedBytes = uint64(b.halfNCmplx) * 2 * 4 * 2
+	b.HalfNFfts = b.Bytes / (512 * 4 * 2 * 2)
+	b.NFfts = b.HalfNFfts * 2
+	b.HalfNCmplx = b.HalfNFfts * 512
+	b.UsedBytes = uint64(b.HalfNCmplx) * 2 * 4 * 2
 
-	b.source = make([]Float2, b.usedBytes>>3)
-	b.result = make([]Float2, b.usedBytes>>3)
+	b.Source = make([]Float2, b.UsedBytes>>3)
+	b.Result = make([]Float2, b.UsedBytes>>3)
 	b.fill()
 
-	if b.useUnifiedMemory {
-		b.dSource = b.driver.AllocateUnifiedMemory(b.context,
-			b.usedBytes)
+	if b.UseUnifiedMemory {
+		b.DSource = b.rt.AllocateUnifiedMemory(b.Context,
+			b.UsedBytes)
 	} else {
-		b.dSource = b.driver.AllocateMemory(b.context,
-			b.usedBytes)
+		b.DSource = b.rt.AllocateMemory(b.Context,
+			b.UsedBytes)
 	}
-	b.driver.MemCopyH2D(b.context, b.dSource, b.source)
+	b.Upload(b.rt, b.Queue, b.DSource, b.Source)
 }
 
 func (b *Benchmark) exec() {
 	localWorkSize := int64(64)
-	vectorGlobalWSize := localWorkSize * b.nFfts
+	vectorGlobalWSize := localWorkSize * b.NFfts
 
 	globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
 	localSize := [3]uint16{uint16(localWorkSize), 1, 1}
@@ -176,7 +164,7 @@ func (b *Benchmark) exec() {
 			b.execGCN3(globalSize, localSize)
 		}
 	}
-	b.driver.MemCopyD2H(b.context, b.result, b.dSource)
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DSource, Target: 0})
 }
 
 func (b *Benchmark) execGCN3(
@@ -184,7 +172,7 @@ func (b *Benchmark) execGCN3(
 	localSize [3]uint16,
 ) {
 	args := KernelArgs{
-		Work:                b.dSource,
+		Work:                b.DSource,
 		Smem:                8 * 8 * 9 * 8,
 		Paddinng:            0,
 		HiddenGlobalOffsetX: 0,
@@ -192,7 +180,7 @@ func (b *Benchmark) execGCN3(
 		HiddenGlobalOffsetZ: 0,
 	}
 
-	b.driver.LaunchKernel(b.context,
+	b.rt.EnqueueLaunchKernel(b.Queue,
 		b.fftKernel,
 		globalSize, localSize,
 		&args,
@@ -204,10 +192,10 @@ func (b *Benchmark) execCDNA3(
 	localSize [3]uint16,
 ) {
 	args := CDNA3KernelArgs{
-		Work: b.dSource,
+		Work: b.DSource,
 	}
 
-	b.driver.LaunchKernel(b.context,
+	b.rt.EnqueueLaunchKernel(b.Queue,
 		b.fftKernel,
 		globalSize, localSize,
 		&args,
@@ -215,7 +203,7 @@ func (b *Benchmark) execCDNA3(
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	mismatch := false
 
 	if b.fftCPU() == 1 {
@@ -223,24 +211,26 @@ func (b *Benchmark) Verify() {
 	}
 
 	if mismatch {
-		panic("Mismatch!\n")
+		return fmt.Errorf("Mismatch!\n")
 	}
 	log.Printf("Passed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) fftCPU() int32 {
 	fail := int32(0)
-	fst := make([]Float2, b.nFfts<<6)
-	snd := make([]Float2, b.nFfts<<6)
-	for i := int64(0); i < (b.nFfts << 6); i++ {
-		fst[i] = b.source[i]
+	fst := make([]Float2, b.NFfts<<6)
+	snd := make([]Float2, b.NFfts<<6)
+	for i := int64(0); i < (b.NFfts << 6); i++ {
+		fst[i] = b.Source[i]
 	}
 
-	for i := int64(0); i < (b.nFfts << 6); i++ {
-		snd[i] = b.source[b.halfNCmplx+i]
+	for i := int64(0); i < (b.NFfts << 6); i++ {
+		snd[i] = b.Source[b.HalfNCmplx+i]
 	}
 
-	for i := int64(0); i < (b.nFfts << 6); i++ {
+	for i := int64(0); i < (b.NFfts << 6); i++ {
 		if fst[i].X != snd[i].X || fst[i].Y != snd[i].Y {
 			fail = 1
 		}
@@ -254,10 +244,57 @@ func (b *Benchmark) fill() {
 	// produces a deterministic sequence.
 	rng := rand.New(rand.NewSource(1))
 
-	for i := int64(0); i < b.halfNCmplx; i++ {
-		b.source[i].X = (rng.Float32())*2 - 1
-		b.source[i].Y = (rng.Float32())*2 - 1
-		b.source[i+b.halfNCmplx].X = b.source[i].X
-		b.source[i+b.halfNCmplx].Y = b.source[i].Y
+	for i := int64(0); i < b.HalfNCmplx; i++ {
+		b.Source[i].X = (rng.Float32())*2 - 1
+		b.Source[i].Y = (rng.Float32())*2 - 1
+		b.Source[i+b.HalfNCmplx].X = b.Source[i].X
+		b.Source[i+b.HalfNCmplx].Y = b.Source[i].Y
 	}
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.exec()
+		b.Phase = 2
+	case 2:
+		for i := range b.Readbacks {
+			var dst any
+			switch b.Readbacks[i].Target {
+			case 0:
+				dst = b.Result
+			}
+			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
+		}
+		b.Phase = 3
+	case 3:
+		for _, copy := range b.Readbacks {
+			var dst any
+			switch copy.Target {
+			case 0:
+				dst = b.Result
+			}
+			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
+				return err
+			}
+		}
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

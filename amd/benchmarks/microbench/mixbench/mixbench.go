@@ -9,15 +9,16 @@
 package mixbench
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize must match BLOCK_SIZE in native/mixbench.cpp.
@@ -38,41 +39,31 @@ const (
 // alignment padding). The kernel uses a constant BLOCK_SIZE instead of
 // blockDim.x, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Data        driver.Ptr // offset 0
-	NumElements int32      // offset 8
-	NumFmas     int32      // offset 12
+	Data        gpuruntime.Ptr // offset 0
+	NumElements int32          // offset 8
+	NumFmas     int32          // offset 12
 }
 
 // Benchmark defines the mixbench benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	// NumElements is the number of floats processed (one per work-item).
-	NumElements int
-	// NumFmas is the FP32 FMA-chain length per work-item.
-	NumFmas int
-
-	data  []float32
-	gData driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new mixbench benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -87,16 +78,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. mixbench uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the mixbench benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -104,7 +95,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -118,19 +110,19 @@ func (b *Benchmark) initMem() {
 	}
 
 	n := b.NumElements
-	b.data = make([]float32, n)
+	b.Data = make([]float32, n)
 	for i := 0; i < n; i++ {
 		// Deterministic init, mirroring the HIP host: 1.0 + (i%1024)*0.001.
-		b.data[i] = 1.0 + float32(i%1024)*0.001
+		b.Data[i] = 1.0 + float32(i%1024)*0.001
 	}
 
-	if b.useUnifiedMemory {
-		b.gData = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+	if b.UseUnifiedMemory {
+		b.GData = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
 	} else {
-		b.gData = b.driver.AllocateMemory(b.context, uint64(n*4))
+		b.GData = b.rt.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gData, b.data)
+	b.Upload(b.rt, b.Queue, b.GData, b.Data)
 }
 
 func (b *Benchmark) exec() {
@@ -139,31 +131,31 @@ func (b *Benchmark) exec() {
 	globalX := numBlocks * blockSize
 
 	args := KernelArgs{
-		Data:        b.gData,
+		Data:        b.GData,
 		NumElements: int32(n),
 		NumFmas:     int32(b.NumFmas),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.NumElements
 	gpuData := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuData, b.gData)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuData); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
 		// Reproduce the kernel's FMA chain in float32 exactly.
-		val := b.data[i]
+		val := b.Data[i]
 		for f := 0; f < b.NumFmas; f++ {
 			val = float32(math.FMA(
 				float64(val), float64(fmaMul), float64(fmaAdd)))
@@ -176,10 +168,46 @@ func (b *Benchmark) Verify() {
 			denom = 1.0
 		}
 		if math.Abs(float64(ref-got))/denom > 1e-3 {
-			log.Fatalf("At index %d, expected %f, but got %f.\n",
+			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GData, 4*(b.NumElements)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

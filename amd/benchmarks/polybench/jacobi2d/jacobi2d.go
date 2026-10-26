@@ -13,15 +13,16 @@
 package jacobi2d
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockDim is the constant work-group size baked into the kernel (BLOCK_DIM).
@@ -36,40 +37,31 @@ const blockDim = 16
 // padding). The kernel uses a constant BLOCK_DIM and reads only
 // blockIdx/threadIdx, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	A driver.Ptr // offset 0
-	B driver.Ptr // offset 8
-	N int32      // offset 16
+	A gpuruntime.Ptr // offset 0
+	B gpuruntime.Ptr // offset 8
+	N int32          // offset 16
 }
 
 // Benchmark defines the Jacobi-2D benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch   arch.Type
-	N      int
-	TSteps int
-
-	aInit []float32
-	gA    driver.Ptr
-	gB    driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Jacobi-2D benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -84,16 +76,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Jacobi-2D uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench jacobi2d benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -101,7 +93,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -119,25 +112,25 @@ func (b *Benchmark) initMem() {
 
 	// Deterministic interior init (boundaries stay 0). Reproduced exactly in
 	// Verify().
-	b.aInit = make([]float32, numElem)
+	b.AInit = make([]float32, numElem)
 	for i := 1; i < n-1; i++ {
 		for j := 1; j < n-1; j++ {
-			b.aInit[i*n+j] = float32((i*7+j*13)%100) / 10.0
+			b.AInit[i*n+j] = float32((i*7+j*13)%100) / 10.0
 		}
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GB = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gB = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GB = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
 	// A holds the initial grid; B starts zeroed.
-	b.driver.MemCopyH2D(b.context, b.gA, b.aInit)
+	b.Upload(b.rt, b.Queue, b.GA, b.AInit)
 	zeros := make([]float32, numElem)
-	b.driver.MemCopyH2D(b.context, b.gB, zeros)
+	b.Upload(b.rt, b.Queue, b.GB, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -148,7 +141,7 @@ func (b *Benchmark) exec() {
 	globalX := gridDimX * blockDim
 	globalY := gridDimY * blockDim
 
-	src, dst := b.gA, b.gB
+	src, dst := b.GA, b.GB
 	for t := 0; t < b.TSteps; t++ {
 		args := KernelArgs{
 			A: src,
@@ -156,22 +149,21 @@ func (b *Benchmark) exec() {
 			N: int32(n),
 		}
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockDim, blockDim, 1},
 			&args,
 		)
-		b.driver.DrainCommandQueue(b.queue)
 
 		src, dst = dst, src
 	}
 
 	// After the loop, src points at the buffer holding the final result.
 	// Store it in gA so Verify reads a single, well-defined location.
-	b.gA = src
-	b.gB = dst
+	b.GA = src
+	b.GB = dst
 }
 
 // cpuStep computes one Jacobi-2D step on the CPU (interior only).
@@ -186,17 +178,19 @@ func cpuStep(a, out []float32, n int) {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	numElem := n * n
 
 	gpuResult := make([]float32, numElem)
-	b.driver.MemCopyD2H(b.context, gpuResult, b.gA)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuResult); err != nil {
+		return err
+	}
 
 	// CPU reference: same double-buffered iteration the GPU ran.
 	ca := make([]float32, numElem)
 	cb := make([]float32, numElem)
-	copy(ca, b.aInit)
+	copy(ca, b.AInit)
 
 	src, dst := ca, cb
 	for t := 0; t < b.TSteps; t++ {
@@ -215,11 +209,47 @@ func (b *Benchmark) Verify() {
 				denom = 1.0
 			}
 			if math.Abs(ref-got)/denom > 1e-3 {
-				log.Fatalf("At (%d,%d), expected %f, but got %f.\n",
+				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, ref, got)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

@@ -4,63 +4,59 @@ package minerva
 import (
 	"math"
 
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/mccl"
-
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/dataset/mnist"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Benchmark defines the Mineva network training benchmark.
 type Benchmark struct {
-	driver   *driver.Driver
-	ctx      *driver.Context
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt      *gpuruntime.Runtime
+	trainer gputraining.DataParallelismMultiGPUTrainer
+
 	to       []*gputensor.GPUOperator
-	gpus     []int
-	contexts []*driver.Context
-
 	networks []training.Network
-	trainer  gputraining.DataParallelismMultiGPUTrainer
-
-	BatchSize          int
-	Epoch              int
-	MaxBatchPerEpoch   int
-	EnableTesting      bool
-	EnableVerification bool
+	contexts []gpuruntime.Context
 }
 
 // NewBenchmark creates a new benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.configuration, b.bind)
 
-	b.driver = driver
-	b.ctx = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 
 	return b
 }
 
 // SelectGPU selects the GPU to use.
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpus = gpuIDs
+	b.GPUs = gpuIDs
 }
 
-func (b *Benchmark) init() {
-	for _, gpu := range b.gpus {
+func (b *Benchmark) init() error {
+	for _, gpu := range b.GPUs {
 		b.defineNetwork(gpu)
 	}
 
 	b.createTrainer()
-	b.randomizeParams()
+	return b.trainer.Connect()
 }
 
 func (b *Benchmark) defineNetwork(gpuID int) {
-	context := b.driver.InitWithExistingPID(b.ctx)
-	b.driver.SelectGPU(context, gpuID)
-	to := gputensor.NewGPUOperator(b.driver, context)
+	context := b.rt.InitWithExistingPID(b.Context)
+	b.rt.SelectGPU(context, gpuID)
+	to := gputensor.NewGPUOperator(b.rt, context)
+	to.Arch = b.Arch
 
 	if b.EnableVerification {
 		to.EnableVerification()
@@ -103,67 +99,51 @@ func (b *Benchmark) createTrainer() {
 		}
 	}
 
-	b.trainer = gputraining.DataParallelismMultiGPUTrainer{
-		TensorOperators:  b.to,
-		DataSource:       sources,
-		Networks:         b.networks,
-		LossFunc:         lossFuncs,
-		OptimizationAlg:  alg,
-		Tester:           testers,
+	b.Trainer = gputraining.State{
 		Epoch:            b.Epoch,
 		MaxBatchPerEpoch: b.MaxBatchPerEpoch,
 		BatchSize:        b.BatchSize,
 		ShowBatchInfo:    true,
-		GPUs:             b.gpus,
+		GPUs:             b.GPUs,
 		Contexts:         b.contexts,
-		Driver:           b.driver,
+	}
+	b.trainer = gputraining.DataParallelismMultiGPUTrainer{State: &b.Trainer,
+		TensorOperators: b.to,
+		DataSource:      sources,
+		Networks:        b.networks,
+		LossFunc:        lossFuncs,
+		OptimizationAlg: alg,
+		Tester:          testers,
+		Runtime:         b.rt,
 	}
 }
 
-func (b *Benchmark) randomizeParams() {
-	initNet := b.networks[0]
-	for _, l := range initNet.Layers {
-		l.Randomize()
+// Step submits one training phase after the previous global batch drained.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
 	}
-
-	gpuNum := len(b.networks)
-
-	for i := range b.networks[0].Layers {
-		if b.networks[0].Layers[i].Parameters() == nil {
-			continue
-		}
-
-		params := make([]*gputensor.Tensor, gpuNum)
-		datas := make([]driver.Ptr, gpuNum)
-
-		for j := 0; j < gpuNum; j++ {
-			params[j] = b.networks[j].Layers[i].Parameters().(*gputensor.Tensor)
-		}
-
-		dataSizeArr := params[0].Size()
-		dataSize := 1
-		for i := 0; i < len(dataSizeArr); i++ {
-			dataSize *= dataSizeArr[i]
-		}
-
-		for i := 0; i < len(params); i++ {
-			datas[i] = params[i].Ptr()
-		}
-		comms := mccl.CommInitAllMultipleContexts(
-			gpuNum, b.driver, b.contexts, b.gpus)
-		mccl.BroadcastRing(b.driver, comms, 1, datas, dataSize)
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
 	}
+	if b.Ended {
+		return nil
+	}
+	if b.Phase == 0 {
+		if err := b.init(); err != nil {
+			return err
+		}
+		b.Phase = 1
+	}
+	if err := b.trainer.Step(); err != nil {
+		return err
+	}
+	b.Ended = b.trainer.IsEnded()
+	return nil
 }
-
-// Run executes the benchmark.
-func (b *Benchmark) Run() {
-	b.init()
-	b.trainer.Train()
-}
-
-// Verify runs the benchmark on the CPU and checks the result.
-func (b *Benchmark) Verify() {
-	panic("not implemented")
+func (b *Benchmark) SetVerification(enabled bool) {
+	b.Progress.SetVerification(enabled)
+	b.EnableVerification = enabled
 }
 
 // SetUnifiedMemory asks the benchmark to use unified memory.

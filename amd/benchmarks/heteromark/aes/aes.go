@@ -3,15 +3,16 @@ package aes
 
 import (
 	"crypto/aes"
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 var expandedKey = []uint32{
@@ -67,9 +68,9 @@ var s = []uint8{
 
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
-	Input               driver.Ptr
-	ExpandedKey         driver.Ptr
-	S                   driver.Ptr
+	Input               gpuruntime.Ptr
+	ExpandedKey         gpuruntime.Ptr
+	S                   gpuruntime.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -77,9 +78,9 @@ type KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	Input               driver.Ptr
-	ExpandedKey         driver.Ptr
-	S                   driver.Ptr
+	Input               gpuruntime.Ptr
+	ExpandedKey         gpuruntime.Ptr
+	S                   gpuruntime.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -99,42 +100,34 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch         arch.Type
-	Length       int
-	input        []byte
-	key          []byte
-	expandedKey  []uint32
-	s            []byte
-	gInput       driver.Ptr
-	gExpandedKey []driver.Ptr
-	gS           []driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.driver = driver
-	b.context = b.driver.Init()
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+
+	b.rt = rt
+	b.Context = b.rt.Init()
 	return b
 }
 
 // SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpus = gpuIDs
-	b.gExpandedKey = make([]driver.Ptr, len(gpuIDs))
-	b.gS = make([]driver.Ptr, len(gpuIDs))
+	b.Gpus = gpuIDs
+	b.GExpandedKey = make([]gpuruntime.Ptr, len(gpuIDs))
+	b.GS = make([]gpuruntime.Ptr, len(gpuIDs))
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -158,78 +151,79 @@ func (b *Benchmark) loadProgram() {
 }
 
 func (b *Benchmark) initMem() {
-	b.key = []byte{
+	b.Key = []byte{
 		0, 1, 2, 3, 4, 5, 6, 7,
 		8, 9, 10, 11, 12, 13, 14, 15,
 		16, 17, 18, 19, 20, 21, 22, 23,
 		24, 25, 26, 27, 28, 29, 30, 31,
 	}
-	b.expandedKey = expandedKey
-	b.s = s
+	b.ExpandedKey = expandedKey
+	b.S = s
 
 	// Use a local random source so the input is reproducible. The global
 	// generator is seeded randomly at startup (rand.Seed is a no-op since
 	// Go 1.24), which made this benchmark's input differ on every run.
 	rng := rand.New(rand.NewSource(1))
-	b.input = make([]byte, b.Length)
+	b.Input = make([]byte, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.input[i] = byte(rng.Uint32())
+		b.Input[i] = byte(rng.Uint32())
 		//b.input[i] = byte(i)
 		// b.input[i] = 0
 	}
 
-	if b.useUnifiedMemory {
-		b.gInput = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length))
+	if b.UseUnifiedMemory {
+		b.GInput = b.rt.AllocateUnifiedMemory(b.Context, uint64(b.Length))
 	} else {
-		b.gInput = b.driver.AllocateMemory(b.context, uint64(b.Length))
-		b.driver.Distribute(b.context, b.gInput, uint64(b.Length), b.gpus)
+		b.GInput = b.rt.AllocateMemory(b.Context, uint64(b.Length))
+		b.rt.Distribute(b.Context, b.GInput, uint64(b.Length), b.Gpus)
 	}
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		if b.useUnifiedMemory {
-			b.gExpandedKey[i] = b.driver.AllocateUnifiedMemory(
-				b.context, uint64(len(b.expandedKey)*4))
-			b.gS[i] = b.driver.AllocateUnifiedMemory(b.context, uint64(len(b.s)))
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		if b.UseUnifiedMemory {
+			b.GExpandedKey[i] = b.rt.AllocateUnifiedMemory(
+				b.Context, uint64(len(b.ExpandedKey)*4))
+			b.GS[i] = b.rt.AllocateUnifiedMemory(b.Context, uint64(len(b.S)))
 		} else {
-			b.gExpandedKey[i] = b.driver.AllocateMemory(
-				b.context, uint64(len(b.expandedKey)*4))
-			b.gS[i] = b.driver.AllocateMemory(b.context, uint64(len(b.s)))
+			b.GExpandedKey[i] = b.rt.AllocateMemory(
+				b.Context, uint64(len(b.ExpandedKey)*4))
+			b.GS[i] = b.rt.AllocateMemory(b.Context, uint64(len(b.S)))
 		}
 
-		b.driver.MemCopyH2D(b.context, b.gExpandedKey[i], b.expandedKey)
-		b.driver.MemCopyH2D(b.context, b.gS[i], b.s)
+		b.Upload(b.rt, b.Queue, b.GExpandedKey[i], b.ExpandedKey)
+		b.Upload(b.rt, b.Queue, b.GS[i], b.S)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInput, b.input)
+	b.Upload(b.rt, b.Queue, b.GInput, b.Input)
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.loadProgram()
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
-	b.LaunchKernel()
 }
 
 // LaunchKernel launches kernel
 func (b *Benchmark) LaunchKernel() {
-	queues := make([]*driver.CommandQueue, len(b.gpus))
+	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 	numWi := b.Length / 16
 	localSize := [3]uint16{64, 1, 1}
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.context)
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		queues[i] = b.rt.CreateCommandQueue(b.Context)
 
-		globalSizeX := uint32(numWi / len(b.gpus))
+		globalSizeX := uint32(numWi / len(b.Gpus))
 		globalSize := [3]uint32{globalSizeX, 1, 1}
 
 		if b.Arch == arch.CDNA3 {
 			kernArg := CDNA3KernelArgs{
-				Input:               b.gInput,
-				ExpandedKey:         b.gExpandedKey[i],
-				S:                   b.gS[i],
+				Input:               b.GInput,
+				ExpandedKey:         b.GExpandedKey[i],
+				S:                   b.GS[i],
 				HiddenBlockCountX:   globalSizeX / uint32(localSize[0]),
 				HiddenBlockCountY:   1,
 				HiddenBlockCountZ:   1,
@@ -239,12 +233,12 @@ func (b *Benchmark) LaunchKernel() {
 				HiddenRemainderX:    uint16(globalSizeX % uint32(localSize[0])),
 				HiddenRemainderY:    0,
 				HiddenRemainderZ:    0,
-				HiddenGlobalOffsetX: int64(i * numWi / len(b.gpus)),
+				HiddenGlobalOffsetX: int64(i * numWi / len(b.Gpus)),
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      1,
 			}
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				queues[i],
 				b.hsaco,
 				globalSize,
@@ -252,14 +246,14 @@ func (b *Benchmark) LaunchKernel() {
 				&kernArg)
 		} else {
 			kernArg := KernelArgs{
-				Input:               b.gInput,
-				ExpandedKey:         b.gExpandedKey[i],
-				S:                   b.gS[i],
-				HiddenGlobalOffsetX: int64(i * numWi / len(b.gpus)),
+				Input:               b.GInput,
+				ExpandedKey:         b.GExpandedKey[i],
+				S:                   b.GS[i],
+				HiddenGlobalOffsetX: int64(i * numWi / len(b.Gpus)),
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
 			}
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				queues[i],
 				b.hsaco,
 				globalSize,
@@ -267,37 +261,68 @@ func (b *Benchmark) LaunchKernel() {
 				&kernArg)
 		}
 	}
-
-	for _, q := range queues {
-		b.driver.DrainCommandQueue(q)
-	}
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuOutput := make([]byte, b.Length)
-	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInput)
+	if err := benchmarks.Read(b.rt, b.Readback, gpuOutput); err != nil {
+		return err
+	}
 
 	cpuOutput := b.cpuEncrypt()
 
 	for i := 0; i < b.Length; i++ {
 		if cpuOutput[i] != gpuOutput[i] {
-			log.Panicf("Mismatch at position %d: should be %02x but get %02x",
+			return fmt.Errorf("Mismatch at position %d: should be %02x but get %02x",
 				i, cpuOutput[i], gpuOutput[i])
 		}
 	}
 
 	log.Printf("\nPassed!\n")
+
+	return nil
 }
 
 func (b *Benchmark) cpuEncrypt() []byte {
 	cpuOutput := make([]byte, b.Length)
-	cipherBlock, err := aes.NewCipher(b.key)
+	cipherBlock, err := aes.NewCipher(b.Key)
 	if err != nil {
 		panic(err)
 	}
 	for i := 0; i < b.Length/16; i++ {
-		cipherBlock.Encrypt(cpuOutput[i*16:], b.input[i*16:])
+		cipherBlock.Encrypt(cpuOutput[i*16:], b.Input[i*16:])
 	}
 	return cpuOutput
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.LaunchKernel()
+		b.Phase = 2
+	case 2:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.Readback = benchmarks.Download(b.rt, b.Queue, b.GInput, b.Length)
+		b.Phase = 3
+	case 3:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

@@ -2,26 +2,25 @@
 package kmeans
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"os"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // GCN3 Kernel Arguments
 
 // SwapArgs defines arguments for GCN3
 type SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
+	Feature             gpuruntime.Ptr
+	FeatureSwap         gpuruntime.Ptr
 	NPoints             int32
 	NFeatures           int32
 	HiddenGlobalOffsetX int64
@@ -31,9 +30,9 @@ type SwapArgs struct {
 
 // ComputeArgs defines arguments for GCN3
 type ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
+	Feature             gpuruntime.Ptr
+	Clusters            gpuruntime.Ptr
+	Membership          gpuruntime.Ptr
 	NPoints             int32
 	NClusters           int32
 	NFeatures           int32
@@ -49,8 +48,8 @@ type ComputeArgs struct {
 
 // CDNA3SwapArgs defines arguments for CDNA3 architecture (GFX942)
 type CDNA3SwapArgs struct {
-	Feature             driver.Ptr
-	FeatureSwap         driver.Ptr
+	Feature             gpuruntime.Ptr
+	FeatureSwap         gpuruntime.Ptr
 	NPoints             int32
 	NFeatures           int32
 	HiddenBlockCountX   uint32
@@ -71,9 +70,9 @@ type CDNA3SwapArgs struct {
 
 // CDNA3ComputeArgs defines arguments for CDNA3 architecture (GFX942)
 type CDNA3ComputeArgs struct {
-	Feature             driver.Ptr
-	Clusters            driver.Ptr
-	Membership          driver.Ptr
+	Feature             gpuruntime.Ptr
+	Clusters            gpuruntime.Ptr
+	Membership          gpuruntime.Ptr
 	NPoints             int32
 	NClusters           int32
 	NFeatures           int32
@@ -98,38 +97,22 @@ type CDNA3ComputeArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	gpus    []int
-	queues  []*driver.CommandQueue
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	computeKernel *insts.KernelCodeObject
 	swapKernel    *insts.KernelCodeObject
-
-	Arch          arch.Type
-	NumClusters   int
-	NumPoints     int
-	NumFeatures   int
-	MaxIter       int
-	hFeatures     []float32
-	dFeatures     driver.Ptr
-	dFeaturesSwap driver.Ptr
-	hMembership   []int32
-	dMembership   driver.Ptr
-	hClusters     []float32
-	dClusters     []driver.Ptr
-
-	gpuRMSE float64
-
-	useUnifiedMemory bool
 }
 
 // NewBenchmark makes a new benchmark
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = driver.Init()
+	b.rt = rt
+	b.Context = rt.Init()
 
 	return b
 }
@@ -156,64 +139,63 @@ func (b *Benchmark) loadKernels() {
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpus = gpuIDs
-	b.queues = make([]*driver.CommandQueue, len(b.gpus))
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues[i] = b.driver.CreateCommandQueue(b.context)
+	b.Gpus = gpuIDs
+	b.Queues = make([]gpuruntime.CommandQueue, len(b.Gpus))
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		b.Queues[i] = b.rt.CreateCommandQueue(b.Context)
 	}
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	b.loadKernels()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
-	if b.useUnifiedMemory {
-		b.dFeatures = b.driver.AllocateUnifiedMemory(
-			b.context,
+	if b.UseUnifiedMemory {
+		b.DFeatures = b.rt.AllocateUnifiedMemory(
+			b.Context,
 			uint64(b.NumPoints*b.NumFeatures*4))
-		b.dFeaturesSwap = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumPoints*b.NumFeatures*4))
-		b.dMembership = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumPoints*4))
+		b.DFeaturesSwap = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumPoints*b.NumFeatures*4))
+		b.DMembership = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumPoints*4))
 	} else {
-		b.dFeatures = b.driver.AllocateMemory(
-			b.context,
+		b.DFeatures = b.rt.AllocateMemory(
+			b.Context,
 			uint64(b.NumPoints*b.NumFeatures*4))
-		b.driver.Distribute(b.context, b.dFeatures,
-			uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+		b.rt.Distribute(b.Context, b.DFeatures,
+			uint64(b.NumPoints*b.NumFeatures*4), b.Gpus)
 
-		b.dFeaturesSwap = b.driver.AllocateMemory(
-			b.context, uint64(b.NumPoints*b.NumFeatures*4))
-		b.driver.Distribute(b.context, b.dFeaturesSwap,
-			uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+		b.DFeaturesSwap = b.rt.AllocateMemory(
+			b.Context, uint64(b.NumPoints*b.NumFeatures*4))
+		b.rt.Distribute(b.Context, b.DFeaturesSwap,
+			uint64(b.NumPoints*b.NumFeatures*4), b.Gpus)
 
-		b.dMembership = b.driver.AllocateMemory(
-			b.context, uint64(b.NumPoints*4))
-		b.driver.Distribute(b.context, b.dMembership,
-			uint64(b.NumPoints*4), b.gpus)
+		b.DMembership = b.rt.AllocateMemory(
+			b.Context, uint64(b.NumPoints*4))
+		b.rt.Distribute(b.Context, b.DMembership,
+			uint64(b.NumPoints*4), b.Gpus)
 	}
 
-	b.dClusters = make([]driver.Ptr, len(b.gpus))
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		if b.useUnifiedMemory {
-			b.dClusters[i] = b.driver.AllocateUnifiedMemory(
-				b.context, uint64(b.NumClusters*b.NumFeatures*4))
+	b.DClusters = make([]gpuruntime.Ptr, len(b.Gpus))
+	for i, gpu := range b.Gpus {
+		b.rt.SelectGPU(b.Context, gpu)
+		if b.UseUnifiedMemory {
+			b.DClusters[i] = b.rt.AllocateUnifiedMemory(
+				b.Context, uint64(b.NumClusters*b.NumFeatures*4))
 		} else {
-			b.dClusters[i] = b.driver.AllocateMemory(
-				b.context, uint64(b.NumClusters*b.NumFeatures*4))
+			b.DClusters[i] = b.rt.AllocateMemory(
+				b.Context, uint64(b.NumClusters*b.NumFeatures*4))
 		}
 	}
 
@@ -223,31 +205,25 @@ func (b *Benchmark) initMem() {
 	// deterministic sequence; that made the feature data (and therefore the
 	// clustering result) differ on every run.
 	rng := rand.New(rand.NewSource(0))
-	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
+	b.HFeatures = make([]float32, b.NumPoints*b.NumFeatures)
 	for i := 0; i < b.NumPoints*b.NumFeatures; i++ {
-		b.hFeatures[i] = rng.Float32()
+		b.HFeatures[i] = rng.Float32()
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.dFeatures, b.hFeatures)
-}
-
-func (b *Benchmark) exec() {
-	b.transposeFeatures()
-	b.kmeansClustering()
-	b.gpuRMSE = b.calculateRMSE()
+	b.Upload(b.rt, b.Queues[0], b.DFeatures, b.HFeatures)
 }
 
 func (b *Benchmark) transposeFeatures() {
-	for i, q := range b.queues {
-		numWI := b.NumPoints / len(b.gpus)
+	for i, q := range b.Queues {
+		numWI := b.NumPoints / len(b.Gpus)
 
 		if b.Arch == arch.CDNA3 {
 			globalSize := [3]uint32{uint32(numWI), 1, 1}
 			localSize := [3]uint16{64, 1, 1}
 			kernArg := CDNA3SwapArgs{
-				Feature:             b.dFeatures,
-				FeatureSwap:         b.dFeaturesSwap,
+				Feature:             b.DFeatures,
+				FeatureSwap:         b.DFeaturesSwap,
 				NPoints:             int32(b.NumPoints),
 				NFeatures:           int32(b.NumFeatures),
 				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
@@ -265,7 +241,7 @@ func (b *Benchmark) transposeFeatures() {
 				HiddenGridDims:      1,
 			}
 
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.swapKernel,
 				globalSize,
@@ -274,14 +250,14 @@ func (b *Benchmark) transposeFeatures() {
 			)
 		} else {
 			kernArg := SwapArgs{
-				b.dFeatures,
-				b.dFeaturesSwap,
+				b.DFeatures,
+				b.DFeaturesSwap,
 				int32(b.NumPoints),
 				int32(b.NumFeatures),
 				int64(numWI * i), 0, 0,
 			}
 
-			b.driver.EnqueueLaunchKernel(
+			b.rt.EnqueueLaunchKernel(
 				q,
 				b.swapKernel,
 				[3]uint32{uint32(numWI), 1, 1},
@@ -290,71 +266,52 @@ func (b *Benchmark) transposeFeatures() {
 			)
 		}
 	}
-
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
-	b.verifySwap()
 }
 
-func (b *Benchmark) verifySwap() {
+func (b *Benchmark) verifySwap() error {
 	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
-	b.driver.MemCopyD2H(b.context, gpuSwap, b.dFeaturesSwap)
+	if err := benchmarks.Read(b.rt, b.SwapReadback, gpuSwap); err != nil {
+		return err
+	}
 
 	for i := 0; i < b.NumPoints; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
-			if gpuSwap[j*b.NumPoints+i] != b.hFeatures[i*b.NumFeatures+j] {
-				log.Printf("Swap error (%d, %d) expected %f, but get %f",
+			if gpuSwap[j*b.NumPoints+i] != b.HFeatures[i*b.NumFeatures+j] {
+				return fmt.Errorf("Swap error (%d, %d) expected %f, but get %f",
 					i, j,
-					b.hFeatures[i*b.NumFeatures+j],
+					b.HFeatures[i*b.NumFeatures+j],
 					gpuSwap[j*b.NumPoints+i],
 				)
 			}
 		}
 	}
-}
-
-func (b *Benchmark) kmeansClustering() {
-	numIterations := 0
-	delta := float64(1.0)
-
-	b.initializeClusters()
-	b.initializeMembership()
-
-	for delta > 0 && numIterations < b.MaxIter {
-		delta = b.updateMembership()
-		numIterations++
-		b.updateCentroids()
-	}
-
-	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", numIterations)
+	return nil
 }
 
 func (b *Benchmark) initializeClusters() {
-	b.hClusters = make([]float32, b.NumClusters*b.NumFeatures)
+	b.HClusters = make([]float32, b.NumClusters*b.NumFeatures)
 	for i := 0; i < b.NumClusters*b.NumFeatures; i++ {
-		b.hClusters[i] = b.hFeatures[i]
+		b.HClusters[i] = b.HFeatures[i]
 	}
 }
 
 func (b *Benchmark) initializeMembership() {
-	b.hMembership = make([]int32, b.NumPoints)
+	b.HMembership = make([]int32, b.NumPoints)
 	for i := 0; i < b.NumPoints; i++ {
-		b.hMembership[i] = -1
+		b.HMembership[i] = -1
 	}
 }
 
-func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
-	numWI := b.NumPoints / len(b.gpus)
+func (b *Benchmark) enqueueComputeKernel(q gpuruntime.CommandQueue, gpuIndex int) {
+	numWI := b.NumPoints / len(b.Gpus)
 
 	if b.Arch == arch.CDNA3 {
 		globalSize := [3]uint32{uint32(numWI), 1, 1}
 		localSize := [3]uint16{64, 1, 1}
 		kernArg := CDNA3ComputeArgs{
-			Feature:             b.dFeaturesSwap,
-			Clusters:            b.dClusters[gpuIndex],
-			Membership:          b.dMembership,
+			Feature:             b.DFeaturesSwap,
+			Clusters:            b.DClusters[gpuIndex],
+			Membership:          b.DMembership,
 			NPoints:             int32(b.NumPoints),
 			NClusters:           int32(b.NumClusters),
 			NFeatures:           int32(b.NumFeatures),
@@ -376,7 +333,7 @@ func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 			HiddenGridDims:      1,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			q,
 			b.computeKernel,
 			globalSize,
@@ -385,9 +342,9 @@ func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 		)
 	} else {
 		kernArg := ComputeArgs{
-			b.dFeaturesSwap,
-			b.dClusters[gpuIndex],
-			b.dMembership,
+			b.DFeaturesSwap,
+			b.DClusters[gpuIndex],
+			b.DMembership,
 			int32(b.NumPoints),
 			int32(b.NumClusters),
 			int32(b.NumFeatures),
@@ -395,7 +352,7 @@ func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 			int64(numWI * gpuIndex), 0, 0,
 		}
 
-		b.driver.EnqueueLaunchKernel(
+		b.rt.EnqueueLaunchKernel(
 			q,
 			b.computeKernel,
 			[3]uint32{uint32(numWI), 1, 1},
@@ -405,52 +362,51 @@ func (b *Benchmark) enqueueComputeKernel(q *driver.CommandQueue, gpuIndex int) {
 	}
 }
 
-func (b *Benchmark) updateMembership() float64 {
-	for i, q := range b.queues {
-		b.driver.EnqueueMemCopyH2D(q, b.dClusters[i], b.hClusters)
+func (b *Benchmark) submitMembership() {
+	for i, q := range b.Queues {
+		b.Upload(b.rt, q, b.DClusters[i], b.HClusters)
 		b.enqueueComputeKernel(q, i)
 	}
-
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
-	}
-
+}
+func (b *Benchmark) consumeMembership() (float64, error) {
 	newMembership := make([]int32, b.NumPoints)
-	b.driver.MemCopyD2H(b.context, newMembership, b.dMembership)
+	if err := benchmarks.Read(b.rt, b.Readback, newMembership); err != nil {
+		return 0, err
+	}
 
 	delta := 0.0
 	for i := 0; i < b.NumPoints; i++ {
 		//fmt.Printf("%d - %d\n", i, newMembership[i])
-		if newMembership[i] != b.hMembership[i] {
+		if newMembership[i] != b.HMembership[i] {
 			delta++
-			b.hMembership[i] = newMembership[i]
+			b.HMembership[i] = newMembership[i]
 		}
 	}
 
-	return delta
+	return delta, nil
 }
 
 func (b *Benchmark) updateCentroids() {
 	for i := 0; i < b.NumClusters*b.NumFeatures; i++ {
-		b.hClusters[i] = 0
+		b.HClusters[i] = 0
 	}
 
 	memberCount := make([]int, b.NumClusters)
 	for i := 0; i < b.NumPoints; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			featureIndex := i*b.NumFeatures + j
-			clusterIndex := int(b.hMembership[i])*b.NumFeatures + j
+			clusterIndex := int(b.HMembership[i])*b.NumFeatures + j
 
-			b.hClusters[clusterIndex] += b.hFeatures[featureIndex]
+			b.HClusters[clusterIndex] += b.HFeatures[featureIndex]
 		}
-		memberCount[b.hMembership[i]]++
+		memberCount[b.HMembership[i]]++
 	}
 
 	for i := 0; i < b.NumClusters; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			index := i*b.NumFeatures + j
 			if memberCount[i] > 0 {
-				b.hClusters[index] /= float32(memberCount[i])
+				b.HClusters[index] /= float32(memberCount[i])
 			}
 		}
 	}
@@ -463,8 +419,8 @@ func (b *Benchmark) calculateRMSE() float64 {
 		distanceSquare := float64(0.0)
 		for j := 0; j < b.NumFeatures; j++ {
 			featureIndex := i*b.NumFeatures + j
-			clusterIndex := int(b.hMembership[i])*b.NumFeatures + j
-			distance := float64(b.hFeatures[featureIndex] - b.hClusters[clusterIndex])
+			clusterIndex := int(b.HMembership[i])*b.NumFeatures + j
+			distance := float64(b.HFeatures[featureIndex] - b.HClusters[clusterIndex])
 			distanceSquare += distance * distance
 		}
 		mse += distanceSquare
@@ -475,20 +431,24 @@ func (b *Benchmark) calculateRMSE() float64 {
 }
 
 // Verify verifies
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuCentroids := make([]float32, b.NumClusters*b.NumFeatures)
-	copy(gpuCentroids, b.hClusters)
+	copy(gpuCentroids, b.HClusters)
 
 	b.cpuKMeans()
 
-	b.compareCentroids(b.hClusters, gpuCentroids)
+	if err := b.compareCentroids(b.HClusters, gpuCentroids); err != nil {
+		return err
+	}
 
 	cpuRMSE := b.calculateRMSE()
-	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
+	if math.Abs(cpuRMSE-b.GpuRMSE) < 1e-12 {
 		fmt.Fprintf(os.Stderr, "Passsed, RMSE %f\n", cpuRMSE)
 	} else {
-		log.Fatal("error")
+		return fmt.Errorf("error")
 	}
+
+	return nil
 }
 
 func (b *Benchmark) cpuKMeans() {
@@ -518,7 +478,7 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 			dist := float64(0)
 
 			for k := 0; k < b.NumFeatures; k++ {
-				diff := float64(b.hFeatures[i*b.NumFeatures+k] - b.hClusters[j*b.NumFeatures+k])
+				diff := float64(b.HFeatures[i*b.NumFeatures+k] - b.HClusters[j*b.NumFeatures+k])
 				dist += diff * diff
 			}
 
@@ -533,23 +493,89 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 	delta := 0.0
 	for i := 0; i < b.NumPoints; i++ {
 		//fmt.Printf("%d - %d\n", i, newMembership[i])
-		if newMembership[i] != b.hMembership[i] {
+		if newMembership[i] != b.HMembership[i] {
 			delta++
-			b.hMembership[i] = newMembership[i]
+			b.HMembership[i] = newMembership[i]
 		}
 	}
 
 	return delta
 }
 
-func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
+func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) error {
 	for i := 0; i < b.NumClusters; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
 			index := i*b.NumFeatures + j
 			if cpuCentroids[index] != gpuCentroids[index] {
-				log.Panicf("centroid %d feature %d mismatch, CPU %f, GPU %f",
+				return fmt.Errorf("centroid %d feature %d mismatch, CPU %f, GPU %f",
 					i, j, cpuCentroids[index], gpuCentroids[index])
 			}
 		}
 	}
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	if b.MaxIter <= 0 {
+		return fmt.Errorf("kmeans requires MaxIter > 0")
+	}
+	switch b.Phase {
+	case 0:
+		b.setup()
+		b.Phase = 1
+	case 1:
+		b.transposeFeatures()
+		b.Phase = 2
+	case 2:
+		if b.Verification {
+			b.SwapReadback = benchmarks.Download(b.rt, b.Queues[0], b.DFeaturesSwap, b.NumPoints*b.NumFeatures*4)
+		}
+		b.Phase = 3
+	case 3:
+		if b.Verification {
+			if err := b.verifySwap(); err != nil {
+				return err
+			}
+		}
+		b.initializeClusters()
+		b.initializeMembership()
+		b.submitMembership()
+		b.Phase = 4
+	case 4:
+		b.Readback = benchmarks.Download(b.rt, b.Queues[0], b.DMembership, b.NumPoints*4)
+		b.Phase = 5
+	case 5:
+		return b.finishIteration()
+	}
+	return nil
+}
+
+func (b *Benchmark) finishIteration() error {
+	delta, err := b.consumeMembership()
+	if err != nil {
+		return err
+	}
+	b.Iteration++
+	b.updateCentroids()
+	if delta > 0 && b.Iteration < b.MaxIter {
+		b.submitMembership()
+		b.Phase = 4
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", b.Iteration)
+	b.GpuRMSE = b.calculateRMSE()
+	if b.Verification {
+		if err := b.verify(); err != nil {
+			return err
+		}
+	}
+	b.Ended = true
+	return nil
 }

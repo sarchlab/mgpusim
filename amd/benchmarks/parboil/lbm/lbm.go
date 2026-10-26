@@ -17,15 +17,16 @@
 package lbm
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Q is the number of discrete velocities in the D3Q19 lattice.
@@ -62,44 +63,34 @@ var (
 // uses constant block dimensions and __constant__ tables only, so no hidden
 // ABI arguments are emitted.
 type KernelArgs struct {
-	FSrc  driver.Ptr // offset 0
-	FDst  driver.Ptr // offset 8
-	Nx    int32      // offset 16
-	Ny    int32      // offset 20
-	Nz    int32      // offset 24
-	Omega float32    // offset 28
+	FSrc  gpuruntime.Ptr // offset 0
+	FDst  gpuruntime.Ptr // offset 8
+	Nx    int32          // offset 16
+	Ny    int32          // offset 20
+	Nz    int32          // offset 24
+	Omega float32        // offset 28
 }
 
 // Benchmark defines the LBM benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch         arch.Type
-	GridDim      int     // N for the NxNxN grid
-	NumTimesteps int     // number of collide-stream iterations
-	Tau          float32 // relaxation time; omega = 1/tau
-
-	hF    []float32 // host initial distribution (Q*N)
-	gFSrc driver.Ptr
-	gFDst driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new LBM benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -114,16 +105,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. LBM uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the parboil lbm benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -131,7 +122,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -162,31 +154,31 @@ func (b *Benchmark) initMem() {
 	numCells := n * n * n
 
 	// Deterministic equilibrium initialization, identical to the HIP host.
-	b.hF = make([]float32, Q*numCells)
+	b.HF = make([]float32, Q*numCells)
 	seed := uint32(42)
 	for idx := 0; idx < numCells; idx++ {
 		rho := 1.0 + 0.001*randFloat(&seed, -1.0, 1.0)
 		for q := 0; q < Q; q++ {
-			b.hF[q*numCells+idx] = hW[q] * rho
+			b.HF[q*numCells+idx] = hW[q] * rho
 		}
 	}
 
 	zeros := make([]float32, Q*numCells)
 
-	if b.useUnifiedMemory {
-		b.gFSrc = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(Q*numCells*4))
-		b.gFDst = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(Q*numCells*4))
+	if b.UseUnifiedMemory {
+		b.GFSrc = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(Q*numCells*4))
+		b.GFDst = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(Q*numCells*4))
 	} else {
-		b.gFSrc = b.driver.AllocateMemory(
-			b.context, uint64(Q*numCells*4))
-		b.gFDst = b.driver.AllocateMemory(
-			b.context, uint64(Q*numCells*4))
+		b.GFSrc = b.rt.AllocateMemory(
+			b.Context, uint64(Q*numCells*4))
+		b.GFDst = b.rt.AllocateMemory(
+			b.Context, uint64(Q*numCells*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gFSrc, b.hF)
-	b.driver.MemCopyH2D(b.context, b.gFDst, zeros)
+	b.Upload(b.rt, b.Queue, b.GFSrc, b.HF)
+	b.Upload(b.rt, b.Queue, b.GFDst, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -197,8 +189,8 @@ func (b *Benchmark) exec() {
 	gridSize := uint32((numCells + blockSize - 1) / blockSize)
 	globalX := gridSize * blockSize
 
-	src := b.gFSrc
-	dst := b.gFDst
+	src := b.GFSrc
+	dst := b.GFDst
 
 	for t := 0; t < b.NumTimesteps; t++ {
 		args := KernelArgs{
@@ -210,22 +202,21 @@ func (b *Benchmark) exec() {
 			Omega: omega,
 		}
 
-		b.driver.EnqueueLaunchKernel(
-			b.queue,
+		b.rt.EnqueueLaunchKernel(
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, 1, 1},
 			[3]uint16{blockSize, 1, 1},
 			&args,
 		)
-		b.driver.DrainCommandQueue(b.queue)
 
 		src, dst = dst, src
 	}
 
 	// After the loop, the final result lives in src (it was last written-to
 	// destination before the final swap).
-	b.gFSrc = src
-	b.gFDst = dst
+	b.GFSrc = src
+	b.GFDst = dst
 }
 
 // cpuCollideStream runs one collide-stream timestep on the CPU, identical to
@@ -287,18 +278,20 @@ func cpuCollideStream(fSrc, fDst []float32, n int, omega float32) {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.GridDim
 	numCells := n * n * n
 	omega := float32(1.0) / b.Tau
 
 	gpuF := make([]float32, Q*numCells)
-	b.driver.MemCopyD2H(b.context, gpuF, b.gFSrc)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuF); err != nil {
+		return err
+	}
 
 	// CPU reference: replay the exact same timesteps with buffer swapping.
 	src := make([]float32, Q*numCells)
 	dst := make([]float32, Q*numCells)
-	copy(src, b.hF)
+	copy(src, b.HF)
 	for i := range dst {
 		dst[i] = 0
 	}
@@ -320,10 +313,49 @@ func (b *Benchmark) Verify() {
 		if math.Abs(ref-got)/denom > 1e-3 {
 			q := i / numCells
 			cell := i % numCells
-			log.Fatalf("At q=%d cell=%d, expected %f, but got %f.\n",
+			return fmt.Errorf("At q=%d cell=%d, expected %f, but got %f.\n",
 				q, cell, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(
+		b.Readbacks,
+		benchmarks.Download(b.rt, b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
+	)
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

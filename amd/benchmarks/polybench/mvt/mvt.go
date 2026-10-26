@@ -14,15 +14,16 @@
 package mvt
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize matches the constant BLOCK_SIZE compiled into the gfx942
@@ -40,47 +41,33 @@ const blockSize = 256
 // arguments are emitted. The same layout is used by both mvt_kernel1
 // (A, y1, x1, n) and mvt_kernel2 (A, y2, x2, n).
 type KernelArgs struct {
-	A driver.Ptr // offset 0
-	Y driver.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
-	X driver.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
-	N int32      // offset 24
+	A gpuruntime.Ptr // offset 0
+	Y gpuruntime.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
+	X gpuruntime.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
+	N int32          // offset 24
 }
 
 // Benchmark defines the MVT benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
+
 	kernel1 *insts.KernelCodeObject
 	kernel2 *insts.KernelCodeObject
-	gpus    []int
-
-	Arch arch.Type
-	N    int
-
-	a  []float32
-	y1 []float32
-	y2 []float32
-
-	gA  driver.Ptr
-	gY1 driver.Ptr
-	gY2 driver.Ptr
-	gX1 driver.Ptr
-	gX2 driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new MVT benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -101,16 +88,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. MVT uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench mvt benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -118,7 +105,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -131,36 +119,36 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.a = make([]float32, numElem)
-	b.y1 = make([]float32, n)
-	b.y2 = make([]float32, n)
+	b.A = make([]float32, numElem)
+	b.Y1 = make([]float32, n)
+	b.Y2 = make([]float32, n)
 
 	// Deterministic host init, reproduced exactly in Verify().
 	for i := 0; i < numElem; i++ {
-		b.a[i] = float32(i%100) / 10.0
+		b.A[i] = float32(i%100) / 10.0
 	}
 	for j := 0; j < n; j++ {
-		b.y1[j] = float32((j*3)%100) / 10.0
-		b.y2[j] = float32((j*7)%100) / 10.0
+		b.Y1[j] = float32((j*3)%100) / 10.0
+		b.Y2[j] = float32((j*7)%100) / 10.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gY1 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gY2 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gX1 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gX2 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GY1 = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GY2 = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GX1 = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GX2 = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gY1 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gY2 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gX1 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gX2 = b.driver.AllocateMemory(b.context, uint64(n*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GY1 = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GY2 = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GX1 = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GX2 = b.rt.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.a)
-	b.driver.MemCopyH2D(b.context, b.gY1, b.y1)
-	b.driver.MemCopyH2D(b.context, b.gY2, b.y2)
+	b.Upload(b.rt, b.Queue, b.GA, b.A)
+	b.Upload(b.rt, b.Queue, b.GY1, b.Y1)
+	b.Upload(b.rt, b.Queue, b.GY2, b.Y2)
 }
 
 func (b *Benchmark) exec() {
@@ -170,13 +158,13 @@ func (b *Benchmark) exec() {
 
 	// Kernel 1: x1 = A * y1
 	args1 := KernelArgs{
-		A: b.gA,
-		Y: b.gY1,
-		X: b.gX1,
+		A: b.GA,
+		Y: b.GY1,
+		X: b.GX1,
 		N: int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.kernel1,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -185,40 +173,42 @@ func (b *Benchmark) exec() {
 
 	// Kernel 2: x2 = A^T * y2
 	args2 := KernelArgs{
-		A: b.gA,
-		Y: b.gY2,
-		X: b.gX2,
+		A: b.GA,
+		Y: b.GY2,
+		X: b.GX2,
 		N: int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.kernel2,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args2,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 
 	gpuX1 := make([]float32, n)
 	gpuX2 := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuX1, b.gX1)
-	b.driver.MemCopyD2H(b.context, gpuX2, b.gX2)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuX1); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuX2); err != nil {
+		return err
+	}
 
 	// x1[i] = sum_j A[i,j] * y1[j]
 	for i := 0; i < n; i++ {
 		var sum float64
 		for j := 0; j < n; j++ {
-			sum += float64(b.a[i*n+j]) * float64(b.y1[j])
+			sum += float64(b.A[i*n+j]) * float64(b.Y1[j])
 		}
 		got := float64(gpuX1[i])
 		if relErr(sum, got) > 1e-3 {
-			log.Fatalf("x1 mismatch at %d: expected %f, but got %f.\n",
+			return fmt.Errorf("x1 mismatch at %d: expected %f, but got %f.\n",
 				i, sum, got)
 		}
 	}
@@ -227,16 +217,23 @@ func (b *Benchmark) Verify() {
 	for j := 0; j < n; j++ {
 		var sum float64
 		for i := 0; i < n; i++ {
-			sum += float64(b.a[i*n+j]) * float64(b.y2[i])
+			sum += float64(b.A[i*n+j]) * float64(b.Y2[i])
 		}
 		got := float64(gpuX2[j])
 		if relErr(sum, got) > 1e-3 {
-			log.Fatalf("x2 mismatch at %d: expected %f, but got %f.\n",
+			return fmt.Errorf("x2 mismatch at %d: expected %f, but got %f.\n",
 				j, sum, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GX1, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GX2, 4*(b.N)))
 }
 
 func relErr(ref, got float64) float64 {
@@ -245,4 +242,34 @@ func relErr(ref, got float64) float64 {
 		denom = 1.0
 	}
 	return math.Abs(ref-got) / denom
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

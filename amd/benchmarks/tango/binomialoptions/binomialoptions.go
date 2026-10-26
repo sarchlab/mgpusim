@@ -18,15 +18,16 @@
 package binomialoptions
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize and maxNodes must match the native kernel (BLOCK_SIZE, MAX_NODES).
@@ -52,40 +53,31 @@ type optionData struct {
 // with binary.Write, which does not insert alignment padding). The kernel uses
 // a constant block dimension, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Options  driver.Ptr // offset 0
-	Prices   driver.Ptr // offset 8
-	NumSteps int32      // offset 16
+	Options  gpuruntime.Ptr // offset 0
+	Prices   gpuruntime.Ptr // offset 8
+	NumSteps int32          // offset 16
 }
 
 // Benchmark defines the Binomial Options benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch       arch.Type
-	NumOptions int
-	NumSteps   int
-
-	options  []optionData
-	gOptions driver.Ptr
-	gPrices  driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Binomial Options benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -100,16 +92,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the tango binomial options benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -117,7 +109,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -142,28 +135,28 @@ func (b *Benchmark) initMem() {
 			b.NumSteps+1, maxNodes)
 	}
 
-	b.options = make([]optionData, b.NumOptions)
+	b.Options = make([]optionData, b.NumOptions)
 	var seed uint32 = 42
 	for i := 0; i < b.NumOptions; i++ {
-		b.options[i].S = randRange(&seed, 5.0, 200.0)
-		b.options[i].K = randRange(&seed, 1.0, 300.0)
-		b.options[i].T = randRange(&seed, 0.25, 10.0)
-		b.options[i].R = 0.02
-		b.options[i].Sigma = randRange(&seed, 0.1, 1.0)
+		b.Options[i].S = randRange(&seed, 5.0, 200.0)
+		b.Options[i].K = randRange(&seed, 1.0, 300.0)
+		b.Options[i].T = randRange(&seed, 0.25, 10.0)
+		b.Options[i].R = 0.02
+		b.Options[i].Sigma = randRange(&seed, 0.1, 1.0)
 	}
 
 	optBytes := uint64(b.NumOptions * 20) // 5 float32 per option
 	priceBytes := uint64(b.NumOptions * 4)
 
-	if b.useUnifiedMemory {
-		b.gOptions = b.driver.AllocateUnifiedMemory(b.context, optBytes)
-		b.gPrices = b.driver.AllocateUnifiedMemory(b.context, priceBytes)
+	if b.UseUnifiedMemory {
+		b.GOptions = b.rt.AllocateUnifiedMemory(b.Context, optBytes)
+		b.GPrices = b.rt.AllocateUnifiedMemory(b.Context, priceBytes)
 	} else {
-		b.gOptions = b.driver.AllocateMemory(b.context, optBytes)
-		b.gPrices = b.driver.AllocateMemory(b.context, priceBytes)
+		b.GOptions = b.rt.AllocateMemory(b.Context, optBytes)
+		b.GPrices = b.rt.AllocateMemory(b.Context, priceBytes)
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gOptions, b.options)
+	b.Upload(b.rt, b.Queue, b.GOptions, b.Options)
 }
 
 func (b *Benchmark) exec() {
@@ -171,20 +164,18 @@ func (b *Benchmark) exec() {
 	globalX := uint32(b.NumOptions * blockSize)
 
 	args := KernelArgs{
-		Options:  b.gOptions,
-		Prices:   b.gPrices,
+		Options:  b.GOptions,
+		Prices:   b.GPrices,
 		NumSteps: int32(b.NumSteps),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // binomialCPU is the float32 reference, identical in arithmetic order to the
@@ -229,21 +220,59 @@ func f32max(a, b float32) float32 {
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	gpuPrices := make([]float32, b.NumOptions)
-	b.driver.MemCopyD2H(b.context, gpuPrices, b.gPrices)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuPrices); err != nil {
+		return err
+	}
 
 	for i := 0; i < b.NumOptions; i++ {
-		ref := binomialCPU(b.options[i], b.NumSteps)
+		ref := binomialCPU(b.Options[i], b.NumSteps)
 		got := gpuPrices[i]
 
 		diff := math.Abs(float64(got - ref))
 		tol := 1e-2*math.Abs(float64(ref)) + 1e-3
 		if diff > tol {
-			log.Fatalf("At option %d, expected %f, but got %f (diff=%f).\n",
+			return fmt.Errorf("At option %d, expected %f, but got %f (diff=%f).\n",
 				i, ref, got, diff)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GPrices, 4*(b.NumOptions)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

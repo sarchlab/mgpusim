@@ -16,15 +16,16 @@
 package ep
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // numBins is the number of annular bins (matches NUM_BINS in the kernel).
@@ -43,37 +44,31 @@ const blockSize = 256
 // uses a constant block size (no blockDim reads), so no hidden ABI arguments
 // are emitted.
 type KernelArgs struct {
-	N      int32      // offset 0
-	Pad    uint32     // offset 4 - alignment padding before the pointer
-	BinOut driver.Ptr // offset 8
+	N      int32          // offset 0
+	Pad    uint32         // offset 4 - alignment padding before the pointer
+	BinOut gpuruntime.Ptr // offset 8
 }
 
 // Benchmark defines the NPB EP benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	N    int
-
-	gBinOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new NPB EP benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -87,16 +82,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. EP uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the npb ep benchmark ships only a gfx942 kernel; " +
 			"run with -arch cdna3 -gpu mi300x")
@@ -104,7 +99,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -114,12 +110,12 @@ func (b *Benchmark) initMem() {
 		b.N = 4096
 	}
 
-	if b.useUnifiedMemory {
-		b.gBinOut = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.N*4))
+	if b.UseUnifiedMemory {
+		b.GBinOut = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.N*4))
 	} else {
-		b.gBinOut = b.driver.AllocateMemory(
-			b.context, uint64(b.N*4))
+		b.GBinOut = b.rt.AllocateMemory(
+			b.Context, uint64(b.N*4))
 	}
 }
 
@@ -130,18 +126,16 @@ func (b *Benchmark) exec() {
 
 	args := KernelArgs{
 		N:      int32(n),
-		BinOut: b.gBinOut,
+		BinOut: b.GBinOut,
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // lcgNext mirrors the device-side ANSI C LCG (mod 2^32 by overflow).
@@ -184,10 +178,12 @@ func cpuBin(idx int) int32 {
 
 // Verify checks the GPU per-thread bin indices against a CPU reference and
 // confirms the resulting bin histogram matches.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	gpuBins := make([]int32, n)
-	b.driver.MemCopyD2H(b.context, gpuBins, b.gBinOut)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuBins); err != nil {
+		return err
+	}
 
 	cpuHist := make([]int64, numBins)
 	gpuHist := make([]int64, numBins)
@@ -197,12 +193,12 @@ func (b *Benchmark) Verify() {
 		got := gpuBins[i]
 
 		if got < 0 || got >= numBins {
-			log.Fatalf("At index %d, GPU produced out-of-range bin %d.\n",
+			return fmt.Errorf("At index %d, GPU produced out-of-range bin %d.\n",
 				i, got)
 		}
 
 		if expected != got {
-			log.Fatalf("At index %d, expected bin %d, but got %d.\n",
+			return fmt.Errorf("At index %d, expected bin %d, but got %d.\n",
 				i, expected, got)
 		}
 
@@ -212,10 +208,46 @@ func (b *Benchmark) Verify() {
 
 	for i := 0; i < numBins; i++ {
 		if cpuHist[i] != gpuHist[i] {
-			log.Fatalf("Bin %d histogram mismatch: CPU=%d, GPU=%d.\n",
+			return fmt.Errorf("Bin %d histogram mismatch: CPU=%d, GPU=%d.\n",
 				i, cpuHist[i], gpuHist[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GBinOut, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

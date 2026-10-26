@@ -6,13 +6,15 @@ import (
 
 // ReluLayer implements a Rectified Linear Unit.
 type ReluLayer struct {
-	to           tensor.Operator
-	forwardInput tensor.Tensor
+	*ReluLayerState
+	to   tensor.Operator
+	refs tensor.References
 }
 
 // NewReluLayer creates a new Relu layer.
 func NewReluLayer(to tensor.Operator) *ReluLayer {
-	return &ReluLayer{to: to}
+	refs := tensor.NewReferences(to)
+	return &ReluLayer{ReluLayerState: &ReluLayerState{}, to: to, refs: refs}
 }
 
 // Randomize of the relu layer does nothing.
@@ -24,14 +26,14 @@ func (r *ReluLayer) Randomize() {
 func (r *ReluLayer) Forward(
 	input tensor.Tensor,
 ) tensor.Tensor {
-	r.forwardInput = r.to.Clone(input)
+	r.ForwardInputID = r.refs.Replace(r.ForwardInputID, r.to.Clone(input))
 	return r.to.ReluForward(input)
 }
 
 // Backward calculates the input gradients.
 func (r *ReluLayer) Backward(input tensor.Tensor) tensor.Tensor {
-	out := r.to.ReluBackward(r.forwardInput, input)
-	r.to.Free(r.forwardInput)
+	out := r.to.ReluBackward(r.refs.Resolve(r.ForwardInputID), input)
+	r.to.Free(r.refs.Resolve(r.ForwardInputID))
 	return out
 }
 

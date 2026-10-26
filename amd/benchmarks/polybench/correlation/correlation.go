@@ -18,15 +18,16 @@
 package correlation
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -42,73 +43,61 @@ const (
 
 // MeanArgs: kernarg_segment_size = 24.
 type MeanArgs struct {
-	Data driver.Ptr // offset 0
-	Mean driver.Ptr // offset 8
-	M    int32      // offset 16
-	N    int32      // offset 20
+	Data gpuruntime.Ptr // offset 0
+	Mean gpuruntime.Ptr // offset 8
+	M    int32          // offset 16
+	N    int32          // offset 20
 }
 
 // StddevArgs: kernarg_segment_size = 32.
 type StddevArgs struct {
-	Data   driver.Ptr // offset 0
-	Mean   driver.Ptr // offset 8
-	Stddev driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	Stddev gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
 }
 
 // NormalizeArgs: kernarg_segment_size = 32.
 type NormalizeArgs struct {
-	Data   driver.Ptr // offset 0
-	Mean   driver.Ptr // offset 8
-	Stddev driver.Ptr // offset 16
-	M      int32      // offset 24
-	N      int32      // offset 28
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	Stddev gpuruntime.Ptr // offset 16
+	M      int32          // offset 24
+	N      int32          // offset 28
 }
 
 // CorrelationArgs: kernarg_segment_size = 24.
 type CorrelationArgs struct {
-	Data driver.Ptr // offset 0
-	Corr driver.Ptr // offset 8
-	M    int32      // offset 16
-	N    int32      // offset 20
+	Data gpuruntime.Ptr // offset 0
+	Corr gpuruntime.Ptr // offset 8
+	M    int32          // offset 16
+	N    int32          // offset 20
 }
 
 // Benchmark defines the Correlation benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	meanKernel        *insts.KernelCodeObject
 	stddevKernel      *insts.KernelCodeObject
 	normalizeKernel   *insts.KernelCodeObject
 	correlationKernel *insts.KernelCodeObject
-
-	Arch arch.Type
-	N    int // data matrix is N x N (M = N samples, N features)
-
-	data []float32
-
-	gData   driver.Ptr
-	gMean   driver.Ptr
-	gStddev driver.Ptr
-	gCorr   driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Correlation benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -131,16 +120,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Correlation uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench correlation benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -148,7 +137,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -161,25 +151,25 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n // M == N
 
-	b.data = make([]float32, numElem)
+	b.Data = make([]float32, numElem)
 	for i := 0; i < numElem; i++ {
 		// Deterministic host init reproduced exactly in Verify().
-		b.data[i] = float32((i*7+3)%1000) / 100.0
+		b.Data[i] = float32((i*7+3)%1000) / 100.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gData = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gMean = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gStddev = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gCorr = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GData = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GMean = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GStddev = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GCorr = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gData = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gMean = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gStddev = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gCorr = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GData = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GMean = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GStddev = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GCorr = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gData, b.data)
+	b.Upload(b.rt, b.Queue, b.GData, b.Data)
 }
 
 func (b *Benchmark) exec() { //nolint:funlen,gocognit
@@ -199,74 +189,74 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	globalCorr := gridDim * tileSize
 
 	meanArgs := MeanArgs{
-		Data: b.gData,
-		Mean: b.gMean,
+		Data: b.GData,
+		Mean: b.GMean,
 		M:    int32(m),
 		N:    int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.meanKernel,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.meanKernel,
 		[3]uint32{globalN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&meanArgs,
 	)
 
 	stddevArgs := StddevArgs{
-		Data:   b.gData,
-		Mean:   b.gMean,
-		Stddev: b.gStddev,
+		Data:   b.GData,
+		Mean:   b.GMean,
+		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.stddevKernel,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.stddevKernel,
 		[3]uint32{globalN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&stddevArgs,
 	)
 
 	normalizeArgs := NormalizeArgs{
-		Data:   b.gData,
-		Mean:   b.gMean,
-		Stddev: b.gStddev,
+		Data:   b.GData,
+		Mean:   b.GMean,
+		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.normalizeKernel,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.normalizeKernel,
 		[3]uint32{globalMN, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&normalizeArgs,
 	)
 
 	correlationArgs := CorrelationArgs{
-		Data: b.gData,
-		Corr: b.gCorr,
+		Data: b.GData,
+		Corr: b.GCorr,
 		M:    int32(m),
 		N:    int32(n),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue, b.correlationKernel,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue, b.correlationKernel,
 		[3]uint32{globalCorr, globalCorr, 1},
 		[3]uint16{tileSize, tileSize, 1},
 		&correlationArgs,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation that
 // reproduces the exact four-kernel pipeline (in float32) on the host.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.N
 	m := n
 
 	gpuCorr := make([]float32, n*n)
-	b.driver.MemCopyD2H(b.context, gpuCorr, b.gCorr)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuCorr); err != nil {
+		return err
+	}
 
 	// CPU reference, mirroring the kernels element-for-element in float32.
 	work := make([]float32, m*n)
-	copy(work, b.data)
+	copy(work, b.Data)
 
 	mean := make([]float32, n)
 	for j := 0; j < n; j++ {
@@ -323,11 +313,47 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 				denom = 1.0
 			}
 			if math.Abs(ref-got)/denom > 1e-3 {
-				log.Fatalf("At (%d,%d), expected %f, but got %f.\n",
+				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					row, col, ref, got)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

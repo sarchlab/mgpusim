@@ -14,14 +14,15 @@
 package memorybandwidth
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"fmt"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize matches the constant BLOCK_SIZE in native/memory_bandwidth.cpp.
@@ -36,40 +37,31 @@ const blockSize = 256
 // args with binary.Write, which does not insert alignment padding). The
 // kernel uses a constant block size, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Src         driver.Ptr // offset 0
-	Dst         driver.Ptr // offset 8
-	NumElements int32      // offset 16
+	Src         gpuruntime.Ptr // offset 0
+	Dst         gpuruntime.Ptr // offset 8
+	NumElements int32          // offset 16
 }
 
 // Benchmark defines the memory_bandwidth benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	// NumElements is the number of float32 elements copied device-to-device.
-	NumElements int
-
-	src  []float32
-	gSrc driver.Ptr
-	gDst driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new memory_bandwidth benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -84,16 +76,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the memory_bandwidth benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -101,7 +93,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -113,20 +106,20 @@ func (b *Benchmark) initMem() {
 
 	n := b.NumElements
 
-	b.src = make([]float32, n)
+	b.Src = make([]float32, n)
 	for i := 0; i < n; i++ {
-		b.src[i] = float32(i%1000) * 0.5
+		b.Src[i] = float32(i%1000) * 0.5
 	}
 
-	if b.useUnifiedMemory {
-		b.gSrc = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gDst = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+	if b.UseUnifiedMemory {
+		b.GSrc = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GDst = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
 	} else {
-		b.gSrc = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gDst = b.driver.AllocateMemory(b.context, uint64(n*4))
+		b.GSrc = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GDst = b.rt.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gSrc, b.src)
+	b.Upload(b.rt, b.Queue, b.GSrc, b.Src)
 }
 
 func (b *Benchmark) exec() {
@@ -135,35 +128,71 @@ func (b *Benchmark) exec() {
 	globalX := gridSize * blockSize
 
 	args := KernelArgs{
-		Src:         b.gSrc,
-		Dst:         b.gDst,
+		Src:         b.GSrc,
+		Dst:         b.GDst,
 		NumElements: int32(n),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against the source buffer. A device-to-device
 // copy must reproduce the source exactly.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.NumElements
 	gpuDst := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuDst, b.gDst)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuDst); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
-		if gpuDst[i] != b.src[i] {
-			log.Fatalf("At index %d, expected %f, but got %f.\n",
-				i, b.src[i], gpuDst[i])
+		if gpuDst[i] != b.Src[i] {
+			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
+				i, b.Src[i], gpuDst[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GDst, 4*(b.NumElements)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

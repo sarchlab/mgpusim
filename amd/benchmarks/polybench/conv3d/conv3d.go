@@ -10,15 +10,16 @@
 package conv3d
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant work-group edge length, matching BLOCK_SIZE in
@@ -35,46 +36,33 @@ const blockSize = 8
 // insert alignment padding). The kernel reads only blockIdx/threadIdx with
 // a constant block size, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Input      driver.Ptr // offset 0
-	Filter     driver.Ptr // offset 8
-	Output     driver.Ptr // offset 16
-	N          int32      // offset 24
-	FilterSize int32      // offset 28
+	Input      gpuruntime.Ptr // offset 0
+	Filter     gpuruntime.Ptr // offset 8
+	Output     gpuruntime.Ptr // offset 16
+	N          int32          // offset 24
+	FilterSize int32          // offset 28
 }
 
 // Benchmark defines the 3D convolution benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	// N is the edge length of the NxNxN volume.
-	N int
-	// FilterSize is the edge length of the cubic filter (e.g. 3).
-	FilterSize int
-
-	input   []float32
-	filter  []float32
-	gInput  driver.Ptr
-	gFilter driver.Ptr
-	gOutput driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new 3D convolution benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -89,16 +77,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. conv3d uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 3dconv benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -106,7 +94,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -124,36 +113,36 @@ func (b *Benchmark) initMem() {
 	filtElems := b.FilterSize * b.FilterSize * b.FilterSize
 
 	// Deterministic host init, reproduced exactly in Verify().
-	b.input = make([]float32, volElems)
+	b.Input = make([]float32, volElems)
 	for i := 0; i < volElems; i++ {
-		b.input[i] = float32(i%100) / 100.0
+		b.Input[i] = float32(i%100) / 100.0
 	}
 
-	b.filter = make([]float32, filtElems)
+	b.Filter = make([]float32, filtElems)
 	var filtSum float32
 	for i := 0; i < filtElems; i++ {
-		b.filter[i] = float32(i%10 + 1)
-		filtSum += b.filter[i]
+		b.Filter[i] = float32(i%10 + 1)
+		filtSum += b.Filter[i]
 	}
 	for i := 0; i < filtElems; i++ {
-		b.filter[i] /= filtSum
+		b.Filter[i] /= filtSum
 	}
 
-	if b.useUnifiedMemory {
-		b.gInput = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(volElems*4))
-		b.gFilter = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(filtElems*4))
-		b.gOutput = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(volElems*4))
+	if b.UseUnifiedMemory {
+		b.GInput = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(volElems*4))
+		b.GFilter = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(filtElems*4))
+		b.GOutput = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(volElems*4))
 	} else {
-		b.gInput = b.driver.AllocateMemory(b.context, uint64(volElems*4))
-		b.gFilter = b.driver.AllocateMemory(b.context, uint64(filtElems*4))
-		b.gOutput = b.driver.AllocateMemory(b.context, uint64(volElems*4))
+		b.GInput = b.rt.AllocateMemory(b.Context, uint64(volElems*4))
+		b.GFilter = b.rt.AllocateMemory(b.Context, uint64(filtElems*4))
+		b.GOutput = b.rt.AllocateMemory(b.Context, uint64(volElems*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gInput, b.input)
-	b.driver.MemCopyH2D(b.context, b.gFilter, b.filter)
+	b.Upload(b.rt, b.Queue, b.GInput, b.Input)
+	b.Upload(b.rt, b.Queue, b.GFilter, b.Filter)
 }
 
 func (b *Benchmark) exec() {
@@ -162,33 +151,33 @@ func (b *Benchmark) exec() {
 	global := gridDim * blockSize
 
 	args := KernelArgs{
-		Input:      b.gInput,
-		Filter:     b.gFilter,
-		Output:     b.gOutput,
+		Input:      b.GInput,
+		Filter:     b.GFilter,
+		Output:     b.GOutput,
 		N:          int32(n),
 		FilterSize: int32(b.FilterSize),
 	}
 
 	// Kernel maps: x->k, y->j, z->i; all three dims span the NxNxN volume.
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{global, global, global},
 		[3]uint16{blockSize, blockSize, blockSize},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() { //nolint:funlen,gocognit
+func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	n := b.N
 	fs := b.FilterSize
 	half := fs / 2
 
 	gpuOut := make([]float32, n*n*n)
-	b.driver.MemCopyD2H(b.context, gpuOut, b.gOutput)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOut); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
@@ -209,8 +198,8 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 							if kk < 0 || kk >= n {
 								continue
 							}
-							sum += float64(b.input[(ii*n+jj)*n+kk]) *
-								float64(b.filter[(fi*fs+fj)*fs+fk])
+							sum += float64(b.Input[(ii*n+jj)*n+kk]) *
+								float64(b.Filter[(fi*fs+fj)*fs+fk])
 						}
 					}
 				}
@@ -223,7 +212,7 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 					denom = 1.0
 				}
 				if math.Abs(ref-got)/denom > 1e-3 {
-					log.Fatalf("At (%d,%d,%d), expected %f, but got %f.\n",
+					return fmt.Errorf("At (%d,%d,%d), expected %f, but got %f.\n",
 						i, j, k, ref, got)
 				}
 			}
@@ -231,4 +220,40 @@ func (b *Benchmark) Verify() { //nolint:funlen,gocognit
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOutput, 4*((b.N)*(b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

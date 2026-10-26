@@ -5,14 +5,9 @@ import "github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 // AvgPoolingLayer can perform avgpooling forward and backward propagation
 // operations.
 type AvgPoolingLayer struct {
-	to tensor.Operator
-
-	kernelSize []int
-	padding    []int
-	stride     []int
-
-	forwardIn         tensor.Tensor
-	forwardOutputSize []int
+	*AvgPoolingLayerState
+	to   tensor.Operator
+	refs tensor.References
 }
 
 // NewAvgPoolingLayer returns a newly created avgpooling layer.
@@ -20,33 +15,32 @@ func NewAvgPoolingLayer(
 	to tensor.Operator,
 	kernelSize, padding, stride []int,
 ) *AvgPoolingLayer {
+	refs := tensor.NewReferences(to)
 	return &AvgPoolingLayer{
-		to:         to,
-		kernelSize: kernelSize,
-		padding:    padding,
-		stride:     stride,
+		AvgPoolingLayerState: &AvgPoolingLayerState{KernelSize: kernelSize, Padding: padding, Stride: stride},
+		to:                   to, refs: refs,
 	}
 }
 
 // Forward can perform forward propagation operation.
 func (l *AvgPoolingLayer) Forward(in tensor.Tensor) tensor.Tensor {
-	l.forwardIn = l.to.Clone(in)
+	l.ForwardInID = l.refs.Replace(l.ForwardInID, l.to.Clone(in))
 
-	out := l.to.AvgPoolingForward(in, l.kernelSize, l.padding, l.stride)
+	out := l.to.AvgPoolingForward(in, l.KernelSize, l.Padding, l.Stride)
 
-	l.forwardOutputSize = out.Size()
+	l.ForwardOutputSize = out.Size()
 
 	return out
 }
 
 // Backward can perform backward propgation operation.
 func (l *AvgPoolingLayer) Backward(in tensor.Tensor) tensor.Tensor {
-	in.SetSize(l.forwardOutputSize)
+	in.SetSize(l.ForwardOutputSize)
 
-	out := l.to.AvgPoolingBackward(l.forwardIn, in,
-		l.kernelSize, l.padding, l.stride)
+	out := l.to.AvgPoolingBackward(l.refs.Resolve(l.ForwardInID), in,
+		l.KernelSize, l.Padding, l.Stride)
 
-	l.to.Free(l.forwardIn)
+	l.to.Free(l.refs.Resolve(l.ForwardInID))
 
 	return out
 }

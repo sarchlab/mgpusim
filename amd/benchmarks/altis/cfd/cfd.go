@@ -14,15 +14,16 @@
 package cfd
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const (
@@ -41,71 +42,42 @@ const (
 // insert alignment padding). The kernel uses a constant BLOCK_SIZE for the
 // block geometry, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	Rho        driver.Ptr // offset 0
-	Mx         driver.Ptr // offset 8
-	My         driver.Ptr // offset 16
-	Mz         driver.Ptr // offset 24
-	Energy     driver.Ptr // offset 32
-	Neighbors  driver.Ptr // offset 40
-	Normals    driver.Ptr // offset 48
-	Areas      driver.Ptr // offset 56
-	FluxRho    driver.Ptr // offset 64
-	FluxMx     driver.Ptr // offset 72
-	FluxMy     driver.Ptr // offset 80
-	FluxMz     driver.Ptr // offset 88
-	FluxEnergy driver.Ptr // offset 96
-	N          int32      // offset 104
+	Rho        gpuruntime.Ptr // offset 0
+	Mx         gpuruntime.Ptr // offset 8
+	My         gpuruntime.Ptr // offset 16
+	Mz         gpuruntime.Ptr // offset 24
+	Energy     gpuruntime.Ptr // offset 32
+	Neighbors  gpuruntime.Ptr // offset 40
+	Normals    gpuruntime.Ptr // offset 48
+	Areas      gpuruntime.Ptr // offset 56
+	FluxRho    gpuruntime.Ptr // offset 64
+	FluxMx     gpuruntime.Ptr // offset 72
+	FluxMy     gpuruntime.Ptr // offset 80
+	FluxMz     gpuruntime.Ptr // offset 88
+	FluxEnergy gpuruntime.Ptr // offset 96
+	N          int32          // offset 104
 }
 
 // Benchmark defines the Altis CFD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	N    int
-
-	// Host data (deterministic, reproducible in Verify).
-	hRho       []float32
-	hMx        []float32
-	hMy        []float32
-	hMz        []float32
-	hEnergy    []float32
-	hNeighbors []int32
-	hNormals   []float32
-	hAreas     []float32
-
-	// Device buffers.
-	gRho        driver.Ptr
-	gMx         driver.Ptr
-	gMy         driver.Ptr
-	gMz         driver.Ptr
-	gEnergy     driver.Ptr
-	gNeighbors  driver.Ptr
-	gNormals    driver.Ptr
-	gAreas      driver.Ptr
-	gFluxRho    driver.Ptr
-	gFluxMx     driver.Ptr
-	gFluxMy     driver.Ptr
-	gFluxMz     driver.Ptr
-	gFluxEnergy driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new Altis CFD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -120,16 +92,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. CFD uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the altis cfd benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -137,7 +109,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -159,25 +132,25 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	}
 	n := b.N
 
-	b.hRho = make([]float32, n)
-	b.hMx = make([]float32, n)
-	b.hMy = make([]float32, n)
-	b.hMz = make([]float32, n)
-	b.hEnergy = make([]float32, n)
-	b.hNeighbors = make([]int32, n*numNeighbors)
-	b.hNormals = make([]float32, n*numNeighbors*3)
-	b.hAreas = make([]float32, n*numNeighbors)
+	b.HRho = make([]float32, n)
+	b.HMx = make([]float32, n)
+	b.HMy = make([]float32, n)
+	b.HMz = make([]float32, n)
+	b.HEnergy = make([]float32, n)
+	b.HNeighbors = make([]int32, n*numNeighbors)
+	b.HNormals = make([]float32, n*numNeighbors*3)
+	b.HAreas = make([]float32, n*numNeighbors)
 
 	var seed uint32 = 42
 
 	for i := 0; i < n; i++ {
-		b.hRho[i] = 1.0 + 0.01*randFloat(&seed, -1.0, 1.0)
-		b.hMx[i] = 0.5 + 0.01*randFloat(&seed, -1.0, 1.0)
-		b.hMy[i] = 0.0 + 0.01*randFloat(&seed, -1.0, 1.0)
-		b.hMz[i] = 0.0 + 0.01*randFloat(&seed, -1.0, 1.0)
+		b.HRho[i] = 1.0 + 0.01*randFloat(&seed, -1.0, 1.0)
+		b.HMx[i] = 0.5 + 0.01*randFloat(&seed, -1.0, 1.0)
+		b.HMy[i] = 0.0 + 0.01*randFloat(&seed, -1.0, 1.0)
+		b.HMz[i] = 0.0 + 0.01*randFloat(&seed, -1.0, 1.0)
 		p := 1.0 / gamma
-		ke := 0.5 * (b.hMx[i]*b.hMx[i] + b.hMy[i]*b.hMy[i] + b.hMz[i]*b.hMz[i]) / b.hRho[i]
-		b.hEnergy[i] = p/gammaM1 + ke
+		ke := 0.5 * (b.HMx[i]*b.HMx[i] + b.HMy[i]*b.HMy[i] + b.HMz[i]*b.HMz[i]) / b.HRho[i]
+		b.HEnergy[i] = p/gammaM1 + ke
 		// volumes consumed from the PRNG stream in the original host code,
 		// even though this port does not use the rk_update kernel; keep the
 		// stream in lockstep so the neighbor/geometry data matches exactly.
@@ -193,7 +166,7 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 					break
 				}
 			}
-			b.hNeighbors[i*numNeighbors+f] = int32(j)
+			b.HNeighbors[i*numNeighbors+f] = int32(j)
 
 			nx := randFloat(&seed, -1.0, 1.0)
 			ny := randFloat(&seed, -1.0, 1.0)
@@ -203,17 +176,17 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 				nx, ny, nz, length = 1.0, 0.0, 0.0, 1.0
 			}
 			base := (i*numNeighbors + f) * 3
-			b.hNormals[base+0] = nx / length
-			b.hNormals[base+1] = ny / length
-			b.hNormals[base+2] = nz / length
+			b.HNormals[base+0] = nx / length
+			b.HNormals[base+1] = ny / length
+			b.HNormals[base+2] = nz / length
 
-			b.hAreas[i*numNeighbors+f] = 0.001 + 0.0005*randFloat(&seed, 0.0, 1.0)
+			b.HAreas[i*numNeighbors+f] = 0.001 + 0.0005*randFloat(&seed, 0.0, 1.0)
 		}
 	}
 
-	alloc := b.driver.AllocateMemory
-	if b.useUnifiedMemory {
-		alloc = b.driver.AllocateUnifiedMemory
+	alloc := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		alloc = b.rt.AllocateUnifiedMemory
 	}
 
 	cellBytes := uint64(n * 4)
@@ -221,28 +194,28 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	normalBytes := uint64(n * numNeighbors * 3 * 4)
 	areaBytes := uint64(n * numNeighbors * 4)
 
-	b.gRho = alloc(b.context, cellBytes)
-	b.gMx = alloc(b.context, cellBytes)
-	b.gMy = alloc(b.context, cellBytes)
-	b.gMz = alloc(b.context, cellBytes)
-	b.gEnergy = alloc(b.context, cellBytes)
-	b.gNeighbors = alloc(b.context, neighBytes)
-	b.gNormals = alloc(b.context, normalBytes)
-	b.gAreas = alloc(b.context, areaBytes)
-	b.gFluxRho = alloc(b.context, cellBytes)
-	b.gFluxMx = alloc(b.context, cellBytes)
-	b.gFluxMy = alloc(b.context, cellBytes)
-	b.gFluxMz = alloc(b.context, cellBytes)
-	b.gFluxEnergy = alloc(b.context, cellBytes)
+	b.GRho = alloc(b.Context, cellBytes)
+	b.GMx = alloc(b.Context, cellBytes)
+	b.GMy = alloc(b.Context, cellBytes)
+	b.GMz = alloc(b.Context, cellBytes)
+	b.GEnergy = alloc(b.Context, cellBytes)
+	b.GNeighbors = alloc(b.Context, neighBytes)
+	b.GNormals = alloc(b.Context, normalBytes)
+	b.GAreas = alloc(b.Context, areaBytes)
+	b.GFluxRho = alloc(b.Context, cellBytes)
+	b.GFluxMx = alloc(b.Context, cellBytes)
+	b.GFluxMy = alloc(b.Context, cellBytes)
+	b.GFluxMz = alloc(b.Context, cellBytes)
+	b.GFluxEnergy = alloc(b.Context, cellBytes)
 
-	b.driver.MemCopyH2D(b.context, b.gRho, b.hRho)
-	b.driver.MemCopyH2D(b.context, b.gMx, b.hMx)
-	b.driver.MemCopyH2D(b.context, b.gMy, b.hMy)
-	b.driver.MemCopyH2D(b.context, b.gMz, b.hMz)
-	b.driver.MemCopyH2D(b.context, b.gEnergy, b.hEnergy)
-	b.driver.MemCopyH2D(b.context, b.gNeighbors, b.hNeighbors)
-	b.driver.MemCopyH2D(b.context, b.gNormals, b.hNormals)
-	b.driver.MemCopyH2D(b.context, b.gAreas, b.hAreas)
+	b.Upload(b.rt, b.Queue, b.GRho, b.HRho)
+	b.Upload(b.rt, b.Queue, b.GMx, b.HMx)
+	b.Upload(b.rt, b.Queue, b.GMy, b.HMy)
+	b.Upload(b.rt, b.Queue, b.GMz, b.HMz)
+	b.Upload(b.rt, b.Queue, b.GEnergy, b.HEnergy)
+	b.Upload(b.rt, b.Queue, b.GNeighbors, b.HNeighbors)
+	b.Upload(b.rt, b.Queue, b.GNormals, b.HNormals)
+	b.Upload(b.rt, b.Queue, b.GAreas, b.HAreas)
 }
 
 func (b *Benchmark) exec() {
@@ -251,31 +224,29 @@ func (b *Benchmark) exec() {
 	globalX := gridX * blockSize
 
 	args := KernelArgs{
-		Rho:        b.gRho,
-		Mx:         b.gMx,
-		My:         b.gMy,
-		Mz:         b.gMz,
-		Energy:     b.gEnergy,
-		Neighbors:  b.gNeighbors,
-		Normals:    b.gNormals,
-		Areas:      b.gAreas,
-		FluxRho:    b.gFluxRho,
-		FluxMx:     b.gFluxMx,
-		FluxMy:     b.gFluxMy,
-		FluxMz:     b.gFluxMz,
-		FluxEnergy: b.gFluxEnergy,
+		Rho:        b.GRho,
+		Mx:         b.GMx,
+		My:         b.GMy,
+		Mz:         b.GMz,
+		Energy:     b.GEnergy,
+		Neighbors:  b.GNeighbors,
+		Normals:    b.GNormals,
+		Areas:      b.GAreas,
+		FluxRho:    b.GFluxRho,
+		FluxMx:     b.GFluxMx,
+		FluxMy:     b.GFluxMy,
+		FluxMz:     b.GFluxMz,
+		FluxEnergy: b.GFluxEnergy,
 		N:          int32(n),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // cpuPressure / cpuSpeedOfSound mirror the device helpers.
@@ -305,11 +276,11 @@ func fabs32(a float32) float32 {
 // cpuFlux computes the Rusanov flux for a single cell, identical to the
 // device kernel, for verification.
 func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) { //nolint:funlen,gocognit
-	rhoI := b.hRho[idx]
-	mxI := b.hMx[idx]
-	myI := b.hMy[idx]
-	mzI := b.hMz[idx]
-	eI := b.hEnergy[idx]
+	rhoI := b.HRho[idx]
+	mxI := b.HMx[idx]
+	myI := b.HMy[idx]
+	mzI := b.HMz[idx]
+	eI := b.HEnergy[idx]
 	pI := cpuPressure(rhoI, mxI, myI, mzI, eI)
 	aI := cpuSpeedOfSound(rhoI, pI)
 
@@ -319,18 +290,18 @@ func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) { //nolin
 	vzI := mzI * invRhoI
 
 	for f := 0; f < numNeighbors; f++ {
-		j := int(b.hNeighbors[idx*numNeighbors+f])
+		j := int(b.HNeighbors[idx*numNeighbors+f])
 		nbase := (idx*numNeighbors + f) * 3
-		nx := b.hNormals[nbase+0]
-		ny := b.hNormals[nbase+1]
-		nz := b.hNormals[nbase+2]
-		area := b.hAreas[idx*numNeighbors+f]
+		nx := b.HNormals[nbase+0]
+		ny := b.HNormals[nbase+1]
+		nz := b.HNormals[nbase+2]
+		area := b.HAreas[idx*numNeighbors+f]
 
-		rhoJ := b.hRho[j]
-		mxJ := b.hMx[j]
-		myJ := b.hMy[j]
-		mzJ := b.hMz[j]
-		eJ := b.hEnergy[j]
+		rhoJ := b.HRho[j]
+		mxJ := b.HMx[j]
+		myJ := b.HMy[j]
+		mzJ := b.HMz[j]
+		eJ := b.HEnergy[j]
 		pJ := cpuPressure(rhoJ, mxJ, myJ, mzJ, eJ)
 		aJ := cpuSpeedOfSound(rhoJ, pJ)
 
@@ -366,7 +337,7 @@ func (b *Benchmark) cpuFlux(idx int) (fRho, fMx, fMy, fMz, fE float32) { //nolin
 }
 
 // Verify checks the GPU flux output against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 
 	gpuFluxRho := make([]float32, n)
@@ -374,11 +345,21 @@ func (b *Benchmark) Verify() {
 	gpuFluxMy := make([]float32, n)
 	gpuFluxMz := make([]float32, n)
 	gpuFluxEnergy := make([]float32, n)
-	b.driver.MemCopyD2H(b.context, gpuFluxRho, b.gFluxRho)
-	b.driver.MemCopyD2H(b.context, gpuFluxMx, b.gFluxMx)
-	b.driver.MemCopyD2H(b.context, gpuFluxMy, b.gFluxMy)
-	b.driver.MemCopyD2H(b.context, gpuFluxMz, b.gFluxMz)
-	b.driver.MemCopyD2H(b.context, gpuFluxEnergy, b.gFluxEnergy)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuFluxRho); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuFluxMx); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuFluxMy); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[3], gpuFluxMz); err != nil {
+		return err
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[4], gpuFluxEnergy); err != nil {
+		return err
+	}
 
 	for i := 0; i < n; i++ {
 		refRho, refMx, refMy, refMz, refE := b.cpuFlux(i)
@@ -395,11 +376,51 @@ func (b *Benchmark) Verify() {
 				denom = 1e-3
 			}
 			if math.Abs(float64(ref[k]-got[k]))/denom > 1e-3 {
-				log.Fatalf("At cell %d %s, expected %f, but got %f.\n",
+				return fmt.Errorf("At cell %d %s, expected %f, but got %f.\n",
 					i, names[k], ref[k], got[k])
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxRho, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMx, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMy, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxMz, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GFluxEnergy, 4*(b.N)))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

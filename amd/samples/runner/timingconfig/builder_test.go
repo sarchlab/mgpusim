@@ -31,8 +31,8 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 		t.Fatal("driver must not be nil")
 	}
 
-	if len(gpuDriver.GPUs) != numGPUs {
-		t.Fatalf("expected %d GPUs, got %d", numGPUs, len(gpuDriver.GPUs))
+	if gpuDriver.GetNumGPUs() != numGPUs {
+		t.Fatalf("expected %d GPUs, got %d", numGPUs, gpuDriver.GetNumGPUs())
 	}
 
 	found := make(map[string]bool)

@@ -2,6 +2,7 @@ package timingconfig_test
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,11 +11,14 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 )
@@ -30,30 +34,26 @@ func TestTimingCheckpointFreshProcess(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		s, d := checkpointSystem(t, arch.Type(a))
+		s, d, results := checkpointSystem(t, arch.Type(a))
 		if err := s.LoadCheckpoint(path); err != nil {
 			t.Fatal(err)
 		}
-		buffers := d.ResultBuffers()
-		if len(buffers) != 2 {
-			t.Fatalf("got %d unbound results", len(buffers))
+		if len(results.IDs) != 2 {
+			t.Fatalf("expected two saved readbacks: %v", results.IDs)
 		}
-		output := [][]float32{make([]float32, checkpointLength), make([]float32, checkpointLength)}
-		if err := d.BindResultBuffer(buffers[0].CommandID, output[0]); err != nil {
+		// Host reads deliberately do not guard pending destinations. The
+		// saved mid-kernel destination must still hold its initial zero bytes.
+		output := make([]uint32, results.IDs[0].ByteSize/4)
+		if err := d.ReadHost(results.IDs[0], output); err != nil {
 			t.Fatal(err)
 		}
-		// Let the second copy finish without a host buffer, then attach it.
-		if err := s.Engine().Run(); err != nil {
-			t.Fatal(err)
+		for _, v := range output {
+			if v != 0 {
+				t.Fatal("pending destination changed before copy")
+			}
 		}
-		remaining := d.ResultBuffers()
-		if len(remaining) != 1 || !remaining[0].Complete || remaining[0].CommandID != buffers[1].CommandID {
-			t.Fatalf("missing completed unbound result: %+v", remaining)
-		}
-		if err := d.BindResultBuffer(buffers[1].CommandID, output[1]); err != nil {
-			t.Fatal(err)
-		}
-		finishTiming(t, s, output, path+".restored")
+
+		finishTiming(t, s, d, results, path+".restored")
 		return
 	}
 	for _, a := range []arch.Type{arch.GCN3, arch.CDNA3} {
@@ -98,9 +98,13 @@ func runTimingCheckpointFreshProcess(t *testing.T, a arch.Type) {
 
 func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	t.Helper()
-	s, d := checkpointSystem(t, a)
-	output := submitFIR(t, d, a)
-	d.TickLater()
+	s, d, results := checkpointSystem(t, a)
+	results.IDs = submitFIR(t, d, a)
+	for _, c := range s.Components() {
+		if d, ok := c.(*driver.Comp); ok {
+			d.TickLater()
+		}
+	}
 	e := s.Engine().(*timing.SerialEngine)
 	reached := false
 	for cycle := 0; cycle < 20000; cycle++ {
@@ -128,18 +132,26 @@ func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	if !reached {
 		t.Fatal("never reached an in-flight work-group")
 	}
-	for _, v := range output[0] {
+	out := make([]float32, checkpointLength)
+	if err := d.ReadHost(results.IDs[0], out); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range out {
 		if v != 0 {
-			t.Fatal("host copy completed before checkpoint")
+			t.Fatal("destination changed before queued D2H")
 		}
 	}
+	if d.Unfinished()[0] == 0 {
+		t.Fatal("copy pipeline completed before checkpoint")
+	}
+
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
-	finishTiming(t, s, output, path+".uninterrupted")
+	finishTiming(t, s, d, results, path+".uninterrupted")
 }
 
-func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Driver) {
+func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *gpuruntime.Runtime, *firResults) {
 	t.Helper()
 	s := sim.MakeBuilder().WithTaskTracking().Build()
 	gpuType := "r9nano"
@@ -147,6 +159,8 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Drive
 		gpuType = "mi300x"
 	}
 	d := timingconfig.MakeBuilder().WithSimulation(s).WithNumGPUs(1).WithGPUType(gpuType).Build()
+	results := &firResults{}
+	s.RegisterResource(results)
 	if err := s.Initialize(); err != nil {
 		t.Fatal(err)
 	}
@@ -155,10 +169,10 @@ func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *driver.Drive
 			t.Error(err)
 		}
 	})
-	return s, d
+	return s, d, results
 }
 
-func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
+func submitFIR(t *testing.T, d *gpuruntime.Runtime, a arch.Type) []gpuruntime.HostBuffer {
 	t.Helper()
 	ctx := d.Init()
 	q := d.CreateCommandQueue(ctx)
@@ -173,9 +187,9 @@ func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
 	outPtr := d.AllocateMemory(ctx, uint64(len(out)*4))
 	filterPtr := d.AllocateMemory(ctx, uint64(len(taps)*4))
 	historyPtr := d.AllocateMemory(ctx, uint64(len(history)*4))
-	d.EnqueueMemCopyH2D(q, inPtr, input)
-	d.EnqueueMemCopyH2D(q, filterPtr, taps)
-	d.EnqueueMemCopyH2D(q, historyPtr, history)
+	benchmarks.Upload(d, q, inPtr, input)
+	benchmarks.Upload(d, q, filterPtr, taps)
+	benchmarks.Upload(d, q, historyPtr, history)
 	filename := "kernels.hsaco"
 	if a == arch.CDNA3 {
 		filename = "kernels_gfx942.hsaco"
@@ -188,7 +202,13 @@ func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
 	if code == nil {
 		t.Fatal("missing FIR kernel")
 	}
-	var args any = &fir.GCN3KernelArgs{Output: outPtr, Input: inPtr, Filter: filterPtr, History: historyPtr, NumTaps: 4}
+	var args any = &fir.GCN3KernelArgs{
+		Output:  outPtr,
+		Input:   inPtr,
+		Filter:  filterPtr,
+		History: historyPtr,
+		NumTaps: 4,
+	}
 	if a == arch.CDNA3 {
 		args = &fir.CDNA3KernelArgs{
 			Output:            outPtr,
@@ -205,25 +225,31 @@ func submitFIR(t *testing.T, d *driver.Driver, a arch.Type) [][]float32 {
 		}
 	}
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	d.EnqueueMemCopyD2H(q, out, outPtr)
-	second := make([]float32, checkpointLength)
+	first := benchmarks.Download(d, q, outPtr, len(out)*4)
+
 	d.EnqueueLaunchKernel(q, code, [3]uint32{checkpointLength, 1, 1}, [3]uint16{64, 1, 1}, args)
-	d.EnqueueMemCopyD2H(q, second, outPtr)
-	return [][]float32{out, second}
+	second := benchmarks.Download(d, q, outPtr, checkpointLength*4)
+	return []gpuruntime.HostBuffer{first, second}
 }
 
-func finishTiming(t *testing.T, s *sim.Simulation, outputs [][]float32, path string) {
+func finishTiming(t *testing.T, s *sim.Simulation, d *gpuruntime.Runtime, results *firResults, path string) {
 	t.Helper()
 	if err := s.Engine().Run(); err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range outputs {
+	for _, id := range results.IDs {
+		out := make([]float32, checkpointLength)
+		if err := benchmarks.Read(d, id, out); err != nil {
+			t.Fatal(err)
+		}
 		verifyFIR(t, out)
+		results.Outputs = append(results.Outputs, out)
 	}
+	results.IDs = nil
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("verified %d FIR outputs at %d ps", len(outputs)*checkpointLength, s.Engine().CurrentTime())
+	t.Logf("verified %d FIR outputs at %d ps", len(results.Outputs)*checkpointLength, s.Engine().CurrentTime())
 }
 
 func verifyFIR(t *testing.T, out []float32) {
@@ -239,4 +265,17 @@ func verifyFIR(t *testing.T, out []float32) {
 			t.Fatalf("FIR[%d]=%v, want %v", i, v, want)
 		}
 	}
+}
+
+type firResults struct {
+	IDs     []gpuruntime.HostBuffer
+	Outputs [][]float32
+}
+
+func (r *firResults) Name() string { return "FIRResults" }
+func (r *firResults) SaveCheckpoint(w io.Writer) error {
+	return modeling.WriteCheckpoint(w, checkpointLength, r, nil)
+}
+func (r *firResults) LoadCheckpoint(reader io.Reader) error {
+	return modeling.ReadCheckpoint(reader, checkpointLength, r, nil)
 }

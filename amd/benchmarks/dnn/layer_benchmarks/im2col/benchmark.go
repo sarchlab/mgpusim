@@ -2,52 +2,35 @@
 package im2col
 
 import (
-	"math/rand"
-
-	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // A Benchmark is a benchmark for the im2col operation.
 type Benchmark struct {
-	driver           *driver.Driver
-	context          *driver.Context
-	gpus             []int
-	useUnifiedMemory bool
-
-	Arch arch.Type
-
-	N, C, H, W                int
-	outputH, outputW          int
-	KernelHeight, KernelWidth int
-	PadX, PadY                int
-	StrideX, StrideY          int
-	DilateX, DilateY          int
-
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt       *gpuruntime.Runtime
 	operator *gputensor.GPUOperator
-
-	Input tensor.Tensor
 }
 
-// NewBenchmark creates a new Im2Col benchmark. It requires the GPU driver as an
+// NewBenchmark creates a new Im2Col benchmark. It requires the GPU Runtime as an
 // argument.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := &Benchmark{
-		driver: driver,
+		rt: rt, State: &State{},
 	}
 
-	b.context = b.driver.Init()
-	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
-	b.operator.ReportTime()
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Context = b.rt.Init()
 
 	return b
 }
 
 // EnableVerification configures the benchmark to verify the result.
 func (b *Benchmark) EnableVerification() {
-	b.operator.EnableVerification()
+	b.SetVerification(true)
 }
 
 // SelectGPU selects the GPU to run the benchmark on.
@@ -56,41 +39,45 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 		panic("Im2Col benchmark can only run on a single GPU for now.")
 	}
 
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory configures the benchmark to use unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.operator = gputensor.NewGPUOperator(b.rt, b.Context)
+	b.Operator = b.operator.OperatorState
 	b.operator.Arch = b.Arch
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.operator.ReportTime()
+	b.operator.SetVerification(b.Verification)
 	b.calculateOutputSize()
 	b.initMem()
 	b.exec()
 }
 
 func (b *Benchmark) calculateOutputSize() {
-	b.outputH = (b.H+2*b.PadY-b.KernelHeight)/b.StrideY + 1
-	b.outputW = (b.W+2*b.PadX-b.KernelWidth)/b.StrideX + 1
+	b.OutputH = (b.H+2*b.PadY-b.KernelHeight)/b.StrideY + 1
+	b.OutputW = (b.W+2*b.PadX-b.KernelWidth)/b.StrideX + 1
 }
 
 func (b *Benchmark) initMem() {
 	input := make([]float64, b.N*b.C*b.H*b.W)
 
 	for i := 0; i < b.N*b.C*b.H*b.W; i++ {
-		input[i] = rand.Float64()
+		input[i] = b.operator.RandomFloat64()
 	}
 
-	b.Input = b.operator.CreateWithData(
-		input, []int{b.N, b.C, b.H, b.W}, "NCHW")
+	b.InputID = b.operator.Reference(b.operator.CreateWithData(
+		input, []int{b.N, b.C, b.H, b.W}, "NCHW"))
 }
 
 func (b *Benchmark) exec() {
-	b.operator.Im2Col(b.Input,
+	b.operator.Im2Col(b.operator.Resolve(b.InputID),
 		[]int{b.KernelHeight, b.KernelWidth},
 		[]int{b.PadY, b.PadX},
 		[]int{b.StrideY, b.StrideX},
@@ -98,6 +85,22 @@ func (b *Benchmark) exec() {
 	)
 }
 
-// Verify does nothing for now.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if err := b.operator.CompleteStep(); err != nil {
+			return err
+		}
+		b.Ended = true
+	}
+	return nil
 }

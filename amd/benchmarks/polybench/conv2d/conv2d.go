@@ -9,15 +9,16 @@
 package conv2d
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // blockSize is the constant work-group dimension (16x16) baked into the
@@ -46,40 +47,32 @@ const (
 // padding). The kernel uses constant block dimensions, so no hidden ABI
 // arguments are emitted.
 type KernelArgs struct {
-	A  driver.Ptr // offset 0
-	B  driver.Ptr // offset 8
-	NI int32      // offset 16
-	NJ int32      // offset 20
+	A  gpuruntime.Ptr // offset 0
+	B  gpuruntime.Ptr // offset 8
+	NI int32          // offset 16
+	NJ int32          // offset 20
 }
 
 // Benchmark defines the 2D convolution benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
-	Arch arch.Type
-	N    int
-
-	a  []float32
-	gA driver.Ptr
-	gB driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new 2D convolution benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -94,16 +87,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the polybench 2dconv benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -111,7 +104,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -125,23 +119,23 @@ func (b *Benchmark) initMem() {
 	numElem := n * n
 
 	// Deterministic host init that Verify() reproduces exactly.
-	b.a = make([]float32, numElem)
+	b.A = make([]float32, numElem)
 	for i := 0; i < numElem; i++ {
-		b.a[i] = float32(i%100) / 10.0
+		b.A[i] = float32(i%100) / 10.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GB = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gB = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GB = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
 	// Initialize B to zero so untouched border elements match the reference.
 	zeros := make([]float32, numElem)
-	b.driver.MemCopyH2D(b.context, b.gA, b.a)
-	b.driver.MemCopyH2D(b.context, b.gB, zeros)
+	b.Upload(b.rt, b.Queue, b.GA, b.A)
+	b.Upload(b.rt, b.Queue, b.GB, zeros)
 }
 
 func (b *Benchmark) exec() {
@@ -151,42 +145,42 @@ func (b *Benchmark) exec() {
 	globalY := gridDim * blockSize
 
 	args := KernelArgs{
-		A:  b.gA,
-		B:  b.gB,
+		A:  b.GA,
+		B:  b.GB,
 		NI: int32(n),
 		NJ: int32(n),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, globalY, 1},
 		[3]uint16{blockSize, blockSize, 1},
 		&args,
 	)
-
-	b.driver.DrainCommandQueue(b.queue)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	gpuB := make([]float32, n*n)
-	b.driver.MemCopyD2H(b.context, gpuB, b.gB)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuB); err != nil {
+		return err
+	}
 
 	ref := make([]float32, n*n)
 	for i := 1; i < n-1; i++ {
 		for j := 1; j < n-1; j++ {
 			ref[i*n+j] =
-				c00*b.a[(i-1)*n+(j-1)] +
-					c01*b.a[(i-1)*n+j] +
-					c02*b.a[(i-1)*n+(j+1)] +
-					c10*b.a[i*n+(j-1)] +
-					c11*b.a[i*n+j] +
-					c12*b.a[i*n+(j+1)] +
-					c20*b.a[(i+1)*n+(j-1)] +
-					c21*b.a[(i+1)*n+j] +
-					c22*b.a[(i+1)*n+(j+1)]
+				c00*b.A[(i-1)*n+(j-1)] +
+					c01*b.A[(i-1)*n+j] +
+					c02*b.A[(i-1)*n+(j+1)] +
+					c10*b.A[i*n+(j-1)] +
+					c11*b.A[i*n+j] +
+					c12*b.A[i*n+(j+1)] +
+					c20*b.A[(i+1)*n+(j-1)] +
+					c21*b.A[(i+1)*n+j] +
+					c22*b.A[(i+1)*n+(j+1)]
 		}
 	}
 
@@ -200,11 +194,47 @@ func (b *Benchmark) Verify() {
 				denom = 1.0
 			}
 			if math.Abs(want-got)/denom > 1e-3 {
-				log.Fatalf("At (%d,%d), expected %f, but got %f.\n",
+				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, want, got)
 			}
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GB, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

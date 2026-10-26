@@ -1,109 +1,56 @@
 package driver
 
 import (
-	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/sim"
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
-	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
+	"bytes"
+	"testing"
+
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-func enqueueNoopCommand(d *Driver, q *CommandQueue) {
-	c := &NoopCommand{
-		ID: d.NewID(),
+func TestQueuesDrainThroughSimulation(t *testing.T) {
+	for _, count := range []int{1, 3} {
+		f := newFixture(t, false)
+		for i := 0; i < count; i++ {
+			f.enqueue(f.q, gpuruntime.Command{Kind: gpuruntime.Noop})
+		}
+		f.c.TickLater()
+		if err := f.s.Run(); err != nil {
+			t.Fatal(err)
+		}
+		if len(f.snapshot().Queues[f.q-1].Pending) != 0 || f.r.Unfinished()[0] != 0 {
+			t.Fatal("queue did not drain")
+		}
 	}
-	d.Enqueue(q, c)
 }
 
-var _ = ginkgo.Describe("Driver async API execution", func() {
-	var (
-		simulation *sim.Simulation
-		pageTable  *vm.PageTable
-		driver     *Driver
-	)
-
-	ginkgo.BeforeEach(func() {
-		log2PageSize := uint64(12)
-		simulation = sim.MakeBuilder().Build()
-		pageTable = vm.NewPageTable(log2PageSize)
-
-		spec := DefaultSpec()
-		spec.Log2PageSize = log2PageSize
-
-		driver = MakeBuilder().
-			WithSimulation(simulation).
-			WithSpec(spec).
-			WithResources(Resources{PageTable: pageTable}).
-			Build("Driver")
-
-		gpuPort := twowaybuffered.MakeBuilder().
-			WithSimulation(simulation).
-			WithSpec(twowaybuffered.Spec{IncomingCapacity: 16, OutgoingCapacity: 16}).
-			Build()
-		driver.BindPort(GPUPortName, gpuPort)
-		(&noopConn{}).BindPort(gpuPort)
-		Expect(simulation.Initialize()).To(Succeed())
-
-		gpuDevice := &internal.Device{
-			ID:       1,
-			Type:     internal.DeviceTypeCPU,
-			MemState: internal.NewDeviceMemoryState(log2PageSize),
-		}
-		gpuDevice.SetTotalMemSize(1 * mem.GB)
-		driver.memAllocator.RegisterDevice(gpuDevice)
-		driver.Run()
-	})
-
-	ginkgo.AfterEach(func() {
-		driver.Terminate()
-		Expect(simulation.Terminate()).To(Succeed())
-	})
-
-	ginkgo.It("should drain queues", func() {
-		context := driver.Init()
-		q := driver.CreateCommandQueue(context)
-		enqueueNoopCommand(driver, q)
-
-		driver.DrainCommandQueue(q)
-
-		Expect(q.commands).To(HaveLen(0))
-	})
-
-	ginkgo.It("should drain queues", func() {
-		context := driver.Init()
-		q := driver.CreateCommandQueue(context)
-		enqueueNoopCommand(driver, q)
-		enqueueNoopCommand(driver, q)
-		enqueueNoopCommand(driver, q)
-
-		driver.DrainCommandQueue(q)
-
-		Expect(q.commands).To(HaveLen(0))
-	})
-
-	ginkgo.It("should allocate memory", func() {
-		context := driver.Init()
-
-		ptr := driver.AllocateMemory(context, 1*mem.MB)
-
-		Expect(context.buffers).To(HaveLen(1))
-		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
-		Expect(context.buffers[0].vAddr).To(Equal(ptr))
-		Expect(context.buffers[0].freed).To(BeFalse())
-		Expect(context.buffers[0].l2Dirty).To(BeFalse())
-	})
-
-	ginkgo.It("should allocate unified memory", func() {
-		context := driver.Init()
-
-		ptr := driver.AllocateUnifiedMemory(context, 1*mem.MB)
-
-		Expect(context.buffers).To(HaveLen(1))
-		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
-		Expect(context.buffers[0].vAddr).To(Equal(ptr))
-		Expect(context.buffers[0].freed).To(BeFalse())
-		Expect(context.buffers[0].l2Dirty).To(BeFalse())
-	})
-})
+func TestZeroByteCopyDrainsThroughDriver(t *testing.T) {
+	f := newFixture(t, false)
+	f.r.EnqueueMemCopyH2D(f.q, 0, 0, 0)
+	marker := f.r.EnqueueRecordEvent(f.q)
+	var runtime, component bytes.Buffer
+	if err := f.r.SaveCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.SaveCheckpoint(&component); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.LoadCheckpoint(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.c.LoadCheckpoint(&component); err != nil {
+		t.Fatal(err)
+	}
+	f.c.TickLater()
+	if err := f.s.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if f.r.Unfinished()[0] != 0 || len(f.c.State.Executing) != 0 || len(f.snapshot().Contexts[f.ctx-1].Buffers) != 0 {
+		t.Fatal("zero-byte copy retained work or allocation")
+	}
+	if _, err := f.r.EventTime(marker); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.r.ReleaseEvent(marker); err != nil {
+		t.Fatal(err)
+	}
+}

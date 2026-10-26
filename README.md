@@ -127,3 +127,13 @@ MIT © Project Akita Developers.
 <!-- Security scan triggered at 2026-09-10 04:14:39 -->
 
 <!-- Security scan triggered at 2026-09-11 07:33:00 -->
+
+## AMD host execution
+
+The host API and shared command state live in `amd/runtime`. The `amd/driver`
+component executes those commands through GPU protocols. Benchmarks keep their
+continuation in `benchmarks.Checkpoint[Config, State]` and advance through Step
+rounds separated by a global simulation drain. See
+[Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md) for composition,
+CPU buffers, and checkpoint recovery. The former AMD HTTP server and server
+sample have been removed; Akita monitoring remains available.

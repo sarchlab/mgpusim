@@ -22,15 +22,16 @@
 package sharedmembandwidth
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // These mirror constants in the gfx942 kernel (native/shared_mem_bandwidth.cpp).
@@ -48,54 +49,34 @@ const (
 // (mgpusim serializes args with binary.Write, which inserts no alignment
 // padding). Both kernels share this layout.
 type KernelArgs struct {
-	In         driver.Ptr // offset 0  (opaque source data, staged into LDS)
-	Sink       driver.Ptr // offset 8
-	InnerIters int32      // offset 16
-	BlockSize  int32      // offset 20
+	In         gpuruntime.Ptr // offset 0  (opaque source data, staged into LDS)
+	Sink       gpuruntime.Ptr // offset 8
+	InnerIters int32          // offset 16
+	BlockSize  int32          // offset 20
 }
 
 // Benchmark defines the shared-memory bandwidth benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	hsaco   *insts.KernelCodeObject
-	conf    *insts.KernelCodeObject
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
 
-	Arch arch.Type
+	rt *gpuruntime.Runtime
 
-	// NumBlocks is the number of work-groups (grid size in the X dimension).
-	NumBlocks int
-	// InnerIters is the number of streaming iterations the kernel runs.
-	InnerIters int
-	// BlockSize is the work-group size (threads per block), swept by the
-	// calibration and passed to the kernel as an explicit argument.
-	BlockSize int
-	// AccessPattern selects which kernel(s) run: "no_conflict" (default),
-	// "conflict", or "both".
-	AccessPattern string
-
-	gIn   driver.Ptr
-	gSink driver.Ptr
-
-	// noConflictResult holds the d_sink contents after the no-conflict
-	// kernel, snapshotted before the conflict kernel overwrites the sink.
-	noConflictResult []float32
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
+	conf  *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new shared-memory bandwidth benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -116,16 +97,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the shared_mem_bandwidth benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -133,9 +114,9 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
-	b.exec()
 }
 
 func (b *Benchmark) initMem() {
@@ -156,14 +137,14 @@ func (b *Benchmark) initMem() {
 	// chunk per thread); that is exactly the region the streaming reads mask to.
 	inFloats := b.BlockSize * unroll
 
-	if b.useUnifiedMemory {
-		b.gIn = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(inFloats*4))
-		b.gSink = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumBlocks*4))
+	if b.UseUnifiedMemory {
+		b.GIn = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(inFloats*4))
+		b.GSink = b.rt.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumBlocks*4))
 	} else {
-		b.gIn = b.driver.AllocateMemory(b.context, uint64(inFloats*4))
-		b.gSink = b.driver.AllocateMemory(b.context, uint64(b.NumBlocks*4))
+		b.GIn = b.rt.AllocateMemory(b.Context, uint64(inFloats*4))
+		b.GSink = b.rt.AllocateMemory(b.Context, uint64(b.NumBlocks*4))
 	}
 
 	// Opaque source data: all 1.0, so each block's accumulator is exactly
@@ -172,71 +153,98 @@ func (b *Benchmark) initMem() {
 	for i := range in {
 		in[i] = 1.0
 	}
-	b.driver.MemCopyH2D(b.context, b.gIn, in)
+	b.Upload(b.rt, b.Queue, b.GIn, in)
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
-	b.driver.MemCopyH2D(b.context, b.gSink, zeros)
+	b.Upload(b.rt, b.Queue, b.GSink, zeros)
 }
 
 // launch runs one kernel (no_conflict or conflict) with the configured block
 // size as both the work-group dimension and an explicit kernel argument.
 func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 	args := KernelArgs{
-		In:         b.gIn,
-		Sink:       b.gSink,
+		In:         b.GIn,
+		Sink:       b.GSink,
 		InnerIters: int32(b.InnerIters),
 		BlockSize:  int32(b.BlockSize),
 	}
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		kernel,
 		[3]uint32{uint32(b.NumBlocks * b.BlockSize), 1, 1},
 		[3]uint16{uint16(b.BlockSize), 1, 1},
 		&args,
 	)
-	b.driver.DrainCommandQueue(b.queue)
-}
-
-func (b *Benchmark) exec() {
-	runNoConflict := b.AccessPattern != "conflict"
-	runConflict := b.AccessPattern == "conflict" || b.AccessPattern == "both"
-
-	if runNoConflict {
-		b.launch(b.hsaco)
-		// Snapshot the deterministic no-conflict result before any conflict
-		// launch overwrites the shared sink.
-		b.noConflictResult = make([]float32, b.NumBlocks)
-		b.driver.MemCopyD2H(b.context, b.noConflictResult, b.gSink)
-	}
-
-	if runConflict {
-		b.launch(b.conf)
-	}
 }
 
 // Verify checks the GPU result against the CPU reference. With d_in all 1.0,
 // each block's thread 0 accumulates 1.0 once per (iteration, accumulator), so
 // the result is exactly unroll*InnerIters and independent of scheduling.
-func (b *Benchmark) Verify() {
-	if b.noConflictResult == nil {
+func (b *Benchmark) verify() error {
+	if b.NoConflictResult == nil {
 		log.Printf("Verify skipped (no_conflict kernel not run).\n")
-		return
+		return nil
 	}
 	ref := float32(unroll * b.InnerIters)
 
 	for blk := 0; blk < b.NumBlocks; blk++ {
-		got := b.noConflictResult[blk]
+		got := b.NoConflictResult[blk]
 
 		denom := math.Abs(float64(ref))
 		if denom < 1.0 {
 			denom = 1.0
 		}
 		if math.Abs(float64(ref-got))/denom > 1e-3 {
-			log.Fatalf("Block %d: expected sink %f, but got %f.\n",
+			return fmt.Errorf("Block %d: expected sink %f, but got %f.\n",
 				blk, ref, got)
 		}
 	}
 
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.setup()
+		if b.AccessPattern != "conflict" {
+			b.launch(b.hsaco)
+		}
+		b.Phase = 1
+	case 1:
+		if b.AccessPattern != "conflict" {
+			b.NoConflictResult = make([]float32, b.NumBlocks)
+			b.Readback = benchmarks.Download(b.rt, b.Queue, b.GSink, b.NumBlocks*4)
+		}
+		b.Phase = 2
+	case 2:
+		if b.Readback.Address != 0 {
+			if err := benchmarks.Read(b.rt, b.Readback, b.NoConflictResult); err != nil {
+				return err
+			}
+			b.Readback = gpuruntime.HostBuffer{}
+		}
+		if b.AccessPattern == "conflict" || b.AccessPattern == "both" {
+			b.launch(b.conf)
+		}
+		b.Phase = 3
+	case 3:
+		if b.Verification {
+			if err := b.verify(); err != nil {
+				return err
+			}
+		}
+		b.Ended = true
+	}
+	return nil
 }

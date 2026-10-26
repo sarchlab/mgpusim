@@ -15,15 +15,16 @@
 package lud
 
 import (
+	// embed hsaco files
+	_ "embed"
+	"fmt"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 const bSize = 16
@@ -35,9 +36,9 @@ const bSize = 16
 // packed with no padding. These kernels read only threadIdx/blockIdx, so no
 // hidden ABI arguments are emitted.
 type SimpleKernelArgs struct {
-	A      driver.Ptr // offset 0
-	N      int32      // offset 8
-	Offset int32      // offset 12
+	A      gpuruntime.Ptr // offset 0
+	N      int32          // offset 8
+	Offset int32          // offset 12
 }
 
 // PerimeterKernelArgs is the kernarg layout for lud_perimeter.
@@ -48,9 +49,9 @@ type SimpleKernelArgs struct {
 // remainder counts, a 16-byte reserved gap, the 24-byte global offset triple,
 // and the 2-byte grid-dims field. The struct is padded to exactly 272 bytes.
 type PerimeterKernelArgs struct {
-	A      driver.Ptr // offset 0
-	N      int32      // offset 8
-	Offset int32      // offset 12
+	A      gpuruntime.Ptr // offset 0
+	N      int32          // offset 8
+	Offset int32          // offset 12
 	// Hidden kernel arguments (required by HIP runtime for gfx942)
 	HiddenBlockCountX   uint32    // offset 16
 	HiddenBlockCountY   uint32    // offset 20
@@ -71,34 +72,26 @@ type PerimeterKernelArgs struct {
 
 // Benchmark defines the LUD benchmark.
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
-	queue   *driver.CommandQueue
-	gpus    []int
+	*State
+	benchmarks.Checkpoint[checkpointConfig, State]
+	rt *gpuruntime.Runtime
 
 	hsacoDiagonal  *insts.KernelCodeObject
 	hsacoPerimeter *insts.KernelCodeObject
 	hsacoInternal  *insts.KernelCodeObject
-
-	Arch arch.Type
-	N    int
-
-	aOrig []float32
-	gA    driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
 // NewBenchmark returns a new LUD benchmark.
-func NewBenchmark(driver *driver.Driver) *Benchmark {
+func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
 
-	b.driver = driver
-	b.context = b.driver.Init()
-	b.queue = driver.CreateCommandQueue(b.context)
+	b.rt = rt
+	b.Context = b.rt.Init()
 
 	return b
 }
@@ -119,16 +112,16 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. LUD uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
-// Run runs the benchmark.
-func (b *Benchmark) Run() {
+// Prepare the inputs for the first queued phase.
+func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the rodinia lud benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
@@ -136,7 +129,8 @@ func (b *Benchmark) Run() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -152,16 +146,16 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.aOrig = make([]float32, numElem)
-	initMatrix(b.aOrig, n)
+	b.AOrig = make([]float32, numElem)
+	initMatrix(b.AOrig, n)
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.rt.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GA = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.MemCopyH2D(b.context, b.gA, b.aOrig)
+	b.Upload(b.rt, b.Queue, b.GA, b.AOrig)
 }
 
 // initMatrix builds a diagonally-dominant matrix so that LU without pivoting
@@ -207,19 +201,18 @@ func (b *Benchmark) exec() {
 			b.launchPerimeter(n, k, peri)
 			b.launchInternal(n, k, intern)
 		}
-		b.driver.DrainCommandQueue(b.queue)
 	}
 }
 
 func (b *Benchmark) launchDiagonal(n, offset int) {
 	args := SimpleKernelArgs{
-		A:      b.gA,
+		A:      b.GA,
 		N:      int32(n),
 		Offset: int32(offset),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsacoDiagonal,
 		[3]uint32{bSize, bSize, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -230,7 +223,7 @@ func (b *Benchmark) launchDiagonal(n, offset int) {
 func (b *Benchmark) launchPerimeter(n, offset, peri int) {
 	globalX := uint32(peri * bSize)
 	args := PerimeterKernelArgs{
-		A:                 b.gA,
+		A:                 b.GA,
 		N:                 int32(n),
 		Offset:            int32(offset),
 		HiddenBlockCountX: uint32(peri),
@@ -245,8 +238,8 @@ func (b *Benchmark) launchPerimeter(n, offset, peri int) {
 		HiddenGridDims:    2,
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsacoPerimeter,
 		[3]uint32{globalX, bSize, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -258,13 +251,13 @@ func (b *Benchmark) launchInternal(n, offset, intern int) {
 	globalX := uint32(intern * bSize)
 	globalY := uint32(intern * bSize)
 	args := SimpleKernelArgs{
-		A:      b.gA,
+		A:      b.GA,
 		N:      int32(n),
 		Offset: int32(offset),
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
+	b.rt.EnqueueLaunchKernel(
+		b.Queue,
 		b.hsacoInternal,
 		[3]uint32{globalX, globalY, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -275,10 +268,12 @@ func (b *Benchmark) launchInternal(n, offset, intern int) {
 // Verify reconstructs A = L*U from the in-place GPU result and compares the
 // reconstruction against the original matrix, exactly like the reference C
 // verifier (relative Frobenius norm < 1e-4).
-func (b *Benchmark) Verify() {
+func (b *Benchmark) verify() error {
 	n := b.N
 	lu := make([]float32, n*n)
-	b.driver.MemCopyD2H(b.context, lu, b.gA)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], lu); err != nil {
+		return err
+	}
 
 	var err, normA float64
 	for i := 0; i < n; i++ {
@@ -296,17 +291,53 @@ func (b *Benchmark) Verify() {
 				u := float64(lu[k*n+j])
 				sum += l * u
 			}
-			diff := float64(b.aOrig[i*n+j]) - sum
+			diff := float64(b.AOrig[i*n+j]) - sum
 			err += diff * diff
-			normA += float64(b.aOrig[i*n+j]) * float64(b.aOrig[i*n+j])
+			normA += float64(b.AOrig[i*n+j]) * float64(b.AOrig[i*n+j])
 		}
 	}
 
 	rel := math.Sqrt(err / normA)
 	if rel >= 1e-4 {
-		log.Fatalf("Verification failed: ||A - LU||_F / ||A||_F = %.6e\n", rel)
+		return fmt.Errorf("Verification failed: ||A - LU||_F / ||A||_F = %.6e\n", rel)
 	}
 
 	log.Printf("||A - LU||_F / ||A||_F = %.6e\n", rel)
 	log.Printf("Passed!\n")
+
+	return nil
+}
+
+func (b *Benchmark) enqueueVerification() {
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*((b.N)*(b.N))))
+}
+
+// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+	if err := b.ReleaseUploads(b.rt); err != nil {
+		return err
+	}
+
+	switch b.Phase {
+	case 0:
+		b.submit()
+		b.Phase = 1
+	case 1:
+		if !b.Verification {
+			b.Ended = true
+			return nil
+		}
+		b.enqueueVerification()
+		b.Phase = 2
+	case 2:
+		if err := b.verify(); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.Ended = true
+	}
+	return nil
 }

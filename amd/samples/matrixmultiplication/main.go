@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/matrixmultiplication"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var xFlag = flag.Uint("x", 64, "The height of the first matrix.")
@@ -16,15 +17,26 @@ var zFlag = flag.Uint("z", 64, "The width of the second matrix.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := matrixmultiplication.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
+	benchmark := matrixmultiplication.NewBenchmark(runtime)
+	benchmark.Arch = config.ArchType
 	benchmark.X = uint32(*xFlag)
 	benchmark.Y = uint32(*yFlag)
 	benchmark.Z = uint32(*zFlag)
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }
