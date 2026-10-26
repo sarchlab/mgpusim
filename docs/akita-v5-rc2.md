@@ -50,10 +50,12 @@ an entire host round has returned and the Driver tick has been scheduled.
 honor the same precondition. A serial engine may run to an intermediate event
 boundary with `RunUntil` before saving.
 
-D2H submissions return command IDs. Benchmarks save those IDs in their own
-continuation and retrieve retained bytes with `Runtime.ReadResult` in a later
-Step after the global simulation drain. No output pointer binding is needed.
-A failed read leaves the result available; a successful read consumes it.
+D2H submissions write to caller-owned CPU storage described by a `HostBuffer`.
+Benchmarks save that descriptor in their continuation and decode the buffer with
+`Runtime.ReadHost` in a later Step after the global simulation drain. Reads are
+repeatable; callers explicitly release the allocation with `Runtime.FreeMemory`.
+Alternatively, `benchmarks.Read` decodes the buffer and releases it after a
+successful read. No output pointer binding is needed.
 Fresh-process reconstruction registers the same named workload resources before
 loading; `Runner.Run` first drains the saved simulation before the next Step.
 There is no asynchronous Driver host loop.
