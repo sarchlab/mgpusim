@@ -5,8 +5,8 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
-// ExecutionState is a wavefront's register/control state. Parent work-group,
-// instruction, scoreboard, and register-file references are bound by the CU.
+// ExecutionState is a wavefront's canonical register/control state. The CU
+// resolves group, instruction, scoreboard, and register-file access by ID.
 type ExecutionState struct {
 	InstID, ToIssueID                 uint64
 	PID                               vm.PID

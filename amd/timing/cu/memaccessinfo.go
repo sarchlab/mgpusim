@@ -19,7 +19,7 @@ type vectorMemAccessLaneInfo struct {
 type VectorMemAccessInfo struct {
 	Read      messaging.Msg
 	Write     messaging.Msg
-	Wavefront *wavefront.Wavefront
+	Wavefront *Wavefront
 	Inst      *wavefront.Inst
 	laneInfo  []vectorMemAccessLaneInfo
 }
@@ -27,7 +27,7 @@ type VectorMemAccessInfo struct {
 // InstFetchReqInfo defines request info
 type InstFetchReqInfo struct {
 	Req       messaging.Msg
-	Wavefront *wavefront.Wavefront
+	Wavefront *Wavefront
 	Address   uint64
 
 	// FetchTaskID is the tracing task ID of the fetch task (v4 used the
@@ -38,7 +38,7 @@ type InstFetchReqInfo struct {
 // ScalarMemAccessInfo defines request info
 type ScalarMemAccessInfo struct {
 	Req       messaging.Msg
-	Wavefront *wavefront.Wavefront
+	Wavefront *Wavefront
 	DstSGPR   *insts.Reg
 	Inst      *wavefront.Inst
 }

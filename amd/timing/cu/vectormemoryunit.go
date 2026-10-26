@@ -77,7 +77,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) {
 	u.state().InstructionsPipeline.Accept(vectorMemInst{WavefrontID: wave.UID})
 	u.state().Instructions++
@@ -196,7 +196,7 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(
-	wavefront *wavefront.Wavefront,
+	wavefront *Wavefront,
 ) bool {
 	inst := wavefront.DynamicInst()
 	switch inst.Opcode {
@@ -212,7 +212,7 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 }
 
 func (u *VectorMemoryUnit) executeFlatLoad(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) bool {
 	transactions := u.coalescer.generateMemTransactions(wave)
 
@@ -241,8 +241,8 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	})
 	u.startIssueSubtask(wave.DynamicInst())
 
-	wave.OutstandingVectorMemAccess++
-	wave.OutstandingScalarMemAccess++
+	wave.execution().OutstandingVectorMemAccess++
+	wave.execution().OutstandingScalarMemAccess++
 
 	for _, t := range transactions {
 		payload := t.Read.Payload.(memprotocol.ReadReq)
@@ -261,7 +261,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) bool {
 	transactions := u.coalescer.generateMemTransactions(wave)
 
@@ -290,8 +290,8 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	})
 	u.startIssueSubtask(wave.DynamicInst())
 
-	wave.OutstandingVectorMemAccess++
-	wave.OutstandingScalarMemAccess++
+	wave.execution().OutstandingVectorMemAccess++
+	wave.execution().OutstandingScalarMemAccess++
 
 	for _, t := range transactions {
 		payload := t.Write.Payload.(memprotocol.WriteReq)

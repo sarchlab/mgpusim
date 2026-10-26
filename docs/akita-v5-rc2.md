@@ -147,14 +147,29 @@ neither wavefronts nor in-flight requests reference them. A completed work-group
 remains in State while a fetch-ahead response or another pipeline reference still
 needs its wavefronts.
 
-`Middlewares.Initialize` creates the scheduler and execution-unit behavior views.
-Akita replaces State when loading a checkpoint without rerunning Initialize;
-the CU detects replacement before handling an event or returning `MiddlewareOf`
-and reconstructs only derived wavefront, group, and decoded-instruction views.
-Register-file views resolve the current State storage on every access. Code that
-inspects wavefronts must acquire its views again after loading. Restored pools,
-barriers, pipelines, and memory requests resolve the same canonical wavefront;
-all waves of a group refer to the same LDS allocation.
+`Middlewares.Initialize` creates the scheduler and execution-unit behavior.
+Wavefront and work-group views live in the `cu` package and carry only their CU
+owner and simulation ID. Every operation resolves the current `State`; the
+checkpointed `State.WaveLocations` index locates each wave directly in the dense
+`State.Groups` array, while `State.GroupLocations` resolves group IDs. Retirement
+compacts the array and updates the moved group's indexes; scheduler ordering is
+still defined by its separate ID queues.
+Replacing State therefore requires no invalidation sentinel, rebinding callback,
+load hook, or subsequent tick. Previously acquired ID views and register-file
+accessors see the replacement immediately, as long as the referenced ID remains
+live. Temporary pointers and slices returned internally are used only during the
+operation that obtained them.
+
+Pools, barriers, pipelines, and memory requests resolve the same canonical wave
+values; all waves of a group share its canonical LDS. The ALU borrows LDS only
+for an execution call and releases that reference before returning. Instruction
+encodings remain in State; decoded instructions are temporary operation values.
+A pure decode cache for the built-in disassembler is keyed by the full instruction
+encoding, decoder instance (which owns its fixed ISA tables), and CDNA3 mode. Custom
+decoders bypass it. Cached descriptions are immutable; PC and dynamic IDs are
+attached to local copies, and no State-dependent identity is cached.
+Tracing detail retains wave/instruction IDs and format metadata, so debugger
+observers do not keep a second execution graph alive across ticks.
 
 The instruction and scalar memory destinations are immutable `Spec.InstMem` and
 `Spec.ScalarMem`. A platform builder first builds the instruction/scalar ROBs and

@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"encoding/binary"
+	"fmt"
 	"log"
 	"sync/atomic"
 	"testing"
@@ -149,11 +151,8 @@ func newTestComputeUnit(
 		engine:                engine,
 		wfCompletionHandlerID: name + ".WfCompletion",
 		wfDispatchHandlerID:   name + ".WfDispatch",
-		waves:                 make(map[uint64]*wavefront.Wavefront),
-		instructions:          make(map[uint64]*wavefront.Inst),
-		boundDecoder:          &comp.State.Decoders[0],
-		workGroups:            make(map[uint64]*wavefront.WorkGroup),
 	}
+	cuMW.Decoder = fixtureDecoder{}
 	cuMW.InFlightVectorMemAccessLimit = 512
 
 	return cuMW
@@ -174,55 +173,39 @@ type testIDSource struct{ value atomic.Uint64 }
 
 func (s *testIDSource) NewID() uint64 { return (uint64(1) << 60) + s.value.Add(1) }
 
-func newTestWave() *wavefront.Wavefront {
-	return wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+func newTestWave() *Wavefront {
+	return newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 }
-func registerTestWave(c *ComputeUnit, w *wavefront.Wavefront) {
-	if w == nil {
+func registerTestWave(c *ComputeUnit, w *Wavefront) {
+	if w == nil || w.cu == c {
 		return
 	}
-	if w.Wavefront == nil {
-		w.Wavefront = kernels.NewWavefront(testIDs.NewID())
+	source := w.cu
+	if source.SRegFile != nil && c.SRegFile == nil {
+		c.SRegFile = source.SRegFile
 	}
-	if w.UID == 0 {
-		w.UID = testIDs.NewID()
+	if source.VRegFile != nil && c.VRegFile == nil {
+		c.VRegFile = source.VRegFile
 	}
-	if c.waves[w.UID] == w {
-		return
-	}
-	if w.WG == nil {
-		w.WG = wavefront.NewWorkGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
-	}
-	if w.WG.WorkGroup == nil {
-		w.WG.WorkGroup = kernels.NewWorkGroup(testIDs.NewID())
-	}
-	current, next := w.DynamicInst(), w.NextInst()
-	g := c.comp.State.Groups[w.WG.UID]
-	g.Waves = append(g.Waves, WaveState{ID: w.UID, Execution: *w.ExecutionState})
-	c.comp.State.Groups[w.WG.UID] = g
-	c.waves[w.UID] = w
-	c.workGroups[w.WG.UID] = w.WG
-	found := false
-	for _, other := range w.WG.Wfs {
-		if other == w {
-			found = true
+	group := w.group()
+	g := group.state()
+	putTestGroup(c, group.UID, *g)
+	for i := range g.Waves {
+		v := &g.Waves[i]
+		c.comp.State.WaveLocations[v.ID] = WaveLocation{Group: c.comp.State.GroupLocations[group.UID], Index: i}
+		for _, id := range []uint64{v.Execution.InstID, v.Execution.ToIssueID} {
+			if id != 0 {
+				c.comp.State.Instructions[id] = source.comp.State.Instructions[id]
+			}
 		}
 	}
-	if !found {
-		w.WG.Wfs = append(w.WG.Wfs, w)
-	}
-	for i := range g.Waves {
-		view := c.waves[g.Waves[i].ID]
-		view.BindExecution(&g.Waves[i].Execution, c.instruction, c.rememberInstruction, c.releaseInstruction)
-	}
-	c.rememberInstruction(current)
-	c.rememberInstruction(next)
+	w.cu = c
 }
-func testWaveID(c *ComputeUnit, w *wavefront.Wavefront) uint64 {
+func testWaveID(c *ComputeUnit, w *Wavefront) uint64 {
 	registerTestWave(c, w)
 	return wfID(w)
 }
-func testAddWave(p *WavefrontPool, w *wavefront.Wavefront) { registerTestWave(p.cu, w); p.AddWf(w) }
+func testAddWave(p *WavefrontPool, w *Wavefront) { registerTestWave(p.cu, w); p.AddWf(w) }
 
 func testFetchState(c *ComputeUnit, v *InstFetchReqInfo) FetchState {
 	registerTestWave(c, v.Wavefront)
@@ -254,4 +237,157 @@ func testVectorStates(c *ComputeUnit, vs []VectorMemAccessInfo) []VectorAccessSt
 		out = append(out, testVectorState(c, v))
 	}
 	return out
+}
+
+// Fixtures use synthetic instruction encodings to exercise units independently
+// of the real ISA decoder. Production views still resolve the canonical encoding.
+var fixtureInstructions = map[string]*insts.Inst{}
+
+type fixtureDecoder struct{}
+
+func (fixtureDecoder) Decode(raw []byte) (*insts.Inst, error) {
+	i, ok := fixtureInstructions[string(raw)]
+	if !ok {
+		return nil, fmt.Errorf("unknown fixture encoding %x", raw)
+	}
+	return i, nil
+}
+func testInst(id uint64, i *insts.Inst) *wavefront.Inst {
+	if i == nil {
+		i = insts.NewInst()
+	}
+	raw := make([]byte, 8)
+	binary.LittleEndian.PutUint64(raw, id)
+	fixtureInstructions[string(raw)] = i
+	v := wavefront.NewInst(id, i)
+	v.Raw = raw
+	return v
+}
+func newTestRawGroup(raw *kernels.WorkGroup, req messaging.Msg) *WorkGroup {
+	c := newTestComputeUnit("FixtureCU", nil)
+	if raw == nil {
+		raw = kernels.NewWorkGroup(testIDs.NewID())
+	}
+	if raw.UID == 0 {
+		raw.UID = testIDs.NewID()
+	}
+	value := kernels.WorkGroupSnapshot(raw)
+	putTestGroup(c, raw.UID, WorkGroupState{Raw: value, Request: req})
+	return &WorkGroup{cu: c, UID: raw.UID}
+}
+func newTestRawWave(raw *kernels.Wavefront) *Wavefront {
+	if raw == nil {
+		raw = kernels.NewWavefront(testIDs.NewID())
+	}
+	if raw.UID == 0 {
+		raw.UID = testIDs.NewID()
+	}
+	group := raw.WG
+	if group == nil {
+		group = kernels.NewWorkGroup(testIDs.NewID())
+		group.CodeObject = raw.CodeObject
+		group.Packet = raw.Packet
+	}
+	// Unit fixtures often provide an incomplete kernel graph; capture metadata
+	// directly, without requiring the dispatch protocol's graph validation.
+	groupCopy := *group
+	groupCopy.Wavefronts = nil
+	wg := newTestRawGroup(&groupCopy, messaging.Msg{})
+	g := wg.state()
+	g.Raw.Wavefronts = []kernels.WavefrontValue{{UID: raw.UID, PacketAddress: raw.PacketAddress,
+		FirstWiFlatID: raw.FirstWiFlatID, InitExecMask: raw.InitExecMask}}
+	g.Waves = []WaveState{{ID: raw.UID, Execution: wavefront.ExecutionState{InstBuffer: make([]byte, 0, 256)}}}
+
+	wg.cu.comp.State.WaveLocations[raw.UID] = WaveLocation{Group: wg.cu.comp.State.GroupLocations[wg.UID], Index: 0}
+	return &Wavefront{cu: wg.cu, UID: raw.UID}
+}
+func setTestGroup(w *Wavefront, g *WorkGroup) {
+	state := *w.state()
+	raw := *w.raw()
+	source := w.cu
+	dst := g.state()
+	if !dst.Raw.CodeObject.Present {
+		dst.Raw.CodeObject = w.group().raw().CodeObject
+	}
+	if !dst.Raw.Packet.Present {
+		dst.Raw.Packet = w.group().raw().Packet
+	}
+	index := len(dst.Waves)
+	for i := range dst.Waves {
+		if dst.Waves[i].ID == w.UID {
+			index = i
+			break
+		}
+	}
+	if index == len(dst.Waves) {
+		dst.Waves = append(dst.Waves, state)
+		dst.Raw.Wavefronts = append(dst.Raw.Wavefronts, raw)
+	} else {
+		dst.Waves[index] = state
+		dst.Raw.Wavefronts[index] = raw
+	}
+
+	g.cu.comp.State.WaveLocations[w.UID] = WaveLocation{Group: g.cu.comp.State.GroupLocations[g.UID], Index: index}
+	for _, id := range []uint64{state.Execution.InstID, state.Execution.ToIssueID} {
+		if id != 0 {
+			g.cu.comp.State.Instructions[id] = source.comp.State.Instructions[id]
+		}
+	}
+	w.cu = g.cu
+}
+func setTestWaves(g *WorkGroup, ws []*Wavefront) {
+	for _, w := range ws {
+		setTestGroup(w, g)
+	}
+}
+func setTestScoreboard(w *Wavefront, sb *Scoreboard) {
+	s := w.state()
+	s.HasScoreboard = sb != nil
+	if sb != nil {
+		s.Scoreboard = *sb
+	}
+}
+func setTestAccessor(w *Wavefront, a wavefront.RegFileAccessor) {
+	if c, ok := a.(*CURegFileAccessor); ok {
+		registerTestWave(c.CU, w)
+		return
+	}
+	f := fixtureRegisterFile{a}
+	w.cu.SRegFile = f
+	w.cu.VRegFile = []RegisterFile{f, f, f, f}
+}
+
+type fixtureRegisterFile struct{ a wavefront.RegFileAccessor }
+
+func (f fixtureRegisterFile) Read(v RegisterAccess) {
+	copy(v.Data, f.a.ReadReg(v.Reg, v.RegCount, v.LaneID, v.WaveOffset))
+}
+func (f fixtureRegisterFile) Write(v RegisterAccess) {
+	f.a.WriteReg(v.Reg, v.RegCount, v.LaneID, v.WaveOffset, v.Data)
+}
+
+func setTestCodeObject(wg *WorkGroup, co *insts.KernelCodeObject) {
+	g := wg.state()
+	g.Raw.CodeObject = insts.CodeObjectSnapshot(co)
+}
+func setTestPacket(wg *WorkGroup, p *kernels.HsaKernelDispatchPacket) {
+	g := wg.state()
+	g.Raw.Packet = kernels.PacketSnapshot(p)
+}
+func setTestLDS(wg *WorkGroup, lds []byte) {
+	g := wg.state()
+	g.LDS = lds
+}
+func setTestRequest(wg *WorkGroup, r messaging.Msg) {
+	g := wg.state()
+	g.Request = r
+}
+
+func putTestGroup(c *ComputeUnit, id uint64, g WorkGroupState) {
+	if index, ok := c.comp.State.GroupLocations[id]; ok {
+		c.comp.State.Groups[index] = g
+	} else {
+		c.comp.State.GroupLocations[id] = len(c.comp.State.Groups)
+		c.comp.State.Groups = append(c.comp.State.Groups, g)
+	}
 }

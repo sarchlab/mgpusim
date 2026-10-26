@@ -53,12 +53,14 @@ with memcontrolprotocol on a "Control" port (CmdDrain/CmdEnable).
 ## amd/timing/wavefront (ported)
 
 - `Inst.ID`: `string` → `uint64`.
-- `Wavefront.LastFetchTime`: → `timing.VTimeInPicoSec`.
+- `ExecutionState.LastFetchTime` uses `timing.VTimeInPicoSec`; the CU owns the value.
 - `NewWfCompletionEvent(time timing.VTimeInPicoSec, handlerID string, wf)
   WfCompletionEvent` — value event; the CU must register the handler under
   that ID via `engine.(timing.HandlerRegistrar).RegisterHandler`.
-- `WorkGroup.MapReq` is a value `protocol.MapWGReq`;
-  `NewWorkGroup(raw, req protocol.MapWGReq)`.
+- Wavefront and work-group execution views moved to `cu`; `wavefront` retains
+  the shared execution-value definitions, temporary decoded `Inst` value, and
+  completion event. Work-group requests are canonical `messaging.Msg` values in
+  CU State. There are no standalone pointer-graph constructors.
 
 ## amd/timing/rob (ported)
 
@@ -158,8 +160,12 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
   ports through `comp.Ports`.
 - Wire the complete topology, then call `simulation.Initialize()`. Only then
   obtain behavior views using `cu.MiddlewareOf(comp) *cu.ComputeUnit`, including
-  for `NewISADebugger(logger, cu.MiddlewareOf(comp))`. Reacquire wavefront views
-  after checkpoint loading; initialization is not rerun during restore.
+  for `NewISADebugger(logger, cu.MiddlewareOf(comp))`. Wave/group views now live
+  in `cu` and carry only owner + ID; they resolve current State on each operation.
+  State replacement needs no rebinding or next tick, and initialization is not
+  rerun during restore. `State.WaveLocations` owns the ID index. ALU LDS access
+  is scoped to one execution call; retained tracing detail uses IDs and scalar
+  metadata rather than wave/instruction objects.
 - `WithVisTracer` is dropped. SIMD tasks retain their original owner names and
   labels, but SIMD views are not registered simulation entities. Subscribe one
   simulation observer with `simulation.TaskTracker().Subscribe(observer)` and

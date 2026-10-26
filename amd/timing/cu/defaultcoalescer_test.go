@@ -4,12 +4,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("Default Coalescer", func() {
 	var (
-		wf          *wavefront.Wavefront
+		wf          *Wavefront
 		c           defaultCoalescer
 		regAccessor *mockRegFileAccessor
 	)
@@ -21,7 +20,7 @@ var _ = Describe("Default Coalescer", func() {
 			log2CacheLineSize: 6,
 		}
 		regAccessor = newMockRegFileAccessor()
-		wf.RegAccessor = regAccessor
+		setTestAccessor(wf, regAccessor)
 	})
 
 	It("should coalesce to a single cacheline", func() {
@@ -30,13 +29,13 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 20 // flat_load_dword
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
-		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
+		wf.SetDynamicInst(testInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		// Set all 64 lanes' ADDR (v2:v3) to 0x1000
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(2)
-			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
+			regAccessor.setRegValue(addrReg, 2, i, wf.execution().VRegOffset,
 				insts.Uint64ToBytes(0x1000)[:8])
 		}
 
@@ -52,12 +51,12 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 20 // flat_load_dword
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
-		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
+		wf.SetDynamicInst(testInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(2)
-			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
+			regAccessor.setRegValue(addrReg, 2, i, wf.execution().VRegOffset,
 				insts.Uint64ToBytes(uint64(0x1000 + i*4))[:8])
 		}
 
@@ -76,12 +75,12 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 21 // flat_load_dwordx2
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.Addr = insts.NewVRegOperand(4, 4, 2)
-		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
+		wf.SetDynamicInst(testInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(4)
-			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
+			regAccessor.setRegValue(addrReg, 2, i, wf.execution().VRegOffset,
 				insts.Uint64ToBytes(uint64(0x1004 + i*4))[:8])
 		}
 
@@ -101,16 +100,16 @@ var _ = Describe("Default Coalescer", func() {
 		inst.Opcode = 28 // flat_store_dword
 		inst.Addr = insts.NewVRegOperand(2, 2, 2)
 		inst.Data = insts.NewVRegOperand(4, 4, 1)
-		wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), inst))
+		wf.SetDynamicInst(testInst(testIDs.NewID(), inst))
 		wf.SetEXEC(0xffffffffffffffff)
 
 		for i := 0; i < 64; i++ {
 			addrReg := insts.VReg(2)
-			regAccessor.setRegValue(addrReg, 2, i, wf.VRegOffset,
+			regAccessor.setRegValue(addrReg, 2, i, wf.execution().VRegOffset,
 				insts.Uint64ToBytes(uint64(0x1000 + i*4))[:8])
 
 			dataReg := insts.VReg(4)
-			regAccessor.setRegValue(dataReg, 1, i, wf.VRegOffset,
+			regAccessor.setRegValue(dataReg, 1, i, wf.execution().VRegOffset,
 				insts.Uint32ToBytes(1))
 		}
 

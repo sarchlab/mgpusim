@@ -21,11 +21,11 @@ func TestEndInflightTracingTasksEndsRunningInstTasks(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	pool := NewWavefrontPool(cu, 0, 4)
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVALU
 	wf.SetDynamicInst(inst)
-	wf.State = wavefront.WfRunning
+	wf.execution().State = wavefront.WfRunning
 	testAddWave(pool, wf)
 	cu.WfPools = []*WavefrontPool{pool}
 
@@ -50,11 +50,11 @@ func TestEndInflightTracingTasksSkipsNonRunningWavefronts(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	pool := NewWavefrontPool(cu, 0, 4)
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVMem
 	wf.SetDynamicInst(inst)
-	wf.State = wavefront.WfReady
+	wf.execution().State = wavefront.WfReady
 	testAddWave(pool, wf)
 	cu.WfPools = []*WavefrontPool{pool}
 
@@ -135,8 +135,8 @@ func TestSIMDFlushEndsPipelineTasks(t *testing.T) {
 	rec := &leakRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, simd)
 
-	wave := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	wave := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVALU
 	wave.SetDynamicInst(inst)
 

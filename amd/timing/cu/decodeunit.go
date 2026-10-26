@@ -48,7 +48,7 @@ func (du *DecodeUnit) IsIdle() bool {
 
 // AcceptWave takes a wavefront and decode the instruction in the next cycle
 func (du *DecodeUnit) AcceptWave(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) {
 	if len(du.state().ToDecode) >= 4 {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
@@ -67,7 +67,7 @@ func (du *DecodeUnit) Run() bool {
 	remaining := make([]uint64, 0, len(du.state().ToDecode))
 	for _, id := range du.state().ToDecode {
 		wave := du.cu.wave(id)
-		simdID := wave.SIMDID
+		simdID := wave.execution().SIMDID
 		execUnit := du.ExecUnits[simdID]
 
 		if execUnit.CanAcceptWave() {
@@ -135,7 +135,7 @@ func (du *DecodeUnit) endDecodeSubtask(inst *wavefront.Inst) {
 	delete(du.state().Tasks, inst.ID)
 }
 
-func (du *DecodeUnit) markExecUnitReady(wave *wavefront.Wavefront) {
+func (du *DecodeUnit) markExecUnitReady(wave *Wavefront) {
 	if wave.DynamicInst() == nil {
 		return
 	}

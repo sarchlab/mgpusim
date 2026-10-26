@@ -2,14 +2,15 @@ package cu
 
 import (
 	"fmt"
+	"slices"
+
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
-	"slices"
 )
 
-func wfID(w *wavefront.Wavefront) uint64 {
+func wfID(w *Wavefront) uint64 {
 	if w == nil {
 		return 0
 	}
@@ -22,63 +23,7 @@ func instID(i *wavefront.Inst) uint64 {
 	return i.ID
 }
 
-// ensureState invalidates only derived views after component checkpoint loading.
-// ReadCheckpoint replaces State, including its decoder slice. No execution data
-// is copied back from a view: every mutable value already belongs to State.
-func (cu *ComputeUnit) ensureState() {
-	if len(cu.comp.State.Decoders) == 0 {
-		return
-	}
-	if cu.boundDecoder != &cu.comp.State.Decoders[0] {
-		cu.bindState()
-	}
-}
-
-func (cu *ComputeUnit) bindState() {
-	s := &cu.comp.State
-	if len(s.Decoders) != 4 || len(s.Pools) != numWfPools ||
-		len(s.SIMDs) != cu.comp.Spec.SIMDCount || len(s.VRegisters) != cu.comp.Spec.SIMDCount {
-		panic("cu: invalid state geometry")
-	}
-	cu.boundDecoder = &s.Decoders[0]
-	cu.workGroups = make(map[uint64]*wavefront.WorkGroup)
-	cu.waves = make(map[uint64]*wavefront.Wavefront)
-	cu.instructions = make(map[uint64]*wavefront.Inst)
-	for id, g := range s.Groups {
-		raw, err := g.Raw.Restore()
-		if err != nil {
-			panic(err)
-		}
-		cu.bindGroup(id, raw, g)
-	}
-}
-
-func (cu *ComputeUnit) bindGroup(id uint64, raw *kernels.WorkGroup, g WorkGroupState) *wavefront.WorkGroup {
-	wg := wavefront.NewWorkGroup(raw, g.Request)
-	wg.LDS = g.LDS
-	if len(raw.Wavefronts) != len(g.Waves) {
-		panic("cu: wavefront count mismatch")
-	}
-	cu.workGroups[id] = wg
-	for i, base := range raw.Wavefronts {
-		value := &g.Waves[i]
-		if value.ID != base.UID {
-			panic("cu: wavefront identity mismatch")
-		}
-		wf := wavefront.NewWavefront(base)
-		wf.BindExecution(&value.Execution, cu.instruction, cu.rememberInstruction, cu.releaseInstruction)
-		wf.WG = wg
-		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
-		if value.HasScoreboard {
-			wf.ScoreboardData = &value.Scoreboard
-		}
-		wg.Wfs = append(wg.Wfs, wf)
-		cu.waves[value.ID] = wf
-	}
-	return wg
-}
-
-func (cu *ComputeUnit) wave(id uint64) *wavefront.Wavefront {
+func (cu *ComputeUnit) wave(id uint64) *Wavefront {
 	if id == 0 {
 		return nil
 	}
@@ -93,31 +38,23 @@ func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
 	if id == 0 {
 		return nil
 	}
-	cu.ensureState()
-	if i := cu.instructions[id]; i != nil {
-		return i
-	}
 	v, ok := cu.comp.State.Instructions[id]
 	if !ok {
 		panic(fmt.Sprintf("cu: missing instruction %d", id))
 	}
-	raw, err := cu.Decoder.Decode(v.Raw)
+	raw, err := cu.decodeInstruction(v.Raw)
 	if err != nil {
 		panic(fmt.Sprintf("cu: decode instruction %d: %v", id, err))
 	}
 	raw.PC = v.PC
 	i := wavefront.NewInst(id, raw)
 	i.Raw = v.Raw
-	cu.instructions[id] = i
 	return i
 }
 
 func (cu *ComputeUnit) rememberInstruction(i *wavefront.Inst) {
 	if i == nil {
 		return
-	}
-	if cu.instructions == nil {
-		cu.instructions = make(map[uint64]*wavefront.Inst)
 	}
 	if cu.comp.State.Instructions == nil {
 		cu.comp.State.Instructions = make(map[uint64]InstructionState)
@@ -128,16 +65,15 @@ func (cu *ComputeUnit) rememberInstruction(i *wavefront.Inst) {
 		pc = i.PC
 	}
 	cu.comp.State.Instructions[i.ID] = InstructionState{ID: i.ID, PC: pc, Raw: i.Raw}
-	cu.instructions[i.ID] = i
 }
 
-func (cu *ComputeUnit) newGroup(raw *kernels.WorkGroup, req messaging.Msg) *wavefront.WorkGroup {
-	cu.ensureState()
+func (cu *ComputeUnit) newGroup(raw *kernels.WorkGroup, req messaging.Msg) *WorkGroup {
 	g := WorkGroupState{
 		Raw: kernels.WorkGroupSnapshot(raw), Request: req,
 		LDS: make([]byte, raw.Packet.GroupSegmentSize), Waves: make([]WaveState, len(raw.Wavefronts)),
 	}
 	for i, w := range raw.Wavefronts {
+		cu.comp.State.WaveLocations[w.UID] = WaveLocation{Group: len(cu.comp.State.Groups), Index: i}
 		g.Waves[i].ID = w.UID
 		g.Waves[i].Execution.SampleIssueTime = w.IssueTime
 		g.Waves[i].Execution.SampleFinishTime = w.FinishTime
@@ -145,16 +81,17 @@ func (cu *ComputeUnit) newGroup(raw *kernels.WorkGroup, req messaging.Msg) *wave
 		g.Waves[i].Execution.InstBuffer = make([]byte, 0, 256)
 		g.Waves[i].HasScoreboard = cu.comp.Spec.RegisterScoreboard
 	}
-	cu.comp.State.Groups[raw.UID] = g
-	return cu.bindGroup(raw.UID, raw, g)
+	cu.comp.State.GroupLocations[raw.UID] = len(cu.comp.State.Groups)
+	cu.comp.State.Groups = append(cu.comp.State.Groups, g)
+	return &WorkGroup{cu: cu, UID: raw.UID}
 }
 
 // useWave is the stable reference stored by pipeline and queue state.
-func (cu *ComputeUnit) useWave(w *wavefront.Wavefront) uint64 {
+func (cu *ComputeUnit) useWave(w *Wavefront) uint64 {
 	if w == nil {
 		return 0
 	}
-	if cu.waves[w.UID] != w {
+	if w.cu != cu {
 		panic("cu: wavefront is not owned by this CU")
 	}
 	return w.UID
@@ -216,37 +153,54 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 		}
 	}
 	delete(cu.comp.State.Instructions, id)
-	delete(cu.instructions, id)
 }
 
 // Completion releases scheduling resources immediately, but fetch-ahead replies
 // may still refer to a completed wave. Retire its canonical values only after
 // the last live queue/stage reference has disappeared.
 func (cu *ComputeUnit) retireGroups() {
-	for id, g := range cu.comp.State.Groups {
-		if !g.Completed {
-			continue
-		}
-		live := false
-		for i := range g.Waves {
-			w := &g.Waves[i]
-			if cu.waveReferenced(w.ID) {
-				live = true
-				break
+	for index := 0; index < len(cu.comp.State.Groups); {
+		group := &cu.comp.State.Groups[index]
+		live := !group.Completed
+		if !live {
+			for i := range group.Waves {
+				if cu.waveReferenced(group.Waves[i].ID) {
+					live = true
+					break
+				}
 			}
 		}
 		if live {
+			index++
 			continue
 		}
-		delete(cu.comp.State.Groups, id)
-		delete(cu.workGroups, id)
-		for i := range g.Waves {
-			w := &g.Waves[i]
-			delete(cu.waves, w.ID)
-			delete(cu.comp.State.WFTimes, w.ID)
-			cu.releaseInstruction(w.Execution.InstID)
-			cu.releaseInstruction(w.Execution.ToIssueID)
+		cu.retireGroup(index)
+		// Inspect the group moved into this slot before advancing.
+	}
+}
+
+func (cu *ComputeUnit) retireGroup(index int) {
+	s := &cu.comp.State
+	retired := s.Groups[index]
+	delete(s.GroupLocations, retired.Raw.UID)
+	for i := range retired.Waves {
+		delete(s.WaveLocations, retired.Waves[i].ID)
+		delete(s.WFTimes, retired.Waves[i].ID)
+	}
+	last := len(s.Groups) - 1
+	if index != last {
+		s.Groups[index] = s.Groups[last]
+		moved := &s.Groups[index]
+		s.GroupLocations[moved.Raw.UID] = index
+		for i := range moved.Waves {
+			s.WaveLocations[moved.Waves[i].ID] = WaveLocation{Group: index, Index: i}
 		}
+	}
+	s.Groups[last] = WorkGroupState{}
+	s.Groups = s.Groups[:last]
+	for i := range retired.Waves {
+		cu.releaseInstruction(retired.Waves[i].Execution.InstID)
+		cu.releaseInstruction(retired.Waves[i].Execution.ToIssueID)
 	}
 }
 func (cu *ComputeUnit) waveReferenced(id uint64) bool {

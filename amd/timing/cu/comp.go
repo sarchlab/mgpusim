@@ -105,7 +105,9 @@ type Spec struct {
 // State is the sole owner of mutable compute-unit execution data.
 type State struct {
 	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
-	Groups                                    map[uint64]WorkGroupState
+	Groups                                    []WorkGroupState
+	GroupLocations                            map[uint64]int
+	WaveLocations                             map[uint64]WaveLocation
 	Instructions                              map[uint64]InstructionState
 	Pools                                     [][]uint64
 	InstFetch, ShadowInstFetch                []FetchState
@@ -181,7 +183,6 @@ func (m *Middlewares) Initialize(c *Comp) {
 	c.Resources.engine.RegisterHandler(cu.wfCompletionHandlerID, cu)
 	c.Resources.engine.RegisterHandler(cu.wfDispatchHandlerID, cu)
 	cu.initializeUnits()
-	cu.bindState()
 }
 
 // MiddlewareOf returns the ComputeUnit middleware attached to a timing
@@ -193,7 +194,6 @@ func MiddlewareOf(comp *Comp) *ComputeUnit {
 		panic("cu: middleware is not constructed")
 	}
 	cu := comp.Middlewares.CU.cu
-	cu.ensureState()
 	return cu
 }
 

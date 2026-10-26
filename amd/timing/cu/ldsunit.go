@@ -2,7 +2,6 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations
@@ -36,7 +35,7 @@ func (u *LDSUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront) {
+func (u *LDSUnit) AcceptWave(wave *Wavefront) {
 	u.state().Read = u.cu.useWave(wave)
 }
 
@@ -72,7 +71,8 @@ func (u *LDSUnit) runExecStage() bool {
 	}
 
 	if u.state().Cycles == 0 {
-		u.alu.SetLDS(u.cu.wave(u.state().Exec).WG.LDS)
+		u.alu.SetLDS(u.cu.wave(u.state().Exec).group().state().LDS)
+		defer u.alu.SetLDS(nil)
 		u.alu.Run(u.cu.wave(u.state().Exec))
 		u.state().Cycles = 14
 		return true

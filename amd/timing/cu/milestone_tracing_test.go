@@ -44,9 +44,9 @@ func TestSWaitCntRecordsDataMilestone(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 	s := NewScheduler(cu, nil, nil)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
 	wf.SetDynamicInst(inst)
 	// Outstanding counts (0) already satisfy the requested counts (0), so the
@@ -77,18 +77,18 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 	s := NewScheduler(cu, nil, nil)
 
-	wg := wavefront.NewWorkGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
-	wg.MapReq = messaging.Msg{ID: testIDs.NewID(), Payload: protocol.MapWGReq{}}
+	wg := newTestRawGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
+	setTestRequest(wg, messaging.Msg{ID: testIDs.NewID(), Payload: protocol.MapWGReq{}})
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	wf.CodeObject = &insts.KernelCodeObject{
+	setTestCodeObject(wf.group(), &insts.KernelCodeObject{
 		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
-	}
-	wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
-	wf.WG = wg
-	wf.State = wavefront.WfRunning
-	wg.Wfs = []*wavefront.Wavefront{wf}
+	})
+	wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
+	setTestGroup(wf, wg)
+	wf.execution().State = wavefront.WfRunning
+	setTestWaves(wg, []*Wavefront{wf})
 	testAddWave(cu.WfPools[0], wf)
 	taskID := startTestInst(cu, wf.DynamicInst())
 
@@ -149,23 +149,23 @@ func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
 	s := NewScheduler(cu, nil, nil)
 
-	wg := wavefront.NewWorkGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
+	wg := newTestRawGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
 	co := &insts.KernelCodeObject{
 		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
 	}
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	wf.CodeObject = co
-	wf.SetDynamicInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
-	wf.WG = wg
-	wf.State = wavefront.WfRunning
+	setTestCodeObject(wf.group(), co)
+	wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
+	setTestGroup(wf, wg)
+	wf.execution().State = wavefront.WfRunning
 
-	other := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-	other.CodeObject = co
-	other.WG = wg
-	other.State = wavefront.WfRunning // still executing -> the "executing" branch
-	wg.Wfs = []*wavefront.Wavefront{wf, other}
+	other := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	setTestCodeObject(other.group(), co)
+	setTestGroup(other, wg)
+	other.execution().State = wavefront.WfRunning // still executing -> the "executing" branch
+	setTestWaves(wg, []*Wavefront{wf, other})
 
 	rec := &orderedEndRecorder{instID: startTestInst(cu, wf.DynamicInst())}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
@@ -190,9 +190,9 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
 	inst.ExeUnit = insts.ExeUnitVMem
 	wf.SetDynamicInst(inst)
@@ -223,15 +223,15 @@ func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
-	wf.InstBufferStartPC = 0x100
-	wf.InstBuffer = make([]byte, 64)
+	wf.execution().InstBufferStartPC = 0x100
+	wf.execution().InstBuffer = make([]byte, 64)
 
 	fetchArbiter := newMockWfArbitor()
 	fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn,
-		[]*wavefront.Wavefront{wf})
+		[]*Wavefront{wf})
 	s := NewScheduler(cu, fetchArbiter, nil)
 
 	s.DoFetch()
@@ -251,11 +251,11 @@ func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
-	wf.InstBufferStartPC = 0x100
-	wf.InstBuffer = make([]byte, 64)
+	wf.execution().InstBufferStartPC = 0x100
+	wf.execution().InstBuffer = make([]byte, 64)
 
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x140,
 		AccessByteSize: 64}}
@@ -282,10 +282,10 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
-	wf.InstBufferStartPC = 0x100
+	wf.execution().InstBufferStartPC = 0x100
 
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
 		AccessByteSize: 64}}
@@ -309,14 +309,14 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 
 type decodeTraceUnit struct {
 	canAccept bool
-	accepted  []*wavefront.Wavefront
+	accepted  []*Wavefront
 }
 
 func (u *decodeTraceUnit) CanAcceptWave() bool {
 	return u.canAccept
 }
 
-func (u *decodeTraceUnit) AcceptWave(wf *wavefront.Wavefront) {
+func (u *decodeTraceUnit) AcceptWave(wf *Wavefront) {
 	u.accepted = append(u.accepted, wf)
 }
 
@@ -342,9 +342,9 @@ func TestDecodeRecordsWorkMilestone(t *testing.T) {
 	exec := &decodeTraceUnit{canAccept: true}
 	du.AddExecutionUnit(exec)
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
 	inst.ExeUnit = insts.ExeUnitScalar
 	wf.SetDynamicInst(inst)
@@ -379,12 +379,12 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	su := NewScalarUnit(cu, nil)
 	su.log2CachelineSize = 6
 
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	regAccessor := newMockRegFileAccessor()
-	wf.RegAccessor = regAccessor
+	setTestAccessor(wf, regAccessor)
 
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
 	inst.FormatType = insts.SMEM
 	inst.Opcode = 0
@@ -394,7 +394,7 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	wf.SetDynamicInst(inst)
 
 	baseReg := insts.SReg(2)
-	regAccessor.setRegValue(baseReg, 2, 0, wf.SRegOffset,
+	regAccessor.setRegValue(baseReg, 2, 0, wf.execution().SRegOffset,
 		insts.Uint64ToBytes(0x1000)[:8])
 
 	registerTestWave(cu, wf)
@@ -426,7 +426,7 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
-	inst := wavefront.NewInst(testIDs.NewID(), nil)
+	inst := testInst(testIDs.NewID(), nil)
 	instTask := startTestInst(cu, inst)
 	vmu.startIssueSubtask(inst) // as the in-flight admission would
 
@@ -476,7 +476,7 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
-	inst := wavefront.NewInst(testIDs.NewID(), nil)
+	inst := testInst(testIDs.NewID(), nil)
 	instTask := startTestInst(cu, inst)
 	vmu.startIssueSubtask(inst)
 	read := messaging.Msg{ID: testIDs.NewID(),
@@ -530,7 +530,7 @@ func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
 	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
-	inst := wavefront.NewInst(testIDs.NewID(), nil)
+	inst := testInst(testIDs.NewID(), nil)
 	instTask := startTestInst(cu, inst)
 	vmu.startIssueSubtask(inst) // admitted; issue work not yet done
 
@@ -566,9 +566,9 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 
 	readSibling := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
@@ -607,9 +607,9 @@ func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+	inst := testInst(testIDs.NewID(), insts.NewInst())
 	instTask := startTestInst(cu, inst)
-	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 
 	resent := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
@@ -639,7 +639,7 @@ func startTestInst(c *ComputeUnit, inst *wavefront.Inst) uint64 {
 	c.comp.State.InstTasks[inst.ID] = id
 	return id
 }
-func startTestWave(c *ComputeUnit, wf *wavefront.Wavefront) {
+func startTestWave(c *ComputeUnit, wf *Wavefront) {
 	registerTestWave(c, wf)
 	c.comp.State.WFTasks[wf.UID] = c.comp.TaskTracker().
 		StartTask(c.comp, tasks.StartInfo{Kind: "wavefront", What: "test"})

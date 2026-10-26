@@ -2,7 +2,6 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A BranchUnit performs branch operations
@@ -37,7 +36,7 @@ func (u *BranchUnit) IsIdle() bool {
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) {
 	u.state().Read = u.cu.useWave(wave)
 }
@@ -87,9 +86,9 @@ func (u *BranchUnit) runWriteStage() bool {
 
 	u.cu.logInstTask(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst(), true)
 
-	u.cu.wave(u.state().Write).InstBuffer = nil
+	u.cu.wave(u.state().Write).execution().InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))
-	u.cu.wave(u.state().Write).InstBufferStartPC = u.cu.wave(u.state().Write).PC() & 0xffffffffffffffc0
+	u.cu.wave(u.state().Write).execution().InstBufferStartPC = u.cu.wave(u.state().Write).PC() & 0xffffffffffffffc0
 	u.state().Write = 0
 	u.state().Idle = false
 	return true

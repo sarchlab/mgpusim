@@ -33,6 +33,9 @@ type mockDecoder struct {
 }
 
 func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
+	if i, ok := fixtureInstructions[string(buf)]; ok {
+		return i, nil
+	}
 	return d.Inst, nil
 }
 
@@ -41,7 +44,7 @@ type fakeWfDispatcher struct {
 }
 
 func (d *fakeWfDispatcher) DispatchWf(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	location protocol.WfDispatchLocation,
 ) {
 	d.dispatched = append(d.dispatched, location)
@@ -203,11 +206,11 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when handling DataReady from ToInstMem Port", func() {
 		var (
-			wf *wavefront.Wavefront
+			wf *Wavefront
 		)
 		BeforeEach(func() {
-			wf = wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-			inst := wavefront.NewInst(testIDs.NewID(), nil)
+			wf = newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+			inst := testInst(testIDs.NewID(), nil)
 			wf.SetDynamicInst(inst)
 			wf.SetPC(0x1000)
 
@@ -243,24 +246,24 @@ var _ = Describe("ComputeUnit", func() {
 
 			madeProgress := cu.processInputFromInstMem()
 
-			Expect(wf.LastFetchTime).To(Equal(timing.VTimeInPicoSec(10)))
+			Expect(wf.execution().LastFetchTime).To(Equal(timing.VTimeInPicoSec(10)))
 			Expect(wf.PC()).To(Equal(uint64(0x1000)))
 			Expect(cu.comp.State.InstFetch).To(HaveLen(0))
-			Expect(wf.InstBuffer).To(HaveLen(64))
+			Expect(wf.execution().InstBuffer).To(HaveLen(64))
 			Expect(madeProgress).To(BeTrue())
 		})
 	})
 
 	Context("should handle DataReady from ToScalarMem port", func() {
 		var (
-			wf *wavefront.Wavefront
+			wf *Wavefront
 		)
 
 		BeforeEach(func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SRegOffset = 0
-			wf.OutstandingScalarMemAccess = 1
+			wf = newTestRawWave(rawWf)
+			wf.execution().SRegOffset = 0
+			wf.execution().OutstandingScalarMemAccess = 1
 		})
 
 		It("should handle scalar data load return", func() {
@@ -269,7 +272,7 @@ var _ = Describe("ComputeUnit", func() {
 					AccessByteSize: 64}}
 
 			info := new(ScalarMemAccessInfo)
-			info.Inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			info.Inst = testInst(testIDs.NewID(), insts.NewInst())
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
@@ -291,7 +294,7 @@ var _ = Describe("ComputeUnit", func() {
 			}
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
 			Expect(cu.comp.State.Scalar).To(HaveLen(0))
 		})
 	})
@@ -299,7 +302,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle DataReady from ToVectorMem", func() {
 		var (
 			rawWf *kernels.Wavefront
-			wf    *wavefront.Wavefront
+			wf    *Wavefront
 			inst  *wavefront.Inst
 			read  messaging.Msg
 			info  VectorMemAccessInfo
@@ -307,14 +310,14 @@ var _ = Describe("ComputeUnit", func() {
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			inst = testInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SIMDID = 0
+			wf = newTestRawWave(rawWf)
+			wf.execution().SIMDID = 0
 			wf.SetDynamicInst(inst)
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-			wf.OutstandingScalarMemAccess = 1
+			wf.execution().VRegOffset = 0
+			wf.execution().OutstandingVectorMemAccess = 1
+			wf.execution().OutstandingScalarMemAccess = 1
 
 			read = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
 				AccessByteSize: 16}}
@@ -371,8 +374,8 @@ var _ = Describe("ComputeUnit", func() {
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(1))
 			Expect(cu.comp.State.Vector).To(HaveLen(1))
 		})
 
@@ -382,8 +385,8 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(1))
 			Expect(cu.comp.State.Vector).To(HaveLen(1))
 		})
 
@@ -391,8 +394,8 @@ var _ = Describe("ComputeUnit", func() {
 			"last one for an instruction", func() {
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
 			for i := 0; i < 4; i++ {
 				access := RegisterAccess{}
 				access.RegCount = 1
@@ -410,21 +413,21 @@ var _ = Describe("ComputeUnit", func() {
 		var (
 			rawWf    *kernels.Wavefront
 			inst     *wavefront.Inst
-			wf       *wavefront.Wavefront
+			wf       *Wavefront
 			info     VectorMemAccessInfo
 			writeReq messaging.Msg
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			inst = testInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SIMDID = 0
+			wf = newTestRawWave(rawWf)
+			wf.execution().SIMDID = 0
 			wf.SetDynamicInst(inst)
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-			wf.OutstandingScalarMemAccess = 1
+			wf.execution().VRegOffset = 0
+			wf.execution().OutstandingVectorMemAccess = 1
+			wf.execution().OutstandingScalarMemAccess = 1
 
 			writeReq = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.WriteReq{Address: 0x100}}
 
@@ -453,8 +456,8 @@ var _ = Describe("ComputeUnit", func() {
 			"last one from an instruction", func() {
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
 			Expect(cu.comp.State.Vector).To(HaveLen(0))
 		})
 	})
@@ -572,7 +575,7 @@ var _ = Describe("ComputeUnit", func() {
 			// Mem accesses always carry their instruction in production (set
 			// in executeSMEMLoad / the coalescer); the shadow resend parents
 			// the replacement req_out task on it.
-			inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			inst := testInst(testIDs.NewID(), insts.NewInst())
 
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			scalarMemInfo.Req = req

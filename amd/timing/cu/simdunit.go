@@ -65,7 +65,7 @@ func (u *SIMDUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
+func (u *SIMDUnit) AcceptWave(wave *Wavefront) {
 	cycleLeft := 64 / u.NumSinglePrecisionUnit
 	if strings.Contains(wave.Inst().InstName, "f64") {
 		cycleLeft = 64 / (u.NumSinglePrecisionUnit / 2)

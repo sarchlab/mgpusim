@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -37,19 +36,19 @@ var _ = Describe("FetchArbiter", func() {
 
 		for i := 0; i < len(wfState); i++ {
 			wf := newTestWave()
-			wf.Wavefront = new(kernels.Wavefront)
-			wf.LastFetchTime = wfLastFetchTime[i]
-			wf.State = wfState[i]
+
+			wf.execution().LastFetchTime = wfLastFetchTime[i]
+			wf.execution().State = wfState[i]
 			testAddWave(wfPools[i%4], wf)
 
 			if i == 4 {
-				wf.InstBuffer = make([]byte, arbiter.InstBufByteSize)
+				wf.execution().InstBuffer = make([]byte, arbiter.InstBufByteSize)
 			}
 		}
 
 		wfs := arbiter.Arbitrate(wfPools)
 
 		Expect(len(wfs)).To(Equal(1))
-		Expect(wfs[0].LastFetchTime).To(Equal(timing.VTimeInPicoSec(9500)))
+		Expect(wfs[0].execution().LastFetchTime).To(Equal(timing.VTimeInPicoSec(9500)))
 	})
 })

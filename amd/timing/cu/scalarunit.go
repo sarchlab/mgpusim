@@ -48,7 +48,7 @@ func (u *ScalarUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront) {
+func (u *ScalarUnit) AcceptWave(wave *Wavefront) {
 	u.state().Stages.Read = u.cu.useWave(wave)
 	inst := wave.Inst()
 	dynInst := wave.DynamicInst()
@@ -185,7 +185,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 
 	u.endIssueSubtask(inst)
 
-	u.cu.wave(u.state().Stages.Exec).OutstandingScalarMemAccess++
+	u.cu.wave(u.state().Stages.Exec).execution().OutstandingScalarMemAccess++
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Stages.Exec))
 	u.state().Stages.Exec = 0
 

@@ -14,7 +14,7 @@ var _ = Describe("IssueArbiter", func() {
 	)
 
 	BeforeEach(func() {
-		arbiter = NewIssueArbiter()
+		arbiter = NewIssueArbiter(newTestComputeUnit("CU", nil))
 		wfPools = make([]*WavefrontPool, 0, 4)
 		for i := 0; i < 4; i++ {
 			wfPools = append(wfPools, NewWavefrontPool(newTestComputeUnit("CU", nil), 0, 10))
@@ -32,12 +32,12 @@ var _ = Describe("IssueArbiter", func() {
 			insts.ExeUnitVALU, insts.ExeUnitBranch, insts.ExeUnitVALU,
 			insts.ExeUnitVMem,
 		}
-		wfs := make([]*wavefront.Wavefront, 0)
+		wfs := make([]*Wavefront, 0)
 
 		for i := 0; i < len(wfState); i++ {
 			wf := newTestWave()
-			wf.State = wfState[i]
-			wf.SetNextInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
+			wf.execution().State = wfState[i]
+			wf.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
 			wf.NextInst().ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			testAddWave(wfPools[0], wf)
@@ -50,44 +50,44 @@ var _ = Describe("IssueArbiter", func() {
 		issueCandidate := arbiter.Arbitrate(wfPools)
 
 		Expect(len(issueCandidate)).To(Equal(6))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[0])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[1])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[2])))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[3])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[4])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[5])))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[6])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[7])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[8])))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[9])))
+		Expect(issueCandidate).NotTo(ContainElement(Equal(wfs[0])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[1])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[2])))
+		Expect(issueCandidate).NotTo(ContainElement(Equal(wfs[3])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[4])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[5])))
+		Expect(issueCandidate).NotTo(ContainElement(Equal(wfs[6])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[7])))
+		Expect(issueCandidate).To(ContainElement(Equal(wfs[8])))
+		Expect(issueCandidate).NotTo(ContainElement(Equal(wfs[9])))
 	})
 
 	It("should issue from all SIMDs with wavefronts", func() {
 		// Put a VALU wavefront in SIMD 0
 		wf0 := newTestWave()
-		wf0.State = wavefront.WfReady
-		wf0.SetNextInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
+		wf0.execution().State = wavefront.WfReady
+		wf0.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
 		wf0.NextInst().ExeUnit = insts.ExeUnitVALU
 		testAddWave(wfPools[0], wf0)
 
 		// Put a Scalar wavefront in SIMD 1
 		wf1 := newTestWave()
-		wf1.State = wavefront.WfReady
-		wf1.SetNextInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
+		wf1.execution().State = wavefront.WfReady
+		wf1.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
 		wf1.NextInst().ExeUnit = insts.ExeUnitScalar
 		testAddWave(wfPools[1], wf1)
 
 		// Put a VMem wavefront in SIMD 2
 		wf2 := newTestWave()
-		wf2.State = wavefront.WfReady
-		wf2.SetNextInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
+		wf2.execution().State = wavefront.WfReady
+		wf2.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
 		wf2.NextInst().ExeUnit = insts.ExeUnitVMem
 		testAddWave(wfPools[2], wf2)
 
 		// Put a Branch wavefront in SIMD 3
 		wf3 := newTestWave()
-		wf3.State = wavefront.WfReady
-		wf3.SetNextInst(wavefront.NewInst(testIDs.NewID(), insts.NewInst()))
+		wf3.execution().State = wavefront.WfReady
+		wf3.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
 		wf3.NextInst().ExeUnit = insts.ExeUnitBranch
 		testAddWave(wfPools[3], wf3)
 
@@ -95,9 +95,9 @@ var _ = Describe("IssueArbiter", func() {
 
 		// All 4 wavefronts from all 4 SIMDs should be returned
 		Expect(len(issueCandidate)).To(Equal(4))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wf0)))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wf1)))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wf2)))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wf3)))
+		Expect(issueCandidate).To(ContainElement(Equal(wf0)))
+		Expect(issueCandidate).To(ContainElement(Equal(wf1)))
+		Expect(issueCandidate).To(ContainElement(Equal(wf2)))
+		Expect(issueCandidate).To(ContainElement(Equal(wf3)))
 	})
 })

@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // CURegFileAccessor implements wavefront.RegFileAccessor by delegating to the
@@ -12,7 +11,7 @@ import (
 // are handled via the wavefront's own fields.
 type CURegFileAccessor struct {
 	CU *ComputeUnit
-	WF *wavefront.Wavefront
+	WF *Wavefront
 }
 
 // ReadReg reads from the appropriate register file based on register type.
@@ -45,7 +44,7 @@ func (a *CURegFileAccessor) ReadReg(
 		}
 		return insts.Uint32ToBytes(uint32(a.WF.EXEC()))
 	case insts.M0:
-		return insts.Uint32ToBytes(a.WF.M0)
+		return insts.Uint32ToBytes(a.WF.execution().M0)
 	}
 
 	// Handle regular SReg and VReg via register files
@@ -53,7 +52,7 @@ func (a *CURegFileAccessor) ReadReg(
 	if reg.IsSReg() {
 		regFile = a.CU.SRegFile
 	} else if reg.IsVReg() {
-		regFile = a.CU.VRegFile[a.WF.SIMDID]
+		regFile = a.CU.VRegFile[a.WF.execution().SIMDID]
 	} else {
 		// Fallback by name for vcclo/vcchi
 		if reg.Name == "vcclo" {
@@ -128,7 +127,7 @@ func (a *CURegFileAccessor) WriteReg(
 		}
 		return
 	case insts.M0:
-		a.WF.M0 = insts.BytesToUint32(data)
+		a.WF.execution().M0 = insts.BytesToUint32(data)
 		return
 	}
 
@@ -137,7 +136,7 @@ func (a *CURegFileAccessor) WriteReg(
 	if reg.IsSReg() {
 		regFile = a.CU.SRegFile
 	} else if reg.IsVReg() {
-		regFile = a.CU.VRegFile[a.WF.SIMDID]
+		regFile = a.CU.VRegFile[a.WF.execution().SIMDID]
 	} else {
 		// Fallback by name for vcclo/vcchi
 		if reg.Name == "vcclo" {
