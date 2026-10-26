@@ -25,26 +25,27 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should allow accepting wavefront", func() {
 		// wave := new(Wavefront)
-		bu.toExec = nil
+		bu.state().Exec = 0
 		Expect(bu.CanAcceptWave()).To(BeTrue())
 	})
 
 	It("should not allow accepting wavefront if the SIMD is executing an instruction", func() {
-		bu.toExec = new(wavefront.Wavefront)
+		bu.state().Exec = testWaveID(cu, newTestWave())
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		wave.SetDynamicInst(inst)
+		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(bu.toExec).To(BeIdenticalTo(wave))
-		Expect(bu.cycleLeft).To(Equal(4))
+		Expect(cu.wave(bu.state().Exec)).To(BeIdenticalTo(wave))
+		Expect(bu.state().Cycles).To(Equal(4))
 	})
 
 	It("should run", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
@@ -58,16 +59,16 @@ var _ = Describe("SIMD Unit", func() {
 
 		wave.State = wavefront.WfRunning
 
-		bu.toExec = wave
-		bu.cycleLeft = 1
+		bu.state().Exec = testWaveID(cu, wave)
+		bu.state().Cycles = 1
 
 		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC()).To(Equal(uint64(0x140)))
 
-		Expect(bu.toExec).To(BeNil())
-		Expect(bu.cycleLeft).To(Equal(0))
+		Expect(cu.wave(bu.state().Exec)).To(BeNil())
+		Expect(bu.state().Cycles).To(Equal(0))
 
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave))
 
@@ -76,7 +77,7 @@ var _ = Describe("SIMD Unit", func() {
 	})
 
 	It("should flush SIMD", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
@@ -89,10 +90,10 @@ var _ = Describe("SIMD Unit", func() {
 
 		wave.State = wavefront.WfRunning
 
-		bu.toExec = wave
+		bu.state().Exec = testWaveID(cu, wave)
 
 		bu.Flush()
 
-		Expect(bu.toExec).To(BeNil())
+		Expect(cu.wave(bu.state().Exec)).To(BeNil())
 	})
 })

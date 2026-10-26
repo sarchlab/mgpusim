@@ -356,7 +356,6 @@ func (b *Builder) connectScalarMem() {
 
 	for i := range b.numCUs {
 		cuComp := b.sa.CUs[i]
-		cuComp.State.ScalarMem = robTopPort.AsRemote()
 		conn.BindPort(cuComp.Ports.ScalarMem)
 	}
 }
@@ -381,7 +380,6 @@ func (b *Builder) connectInstMem() {
 
 	for i := range b.numCUs {
 		cuComp := b.sa.CUs[i]
-		cuComp.State.InstMem = robTopPort.AsRemote()
 		conn.BindPort(cuComp.Ports.InstMem)
 	}
 }
@@ -440,6 +438,8 @@ func (b *Builder) cuSpec() cu.Spec {
 
 func (b *Builder) buildCUs() {
 	spec := b.cuSpec()
+	spec.InstMem = b.sa.L1IROB.Ports.Top.AsRemote()
+	spec.ScalarMem = b.sa.L1SROB.Ports.Top.AsRemote()
 
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)

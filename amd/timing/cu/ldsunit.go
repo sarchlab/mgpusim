@@ -10,13 +10,6 @@ type LDSUnit struct {
 	cu *ComputeUnit
 
 	alu emu.ALU
-
-	toRead    *wavefront.Wavefront
-	toExec    *wavefront.Wavefront
-	toWrite   *wavefront.Wavefront
-	cycleLeft int
-
-	isIdle bool
 }
 
 // NewLDSUnit creates a new Scalar unit, injecting the dependency of
@@ -33,18 +26,18 @@ func NewLDSUnit(
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *LDSUnit) CanAcceptWave() bool {
-	return u.toRead == nil
+	return u.state().Read == 0
 }
 
 // IsIdle checks idleness
 func (u *LDSUnit) IsIdle() bool {
-	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
-	return u.isIdle
+	u.state().Idle = (u.state().Read == 0) && (u.state().Write == 0) && (u.state().Exec == 0)
+	return u.state().Idle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront) {
-	u.toRead = wave
+	u.state().Read = u.cu.useWave(wave)
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
@@ -57,59 +50,61 @@ func (u *LDSUnit) Run() bool {
 }
 
 func (u *LDSUnit) runReadStage() bool {
-	if u.toRead == nil {
+	if u.state().Read == 0 {
 		return false
 	}
 
-	if u.toExec == nil {
-		u.toExec = u.toRead
-		u.toRead = nil
+	if u.state().Exec == 0 {
+		u.state().Exec = u.state().Read
+		u.state().Read = 0
 		return true
 	}
 	return false
 }
 
 func (u *LDSUnit) runExecStage() bool {
-	if u.toExec == nil {
+	if u.state().Exec == 0 {
 		return false
 	}
 
-	if u.toWrite != nil {
+	if u.state().Write != 0 {
 		return false
 	}
 
-	if u.cycleLeft == 0 {
-		u.alu.SetLDS(u.toExec.WG.LDS)
-		u.alu.Run(u.toExec)
-		u.cycleLeft = 14
+	if u.state().Cycles == 0 {
+		u.alu.SetLDS(u.cu.wave(u.state().Exec).WG.LDS)
+		u.alu.Run(u.cu.wave(u.state().Exec))
+		u.state().Cycles = 14
 		return true
 	}
 
-	u.cycleLeft--
-	if u.cycleLeft == 0 {
-		u.toWrite = u.toExec
-		u.toExec = nil
+	u.state().Cycles--
+	if u.state().Cycles == 0 {
+		u.state().Write = u.state().Exec
+		u.state().Exec = 0
 	}
 	return true
 }
 
 func (u *LDSUnit) runWriteStage() bool {
-	if u.toWrite == nil {
+	if u.state().Write == 0 {
 		return false
 	}
 
-	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst(), true)
 
-	u.cu.UpdatePCAndSetReady(u.toWrite)
+	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))
 
-	u.toWrite = nil
+	u.state().Write = 0
 	return true
 }
 
 // Flush clears the unit
 func (u *LDSUnit) Flush() {
-	u.toRead = nil
-	u.toExec = nil
-	u.toWrite = nil
-	u.cycleLeft = 0
+	u.state().Read = 0
+	u.state().Exec = 0
+	u.state().Write = 0
+	u.state().Cycles = 0
 }
+
+func (u *LDSUnit) state() *StageState { return &u.cu.comp.State.LDS }

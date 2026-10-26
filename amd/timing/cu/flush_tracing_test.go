@@ -20,13 +20,13 @@ func TestEndInflightTracingTasksEndsRunningInstTasks(t *testing.T) {
 	rec := &leakRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	pool := NewWavefrontPool(4)
+	pool := NewWavefrontPool(cu, 0, 4)
 	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
 	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVALU
 	wf.SetDynamicInst(inst)
 	wf.State = wavefront.WfRunning
-	pool.AddWf(wf)
+	testAddWave(pool, wf)
 	cu.WfPools = []*WavefrontPool{pool}
 
 	cu.logInstTask(wf, inst, false)
@@ -49,13 +49,13 @@ func TestEndInflightTracingTasksSkipsNonRunningWavefronts(t *testing.T) {
 	rec := &leakRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	pool := NewWavefrontPool(4)
+	pool := NewWavefrontPool(cu, 0, 4)
 	wf := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
 	inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
 	inst.ExeUnit = insts.ExeUnitVMem
 	wf.SetDynamicInst(inst)
 	wf.State = wavefront.WfReady
-	pool.AddWf(wf)
+	testAddWave(pool, wf)
 	cu.WfPools = []*WavefrontPool{pool}
 
 	cu.logInstTask(wf, inst, false)
@@ -81,9 +81,9 @@ func TestPopulateShadowBuffersEndsReqOutTasks(t *testing.T) {
 
 	cu.startRequest(req, fetchTaskID)
 
-	cu.InFlightInstFetch = []*InstFetchReqInfo{
+	cu.comp.State.InstFetch = testFetchStates(cu, []*InstFetchReqInfo{
 		{Req: req, FetchTaskID: fetchTaskID},
-	}
+	})
 
 	cu.populateShadowBuffers()
 
@@ -103,17 +103,17 @@ func TestShadowResendOpensReplacementReqOut(t *testing.T) {
 	rec := &leakRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	cu.shadowInFlightInstFetch = []*InstFetchReqInfo{
+	cu.comp.State.ShadowInstFetch = testFetchStates(cu, []*InstFetchReqInfo{
 		{
 			Req: messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}},
 
 			FetchTaskID: testIDs.NewID(),
 		},
-	}
+	})
 
 	cu.sendInstFetchShadowBufferAccesses()
 
-	resentID := cu.InFlightInstFetch[0].Req.ID
+	resentID := cu.comp.State.InstFetch[0].Req.ID
 	found := false
 	for _, open := range rec.OpenTasks() {
 		if open.Kind == tasks.KindReqOut && open.MsgID == resentID {
@@ -140,6 +140,7 @@ func TestSIMDFlushEndsPipelineTasks(t *testing.T) {
 	inst.ExeUnit = insts.ExeUnitVALU
 	wave.SetDynamicInst(inst)
 
+	registerTestWave(cu, wave)
 	simd.AcceptWave(wave)
 	if rec.NumStarted() != 1 {
 		t.Fatalf("expected the pipeline task to be started, got %d",

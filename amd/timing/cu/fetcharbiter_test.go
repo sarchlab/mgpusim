@@ -17,7 +17,7 @@ var _ = Describe("FetchArbiter", func() {
 	BeforeEach(func() {
 		wfPools = make([]*WavefrontPool, 0, 4)
 		for i := 0; i < 4; i++ {
-			wfPools = append(wfPools, NewWavefrontPool(10))
+			wfPools = append(wfPools, NewWavefrontPool(newTestComputeUnit("CU", nil), 0, 10))
 		}
 		arbiter = new(FetchArbiter)
 		arbiter.InstBufByteSize = 256
@@ -36,11 +36,11 @@ var _ = Describe("FetchArbiter", func() {
 		}
 
 		for i := 0; i < len(wfState); i++ {
-			wf := new(wavefront.Wavefront)
+			wf := newTestWave()
 			wf.Wavefront = new(kernels.Wavefront)
 			wf.LastFetchTime = wfLastFetchTime[i]
 			wf.State = wfState[i]
-			wfPools[i%4].AddWf(wf)
+			testAddWave(wfPools[i%4], wf)
 
 			if i == 4 {
 				wf.InstBuffer = make([]byte, arbiter.InstBufByteSize)

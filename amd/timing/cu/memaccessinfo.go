@@ -49,8 +49,8 @@ func (v VectorMemAccessInfo) requestID() uint64 {
 	}
 	return v.Write.ID
 }
-func (cu *ComputeUnit) vectorTransactionByID(id uint64) VectorMemAccessInfo {
-	for _, v := range cu.InFlightVectorMemAccess {
+func (cu *ComputeUnit) vectorTransactionByID(id uint64) VectorAccessState {
+	for _, v := range cu.comp.State.Vector {
 		if v.requestID() == id {
 			return v
 		}

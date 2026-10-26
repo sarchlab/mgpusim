@@ -3,7 +3,6 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("DecodeUnit", func() {
@@ -26,7 +25,7 @@ var _ = Describe("DecodeUnit", func() {
 
 	It("should tell if it cannot accept wave when queue is full", func() {
 		for i := 0; i < 4; i++ {
-			du.toDecode = append(du.toDecode, new(wavefront.Wavefront))
+			du.state().ToDecode = append(du.state().ToDecode, testWaveID(cu, newTestWave()))
 		}
 		Expect(du.CanAcceptWave()).To(BeFalse())
 	})
@@ -36,30 +35,36 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should accept wave", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
+		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
-		Expect(du.toDecode).To(HaveLen(1))
-		Expect(du.toDecode[0]).To(BeIdenticalTo(wave))
+		Expect(du.state().ToDecode).To(HaveLen(1))
+		Expect(cu.wave(du.state().ToDecode[0])).To(BeIdenticalTo(wave))
 	})
 
 	It("should accept multiple waves", func() {
-		wave1 := new(wavefront.Wavefront)
-		wave2 := new(wavefront.Wavefront)
+		wave1 := newTestWave()
+		wave2 := newTestWave()
+		registerTestWave(cu, wave1)
 		du.AcceptWave(wave1)
+		registerTestWave(cu, wave2)
 		du.AcceptWave(wave2)
-		Expect(du.toDecode).To(HaveLen(2))
+		Expect(du.state().ToDecode).To(HaveLen(2))
 	})
 
 	It("should panic if the queue is full", func() {
 		for i := 0; i < 4; i++ {
-			du.AcceptWave(new(wavefront.Wavefront))
+			wave := newTestWave()
+			registerTestWave(cu, wave)
+			du.AcceptWave(wave)
 		}
-		Expect(func() { du.AcceptWave(new(wavefront.Wavefront)) }).Should(Panic())
+		Expect(func() { wave := newTestWave(); registerTestWave(cu, wave); du.AcceptWave(wave) }).Should(Panic())
 	})
 
 	It("should deliver the wave to the execution unit", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		wave.SIMDID = 1
+		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 
 		du.Run()
@@ -68,15 +73,17 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[1].acceptedWave)).To(Equal(1))
 		Expect(len(execUnits[2].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
-		Expect(du.toDecode).To(BeEmpty())
+		Expect(du.state().ToDecode).To(BeEmpty())
 	})
 
 	It("should deliver multiple waves to different execution units", func() {
-		wave1 := new(wavefront.Wavefront)
+		wave1 := newTestWave()
 		wave1.SIMDID = 0
-		wave2 := new(wavefront.Wavefront)
+		wave2 := newTestWave()
 		wave2.SIMDID = 2
+		registerTestWave(cu, wave1)
 		du.AcceptWave(wave1)
+		registerTestWave(cu, wave2)
 		du.AcceptWave(wave2)
 
 		du.Run()
@@ -85,12 +92,13 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[1].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[2].acceptedWave)).To(Equal(1))
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
-		Expect(du.toDecode).To(BeEmpty())
+		Expect(du.state().ToDecode).To(BeEmpty())
 	})
 
 	It("should not deliver to the execution unit, if busy", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		wave.SIMDID = 1
+		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 		execUnits[1].canAccept = false
 
@@ -100,17 +108,18 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[1].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[2].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
-		Expect(du.toDecode).To(HaveLen(1))
+		Expect(du.state().ToDecode).To(HaveLen(1))
 	})
 
 	It("should flush the decode unit", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
 		wave.SIMDID = 1
+		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 
 		du.Flush()
 
-		Expect(du.toDecode).To(BeEmpty())
+		Expect(du.state().ToDecode).To(BeEmpty())
 	})
 
 })

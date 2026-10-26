@@ -31,7 +31,7 @@ closures are no longer accepted by the launch/grid APIs.
 
 Custom platforms must build with a simulation, bind each port to its component
 before connecting it, and call `Simulation.Initialize()` after wiring. Shared
-memory, page tables, dispatchers, compute-unit runtime graphs and sampling state
+memory, page tables, dispatchers and sampling state
 are registered resources. Sampling history belongs to one simulation. Existing
 sample main functions explicitly initialize the composed simulation.
 
@@ -134,3 +134,50 @@ rounding noise observed by the exact-equality CI check; it does not change
 instruction scheduling or attributed intervals. The earlier 857-row diagnostic
 above used the previous floating-point accumulator. Its last few CPI digits may
 differ from the final reporter, while counts and simulation times are unchanged.
+
+## Compute-unit State and construction
+
+A timing CU is one ticking component. Its `State` owns work-group and wavefront
+execution values, shared LDS, scoreboards, register bytes, instruction encodings,
+in-flight memory records, scheduler queues, decoder progress, SIMD slots, and
+vector-memory pipelines. Queue and pipeline references use simulation IDs.
+There is no CU Runtime resource or per-SIMD checkpoint resource, and saving does
+not collect a second execution graph. Finished instructions are retired when
+neither wavefronts nor in-flight requests reference them. A completed work-group
+remains in State while a fetch-ahead response or another pipeline reference still
+needs its wavefronts.
+
+`Middlewares.Initialize` creates the scheduler and execution-unit behavior views.
+Akita replaces State when loading a checkpoint without rerunning Initialize;
+the CU detects replacement before handling an event or returning `MiddlewareOf`
+and reconstructs only derived wavefront, group, and decoded-instruction views.
+Register-file views resolve the current State storage on every access. Code that
+inspects wavefronts must acquire its views again after loading. Restored pools,
+barriers, pipelines, and memory requests resolve the same canonical wavefront;
+all waves of a group refer to the same LDS allocation.
+
+The instruction and scalar memory destinations are immutable `Spec.InstMem` and
+`Spec.ScalarMem`. A platform builder first builds the instruction/scalar ROBs and
+binds their ports, then obtains their actual remote addresses:
+
+```go
+spec := cu.DefaultSpec()
+spec.InstMem = instructionROB.Ports.Top.AsRemote()
+spec.ScalarMem = scalarROB.Ports.Top.AsRemote()
+computeUnit := cu.MakeBuilder().WithSimulation(simulation).
+    WithSpec(spec).WithResources(resources).Build(name)
+// Bind the CU's local ports, then connect those ports to the ROBs.
+// Initialize the simulation after the full topology has been assembled.
+```
+
+Changing either destination changes the checkpoint Spec hash. Routing through
+`Resources.VectorMemModules` is deferred to MGPUSim #321. Downstream-first
+construction is temporary: Akita #576 tracks a Blueprint that declares the whole
+topology, instantiates it, and then connects it, including cyclic topologies.
+This CU change does not add a lifecycle phase or predict port names.
+
+Checkpoint compatibility with previous implementations is not supported. Rebuild
+and resume with the same program and configuration; this also applies after v5.
+SIMD task names and timing remain unchanged, while reporting routes their task
+notifications through one simulation observer rather than registering the SIMD
+behavior views as simulation entities.

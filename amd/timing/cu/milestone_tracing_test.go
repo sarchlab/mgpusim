@@ -70,7 +70,7 @@ func TestSWaitCntRecordsDataMilestone(t *testing.T) {
 // emitted on that retry, only when the instruction actually retires.
 func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.WfPools = []*WavefrontPool{NewWavefrontPool(10)}
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
 	ace := newFakePort("CU.ToACE")
 	cu.ToACE = ace
 	rec := &cuMilestoneRecorder{}
@@ -89,7 +89,7 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	wf.WG = wg
 	wf.State = wavefront.WfRunning
 	wg.Wfs = []*wavefront.Wavefront{wf}
-	cu.WfPools[0].wfs = append(cu.WfPools[0].wfs, wf)
+	testAddWave(cu.WfPools[0], wf)
 	taskID := startTestInst(cu, wf.DynamicInst())
 
 	// ACE port full: cannot send the WGCompletion, so the wavefront stays
@@ -146,7 +146,7 @@ func (r *orderedEndRecorder) TaskEnded(e tasks.Task) {
 // on an already-ended task.
 func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.WfPools = []*WavefrontPool{NewWavefrontPool(10)}
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
 	s := NewScheduler(cu, nil, nil)
 
 	wg := wavefront.NewWorkGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
@@ -199,8 +199,8 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 
 	read := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
-	cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess,
-		VectorMemAccessInfo{Read: read, Inst: inst, Wavefront: wf})
+	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu,
+		VectorMemAccessInfo{Read: read, Inst: inst, Wavefront: wf}))
 
 	cu.handleVectorDataLoadReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: read.ID, Payload: memprotocol.DataReadyRsp{}},
@@ -218,7 +218,7 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 // execution unit instead.
 func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.comp.State.InstMem = "InstMem"
+	cu.comp.Spec.InstMem = "InstMem"
 	cu.ToInstMem = newFakePort("CU.ToInstMem")
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
@@ -260,12 +260,12 @@ func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x140,
 		AccessByteSize: 64}}
 
-	cu.InFlightInstFetch = append(cu.InFlightInstFetch, &InstFetchReqInfo{
+	cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
 		Wavefront:   wf,
 		Req:         req,
 		Address:     0x140,
 		FetchTaskID: testIDs.NewID(),
-	})
+	}))
 
 	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}},
@@ -290,12 +290,12 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
 		AccessByteSize: 64}}
 
-	cu.InFlightInstFetch = append(cu.InFlightInstFetch, &InstFetchReqInfo{
+	cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
 		Wavefront:   wf,
 		Req:         req,
 		Address:     0x100,
 		FetchTaskID: testIDs.NewID(),
-	})
+	}))
 
 	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}},
@@ -349,6 +349,7 @@ func TestDecodeRecordsWorkMilestone(t *testing.T) {
 	inst.ExeUnit = insts.ExeUnitScalar
 	wf.SetDynamicInst(inst)
 
+	registerTestWave(cu, wf)
 	du.AcceptWave(wf)
 	du.Run()
 
@@ -356,7 +357,7 @@ func TestDecodeRecordsWorkMilestone(t *testing.T) {
 		t.Fatalf("expected a work milestone for decode, got %+v",
 			rec.milestones)
 	}
-	if _, ok := du.decodeTaskIDs[inst.ID]; ok {
+	if _, ok := du.state().Tasks[inst.ID]; ok {
 		t.Fatal("the decode subtask should be closed after execution-unit admission")
 	}
 	if len(exec.accepted) != 1 {
@@ -374,7 +375,7 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	cu.ToScalarMem = newFakePort("CU.ToScalarMem")
-	cu.comp.State.ScalarMem = "ScalarMem"
+	cu.comp.Spec.ScalarMem = "ScalarMem"
 	su := NewScalarUnit(cu, nil)
 	su.log2CachelineSize = 6
 
@@ -396,6 +397,7 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	regAccessor.setRegValue(baseReg, 2, 0, wf.SRegOffset,
 		insts.Uint64ToBytes(0x1000)[:8])
 
+	registerTestWave(cu, wf)
 	su.AcceptWave(wf)
 	su.Run() // read -> exec
 	su.Run() // exec -> readBuf/in-flight scalar access
@@ -404,7 +406,7 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 		t.Fatalf("expected a work milestone for SMEM issue, got %+v",
 			rec.milestones)
 	}
-	if _, ok := su.issueTaskIDs[inst.ID]; ok {
+	if _, ok := su.state().Tasks[inst.ID]; ok {
 		t.Fatal("the SMEM issue subtask should be closed after request admission")
 	}
 }
@@ -421,7 +423,7 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 
 	cu.ToVectorMem = newFakePort("CU.ToVectorMem")
 	vmu := NewVectorMemoryUnit(cu, nil)
-	vmu.postTransactionPipelineBuffer =
+	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
 	inst := wavefront.NewInst(testIDs.NewID(), nil)
@@ -432,9 +434,9 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 		Src: cu.ToVectorMem.AsRemote(),
 		Dst: "VectorMem", Payload: memprotocol.ReadReq{}}
 
-	vmu.numTransactionInFlight = 1
-	cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, VectorMemAccessInfo{Read: read, Inst: inst})
-	vmu.postTransactionPipelineBuffer.Push(read.ID)
+	vmu.state().Transactions = 1
+	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu, VectorMemAccessInfo{Read: read, Inst: inst}))
+	vmu.state().TransactionsOutput.Push(read.ID)
 
 	vmu.sendRequest()
 
@@ -442,7 +444,7 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 		t.Fatalf("expected a work milestone at transaction send, got %+v",
 			rec.milestones)
 	}
-	if _, ok := vmu.issueTaskIDs[inst.ID]; ok {
+	if _, ok := vmu.state().IssueTasks[inst.ID]; ok {
 		t.Fatal("the issue subtask should be closed after the first send")
 	}
 }
@@ -471,7 +473,7 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 	port := newFakePort("CU.ToVectorMem")
 	cu.ToVectorMem = port
 	vmu := NewVectorMemoryUnit(cu, nil)
-	vmu.postTransactionPipelineBuffer =
+	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
 	inst := wavefront.NewInst(testIDs.NewID(), nil)
@@ -481,9 +483,9 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 		Src: cu.ToVectorMem.AsRemote(),
 		Dst: "VectorMem", Payload: memprotocol.ReadReq{}}
 
-	vmu.numTransactionInFlight = 1
-	cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, VectorMemAccessInfo{Read: read, Inst: inst})
-	vmu.postTransactionPipelineBuffer.Push(read.ID)
+	vmu.state().Transactions = 1
+	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu, VectorMemAccessInfo{Read: read, Inst: inst}))
+	vmu.state().TransactionsOutput.Push(read.ID)
 
 	// Port full: the transaction is ready but cannot be sent. The work
 	// milestone fires now; the transaction stays unsent.
@@ -521,11 +523,11 @@ func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	vmu := NewVectorMemoryUnit(cu, nil)
-	vmu.instructionPipeline = queueing.MakePipeline[vectorMemInst](1, 6)
-	vmu.postInstructionPipelineBuffer =
+	vmu.state().InstructionsPipeline = queueing.MakePipeline[vectorMemInst](1, 6)
+	vmu.state().InstructionsOutput =
 		queueing.MakeBuffer[vectorMemInst](16)
-	vmu.transactionPipeline = queueing.MakePipeline[uint64](2, 10)
-	vmu.postTransactionPipelineBuffer =
+	vmu.state().TransactionsPipeline = queueing.MakePipeline[uint64](2, 10)
+	vmu.state().TransactionsOutput =
 		queueing.MakeBuffer[uint64](8)
 
 	inst := wavefront.NewInst(testIDs.NewID(), nil)
@@ -538,7 +540,7 @@ func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
 		t.Fatalf("flush must preserve the coalesce work milestone for an "+
 			"in-issue instruction; got %d", got)
 	}
-	if _, ok := vmu.issueTaskIDs[inst.ID]; ok {
+	if _, ok := vmu.state().IssueTasks[inst.ID]; ok {
 		t.Fatal("the issue subtask should be cleared on flush")
 	}
 }
@@ -573,10 +575,10 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 
 	readLastGenerated := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
-	cu.InFlightVectorMemAccess = []VectorMemAccessInfo{
+	cu.comp.State.Vector = testVectorStates(cu, []VectorMemAccessInfo{
 		{Read: readSibling, Inst: inst, Wavefront: wf},
 		{Read: readLastGenerated, Inst: inst, Wavefront: wf},
-	}
+	})
 
 	// The last-generated transaction returns first (out of order); its sibling
 	// is still in flight, so no data milestone yet.
@@ -612,15 +614,15 @@ func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
 
 	resent := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
-	cu.InFlightVectorMemAccess = []VectorMemAccessInfo{
+	cu.comp.State.Vector = testVectorStates(cu, []VectorMemAccessInfo{
 		{Read: resent, Inst: inst, Wavefront: wf},
-	}
+	})
 	// A coalesced sibling still parked in the shadow buffer, not yet re-sent.
 	shadowSibling := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
-	cu.shadowInFlightVectorMemAccess = []VectorMemAccessInfo{
+	cu.comp.State.ShadowVector = testVectorStates(cu, []VectorMemAccessInfo{
 		{Read: shadowSibling, Inst: inst, Wavefront: wf},
-	}
+	})
 
 	cu.handleVectorDataLoadReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: resent.ID, Payload: memprotocol.DataReadyRsp{}},
@@ -638,6 +640,7 @@ func startTestInst(c *ComputeUnit, inst *wavefront.Inst) uint64 {
 	return id
 }
 func startTestWave(c *ComputeUnit, wf *wavefront.Wavefront) {
+	registerTestWave(c, wf)
 	c.comp.State.WFTasks[wf.UID] = c.comp.TaskTracker().
 		StartTask(c.comp, tasks.StartInfo{Kind: "wavefront", What: "test"})
 }

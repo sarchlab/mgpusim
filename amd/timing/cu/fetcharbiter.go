@@ -22,7 +22,7 @@ func (a *FetchArbiter) Arbitrate(
 	oldestTime := timing.VTimeInPicoSec(math.MaxUint64)
 	var toFetch *wavefront.Wavefront
 	for _, wfPool := range wfPools {
-		for _, wf := range wfPool.wfs {
+		for _, wf := range wfPool.waves() {
 			if !a.canFetchFromWF(wf) {
 				continue
 			}

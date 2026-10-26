@@ -15,7 +15,7 @@ var _ = Describe("Default Coalescer", func() {
 	)
 
 	BeforeEach(func() {
-		wf = wavefront.NewWavefront(nil)
+		wf = newTestWave()
 		c = defaultCoalescer{
 			ids:               &testIDs,
 			log2CacheLineSize: 6,

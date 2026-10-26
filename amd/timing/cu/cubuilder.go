@@ -4,11 +4,9 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v5/sim/modeling"
-	"github.com/sarchlab/akita/v5/sim/queueing"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu/gcn3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // DefaultSpec returns a copy of the default compute-unit configuration.
@@ -16,6 +14,7 @@ import (
 // WithSpec.
 func DefaultSpec() Spec {
 	return Spec{
+		InstMem: "", ScalarMem: "", IsCDNA3: false,
 		Freq:                         1 * timing.GHz,
 		SIMDCount:                    4,
 		WfPoolSize:                   10,
@@ -41,8 +40,7 @@ func DefaultSpec() Spec {
 // WithSimulation. The component declares its "Top", "Ctrl", "InstMem",
 // "ScalarMem", and "VectorMem" ports; the port instances are supplied
 // externally after Build with AssignPort. The destinations of instruction
-// and scalar memory accesses are set after Build through comp.State.InstMem
-// and comp.State.ScalarMem.
+// and scalar memory accesses are supplied in Spec before Build.
 type Builder struct {
 	spec      Spec
 	resources Resources
@@ -88,44 +86,8 @@ func (b Builder) Build(name string) *Comp {
 		b.spec.IsCDNA3 = d.IsCDNA3
 	}
 
+	b.resources.engine = b.registrar.Engine()
 	comp := modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
-	comp.State = State{
-		InstTasks:    make(map[uint64]uint64),
-		WFTasks:      make(map[uint64]uint64),
-		WGTasks:      make(map[uint64]uint64),
-		RequestTasks: make(map[uint64]uint64),
-	}
-
-	cuMW := &ComputeUnit{
-		comp:                  comp,
-		engine:                b.registrar.Engine(),
-		wfCompletionHandlerID: name + ".WfCompletion",
-		wfDispatchHandlerID:   name + ".WfDispatch",
-		Decoder:               b.resources.Decoder,
-		workGroups:            make(map[uint64]*wavefront.WorkGroup),
-		wftime:                make(map[uint64]timing.VTimeInPicoSec),
-	}
-	cuMW.InFlightVectorMemAccessLimit = b.spec.InFlightVectorMemAccessLimit
-
-	wfDispatcher := NewWfDispatcher(cuMW)
-	wfDispatcher.scoreboardEnabled = b.spec.RegisterScoreboard
-	cuMW.WfDispatcher = wfDispatcher
-
-	for i := 0; i < numWfPools; i++ {
-		cuMW.WfPools = append(cuMW.WfPools, NewWavefrontPool(b.spec.WfPoolSize))
-	}
-
-	b.registrar.RegisterResource(&cuCheckpoint{cuMW})
-	b.equipScheduler(cuMW)
-	b.equipScalarUnits(cuMW)
-	b.equipSIMDUnits(cuMW, name)
-	b.equipLDSUnit(cuMW)
-	b.equipVectorMemoryUnit(cuMW, name)
-	b.equipRegisterFiles(cuMW)
-
-	comp.Resources.Runtime = cuMW
-	b.registrar.Engine().RegisterHandler(cuMW.wfCompletionHandlerID, cuMW)
-	b.registrar.Engine().RegisterHandler(cuMW.wfDispatchHandlerID, cuMW)
 
 	return comp
 }
@@ -149,7 +111,7 @@ func (b *Builder) fillResourceDefaults() {
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
-	issueArbitor := new(IssueArbiter)
+	issueArbitor := &IssueArbiter{state: &cu.comp.State.Scheduler}
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard
@@ -161,6 +123,7 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 
 	scalarDecoder := NewDecodeUnit(cu)
 	scalarDecoder.stage = "decode_scalar"
+	scalarDecoder.index = 0
 	cu.ScalarDecoder = scalarDecoder
 	scalarUnit := NewScalarUnit(cu, b.resources.ALU)
 	scalarUnit.log2CachelineSize = b.spec.Log2CachelineSize
@@ -173,25 +136,26 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 	vectorDecoder := NewDecodeUnit(cu)
 	vectorDecoder.stage = "decode_vector"
+	vectorDecoder.index = 1
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.spec.SIMDCount; i++ {
 		simdName := fmt.Sprintf(name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, simdName, b.resources.ALU)
+		simdUnit.index = i
 		simdUnit.NumSinglePrecisionUnit = b.spec.NumSinglePrecisionUnits
 		simdUnit.scoreboardEnabled = b.spec.RegisterScoreboard
 		if b.spec.RegisterScoreboard {
 			simdUnit.pipelineCapacity = 1
-			simdUnit.pipelineSlots = make([]*simdPipelineSlot, 0, 1)
 		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
-		b.registrar.RegisterResource(simdUnit)
 	}
 }
 
 func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	ldsDecoder.stage = "decode_lds"
+	ldsDecoder.index = 2
 	cu.LDSDecoder = ldsDecoder
 
 	ldsUnit := NewLDSUnit(cu, b.resources.ALU)
@@ -205,6 +169,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	vectorMemDecoder := NewDecodeUnit(cu)
 	vectorMemDecoder.stage = "decode_vmem"
+	vectorMemDecoder.index = 3
 	cu.VectorMemDecoder = vectorMemDecoder
 
 	coalescer := &defaultCoalescer{
@@ -215,38 +180,34 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	vectorMemoryUnit.maxCoalescingPenalty = b.spec.MaxCoalescingPenalty
 	cu.VectorMemUnit = vectorMemoryUnit
 
-	vectorMemoryUnit.postInstructionPipelineBuffer =
-		queueing.MakeBuffer[vectorMemInst](4 * b.spec.SIMDCount)
-	// v4 used CyclePerStage=1, so the v5 stage count equals the v4 stage
-	// count and the total latency is preserved.
-	vectorMemoryUnit.instructionPipeline = queueing.MakePipeline[vectorMemInst](
-		b.spec.SIMDCount, b.spec.VecMemInstPipelineStages)
-
-	pipelineWidth := b.spec.VecMemTransPipelineWidth
-	if pipelineWidth < 1 {
-		pipelineWidth = 1
-	}
-	bufSize := b.spec.MemPipelineBufferSize
-	if bufSize < 8 {
-		bufSize = 8
-	}
-	vectorMemoryUnit.postTransactionPipelineBuffer =
-		queueing.MakeBuffer[uint64](bufSize)
-	vectorMemoryUnit.transactionPipeline =
-		queueing.MakePipeline[uint64](
-			pipelineWidth, b.spec.VecMemTransPipelineStages)
-
 	for i := 0; i < b.spec.SIMDCount; i++ {
 		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)
 	}
 }
 
 func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
-	sRegFile := NewSimpleRegisterFile(uint64(b.spec.SGPRCount*4), 0)
+	sRegFile := &SimpleRegisterFile{owner: cu.comp, vectorIndex: -1}
 	cu.SRegFile = sRegFile
 
 	for i := 0; i < b.spec.SIMDCount; i++ {
-		vRegFile := NewSimpleRegisterFile(uint64(b.spec.VGPRCounts[i]*4), 1024)
+		vRegFile := &SimpleRegisterFile{owner: cu.comp, vectorIndex: i, ByteSizePerLane: 1024}
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
+}
+
+func (cu *ComputeUnit) initializeUnits() {
+	b := Builder{spec: cu.comp.Spec, resources: cu.comp.Resources}
+	cu.InFlightVectorMemAccessLimit = b.spec.InFlightVectorMemAccessLimit
+	dispatcher := NewWfDispatcher(cu)
+	dispatcher.scoreboardEnabled = b.spec.RegisterScoreboard
+	cu.WfDispatcher = dispatcher
+	for i := 0; i < numWfPools; i++ {
+		cu.WfPools = append(cu.WfPools, NewWavefrontPool(cu, i, b.spec.WfPoolSize))
+	}
+	b.equipScheduler(cu)
+	b.equipScalarUnits(cu)
+	b.equipSIMDUnits(cu, cu.comp.Name())
+	b.equipLDSUnit(cu)
+	b.equipVectorMemoryUnit(cu, cu.comp.Name())
+	b.equipRegisterFiles(cu)
 }

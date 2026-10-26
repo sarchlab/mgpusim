@@ -142,19 +142,16 @@ func newTestComputeUnit(
 	s := &cuTestSimulation{Simulation: sim.MakeBuilder().Build(), engine: engine.(timing.Engine)}
 	s.tracker = tasks.NewTracker(engine, s.NewID, func(n naming.Named) bool { return true })
 	comp := modeling.MakeBuilder[*Comp](DefaultSpec()).WithSimulation(s).Build(name)
-	comp.State = State{
-		InstTasks:    make(map[uint64]uint64),
-		WFTasks:      make(map[uint64]uint64),
-		WGTasks:      make(map[uint64]uint64),
-		RequestTasks: make(map[uint64]uint64),
-	}
+	comp.State.Initialize(comp)
 
 	cuMW := &ComputeUnit{
 		comp:                  comp,
 		engine:                engine,
 		wfCompletionHandlerID: name + ".WfCompletion",
 		wfDispatchHandlerID:   name + ".WfDispatch",
-		wftime:                make(map[uint64]timing.VTimeInPicoSec),
+		waves:                 make(map[uint64]*wavefront.Wavefront),
+		instructions:          make(map[uint64]*wavefront.Inst),
+		boundDecoder:          &comp.State.Decoders[0],
 		workGroups:            make(map[uint64]*wavefront.WorkGroup),
 	}
 	cuMW.InFlightVectorMemAccessLimit = 512
@@ -177,10 +174,84 @@ type testIDSource struct{ value atomic.Uint64 }
 
 func (s *testIDSource) NewID() uint64 { return (uint64(1) << 60) + s.value.Add(1) }
 
+func newTestWave() *wavefront.Wavefront {
+	return wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+}
 func registerTestWave(c *ComputeUnit, w *wavefront.Wavefront) {
+	if w == nil {
+		return
+	}
+	if w.Wavefront == nil {
+		w.Wavefront = kernels.NewWavefront(testIDs.NewID())
+	}
+	if w.UID == 0 {
+		w.UID = testIDs.NewID()
+	}
+	if c.waves[w.UID] == w {
+		return
+	}
 	if w.WG == nil {
 		w.WG = wavefront.NewWorkGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
 	}
-	w.WG.Wfs = append(w.WG.Wfs, w)
+	if w.WG.WorkGroup == nil {
+		w.WG.WorkGroup = kernels.NewWorkGroup(testIDs.NewID())
+	}
+	current, next := w.DynamicInst(), w.NextInst()
+	g := c.comp.State.Groups[w.WG.UID]
+	g.Waves = append(g.Waves, WaveState{ID: w.UID, Execution: *w.ExecutionState})
+	c.comp.State.Groups[w.WG.UID] = g
+	c.waves[w.UID] = w
 	c.workGroups[w.WG.UID] = w.WG
+	found := false
+	for _, other := range w.WG.Wfs {
+		if other == w {
+			found = true
+		}
+	}
+	if !found {
+		w.WG.Wfs = append(w.WG.Wfs, w)
+	}
+	for i := range g.Waves {
+		view := c.waves[g.Waves[i].ID]
+		view.BindExecution(&g.Waves[i].Execution, c.instruction, c.rememberInstruction, c.releaseInstruction)
+	}
+	c.rememberInstruction(current)
+	c.rememberInstruction(next)
+}
+func testWaveID(c *ComputeUnit, w *wavefront.Wavefront) uint64 {
+	registerTestWave(c, w)
+	return wfID(w)
+}
+func testAddWave(p *WavefrontPool, w *wavefront.Wavefront) { registerTestWave(p.cu, w); p.AddWf(w) }
+
+func testFetchState(c *ComputeUnit, v *InstFetchReqInfo) FetchState {
+	registerTestWave(c, v.Wavefront)
+	return c.fetchState(v)
+}
+func testScalarState(c *ComputeUnit, v *ScalarMemAccessInfo) ScalarAccessState {
+	registerTestWave(c, v.Wavefront)
+	c.rememberInstruction(v.Inst)
+	s := ScalarAccessState{Req: v.Req, WF: wfID(v.Wavefront), Inst: instID(v.Inst)}
+	if v.DstSGPR != nil {
+		s.Register = v.DstSGPR.RegType
+	}
+	return s
+}
+func testVectorState(c *ComputeUnit, v VectorMemAccessInfo) VectorAccessState {
+	registerTestWave(c, v.Wavefront)
+	return c.vectorState(v)
+}
+func testFetchStates(c *ComputeUnit, vs []*InstFetchReqInfo) []FetchState {
+	var out []FetchState
+	for _, v := range vs {
+		out = append(out, testFetchState(c, v))
+	}
+	return out
+}
+func testVectorStates(c *ComputeUnit, vs []VectorMemAccessInfo) []VectorAccessState {
+	var out []VectorAccessState
+	for _, v := range vs {
+		out = append(out, testVectorState(c, v))
+	}
+	return out
 }

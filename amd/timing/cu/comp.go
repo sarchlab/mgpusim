@@ -37,6 +37,10 @@ const numWfPools = 4
 
 // Spec is the immutable configuration of a timing ComputeUnit.
 type Spec struct {
+	// InstMem and ScalarMem are fixed request destinations, supplied before Build.
+	InstMem   messaging.RemotePort `json:"inst_mem"`
+	ScalarMem messaging.RemotePort `json:"scalar_mem"`
+
 	// IsCDNA3 is captured from the configured decoder by the builder.
 	IsCDNA3 bool        `json:"is_cdna3"`
 	Freq    timing.Freq `json:"freq"`
@@ -98,18 +102,24 @@ type Spec struct {
 	InstBufByteSize int `json:"inst_buf_byte_size"`
 }
 
-// State is the pure, serializable runtime state of a timing ComputeUnit.
-//
-// The complex runtime structures (wavefront pools, in-flight access records,
-// sub-unit pipeline contents) hold pointers and live on the ComputeUnit
-// runtime resource, which serializes values and reconstructs shared links.
+// State is the sole owner of mutable compute-unit execution data.
 type State struct {
 	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
-	// InstMem is the port instruction fetches are sent to.
-	InstMem messaging.RemotePort `json:"inst_mem"`
-
-	// ScalarMem is the port scalar memory accesses are sent to.
-	ScalarMem messaging.RemotePort `json:"scalar_mem"`
+	Groups                                    map[uint64]WorkGroupState
+	Instructions                              map[uint64]InstructionState
+	Pools                                     [][]uint64
+	InstFetch, ShadowInstFetch                []FetchState
+	Scalar, ShadowScalar                      []ScalarAccessState
+	Vector, ShadowVector                      []VectorAccessState
+	WFTimes                                   map[uint64]timing.VTimeInPicoSec
+	SRegisters                                []byte
+	VRegisters                                [][]byte
+	Scheduler                                 SchedulerState
+	Decoders                                  []DecoderState
+	Branch, LDS                               StageState
+	ScalarUnit                                ScalarUnitState
+	VectorUnit                                VectorUnitState
+	SIMDs                                     []SIMDState
 
 	// Running indicates that at least one work-group has been mapped.
 	Running bool `json:"running"`
@@ -134,8 +144,8 @@ type State struct {
 
 // Resources holds the shared references that a timing ComputeUnit needs.
 type Resources struct {
+	engine  timing.Engine
 	Sampler *sampling.SampledEngine
-	Runtime *ComputeUnit
 	// Decoder decodes raw instruction bytes. Defaults to
 	// insts.NewDisassembler() when nil at Build time.
 	Decoder emu.Decoder
@@ -161,13 +171,31 @@ type Middlewares struct{ CU *cuMiddleware }
 type cuMiddleware struct{ cu *ComputeUnit }
 
 func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
-func (m *Middlewares) Initialize(c *Comp)        { m.CU = &cuMiddleware{cu: c.Resources.Runtime} }
+func (m *Middlewares) Initialize(c *Comp) {
+	if c.Resources.engine == nil {
+		panic("cu: construct with MakeBuilder")
+	}
+	cu := &ComputeUnit{comp: c, engine: c.Resources.engine, Decoder: c.Resources.Decoder,
+		wfCompletionHandlerID: c.Name() + ".WfCompletion", wfDispatchHandlerID: c.Name() + ".WfDispatch"}
+	m.CU = &cuMiddleware{cu: cu}
+	c.Resources.engine.RegisterHandler(cu.wfCompletionHandlerID, cu)
+	c.Resources.engine.RegisterHandler(cu.wfDispatchHandlerID, cu)
+	cu.initializeUnits()
+	cu.bindState()
+}
 
 // MiddlewareOf returns the ComputeUnit middleware attached to a timing
 // compute-unit component. It is used by external code (e.g., the ISA
 // debugger) that needs access to the register files and other complex
 // runtime state.
-func MiddlewareOf(comp *Comp) *ComputeUnit { return comp.Resources.Runtime }
+func MiddlewareOf(comp *Comp) *ComputeUnit {
+	if comp.Middlewares.CU == nil {
+		panic("cu: middleware is not constructed")
+	}
+	cu := comp.Middlewares.CU.cu
+	cu.ensureState()
+	return cu
+}
 
 // DispatcherView adapts a timing ComputeUnit to the interface that the
 // command processor's resource pool expects from a dispatchable CU.

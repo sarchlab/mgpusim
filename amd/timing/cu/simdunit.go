@@ -10,36 +10,23 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-// simdPipelineSlot represents one in-flight wavefront in the SIMD pipeline.
-type simdPipelineSlot struct {
-	wf        *wavefront.Wavefront
-	cycleLeft int
-	taskID    uint64
-}
-
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
 	hooking.HookableBase
 
-	cu *ComputeUnit
+	cu    *ComputeUnit
+	index int
 
 	name string
 
 	alu emu.ALU
 
-	toExec     *wavefront.Wavefront
-	cycleLeft  int
-	execTaskID uint64
-
 	// Pipeline mode fields (used when scoreboardEnabled)
-	pipelineSlots    []*simdPipelineSlot
 	pipelineCapacity int
 
 	scoreboardEnabled bool
 
 	NumSinglePrecisionUnit int
-
-	isIdle bool
 }
 
 // NewSIMDUnit creates a new branch unit, injecting the dependency of
@@ -62,19 +49,19 @@ func NewSIMDUnit(
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) CanAcceptWave() bool {
 	if u.scoreboardEnabled {
-		return len(u.pipelineSlots) < u.pipelineCapacity
+		return len(u.state().Slots) < u.pipelineCapacity
 	}
-	return u.toExec == nil
+	return u.state().Exec == 0
 }
 
 // IsIdle checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) IsIdle() bool {
 	if u.scoreboardEnabled {
-		u.isIdle = len(u.pipelineSlots) == 0
-		return u.isIdle
+		u.state().Idle = len(u.state().Slots) == 0
+		return u.state().Idle
 	}
-	u.isIdle = (u.toExec == nil)
-	return u.isIdle
+	u.state().Idle = (u.state().Exec == 0)
+	return u.state().Idle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
@@ -85,18 +72,18 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
 	}
 
 	if u.scoreboardEnabled {
-		slot := &simdPipelineSlot{
-			wf:        wave,
-			cycleLeft: cycleLeft,
+		slot := SIMDSlotState{
+			WF:     u.cu.useWave(wave),
+			Cycles: cycleLeft,
 		}
-		u.pipelineSlots = append(u.pipelineSlots, slot)
-		slot.taskID = u.logPipelineTaskStart(wave.DynamicInst())
+		u.state().Slots = append(u.state().Slots, slot)
+		u.state().Slots[len(u.state().Slots)-1].Task = u.logPipelineTaskStart(wave.DynamicInst())
 		return
 	}
 
-	u.toExec = wave
-	u.cycleLeft = cycleLeft
-	u.execTaskID = u.logPipelineTaskStart(u.toExec.DynamicInst())
+	u.state().Exec = u.cu.useWave(wave)
+	u.state().Cycles = cycleLeft
+	u.state().Task = u.logPipelineTaskStart(u.cu.wave(u.state().Exec).DynamicInst())
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -108,49 +95,49 @@ func (u *SIMDUnit) Run() bool {
 }
 
 func (u *SIMDUnit) runPipelined() bool {
-	if len(u.pipelineSlots) == 0 {
+	if len(u.state().Slots) == 0 {
 		return false
 	}
 
 	madeProgress := false
-	remaining := make([]*simdPipelineSlot, 0, len(u.pipelineSlots))
+	remaining := make([]SIMDSlotState, 0, len(u.state().Slots))
 
-	for _, slot := range u.pipelineSlots {
-		slot.cycleLeft--
+	for _, slot := range u.state().Slots {
+		slot.Cycles--
 		madeProgress = true
 
-		if slot.cycleLeft <= 0 {
-			u.alu.Run(slot.wf)
-			u.cu.UpdatePCAndSetReady(slot.wf)
+		if slot.Cycles <= 0 {
+			u.alu.Run(u.cu.wave(slot.WF))
+			u.cu.UpdatePCAndSetReady(u.cu.wave(slot.WF))
 
-			u.logPipelineTaskEnd(slot.taskID)
-			u.cu.logInstTask(slot.wf, slot.wf.DynamicInst(), true)
+			u.logPipelineTaskEnd(slot.Task)
+			u.cu.logInstTask(u.cu.wave(slot.WF), u.cu.wave(slot.WF).DynamicInst(), true)
 		} else {
 			remaining = append(remaining, slot)
 		}
 	}
 
-	u.pipelineSlots = remaining
+	u.state().Slots = remaining
 	return madeProgress
 }
 
 func (u *SIMDUnit) runExecStage() bool {
-	if u.toExec == nil {
+	if u.state().Exec == 0 {
 		return false
 	}
 
-	u.cycleLeft--
-	if u.cycleLeft > 0 {
+	u.state().Cycles--
+	if u.state().Cycles > 0 {
 		return true
 	}
 
-	u.alu.Run(u.toExec)
-	u.cu.UpdatePCAndSetReady(u.toExec)
+	u.alu.Run(u.cu.wave(u.state().Exec))
+	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Exec))
 
-	u.logPipelineTaskEnd(u.execTaskID)
-	u.cu.logInstTask(u.toExec, u.toExec.DynamicInst(), true)
+	u.logPipelineTaskEnd(u.state().Task)
+	u.cu.logInstTask(u.cu.wave(u.state().Exec), u.cu.wave(u.state().Exec).DynamicInst(), true)
 
-	u.toExec = nil
+	u.state().Exec = 0
 	return true
 }
 
@@ -159,15 +146,15 @@ func (u *SIMDUnit) Flush() {
 	// End the per-SIMD "pipeline" tasks of the instructions dropped from the
 	// pipeline, so they do not leak as started-never-ended. (The instructions'
 	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
-	if u.toExec != nil {
-		u.cu.comp.TaskTracker().EndTask(u.execTaskID)
+	if u.state().Exec != 0 {
+		u.cu.comp.TaskTracker().EndTask(u.state().Task)
 	}
-	for _, slot := range u.pipelineSlots {
-		u.cu.comp.TaskTracker().EndTask(slot.taskID)
+	for _, slot := range u.state().Slots {
+		u.cu.comp.TaskTracker().EndTask(slot.Task)
 	}
 
-	u.toExec = nil
-	u.pipelineSlots = u.pipelineSlots[:0]
+	u.state().Exec = 0
+	u.state().Slots = u.state().Slots[:0]
 }
 
 // logPipelineTaskStart starts the per-SIMD pipeline task for the given
@@ -207,3 +194,5 @@ func (u *SIMDUnit) CurrentTime() timing.VTimeInPicoSec {
 }
 
 func (u *SIMDUnit) TaskTracker() *tasks.Tracker { return u.cu.comp.TaskTracker() }
+
+func (u *SIMDUnit) state() *SIMDState { return &u.cu.comp.State.SIMDs[u.index] }

@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
@@ -38,39 +37,13 @@ type Wavefront struct {
 
 	WG *WorkGroup
 
-	pid            vm.PID
-	State          WfState
-	inst           *Inst                 // The instruction that is being executed
-	LastFetchTime  timing.VTimeInPicoSec // The time that the last instruction was fetched
-	CompletedLanes int                   // The number of lanes that is completed in the SIMD unit
-
-	InstBuffer        []byte
-	InstBufferStartPC uint64
-	IsFetching        bool
-	InstToIssue       *Inst
-
-	SIMDID     int
-	SRegOffset int
-	VRegOffset int
-	LDSOffset  int
-
-	pc   uint64
-	exec uint64
-	vcc  uint64
-	M0   uint32
-	scc  byte
+	*ExecutionState
+	resolveInst       func(uint64) *Inst
+	rememberInst      func(*Inst)
+	releaseInst       func(uint64)
+	localInstructions map[uint64]*Inst
 
 	RegAccessor RegFileAccessor
-
-	OutstandingScalarMemAccess int
-	OutstandingVectorMemAccess int
-
-	// InFlightInsts counts this wavefront's instruction tasks currently in
-	// flight (issued but not yet completed). When it is zero the wavefront has
-	// nothing executing — a real gap — and its fetch/issue stalls are
-	// attributed with milestones; while it is non-zero a concurrent prefetch is
-	// silent (the wavefront is making progress, so it is not blocked).
-	InFlightInsts int
 
 	// ScoreboardData holds per-wavefront register scoreboard state.
 	// When register scoreboard is enabled, this contains a *cu.Scoreboard
@@ -81,7 +54,7 @@ type Wavefront struct {
 // NewWavefront creates a new Wavefront of the timing package, wrapping the
 // wavefront from the kernels package.
 func NewWavefront(raw *kernels.Wavefront) *Wavefront {
-	wf := new(Wavefront)
+	wf := &Wavefront{ExecutionState: &ExecutionState{}, localInstructions: make(map[uint64]*Inst)}
 	wf.Wavefront = raw
 
 	wf.InstBuffer = make([]byte, 0, 256)
@@ -91,75 +64,78 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 
 // Inst return the instruction that is being simulated
 func (wf *Wavefront) Inst() *insts.Inst {
-	if wf.inst == nil {
+	if wf.DynamicInst() == nil {
 		return nil
 	}
-	return wf.inst.Inst
+	return wf.DynamicInst().Inst
 }
 
 // DynamicInst returns the insts with an ID
 func (wf *Wavefront) DynamicInst() *Inst {
-	return wf.inst
+	return wf.instruction(wf.InstID)
 }
 
 // SetDynamicInst sets the dynamic inst to execute
 func (wf *Wavefront) SetDynamicInst(i *Inst) {
-	wf.inst = i
+	old := wf.InstID
+	wf.recordInstruction(i)
+	wf.InstID = instructionID(i)
+	wf.releaseInstruction(old)
 }
 
 // ManagedInst returns the wrapped Inst
 func (wf *Wavefront) ManagedInst() *Inst {
-	return wf.inst
+	return wf.instruction(wf.InstID)
 }
 
 // PID returns pid
 func (wf *Wavefront) PID() vm.PID {
-	return wf.pid
+	return wf.ExecutionState.PID
 }
 
 // SetPID sets pid
 func (wf *Wavefront) SetPID(pid vm.PID) {
-	wf.pid = pid
+	wf.ExecutionState.PID = pid
 }
 
 // PC returns the program counter
 func (wf *Wavefront) PC() uint64 {
-	return wf.pc
+	return wf.ExecutionState.PC
 }
 
 // SetPC sets the program counter
 func (wf *Wavefront) SetPC(v uint64) {
-	wf.pc = v
+	wf.ExecutionState.PC = v
 }
 
 // EXEC returns the exec mask
 func (wf *Wavefront) EXEC() uint64 {
-	return wf.exec
+	return wf.ExecutionState.EXEC
 }
 
 // SetEXEC sets the exec mask
 func (wf *Wavefront) SetEXEC(v uint64) {
-	wf.exec = v
+	wf.ExecutionState.EXEC = v
 }
 
 // VCC returns the vector condition code
 func (wf *Wavefront) VCC() uint64 {
-	return wf.vcc
+	return wf.ExecutionState.VCC
 }
 
 // SetVCC sets the vector condition code
 func (wf *Wavefront) SetVCC(v uint64) {
-	wf.vcc = v
+	wf.ExecutionState.VCC = v
 }
 
 // SCC returns the scalar condition code
 func (wf *Wavefront) SCC() byte {
-	return wf.scc
+	return wf.ExecutionState.SCC
 }
 
 // SetSCC sets the scalar condition code
 func (wf *Wavefront) SetSCC(v byte) {
-	wf.scc = v
+	wf.ExecutionState.SCC = v
 }
 
 // ReadOperand reads the value of an operand using the RegFileAccessor
@@ -249,4 +225,63 @@ func (wf *Wavefront) WriteOperandBytes(operand *insts.Operand, laneID int, data 
 	}
 
 	wf.RegAccessor.WriteReg(operand.Register, operand.RegCount, laneID, waveOffset, data)
+}
+
+// BindExecution makes the view refer directly to its owner's canonical values.
+func (wf *Wavefront) BindExecution(
+	s *ExecutionState, resolve func(uint64) *Inst, remember func(*Inst), release func(uint64),
+) {
+	wf.ExecutionState = s
+	wf.resolveInst = resolve
+	wf.rememberInst = remember
+	wf.releaseInst = release
+	wf.localInstructions = nil
+}
+func (wf *Wavefront) instruction(id uint64) *Inst {
+	if id == 0 {
+		return nil
+	}
+	if wf.resolveInst != nil {
+		return wf.resolveInst(id)
+	}
+	return wf.localInstructions[id]
+}
+func instructionID(i *Inst) uint64 {
+	if i == nil {
+		return 0
+	}
+	return i.ID
+}
+func (wf *Wavefront) recordInstruction(i *Inst) {
+	if i == nil {
+		return
+	}
+	if wf.rememberInst != nil {
+		wf.rememberInst(i)
+		return
+	}
+	wf.localInstructions[i.ID] = i
+}
+
+// NextInst is the decoded instruction awaiting issue.
+func (wf *Wavefront) NextInst() *Inst { return wf.instruction(wf.ToIssueID) }
+
+// SetNextInst records the instruction awaiting issue.
+func (wf *Wavefront) SetNextInst(i *Inst) {
+	old := wf.ToIssueID
+	wf.recordInstruction(i)
+	wf.ToIssueID = instructionID(i)
+	wf.releaseInstruction(old)
+}
+func (wf *Wavefront) releaseInstruction(id uint64) {
+	if id == 0 {
+		return
+	}
+	if wf.releaseInst != nil {
+		wf.releaseInst(id)
+		return
+	}
+	if id != wf.InstID && id != wf.ToIssueID {
+		delete(wf.localInstructions, id)
+	}
 }

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -21,41 +23,39 @@ func TestCheckpointPreservesBarrierAndLDSIdentity(t *testing.T) {
 			WorkgroupSizeX: 128, WorkgroupSizeY: 1, WorkgroupSizeZ: 1},
 	})
 	raw := grid.NextWG()
-	wg := wavefront.NewWorkGroup(raw, messaging.Msg{ID: original.comp.NewID(), Payload: protocol.MapWGReq{}})
-	wg.LDS = []byte{11, 13, 17, 19}
-	for _, base := range raw.Wavefronts {
-		wf := wavefront.NewWavefront(base)
-		wf.WG = wg
+	wg := original.wrapWG(raw, messaging.Msg{ID: original.comp.NewID(), Payload: protocol.MapWGReq{}})
+	g := original.comp.State.Groups[wg.UID]
+	g.LDS = []byte{11, 13, 17, 19}
+	original.comp.State.Groups[wg.UID] = g
+	original.bindState()
+	wg = original.workGroups[wg.UID]
+	for _, wf := range wg.Wfs {
 		wf.State = wavefront.WfAtBarrier
-		wg.Wfs = append(wg.Wfs, wf)
+		wf.SampleIssueTime = 123
+		wf.SampleFinishTime = 456
 		original.WfPools[0].AddWf(wf)
 	}
-	original.workGroups[wg.UID] = wg
-	scheduler := original.Scheduler.(*SchedulerImpl)
-	scheduler.barrierBuffer = wg.Wfs[:1]
-	scheduler.cyclesNoProgress = 27
-	scheduler.isPaused = true
-	original.LDSUnit.(*LDSUnit).toExec = wg.Wfs[1]
-	original.LDSUnit.(*LDSUnit).cycleLeft = 3
-	var data bytes.Buffer
-	if err := (&cuCheckpoint{original}).SaveCheckpoint(&data); err != nil {
-		t.Fatal(err)
-	}
-	restored := checkpointCU(t)
-	if err := (&cuCheckpoint{restored}).LoadCheckpoint(&data); err != nil {
-		t.Fatal(err)
-	}
+	original.comp.State.Scheduler.Barrier = []uint64{wg.Wfs[0].UID}
+	original.comp.State.Scheduler.NoProgress = 27
+	original.comp.State.Scheduler.Paused = true
+	original.comp.State.LDS.Exec = wg.Wfs[1].UID
+	original.comp.State.LDS.Cycles = 3
+	restored := roundTripCUState(t, original)
 	restoredWG := restored.workGroups[wg.UID]
 	if restoredWG == wg || !bytes.Equal(restoredWG.LDS, wg.LDS) {
 		t.Fatal("LDS not restored independently")
 	}
 	rs := restored.Scheduler.(*SchedulerImpl)
-	if rs.barrierBuffer[0] != restoredWG.Wfs[0] || restored.WfPools[0].wfs[0] != restoredWG.Wfs[0] {
+	if restored.wave(rs.state().Barrier[0]) != restoredWG.Wfs[0] || restored.WfPools[0].waves()[0] != restoredWG.Wfs[0] {
 		t.Fatal("barrier and pool do not share the restored wavefront")
 	}
 	lds := restored.LDSUnit.(*LDSUnit)
-	if lds.toExec != restoredWG.Wfs[1] || lds.cycleLeft != 3 || rs.cyclesNoProgress != 27 || !rs.isPaused {
+	if restored.wave(lds.state().Exec) != restoredWG.Wfs[1] || lds.state().Cycles != 3 ||
+		rs.state().NoProgress != 27 || !rs.state().Paused {
 		t.Fatal("pipeline progress was not restored")
+	}
+	if restoredWG.Wfs[0].SampleIssueTime != 123 || restoredWG.Wfs[0].SampleFinishTime != 456 {
+		t.Fatal("sampling timestamps lost")
 	}
 	restoredWG.LDS[0] = 23
 	if wg.LDS[0] != 11 {
@@ -63,7 +63,7 @@ func TestCheckpointPreservesBarrierAndLDSIdentity(t *testing.T) {
 	}
 }
 
-func checkpointCU(t *testing.T) *ComputeUnit {
+func checkpointCU(t *testing.T, specs ...Spec) *ComputeUnit {
 	t.Helper()
 	simulation := sim.MakeBuilder().Build()
 	t.Cleanup(func() {
@@ -71,5 +71,234 @@ func checkpointCU(t *testing.T) *ComputeUnit {
 			t.Error(err)
 		}
 	})
-	return MakeBuilder().WithSimulation(simulation).Build("CU").Resources.Runtime
+	spec := DefaultSpec()
+	if len(specs) > 0 {
+		spec = specs[0]
+	}
+	comp := MakeBuilder().WithSimulation(simulation).WithSpec(spec).Build("CU")
+	for _, name := range []string{DispatchPortName, CtrlPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
+		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
+			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
+	}
+	simulation.Initialize()
+	return MiddlewareOf(comp)
+}
+
+func checkpointGroup(c *ComputeUnit) *wavefront.WorkGroup {
+	grid := kernels.NewGridBuilder(c.comp)
+	grid.SetKernel(kernels.KernelLaunchInfo{
+		CodeObject: &insts.KernelCodeObject{KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{}},
+		Packet: &kernels.HsaKernelDispatchPacket{
+			GridSizeX: 64, GridSizeY: 1, GridSizeZ: 1, WorkgroupSizeX: 64, WorkgroupSizeY: 1, WorkgroupSizeZ: 1,
+		},
+	})
+	return c.wrapWG(grid.NextWG(), messaging.Msg{ID: c.comp.NewID(), Payload: protocol.MapWGReq{}})
+}
+
+func checkpointInstruction(t *testing.T, c *ComputeUnit) *wavefront.Inst {
+	t.Helper()
+	raw := []byte{0, 0, 0x80, 0xbf} // s_nop 0
+	decoded, err := c.Decoder.Decode(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := wavefront.NewInst(c.comp.NewID(), decoded)
+	i.Raw = raw
+	return i
+}
+
+func TestCheckpointRegistersAndSIMDResumeFromCanonicalState(t *testing.T) {
+	original := checkpointCU(t)
+	wg := checkpointGroup(original)
+	wf := wg.Wfs[0]
+	wf.SetDynamicInst(checkpointInstruction(t, original))
+	wf.InstBuffer = make([]byte, 64)
+	wf.State = wavefront.WfRunning
+	wf.InFlightInsts = 1
+	original.comp.State.InstTasks[wf.InstID] = 0
+	original.comp.State.SIMDs[0] = SIMDState{Exec: wf.UID, Cycles: 2}
+	original.comp.State.SRegisters[8] = 37
+	original.comp.State.VRegisters[0][12] = 41
+	var archive bytes.Buffer
+	if err := original.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := checkpointCU(t)
+	scalar, vector := restored.SRegFile, restored.VRegFile[0]
+	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	// Previously acquired register wrappers must resolve the replaced State
+	// before any MiddlewareOf call or simulated event.
+	data := make([]byte, 4)
+	scalar.Read(RegisterAccess{Reg: insts.SReg(2), Data: data})
+	if data[0] != 37 {
+		t.Fatalf("stale scalar storage: %v", data)
+	}
+	vector.Read(RegisterAccess{Reg: insts.VReg(3), Data: data})
+	if data[0] != 41 {
+		t.Fatalf("stale vector storage: %v", data)
+	}
+	unit := restored.SIMDUnit[0].(*SIMDUnit)
+	unit.alu = &mockALU{}
+	unit.Run()
+	if restored.comp.State.SIMDs[0].Cycles != 1 {
+		t.Fatal("SIMD did not resume its saved cycle")
+	}
+	unit.Run()
+	view := restored.wave(wf.UID)
+	if view.PC() != 4 || view.State != wavefront.WfReady || restored.comp.State.SIMDs[0].Exec != 0 {
+		t.Fatal("SIMD completion did not update canonical wave")
+	}
+	if restored.comp.State.Groups[wg.UID].Waves[0].Execution.PC != 4 {
+		t.Fatal("wave view is a shadow copy")
+	}
+}
+
+func TestCheckpointFlushRetainsInstructionUntilShadowResponse(t *testing.T) {
+	original := checkpointCU(t)
+	wg := checkpointGroup(original)
+	wf := wg.Wfs[0]
+	old := checkpointInstruction(t, original)
+	wf.SetDynamicInst(old)
+	wf.State = wavefront.WfReady
+	wf.OutstandingVectorMemAccess = 1
+	wf.InFlightInsts = 1
+	original.comp.State.InstTasks[old.ID] = 0
+	read := messaging.Msg{ID: original.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
+	record := VectorAccessState{Read: read, WF: wf.UID, Inst: old.ID,
+		Lanes: []LaneState{{Register: insts.VReg(0).RegType, Count: 1}}}
+	original.comp.State.Vector = []VectorAccessState{record}
+	original.comp.State.VectorUnit.Waiting = []VectorAccessState{record}
+	original.populateShadowBuffers()
+	original.VectorMemUnit.Flush()
+	original.endInflightTracingTasks()
+	wf.SetDynamicInst(checkpointInstruction(t, original))
+	if _, ok := original.comp.State.Instructions[old.ID]; !ok {
+		t.Fatal("shadow request lost its encoding")
+	}
+	var archive bytes.Buffer
+	if err := original.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := checkpointCU(t)
+	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored = MiddlewareOf(restored.comp)
+	port := newFakePort("CU.VectorMem")
+	restored.ToVectorMem = port
+	if !restored.sendVectorShadowBufferAccesses() || len(port.sent) != 1 {
+		t.Fatal("shadow request was not resent")
+	}
+	restored.handleVectorDataLoadReturn(messaging.Msg{
+		RspTo: port.sent[0].ID, Payload: memprotocol.DataReadyRsp{Data: []byte{43, 0, 0, 0}},
+	})
+	if restored.comp.State.VRegisters[0][0] != 43 || restored.wave(wf.UID).OutstandingVectorMemAccess != 0 {
+		t.Fatal("shadow response did not complete restored wave")
+	}
+	if _, ok := restored.comp.State.Instructions[old.ID]; ok {
+		t.Fatal("completed memory encoding leaked")
+	}
+}
+
+func TestInstructionRegistryBoundedWithinLongLivedGroup(t *testing.T) {
+	c := checkpointCU(t)
+	wf := checkpointGroup(c).Wfs[0]
+	for i := 0; i < 2000; i++ {
+		next := checkpointInstruction(t, c)
+		wf.SetNextInst(next)
+		wf.SetDynamicInst(wf.NextInst())
+		wf.SetNextInst(nil)
+		if len(c.comp.State.Instructions) != 1 || len(c.instructions) != 1 {
+			t.Fatalf("instruction registry grows at iteration %d", i)
+		}
+	}
+}
+
+func TestCheckpointRejectsDifferentMemoryDestinations(t *testing.T) {
+	c := checkpointCU(t)
+	var archive bytes.Buffer
+	if err := c.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	c.comp.Spec.InstMem = "DifferentROB.Top"
+	if err := c.comp.LoadCheckpoint(&archive); err == nil {
+		t.Fatal("changed immutable destination was accepted")
+	}
+}
+
+func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
+	spec := DefaultSpec()
+	spec.RegisterScoreboard = true
+	original := checkpointCU(t, spec)
+	wf := checkpointGroup(original).Wfs[0]
+	wf.SetDynamicInst(checkpointInstruction(t, original))
+	wf.InstBuffer = make([]byte, 64)
+	wf.State = wavefront.WfRunning
+	wf.InFlightInsts = 1
+	scoreboard := wf.ScoreboardData.(*Scoreboard)
+	scoreboard.VGPRBusyUntil[7] = 9
+	original.comp.State.InstTasks[wf.InstID] = 0
+	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{{WF: wf.UID, Cycles: 2}}
+	var archive bytes.Buffer
+	if err := original.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := checkpointCU(t, spec)
+	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored = MiddlewareOf(restored.comp)
+	view := restored.wave(wf.UID)
+	canonical := restored.comp.State.Groups[wf.WG.UID]
+	if view.ScoreboardData.(*Scoreboard) != &canonical.Waves[0].Scoreboard {
+		t.Fatal("scoreboard is not canonical")
+	}
+	if view.ScoreboardData.(*Scoreboard).VGPRBusyUntil[7] != 9 {
+		t.Fatal("scoreboard progress was lost")
+	}
+	unit := restored.SIMDUnit[0].(*SIMDUnit)
+	unit.alu = &mockALU{}
+	unit.Run()
+	if restored.comp.State.SIMDs[0].Slots[0].Cycles != 1 {
+		t.Fatal("pipeline slot latency lost")
+	}
+	unit.Run()
+	if len(restored.comp.State.SIMDs[0].Slots) != 0 || view.PC() != 4 {
+		t.Fatal("pipeline slot did not complete")
+	}
+}
+
+func TestCompletedGroupRetiresAfterFetchAheadResponse(t *testing.T) {
+	c := checkpointCU(t)
+	wg := checkpointGroup(c)
+	wf := wg.Wfs[0]
+	wf.SetDynamicInst(checkpointInstruction(t, c))
+	c.WfPools[0].AddWf(wf)
+	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
+	c.comp.State.InstFetch = []FetchState{{Req: req, WF: wf.UID}}
+	c.clearWGResource(wg)
+	c.retireGroups()
+	if c.wave(wf.UID) != wf || len(c.comp.State.Groups) != 1 {
+		t.Fatal("fetch-ahead wave retired early")
+	}
+	c.handleFetchReturn(messaging.Msg{RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: []byte{0, 0, 0, 0}}})
+	c.retireGroups()
+	if len(c.comp.State.Groups) != 0 || len(c.waves) != 0 || len(c.instructions) != 0 {
+		t.Fatal("completed graph was retained")
+	}
+}
+
+func roundTripCUState(t *testing.T, original *ComputeUnit) *ComputeUnit {
+	t.Helper()
+	var archive bytes.Buffer
+	if err := original.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := checkpointCU(t, original.comp.Spec)
+	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	return MiddlewareOf(restored.comp)
 }

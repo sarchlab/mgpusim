@@ -21,26 +21,27 @@ var _ = Describe("Branch Unit", func() {
 	})
 
 	It("should allow accepting wavefront", func() {
-		// wave := new(wavefront.Wavefront)
-		bu.toRead = nil
+		// wave := newTestWave()
+		bu.state().Read = 0
 		Expect(bu.CanAcceptWave()).To(BeTrue())
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-		bu.toRead = new(wavefront.Wavefront)
+		bu.state().Read = testWaveID(cu, newTestWave())
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
+		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(bu.toRead).To(BeIdenticalTo(wave))
+		Expect(cu.wave(bu.state().Read)).To(BeIdenticalTo(wave))
 	})
 
 	It("should run", func() {
-		wave1 := new(wavefront.Wavefront)
-		wave2 := new(wavefront.Wavefront)
-		wave3 := new(wavefront.Wavefront)
+		wave1 := newTestWave()
+		wave2 := newTestWave()
+		wave3 := newTestWave()
 		wave3.State = wavefront.WfRunning
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
@@ -51,27 +52,27 @@ var _ = Describe("Branch Unit", func() {
 		wave3.SetDynamicInst(inst)
 		wave3.SetPC(0x13C)
 
-		bu.toRead = wave1
-		bu.toExec = wave2
-		bu.toWrite = wave3
+		bu.state().Read = testWaveID(cu, wave1)
+		bu.state().Exec = testWaveID(cu, wave2)
+		bu.state().Write = testWaveID(cu, wave3)
 
 		bu.Run()
 
 		Expect(wave3.State).To(Equal(wavefront.WfReady))
 		Expect(wave3.PC()).To(Equal(uint64(0x140)))
 
-		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
-		Expect(bu.toExec).To(BeIdenticalTo(wave1))
-		Expect(bu.toRead).To(BeNil())
+		Expect(cu.wave(bu.state().Write)).To(BeIdenticalTo(wave2))
+		Expect(cu.wave(bu.state().Exec)).To(BeIdenticalTo(wave1))
+		Expect(cu.wave(bu.state().Read)).To(BeNil())
 
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
 		Expect(wave3.InstBuffer).To(HaveLen(0))
 	})
 
 	It("should flush", func() {
-		wave1 := new(wavefront.Wavefront)
-		wave2 := new(wavefront.Wavefront)
-		wave3 := new(wavefront.Wavefront)
+		wave1 := newTestWave()
+		wave2 := newTestWave()
+		wave3 := newTestWave()
 		wave3.State = wavefront.WfRunning
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
@@ -81,15 +82,15 @@ var _ = Describe("Branch Unit", func() {
 		inst.ByteSize = 4
 		wave3.SetDynamicInst(inst)
 
-		bu.toRead = wave1
-		bu.toExec = wave2
-		bu.toWrite = wave3
+		bu.state().Read = testWaveID(cu, wave1)
+		bu.state().Exec = testWaveID(cu, wave2)
+		bu.state().Write = testWaveID(cu, wave3)
 
 		bu.Flush()
 
-		Expect(bu.toRead).To(BeNil())
-		Expect(bu.toWrite).To(BeNil())
-		Expect(bu.toExec).To(BeNil())
+		Expect(cu.wave(bu.state().Read)).To(BeNil())
+		Expect(cu.wave(bu.state().Write)).To(BeNil())
+		Expect(cu.wave(bu.state().Exec)).To(BeNil())
 
 	})
 })

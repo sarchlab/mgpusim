@@ -1,6 +1,7 @@
 package sample
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -334,39 +335,48 @@ func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
 	}
 }
 
-// injectSIMDBusyTimeTracer attaches a busy-time tracer to every SIMD unit.
-// SIMD units are no longer stand-alone components registered with the
-// simulation; they are sub-components of the compute units, reachable
-// through cu.MiddlewareOf.
+// simdTaskRouter routes pipeline completions without registering SIMD views
+// as independent simulation entities. Its routing table is fixed at assembly.
+type simdTaskRouter struct {
+	tasks.NopObserver
+	tracers map[string]*tracing.BusyTimeTracer
+}
+
+func (r *simdTaskRouter) TaskEnded(task tasks.Task) {
+	if task.Kind != "pipeline" {
+		return
+	}
+	index := strings.LastIndexByte(task.What, '.')
+	if index < 0 {
+		return
+	}
+	if tracer := r.tracers[task.What[:index]]; tracer != nil {
+		tracer.TaskEnded(task)
+	}
+}
+
+type simdName string
+
+func (n simdName) Name() string { return string(n) }
+
 func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 	if !*reportAll && !*simdBusyTimeTracerFlag {
 		return
 	}
-
+	router := &simdTaskRouter{tracers: make(map[string]*tracing.BusyTimeTracer)}
 	for _, comp := range s.Components() {
 		cuComp, ok := comp.(*cu.Comp)
 		if !ok || !strings.Contains(comp.Name(), "CU") {
 			continue
 		}
-
-		for _, simdUnit := range cu.MiddlewareOf(cuComp).SIMDUnit {
-			simd, ok := simdUnit.(naming.Named)
-			if !ok {
-				continue
-			}
-
-			perSIMDBusyTimeTracer := tracing.NewBusyTimeTracer(
-				func(task tasks.Task) bool {
-					return task.Kind == "pipeline"
-				})
-			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers,
-				&simdBusyTimeTracer{
-					tracer: perSIMDBusyTimeTracer,
-					simd:   simd,
-				})
-			s.TaskTracker().Subscribe(perSIMDBusyTimeTracer, simd)
+		for i := 0; i < cuComp.Spec.SIMDCount; i++ {
+			name := fmt.Sprintf("%s.SIMD%d", comp.Name(), i)
+			tracer := tracing.NewBusyTimeTracer(func(task tasks.Task) bool { return task.Kind == "pipeline" })
+			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers, &simdBusyTimeTracer{tracer: tracer, simd: simdName(name)})
+			router.tracers[name] = tracer
 		}
 	}
+	s.TaskTracker().Subscribe(router)
 }
 
 func (r *reporter) report() {

@@ -42,7 +42,7 @@ func (d *WfDispatcherImpl) DispatchWf(
 	d.initRegisters(wf)
 
 	if d.scoreboardEnabled {
-		wf.ScoreboardData = NewScoreboard()
+		*wf.ScoreboardData.(*Scoreboard) = Scoreboard{}
 	}
 }
 

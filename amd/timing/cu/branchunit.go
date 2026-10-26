@@ -10,12 +10,6 @@ type BranchUnit struct {
 	cu *ComputeUnit
 
 	alu emu.ALU
-
-	toRead  *wavefront.Wavefront
-	toExec  *wavefront.Wavefront
-	toWrite *wavefront.Wavefront
-
-	isIdle bool
 }
 
 // NewBranchUnit creates a new branch unit, injecting the dependency of
@@ -32,20 +26,20 @@ func NewBranchUnit(
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *BranchUnit) CanAcceptWave() bool {
-	return u.toRead == nil
+	return u.state().Read == 0
 }
 
 // IsIdle checks idleness
 func (u *BranchUnit) IsIdle() bool {
-	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
-	return u.isIdle
+	u.state().Idle = (u.state().Read == 0) && (u.state().Write == 0) && (u.state().Exec == 0)
+	return u.state().Idle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(
 	wave *wavefront.Wavefront,
 ) {
-	u.toRead = wave
+	u.state().Read = u.cu.useWave(wave)
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
@@ -58,13 +52,13 @@ func (u *BranchUnit) Run() bool {
 }
 
 func (u *BranchUnit) runReadStage() bool {
-	if u.toRead == nil {
+	if u.state().Read == 0 {
 		return false
 	}
 
-	if u.toExec == nil {
-		u.toExec = u.toRead
-		u.toRead = nil
+	if u.state().Exec == 0 {
+		u.state().Exec = u.state().Read
+		u.state().Read = 0
 
 		return true
 	}
@@ -72,38 +66,40 @@ func (u *BranchUnit) runReadStage() bool {
 }
 
 func (u *BranchUnit) runExecStage() bool {
-	if u.toExec == nil {
+	if u.state().Exec == 0 {
 		return false
 	}
 
-	if u.toWrite == nil {
-		u.alu.Run(u.toExec)
+	if u.state().Write == 0 {
+		u.alu.Run(u.cu.wave(u.state().Exec))
 
-		u.toWrite = u.toExec
-		u.toExec = nil
+		u.state().Write = u.state().Exec
+		u.state().Exec = 0
 		return true
 	}
 	return false
 }
 
 func (u *BranchUnit) runWriteStage() bool {
-	if u.toWrite == nil {
+	if u.state().Write == 0 {
 		return false
 	}
 
-	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst(), true)
 
-	u.toWrite.InstBuffer = nil
-	u.cu.UpdatePCAndSetReady(u.toWrite)
-	u.toWrite.InstBufferStartPC = u.toWrite.PC() & 0xffffffffffffffc0
-	u.toWrite = nil
-	u.isIdle = false
+	u.cu.wave(u.state().Write).InstBuffer = nil
+	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))
+	u.cu.wave(u.state().Write).InstBufferStartPC = u.cu.wave(u.state().Write).PC() & 0xffffffffffffffc0
+	u.state().Write = 0
+	u.state().Idle = false
 	return true
 }
 
 // Flush clear the unit
 func (u *BranchUnit) Flush() {
-	u.toRead = nil
-	u.toWrite = nil
-	u.toExec = nil
+	u.state().Read = 0
+	u.state().Write = 0
+	u.state().Exec = 0
 }
+
+func (u *BranchUnit) state() *StageState { return &u.cu.comp.State.Branch }

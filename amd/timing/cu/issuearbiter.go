@@ -4,14 +4,14 @@ import "github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {
-	lastSIMDID        int
+	state             *SchedulerState
 	scoreboardEnabled bool
 }
 
 // NewIssueArbiter returns a newly created IssueArbiter
 func NewIssueArbiter() *IssueArbiter {
-	a := new(IssueArbiter)
-	a.lastSIMDID = 0
+	a := &IssueArbiter{state: &SchedulerState{}}
+	a.state.LastSIMD = 0
 	return a
 }
 
@@ -26,44 +26,44 @@ func (a *IssueArbiter) Arbitrate(
 
 	wfToIssue := make([]*wavefront.Wavefront, 0)
 	for i := 0; i < len(wfPools); i++ {
-		simdID := (a.lastSIMDID + i) % len(wfPools)
+		simdID := (a.state.LastSIMD + i) % len(wfPools)
 
 		typeMask := make([]bool, 7)
 		wfPool := wfPools[simdID]
-		for _, wf := range wfPool.wfs {
-			if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
+		for _, wf := range wfPool.waves() {
+			if wf.State != wavefront.WfReady || wf.NextInst() == nil {
 				continue
 			}
 
 			if a.scoreboardEnabled && wf.ScoreboardData != nil {
 				sb := wf.ScoreboardData.(*Scoreboard)
-				if sb.HasHazard(wf.InstToIssue.Inst) {
+				if sb.HasHazard(wf.NextInst().Inst) {
 					continue
 				}
 			}
 
-			if typeMask[wf.InstToIssue.ExeUnit] == false {
+			if typeMask[wf.NextInst().ExeUnit] == false {
 				wfToIssue = append(wfToIssue, wf)
-				typeMask[wf.InstToIssue.ExeUnit] = true
+				typeMask[wf.NextInst().ExeUnit] = true
 			}
 		}
 	}
 
-	a.lastSIMDID = (a.lastSIMDID + 1) % len(wfPools)
+	a.state.LastSIMD = (a.state.LastSIMD + 1) % len(wfPools)
 
 	return wfToIssue
 }
 
 func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {
-	a.lastSIMDID++
-	if a.lastSIMDID >= len(wfPools) {
-		a.lastSIMDID = 0
+	a.state.LastSIMD++
+	if a.state.LastSIMD >= len(wfPools) {
+		a.state.LastSIMD = 0
 	}
 }
 
 func (a *IssueArbiter) isAllWfPoolsEmpty(wfPools []*WavefrontPool) bool {
 	for _, wfPool := range wfPools {
-		if len(wfPool.wfs) != 0 {
+		if len(wfPool.waves()) != 0 {
 			return false
 		}
 	}

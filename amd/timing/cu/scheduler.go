@@ -23,20 +23,15 @@ type Scheduler interface {
 // A Scheduler is the controlling unit of a compute unit. It decides which
 // wavefront to fetch and to issue.
 type SchedulerImpl struct {
-	cu                *ComputeUnit
-	fetchArbiter      WfArbiter
-	issueArbiter      WfArbiter
-	internalExecuting []*wavefront.Wavefront
+	cu           *ComputeUnit
+	fetchArbiter WfArbiter
+	issueArbiter WfArbiter
 
-	barrierBuffer     []*wavefront.Wavefront
 	barrierBufferSize int
 
-	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
 
 	scoreboardEnabled bool
-
-	isPaused bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -52,7 +47,6 @@ func NewScheduler(
 	s.issueArbiter = issueArbiter
 
 	s.barrierBufferSize = 16
-	s.barrierBuffer = make([]*wavefront.Wavefront, 0, s.barrierBufferSize)
 
 	s.stopTickingAfterNCyclesNoProgress = 4
 
@@ -62,7 +56,7 @@ func NewScheduler(
 // Run runs scheduler
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
-	if s.isPaused == false {
+	if s.state().Paused == false {
 		if s.scoreboardEnabled {
 			madeProgress = s.tickScoreboards() || madeProgress
 		}
@@ -72,12 +66,12 @@ func (s *SchedulerImpl) Run() bool {
 		madeProgress = s.DoFetch() || madeProgress
 	}
 	if !madeProgress {
-		s.cyclesNoProgress++
+		s.state().NoProgress++
 	} else {
-		s.cyclesNoProgress = 0
+		s.state().NoProgress = 0
 	}
 
-	if s.cyclesNoProgress > s.stopTickingAfterNCyclesNoProgress {
+	if s.state().NoProgress > s.stopTickingAfterNCyclesNoProgress {
 		return false
 	}
 	return true
@@ -86,7 +80,7 @@ func (s *SchedulerImpl) Run() bool {
 func (s *SchedulerImpl) tickScoreboards() bool {
 	ticked := false
 	for _, wfPool := range s.cu.WfPools {
-		for _, wf := range wfPool.wfs {
+		for _, wf := range wfPool.waves() {
 			if wf.ScoreboardData != nil {
 				sb := wf.ScoreboardData.(*Scoreboard)
 				if sb.AnyBusy() {
@@ -103,7 +97,7 @@ func (s *SchedulerImpl) tickScoreboards() bool {
 func (s *SchedulerImpl) DecodeNextInst() bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
-		for _, wf := range wfPool.wfs {
+		for _, wf := range wfPool.waves() {
 			if len(wf.InstBuffer) == 0 {
 				wf.InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 				continue
@@ -113,7 +107,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				continue
 			}
 
-			if wf.InstToIssue != nil {
+			if wf.NextInst() != nil {
 				continue
 			}
 
@@ -124,9 +118,10 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			inst, err := s.cu.Decoder.Decode(
 				wf.InstBuffer[wf.PC()-wf.InstBufferStartPC:])
 			if err == nil {
-				wf.InstToIssue = wavefront.NewInst(s.cu.comp.NewID(), inst)
+				next := wavefront.NewInst(s.cu.comp.NewID(), inst)
 				start := wf.PC() - wf.InstBufferStartPC
-				wf.InstToIssue.Raw = append([]byte(nil), wf.InstBuffer[start:start+uint64(inst.ByteSize)]...)
+				next.Raw = append([]byte(nil), wf.InstBuffer[start:start+uint64(inst.ByteSize)]...)
+				wf.SetNextInst(next)
 				madeProgress = true
 			}
 		}
@@ -158,7 +153,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 		addr = addr & 0xffffffffffffffc0
 		req := messaging.Msg{ID: s.cu.comp.NewID(),
 			Src: s.cu.instMemPort().AsRemote(),
-			Dst: s.cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: addr,
+			Dst: s.cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: addr,
 				AccessByteSize: 64,
 				PID:            wf.PID()}}
 
@@ -171,7 +166,6 @@ func (s *SchedulerImpl) DoFetch() bool {
 		info.Req = req
 		info.Address = addr
 
-		s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
 		wf.IsFetching = true
 
 		madeProgress = true
@@ -197,6 +191,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
 				s.cu.comp.Name()+".InstFetcher")
 		}
+		s.cu.comp.State.InstFetch = append(s.cu.comp.State.InstFetch, s.cu.fetchState(info))
 		s.cu.startRequest(req, info.FetchTaskID)
 		s.cu.instMemPort().Send(req)
 	}
@@ -209,19 +204,19 @@ func (s *SchedulerImpl) DoFetch() bool {
 func (s *SchedulerImpl) DoIssue() bool {
 	madeProgress := false
 
-	if s.isPaused == false {
+	if s.state().Paused == false {
 		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 		for _, wf := range wfs {
-			if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
+			if wf.NextInst().ExeUnit == insts.ExeUnitSpecial {
 				madeProgress = s.issueToInternal(wf) || madeProgress
 
 				continue
 			}
 
-			unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
+			unit := s.getUnitToIssueTo(wf.NextInst().ExeUnit)
 			if unit.CanAcceptWave() {
-				wf.SetDynamicInst(wf.InstToIssue)
-				wf.InstToIssue = nil
+				wf.SetDynamicInst(wf.NextInst())
+				wf.SetNextInst(nil)
 
 				s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
@@ -244,9 +239,9 @@ func (s *SchedulerImpl) DoIssue() bool {
 }
 
 func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront) bool {
-	wf.SetDynamicInst(wf.InstToIssue)
-	wf.InstToIssue = nil
-	s.internalExecuting = append(s.internalExecuting, wf)
+	wf.SetDynamicInst(wf.NextInst())
+	wf.SetNextInst(nil)
+	s.state().Internal = append(s.state().Internal, s.cu.useWave(wf))
 	wf.State = wavefront.WfRunning
 
 	s.cu.logInstTask(wf, wf.DynamicInst(), false)
@@ -275,14 +270,16 @@ func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) SubComponent {
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
 func (s *SchedulerImpl) EvaluateInternalInst() bool {
-	if s.internalExecuting == nil {
+	if s.state().Internal == nil {
 		return false
 	}
 
 	madeProgress := false
 
-	newExecuting := make([]*wavefront.Wavefront, 0)
-	for _, executing := range s.internalExecuting {
+	newExecuting := make([]uint64, 0)
+	for _, id := range s.state().Internal {
+		executing := s.cu.wave(id)
+		instruction := executing.DynamicInst()
 		instProgress := false
 		instCompleted := false
 		passBarrier := false
@@ -296,7 +293,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 			if passBarrier {
 				s.removeAllWfFromInternalExecuting(executing.WG, &newExecuting)
 				s.removeAllWfFromInternalExecuting(
-					executing.WG, &s.internalExecuting)
+					executing.WG, &s.state().Internal)
 			}
 		case 12: // S_WAITCNT
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
@@ -309,13 +306,13 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 		madeProgress = instProgress || madeProgress
 
 		if instCompleted {
-			s.cu.logInstTask(executing, executing.DynamicInst(), true)
+			s.cu.logInstTask(executing, instruction, true)
 		} else {
-			newExecuting = append(newExecuting, executing)
+			newExecuting = append(newExecuting, id)
 		}
 	}
 
-	s.internalExecuting = newExecuting
+	s.state().Internal = newExecuting
 
 	return madeProgress
 }
@@ -331,12 +328,12 @@ func (s *SchedulerImpl) evalSEndPgm(
 	// sampling
 	now := s.cu.CurrentTime()
 	if s.cu.comp.Resources.Sampler != nil && !s.cu.comp.Resources.Sampler.IfDisable() {
-		issuetime, found := s.cu.wftime[wf.UID]
+		issuetime, found := s.cu.comp.State.WFTimes[wf.UID]
 		if found {
 			finishtime := now
-			wf.FinishTime = finishtime
-			wf.IssueTime = issuetime
-			delete(s.cu.wftime, wf.UID)
+			wf.SampleFinishTime = finishtime
+			wf.SampleIssueTime = issuetime
+			delete(s.cu.comp.State.WFTimes, wf.UID)
 		}
 	}
 
@@ -465,7 +462,7 @@ func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(
 func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 	if wf.CodeObject.WIVgprCount > 0 {
 		vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
-		vRegStorage := vRegFile.storage
+		vRegStorage := vRegFile.bytes()
 		data := make([]byte, wf.CodeObject.WIVgprCount*4)
 		for i := 0; i < 64; i++ {
 			offset := uint64(wf.VRegOffset + vRegFile.ByteSizePerLane*i)
@@ -475,7 +472,7 @@ func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 
 	if wf.CodeObject.WFSgprCount > 0 {
 		sRegFile := s.cu.SRegFile.(*SimpleRegisterFile)
-		sRegStorage := sRegFile.storage
+		sRegStorage := sRegFile.bytes()
 		data := make([]byte, wf.CodeObject.WFSgprCount*4)
 		offset := uint64(wf.SRegOffset)
 		copy(sRegStorage[offset:], data)
@@ -495,8 +492,8 @@ func (s *SchedulerImpl) evalSBarrier(
 		return true, true, true
 	}
 
-	if len(s.barrierBuffer) < s.barrierBufferSize {
-		s.barrierBuffer = append(s.barrierBuffer, wf)
+	if len(s.state().Barrier) < s.barrierBufferSize {
+		s.state().Barrier = append(s.state().Barrier, s.cu.useWave(wf))
 		return true, true, false
 	}
 
@@ -534,23 +531,25 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 }
 
 func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
-	newBarrierBuffer := make([]*wavefront.Wavefront, 0, s.barrierBufferSize)
-	for _, wavefront := range s.barrierBuffer {
+	newBarrierBuffer := make([]uint64, 0, s.barrierBufferSize)
+	for _, id := range s.state().Barrier {
+		wavefront := s.cu.wave(id)
 		if wavefront.WG != wg {
-			newBarrierBuffer = append(newBarrierBuffer, wavefront)
+			newBarrierBuffer = append(newBarrierBuffer, id)
 		}
 	}
-	s.barrierBuffer = newBarrierBuffer
+	s.state().Barrier = newBarrierBuffer
 }
 
 func (s *SchedulerImpl) removeAllWfFromInternalExecuting(
 	wg *wavefront.WorkGroup,
-	internalExecuting *[]*wavefront.Wavefront,
+	internalExecuting *[]uint64,
 ) {
-	newInternalExecuting := make([]*wavefront.Wavefront, 0)
-	for _, wavefront := range *internalExecuting {
+	newInternalExecuting := make([]uint64, 0)
+	for _, id := range *internalExecuting {
+		wavefront := s.cu.wave(id)
 		if wavefront.WG != wg {
-			newInternalExecuting = append(newInternalExecuting, wavefront)
+			newInternalExecuting = append(newInternalExecuting, id)
 		}
 	}
 	*internalExecuting = newInternalExecuting
@@ -593,18 +592,18 @@ func (s *SchedulerImpl) markMemDrained(wf *wavefront.Wavefront, what string) {
 
 // Pause pauses
 func (s *SchedulerImpl) Pause() {
-	s.isPaused = true
+	s.state().Paused = true
 }
 
 // Resume resumes
 func (s *SchedulerImpl) Resume() {
-	s.isPaused = false
+	s.state().Paused = false
 }
 
 // Flush flushes
 func (s *SchedulerImpl) Flush() {
-	s.barrierBuffer = nil
-	s.internalExecuting = nil
+	s.state().Barrier = nil
+	s.state().Internal = nil
 }
 
 func workGroupTimings(wg *wavefront.WorkGroup) []protocol.WavefrontTiming {
@@ -612,8 +611,10 @@ func workGroupTimings(wg *wavefront.WorkGroup) []protocol.WavefrontTiming {
 	for _, w := range wg.Wfs {
 		times = append(
 			times,
-			protocol.WavefrontTiming{WavefrontID: w.UID, IssueTime: w.IssueTime, FinishTime: w.FinishTime},
+			protocol.WavefrontTiming{WavefrontID: w.UID, IssueTime: w.SampleIssueTime, FinishTime: w.SampleFinishTime},
 		)
 	}
 	return times
 }
+
+func (s *SchedulerImpl) state() *SchedulerState { return &s.cu.comp.State.Scheduler }
