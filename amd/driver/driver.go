@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -116,7 +117,7 @@ func (m *executionMW) launch(e *Execution) {
 	cmd := &e.Command
 	totalCU := 0
 	for _, gpu := range cmd.GPUs {
-		totalCU += c.Spec.Devices[gpu-1].CUCount
+		totalCU += c.Resources.Runtime.config.Devices[gpu-1].CUCount
 	}
 	first := uint64(0)
 	p := cmd.Packets[0].Packet
@@ -131,7 +132,7 @@ func (m *executionMW) launch(e *Execution) {
 			PacketAddress: uint64(cmd.PacketAddresses[i]),
 		}
 		if len(cmd.GPUs) > 1 {
-			end := first + ((totalWG-1)/uint64(totalCU)+1)*uint64(c.Spec.Devices[gpu-1].CUCount)
+			end := first + ((totalWG-1)/uint64(totalCU)+1)*uint64(c.Resources.Runtime.config.Devices[gpu-1].CUCount)
 			req.Selection = kernels.WGSelection{Partitioned: true, First: first, End: end}
 			first = end
 		}

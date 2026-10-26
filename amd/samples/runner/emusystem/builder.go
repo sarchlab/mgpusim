@@ -77,7 +77,8 @@ func (b Builder) Build() *driver.Runtime {
 	pageTable := vm.MakePageTableBuilder().WithSimulation(b.simulation).
 		WithLog2PageSize(b.log2PageSize).Build("PageTable")
 	spec := driver.DefaultSpec()
-	spec.Log2PageSize = b.log2PageSize
+	runtimeSpec := driver.DefaultRuntimeSpec()
+	runtimeSpec.Log2PageSize = b.log2PageSize
 	spec.UseMagicMemoryCopy = true
 	externalConn := directconnection.NewConnection("ExternalConn", b.simulation, timing.GHz)
 	gpuBuilder := b.createGPUBuilder(pageTable, storage)
@@ -86,9 +87,9 @@ func (b Builder) Build() *driver.Runtime {
 		gpu := gpuBuilder.Build(fmt.Sprintf("GPU[%d]", i+1))
 		ports = append(ports, gpu.CommandProcessorPort)
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
-		spec.Devices = append(spec.Devices, driver.DeviceProperties{DRAMSize: 4 * mem.GB, CUCount: 64})
+		runtimeSpec.Devices = append(runtimeSpec.Devices, driver.DeviceProperties{DRAMSize: 4 * mem.GB, CUCount: 64})
 	}
-	runtime := driver.NewRuntime(b.simulation, "Runtime", spec, pageTable)
+	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable)
 	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
 		WithResources(driver.Resources{Runtime: runtime, PageTable: pageTable, GlobalStorage: storage}).Build("Driver")
 	port := twowaybuffered.MakeBuilder().WithSimulation(b.simulation).

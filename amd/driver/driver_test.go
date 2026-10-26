@@ -2,6 +2,8 @@ package driver
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/sim"
@@ -11,7 +13,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"go.uber.org/mock/gomock"
-	"testing"
 )
 
 // noopConn leaves outgoing messages available to protocol assertions.
@@ -35,6 +36,10 @@ type fixture struct {
 
 func newFixture(t *testing.T, mixed bool) *fixture {
 	t.Helper()
+	return newConfiguredFixture(t, mixed, func(*Spec) {})
+}
+func newConfiguredFixture(t *testing.T, mixed bool, configure func(*Spec)) *fixture {
+	t.Helper()
 	f := &fixture{s: sim.MakeBuilder().Build()}
 	pageBits := uint64(12)
 	if mixed {
@@ -42,13 +47,15 @@ func newFixture(t *testing.T, mixed bool) *fixture {
 	}
 	f.p = vm.NewPageTable(pageBits)
 	spec := DefaultSpec()
+	runtimeSpec := DefaultRuntimeSpec()
 	spec.H2DCycles = 1
 	spec.D2HCycles = 1
 	for i := 0; i < 2; i++ {
 		spec.GPUs = append(spec.GPUs, messaging.RemotePort(fmt.Sprintf("GPU[%d].CommandProcessor", i+1)))
-		spec.Devices = append(spec.Devices, DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
+		runtimeSpec.Devices = append(runtimeSpec.Devices, DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
 	}
-	f.r = NewRuntime(f.s, "Runtime", spec, f.p)
+	configure(&spec)
+	f.r = NewRuntime(f.s, "Runtime", runtimeSpec, f.p)
 	f.c = MakeBuilder().WithSimulation(f.s).WithSpec(spec).WithResources(Resources{
 		Runtime:   f.r,
 		PageTable: f.p,

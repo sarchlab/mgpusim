@@ -4,12 +4,10 @@ package timingconfig
 import (
 	"fmt"
 
-	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
-	"github.com/sarchlab/mgpusim/v5/amd/sampling"
-
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
@@ -20,6 +18,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 // Port buffer sizes. The driver port mirrors the emulation platform's
@@ -119,19 +118,20 @@ func (b Builder) Build() *driver.Runtime {
 	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
 	interDeviceConn.BindPort(mmuComp.Ports.Top)
 	spec := driver.DefaultSpec()
-	spec.Log2PageSize = b.log2PageSize
+	runtimeSpec := driver.DefaultRuntimeSpec()
+	runtimeSpec.Log2PageSize = b.log2PageSize
 	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
 	spec.D2HCycles = b.d2hCycles
 	spec.H2DCycles = b.h2dCycles
 	for i := 1; i <= b.numGPUs; i++ {
 		gpu := b.createGPU(i, gpuBuilder, interDeviceConn)
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
-		spec.Devices = append(
-			spec.Devices,
+		runtimeSpec.Devices = append(
+			runtimeSpec.Devices,
 			driver.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
 		)
 	}
-	runtime := driver.NewRuntime(b.simulation, "Runtime", spec, pageTable)
+	runtime := driver.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable)
 	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
 		WithResources(driver.Resources{
 			Runtime:       runtime,

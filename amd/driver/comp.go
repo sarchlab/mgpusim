@@ -23,17 +23,23 @@ type DeviceProperties struct {
 	DRAMSize uint64 `json:"dram_size"`
 }
 
-// Spec is the immutable driver and memory-allocation configuration.
+// Spec is the immutable simulated protocol and timing configuration.
 type Spec struct {
 	Freq               timing.Freq            `json:"freq"`
-	Log2PageSize       uint64                 `json:"log2_page_size"`
 	UseMagicMemoryCopy bool                   `json:"use_magic_memory_copy"`
 	D2HCycles          int                    `json:"d2h_cycles"`
 	H2DCycles          int                    `json:"h2d_cycles"`
-	Allocator          AllocatorType          `json:"allocator"`
 	GPUs               []messaging.RemotePort `json:"gpus"`
-	Devices            []DeviceProperties     `json:"devices"`
 }
+
+// RuntimeSpec owns allocation and device properties independently of Driver timing.
+type RuntimeSpec struct {
+	Log2PageSize uint64             `json:"log2_page_size"`
+	Allocator    AllocatorType      `json:"allocator"`
+	Devices      []DeviceProperties `json:"devices"`
+}
+
+func DefaultRuntimeSpec() RuntimeSpec { return RuntimeSpec{Log2PageSize: 12} }
 
 // Execution holds the sole mutable copy of a command already taken from Runtime.
 type Execution struct {

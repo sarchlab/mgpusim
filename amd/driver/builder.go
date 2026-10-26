@@ -1,13 +1,13 @@
 package driver
 
 import (
+	"slices"
+
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"reflect"
-	"slices"
 )
 
-func DefaultSpec() Spec { return Spec{Freq: timing.GHz, Log2PageSize: 12} }
+func DefaultSpec() Spec { return Spec{Freq: timing.GHz} }
 
 type Builder struct {
 	spec      Spec
@@ -32,13 +32,9 @@ func (b Builder) Build(name string) *Comp {
 	if b.spec.UseMagicMemoryCopy && b.resources.GlobalStorage == nil {
 		panic("driver: magic copy requires global storage")
 	}
-	if !reflect.DeepEqual(b.resources.Runtime.config, b.spec) {
-		panic("driver: Runtime and component configurations differ")
-	}
-	if len(b.spec.GPUs) != len(b.spec.Devices) {
+	if len(b.spec.GPUs) != b.resources.Runtime.GetNumGPUs() {
 		panic("driver: GPU destinations and properties differ in length")
 	}
 	b.spec.GPUs = slices.Clone(b.spec.GPUs)
-	b.spec.Devices = slices.Clone(b.spec.Devices)
 	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 }

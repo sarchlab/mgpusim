@@ -20,7 +20,7 @@ import (
 // simulation time and retains no component, engine, or host-result pointers.
 type Runtime struct {
 	name      string
-	config    Spec
+	config    RuntimeSpec
 	pageTable *vm.PageTable
 	allocator internal.MemoryAllocator
 	devices   []*internal.Device
@@ -51,14 +51,13 @@ type runtimeCheckpoint struct {
 
 // NewRuntime constructs and registers the shared resource before Driver.Build.
 // spec must describe the same immutable device topology as the driver.
-func NewRuntime(reg modeling.Simulation, name string, spec Spec, pageTable *vm.PageTable) *Runtime {
+func NewRuntime(reg modeling.Simulation, name string, spec RuntimeSpec, pageTable *vm.PageTable) *Runtime {
 	if reg == nil || pageTable == nil {
 		panic("driver: runtime needs simulation and page table")
 	}
 	r := &Runtime{name: name, config: spec, pageTable: pageTable,
 		allocator: internal.NewMemoryAllocator(pageTable, spec.Log2PageSize),
 		state:     runtimeState{Results: make(map[CommandID][]byte), Events: make(map[Event]timing.VTimeInPicoSec)}}
-	r.config.GPUs = slices.Clone(spec.GPUs)
 	r.config.Devices = slices.Clone(spec.Devices)
 	r.addDevice(internal.DeviceTypeCPU, DeviceProperties{DRAMSize: 4 * mem.GB})
 	for _, dev := range spec.Devices {
@@ -122,7 +121,7 @@ func (r *Runtime) InitWithExistingPID(h Context) Context {
 	r.state.Contexts = append(r.state.Contexts, contextData{PID: pid, GPU: 1})
 	return Context(len(r.state.Contexts))
 }
-func (r *Runtime) GetNumGPUs() int { return len(r.config.GPUs) }
+func (r *Runtime) GetNumGPUs() int { return len(r.config.Devices) }
 func (r *Runtime) SelectGPU(h Context, gpu int) {
 	if gpu < 1 || gpu >= len(r.devices) {
 		panic(fmt.Sprintf("GPU %d is not available", gpu))
