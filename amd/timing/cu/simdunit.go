@@ -161,13 +161,11 @@ func (u *SIMDUnit) Flush() {
 // instruction and returns the task ID (v4 used the string ID
 // inst.ID+"_simd_exec").
 //
-// The task is emitted on the SIMD unit itself (domain u), not on cu.comp, on
-// purpose: report.go attaches a per-SIMD BusyTimeTracer to each SIMD unit
-// filtered to Kind=="pipeline" to measure per-SIMD busy time, which requires
-// the task to live on that unit's own tracing domain. Its parent ("inst")
-// lives on cu.comp; that cross-domain parent link still resolves because the
-// vis DBTracer is the same instance on both domains. Do not move this to
-// cu.comp — it would collapse the per-SIMD busy-time metric.
+// The task keeps the SIMD's owner name and What label for trace identity.
+// SIMD views are not registered simulation entities. The sample reporter uses
+// one simulation observer to route completed pipeline tasks by their SIMD name
+// to per-SIMD BusyTimeTracers; it does not subscribe on the SIMD view itself.
+// The parent instruction task belongs to the CU component.
 func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
 	taskID := u.cu.comp.TaskTracker().StartTask(u, tasks.StartInfo{
 		ParentID: u.cu.comp.State.InstTasks[inst.ID],

@@ -428,6 +428,8 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 		delete(cu.comp.State.WFTasks, wgWf.UID)
 	}
 	cu.completeWGTask(wf.WG.MapReq.ID)
+	// A sampled completion may be the last event, with no subsequent CU tick.
+	cu.retireGroups()
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
@@ -1123,14 +1125,8 @@ func (cu *ComputeUnit) wavefrontByID(id uint64) *wavefront.Wavefront {
 }
 
 func (cu *ComputeUnit) findWavefront(id uint64) *wavefront.Wavefront {
-	for _, wg := range cu.workGroups {
-		for _, wf := range wg.Wfs {
-			if wf.UID == id {
-				return wf
-			}
-		}
-	}
-	return nil
+	cu.ensureState()
+	return cu.waves[id]
 }
 
 func (cu *ComputeUnit) startRequest(req messaging.Msg, parent uint64) {

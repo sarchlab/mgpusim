@@ -82,8 +82,7 @@ func (cu *ComputeUnit) wave(id uint64) *wavefront.Wavefront {
 	if id == 0 {
 		return nil
 	}
-	cu.ensureState()
-	w := cu.waves[id]
+	w := cu.findWavefront(id)
 	if w == nil {
 		panic(fmt.Sprintf("cu: unknown wavefront %d", id))
 	}
@@ -193,7 +192,8 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 		return
 	}
 	for _, g := range cu.comp.State.Groups {
-		for _, w := range g.Waves {
+		for i := range g.Waves {
+			w := &g.Waves[i]
 			if w.Execution.InstID == id || w.Execution.ToIssueID == id {
 				return
 			}
@@ -228,7 +228,8 @@ func (cu *ComputeUnit) retireGroups() {
 			continue
 		}
 		live := false
-		for _, w := range g.Waves {
+		for i := range g.Waves {
+			w := &g.Waves[i]
 			if cu.waveReferenced(w.ID) {
 				live = true
 				break
@@ -239,7 +240,8 @@ func (cu *ComputeUnit) retireGroups() {
 		}
 		delete(cu.comp.State.Groups, id)
 		delete(cu.workGroups, id)
-		for _, w := range g.Waves {
+		for i := range g.Waves {
+			w := &g.Waves[i]
 			delete(cu.waves, w.ID)
 			delete(cu.comp.State.WFTimes, w.ID)
 			cu.releaseInstruction(w.Execution.InstID)

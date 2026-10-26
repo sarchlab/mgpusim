@@ -141,26 +141,39 @@ Dependents: samples/runner + timingconfig + emusystem, benchmarks
 
 Dependents: shaderarray config, CP resource pool, runner report/tracers.
 
-- `*cu.ComputeUnit` (component) → `*cu.Comp`; runtime guts via
-  `cu.MiddlewareOf(comp) *cu.ComputeUnit`.
-- Builder: `WithRegistrar(reg)` + `WithSpec(cu.DefaultSpec())` (fields:
-  Freq, SIMDCount, WfPoolSize, VGPRCounts, SGPRCount, LDSBytes,
-  Log2CachelineSize, NumSinglePrecisionUnits, VecMemInst/Trans pipeline
-  dims, MemPipelineBufferSize, MaxCoalescingPenalty, RegisterScoreboard,
-  InFlightVectorMemAccessLimit, InstBufByteSize) +
-  `WithResources(cu.Resources{Decoder, ALU, VectorMemModules})`.
-- Destinations: `comp.State.InstMem` / `State.ScalarMem` (RemotePort,
-  post-build OK); VectorMemModules mapper pre-Build via Resources.
-- Ports declared: "Top", "Ctrl", "InstMem", "ScalarMem", "VectorMem" —
-  build externally with v4 buffer sizes for parity: Top 4, Ctrl 4,
-  InstMem 4, ScalarMem 32, VectorMem 64; AssignPort.
-- `WithVisTracer` dropped (simulation auto-attaches); per-SIMD pipeline
-  tracing attach externally on `MiddlewareOf(comp).SIMDUnit[i]`.
+- `*cu.ComputeUnit` (component) → `*cu.Comp`. All mutable execution data lives
+  in `comp.State`; there is no CU Runtime or per-SIMD checkpoint resource.
+- Builder: `WithSimulation(simulation)` + `WithSpec(spec)`, starting from
+  `cu.DefaultSpec()`. Geometry, frequency, pipeline dimensions, scoreboard
+  configuration and memory limits belong to Spec. Shared decoder, ALU,
+  sampler and vector-memory mapper belong to `WithResources(cu.Resources{...})`.
+- Destinations: `spec.InstMem` and `spec.ScalarMem` are immutable RemotePorts.
+  Build the downstream instruction/scalar ROBs and bind their ports first;
+  copy their actual `Ports.Top.AsRemote()` addresses into Spec before building
+  the CU. `Resources.VectorMemModules` remains the vector-memory mapper.
+- Ports: `"Top"`, `"Ctrl"`, `"InstMem"`, `"ScalarMem"`, `"VectorMem"`. Build
+  them externally with `twowaybuffered.MakeBuilder().WithSimulation(simulation)`
+  and bind with `comp.BindPort(name, port)` before connecting. Buffer capacities
+  for parity: Top 4, Ctrl 4, InstMem 4, ScalarMem 32, VectorMem 64. Access bound
+  ports through `comp.Ports`.
+- Wire the complete topology, then call `simulation.Initialize()`. Only then
+  obtain behavior views using `cu.MiddlewareOf(comp) *cu.ComputeUnit`, including
+  for `NewISADebugger(logger, cu.MiddlewareOf(comp))`. Reacquire wavefront views
+  after checkpoint loading; initialization is not rerun during restore.
+- `WithVisTracer` is dropped. SIMD tasks retain their original owner names and
+  labels, but SIMD views are not registered simulation entities. Subscribe one
+  simulation observer with `simulation.TaskTracker().Subscribe(observer)` and
+  route completed `pipeline` tasks by their SIMD name to per-SIMD tracers.
+  Reporter setup derives those names from CU names and `Spec.SIMDCount`, so it
+  does not need middleware views before Initialize.
 - Capability methods → `cu.DispatcherView{CU: comp}` adapter.
-- `NewISADebugger(logger, cu.MiddlewareOf(comp))`;
-  `NewCPIStackInstHook(comp, tt)`; `NewInstTracer(tt timing.TimeTeller)`.
-- Behavior delta: pipeline-restart ack waits for Ctrl capacity (v4
-  panicked under backpressure).
+- Other tracing helpers: `NewCPIStackInstHook(comp, tt)` and
+  `NewInstTracer(tt timing.TimeTeller)`.
+- Behavior delta: pipeline-restart ack waits for Ctrl capacity (v4 panicked
+  under backpressure).
+
+See [Compute-unit State and construction](akita-v5-rc2.md#compute-unit-state-and-construction)
+for the canonical-state lifecycle and the future Blueprint migration.
 
 ## amd/timing/cp (ported)
 
@@ -235,8 +248,9 @@ Runner core:
   type name (v5 `msgTypeName`), so `*protocol.LaunchKernelReq` →
   `"LaunchKernelReq"`, `*mem.ReadReq`/`WriteReq` →
   `"ReadReq"`/`"WriteReq"` (Detail is a value `memprotocol.ReadReq`).
-- SIMD busy-time tracers attach to `cu.MiddlewareOf(comp).SIMDUnit`
-  entries (SIMD units are no longer registered components).
+- SIMD busy-time tracers receive completed pipeline tasks through one global
+  task observer, routed by SIMD name. No scoped subscription or pre-Initialize
+  `cu.MiddlewareOf` call is needed.
 - insttracer/dramtracer embed `tracing.NopTracer`; inflight maps are
   keyed by `uint64`; dram latency derives from stamped
   `TaskStart.Time`/`TaskEnd.Time`.

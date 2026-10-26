@@ -302,3 +302,56 @@ func roundTripCUState(t *testing.T, original *ComputeUnit) *ComputeUnit {
 	}
 	return MiddlewareOf(restored.comp)
 }
+
+func TestSampledCompletionRetiresGroupWithoutAnotherTick(t *testing.T) {
+	c := checkpointCU(t)
+	wg := checkpointGroup(c)
+	wf := wg.Wfs[0]
+	wf.State = wavefront.WfSampledCompleted
+	wf.SetDynamicInst(checkpointInstruction(t, c))
+	c.WfPools[0].AddWf(wf)
+	c.comp.State.WFTimes[wf.UID] = 100
+	c.comp.State.WFTasks[wf.UID] = 0
+	c.comp.State.WGTasks[wg.MapReq.ID] = 0
+	port := newFakePort("CU.Top")
+	c.ToACE = port
+	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, wf.UID))
+	if len(port.sent) != 1 {
+		t.Fatal("sampled completion response was not sent")
+	}
+	if len(c.comp.State.Groups) != 0 || len(c.workGroups) != 0 || len(c.waves) != 0 ||
+		len(c.comp.State.Instructions) != 0 || len(c.instructions) != 0 {
+		t.Fatal("sampled completion retained its canonical execution graph")
+	}
+	if len(c.comp.State.WFTimes) != 0 || len(c.comp.State.WFTasks) != 0 || len(c.comp.State.WGTasks) != 0 {
+		t.Fatal("sampled completion retained timing or task state")
+	}
+}
+
+func TestWavefrontLookupRebindsAfterLoad(t *testing.T) {
+	original := checkpointCU(t)
+	wf := checkpointGroup(original).Wfs[0]
+	var archive bytes.Buffer
+	if err := original.comp.SaveCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	restored := checkpointCU(t)
+	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	// Lookup itself must rebind; neither Tick nor MiddlewareOf runs after load.
+	got := restored.wavefrontByID(wf.UID)
+	if got == wf || got != restored.findWavefront(wf.UID) || got != restored.wave(wf.UID) {
+		t.Fatal("wavefront lookup does not share the canonical restored view")
+	}
+	for _, id := range []uint64{0, ^uint64(0)} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("unknown wavefront %d did not panic", id)
+				}
+			}()
+			restored.wavefrontByID(id)
+		}()
+	}
+}
