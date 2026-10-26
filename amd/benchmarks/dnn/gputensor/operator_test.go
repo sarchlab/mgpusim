@@ -2,11 +2,11 @@ package gputensor
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
@@ -702,7 +702,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		maskV := make([]int32, mask.NumElement())
-		id := gpuDriver.EnqueueMemCopyD2H(to.queue, mask.(*Tensor).ptr, len(maskV)*4)
+		id := gpuDriver.EnqueueMemCopyD2H(to.CommandQueue, mask.(*Tensor).Address, len(maskV)*4)
 		drain()
 		Expect(gpuDriver.ReadResult(id, maskV)).To(Succeed())
 
@@ -818,7 +818,7 @@ var _ = Describe("Operator", func() {
 			198, 200, 202, 203,
 			210, 212, 214, 215,
 		}
-		gpuDriver.EnqueueMemCopyH2D(to.queue, maskTensor.(*Tensor).ptr, maskRaw)
+		gpuDriver.EnqueueMemCopyH2D(to.CommandQueue, maskTensor.(*Tensor).Address, maskRaw)
 
 		out := to.MaxPoolingBackward(
 			forwardInTensor, backwardInTensor, maskTensor,

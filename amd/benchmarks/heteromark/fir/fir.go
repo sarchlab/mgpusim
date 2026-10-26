@@ -2,15 +2,14 @@
 package fir
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -55,28 +54,12 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch         arch.Type
-	Length       int
-	NumTapsParam int
-	numTaps      int
-	inputData    []float32
-	filterData   []float32
-	gFilterData  []driver.Ptr
-	gHistoryData driver.Ptr
-	gInputData   driver.Ptr
-	gOutputData  driver.Ptr
+	driver *driver.Runtime
 
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels.hsaco
@@ -88,9 +71,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -110,74 +95,74 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) submit() {
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
 	if b.NumTapsParam > 0 {
-		b.numTaps = b.NumTapsParam
-	} else if b.numTaps == 0 {
-		b.numTaps = 16
+		b.NumTaps = b.NumTapsParam
+	} else if b.NumTaps == 0 {
+		b.NumTaps = 16
 	}
 
-	b.filterData = make([]float32, b.numTaps)
-	for i := 0; i < b.numTaps; i++ {
-		b.filterData[i] = float32(i)
+	b.FilterData = make([]float32, b.NumTaps)
+	for i := 0; i < b.NumTaps; i++ {
+		b.FilterData[i] = float32(i)
 	}
 
-	b.inputData = make([]float32, b.Length)
+	b.InputData = make([]float32, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.inputData[i] = float32(i)
+		b.InputData[i] = float32(i)
 	}
 
-	if b.useUnifiedMemory {
-		b.gFilterData = make([]driver.Ptr, len(b.gpus))
-		b.gHistoryData = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.numTaps*4))
-		b.gInputData = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.Length*4))
-		b.gOutputData = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.Length*4))
+	if b.UseUnifiedMemory {
+		b.GFilterData = make([]driver.Ptr, len(b.Gpus))
+		b.GHistoryData = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumTaps*4))
+		b.GInputData = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.Length*4))
+		b.GOutputData = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.Length*4))
 	} else {
-		b.gFilterData = make([]driver.Ptr, len(b.gpus))
-		b.gHistoryData = b.driver.AllocateMemory(
-			b.context, uint64(b.numTaps*4))
-		b.gInputData = b.driver.AllocateMemory(
-			b.context, uint64(b.Length*4))
-		b.driver.Distribute(b.context,
-			b.gInputData, uint64(b.Length*4), b.gpus)
-		b.gOutputData = b.driver.AllocateMemory(
-			b.context, uint64(b.Length*4))
-		b.driver.Distribute(b.context,
-			b.gOutputData, uint64(b.Length*4), b.gpus)
+		b.GFilterData = make([]driver.Ptr, len(b.Gpus))
+		b.GHistoryData = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumTaps*4))
+		b.GInputData = b.driver.AllocateMemory(
+			b.Context, uint64(b.Length*4))
+		b.driver.Distribute(b.Context,
+			b.GInputData, uint64(b.Length*4), b.Gpus)
+		b.GOutputData = b.driver.AllocateMemory(
+			b.Context, uint64(b.Length*4))
+		b.driver.Distribute(b.Context,
+			b.GOutputData, uint64(b.Length*4), b.Gpus)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gInputData, b.inputData)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInputData, b.InputData)
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		if b.useUnifiedMemory {
-			b.gFilterData[i] = b.driver.AllocateUnifiedMemory(
-				b.context, uint64(b.numTaps*4))
+	for i, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		if b.UseUnifiedMemory {
+			b.GFilterData[i] = b.driver.AllocateUnifiedMemory(
+				b.Context, uint64(b.NumTaps*4))
 		} else {
-			b.gFilterData[i] = b.driver.AllocateMemory(
-				b.context, uint64(b.numTaps*4))
+			b.GFilterData[i] = b.driver.AllocateMemory(
+				b.Context, uint64(b.NumTaps*4))
 		}
-		b.driver.EnqueueMemCopyH2D(b.queue, b.gFilterData[i], b.filterData)
+		b.driver.EnqueueMemCopyH2D(b.Queue, b.GFilterData[i], b.FilterData)
 	}
 }
 
@@ -191,11 +176,11 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 		wgSizeZ := uint16(1)
 
 		kernArg := CDNA3KernelArgs{
-			Output:  b.gOutputData,
-			Filter:  b.gFilterData[gpuIndex],
-			Input:   b.gInputData,
-			History: b.gHistoryData,
-			NumTaps: uint32(b.numTaps),
+			Output:  b.GOutputData,
+			Filter:  b.GFilterData[gpuIndex],
+			Input:   b.GInputData,
+			History: b.GHistoryData,
+			NumTaps: uint32(b.NumTaps),
 			// Hidden kernel arguments for GFX942
 			HiddenBlockCountX:   gridSize / uint32(wgSizeX),
 			HiddenBlockCountY:   1,
@@ -220,11 +205,11 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 		)
 	} else {
 		kernArg := GCN3KernelArgs{
-			b.gOutputData,
-			b.gFilterData[gpuIndex],
-			b.gInputData,
-			b.gHistoryData,
-			uint32(b.numTaps),
+			b.GOutputData,
+			b.GFilterData[gpuIndex],
+			b.GInputData,
+			b.GHistoryData,
+			uint32(b.NumTaps),
 			0,
 			int64(gpuIndex * numWi / numGPUs), 0, 0,
 		}
@@ -239,19 +224,19 @@ func (b *Benchmark) enqueueKernel(queue driver.CommandQueue, gpuIndex, numGPUs i
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.Gpus))
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.context)
-		b.enqueueKernel(queues[i], i, len(b.gpus))
+	for i, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		queues[i] = b.driver.CreateCommandQueue(b.Context)
+		b.enqueueKernel(queues[i], i, len(b.Gpus))
 	}
 }
 
 // Verify verifies
 func (b *Benchmark) verify() error {
 	gpuOutput := make([]float32, b.Length)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuOutput); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuOutput); err != nil {
 		return err
 	}
 
@@ -259,11 +244,11 @@ func (b *Benchmark) verify() error {
 		var sum float32
 		sum = 0
 
-		for j := 0; j < b.numTaps; j++ {
+		for j := 0; j < b.NumTaps; j++ {
 			if i < j {
 				continue
 			}
-			sum += b.inputData[i-j] * b.filterData[j]
+			sum += b.InputData[i-j] * b.FilterData[j]
 		}
 
 		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
@@ -278,15 +263,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOutputData, 4*(b.Length)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOutputData, 4*(b.Length)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -303,7 +290,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

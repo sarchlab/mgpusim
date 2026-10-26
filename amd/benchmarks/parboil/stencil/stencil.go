@@ -17,15 +17,14 @@
 package stencil
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -56,29 +55,12 @@ type KernelArgs struct {
 
 // Benchmark defines the stencil benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch         arch.Type
-	N            int // grid dimension (N*N*N)
-	NumTimesteps int
+	driver *driver.Runtime
 
-	hData []float32 // initial host data
-	gA    driver.Ptr
-	gB    driver.Ptr
-
-	// finalSrc tracks which device buffer holds the final result after the
-	// ping-pong iterations.
-	finalSrc driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -87,9 +69,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new stencil benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -104,12 +88,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Stencil uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -121,8 +105,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -139,22 +123,22 @@ func (b *Benchmark) initMem() {
 	total := n * n * n
 
 	// Deterministic host init that is reproduced exactly in Verify().
-	b.hData = make([]float32, total)
+	b.HData = make([]float32, total)
 	for i := 0; i < total; i++ {
-		b.hData[i] = float32((i*7919)%1000) / 1000.0
+		b.HData[i] = float32((i*7919)%1000) / 1000.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GB = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gB = b.driver.AllocateMemory(b.context, uint64(total*4))
+		b.GA = b.driver.AllocateMemory(b.Context, uint64(total*4))
+		b.GB = b.driver.AllocateMemory(b.Context, uint64(total*4))
 	}
 
 	// Both ping-pong buffers start identical (so fixed boundary cells match).
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.hData)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, b.hData)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.HData)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, b.HData)
 }
 
 func (b *Benchmark) exec() {
@@ -166,8 +150,8 @@ func (b *Benchmark) exec() {
 
 	// The kernel uses a 2D (x,y) grid and loops over z internally, so the
 	// grid's z-dimension is 1 (see native/parboil_stencil.cpp for the reason).
-	src := b.gA
-	dst := b.gB
+	src := b.GA
+	dst := b.GB
 	for t := 0; t < b.NumTimesteps; t++ {
 		args := KernelArgs{
 			In:  src,
@@ -180,7 +164,7 @@ func (b *Benchmark) exec() {
 		}
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -191,7 +175,7 @@ func (b *Benchmark) exec() {
 	}
 
 	// After the loop, src holds the most recently written result.
-	b.finalSrc = src
+	b.FinalSrc = src
 }
 
 // Verify checks the GPU result against a CPU reference computation.
@@ -200,15 +184,15 @@ func (b *Benchmark) verify() error {
 	total := n * n * n
 
 	gpuOut := make([]float32, total)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuOut); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}
 
 	// CPU reference: same ping-pong stencil with the same init.
 	cur := make([]float32, total)
 	next := make([]float32, total)
-	copy(cur, b.hData)
-	copy(next, b.hData)
+	copy(cur, b.HData)
+	copy(next, b.HData)
 
 	for t := 0; t < b.NumTimesteps; t++ {
 		for iz := 0; iz < n; iz++ {
@@ -253,15 +237,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.finalSrc, 4*((b.N)*(b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalSrc, 4*((b.N)*(b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -275,7 +261,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

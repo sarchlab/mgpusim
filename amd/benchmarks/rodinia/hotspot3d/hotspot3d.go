@@ -16,15 +16,14 @@
 package hotspot3d
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -68,42 +67,12 @@ type KernelArgs struct {
 
 // Benchmark defines the HotSpot3D benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// GridSize is the edge length N of the NxNxN grid.
-	GridSize int
-	// NumIterations is the number of stencil time-steps to run.
-	NumIterations int
-	// AmbTemp is the ambient temperature.
-	AmbTemp float32
-
-	// Derived thermal parameters (computed in initMem).
-	stepDivCap float32
-	rx1        float32
-	ry1        float32
-	rz1        float32
-	ra1        float32
-
-	tempInit []float32
-	power    []float32
-
-	// Two device temperature buffers (ping-pong) plus the power buffer.
-	gTemp  [2]driver.Ptr
-	gPower driver.Ptr
-	// finalBuf is the index of the device buffer holding the final result.
-	finalBuf int
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -112,9 +81,13 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new HotSpot3D benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -129,12 +102,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. HotSpot3D uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -146,8 +119,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -169,11 +142,11 @@ func (b *Benchmark) computeThermalParams() {
 	maxSlope := kSi / (0.5 * tChip * cSi)
 	step := float32(0.001) / maxSlope
 
-	b.stepDivCap = step / cap
-	b.rx1 = 1.0 / rx
-	b.ry1 = 1.0 / ry
-	b.rz1 = 1.0 / rz
-	b.ra1 = 1.0 / ra
+	b.StepDivCap = step / cap
+	b.Rx1 = 1.0 / rx
+	b.Ry1 = 1.0 / ry
+	b.Rz1 = 1.0 / rz
+	b.Ra1 = 1.0 / ra
 }
 
 func (b *Benchmark) initMem() {
@@ -198,26 +171,26 @@ func (b *Benchmark) initMem() {
 	totalCells := n * n * n
 
 	// Deterministic host init (reproducible in Verify, unlike C rand()).
-	b.tempInit = make([]float32, totalCells)
-	b.power = make([]float32, totalCells)
+	b.TempInit = make([]float32, totalCells)
+	b.Power = make([]float32, totalCells)
 	for i := 0; i < totalCells; i++ {
-		b.tempInit[i] = b.AmbTemp + float32(i%200)/10.0
-		b.power[i] = float32((i*7)%100) / 500.0
+		b.TempInit[i] = b.AmbTemp + float32(i%200)/10.0
+		b.Power[i] = float32((i*7)%100) / 500.0
 	}
 
 	bytes := uint64(totalCells * 4)
-	if b.useUnifiedMemory {
-		b.gTemp[0] = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gTemp[1] = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gPower = b.driver.AllocateUnifiedMemory(b.context, bytes)
+	if b.UseUnifiedMemory {
+		b.GTemp[0] = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GTemp[1] = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GPower = b.driver.AllocateUnifiedMemory(b.Context, bytes)
 	} else {
-		b.gTemp[0] = b.driver.AllocateMemory(b.context, bytes)
-		b.gTemp[1] = b.driver.AllocateMemory(b.context, bytes)
-		b.gPower = b.driver.AllocateMemory(b.context, bytes)
+		b.GTemp[0] = b.driver.AllocateMemory(b.Context, bytes)
+		b.GTemp[1] = b.driver.AllocateMemory(b.Context, bytes)
+		b.GPower = b.driver.AllocateMemory(b.Context, bytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gTemp[0], b.tempInit)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gPower, b.power)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GTemp[0], b.TempInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPower, b.Power)
 }
 
 func (b *Benchmark) exec() {
@@ -236,22 +209,22 @@ func (b *Benchmark) exec() {
 	dst := 1
 	for k := 0; k < b.NumIterations; k++ {
 		args := KernelArgs{
-			TempSrc:    b.gTemp[src],
-			TempDst:    b.gTemp[dst],
-			Power:      b.gPower,
+			TempSrc:    b.GTemp[src],
+			TempDst:    b.GTemp[dst],
+			Power:      b.GPower,
 			Nx:         int32(n),
 			Ny:         int32(n),
 			Nz:         int32(n),
-			StepDivCap: b.stepDivCap,
-			Rx1:        b.rx1,
-			Ry1:        b.ry1,
-			Rz1:        b.rz1,
-			Ra1:        b.ra1,
+			StepDivCap: b.StepDivCap,
+			Rx1:        b.Rx1,
+			Ry1:        b.Ry1,
+			Rz1:        b.Rz1,
+			Ra1:        b.Ra1,
 			AmbTemp:    b.AmbTemp,
 		}
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, globalZ},
 			[3]uint16{blockDim, blockDim, 1},
@@ -262,7 +235,7 @@ func (b *Benchmark) exec() {
 	}
 
 	// After the loop, src holds the most recently written buffer.
-	b.finalBuf = src
+	b.FinalBuf = src
 }
 
 // cpuStep applies one stencil time-step on the host, matching the kernel.
@@ -299,11 +272,11 @@ func (b *Benchmark) cpuStep(src, dst []float32) {
 					tzp = src[(z+1)*n*n+y*n+x]
 				}
 
-				delta := b.stepDivCap * (b.power[idx] +
-					(txm+txp-2.0*tc)*b.rx1 +
-					(tym+typ-2.0*tc)*b.ry1 +
-					(tzm+tzp-2.0*tc)*b.rz1 +
-					(b.AmbTemp-tc)*b.ra1)
+				delta := b.StepDivCap * (b.Power[idx] +
+					(txm+txp-2.0*tc)*b.Rx1 +
+					(tym+typ-2.0*tc)*b.Ry1 +
+					(tzm+tzp-2.0*tc)*b.Rz1 +
+					(b.AmbTemp-tc)*b.Ra1)
 
 				dst[idx] = tc + delta
 			}
@@ -317,14 +290,14 @@ func (b *Benchmark) verify() error {
 	totalCells := n * n * n
 
 	gpuResult := make([]float32, totalCells)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuResult); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
 	// CPU reference: ping-pong the stencil for NumIterations steps.
 	bufA := make([]float32, totalCells)
 	bufB := make([]float32, totalCells)
-	copy(bufA, b.tempInit)
+	copy(bufA, b.TempInit)
 	src, dst := bufA, bufB
 	for k := 0; k < b.NumIterations; k++ {
 		b.cpuStep(src, dst)
@@ -352,18 +325,20 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(
-		b.readbacks,
-		b.driver.EnqueueMemCopyD2H(b.queue, b.gTemp[b.finalBuf], 4*((b.GridSize)*(b.GridSize)*(b.GridSize))),
+	b.Readbacks = append(
+		b.Readbacks,
+		b.driver.EnqueueMemCopyD2H(b.Queue, b.GTemp[b.FinalBuf], 4*((b.GridSize)*(b.GridSize)*(b.GridSize))),
 	)
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -377,7 +352,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

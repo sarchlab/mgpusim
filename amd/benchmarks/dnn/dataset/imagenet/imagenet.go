@@ -21,25 +21,18 @@ var imagenetDataFolder = flag.String("imagenet-data-folder", "",
 	"Specifies where the imagenet data is located at.")
 
 // The DataSet can provide imagenet data.
-type DataSet struct {
-	directory       string
-	mapClassToLabel map[string]int
-	mapTestToClass  map[string]string
-	classes         []string
-	curClass        int
-	curImage        int
-	isTrain         bool
-}
+type DataSet struct{ *State }
 
 // NewDataSet creates a new imagenet dataset.
 func NewDataSet(isTrain bool) *DataSet {
 	fileDir := getDirPath()
-	d := &DataSet{directory: fileDir,
-		curClass:        0,
-		curImage:        0,
-		isTrain:         isTrain,
-		mapClassToLabel: make(map[string]int),
-		mapTestToClass:  make(map[string]string),
+	d := &DataSet{
+		State: &State{
+			Root:         fileDir,
+			Training:     isTrain,
+			ClassToLabel: make(map[string]int),
+			TestToClass:  make(map[string]string),
+		},
 	}
 
 	// read wnids.txt
@@ -54,8 +47,8 @@ func NewDataSet(isTrain bool) *DataSet {
 		className := strings.Trim(line, "\n")
 
 		// map of class to label is stored in mapClassToLabel
-		d.mapClassToLabel[className] = i
-		d.classes = append(d.classes, className)
+		d.ClassToLabel[className] = i
+		d.Classes = append(d.Classes, className)
 	}
 
 	err = file.Close()
@@ -76,7 +69,7 @@ func NewDataSet(isTrain bool) *DataSet {
 			line = strings.Trim(line, "\n")
 			tokens := strings.Split(line, "\t")[:2]
 
-			d.mapTestToClass[tokens[0]] = tokens[1]
+			d.TestToClass[tokens[0]] = tokens[1]
 		}
 	}
 
@@ -85,11 +78,11 @@ func NewDataSet(isTrain bool) *DataSet {
 
 // HasNext returns true if there are more images in the dataset.
 func (d *DataSet) HasNext() bool {
-	if d.isTrain {
-		return d.curClass < 200 && d.curImage < 500
+	if d.Training {
+		return d.Class < 200 && d.Image < 500
 	}
 
-	return d.curImage < 10000
+	return d.Image < 10000
 }
 
 // Next returns the next image and label. It panics if there is no more images
@@ -101,13 +94,13 @@ func (d *DataSet) Next() (imageData []byte, labelData byte) {
 	var imagePath string
 	var className string
 
-	fileDir := d.directory
+	fileDir := d.Root
 
-	if d.isTrain {
-		className = d.classes[d.curClass]
-		imagePath = path.Join(fileDir + fmt.Sprintf("/train/%s/images/%s_%d.JPEG", className, className, d.curImage))
+	if d.Training {
+		className = d.Classes[d.Class]
+		imagePath = path.Join(fileDir + fmt.Sprintf("/train/%s/images/%s_%d.JPEG", className, className, d.Image))
 	} else {
-		imagePath = path.Join(fileDir + fmt.Sprintf("/val/images/val_%d.JPEG", d.curImage))
+		imagePath = path.Join(fileDir + fmt.Sprintf("/val/images/val_%d.JPEG", d.Image))
 	}
 
 	f, err := os.Open(imagePath)
@@ -127,18 +120,18 @@ func (d *DataSet) Next() (imageData []byte, labelData byte) {
 		}
 	}
 
-	if d.isTrain {
-		label = uint8(d.mapClassToLabel[className])
+	if d.Training {
+		label = uint8(d.ClassToLabel[className])
 
-		d.curImage++
-		if d.curImage >= 500 {
-			d.curClass++
-			d.curImage = 0
+		d.Image++
+		if d.Image >= 500 {
+			d.Class++
+			d.Image = 0
 		}
 	} else {
-		class := d.mapTestToClass[fmt.Sprintf("val_%d.JPEG", d.curImage)]
-		label = uint8(d.mapClassToLabel[class])
-		d.curImage++
+		class := d.TestToClass[fmt.Sprintf("val_%d.JPEG", d.Image)]
+		label = uint8(d.ClassToLabel[class])
+		d.Image++
 	}
 
 	return imageArray[:], label
@@ -146,8 +139,8 @@ func (d *DataSet) Next() (imageData []byte, labelData byte) {
 
 // Reset lets the dataset to read from the beginning.
 func (d *DataSet) Reset() {
-	d.curClass = 0
-	d.curImage = 0
+	d.Class = 0
+	d.Image = 0
 }
 
 func getDirPath() string {

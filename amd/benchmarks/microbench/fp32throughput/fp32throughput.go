@@ -11,15 +11,14 @@
 package fp32throughput
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -47,32 +46,12 @@ type KernelArgs struct {
 
 // Benchmark defines the fp32_throughput benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// NumBlocks is the number of thread blocks to launch.
-	NumBlocks int
-	// FmasPerThread is the number of FMA iterations per thread. It is rounded
-	// down to a multiple of 4 to match the kernel's 4-way unrolled loop.
-	FmasPerThread int
-	// ThreadsPerBlock is the work-group (block) size. Defaults to 256; must be
-	// <= 1024 (the gfx942 hardware maximum). The kernel reads blockDim.x, so any
-	// value launches correctly and the sweep can match the ground-truth
-	// threads_per_block dimension.
-	ThreadsPerBlock int
-
-	gOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -81,9 +60,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new fp32_throughput benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -98,12 +80,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -115,8 +97,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -157,14 +139,14 @@ func (b *Benchmark) initMem() {
 	numElem := b.numThreads()
 	outBytes := uint64(numElem * 4)
 
-	if b.useUnifiedMemory {
-		b.gOut = b.driver.AllocateUnifiedMemory(b.context, outBytes)
+	if b.UseUnifiedMemory {
+		b.GOut = b.driver.AllocateUnifiedMemory(b.Context, outBytes)
 	} else {
-		b.gOut = b.driver.AllocateMemory(b.context, outBytes)
+		b.GOut = b.driver.AllocateMemory(b.Context, outBytes)
 	}
 
 	// Initialize the output buffer to a known value.
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gOut, make([]float32, numElem))
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOut, make([]float32, numElem))
 }
 
 func (b *Benchmark) exec() {
@@ -173,13 +155,13 @@ func (b *Benchmark) exec() {
 	globalX := uint32(numBlocks * tpb)
 
 	args := KernelArgs{
-		Out:             b.gOut,
+		Out:             b.GOut,
 		FmasPerThread:   b.fmasPerThread(),
 		ThreadsPerBlock: int32(tpb),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(tpb), 1, 1},
@@ -197,7 +179,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) verify() error {
 	numElem := b.numThreads()
 	gpu := make([]float32, numElem)
-	if err := b.driver.ReadResult(b.readbacks[0], gpu); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -242,15 +224,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOut, 4*(b.numThreads())))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 4*(b.numThreads())))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -264,7 +248,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

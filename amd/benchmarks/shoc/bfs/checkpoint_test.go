@@ -78,17 +78,17 @@ func writeRecoveryResult(
 	}
 	result := recoveryResult{Time: s.Engine().CurrentTime()}
 	for _, b := range bs {
-		if !b.IsEnded() || b.depth < 2 {
-			t.Fatalf("BFS continuation did not finish multiple frontiers: phase=%d depth=%d", b.Phase, b.depth)
+		if !b.IsEnded() || b.Depth < 2 {
+			t.Fatalf("BFS continuation did not finish multiple frontiers: phase=%d depth=%d", b.Phase, b.Depth)
 		}
 		b.cpuBFS()
-		for i, v := range b.hCost {
-			if v != b.cpuCost[i] {
-				t.Fatalf("BFS output[%d]=%d, want %d", i, v, b.cpuCost[i])
+		for i, v := range b.HCost {
+			if v != b.CpuCost[i] {
+				t.Fatalf("BFS output[%d]=%d, want %d", i, v, b.CpuCost[i])
 			}
 		}
-		result.Costs = append(result.Costs, b.hCost)
-		result.Depths = append(result.Depths, b.depth)
+		result.Costs = append(result.Costs, b.HCost)
+		result.Depths = append(result.Depths, b.Depth)
 	}
 	var err error
 	result.Marker, err = rt.EventTime(event)
@@ -136,7 +136,7 @@ func TestBFSFreshProcessRecovery(t *testing.T) {
 				if err != nil || !active {
 					t.Fatalf("initial round: %v %v", active, err)
 				}
-				marker = rt.EnqueueRecordEvent(bs[0].queue)
+				marker = rt.EnqueueRecordEvent(bs[0].Queue)
 				if mode == "drained" {
 					if err := s.Run(); err != nil {
 						t.Fatal(err)

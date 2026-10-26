@@ -2,15 +2,14 @@
 package bfs
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -56,45 +55,22 @@ type CDNA3KernelArg struct {
 
 // Benchmark is the BFS benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	depth          int
-	flagResult     driver.CommandID
-	outputResult   driver.CommandID
-	queue          driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	driver  *driver.Runtime
-	context driver.Context
-	gpus    []int
-	queues  []driver.CommandQueue
-	kernel  *insts.KernelCodeObject
+	driver *driver.Runtime
 
-	Arch     arch.Type
-	Path     string
-	NumNode  int
-	Degree   int
-	MaxDepth int
-
-	sourceNode    int
-	hEdgeOffsets  []int32
-	hEdgeList     []int32
-	hFrontier     []uint32
-	hCost         []uint32
-	cpuCost       []uint32
-	dFrontier     driver.Ptr
-	dEdgeArray    driver.Ptr
-	dEdgeArrayAux driver.Ptr
-	dFlag         driver.Ptr
-
-	useUnifiedMemory bool
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new BFS benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	return b
 }
 
@@ -103,12 +79,12 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 	if len(gpus) > 1 {
 		panic("BFS does not support multi-GPU execution yet.")
 	}
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -132,17 +108,19 @@ func (b *Benchmark) loadProgram() {
 
 // Step advances one breadth-first frontier after the previous global batch.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.loadProgram()
-		b.driver.SelectGPU(b.context, b.gpus[0])
-		b.queue = b.driver.CreateCommandQueue(b.context)
+		b.driver.SelectGPU(b.Context, b.Gpus[0])
+		b.Queue = b.driver.CreateCommandQueue(b.Context)
 		b.initMem()
-		b.driver.EnqueueMemCopyH2D(b.queue, b.dFrontier, b.hFrontier)
-		b.driver.EnqueueMemCopyH2D(b.queue, b.dEdgeArray, b.hEdgeOffsets)
-		b.driver.EnqueueMemCopyH2D(b.queue, b.dEdgeArrayAux, b.hEdgeList)
+		b.driver.EnqueueMemCopyH2D(b.Queue, b.DFrontier, b.HFrontier)
+		b.driver.EnqueueMemCopyH2D(b.Queue, b.DEdgeArray, b.HEdgeOffsets)
+		b.driver.EnqueueMemCopyH2D(b.Queue, b.DEdgeArrayAux, b.HEdgeList)
 		if b.MaxDepth > 0 {
 			b.submitIteration()
 		} else {
@@ -150,16 +128,16 @@ func (b *Benchmark) Step() error {
 		}
 	case 1:
 		var flag int32
-		if err := b.driver.ReadResult(b.flagResult, &flag); err != nil {
+		if err := b.driver.ReadResult(b.FlagResult, &flag); err != nil {
 			return err
 		}
-		if flag != 0 && b.depth < b.MaxDepth {
+		if flag != 0 && b.Depth < b.MaxDepth {
 			b.submitIteration()
 		} else {
 			b.finishTraversal()
 		}
 	case 2:
-		if err := b.driver.ReadResult(b.outputResult, b.hCost); err != nil {
+		if err := b.driver.ReadResult(b.OutputResult, b.HCost); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -172,7 +150,7 @@ func (b *Benchmark) Step() error {
 	return nil
 }
 func (b *Benchmark) finishTraversal() {
-	b.outputResult = b.driver.EnqueueMemCopyD2H(b.queue, b.dFrontier, len(b.hCost)*4)
+	b.OutputResult = b.driver.EnqueueMemCopyD2H(b.Queue, b.DFrontier, len(b.HCost)*4)
 	b.Phase = 2
 }
 
@@ -185,34 +163,34 @@ func (b *Benchmark) initMem() {
 		b.NumNode = len(graph.nodes)
 	}
 
-	b.hEdgeOffsets, b.hEdgeList = graph.asEdgeList()
-	b.hFrontier = make([]uint32, b.NumNode)
-	b.hCost = make([]uint32, b.NumNode)
+	b.HEdgeOffsets, b.HEdgeList = graph.asEdgeList()
+	b.HFrontier = make([]uint32, b.NumNode)
+	b.HCost = make([]uint32, b.NumNode)
 
 	for i := 0; i < b.NumNode; i++ {
-		b.hFrontier[i] = math.MaxUint32
-		b.hCost[i] = math.MaxUint32
+		b.HFrontier[i] = math.MaxUint32
+		b.HCost[i] = math.MaxUint32
 	}
 
-	b.hFrontier[b.sourceNode] = 0
-	b.hCost[b.sourceNode] = 0
+	b.HFrontier[b.SourceNode] = 0
+	b.HCost[b.SourceNode] = 0
 
-	if b.useUnifiedMemory {
-		b.dFrontier = b.driver.AllocateUnifiedMemory(b.context,
+	if b.UseUnifiedMemory {
+		b.DFrontier = b.driver.AllocateUnifiedMemory(b.Context,
 			uint64(b.NumNode*4))
-		b.dEdgeArray = b.driver.AllocateUnifiedMemory(b.context,
+		b.DEdgeArray = b.driver.AllocateUnifiedMemory(b.Context,
 			uint64((b.NumNode+1)*4))
-		b.dEdgeArrayAux = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(len(b.hEdgeList)*4))
-		b.dFlag = b.driver.AllocateUnifiedMemory(b.context, 4)
+		b.DEdgeArrayAux = b.driver.AllocateUnifiedMemory(b.Context,
+			uint64(len(b.HEdgeList)*4))
+		b.DFlag = b.driver.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		b.dFrontier = b.driver.AllocateMemory(b.context,
+		b.DFrontier = b.driver.AllocateMemory(b.Context,
 			uint64(b.NumNode*4))
-		b.dEdgeArray = b.driver.AllocateMemory(b.context,
+		b.DEdgeArray = b.driver.AllocateMemory(b.Context,
 			uint64((b.NumNode+1)*4))
-		b.dEdgeArrayAux = b.driver.AllocateMemory(b.context,
-			uint64(len(b.hEdgeList)*4))
-		b.dFlag = b.driver.AllocateMemory(b.context, 4)
+		b.DEdgeArrayAux = b.driver.AllocateMemory(b.Context,
+			uint64(len(b.HEdgeList)*4))
+		b.DFlag = b.driver.AllocateMemory(b.Context, 4)
 	}
 }
 
@@ -222,23 +200,23 @@ func (b *Benchmark) submitIteration() {
 	localSize := uint16(maxTheadsPerCore)
 
 	args := KernelArg{
-		Levels:       b.dFrontier,
-		EdgeArray:    b.dEdgeArray,
-		EdgeArrayAux: b.dEdgeArrayAux,
+		Levels:       b.DFrontier,
+		EdgeArray:    b.DEdgeArray,
+		EdgeArrayAux: b.DEdgeArrayAux,
 		WSize:        32,
 		ChunkSize:    32,
 		NumNodes:     uint32(b.NumNode),
-		Flag:         b.dFlag,
+		Flag:         b.DFlag,
 	}
 
 	cdna3Args := CDNA3KernelArg{
-		Levels:            b.dFrontier,
-		EdgeArray:         b.dEdgeArray,
-		EdgeArrayAux:      b.dEdgeArrayAux,
+		Levels:            b.DFrontier,
+		EdgeArray:         b.DEdgeArray,
+		EdgeArrayAux:      b.DEdgeArrayAux,
 		WSize:             32,
 		ChunkSize:         32,
 		NumNodes:          uint32(b.NumNode),
-		Flag:              b.dFlag,
+		Flag:              b.DFlag,
 		HiddenBlockCountX: globalSize / uint32(localSize),
 		HiddenBlockCountY: 1,
 		HiddenBlockCountZ: 1,
@@ -248,24 +226,24 @@ func (b *Benchmark) submitIteration() {
 	}
 
 	flag := int32(0)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dFlag, flag)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DFlag, flag)
 
 	if b.Arch == arch.CDNA3 {
-		cdna3Args.Curr = int32(b.depth)
-		b.driver.EnqueueLaunchKernel(b.queue, b.kernel,
+		cdna3Args.Curr = int32(b.Depth)
+		b.driver.EnqueueLaunchKernel(b.Queue, b.kernel,
 			[3]uint32{globalSize, 1, 1},
 			[3]uint16{localSize, 1, 1},
 			&cdna3Args)
 	} else {
-		args.Curr = int32(b.depth)
-		b.driver.EnqueueLaunchKernel(b.queue, b.kernel,
+		args.Curr = int32(b.Depth)
+		b.driver.EnqueueLaunchKernel(b.Queue, b.kernel,
 			[3]uint32{globalSize, 1, 1},
 			[3]uint16{localSize, 1, 1},
 			&args)
 	}
 
-	b.flagResult = b.driver.EnqueueMemCopyD2H(b.queue, b.dFlag, 4)
-	b.depth++
+	b.FlagResult = b.driver.EnqueueMemCopyD2H(b.Queue, b.DFlag, 4)
+	b.Depth++
 	b.Phase = 1
 }
 
@@ -274,10 +252,10 @@ func (b *Benchmark) verify() error {
 	b.cpuBFS()
 
 	for i := 0; i < b.NumNode; i++ {
-		if b.cpuCost[i] != b.hCost[i] {
+		if b.CpuCost[i] != b.HCost[i] {
 			return fmt.Errorf(
 				"mismatch at node %d, expected cost %d, but get %d\n",
-				i, b.cpuCost[i], b.hCost[i])
+				i, b.CpuCost[i], b.HCost[i])
 		}
 	}
 
@@ -287,27 +265,27 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) cpuBFS() {
-	b.cpuCost = make([]uint32, b.NumNode)
+	b.CpuCost = make([]uint32, b.NumNode)
 	for i := 0; i < b.NumNode; i++ {
-		b.cpuCost[i] = math.MaxUint32
+		b.CpuCost[i] = math.MaxUint32
 	}
 
 	queue := make([]int, 0)
-	queue = append(queue, b.sourceNode)
-	b.cpuCost[b.sourceNode] = 0
+	queue = append(queue, b.SourceNode)
+	b.CpuCost[b.SourceNode] = 0
 
 	for len(queue) > 0 {
 		n := queue[0]
 		queue = queue[1:]
 
-		if b.cpuCost[n] >= uint32(b.MaxDepth) {
+		if b.CpuCost[n] >= uint32(b.MaxDepth) {
 			break
 		}
 
-		for i := b.hEdgeOffsets[n]; i < b.hEdgeOffsets[n+1]; i++ {
-			next := b.hEdgeList[i]
-			if b.cpuCost[next] == math.MaxUint32 {
-				b.cpuCost[next] = b.cpuCost[n] + 1
+		for i := b.HEdgeOffsets[n]; i < b.HEdgeOffsets[n+1]; i++ {
+			next := b.HEdgeList[i]
+			if b.CpuCost[next] == math.MaxUint32 {
+				b.CpuCost[next] = b.CpuCost[n] + 1
 				queue = append(queue, int(next))
 			}
 		}

@@ -22,15 +22,14 @@
 package sharedmembandwidth
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -58,38 +57,16 @@ type KernelArgs struct {
 
 // Benchmark defines the shared-memory bandwidth benchmark.
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readback       driver.CommandID
-	driver         *driver.Runtime
-	context        driver.Context
-	queue          driver.CommandQueue
-	hsaco          *insts.KernelCodeObject
-	conf           *insts.KernelCodeObject
-	gpus           []int
+	*State
+	benchmarks.Saved[checkpointConfig,
 
-	Arch arch.Type
+		State,
+	]
 
-	// NumBlocks is the number of work-groups (grid size in the X dimension).
-	NumBlocks int
-	// InnerIters is the number of streaming iterations the kernel runs.
-	InnerIters int
-	// BlockSize is the work-group size (threads per block), swept by the
-	// calibration and passed to the kernel as an explicit argument.
-	BlockSize int
-	// AccessPattern selects which kernel(s) run: "no_conflict" (default),
-	// "conflict", or "both".
-	AccessPattern string
+	driver *driver.Runtime
 
-	gIn   driver.Ptr
-	gSink driver.Ptr
-
-	// noConflictResult holds the d_sink contents after the no-conflict
-	// kernel, snapshotted before the conflict kernel overwrites the sink.
-	noConflictResult []float32
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
+	conf  *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -98,9 +75,13 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new shared-memory bandwidth benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig,
+		b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -121,12 +102,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -138,8 +119,8 @@ func (b *Benchmark) setup() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 }
 
@@ -161,14 +142,14 @@ func (b *Benchmark) initMem() {
 	// chunk per thread); that is exactly the region the streaming reads mask to.
 	inFloats := b.BlockSize * unroll
 
-	if b.useUnifiedMemory {
-		b.gIn = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(inFloats*4))
-		b.gSink = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumBlocks*4))
+	if b.UseUnifiedMemory {
+		b.GIn = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(inFloats*4))
+		b.GSink = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumBlocks*4))
 	} else {
-		b.gIn = b.driver.AllocateMemory(b.context, uint64(inFloats*4))
-		b.gSink = b.driver.AllocateMemory(b.context, uint64(b.NumBlocks*4))
+		b.GIn = b.driver.AllocateMemory(b.Context, uint64(inFloats*4))
+		b.GSink = b.driver.AllocateMemory(b.Context, uint64(b.NumBlocks*4))
 	}
 
 	// Opaque source data: all 1.0, so each block's accumulator is exactly
@@ -177,24 +158,24 @@ func (b *Benchmark) initMem() {
 	for i := range in {
 		in[i] = 1.0
 	}
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gIn, in)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GIn, in)
 
 	// Zero-initialise the sink so unwritten lanes are well defined.
 	zeros := make([]float32, b.NumBlocks)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gSink, zeros)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GSink, zeros)
 }
 
 // launch runs one kernel (no_conflict or conflict) with the configured block
 // size as both the work-group dimension and an explicit kernel argument.
 func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 	args := KernelArgs{
-		In:         b.gIn,
-		Sink:       b.gSink,
+		In:         b.GIn,
+		Sink:       b.GSink,
 		InnerIters: int32(b.InnerIters),
 		BlockSize:  int32(b.BlockSize),
 	}
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		kernel,
 		[3]uint32{uint32(b.NumBlocks * b.BlockSize), 1, 1},
 		[3]uint16{uint16(b.BlockSize), 1, 1},
@@ -206,14 +187,14 @@ func (b *Benchmark) launch(kernel *insts.KernelCodeObject) {
 // each block's thread 0 accumulates 1.0 once per (iteration, accumulator), so
 // the result is exactly unroll*InnerIters and independent of scheduling.
 func (b *Benchmark) verify() error {
-	if b.noConflictResult == nil {
+	if b.NoConflictResult == nil {
 		log.Printf("Verify skipped (no_conflict kernel not run).\n")
 		return nil
 	}
 	ref := float32(unroll * b.InnerIters)
 
 	for blk := 0; blk < b.NumBlocks; blk++ {
-		got := b.noConflictResult[blk]
+		got := b.NoConflictResult[blk]
 
 		denom := math.Abs(float64(ref))
 		if denom < 1.0 {
@@ -231,10 +212,12 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		if b.AccessPattern != "conflict" {
 			b.launch(b.hsaco)
@@ -242,16 +225,16 @@ func (b *Benchmark) Step() error {
 		b.Phase = 1
 	case 1:
 		if b.Verification && b.AccessPattern != "conflict" {
-			b.noConflictResult = make([]float32, b.NumBlocks)
-			b.readback = b.driver.EnqueueMemCopyD2H(b.queue, b.gSink, b.NumBlocks*4)
+			b.NoConflictResult = make([]float32, b.NumBlocks)
+			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.GSink, b.NumBlocks*4)
 		}
 		b.Phase = 2
 	case 2:
-		if b.readback != 0 {
-			if err := b.driver.ReadResult(b.readback, b.noConflictResult); err != nil {
+		if b.Readback != 0 {
+			if err := b.driver.ReadResult(b.Readback, b.NoConflictResult); err != nil {
 				return err
 			}
-			b.readback = 0
+			b.Readback = 0
 		}
 		if b.AccessPattern == "conflict" || b.AccessPattern == "both" {
 			b.launch(b.conf)

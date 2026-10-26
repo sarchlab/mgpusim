@@ -13,15 +13,14 @@
 package cutcp
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -48,34 +47,12 @@ type KernelArgs struct {
 
 // Benchmark defines the CUTCP benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// NumAtoms is the number of atoms (point charges).
-	NumAtoms int
-	// GridSide is the number of grid points along each axis (grid is
-	// GridSide^3 points).
-	GridSide int
-	// GridSpacing is the distance between adjacent grid points.
-	GridSpacing float32
-	// Cutoff is the interaction cutoff radius.
-	Cutoff float32
-
-	atoms     []float32 // flat float4: [x,y,z,q] per atom
-	potential []float32 // GridSide^3 grid points
-	gAtoms    driver.Ptr
-	gPot      driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -84,9 +61,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new CUTCP benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(
+		b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -101,12 +81,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. CUTCP uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -118,8 +98,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -153,34 +133,34 @@ func (b *Benchmark) initMem() {
 	domainSize := float32(b.GridSide) * b.GridSpacing
 
 	// Generate synthetic atom data with the same LCG/seed as the HIP host.
-	b.atoms = make([]float32, b.NumAtoms*4)
+	b.Atoms = make([]float32, b.NumAtoms*4)
 	var seed uint32 = 42
 	for i := 0; i < b.NumAtoms; i++ {
 		x := randFloat(&seed, 0.0, domainSize)
 		y := randFloat(&seed, 0.0, domainSize)
 		z := randFloat(&seed, 0.0, domainSize)
 		q := randFloat(&seed, -1.0, 1.0)
-		b.atoms[i*4+0] = x
-		b.atoms[i*4+1] = y
-		b.atoms[i*4+2] = z
-		b.atoms[i*4+3] = q
+		b.Atoms[i*4+0] = x
+		b.Atoms[i*4+1] = y
+		b.Atoms[i*4+2] = z
+		b.Atoms[i*4+3] = q
 	}
 
-	b.potential = make([]float32, totalPoints)
+	b.Potential = make([]float32, totalPoints)
 
-	if b.useUnifiedMemory {
-		b.gAtoms = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumAtoms*4*4))
-		b.gPot = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(totalPoints*4))
+	if b.UseUnifiedMemory {
+		b.GAtoms = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumAtoms*4*4))
+		b.GPot = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(totalPoints*4))
 	} else {
-		b.gAtoms = b.driver.AllocateMemory(
-			b.context, uint64(b.NumAtoms*4*4))
-		b.gPot = b.driver.AllocateMemory(
-			b.context, uint64(totalPoints*4))
+		b.GAtoms = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumAtoms*4*4))
+		b.GPot = b.driver.AllocateMemory(
+			b.Context, uint64(totalPoints*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gAtoms, b.atoms)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GAtoms, b.Atoms)
 }
 
 func (b *Benchmark) exec() {
@@ -190,8 +170,8 @@ func (b *Benchmark) exec() {
 	cutoff2 := b.Cutoff * b.Cutoff
 
 	args := KernelArgs{
-		Atoms:       b.gAtoms,
-		Potential:   b.gPot,
+		Atoms:       b.GAtoms,
+		Potential:   b.GPot,
 		NumAtoms:    int32(b.NumAtoms),
 		GridSide:    int32(b.GridSide),
 		GridSpacing: b.GridSpacing,
@@ -199,7 +179,7 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -211,12 +191,12 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
 	var pot float32
 	for i := 0; i < b.NumAtoms; i++ {
-		dx := px - b.atoms[i*4+0]
-		dy := py - b.atoms[i*4+1]
-		dz := pz - b.atoms[i*4+2]
+		dx := px - b.Atoms[i*4+0]
+		dy := py - b.Atoms[i*4+1]
+		dz := pz - b.Atoms[i*4+2]
 		r2 := dx*dx + dy*dy + dz*dz
 		if r2 < cutoff2 && r2 > 1e-12 {
-			pot += b.atoms[i*4+3] / float32(math.Sqrt(float64(r2)))
+			pot += b.Atoms[i*4+3] / float32(math.Sqrt(float64(r2)))
 		}
 	}
 	return pot
@@ -226,7 +206,7 @@ func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
 func (b *Benchmark) verify() error {
 	totalPoints := b.GridSide * b.GridSide * b.GridSide
 	gpuPot := make([]float32, totalPoints)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuPot); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuPot); err != nil {
 		return err
 	}
 
@@ -258,18 +238,20 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(
-		b.readbacks,
-		b.driver.EnqueueMemCopyD2H(b.queue, b.gPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
+	b.Readbacks = append(
+		b.Readbacks,
+		b.driver.EnqueueMemCopyD2H(b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
 	)
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -283,7 +265,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

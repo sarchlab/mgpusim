@@ -4,62 +4,59 @@ package matrixmultiplication
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"log"
 	"math"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	queue          driver.CommandQueue
-	kernel         *insts.KernelCodeObject
-	blockABuf      driver.Ptr
-	gA, gB, gC     driver.Ptr
-	readback       driver.CommandID
-	driver         *driver.Runtime
-	context        driver.Context
-	gpus           []int
+	*State
+	benchmarks.Saved[checkpointConfig,
 
-	Arch                      arch.Type
-	X, Y, Z                   uint32
-	MatrixA, MatrixB, MatrixC Matrix
-	useUnifiedMemory          bool
+		State,
+	]
+
+	kernel *insts.KernelCodeObject
+
+	driver *driver.Runtime
 }
 
 // NewBenchmark makes a new benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig,
+		b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.MatrixC = *NewMatrix(b.MatrixB.Width, b.MatrixA.Height)
 	b.loadKernel()
-	b.gA, b.gB, b.gC = b.initMemory(&b.MatrixA, &b.MatrixB, &b.MatrixC)
+	b.GA, b.GB, b.GC = b.initMemory(&b.MatrixA, &b.MatrixB, &b.MatrixC)
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 func (b *Benchmark) initMem() {
@@ -106,20 +103,22 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
-		b.launchKernel(b.gA, b.gB, b.gC, &b.MatrixA, &b.MatrixC)
+		b.launchKernel(b.GA, b.GB, b.GC, &b.MatrixA, &b.MatrixC)
 		b.Phase = 2
 	case 2:
-		b.readback = b.driver.EnqueueMemCopyD2H(b.queue, b.gC, len(b.MatrixC.Data)*4)
+		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queue, b.GC, len(b.MatrixC.Data)*4)
 		b.Phase = 3
 	case 3:
-		if err := b.driver.ReadResult(b.readback, b.MatrixC.Data); err != nil {
+		if err := b.driver.ReadResult(b.Readback, b.MatrixC.Data); err != nil {
 			return err
 		}
 		if b.Verification {

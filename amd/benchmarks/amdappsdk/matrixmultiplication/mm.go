@@ -1,10 +1,9 @@
 package matrixmultiplication
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
@@ -89,16 +88,16 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 	mA *Matrix,
 	mC *Matrix,
 ) {
-	queues := make([]driver.CommandQueue, len(m.gpus))
+	queues := make([]driver.CommandQueue, len(m.Gpus))
 
-	for i, gpu := range m.gpus {
-		m.driver.SelectGPU(m.context, gpu)
-		q := m.driver.CreateCommandQueue(m.context)
+	for i, gpu := range m.Gpus {
+		m.driver.SelectGPU(m.Context, gpu)
+		q := m.driver.CreateCommandQueue(m.Context)
 
 		queues[i] = q
 
 		width := int(mC.Width) / 4
-		height := int(mC.Height) / 4 / len(m.gpus)
+		height := int(mC.Height) / 4 / len(m.Gpus)
 
 		globalSizeX := uint32(width)
 		globalSizeY := uint32(height)
@@ -106,8 +105,8 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 		localSizeY := uint16(8)
 
 		if m.Arch == arch.CDNA3 {
-			if m.blockABuf == 0 {
-				m.blockABuf = m.driver.AllocateMemory(m.context,
+			if m.BlockABuf == 0 {
+				m.BlockABuf = m.driver.AllocateMemory(m.Context,
 					uint64(32*32*4))
 			}
 			kernArgs := &CDNA3KernelArgs{
@@ -115,7 +114,7 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 				MatrixB:             gB,
 				MatrixC:             gC,
 				WidthA:              mA.Width,
-				BlockA:              m.blockABuf,
+				BlockA:              m.BlockABuf,
 				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
 				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
 				HiddenBlockCountZ:   1,
@@ -186,25 +185,25 @@ func (m *Benchmark) launchKernel( //nolint:funlen
 func (m *Benchmark) initMemory(
 	mA, mB, mC *Matrix,
 ) (driver.Ptr, driver.Ptr, driver.Ptr) {
-	if m.useUnifiedMemory {
-		gA := m.driver.AllocateUnifiedMemory(m.context, uint64(mA.Width*mA.Height*4))
-		gB := m.driver.AllocateUnifiedMemory(m.context, uint64(mB.Width*mB.Height*4))
-		gC := m.driver.AllocateUnifiedMemory(m.context, uint64(mC.Width*mC.Height*4))
-		m.driver.EnqueueMemCopyH2D(m.queue, gA, mA.Data)
-		m.driver.EnqueueMemCopyH2D(m.queue, gB, mB.Data)
+	if m.UseUnifiedMemory {
+		gA := m.driver.AllocateUnifiedMemory(m.Context, uint64(mA.Width*mA.Height*4))
+		gB := m.driver.AllocateUnifiedMemory(m.Context, uint64(mB.Width*mB.Height*4))
+		gC := m.driver.AllocateUnifiedMemory(m.Context, uint64(mC.Width*mC.Height*4))
+		m.driver.EnqueueMemCopyH2D(m.Queue, gA, mA.Data)
+		m.driver.EnqueueMemCopyH2D(m.Queue, gB, mB.Data)
 
 		return gA, gB, gC
 	}
-	gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
-	m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
+	gA := m.driver.AllocateMemory(m.Context, uint64(mA.Width*mA.Height*4))
+	m.driver.Distribute(m.Context, gA, uint64(mA.Width*mA.Height*4), m.Gpus)
 
-	gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
-	m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
+	gB := m.driver.AllocateMemory(m.Context, uint64(mB.Width*mB.Height*4))
+	m.driver.Distribute(m.Context, gB, uint64(mB.Width*mB.Height*4), m.Gpus)
 
-	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
-	m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
-	m.driver.EnqueueMemCopyH2D(m.queue, gA, mA.Data)
-	m.driver.EnqueueMemCopyH2D(m.queue, gB, mB.Data)
+	gC := m.driver.AllocateMemory(m.Context, uint64(mC.Width*mC.Height*4))
+	m.driver.Distribute(m.Context, gC, uint64(mC.Width*mC.Height*4), m.Gpus)
+	m.driver.EnqueueMemCopyH2D(m.Queue, gA, mA.Data)
+	m.driver.EnqueueMemCopyH2D(m.Queue, gB, mB.Data)
 
 	return gA, gB, gC
 }

@@ -18,15 +18,14 @@
 package binomialoptions
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -61,25 +60,12 @@ type KernelArgs struct {
 
 // Benchmark defines the Binomial Options benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch       arch.Type
-	NumOptions int
-	NumSteps   int
+	driver *driver.Runtime
 
-	options  []optionData
-	gOptions driver.Ptr
-	gPrices  driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -88,9 +74,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new Binomial Options benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -105,12 +93,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -122,8 +110,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -148,28 +136,28 @@ func (b *Benchmark) initMem() {
 			b.NumSteps+1, maxNodes)
 	}
 
-	b.options = make([]optionData, b.NumOptions)
+	b.Options = make([]optionData, b.NumOptions)
 	var seed uint32 = 42
 	for i := 0; i < b.NumOptions; i++ {
-		b.options[i].S = randRange(&seed, 5.0, 200.0)
-		b.options[i].K = randRange(&seed, 1.0, 300.0)
-		b.options[i].T = randRange(&seed, 0.25, 10.0)
-		b.options[i].R = 0.02
-		b.options[i].Sigma = randRange(&seed, 0.1, 1.0)
+		b.Options[i].S = randRange(&seed, 5.0, 200.0)
+		b.Options[i].K = randRange(&seed, 1.0, 300.0)
+		b.Options[i].T = randRange(&seed, 0.25, 10.0)
+		b.Options[i].R = 0.02
+		b.Options[i].Sigma = randRange(&seed, 0.1, 1.0)
 	}
 
 	optBytes := uint64(b.NumOptions * 20) // 5 float32 per option
 	priceBytes := uint64(b.NumOptions * 4)
 
-	if b.useUnifiedMemory {
-		b.gOptions = b.driver.AllocateUnifiedMemory(b.context, optBytes)
-		b.gPrices = b.driver.AllocateUnifiedMemory(b.context, priceBytes)
+	if b.UseUnifiedMemory {
+		b.GOptions = b.driver.AllocateUnifiedMemory(b.Context, optBytes)
+		b.GPrices = b.driver.AllocateUnifiedMemory(b.Context, priceBytes)
 	} else {
-		b.gOptions = b.driver.AllocateMemory(b.context, optBytes)
-		b.gPrices = b.driver.AllocateMemory(b.context, priceBytes)
+		b.GOptions = b.driver.AllocateMemory(b.Context, optBytes)
+		b.GPrices = b.driver.AllocateMemory(b.Context, priceBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gOptions, b.options)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOptions, b.Options)
 }
 
 func (b *Benchmark) exec() {
@@ -177,13 +165,13 @@ func (b *Benchmark) exec() {
 	globalX := uint32(b.NumOptions * blockSize)
 
 	args := KernelArgs{
-		Options:  b.gOptions,
-		Prices:   b.gPrices,
+		Options:  b.GOptions,
+		Prices:   b.GPrices,
 		NumSteps: int32(b.NumSteps),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -235,12 +223,12 @@ func f32max(a, b float32) float32 {
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	gpuPrices := make([]float32, b.NumOptions)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuPrices); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuPrices); err != nil {
 		return err
 	}
 
 	for i := 0; i < b.NumOptions; i++ {
-		ref := binomialCPU(b.options[i], b.NumSteps)
+		ref := binomialCPU(b.Options[i], b.NumSteps)
 		got := gpuPrices[i]
 
 		diff := math.Abs(float64(got - ref))
@@ -257,15 +245,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gPrices, 4*(b.NumOptions)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GPrices, 4*(b.NumOptions)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -279,7 +269,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

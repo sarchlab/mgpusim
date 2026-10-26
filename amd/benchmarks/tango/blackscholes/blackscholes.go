@@ -10,15 +10,14 @@
 package blackscholes
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -54,32 +53,12 @@ type KernelArgs struct {
 
 // Benchmark defines the Black-Scholes benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
-	N    int
+	driver *driver.Runtime
 
-	hS     []float32
-	hK     []float32
-	hT     []float32
-	hSigma []float32
-
-	gS     driver.Ptr
-	gK     driver.Ptr
-	gT     driver.Ptr
-	gSigma driver.Ptr
-	gCall  driver.Ptr
-	gPut   driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -88,9 +67,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new Black-Scholes benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -105,12 +87,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Black-Scholes uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -122,8 +104,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -143,40 +125,40 @@ func (b *Benchmark) initMem() {
 
 	n := b.N
 
-	b.hS = make([]float32, n)
-	b.hK = make([]float32, n)
-	b.hT = make([]float32, n)
-	b.hSigma = make([]float32, n)
+	b.HS = make([]float32, n)
+	b.HK = make([]float32, n)
+	b.HT = make([]float32, n)
+	b.HSigma = make([]float32, n)
 
 	var seed uint32 = 42
 	for i := 0; i < n; i++ {
-		b.hS[i] = randRange(&seed, 5.0, 200.0)
-		b.hK[i] = randRange(&seed, 1.0, 300.0)
-		b.hT[i] = randRange(&seed, 0.25, 10.0)
-		b.hSigma[i] = randRange(&seed, 0.1, 1.0)
+		b.HS[i] = randRange(&seed, 5.0, 200.0)
+		b.HK[i] = randRange(&seed, 1.0, 300.0)
+		b.HT[i] = randRange(&seed, 0.25, 10.0)
+		b.HSigma[i] = randRange(&seed, 0.1, 1.0)
 	}
 
 	bytes := uint64(n * 4)
-	if b.useUnifiedMemory {
-		b.gS = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gK = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gT = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gSigma = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gCall = b.driver.AllocateUnifiedMemory(b.context, bytes)
-		b.gPut = b.driver.AllocateUnifiedMemory(b.context, bytes)
+	if b.UseUnifiedMemory {
+		b.GS = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GK = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GT = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GSigma = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GCall = b.driver.AllocateUnifiedMemory(b.Context, bytes)
+		b.GPut = b.driver.AllocateUnifiedMemory(b.Context, bytes)
 	} else {
-		b.gS = b.driver.AllocateMemory(b.context, bytes)
-		b.gK = b.driver.AllocateMemory(b.context, bytes)
-		b.gT = b.driver.AllocateMemory(b.context, bytes)
-		b.gSigma = b.driver.AllocateMemory(b.context, bytes)
-		b.gCall = b.driver.AllocateMemory(b.context, bytes)
-		b.gPut = b.driver.AllocateMemory(b.context, bytes)
+		b.GS = b.driver.AllocateMemory(b.Context, bytes)
+		b.GK = b.driver.AllocateMemory(b.Context, bytes)
+		b.GT = b.driver.AllocateMemory(b.Context, bytes)
+		b.GSigma = b.driver.AllocateMemory(b.Context, bytes)
+		b.GCall = b.driver.AllocateMemory(b.Context, bytes)
+		b.GPut = b.driver.AllocateMemory(b.Context, bytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gS, b.hS)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gK, b.hK)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gT, b.hT)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gSigma, b.hSigma)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GS, b.HS)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GK, b.HK)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GT, b.HT)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GSigma, b.HSigma)
 }
 
 func (b *Benchmark) exec() {
@@ -185,18 +167,18 @@ func (b *Benchmark) exec() {
 	globalX := gridSize * blockSize
 
 	args := KernelArgs{
-		S:         b.gS,
-		K:         b.gK,
-		T:         b.gT,
-		Sigma:     b.gSigma,
+		S:         b.GS,
+		K:         b.GK,
+		T:         b.GT,
+		Sigma:     b.GSigma,
 		R:         riskFreeRate,
-		CallPrice: b.gCall,
-		PutPrice:  b.gPut,
+		CallPrice: b.GCall,
+		PutPrice:  b.GPut,
 		N:         int32(n),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -231,18 +213,18 @@ func (b *Benchmark) verify() error {
 	n := b.N
 	gpuCall := make([]float32, n)
 	gpuPut := make([]float32, n)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuCall); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuCall); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], gpuPut); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], gpuPut); err != nil {
 		return err
 	}
 
 	for i := 0; i < n; i++ {
-		s := b.hS[i]
-		k := b.hK[i]
-		t := b.hT[i]
-		v := b.hSigma[i]
+		s := b.HS[i]
+		k := b.HK[i]
+		t := b.HT[i]
+		v := b.HSigma[i]
 
 		sqrtT := float32(math.Sqrt(float64(t)))
 		d1 := (float32(math.Log(float64(s/k))) +
@@ -274,16 +256,18 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gCall, 4*(b.N)))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gPut, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GCall, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GPut, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -297,7 +281,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

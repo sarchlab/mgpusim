@@ -2,6 +2,7 @@ package imagenet
 
 import (
 	"fmt"
+
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 )
 
@@ -16,34 +17,12 @@ type State struct {
 	Training             bool
 }
 
-func (ds *DataSource) Snapshot() State {
-	d := ds.dataSet
-	return State{
-		d.directory,
-		d.mapClassToLabel,
-		d.mapTestToClass,
-		d.classes,
-		d.curClass,
-		d.curImage,
-		ds.currPtr,
-		d.isTrain,
+func Bind(to tensor.Operator, s *State) (*DataSource, error) {
+	if s == nil {
+		return nil, fmt.Errorf("missing ImageNet state")
 	}
-}
-func Restore(to tensor.Operator, s State) (*DataSource, error) {
 	if getDirPath() != s.Root {
 		return nil, fmt.Errorf("ImageNet input root changed: %q != %q", getDirPath(), s.Root)
 	}
-	return &DataSource{
-		to:      to,
-		currPtr: s.Cursor,
-		dataSet: &DataSet{
-			directory:       s.Root,
-			mapClassToLabel: s.ClassToLabel,
-			mapTestToClass:  s.TestToClass,
-			classes:         s.Classes,
-			curClass:        s.Class,
-			curImage:        s.Image,
-			isTrain:         s.Training,
-		},
-	}, nil
+	return &DataSource{State: s, to: to, dataSet: &DataSet{State: s}}, nil
 }

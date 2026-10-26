@@ -1,24 +1,27 @@
 package fp32throughput
 
 import (
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"io"
 )
 
-type checkpointState struct {
-	InitialConfig    checkpointConfig
-	ConfigCaptured   bool
-	Progress         benchmarks.Progress
-	Readbacks        []driver.CommandID
-	Context          driver.Context
-	Queue            driver.CommandQueue
-	Gpus             []int
-	Arch             arch.Type
-	NumBlocks        int
-	FmasPerThread    int
+type State struct {
+	benchmarks.Progress
+	Readbacks []driver.CommandID
+	Context   driver.Context
+	Queue     driver.CommandQueue
+	Gpus      []int
+	Arch      arch.Type
+	// NumBlocks is the number of thread blocks to launch.
+	NumBlocks int
+	// FmasPerThread is the number of FMA iterations per thread. It is rounded
+	// down to a multiple of 4 to match the kernel's 4-way unrolled loop.
+	FmasPerThread int
+	// ThreadsPerBlock is the work-group (block) size. Defaults to 256; must be
+	// <= 1024 (the gfx942 hardware maximum). The kernel reads blockDim.x, so any
+	// value launches correctly and the sweep can match the ground-truth
+	// threads_per_block dimension.
 	ThreadsPerBlock  int
 	GOut             driver.Ptr
 	UseUnifiedMemory bool
@@ -35,56 +38,15 @@ type checkpointConfig struct {
 
 func (b *Benchmark) checkpointConfig() checkpointConfig {
 	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.gpus,
+		Gpus:             b.Gpus,
 		Arch:             b.Arch,
 		NumBlocks:        b.NumBlocks,
 		FmasPerThread:    b.FmasPerThread,
 		ThreadsPerBlock:  b.ThreadsPerBlock,
-		UseUnifiedMemory: b.useUnifiedMemory,
+		UseUnifiedMemory: b.UseUnifiedMemory,
 	}
 }
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, b.configuration(), checkpointState{
-		InitialConfig:    b.initialConfig,
-		ConfigCaptured:   b.configCaptured,
-		Progress:         b.Progress,
-		Readbacks:        b.readbacks,
-		Context:          b.context,
-		Queue:            b.queue,
-		Gpus:             b.gpus,
-		Arch:             b.Arch,
-		NumBlocks:        b.NumBlocks,
-		FmasPerThread:    b.FmasPerThread,
-		ThreadsPerBlock:  b.ThreadsPerBlock,
-		GOut:             b.gOut,
-		UseUnifiedMemory: b.useUnifiedMemory,
-	}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.configuration(), &s, nil); err != nil {
-		return err
-	}
-	b.initialConfig = s.InitialConfig
-	b.configCaptured = s.ConfigCaptured
-	b.Progress = s.Progress
-	b.readbacks = s.Readbacks
-	b.context = s.Context
-	b.queue = s.Queue
-	b.gpus = s.Gpus
-	b.Arch = s.Arch
-	b.NumBlocks = s.NumBlocks
-	b.FmasPerThread = s.FmasPerThread
-	b.ThreadsPerBlock = s.ThreadsPerBlock
-	b.gOut = s.GOut
-	b.useUnifiedMemory = s.UseUnifiedMemory
+func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil
-}
-
-func (b *Benchmark) configuration() checkpointConfig {
-	if b.configCaptured {
-		return b.initialConfig
-	}
-	return b.checkpointConfig()
 }

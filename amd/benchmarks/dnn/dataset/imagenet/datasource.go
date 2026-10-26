@@ -8,7 +8,7 @@ import (
 type DataSource struct {
 	to      tensor.Operator
 	dataSet *DataSet
-	currPtr int
+	*State
 }
 
 // NewTrainingDataSource returns a DataSource object that fetches data from
@@ -19,6 +19,7 @@ func NewTrainingDataSource(to tensor.Operator) *DataSource {
 	}
 
 	ds.dataSet = NewDataSet(true)
+	ds.State = ds.dataSet.State
 
 	return ds
 }
@@ -31,6 +32,7 @@ func NewTestDataSource(to tensor.Operator) *DataSource {
 	}
 
 	ds.dataSet = NewDataSet(false)
+	ds.State = ds.dataSet.State
 
 	return ds
 }
@@ -64,7 +66,7 @@ func (ds *DataSource) NextBatch(batchSize int) (
 
 	data = ds.to.CreateWithData(rawData, []int{count, 3, imageInputSize, imageInputSize}, "NCHW")
 
-	ds.currPtr += count
+	ds.Cursor += count
 
 	return data, curLabel
 }
@@ -72,5 +74,5 @@ func (ds *DataSource) NextBatch(batchSize int) (
 // Rewind resets the pointer to the beginning of the dataset.
 func (ds *DataSource) Rewind() {
 	ds.dataSet.Reset()
-	ds.currPtr = 0
+	ds.Cursor = 0
 }

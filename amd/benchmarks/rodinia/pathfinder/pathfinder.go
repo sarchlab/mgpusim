@@ -11,15 +11,14 @@
 package pathfinder
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -48,26 +47,12 @@ type KernelArgs struct {
 
 // Benchmark defines the PathFinder benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
-	Rows int
-	Cols int
+	driver *driver.Runtime
 
-	wall      []int32
-	gWall     driver.Ptr
-	gBuf      [2]driver.Ptr
-	finalGBuf driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -76,9 +61,13 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new PathFinder benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -93,12 +82,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. PathFinder uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -110,8 +99,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -137,27 +126,27 @@ func (b *Benchmark) initMem() {
 	rows := b.Rows
 	cols := b.Cols
 
-	b.wall = genWall(rows, cols)
+	b.Wall = genWall(rows, cols)
 
 	wallBytes := uint64(rows * cols * 4)
 	rowBytes := uint64(cols * 4)
 
-	if b.useUnifiedMemory {
-		b.gWall = b.driver.AllocateUnifiedMemory(b.context, wallBytes)
-		b.gBuf[0] = b.driver.AllocateUnifiedMemory(b.context, rowBytes)
-		b.gBuf[1] = b.driver.AllocateUnifiedMemory(b.context, rowBytes)
+	if b.UseUnifiedMemory {
+		b.GWall = b.driver.AllocateUnifiedMemory(b.Context, wallBytes)
+		b.GBuf[0] = b.driver.AllocateUnifiedMemory(b.Context, rowBytes)
+		b.GBuf[1] = b.driver.AllocateUnifiedMemory(b.Context, rowBytes)
 	} else {
-		b.gWall = b.driver.AllocateMemory(b.context, wallBytes)
-		b.gBuf[0] = b.driver.AllocateMemory(b.context, rowBytes)
-		b.gBuf[1] = b.driver.AllocateMemory(b.context, rowBytes)
+		b.GWall = b.driver.AllocateMemory(b.Context, wallBytes)
+		b.GBuf[0] = b.driver.AllocateMemory(b.Context, rowBytes)
+		b.GBuf[1] = b.driver.AllocateMemory(b.Context, rowBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gWall, b.wall)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GWall, b.Wall)
 
 	// Initialize src buffer (gBuf[0]) with row 0 of the wall.
 	row0 := make([]int32, cols)
-	copy(row0, b.wall[:cols])
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gBuf[0], row0)
+	copy(row0, b.Wall[:cols])
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GBuf[0], row0)
 }
 
 func (b *Benchmark) exec() {
@@ -172,15 +161,15 @@ func (b *Benchmark) exec() {
 		dst := 1 - src
 
 		args := KernelArgs{
-			GPUWall: b.gWall,
-			GPUSrc:  b.gBuf[src],
-			GPUDst:  b.gBuf[dst],
+			GPUWall: b.GWall,
+			GPUSrc:  b.GBuf[src],
+			GPUDst:  b.GBuf[dst],
 			Cols:    int32(cols),
 			T:       int32(t),
 		}
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, 1, 1},
 			[3]uint16{blockSize, 1, 1},
@@ -191,7 +180,7 @@ func (b *Benchmark) exec() {
 	}
 
 	// After the loop, the most recent result is in b.gBuf[src].
-	b.finalGBuf = b.gBuf[src]
+	b.FinalGBuf = b.GBuf[src]
 }
 
 // Verify checks the GPU result against a CPU reference computation that
@@ -201,13 +190,13 @@ func (b *Benchmark) verify() error {
 	rows := b.Rows
 
 	gpuResult := make([]int32, cols)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuResult); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuResult); err != nil {
 		return err
 	}
 
 	src := make([]int32, cols)
 	dst := make([]int32, cols)
-	copy(src, b.wall[:cols])
+	copy(src, b.Wall[:cols])
 
 	for t := 1; t < rows; t++ {
 		for c := 0; c < cols; c++ {
@@ -229,7 +218,7 @@ func (b *Benchmark) verify() error {
 				min3 = right
 			}
 
-			dst[c] = b.wall[t*cols+c] + min3
+			dst[c] = b.Wall[t*cols+c] + min3
 		}
 		src, dst = dst, src
 	}
@@ -247,15 +236,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.finalGBuf, 4*(b.Cols)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalGBuf, 4*(b.Cols)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -269,7 +260,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

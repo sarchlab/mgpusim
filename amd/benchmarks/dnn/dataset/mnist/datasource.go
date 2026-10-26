@@ -7,20 +7,25 @@ import (
 
 // A DataSource provides convenient solution to feed data to neural networks.
 type DataSource struct {
-	to        tensor.Operator
-	dataSet   *DataSet
-	imageSize int
-	currPtr   int
-	allData   []float64
-	allLabel  []int
+	*training.ResidentDataSource
+	dataSet *DataSet
 }
 
 // NewTrainingDataSource returns a DataSource object that fetches data from
 // the training set.
 func NewTrainingDataSource(to tensor.Operator) *DataSource {
 	ds := &DataSource{
-		to:        to,
-		imageSize: 784,
+		ResidentDataSource: &training.ResidentDataSource{
+			Operator: to,
+			State: &training.DataState{
+				Shape: []int{
+					1,
+					28,
+					28,
+				},
+				Descriptor: "NCHW",
+			},
+		},
 	}
 
 	ds.dataSet = new(DataSet)
@@ -35,8 +40,17 @@ func NewTrainingDataSource(to tensor.Operator) *DataSource {
 // test set.
 func NewTestDataSource(to tensor.Operator) *DataSource {
 	ds := &DataSource{
-		to:        to,
-		imageSize: 784,
+		ResidentDataSource: &training.ResidentDataSource{
+			Operator: to,
+			State: &training.DataState{
+				Shape: []int{
+					1,
+					28,
+					28,
+				},
+				Descriptor: "NCHW",
+			},
+		},
 	}
 
 	ds.dataSet = new(DataSet)
@@ -54,48 +68,7 @@ func (ds *DataSource) loadAllData() {
 		for i := 0; i < len(d); i++ {
 			normalizedD[i] = float64(d[i]) / 255
 		}
-		ds.allData = append(ds.allData, normalizedD...)
-		ds.allLabel = append(ds.allLabel, int(l))
-	}
-}
-
-// NextBatch returns another batch of data.
-func (ds *DataSource) NextBatch(batchSize int) (
-	data tensor.Tensor,
-	label []int,
-) {
-	if ds.currPtr >= len(ds.allLabel) {
-		return nil, nil
-	}
-	start := ds.currPtr
-	end := start + batchSize
-
-	if end > len(ds.allLabel) {
-		end = len(ds.allLabel)
-	}
-
-	rawData := ds.allData[start*ds.imageSize : end*ds.imageSize]
-
-	data = ds.to.CreateWithData(rawData, []int{end - start, 1, 28, 28}, "NCHW")
-
-	label = ds.allLabel[start:end]
-
-	ds.currPtr = end
-
-	return data, label
-}
-
-// Rewind resets the pointer to the beginning of the dataset.
-func (ds *DataSource) Rewind() {
-	ds.currPtr = 0
-}
-
-func (ds *DataSource) SnapshotData() training.DataState {
-	return training.DataState{
-		Data:       ds.allData,
-		Labels:     ds.allLabel,
-		Shape:      []int{1, 28, 28},
-		Descriptor: "NCHW",
-		Cursor:     ds.currPtr,
+		ds.State.Data = append(ds.State.Data, normalizedD...)
+		ds.State.Labels = append(ds.State.Labels, int(l))
 	}
 }

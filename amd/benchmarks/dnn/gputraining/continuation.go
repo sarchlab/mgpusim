@@ -2,6 +2,7 @@ package gputraining
 
 import (
 	"fmt"
+
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/dataset/imagenet"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
@@ -13,40 +14,41 @@ import (
 )
 
 type SourceState struct {
-	ImageNet bool
-	Images   imagenet.State
-	Resident training.DataState
+	Images   *imagenet.State
+	Resident *training.DataState
 }
 
-func snapshotSource(d training.DataSource) (SourceState, error) {
+func sourceState(d training.DataSource) (SourceState, error) {
 	if d, ok := d.(*imagenet.DataSource); ok {
-		return SourceState{ImageNet: true, Images: d.Snapshot()}, nil
+		return SourceState{Images: d.State}, nil
 	}
-	if d, ok := d.(interface{ SnapshotData() training.DataState }); ok {
-		return SourceState{Resident: d.SnapshotData()}, nil
+	if d, ok := d.(interface{ SavedData() *training.DataState }); ok {
+		return SourceState{Resident: d.SavedData()}, nil
 	}
-	return SourceState{}, fmt.Errorf("data source %T has no saved continuation", d)
+	return SourceState{}, fmt.Errorf("unsupported saved data source %T", d)
 }
-func restoreSource(o *gputensor.GPUOperator, s SourceState) (training.DataSource, error) {
-	if s.ImageNet {
-		return imagenet.Restore(o, s.Images)
+func bindSource(o *gputensor.GPUOperator, s SourceState) (training.DataSource, error) {
+	if s.Images != nil {
+		return imagenet.Bind(o, s.Images)
+	}
+	if s.Resident == nil {
+		return nil, fmt.Errorf("missing resident data")
 	}
 	return &training.ResidentDataSource{State: s.Resident, Operator: o}, nil
 }
 
 type GPUState struct {
-	Operator      gputensor.OperatorState
+	Operator      *gputensor.OperatorState
 	Layers        []layers.State
 	Source        SourceState
 	Loss          string
-	Optimizer     optimization.State
+	Optimizer     *optimization.State
 	HasTester     bool
 	TestSource    SourceState
 	TestBatchSize int
 }
 
-// State includes every host-side training continuation. Simulated memory and
-// pending commands are separately owned by the simulation's resources.
+// State is the trainer's actual continuation, including the canonical graph.
 type State struct {
 	GPUs                                []int
 	Contexts                            []driver.Context
@@ -56,7 +58,7 @@ type State struct {
 	Phase                               string
 	CurrentEpoch, Batch, Layer, TestGPU int
 	Ended                               bool
-	Values, LossInputs, Derivatives     []gputensor.TensorState
+	Values, LossInputs, Derivatives     []tensor.ID
 	Labels                              [][]int
 	Readbacks, LossReadbacks            []driver.CommandID
 	Collective                          *mccl.Collective
@@ -64,119 +66,45 @@ type State struct {
 	LastLoss, LastAccuracy              []float64
 }
 
-func snapshotTensors(ts []tensor.Tensor) []gputensor.TensorState {
-	out := make([]gputensor.TensorState, len(ts))
-	for i, t := range ts {
-		out[i] = gputensor.Snapshot(t)
-	}
-	return out
-}
-func (t *DataParallelismMultiGPUTrainer) Snapshot() (State, error) {
-	s := State{
-		GPUs:             t.GPUs,
-		Contexts:         t.Contexts,
-		Epoch:            t.Epoch,
-		MaxBatchPerEpoch: t.MaxBatchPerEpoch,
-		BatchSize:        t.BatchSize,
-		ShowBatchInfo:    t.ShowBatchInfo,
-		Phase:            t.phase,
-		CurrentEpoch:     t.epoch,
-		Batch:            t.batch,
-		Layer:            t.layer,
-		TestGPU:          t.testGPU,
-		Ended:            t.ended,
-		Values:           snapshotTensors(t.values),
-		LossInputs:       snapshotTensors(t.lossInputs),
-		Derivatives:      snapshotTensors(t.derivatives),
-		Labels:           t.labels,
-		Readbacks:        t.readbacks,
-		LossReadbacks:    t.lossReadbacks,
-		Collective:       t.collective,
-		Buffers:          t.buffers,
-		LastLoss:         t.LastLoss,
-		LastAccuracy:     t.LastAccuracy,
-	}
+// Connect registers a newly constructed graph's actual states exactly once.
+// It is not used by SaveCheckpoint or by subsequent steps.
+func (t *DataParallelismMultiGPUTrainer) Connect() error {
+	t.State.Networks = nil
 	for i := range t.Networks {
-		g, err := t.snapshotGPU(i)
+		g, err := t.connectGPU(i)
 		if err != nil {
-			return State{}, err
+			return err
 		}
-		s.Networks = append(s.Networks, g)
+		t.State.Networks = append(t.State.Networks, g)
 	}
-
-	return s, nil
+	return nil
 }
-func Restore(r *driver.Runtime, s State) (DataParallelismMultiGPUTrainer, error) {
-	t := DataParallelismMultiGPUTrainer{
-		Driver:           r,
-		GPUs:             s.GPUs,
-		Contexts:         s.Contexts,
-		Epoch:            s.Epoch,
-		MaxBatchPerEpoch: s.MaxBatchPerEpoch,
-		BatchSize:        s.BatchSize,
-		ShowBatchInfo:    s.ShowBatchInfo,
-		phase:            s.Phase,
-		epoch:            s.CurrentEpoch,
-		batch:            s.Batch,
-		layer:            s.Layer,
-		testGPU:          s.TestGPU,
-		ended:            s.Ended,
-		labels:           s.Labels,
-		readbacks:        s.Readbacks,
-		lossReadbacks:    s.LossReadbacks,
-		collective:       s.Collective,
-		buffers:          s.Buffers,
-		LastLoss:         s.LastLoss,
-		LastAccuracy:     s.LastAccuracy,
+
+// Bind reconstructs only runtime/interface bindings to a saved graph.
+func Bind(r *driver.Runtime, s *State) (DataParallelismMultiGPUTrainer, error) {
+	t := DataParallelismMultiGPUTrainer{State: s, Driver: r}
+	if s == nil {
+		return t, fmt.Errorf("missing trainer state")
 	}
 	for _, g := range s.Networks {
-		if err := t.restoreGPU(g); err != nil {
+		if err := t.bindGPU(g); err != nil {
 			return t, err
 		}
 	}
-
-	t.restoreContinuation(s)
 	return t, nil
 }
-
-func (t *DataParallelismMultiGPUTrainer) restoreContinuation(s State) {
-	restore := func(states []gputensor.TensorState) []tensor.Tensor {
-		out := make([]tensor.Tensor, len(states))
-		for i, v := range states {
-			index := i
-			if s.Phase == "testForward" || s.Phase == "testRead" {
-				index = s.TestGPU
-			}
-			out[i] = t.TensorOperators[index].RestoreTensor(v)
-		}
-		return out
-	}
-	t.values = restore(s.Values)
-	t.lossInputs = restore(s.LossInputs)
-	t.derivatives = restore(s.Derivatives)
-	// CrossEntropy uses the output itself as the loss input. Preserve that host
-	// ownership relation so the post-read phase releases the allocation once.
-	if s.Phase == "lossRead" {
-		for i := range t.values {
-			if s.Networks[i].Loss == "crossentropy" {
-				t.lossInputs[i] = t.values[i]
-			}
-		}
-	}
-}
-
-func (t *DataParallelismMultiGPUTrainer) snapshotGPU(i int) (GPUState, error) {
+func (t *DataParallelismMultiGPUTrainer) connectGPU(i int) (GPUState, error) {
 	n := t.Networks[i]
-	g := GPUState{Operator: t.TensorOperators[i].Snapshot()}
+	g := GPUState{Operator: t.TensorOperators[i].OperatorState}
 	var err error
 	for _, l := range n.Layers {
-		state, e := layers.Snapshot(l)
+		state, e := layers.StateOf(l)
 		if e != nil {
 			return GPUState{}, e
 		}
 		g.Layers = append(g.Layers, state)
 	}
-	g.Source, err = snapshotSource(t.DataSource[i])
+	g.Source, err = sourceState(t.DataSource[i])
 	if err != nil {
 		return GPUState{}, err
 	}
@@ -188,14 +116,14 @@ func (t *DataParallelismMultiGPUTrainer) snapshotGPU(i int) (GPUState, error) {
 	default:
 		return GPUState{}, fmt.Errorf("unsupported loss %T", t.LossFunc[i])
 	}
-	g.Optimizer, err = optimization.Snapshot(t.OptimizationAlg[i], n.Layers)
+	g.Optimizer, err = optimization.StateOf(t.OptimizationAlg[i])
 	if err != nil {
 		return GPUState{}, err
 	}
 	if i < len(t.Tester) && t.Tester[i] != nil {
 		g.HasTester = true
 		g.TestBatchSize = t.Tester[i].BatchSize
-		g.TestSource, err = snapshotSource(t.Tester[i].DataSource)
+		g.TestSource, err = sourceState(t.Tester[i].DataSource)
 		if err != nil {
 			return GPUState{}, err
 		}
@@ -203,21 +131,21 @@ func (t *DataParallelismMultiGPUTrainer) snapshotGPU(i int) (GPUState, error) {
 	return g, nil
 }
 
-func (t *DataParallelismMultiGPUTrainer) restoreGPU(g GPUState) error {
-	o := gputensor.RestoreOperator(t.Driver, g.Operator)
+func (t *DataParallelismMultiGPUTrainer) bindGPU(g GPUState) error {
+	o := gputensor.BindOperator(t.Driver, g.Operator)
 	n := training.Network{}
 	for _, saved := range g.Layers {
-		l, err := layers.Restore(o, saved)
+		l, err := layers.Bind(o, saved)
 		if err != nil {
 			return err
 		}
 		n.Layers = append(n.Layers, l)
 	}
-	d, err := restoreSource(o, g.Source)
+	d, err := bindSource(o, g.Source)
 	if err != nil {
 		return err
 	}
-	alg, err := optimization.Restore(o, n.Layers, g.Optimizer)
+	alg, err := optimization.Bind(o, g.Optimizer)
 	if err != nil {
 		return err
 	}
@@ -232,7 +160,7 @@ func (t *DataParallelismMultiGPUTrainer) restoreGPU(g GPUState) error {
 	}
 	var tester *training.Tester
 	if g.HasTester {
-		source, err := restoreSource(o, g.TestSource)
+		source, err := bindSource(o, g.TestSource)
 		if err != nil {
 			return err
 		}

@@ -3,15 +3,14 @@
 package fastwalshtransform
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -47,36 +46,33 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readback       driver.CommandID
-	driver         *driver.Runtime
-	context        driver.Context
-	gpus           []int
-	queues         []driver.CommandQueue
-	kernel         *insts.KernelCodeObject
+	*State
+	benchmarks.Saved[checkpointConfig,
 
-	Arch           arch.Type
-	Length         uint32
-	hInputArray    []float32
-	hVerInputArray []float32
-	dInputArray    driver.Ptr
+		State,
+	]
 
-	useUnifiedMemory bool
+	driver *driver.Runtime
+
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig,
+		b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 //go:embed kernels.hsaco
@@ -100,16 +96,16 @@ func (b *Benchmark) loadProgram() {
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
 	b.loadProgram()
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	for _, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
 	}
 
 	b.initMem()
@@ -118,22 +114,22 @@ func (b *Benchmark) setup() {
 func (b *Benchmark) initMem() {
 	rng := rand.New(rand.NewSource(123))
 
-	b.hInputArray = make([]float32, b.Length)
-	b.hVerInputArray = make([]float32, b.Length)
+	b.HInputArray = make([]float32, b.Length)
+	b.HVerInputArray = make([]float32, b.Length)
 
 	for i := uint32(0); i < b.Length; i++ {
 		temp := rng.Float32() + float32(rng.Int31n(255))
-		b.hInputArray[i] = temp
-		b.hVerInputArray[i] = temp
+		b.HInputArray[i] = temp
+		b.HVerInputArray[i] = temp
 	}
 
-	if b.useUnifiedMemory {
-		b.dInputArray = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+	if b.UseUnifiedMemory {
+		b.DInputArray = b.driver.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
 	} else {
-		b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+		b.DInputArray = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queues[0], b.dInputArray, b.hInputArray)
+	b.driver.EnqueueMemCopyH2D(b.Queues[0], b.DInputArray, b.HInputArray)
 }
 
 func printArray(array []float32, n uint32) {
@@ -152,7 +148,7 @@ func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
 		wgSizeZ := uint16(1)
 
 		kernArg := CDNA3KernelArgs{
-			TArray: b.dInputArray,
+			TArray: b.DInputArray,
 			Step:   step,
 			// Hidden kernel arguments for GFX942
 			HiddenBlockCountX:   globalThreadSize / uint32(wgSizeX),
@@ -179,7 +175,7 @@ func (b *Benchmark) execStage(queue driver.CommandQueue, step uint32) {
 		)
 	} else {
 		kernArg := GCN3KernelArgs{
-			TArray: b.dInputArray,
+			TArray: b.DInputArray,
 			Step:   step,
 		}
 
@@ -201,19 +197,19 @@ func (b *Benchmark) verify() error {
 			for pair := group; pair < b.Length; pair += jump {
 				match := pair + step
 
-				T1 := b.hVerInputArray[pair]
-				T2 := b.hVerInputArray[match]
+				T1 := b.HVerInputArray[pair]
+				T2 := b.HVerInputArray[match]
 
-				b.hVerInputArray[pair] = T1 + T2
-				b.hVerInputArray[match] = T1 - T2
+				b.HVerInputArray[pair] = T1 + T2
+				b.HVerInputArray[match] = T1 - T2
 			}
 		}
 	}
 
 	for i := uint32(0); i < b.Length; i++ {
-		if b.hInputArray[i] != b.hVerInputArray[i] {
+		if b.HInputArray[i] != b.HVerInputArray[i] {
 			return fmt.Errorf("%s", fmt.Sprint(fmt.Sprintf("Mismatch at %d, expected %f found %f",
-				i, b.hInputArray[i], b.hVerInputArray[i])))
+				i, b.HInputArray[i], b.HVerInputArray[i])))
 		}
 	}
 
@@ -223,24 +219,26 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
-		for _, queue := range b.queues {
+		for _, queue := range b.Queues {
 			for step := uint32(1); step < b.Length; step <<= 1 {
 				b.execStage(queue, step)
 			}
 		}
 		b.Phase = 2
 	case 2:
-		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.dInputArray, int(b.Length)*4)
+		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.DInputArray, int(b.Length)*4)
 		b.Phase = 3
 	case 3:
-		if err := b.driver.ReadResult(b.readback, b.hInputArray); err != nil {
+		if err := b.driver.ReadResult(b.Readback, b.HInputArray); err != nil {
 			return err
 		}
 		if b.Verification {

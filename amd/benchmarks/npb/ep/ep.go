@@ -16,15 +16,14 @@
 package ep
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -52,22 +51,12 @@ type KernelArgs struct {
 
 // Benchmark defines the NPB EP benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
-	N    int
+	driver *driver.Runtime
 
-	gBinOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -76,9 +65,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new NPB EP benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -92,12 +83,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. EP uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -109,8 +100,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -120,12 +111,12 @@ func (b *Benchmark) initMem() {
 		b.N = 4096
 	}
 
-	if b.useUnifiedMemory {
-		b.gBinOut = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.N*4))
+	if b.UseUnifiedMemory {
+		b.GBinOut = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.N*4))
 	} else {
-		b.gBinOut = b.driver.AllocateMemory(
-			b.context, uint64(b.N*4))
+		b.GBinOut = b.driver.AllocateMemory(
+			b.Context, uint64(b.N*4))
 	}
 }
 
@@ -136,11 +127,11 @@ func (b *Benchmark) exec() {
 
 	args := KernelArgs{
 		N:      int32(n),
-		BinOut: b.gBinOut,
+		BinOut: b.GBinOut,
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -191,7 +182,7 @@ func cpuBin(idx int) int32 {
 func (b *Benchmark) verify() error {
 	n := b.N
 	gpuBins := make([]int32, n)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuBins); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuBins); err != nil {
 		return err
 	}
 
@@ -229,15 +220,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gBinOut, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GBinOut, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -251,7 +244,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

@@ -10,13 +10,12 @@
 package emptykernel
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -30,24 +29,12 @@ type emptyArgs struct {
 
 // Benchmark defines the empty_kernel benchmark.
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readback       driver.CommandID
-	driver         *driver.Runtime
-	context        driver.Context
-	queue          driver.CommandQueue
-	hsaco          *insts.KernelCodeObject
-	gpus           []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// NumBlocks is the number of work-groups in the (empty) grid; the scaling axis.
-	NumBlocks int
-	// BlockSize is the number of work-items per work-group.
-	BlockSize int
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -56,9 +43,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new empty_kernel benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -73,12 +63,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. empty_kernel uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -90,8 +80,8 @@ func (b *Benchmark) setup() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 }
 
 func (b *Benchmark) exec() {
@@ -104,17 +94,17 @@ func (b *Benchmark) exec() {
 
 	// A tiny unused buffer just to give the kernel a valid (non-zero) kernarg.
 	var out driver.Ptr
-	if b.useUnifiedMemory {
-		out = b.driver.AllocateUnifiedMemory(b.context, 4)
+	if b.UseUnifiedMemory {
+		out = b.driver.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		out = b.driver.AllocateMemory(b.context, 4)
+		out = b.driver.AllocateMemory(b.Context, 4)
 	}
 
 	globalX := uint32(b.NumBlocks * b.BlockSize)
 	args := emptyArgs{Out: out}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.BlockSize), 1, 1},
@@ -130,10 +120,12 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.exec()
 		b.Phase = 1

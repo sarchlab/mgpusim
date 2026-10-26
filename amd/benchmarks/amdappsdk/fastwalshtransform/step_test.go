@@ -55,7 +55,7 @@ func TestAllQueueStagesSubmittedTogether(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &checkpoint); err != nil {
 		t.Fatal(err)
 	}
-	for _, queue := range b.queues {
+	for _, queue := range b.Queues {
 		launches := 0
 		for _, command := range checkpoint.State.State.Queues[queue-1].Pending {
 			if len(command.Packets) != 0 {

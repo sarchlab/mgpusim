@@ -1,12 +1,10 @@
 package lenet
 
 import (
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputraining"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"io"
 )
 
 type checkpointConfig struct {
@@ -15,15 +13,19 @@ type checkpointConfig struct {
 	Epoch, BatchSize, MaxBatchPerEpoch int
 	Verification, Testing              bool
 }
-type checkpointState struct {
-	Progress benchmarks.Progress
-	Context  driver.Context
-	Trainer  gputraining.State
+type State struct {
+	benchmarks.Progress
+	Context                            driver.Context
+	GPUs                               []int
+	Arch                               arch.Type
+	Epoch, BatchSize, MaxBatchPerEpoch int
+	EnableVerification, EnableTesting  bool
+	Trainer                            gputraining.State
 }
 
 func (b *Benchmark) configuration() checkpointConfig {
 	return checkpointConfig{
-		b.gpus,
+		b.GPUs,
 		b.Arch,
 		b.Epoch,
 		b.BatchSize,
@@ -32,24 +34,12 @@ func (b *Benchmark) configuration() checkpointConfig {
 		b.EnableTesting,
 	}
 }
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	s, err := b.trainer.Snapshot()
+
+func (b *Benchmark) bind() error {
+	t, err := gputraining.Bind(b.driver, &b.Trainer)
 	if err != nil {
 		return err
 	}
-	return modeling.WriteCheckpoint(w, b.configuration(), checkpointState{b.Progress, b.ctx, s}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.configuration(), &s, nil); err != nil {
-		return err
-	}
-	t, err := gputraining.Restore(b.driver, s.Trainer)
-	if err != nil {
-		return err
-	}
-	b.Progress = s.Progress
-	b.ctx = s.Context
 	b.trainer = t
 	b.to = t.TensorOperators
 	b.contexts = t.Contexts

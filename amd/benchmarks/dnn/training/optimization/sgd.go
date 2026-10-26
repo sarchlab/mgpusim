@@ -6,17 +6,14 @@ import (
 
 // SGD is an optimizer that runs SGD algorithm
 type SGD struct {
-	to           tensor.Operator
-	LearningRate float64
+	*State
+	to   tensor.Operator
+	refs tensor.References
 }
 
 // NewSGD creates a new SGD object.
 func NewSGD(to tensor.Operator, learningRate float64) *SGD {
-	sgd := &SGD{
-		to:           to,
-		LearningRate: learningRate,
-	}
-	return sgd
+	return &SGD{State: &State{Kind: "sgd", LearningRate: learningRate}, to: to, refs: tensor.NewReferences(to)}
 }
 
 // UpdateParameters modifies the layer parameter using the sgd algorithm.

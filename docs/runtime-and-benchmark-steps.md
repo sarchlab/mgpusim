@@ -4,8 +4,11 @@ The host API belongs to `driver.Runtime`, a named simulation resource. A runtime
 owns contexts, stream queues, allocations, submitted commands, readback bytes,
 and timestamp events. `driver.Comp`, always named `Driver`, owns only simulated
 execution and protocol state. Its immutable `Spec` describes GPU destinations,
-device properties, copy delays, and allocator configuration. Both objects use
-the same page table; all live resources are supplied before building Driver.
+frequency, and copy timing. `RuntimeSpec` independently owns page size, allocator
+selection, and device memory/CU properties. Driver reads those shared settings
+through its Runtime resource. Both objects use the same page table; all live
+resources are supplied before building Driver. Their checkpoint configuration
+checks follow these separate ownership boundaries.
 
 A platform builder registers hardware and resources with `Simulation`. It
 returns the Runtime. The command-line `sample.Config` composes a platform and
@@ -87,6 +90,58 @@ readback; mutations invalidate cached host values, including aliased views.
 Cross-GPU MCCL collectives are explicit saved phase objects. Each `Step(runtime)`
 enqueues one communication stage; the owning benchmark waits for the global
 simulation drain before advancing the next stage.
+
+## Direct saved state
+
+A benchmark uses one serializable `State` for execution. The common
+`benchmarks.Saved[Config, State]` supplies SaveCheckpoint/LoadCheckpoint;
+there is no second snapshot struct or field-copy synchronization pass.
+The embedded state pointer aliases the exact state owned by Saved:
+
+```go
+type State struct {
+    benchmarks.Progress
+    Length int
+    Queue driver.CommandQueue
+    Output []float32
+}
+type Config struct { Length int; Verify bool }
+type Benchmark struct {
+    *State
+    benchmarks.Saved[Config, State]
+    runtime *driver.Runtime // transient binding, excluded from State
+}
+func NewBenchmark(rt *driver.Runtime) *Benchmark {
+    b := &Benchmark{State: &State{}, runtime: rt}
+    b.Saved = benchmarks.NewSaved(b.State,
+        func() Config { return Config{b.Length, b.Verification} },
+        b.bind)
+    return b
+}
+func (b *Benchmark) Step() error {
+    if err := b.Prepare(); err != nil { return err }
+    // Normalize defaults and advance b.State directly here.
+    return nil
+}
+```
+
+Prepare captures requested configuration before a first Step normalizes defaults;
+a pre-Step Save or Load also captures it. Loading checks configuration and decodes
+before replacing state. The state address remains stable, and the typed `bind`
+hook reconnects kernel/runtime/interface references without allocation or command
+submission. Nested state can be replaced, so these bindings are rebuilt even
+when loading into an already-used benchmark. A failed binding prevents execution
+until a successful load, rather than leaving a partially bound runnable object.
+
+DNN operator state contains the canonical live tensor registry. Layers,
+optimizers and trainer continuations store tensor IDs, so two references to the
+same tensor resolve to the same object after binding. Device views have distinct
+IDs and share the operator mutation epoch for host-cache invalidation. Free
+retires a tensor ID immediately while pending physical frees retain its device
+address until the batch drains. Replaced CPU-only layer reference slots are
+retired too. Layer/optimizer states and dataset cursors are the actual objects
+used by execution, linked into the saved trainer graph once at construction;
+checkpointing does not assemble a parallel graph.
 
 ## Checkpoint boundaries and migration
 

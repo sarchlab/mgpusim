@@ -43,13 +43,13 @@ var _ = Describe("Conv2d", func() {
 			[]int{1, 1, 3, 3},
 			"NCHW")
 
-		to.Init(layer.weights,
+		to.Init(layer.refs.Resolve(layer.WeightsID),
 			[]float64{
 				1.1, 1.2, 1.3,
 				2.1, 2.2, 2.3,
 				3.1, 3.2, 3.3,
 			})
-		to.Init(layer.bias, []float64{1.0})
+		to.Init(layer.refs.Resolve(layer.BiasID), []float64{1.0})
 
 		output := layer.Forward(input)
 
@@ -85,13 +85,13 @@ var _ = Describe("Conv2d", func() {
 			[]int{1, 1, 5, 5},
 			"NCHW")
 
-		to.Init(layer.weights,
+		to.Init(layer.refs.Resolve(layer.WeightsID),
 			[]float64{
 				1.1, 1.2, 1.3,
 				2.1, 2.2, 2.3,
 				3.1, 3.2, 3.3,
 			})
-		to.Init(layer.bias, []float64{1.0})
+		to.Init(layer.refs.Resolve(layer.BiasID), []float64{1.0})
 
 		output := layer.Forward(input)
 
@@ -127,7 +127,7 @@ var _ = Describe("Conv2d", func() {
 			[]int{2, 3, 3, 3},
 			"NCHW")
 
-		to.Init(layer.weights,
+		to.Init(layer.refs.Resolve(layer.WeightsID),
 			[]float64{
 				1.111, 1.112, 1.113, 1.121, 1.122, 1.123, 1.131, 1.132, 1.133,
 				1.211, 1.212, 1.213, 1.221, 1.222, 1.223, 1.231, 1.232, 1.233,
@@ -142,7 +142,7 @@ var _ = Describe("Conv2d", func() {
 				4.211, 4.212, 4.213, 4.221, 4.222, 4.223, 4.231, 4.232, 4.233,
 				4.111, 4.112, 4.113, 4.121, 4.122, 4.123, 4.131, 4.132, 4.133,
 			})
-		to.Init(layer.bias, []float64{1.0, 2.0, 3.0, 4.0})
+		to.Init(layer.refs.Resolve(layer.BiasID), []float64{1.0, 2.0, 3.0, 4.0})
 
 		output := layer.Forward(input)
 
@@ -199,16 +199,16 @@ var _ = Describe("Conv2d", func() {
 			[]int{1, 1},
 		)
 
-		to.Init(layer.weights, []float64{
+		to.Init(layer.refs.Resolve(layer.WeightsID), []float64{
 			1.1, 1.2, 1.3,
 			2.1, 2.2, 2.3,
 			3.1, 3.2, 3.3})
 
-		layer.forwardInput = to.CreateWithData([]float64{
+		layer.ForwardInputID = layer.refs.Replace(layer.ForwardInputID, to.CreateWithData([]float64{
 			1.1, 1.2, 1.3,
 			2.1, 2.2, 2.3,
 			3.1, 3.2, 3.3,
-		}, []int{1, 1, 3, 3}, "NCHW")
+		}, []int{1, 1, 3, 3}, "NCHW"))
 
 		backwardInput := to.CreateWithData([]float64{
 			1.1, 1.2, 1.3,
@@ -232,8 +232,8 @@ var _ = Describe("Conv2d", func() {
 				27.08, 42.2, 29.24,
 			}, []int{1, 1, 3, 3}, "")
 
-		tensorMatch(layer.weightGradients, expectedWeightGradient)
-		tensorMatch(layer.biasGradients, expectedBiasGradient)
+		tensorMatch(layer.refs.Resolve(layer.WeightGradientsID), expectedWeightGradient)
+		tensorMatch(layer.refs.Resolve(layer.BiasGradientsID), expectedBiasGradient)
 		tensorMatch(backwardOutput, expectedInputGradient)
 	})
 
@@ -247,17 +247,17 @@ var _ = Describe("Conv2d", func() {
 			[]int{1, 1},
 		)
 
-		to.Init(layer.weights, []float64{
+		to.Init(layer.refs.Resolve(layer.WeightsID), []float64{
 			1.1, 1.2,
 			2.1, 2.2,
 		})
 
-		layer.forwardInput = to.CreateWithData([]float64{
+		layer.ForwardInputID = layer.refs.Replace(layer.ForwardInputID, to.CreateWithData([]float64{
 			1.1, 1.2, 1.3, 1.4,
 			2.1, 2.2, 2.3, 2.4,
 			3.1, 3.2, 3.3, 3.4,
 			4.1, 4.2, 4.3, 4.4,
-		}, []int{1, 1, 4, 4}, "NCHW")
+		}, []int{1, 1, 4, 4}, "NCHW"))
 
 		backwardInput := to.CreateWithData([]float64{
 			1.1, 1.2, 1.3,
@@ -281,8 +281,8 @@ var _ = Describe("Conv2d", func() {
 				3.72, 3.52, 3.84, 3.63,
 			}, []int{1, 1, 4, 4}, "")
 
-		tensorMatch(layer.weightGradients, expectedWeightGradient)
-		tensorMatch(layer.biasGradients, expectedBiasGradient)
+		tensorMatch(layer.refs.Resolve(layer.WeightGradientsID), expectedWeightGradient)
+		tensorMatch(layer.refs.Resolve(layer.BiasGradientsID), expectedBiasGradient)
 		tensorMatch(backwardOutput, expectedInputGradient)
 	})
 
@@ -296,7 +296,7 @@ var _ = Describe("Conv2d", func() {
 			[]int{1, 1},
 		)
 
-		to.Init(layer.weights, []float64{
+		to.Init(layer.refs.Resolve(layer.WeightsID), []float64{
 			1.111, 1.112, 1.113,
 			1.121, 1.122, 1.123,
 			1.131, 1.132, 1.133,
@@ -346,14 +346,14 @@ var _ = Describe("Conv2d", func() {
 			4.331, 4.332, 4.333,
 		})
 
-		layer.forwardInput = to.CreateWithData([]float64{
+		layer.ForwardInputID = layer.refs.Replace(layer.ForwardInputID, to.CreateWithData([]float64{
 			1.111, 1.112, 1.113, 1.121, 1.122, 1.123, 1.131, 1.132, 1.133,
 			1.211, 1.212, 1.213, 1.221, 1.222, 1.223, 1.231, 1.232, 1.233,
 			1.311, 1.312, 1.313, 1.321, 1.322, 1.323, 1.331, 1.332, 1.333,
 			2.111, 2.112, 2.113, 2.121, 2.122, 2.123, 2.131, 2.132, 2.133,
 			2.211, 2.212, 2.213, 2.221, 2.222, 2.223, 2.231, 2.232, 2.233,
 			2.311, 2.312, 2.313, 2.321, 2.322, 2.323, 2.331, 2.332, 2.333,
-		}, []int{2, 3, 3, 3}, "NCHW")
+		}, []int{2, 3, 3, 3}, "NCHW"))
 
 		backwardInput := to.CreateWithData([]float64{
 			1.111, 1.112, 1.113, 1.121, 1.122, 1.123, 1.131, 1.132, 1.133,
@@ -446,8 +446,8 @@ var _ = Describe("Conv2d", func() {
 				104.952032, 157.48928, 105.033696,
 			}, []int{2, 3, 3, 3}, "")
 
-		tensorMatch(layer.weightGradients, expectedWeightGradient)
-		tensorMatch(layer.biasGradients, expectedBiasGradient)
+		tensorMatch(layer.refs.Resolve(layer.WeightGradientsID), expectedWeightGradient)
+		tensorMatch(layer.refs.Resolve(layer.BiasGradientsID), expectedBiasGradient)
 		tensorMatch(backwardOutput, expectedInputGradient)
 	})
 

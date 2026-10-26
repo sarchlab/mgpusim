@@ -4,7 +4,6 @@ package vgg16
 import (
 	"math"
 
-	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/dataset/imagenet"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
@@ -17,49 +16,44 @@ import (
 
 // Benchmark defines the VGG16 network training benchmark.
 type Benchmark struct {
-	benchmarks.Progress
-	Arch     arch.Type
-	driver   *driver.Runtime
-	ctx      driver.Context
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+	driver  *driver.Runtime
+	trainer gputraining.DataParallelismMultiGPUTrainer
+
 	to       []*gputensor.GPUOperator
-	gpus     []int
-	contexts []driver.Context
-
 	networks []training.Network
-	trainer  gputraining.DataParallelismMultiGPUTrainer
-
-	BatchSize          int
-	Epoch              int
-	MaxBatchPerEpoch   int
-	EnableTesting      bool
-	EnableVerification bool
+	contexts []driver.Context
 }
 
 // NewBenchmark creates a new benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.configuration, b.bind)
 
 	b.driver = driver
-	b.ctx = driver.Init()
+	b.Context = driver.Init()
 
 	return b
 }
 
 // SelectGPU selects the GPU to use.
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpus = gpuIDs
+	b.GPUs = gpuIDs
 }
 
-func (b *Benchmark) init() {
-	for _, gpu := range b.gpus {
+func (b *Benchmark) init() error {
+	for _, gpu := range b.GPUs {
 		b.defineNetwork(gpu)
 	}
 
 	b.createTrainer()
+	return b.trainer.Connect()
 }
 
 func (b *Benchmark) defineNetwork(gpuID int) {
-	context := b.driver.InitWithExistingPID(b.ctx)
+	context := b.driver.InitWithExistingPID(b.Context)
 	b.driver.SelectGPU(context, gpuID)
 	to := gputensor.NewGPUOperator(b.driver, context)
 	to.Arch = b.Arch
@@ -139,30 +133,37 @@ func (b *Benchmark) createTrainer() {
 		}
 	}
 
-	b.trainer = gputraining.DataParallelismMultiGPUTrainer{
-		TensorOperators:  b.to,
-		DataSource:       sources,
-		Networks:         b.networks,
-		LossFunc:         lossFuncs,
-		OptimizationAlg:  alg,
-		Tester:           testers,
+	b.Trainer = gputraining.State{
 		Epoch:            b.Epoch,
 		MaxBatchPerEpoch: b.MaxBatchPerEpoch,
 		BatchSize:        b.BatchSize,
 		ShowBatchInfo:    true,
-		GPUs:             b.gpus,
+		GPUs:             b.GPUs,
 		Contexts:         b.contexts,
-		Driver:           b.driver,
+	}
+	b.trainer = gputraining.DataParallelismMultiGPUTrainer{State: &b.Trainer,
+		TensorOperators: b.to,
+		DataSource:      sources,
+		Networks:        b.networks,
+		LossFunc:        lossFuncs,
+		OptimizationAlg: alg,
+		Tester:          testers,
+		Driver:          b.driver,
 	}
 }
 
 // Step submits one training phase after the previous global batch drained.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
 	if b.Ended {
 		return nil
 	}
 	if b.Phase == 0 {
-		b.init()
+		if err := b.init(); err != nil {
+			return err
+		}
 		b.Phase = 1
 	}
 	if err := b.trainer.Step(); err != nil {

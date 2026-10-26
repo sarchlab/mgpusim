@@ -15,6 +15,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
@@ -42,6 +43,7 @@ func (b *trainingWorkload) Step() error {
 	return nil
 }
 func (b *trainingWorkload) initialize() {
+	b.trainer.State = &State{}
 	t := &b.trainer
 	t.Driver = b.runtime
 	t.Epoch = 2
@@ -66,7 +68,7 @@ func (b *trainingWorkload) initialize() {
 		}
 		source := &training.ResidentDataSource{
 			Operator: o,
-			State:    training.DataState{Data: data, Labels: []int{gpu - 1}, Shape: []int{1, 4, 4}, Descriptor: "NCHW"},
+			State:    &training.DataState{Data: data, Labels: []int{gpu - 1}, Shape: []int{1, 4, 4}, Descriptor: "NCHW"},
 		}
 		t.TensorOperators = append(t.TensorOperators, o)
 		t.Contexts = append(t.Contexts, ctx)
@@ -75,26 +77,25 @@ func (b *trainingWorkload) initialize() {
 		t.LossFunc = append(t.LossFunc, training.NewSoftmaxCrossEntropy(o))
 		t.OptimizationAlg = append(t.OptimizationAlg, optimization.NewAdam(o, 0.01))
 	}
+	if err := t.Connect(); err != nil {
+		panic(err)
+	}
 }
 
 type workloadState struct {
 	Progress benchmarks.Progress
-	Trainer  State
+	Trainer  *State
 }
 
 func (b *trainingWorkload) SaveCheckpoint(w io.Writer) error {
-	s, err := b.trainer.Snapshot()
-	if err != nil {
-		return err
-	}
-	return modeling.WriteCheckpoint(w, "tiny-conv-training-v1", workloadState{b.Progress, s}, nil)
+	return modeling.WriteCheckpoint(w, "tiny-conv-training-v1", workloadState{b.Progress, b.trainer.State}, nil)
 }
 func (b *trainingWorkload) LoadCheckpoint(r io.Reader) error {
 	var s workloadState
 	if err := modeling.ReadCheckpoint(r, "tiny-conv-training-v1", &s, nil); err != nil {
 		return err
 	}
-	t, err := Restore(b.runtime, s.Trainer)
+	t, err := Bind(b.runtime, s.Trainer)
 	if err != nil {
 		return err
 	}
@@ -125,10 +126,7 @@ func finishCollectiveTraining(t *testing.T, s *sim.Simulation, r *runner.Runner,
 		t.Fatal(err)
 	}
 	checkReplicatedParameters(t, s, b)
-	state, err := b.trainer.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
+	state := b.trainer.State
 	if len(state.LastLoss) != 2 {
 		t.Fatal("missing GPU losses")
 	}
@@ -210,8 +208,8 @@ func TestMultiGPUTrainingFreshProcessCollective(t *testing.T) {
 			if _, err := r.Step(); err != nil {
 				t.Fatal(err)
 			}
-			c := b.trainer.collective
-			if b.trainer.phase == "reduce" && c != nil && c.Stage == 1 {
+			c := b.trainer.Collective
+			if b.trainer.Phase == "reduce" && c != nil && c.Stage == 1 {
 				if err := r.SaveCheckpoint(path); err != nil {
 					t.Fatal(err)
 				}
@@ -248,5 +246,85 @@ func TestMultiGPUTrainingFreshProcessCollective(t *testing.T) {
 	}
 	if !bytes.Equal(want, got) {
 		t.Fatal("fresh-process collective recovery changed final simulator or training state")
+	}
+}
+
+//nolint:funlen // Keep the shared identity and readback lifecycle in one regression.
+func TestCrossEntropySharedTensorIdentitySurvivesBinding(t *testing.T) {
+	s := sim.MakeBuilder().Build()
+	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
+	o := gputensor.NewGPUOperator(rt, rt.Init())
+	v := o.CreateWithData([]float64{0.25, 0.75}, []int{1, 2}, "")
+	trainer := DataParallelismMultiGPUTrainer{
+		State: &State{
+			Phase: "lossRead",
+			Values: []tensor.ID{
+				o.Reference(v),
+			},
+			LossInputs: []tensor.ID{
+				o.Reference(v),
+			},
+			Labels: [][]int{
+				{
+					1,
+				},
+			},
+			LossReadbacks: []driver.CommandID{
+				o.EnqueueReadback(v),
+			},
+		},
+		Driver: rt,
+
+		TensorOperators: []*gputensor.GPUOperator{o}, Networks: []training.Network{{}},
+		DataSource:      []training.DataSource{&training.ResidentDataSource{Operator: o, State: &training.DataState{}}},
+		LossFunc:        []training.LossFunction{training.NewCrossEntropy(o)},
+		OptimizationAlg: []optimization.Alg{optimization.NewSGD(o, 0.01)},
+	}
+	if err := trainer.Connect(); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := modeling.WriteCheckpoint(&buf, "loss", trainer.State, nil); err != nil {
+		t.Fatal(err)
+	}
+	var state State
+	if err := modeling.ReadCheckpoint(&buf, "loss", &state, nil); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Bind(rt, &state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ro := restored.TensorOperators[0]
+	if state.Values[0] != state.LossInputs[0] || ro.Resolve(state.Values[0]) != ro.Resolve(state.LossInputs[0]) {
+		t.Fatal("shared tensor identity lost")
+	}
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := s.Terminate(); err != nil {
+			t.Error(err)
+		}
+	}()
+	for _, c := range s.Components() {
+		if c.Name() == "Driver" {
+			c.(interface{ TickLater() }).TickLater()
+		}
+	}
+	if err := s.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := restored.Step(); err != nil {
+		t.Fatal(err)
+	}
+	if len(ro.PendingFrees) != 1 {
+		t.Fatalf("shared loss tensor released %d times", len(ro.PendingFrees))
+	}
+	if math.Abs(restored.LastLoss[0]+math.Log(0.75)) > 1e-8 {
+		t.Fatal(restored.LastLoss)
+	}
+	if err := ro.CompleteStep(); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -12,15 +12,14 @@
 package fp16throughput
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -40,28 +39,12 @@ type KernelArgs struct {
 
 // Benchmark defines the fp16_throughput benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// FmasPerThread is the number of __hfma2 FMAs each thread performs
-	// (rounded down to a multiple of 4). NumBlocks and ThreadsPerBlock
-	// define the launch geometry.
-	FmasPerThread   int
-	NumBlocks       int
-	ThreadsPerBlock int
-
-	gOut driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -70,9 +53,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new fp16_throughput benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -87,12 +73,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -104,8 +90,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -132,27 +118,27 @@ func (b *Benchmark) initMem() {
 	b.initParams()
 
 	// Output is a single __half2 (4 bytes). Allocate a full dword.
-	if b.useUnifiedMemory {
-		b.gOut = b.driver.AllocateUnifiedMemory(b.context, 4)
+	if b.UseUnifiedMemory {
+		b.GOut = b.driver.AllocateUnifiedMemory(b.Context, 4)
 	} else {
-		b.gOut = b.driver.AllocateMemory(b.context, 4)
+		b.GOut = b.driver.AllocateMemory(b.Context, 4)
 	}
 
 	// Initialize to zero so a missing write is detectable.
 	zero := []uint32{0}
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gOut, zero)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOut, zero)
 }
 
 func (b *Benchmark) exec() {
 	globalX := uint32(b.NumBlocks * b.ThreadsPerBlock)
 
 	args := KernelArgs{
-		Out:           b.gOut,
+		Out:           b.GOut,
 		FmasPerThread: int32(b.FmasPerThread),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
@@ -204,7 +190,7 @@ func float16ToFloat32(h uint16) float32 {
 // accumulators unchanged. The written value is a0+a1+a2+a3 per lane.
 func (b *Benchmark) verify() error {
 	out := make([]uint32, 1)
-	if err := b.driver.ReadResult(b.readbacks[0], out); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], out); err != nil {
 		return err
 	}
 
@@ -252,7 +238,7 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOut, 4*(1)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 4*(1)))
 }
 
 // roundToHalf rounds a float32 value to the nearest representable fp16 value
@@ -311,10 +297,12 @@ func float32ToFloat16(f float32) uint16 {
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -328,7 +316,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

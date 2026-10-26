@@ -23,15 +23,14 @@
 package fdtd2d
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -66,33 +65,14 @@ type HzKernelArgs struct {
 
 // Benchmark defines the FDTD-2D benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+
+	driver *driver.Runtime
 
 	kernelEx *insts.KernelCodeObject
 	kernelEy *insts.KernelCodeObject
 	kernelHz *insts.KernelCodeObject
-
-	gpus []int
-
-	Arch arch.Type
-	N    int // grid dimension (NX = NY = N)
-	TMax int // number of time steps
-
-	exInit []float32
-	eyInit []float32
-	hzInit []float32
-
-	gEx driver.Ptr
-	gEy driver.Ptr
-	gHz driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -101,9 +81,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new FDTD-2D benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -122,12 +104,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. FDTD-2D uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -139,8 +121,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -164,30 +146,30 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.exInit = make([]float32, numElem)
-	b.eyInit = make([]float32, numElem)
-	b.hzInit = make([]float32, numElem)
+	b.ExInit = make([]float32, numElem)
+	b.EyInit = make([]float32, numElem)
+	b.HzInit = make([]float32, numElem)
 
 	// Deterministic host init reproducible in Verify().
 	for i := 0; i < numElem; i++ {
-		b.exInit[i] = float32(i%100) / 10.0
-		b.eyInit[i] = float32((i*2)%100) / 10.0
-		b.hzInit[i] = float32((i*3)%100) / 10.0
+		b.ExInit[i] = float32(i%100) / 10.0
+		b.EyInit[i] = float32((i*2)%100) / 10.0
+		b.HzInit[i] = float32((i*3)%100) / 10.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gEx = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gEy = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gHz = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GEx = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gEx = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gEy = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gHz = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GEx = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GEy = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GHz = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gEx, b.exInit)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gEy, b.eyInit)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gHz, b.hzInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GEx, b.ExInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GEy, b.EyInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GHz, b.HzInit)
 }
 
 func (b *Benchmark) exec() {
@@ -196,10 +178,10 @@ func (b *Benchmark) exec() {
 	globalX := gridDim * blockSize
 	globalY := gridDim * blockSize
 
-	exArgs := ExEyKernelArgs{Field: b.gEx, Hz: b.gHz, NX: int32(n), NY: int32(n)}
-	eyArgs := ExEyKernelArgs{Field: b.gEy, Hz: b.gHz, NX: int32(n), NY: int32(n)}
+	exArgs := ExEyKernelArgs{Field: b.GEx, Hz: b.GHz, NX: int32(n), NY: int32(n)}
+	eyArgs := ExEyKernelArgs{Field: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n)}
 	hzArgs := HzKernelArgs{
-		Ex: b.gEx, Ey: b.gEy, Hz: b.gHz, NX: int32(n), NY: int32(n),
+		Ex: b.GEx, Ey: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n),
 	}
 
 	// The three kernels in each time step have read-after-write dependencies:
@@ -214,7 +196,7 @@ func (b *Benchmark) exec() {
 
 	for t := 0; t < b.TMax; t++ {
 		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelEx,
+			b.Queue, b.kernelEx,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&exArgs,
@@ -222,7 +204,7 @@ func (b *Benchmark) exec() {
 		cohere()
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelEy,
+			b.Queue, b.kernelEy,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&eyArgs,
@@ -230,7 +212,7 @@ func (b *Benchmark) exec() {
 		cohere()
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue, b.kernelHz,
+			b.Queue, b.kernelHz,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
 			&hzArgs,
@@ -247,13 +229,13 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	gpuEx := make([]float32, numElem)
 	gpuEy := make([]float32, numElem)
 	gpuHz := make([]float32, numElem)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuEx); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuEx); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], gpuEy); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], gpuEy); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[2], gpuHz); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[2], gpuHz); err != nil {
 		return err
 	}
 
@@ -262,9 +244,9 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	ex := make([]float32, numElem)
 	ey := make([]float32, numElem)
 	hz := make([]float32, numElem)
-	copy(ex, b.exInit)
-	copy(ey, b.eyInit)
-	copy(hz, b.hzInit)
+	copy(ex, b.ExInit)
+	copy(ey, b.EyInit)
+	copy(hz, b.HzInit)
 
 	for t := 0; t < b.TMax; t++ {
 		// Update ex.
@@ -329,17 +311,19 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEx, 4*((b.N)*(b.N))))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEy, 4*((b.N)*(b.N))))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gHz, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEx, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEy, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GHz, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -353,7 +337,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

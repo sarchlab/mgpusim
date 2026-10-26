@@ -12,15 +12,14 @@
 package fp64throughput
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -62,35 +61,12 @@ type KernelArgs struct {
 
 // Benchmark defines the fp64_throughput benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// NumBlocks is the number of work-groups (grid dim in blocks).
-	NumBlocks int
-	// ThreadsPerBlock is the work-group (block) size, swept by the
-	// calibration and passed to the kernel as an explicit argument.
-	ThreadsPerBlock int
-	// FmasPerThread is the number of FMA iterations per work-item. It is
-	// rounded down to a multiple of 4 (matching the host program), with a
-	// minimum of 4. Each iteration performs 4 FP64 FMAs (one per
-	// accumulator), so total FP64 FLOPs = numThreads * FmasPerThread * 2.
-	FmasPerThread int
-
-	numThreads int
-	in         []float64
-	gIn        driver.Ptr
-	gOut       driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -99,9 +75,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new fp64_throughput benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -116,12 +95,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. fp64_throughput uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -133,8 +112,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -155,7 +134,7 @@ func (b *Benchmark) normalizeParams() {
 		b.FmasPerThread = 4
 	}
 
-	b.numThreads = b.NumBlocks * b.ThreadsPerBlock
+	b.NumThreads = b.NumBlocks * b.ThreadsPerBlock
 }
 
 // seedFor returns the seed for accumulator acc (0..3) of work-item gid.
@@ -180,44 +159,44 @@ func (b *Benchmark) initMem() {
 
 	// Build the per-thread input buffer: stride doubles per thread, with
 	// slots [0..3]=seeds, [4]=mul, [5]=add, [6..7]=padding.
-	b.in = make([]float64, b.numThreads*stride)
-	for t := 0; t < b.numThreads; t++ {
+	b.In = make([]float64, b.NumThreads*stride)
+	for t := 0; t < b.NumThreads; t++ {
 		base := t * stride
-		b.in[base+0] = seedFor(0)
-		b.in[base+1] = seedFor(1)
-		b.in[base+2] = seedFor(2)
-		b.in[base+3] = seedFor(3)
-		b.in[base+4] = fmaMul
-		b.in[base+5] = fmaAdd
+		b.In[base+0] = seedFor(0)
+		b.In[base+1] = seedFor(1)
+		b.In[base+2] = seedFor(2)
+		b.In[base+3] = seedFor(3)
+		b.In[base+4] = fmaMul
+		b.In[base+5] = fmaAdd
 	}
 
-	inBytes := uint64(len(b.in) * 8)
-	outBytes := uint64(b.numThreads * 8)
-	if b.useUnifiedMemory {
-		b.gIn = b.driver.AllocateUnifiedMemory(b.context, inBytes)
-		b.gOut = b.driver.AllocateUnifiedMemory(b.context, outBytes)
+	inBytes := uint64(len(b.In) * 8)
+	outBytes := uint64(b.NumThreads * 8)
+	if b.UseUnifiedMemory {
+		b.GIn = b.driver.AllocateUnifiedMemory(b.Context, inBytes)
+		b.GOut = b.driver.AllocateUnifiedMemory(b.Context, outBytes)
 	} else {
-		b.gIn = b.driver.AllocateMemory(b.context, inBytes)
-		b.gOut = b.driver.AllocateMemory(b.context, outBytes)
+		b.GIn = b.driver.AllocateMemory(b.Context, inBytes)
+		b.GOut = b.driver.AllocateMemory(b.Context, outBytes)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gIn, b.in)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GIn, b.In)
 	// Initialize the output to zero so a missing store is detectable.
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gOut, make([]float64, b.numThreads))
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GOut, make([]float64, b.NumThreads))
 }
 
 func (b *Benchmark) exec() {
-	globalX := uint32(b.numThreads)
+	globalX := uint32(b.NumThreads)
 
 	args := KernelArgs{
-		Out:             b.gOut,
-		In:              b.gIn,
+		Out:             b.GOut,
+		In:              b.GIn,
 		FmasPerThread:   int32(b.FmasPerThread),
 		ThreadsPerBlock: int32(b.ThreadsPerBlock),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
@@ -246,8 +225,8 @@ func (b *Benchmark) cpuReference() float64 {
 
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
-	gpuOut := make([]float64, b.numThreads)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuOut); err != nil {
+	gpuOut := make([]float64, b.NumThreads)
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}
 
@@ -257,7 +236,7 @@ func (b *Benchmark) verify() error {
 		denom = 1.0
 	}
 
-	for gid := 0; gid < b.numThreads; gid++ {
+	for gid := 0; gid < b.NumThreads; gid++ {
 		got := gpuOut[gid]
 		if math.Abs(ref-got)/denom > 1e-3 {
 			return fmt.Errorf("At gid %d, expected %.12f, but got %.12f.\n",
@@ -271,15 +250,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gOut, 8*(b.numThreads)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GOut, 8*(b.NumThreads)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -293,7 +274,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

@@ -2,17 +2,16 @@
 package nbody
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"encoding/binary"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"math/rand"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -61,65 +60,39 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readbacks      []benchmarks.Readback
-	queue          driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	driver           *driver.Runtime
-	context          driver.Context
-	gpus             []int
-	queues           []driver.CommandQueue
-	useUnifiedMemory bool
-	nbodyKernel      *insts.KernelCodeObject
+	driver *driver.Runtime
 
-	Arch          arch.Type
-	NumParticles  int32
-	delT          float32   // dT (timestep)
-	espSqr        float32   // Softening Factor
-	initPos       []float32 // initial position
-	initVel       []float32 // initial velocity
-	pos           []float32 // Output position
-	vel           []float32 // Output velocity
-	refPos        []float32 // Reference position
-	refVel        []float32 // Reference velocity
-	groupSize     int32     // Work-Group size
-	NumIterations int32
-	exchange      bool
-	numBodies     int32
-	currPos       driver.Ptr
-	currVel       driver.Ptr
-	newPos        driver.Ptr
-	newVel        driver.Ptr
-	dPos          driver.Ptr
-	dVel          driver.Ptr
-	dNewPos       driver.Ptr
-	dNewVel       driver.Ptr
-	localPosBuf   driver.Ptr
+	nbodyKernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(
+		b.State, b.checkpointConfig, b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
-	b.groupSize = 256
-	b.delT = 0.005
-	b.espSqr = 500.0
-	b.exchange = true
+	b.Context = driver.Init()
+	b.GroupSize = 256
+	b.DelT = 0.005
+	b.EspSqr = 500.0
+	b.Exchange = true
 
 	return b
 }
 
 // SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed nbody.hsaco
@@ -145,81 +118,81 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
-	if b.NumParticles < b.groupSize {
-		b.NumParticles = b.groupSize
+	if b.NumParticles < b.GroupSize {
+		b.NumParticles = b.GroupSize
 	}
-	b.NumParticles = (b.NumParticles / b.groupSize) * b.groupSize
-	b.numBodies = b.NumParticles
+	b.NumParticles = (b.NumParticles / b.GroupSize) * b.GroupSize
+	b.NumBodies = b.NumParticles
 
 	b.loadProgram()
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues,
-			b.driver.CreateCommandQueue(b.context))
+	for _, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues,
+			b.driver.CreateCommandQueue(b.Context))
 	}
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
-	b.initPos = make([]float32, b.numBodies*4)
-	b.initVel = make([]float32, b.numBodies*4)
-	b.pos = make([]float32, b.numBodies*4)
-	b.vel = make([]float32, b.numBodies*4)
+	b.InitPos = make([]float32, b.NumBodies*4)
+	b.InitVel = make([]float32, b.NumBodies*4)
+	b.Pos = make([]float32, b.NumBodies*4)
+	b.Vel = make([]float32, b.NumBodies*4)
 
 	b.fill()
 
-	if b.useUnifiedMemory {
-		b.currPos = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.newPos = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.currVel = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.newVel = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(b.numBodies*4*4))
+	if b.UseUnifiedMemory {
+		b.CurrPos = b.driver.AllocateUnifiedMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.NewPos = b.driver.AllocateUnifiedMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.CurrVel = b.driver.AllocateUnifiedMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.NewVel = b.driver.AllocateUnifiedMemory(b.Context,
+			uint64(b.NumBodies*4*4))
 	} else {
-		b.currPos = b.driver.AllocateMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.newPos = b.driver.AllocateMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.currVel = b.driver.AllocateMemory(b.context,
-			uint64(b.numBodies*4*4))
-		b.newVel = b.driver.AllocateMemory(b.context,
-			uint64(b.numBodies*4*4))
+		b.CurrPos = b.driver.AllocateMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.NewPos = b.driver.AllocateMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.CurrVel = b.driver.AllocateMemory(b.Context,
+			uint64(b.NumBodies*4*4))
+		b.NewVel = b.driver.AllocateMemory(b.Context,
+			uint64(b.NumBodies*4*4))
 	}
-	b.driver.EnqueueMemCopyH2D(b.queue, b.currPos, b.pos)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.currVel, b.vel)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.CurrPos, b.Pos)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.CurrVel, b.Vel)
 
-	b.dPos = b.currPos
-	b.dVel = b.currVel
-	b.dNewPos = b.newPos
-	b.dNewVel = b.newVel
+	b.DPos = b.CurrPos
+	b.DVel = b.CurrVel
+	b.DNewPos = b.NewPos
+	b.DNewVel = b.NewVel
 
 	if b.Arch == arch.CDNA3 {
 		// CDNA3 HIP kernel uses global memory for localPos instead of LDS
-		b.localPosBuf = b.driver.AllocateMemory(b.context,
-			uint64(b.groupSize*4*4))
+		b.LocalPosBuf = b.driver.AllocateMemory(b.Context,
+			uint64(b.GroupSize*4*4))
 	}
 }
 
 func (b *Benchmark) exec() {
-	globalSize := [3]uint32{uint32(b.numBodies), 1, 1}
-	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
+	globalSize := [3]uint32{uint32(b.NumBodies), 1, 1}
+	localSize := [3]uint16{uint16(b.GroupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
 		if b.Arch == arch.CDNA3 {
 			args := CDNA3KernelArgs{
-				Pos:                 b.dPos,
-				Vel:                 b.dVel,
-				NumBodies:           b.numBodies,
-				DeltaTime:           b.delT,
-				EpsSqr:              b.espSqr,
-				LocalPos:            b.localPosBuf,
-				NewPosition:         b.dNewPos,
-				NewVelocity:         b.dNewVel,
+				Pos:                 b.DPos,
+				Vel:                 b.DVel,
+				NumBodies:           b.NumBodies,
+				DeltaTime:           b.DelT,
+				EpsSqr:              b.EspSqr,
+				LocalPos:            b.LocalPosBuf,
+				NewPosition:         b.DNewPos,
+				NewVelocity:         b.DNewVel,
 				HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
 				HiddenBlockCountY:   1,
 				HiddenBlockCountZ:   1,
@@ -234,57 +207,57 @@ func (b *Benchmark) exec() {
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      1,
 			}
-			b.driver.EnqueueLaunchKernel(b.queue,
+			b.driver.EnqueueLaunchKernel(b.Queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
 			)
 		} else {
 			args := KernelArgs{
-				Pos:                 b.dPos,
-				Vel:                 b.dVel,
-				NumBodies:           b.numBodies,
-				DeltaTime:           b.delT,
-				EpsSqr:              b.espSqr,
-				LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
-				NewPosition:         b.dNewPos,
-				NewVelocity:         b.dNewVel,
+				Pos:                 b.DPos,
+				Vel:                 b.DVel,
+				NumBodies:           b.NumBodies,
+				DeltaTime:           b.DelT,
+				EpsSqr:              b.EspSqr,
+				LocalPos:            driver.LocalPtr(b.GroupSize * 4 * 4),
+				NewPosition:         b.DNewPos,
+				NewVelocity:         b.DNewVel,
 				HiddenGlobalOffsetX: 0,
 				HiddenGlobalOffsetY: 0,
 				HiddenGlobalOffsetZ: 0,
 			}
-			b.driver.EnqueueLaunchKernel(b.queue,
+			b.driver.EnqueueLaunchKernel(b.Queue,
 				b.nbodyKernel,
 				globalSize, localSize,
 				&args,
 			)
 		}
 
-		b.dPos, b.dNewPos = b.dNewPos, b.dPos
-		b.dVel, b.dNewVel = b.dNewVel, b.dVel
+		b.DPos, b.DNewPos = b.DNewPos, b.DPos
+		b.DVel, b.DNewVel = b.DNewVel, b.DVel
 	}
 
-	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPos, Target: 0})
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DPos, Target: 0})
 }
 
 // Verify verifies
 func (b *Benchmark) verify() error {
-	b.refPos = make([]float32, b.numBodies*4)
-	b.refVel = make([]float32, b.numBodies*4)
-	copy(b.refPos, b.initPos)
-	copy(b.refVel, b.initVel)
+	b.RefPos = make([]float32, b.NumBodies*4)
+	b.RefVel = make([]float32, b.NumBodies*4)
+	copy(b.RefPos, b.InitPos)
+	copy(b.RefVel, b.InitVel)
 
 	for i := int32(0); i < b.NumIterations; i++ {
 		b.nbodyCPU()
 	}
 
 	mismatch := false
-	for i := int32(0); i < (b.numBodies * 4); i++ {
-		if math.Abs(float64(b.refPos[i]-b.pos[i])) > 0.001 {
+	for i := int32(0); i < (b.NumBodies * 4); i++ {
+		if math.Abs(float64(b.RefPos[i]-b.Pos[i])) > 0.001 {
 			mismatch = true
 			log.Printf("not match at (%d), expected %g to equal %g\n",
 				i,
-				b.pos[i], b.refPos[i])
+				b.Pos[i], b.RefPos[i])
 		}
 	}
 
@@ -298,13 +271,13 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) nbodyCPU() {
-	oldPos := make([]float32, len(b.refPos))
-	copy(oldPos, b.refPos)
+	oldPos := make([]float32, len(b.RefPos))
+	copy(oldPos, b.RefPos)
 
-	for i := int32(0); i < b.numBodies; i++ {
+	for i := int32(0); i < b.NumBodies; i++ {
 		myIndex := 4 * i
 		acc := [3]float32{0.0, 0.0, 0.0}
-		for j := int32(0); j < b.numBodies; j++ {
+		for j := int32(0); j < b.NumBodies; j++ {
 			r := [3]float32{0.0, 0.0, 0.0}
 			index := 4 * j
 
@@ -314,7 +287,7 @@ func (b *Benchmark) nbodyCPU() {
 				distSqr += r[k] * r[k]
 			}
 
-			invDist := 1.0 / float32(math.Sqrt(float64(distSqr+b.espSqr)))
+			invDist := 1.0 / float32(math.Sqrt(float64(distSqr+b.EspSqr)))
 			invDistCube := invDist * invDist * invDist
 			s := oldPos[index+3] * invDistCube
 
@@ -324,10 +297,10 @@ func (b *Benchmark) nbodyCPU() {
 		}
 
 		for k := int32(0); k < 3; k++ {
-			b.refPos[myIndex+k] +=
-				b.refVel[myIndex+k]*b.delT +
-					0.5*acc[k]*b.delT*b.delT
-			b.refVel[myIndex+k] += acc[k] * b.delT
+			b.RefPos[myIndex+k] +=
+				b.RefVel[myIndex+k]*b.DelT +
+					0.5*acc[k]*b.DelT*b.DelT
+			b.RefVel[myIndex+k] += acc[k] * b.DelT
 		}
 	}
 }
@@ -343,51 +316,53 @@ func (b *Benchmark) fill() {
 	// generator is seeded randomly at startup (rand.Seed is a no-op since
 	// Go 1.24), which made this benchmark's input differ on every run.
 	rng := rand.New(rand.NewSource(1))
-	for i := int32(0); i < b.numBodies; i++ {
+	for i := int32(0); i < b.NumBodies; i++ {
 		index := 4 * i
 
 		for j := int32(0); j < 3; j++ {
-			b.initPos[index+j] = random(rng, 3, 50)
+			b.InitPos[index+j] = random(rng, 3, 50)
 		}
-		b.initPos[index+3] = random(rng, 1, 1000)
+		b.InitPos[index+3] = random(rng, 1, 1000)
 
 		for j := int32(0); j < 3; j++ {
-			b.initVel[index+j] = 0.0
+			b.InitVel[index+j] = 0.0
 		}
 
-		b.initVel[3] = 0.0 // unused
+		b.InitVel[3] = 0.0 // unused
 	}
 
-	copy(b.pos, b.initPos)
-	copy(b.vel, b.initVel)
+	copy(b.Pos, b.InitPos)
+	copy(b.Vel, b.InitVel)
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
 		b.exec()
 		b.Phase = 2
 	case 2:
-		for i := range b.readbacks {
+		for i := range b.Readbacks {
 			var dst any
-			switch b.readbacks[i].Target {
+			switch b.Readbacks[i].Target {
 			case 0:
-				dst = b.pos
+				dst = b.Pos
 			}
-			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
-		for _, copy := range b.readbacks {
+		for _, copy := range b.Readbacks {
 			var dst any
 			switch copy.Target {
 			case 0:
-				dst = b.pos
+				dst = b.Pos
 			}
 			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
 				return err
@@ -398,7 +373,7 @@ func (b *Benchmark) Step() error {
 				return err
 			}
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

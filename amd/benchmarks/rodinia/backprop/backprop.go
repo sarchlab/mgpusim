@@ -11,15 +11,14 @@
 package backprop
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -90,14 +89,10 @@ type updateW2Args struct {
 
 // Benchmark defines the Backprop benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+
+	driver *driver.Runtime
 
 	kForwardHidden       *insts.KernelCodeObject
 	kForwardOutput       *insts.KernelCodeObject
@@ -105,32 +100,6 @@ type Benchmark struct {
 	kBackwardHiddenDelta *insts.KernelCodeObject
 	kUpdateW1            *insts.KernelCodeObject
 	kUpdateW2            *insts.KernelCodeObject
-
-	Arch    arch.Type
-	InputN  int
-	HiddenN int
-	OutputN int
-
-	// Host-side reference inputs (deterministic, reproduced in Verify).
-	hInput  []float32
-	hW1     []float32
-	hW2     []float32
-	hB1     []float32
-	hB2     []float32
-	hTarget []float32
-
-	gInput    driver.Ptr
-	gW1       driver.Ptr
-	gB1       driver.Ptr
-	gHidden   driver.Ptr
-	gW2       driver.Ptr
-	gB2       driver.Ptr
-	gOutput   driver.Ptr
-	gTarget   driver.Ptr
-	gDeltaOut driver.Ptr
-	gDeltaHid driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -139,9 +108,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new Backprop benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -165,12 +137,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Backprop uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -182,8 +154,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -211,57 +183,57 @@ func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	hid := b.HiddenN
 	out := b.OutputN
 
-	b.hInput = make([]float32, in)
-	b.hW1 = make([]float32, in*hid)
-	b.hW2 = make([]float32, hid*out)
-	b.hB1 = make([]float32, hid)
-	b.hB2 = make([]float32, out)
-	b.hTarget = make([]float32, out)
+	b.HInput = make([]float32, in)
+	b.HW1 = make([]float32, in*hid)
+	b.HW2 = make([]float32, hid*out)
+	b.HB1 = make([]float32, hid)
+	b.HB2 = make([]float32, out)
+	b.HTarget = make([]float32, out)
 
 	for i := 0; i < in; i++ {
-		b.hInput[i] = float32(i%256) / 256.0
+		b.HInput[i] = float32(i%256) / 256.0
 	}
 	var seed uint32 = 42
-	for i := range b.hW1 {
-		b.hW1[i] = (pseudoRand(&seed) - 0.5) * 0.2 // [-0.1, 0.1]
+	for i := range b.HW1 {
+		b.HW1[i] = (pseudoRand(&seed) - 0.5) * 0.2 // [-0.1, 0.1]
 	}
-	for i := range b.hW2 {
-		b.hW2[i] = (pseudoRand(&seed) - 0.5) * 0.2
+	for i := range b.HW2 {
+		b.HW2[i] = (pseudoRand(&seed) - 0.5) * 0.2
 	}
-	for i := range b.hB1 {
-		b.hB1[i] = 0.0
+	for i := range b.HB1 {
+		b.HB1[i] = 0.0
 	}
-	for i := range b.hB2 {
-		b.hB2[i] = 0.0
+	for i := range b.HB2 {
+		b.HB2[i] = 0.0
 	}
-	for i := range b.hTarget {
-		b.hTarget[i] = 1.0
+	for i := range b.HTarget {
+		b.HTarget[i] = 1.0
 	}
 
 	alloc := func(n int) driver.Ptr {
-		if b.useUnifiedMemory {
-			return b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+		if b.UseUnifiedMemory {
+			return b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
 		}
-		return b.driver.AllocateMemory(b.context, uint64(n*4))
+		return b.driver.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.gInput = alloc(in)
-	b.gW1 = alloc(in * hid)
-	b.gB1 = alloc(hid)
-	b.gHidden = alloc(hid)
-	b.gW2 = alloc(hid * out)
-	b.gB2 = alloc(out)
-	b.gOutput = alloc(out)
-	b.gTarget = alloc(out)
-	b.gDeltaOut = alloc(out)
-	b.gDeltaHid = alloc(hid)
+	b.GInput = alloc(in)
+	b.GW1 = alloc(in * hid)
+	b.GB1 = alloc(hid)
+	b.GHidden = alloc(hid)
+	b.GW2 = alloc(hid * out)
+	b.GB2 = alloc(out)
+	b.GOutput = alloc(out)
+	b.GTarget = alloc(out)
+	b.GDeltaOut = alloc(out)
+	b.GDeltaHid = alloc(hid)
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gInput, b.hInput)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gW1, b.hW1)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gB1, b.hB1)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gW2, b.hW2)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gB2, b.hB2)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gTarget, b.hTarget)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GInput, b.HInput)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GW1, b.HW1)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB1, b.HB1)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GW2, b.HW2)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB2, b.HB2)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GTarget, b.HTarget)
 }
 
 func grid1D(n int) uint32 {
@@ -275,45 +247,45 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 
 	// 1. forward_hidden  (one thread per hidden unit)
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kForwardHidden,
+		b.Queue, b.kForwardHidden,
 		[3]uint32{grid1D(hid), 1, 1},
 		[3]uint16{blockSz, 1, 1},
 		&fwHiddenArgs{
-			Input: b.gInput, W1: b.gW1, B1: b.gB1, Hidden: b.gHidden,
+			Input: b.GInput, W1: b.GW1, B1: b.GB1, Hidden: b.GHidden,
 			InputN: int32(in), HiddenN: int32(hid),
 		},
 	)
 
 	// 2. forward_output  (one thread per output unit)
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kForwardOutput,
+		b.Queue, b.kForwardOutput,
 		[3]uint32{grid1D(out), 1, 1},
 		[3]uint16{blockSz, 1, 1},
 		&fwOutputArgs{
-			Hidden: b.gHidden, W2: b.gW2, B2: b.gB2, Output: b.gOutput,
+			Hidden: b.GHidden, W2: b.GW2, B2: b.GB2, Output: b.GOutput,
 			HiddenN: int32(hid), OutputN: int32(out),
 		},
 	)
 
 	// 3. backward_output_delta
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kBackwardOutputDelta,
+		b.Queue, b.kBackwardOutputDelta,
 		[3]uint32{grid1D(out), 1, 1},
 		[3]uint16{blockSz, 1, 1},
 		&bwOutputDeltaArgs{
-			Output: b.gOutput, Target: b.gTarget, DeltaOut: b.gDeltaOut,
+			Output: b.GOutput, Target: b.GTarget, DeltaOut: b.GDeltaOut,
 			OutputN: int32(out),
 		},
 	)
 
 	// 4. backward_hidden_delta
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kBackwardHiddenDelta,
+		b.Queue, b.kBackwardHiddenDelta,
 		[3]uint32{grid1D(hid), 1, 1},
 		[3]uint16{blockSz, 1, 1},
 		&bwHiddenDeltaArgs{
-			Hidden: b.gHidden, W2: b.gW2, DeltaOut: b.gDeltaOut,
-			DeltaHid: b.gDeltaHid,
+			Hidden: b.GHidden, W2: b.GW2, DeltaOut: b.GDeltaOut,
+			DeltaHid: b.GDeltaHid,
 			HiddenN:  int32(hid), OutputN: int32(out),
 		},
 	)
@@ -322,22 +294,22 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	gx := uint32((in + tile2D - 1) / tile2D * tile2D)
 	gy := uint32((hid + tile2D - 1) / tile2D * tile2D)
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kUpdateW1,
+		b.Queue, b.kUpdateW1,
 		[3]uint32{gx, gy, 1},
 		[3]uint16{tile2D, tile2D, 1},
 		&updateW1Args{
-			W1: b.gW1, Input: b.gInput, DeltaHid: b.gDeltaHid,
+			W1: b.GW1, Input: b.GInput, DeltaHid: b.GDeltaHid,
 			InputN: int32(in), HiddenN: int32(hid), LR: lr,
 		},
 	)
 
 	// 6. update_w2
 	b.driver.EnqueueLaunchKernel(
-		b.queue, b.kUpdateW2,
+		b.Queue, b.kUpdateW2,
 		[3]uint32{grid1D(hid), 1, 1},
 		[3]uint16{blockSz, 1, 1},
 		&updateW2Args{
-			W2: b.gW2, Hidden: b.gHidden, DeltaOut: b.gDeltaOut,
+			W2: b.GW2, Hidden: b.GHidden, DeltaOut: b.GDeltaOut,
 			HiddenN: int32(hid), OutputN: int32(out), LR: lr,
 		},
 	)
@@ -362,30 +334,30 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 
 	// forward_hidden
 	for j := 0; j < hid; j++ {
-		sum := float64(b.hB1[j])
+		sum := float64(b.HB1[j])
 		for i := 0; i < in; i++ {
-			sum += float64(b.hInput[i]) * float64(b.hW1[i*hid+j])
+			sum += float64(b.HInput[i]) * float64(b.HW1[i*hid+j])
 		}
 		hidden[j] = sigmoid(sum)
 	}
 	// forward_output
 	for k := 0; k < out; k++ {
-		sum := float64(b.hB2[k])
+		sum := float64(b.HB2[k])
 		for j := 0; j < hid; j++ {
-			sum += hidden[j] * float64(b.hW2[j*out+k])
+			sum += hidden[j] * float64(b.HW2[j*out+k])
 		}
 		output[k] = sigmoid(sum)
 	}
 	// backward_output_delta
 	for k := 0; k < out; k++ {
 		o := output[k]
-		deltaOut[k] = o * (1.0 - o) * (float64(b.hTarget[k]) - o)
+		deltaOut[k] = o * (1.0 - o) * (float64(b.HTarget[k]) - o)
 	}
 	// backward_hidden_delta
 	for j := 0; j < hid; j++ {
 		sum := 0.0
 		for k := 0; k < out; k++ {
-			sum += float64(b.hW2[j*out+k]) * deltaOut[k]
+			sum += float64(b.HW2[j*out+k]) * deltaOut[k]
 		}
 		deltaHid[j] = hidden[j] * (1.0 - hidden[j]) * sum
 	}
@@ -393,25 +365,25 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	refW1 := make([]float64, in*hid)
 	for i := 0; i < in; i++ {
 		for j := 0; j < hid; j++ {
-			refW1[i*hid+j] = float64(b.hW1[i*hid+j]) +
-				float64(lr)*float64(b.hInput[i])*deltaHid[j]
+			refW1[i*hid+j] = float64(b.HW1[i*hid+j]) +
+				float64(lr)*float64(b.HInput[i])*deltaHid[j]
 		}
 	}
 	// update_w2
 	refW2 := make([]float64, hid*out)
 	for j := 0; j < hid; j++ {
 		for k := 0; k < out; k++ {
-			refW2[j*out+k] = float64(b.hW2[j*out+k]) +
+			refW2[j*out+k] = float64(b.HW2[j*out+k]) +
 				float64(lr)*hidden[j]*deltaOut[k]
 		}
 	}
 
 	gpuW1 := make([]float32, in*hid)
 	gpuW2 := make([]float32, hid*out)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuW1); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuW1); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], gpuW2); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], gpuW2); err != nil {
 		return err
 	}
 
@@ -445,16 +417,18 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gW1, 4*((b.InputN)*(b.HiddenN))))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gW2, 4*((b.HiddenN)*(b.OutputN))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GW1, 4*((b.InputN)*(b.HiddenN))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GW2, 4*((b.HiddenN)*(b.OutputN))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -468,7 +442,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

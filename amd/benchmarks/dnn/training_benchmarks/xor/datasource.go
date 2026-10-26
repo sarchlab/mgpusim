@@ -5,73 +5,33 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
 )
 
-// DataSource defines the training dataset for the xor operation.
-type DataSource struct {
-	to        tensor.Operator
-	allData   []float64
-	allLabel  []int
-	imageSize int
-	currPtr   int
-}
+type DataSource struct{ *training.ResidentDataSource }
 
-// NewDataSource creates a new XOR datasource
 func NewDataSource(to tensor.Operator) *DataSource {
-	ds := &DataSource{
-		imageSize: 2,
-		to:        to,
-	}
-	ds.allData = []float64{
-		0, 0,
-		0, 1,
-		1, 0,
-		1, 1,
-	}
-	ds.allLabel = []int{
-		0, 1, 1, 0,
-	}
-	return ds
-}
-
-// NextBatch returns the next batch data.
-func (ds *DataSource) NextBatch(batchSize int) (
-	data tensor.Tensor,
-	label []int,
-) {
-	if ds.currPtr >= len(ds.allLabel) {
-		return nil, nil
-	}
-	start := ds.currPtr
-	end := start + batchSize
-
-	if end > len(ds.allLabel) {
-		end = len(ds.allLabel)
-	}
-
-	if start == end {
-		return nil, nil
-	}
-
-	rawData := ds.allData[start*ds.imageSize : end*ds.imageSize]
-	data = ds.to.CreateWithData(rawData, []int{end - start, ds.imageSize}, "")
-
-	label = ds.allLabel[start:end]
-
-	ds.currPtr = end
-
-	return data, label
-}
-
-// Rewind moves the pointer to the beginning of the training set.
-func (ds *DataSource) Rewind() {
-	ds.currPtr = 0
-}
-
-func (ds *DataSource) SnapshotData() training.DataState {
-	return training.DataState{
-		Data:       ds.allData,
-		Labels:     ds.allLabel,
-		Shape:      []int{2},
-		Descriptor: "",
-		Cursor:     ds.currPtr,
+	return &DataSource{
+		&training.ResidentDataSource{
+			Operator: to,
+			State: &training.DataState{
+				Data: []float64{
+					0,
+					0,
+					0,
+					1,
+					1,
+					0,
+					1,
+					1,
+				},
+				Labels: []int{
+					0,
+					1,
+					1,
+					0,
+				},
+				Shape: []int{
+					2,
+				},
+			},
+		},
 	}
 }

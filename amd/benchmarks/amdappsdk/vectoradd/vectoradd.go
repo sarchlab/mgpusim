@@ -2,14 +2,13 @@
 package vectoradd
 
 import (
-	"encoding/binary"
-	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"encoding/binary"
+	"fmt"
+	"log"
 
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -41,48 +40,36 @@ type KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readbacks      []benchmarks.Readback
-	queue          driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	driver  *driver.Runtime
-	context driver.Context
-	kernel  *insts.KernelCodeObject
-	gpus    []int
+	driver *driver.Runtime
 
-	Width  uint32
-	Height uint32
-
-	hA []float32
-	hB []float32
-	hC []float32
-
-	dA driver.Ptr
-	dB driver.Ptr
-	dC driver.Ptr
-
-	useUnifiedMemory bool
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State =
+		&State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	b.loadProgram()
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -98,44 +85,44 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
 	numData := b.Width * b.Height
 
-	b.hA = make([]float32, numData)
-	b.hB = make([]float32, numData)
-	b.hC = make([]float32, numData)
+	b.HA = make([]float32, numData)
+	b.HB = make([]float32, numData)
+	b.HC = make([]float32, numData)
 
 	for i := uint32(0); i < numData; i++ {
-		b.hB[i] = float32(i)
-		b.hC[i] = float32(i) * 100.0
+		b.HB[i] = float32(i)
+		b.HC[i] = float32(i) * 100.0
 	}
 
-	if b.useUnifiedMemory {
-		b.dA = b.driver.AllocateUnifiedMemory(b.context, uint64(numData*4))
-		b.dB = b.driver.AllocateUnifiedMemory(b.context, uint64(numData*4))
-		b.dC = b.driver.AllocateUnifiedMemory(b.context, uint64(numData*4))
+	if b.UseUnifiedMemory {
+		b.DA = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
+		b.DB = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
+		b.DC = b.driver.AllocateUnifiedMemory(b.Context, uint64(numData*4))
 	} else {
-		b.dA = b.driver.AllocateMemory(b.context, uint64(numData*4))
-		b.driver.Distribute(b.context, b.dA, uint64(numData*4), b.gpus)
-		b.dB = b.driver.AllocateMemory(b.context, uint64(numData*4))
-		b.driver.Distribute(b.context, b.dB, uint64(numData*4), b.gpus)
-		b.dC = b.driver.AllocateMemory(b.context, uint64(numData*4))
-		b.driver.Distribute(b.context, b.dC, uint64(numData*4), b.gpus)
+		b.DA = b.driver.AllocateMemory(b.Context, uint64(numData*4))
+		b.driver.Distribute(b.Context, b.DA, uint64(numData*4), b.Gpus)
+		b.DB = b.driver.AllocateMemory(b.Context, uint64(numData*4))
+		b.driver.Distribute(b.Context, b.DB, uint64(numData*4), b.Gpus)
+		b.DC = b.driver.AllocateMemory(b.Context, uint64(numData*4))
+		b.driver.Distribute(b.Context, b.DC, uint64(numData*4), b.Gpus)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dB, b.hB)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dC, b.hC)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DB, b.HB)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DC, b.HC)
 }
 
 func (b *Benchmark) exec() {
-	queues := make([]driver.CommandQueue, len(b.gpus))
+	queues := make([]driver.CommandQueue, len(b.Gpus))
 	numData := b.Width * b.Height
 
 	// Workgroup size is fixed at 64x1x1
@@ -143,16 +130,16 @@ func (b *Benchmark) exec() {
 	wgSizeY := uint16(1)
 	wgSizeZ := uint16(1)
 
-	for i, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		queues[i] = b.driver.CreateCommandQueue(b.context)
+	for i, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		queues[i] = b.driver.CreateCommandQueue(b.Context)
 
-		gridSize := numData / uint32(len(b.gpus))
+		gridSize := numData / uint32(len(b.Gpus))
 
 		kernArg := KernelArgs{
-			A:      b.dA,
-			B:      b.dB,
-			C:      b.dC,
+			A:      b.DA,
+			B:      b.DB,
+			C:      b.DC,
 			Width:  int32(b.Width),
 			Height: int32(b.Height),
 			// Hidden kernel arguments for GFX942 thread ID calculation
@@ -176,7 +163,7 @@ func (b *Benchmark) exec() {
 		)
 	}
 
-	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dA, Target: 0})
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DA, Target: 0})
 }
 
 // Verify verifies
@@ -185,10 +172,10 @@ func (b *Benchmark) verify() error {
 	mismatch := false
 
 	for i := uint32(0); i < numData; i++ {
-		expected := b.hB[i] + b.hC[i]
-		if b.hA[i] != expected {
+		expected := b.HB[i] + b.HC[i]
+		if b.HA[i] != expected {
 			log.Printf("mismatch at position %d. Expected %f, but got %f",
-				i, expected, b.hA[i])
+				i, expected, b.HA[i])
 			mismatch = true
 		}
 	}
@@ -203,31 +190,33 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
 		b.exec()
 		b.Phase = 2
 	case 2:
-		for i := range b.readbacks {
+		for i := range b.Readbacks {
 			var dst any
-			switch b.readbacks[i].Target {
+			switch b.Readbacks[i].Target {
 			case 0:
-				dst = b.hA
+				dst = b.HA
 			}
-			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
-		for _, copy := range b.readbacks {
+		for _, copy := range b.Readbacks {
 			var dst any
 			switch copy.Target {
 			case 0:
-				dst = b.hA
+				dst = b.HA
 			}
 			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
 				return err
@@ -238,7 +227,7 @@ func (b *Benchmark) Step() error {
 				return err
 			}
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

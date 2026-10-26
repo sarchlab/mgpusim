@@ -3,17 +3,18 @@ package xor
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/sarchlab/akita/v5/mem/vm"
-	simulation "github.com/sarchlab/akita/v5/sim"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"testing"
+
+	"github.com/sarchlab/akita/v5/mem/vm"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
 func trainingSystem(t *testing.T) (*simulation.Simulation, *runner.Runner, *Benchmark, *vm.PageTable) {
@@ -48,10 +49,7 @@ func finishTraining(t *testing.T, s *simulation.Simulation, r *runner.Runner, b 
 	if err := r.Run(); err != nil {
 		t.Fatal(err)
 	}
-	state, err := b.trainer.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
+	state := b.trainer.State
 	if !b.Ended || len(state.LastLoss) != 1 || math.IsNaN(state.LastLoss[0]) || state.LastLoss[0] <= 0 {
 		t.Fatalf("invalid final training state: %+v", state.LastLoss)
 	}
@@ -100,10 +98,7 @@ func TestTrainingFreshProcessDeferredFree(t *testing.T) {
 			if _, err := r.Step(); err != nil {
 				t.Fatal(err)
 			}
-			state, err := b.trainer.Snapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
+			state := b.trainer.State
 			if state.Phase == "forward" && len(state.Networks[0].Operator.PendingFrees) > 0 {
 				pending = append(pending, state.Networks[0].Operator.PendingFrees...)
 				break
@@ -151,6 +146,41 @@ func TestTrainingFreshProcessDeferredFree(t *testing.T) {
 		}
 		if !bytes.Equal(want, got) {
 			t.Fatalf("fresh-process training changed final state %s", suffix)
+		}
+	}
+}
+
+func TestRepeatedSameProcessLoadRebindsCanonicalState(t *testing.T) {
+	s, r, b, _ := trainingSystem(t)
+	for i := 0; i < 5; i++ {
+		if _, err := r.Step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "resume.tar.gz")
+	if err := r.SaveCheckpoint(path); err != nil {
+		t.Fatal(err)
+	}
+	address := b.State
+	finishTraining(t, s, r, b, path+".first")
+	want, err := os.ReadFile(path + ".first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for replay := 0; replay < 2; replay++ {
+		if err := s.LoadCheckpoint(path); err != nil {
+			t.Fatal(err)
+		}
+		if b.State != address || b.Saved.State != address || b.trainer.State != &b.Trainer {
+			t.Fatal("state/binding address diverged")
+		}
+		finishTraining(t, s, r, b, path+".replay")
+		got, err := os.ReadFile(path + ".replay")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(want, got) {
+			t.Fatal("same-process restore changed final simulator/trainer archive")
 		}
 	}
 }

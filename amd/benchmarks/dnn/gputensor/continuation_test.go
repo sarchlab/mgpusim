@@ -2,14 +2,15 @@ package gputensor
 
 import (
 	"bytes"
+	"reflect"
+	"testing"
+
 	"github.com/sarchlab/akita/v5/mem/vm"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
-	"reflect"
-	"testing"
 )
 
 func operatorSystem(t *testing.T) (*simulation.Simulation, *driver.Runtime, *driver.Comp, *GPUOperator) {
@@ -72,8 +73,8 @@ func TestReadMutationReadAcrossAliasesAndRestore(t *testing.T) {
 			if restore {
 				state := struct {
 					Operator         OperatorState
-					Parameters, View TensorState
-				}{o.Snapshot(), Snapshot(params), Snapshot(view)}
+					Parameters, View tensor.ID
+				}{*o.OperatorState, o.Reference(params), o.Reference(view)}
 				var buf bytes.Buffer
 				if err := modeling.WriteCheckpoint(&buf, "aliases", state, nil); err != nil {
 					t.Fatal(err)
@@ -81,9 +82,9 @@ func TestReadMutationReadAcrossAliasesAndRestore(t *testing.T) {
 				if err := modeling.ReadCheckpoint(&buf, "aliases", &state, nil); err != nil {
 					t.Fatal(err)
 				}
-				o = RestoreOperator(r, state.Operator)
-				params = o.RestoreTensor(state.Parameters)
-				view = o.RestoreTensor(state.View)
+				o = BindOperator(r, &state.Operator)
+				params = o.Resolve(state.Parameters)
+				view = o.Resolve(state.View)
 			}
 			o.Init(view, []float64{7, 9})
 			func() {
@@ -122,13 +123,13 @@ func TestDeferredFreeOwnsAllPagesAndAddressSpaces(t *testing.T) {
 	}
 	a := o.CreateWithData(data, []int{len(data)}, "")
 	b := other.CreateWithData(data, []int{len(data)}, "")
-	p := a.(*Tensor).ptr
-	if p != b.(*Tensor).ptr {
+	p := a.(*Tensor).Address
+	if p != b.(*Tensor).Address {
 		t.Fatal("test requires overlapping virtual addresses")
 	}
 	out := o.ReluForward(a)
 	o.Free(a)
-	if len(o.pendingFrees) != 1 || a.(*Tensor).ptr != 0 {
+	if len(o.PendingFrees) != 1 || a.(*Tensor).Address != 0 {
 		t.Fatal("logical release was not recorded")
 	}
 	for _, pid := range []uint32{1, 2} {
@@ -162,7 +163,7 @@ func TestDeferredFreeOwnsAllPagesAndAddressSpaces(t *testing.T) {
 	if got := readTensor(t, s, d, other, b); !reflect.DeepEqual(got, data) {
 		t.Fatal("other context corrupted")
 	}
-	if err := r.FreeMemory(o.ctx, p); err == nil {
+	if err := r.FreeMemory(o.Context, p); err == nil {
 		t.Fatal("duplicate physical release accepted")
 	}
 }
@@ -176,10 +177,17 @@ func TestReadbackBeforeAliasedWriteCannotBecomeCurrentCache(t *testing.T) {
 			id := o.EnqueueReadback(v)
 			o.Init(view, []float64{7, 9})
 			if restore {
-				state := o.Snapshot()
-				saved := Snapshot(v)
-				o = RestoreOperator(rt, state)
-				v = o.RestoreTensor(saved)
+				state := *o.OperatorState
+				saved := o.Reference(v)
+				var buf bytes.Buffer
+				if err := modeling.WriteCheckpoint(&buf, "operator", state, nil); err != nil {
+					t.Fatal(err)
+				}
+				if err := modeling.ReadCheckpoint(&buf, "operator", &state, nil); err != nil {
+					t.Fatal(err)
+				}
+				o = BindOperator(rt, &state)
+				v = o.Resolve(saved)
 			}
 			runOperator(t, s, d, o)
 			if err := o.ReadTensor(id, v); err != nil {
@@ -196,9 +204,33 @@ func TestReadbackBeforeAliasedWriteCannotBecomeCurrentCache(t *testing.T) {
 			if got := readTensor(t, s, d, o, v); !reflect.DeepEqual(got, []float64{1, 7, 9, 4}) {
 				t.Fatal(got)
 			}
-			if len(o.readbackEpochs) != 0 {
+			if len(o.ReadbackEpochs) != 0 {
 				t.Fatal("consumed readback epochs retained")
 			}
 		})
+	}
+}
+
+func TestRegistryRetiresTemporaryTensorsAcrossBatches(t *testing.T) {
+	s, _, d, o := operatorSystem(t)
+	o.SetVerification(true)
+	params := o.CreateWithData([]float64{1, 2, 3, 4}, []int{4}, "")
+	view := o.Slice(params, 1, 3)
+	for batch := 0; batch < 12; batch++ {
+		tmp := o.Clone(params)
+		out := o.ReluForward(tmp)
+		o.Free(tmp)
+		o.Free(out)
+		if len(o.Tensors) != 2 || len(o.tensors) != 2 {
+			t.Fatalf("batch%d retained dead tensors: %d/%d", batch, len(o.Tensors), len(o.tensors))
+		}
+		runOperator(t, s, d, o)
+		if len(o.PendingFrees) != 0 || len(o.Checks) != 0 {
+			t.Fatal("batch did not consume releases/checks")
+		}
+	}
+	o.Init(view, []float64{7, 9})
+	if got := readTensor(t, s, d, o, params); !reflect.DeepEqual(got, []float64{1, 7, 9, 4}) {
+		t.Fatal(got)
 	}
 }

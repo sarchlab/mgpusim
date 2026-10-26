@@ -2,12 +2,14 @@ package backprop
 
 import (
 	"bytes"
+	"testing"
+
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
-	"testing"
 )
 
+//nolint:funlen // Keep requested defaults and both lifecycle boundaries together.
 func TestRequestedDefaultsSurviveEffectiveDimensions(t *testing.T) {
 	s := simulation.MakeBuilder().Build()
 	rt := emusystem.MakeBuilder().WithSimulation(s).WithArchitecture(arch.CDNA3).Build()
@@ -23,6 +25,28 @@ func TestRequestedDefaultsSurviveEffectiveDimensions(t *testing.T) {
 	})
 	b.SelectGPU([]int{1})
 	b.SetVerification(true)
+	var initial bytes.Buffer
+	if err := b.SaveCheckpoint(&initial); err != nil {
+		t.Fatal(err)
+	}
+	same := NewBenchmark(rt)
+	same.Arch = arch.CDNA3
+	same.SelectGPU([]int{1})
+	same.SetVerification(true)
+	if err := same.LoadCheckpoint(bytes.NewReader(initial.Bytes())); err != nil {
+		t.Fatal(err)
+	}
+	if same.InputN != 0 || same.HiddenN != 0 || same.OutputN != 0 {
+		t.Fatal("loading unstarted state normalized defaults")
+	}
+	different := NewBenchmark(rt)
+	different.Arch = arch.CDNA3
+	different.SelectGPU([]int{1})
+	different.SetVerification(true)
+	different.InputN = 128
+	if err := different.LoadCheckpoint(bytes.NewReader(initial.Bytes())); err == nil {
+		t.Fatal("unstarted configuration mismatch accepted")
+	}
 	if err := b.Step(); err != nil {
 		t.Fatal(err)
 	}

@@ -15,15 +15,14 @@
 package lud
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -73,26 +72,14 @@ type PerimeterKernelArgs struct {
 
 // Benchmark defines the LUD benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+
+	driver *driver.Runtime
 
 	hsacoDiagonal  *insts.KernelCodeObject
 	hsacoPerimeter *insts.KernelCodeObject
 	hsacoInternal  *insts.KernelCodeObject
-
-	Arch arch.Type
-	N    int
-
-	aOrig []float32
-	gA    driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -101,9 +88,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new LUD benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -124,12 +113,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. LUD uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -141,8 +130,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -158,16 +147,16 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.aOrig = make([]float32, numElem)
-	initMatrix(b.aOrig, n)
+	b.AOrig = make([]float32, numElem)
+	initMatrix(b.AOrig, n)
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
+		b.GA = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.aOrig)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.AOrig)
 }
 
 // initMatrix builds a diagonally-dominant matrix so that LU without pivoting
@@ -218,13 +207,13 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) launchDiagonal(n, offset int) {
 	args := SimpleKernelArgs{
-		A:      b.gA,
+		A:      b.GA,
 		N:      int32(n),
 		Offset: int32(offset),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsacoDiagonal,
 		[3]uint32{bSize, bSize, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -235,7 +224,7 @@ func (b *Benchmark) launchDiagonal(n, offset int) {
 func (b *Benchmark) launchPerimeter(n, offset, peri int) {
 	globalX := uint32(peri * bSize)
 	args := PerimeterKernelArgs{
-		A:                 b.gA,
+		A:                 b.GA,
 		N:                 int32(n),
 		Offset:            int32(offset),
 		HiddenBlockCountX: uint32(peri),
@@ -251,7 +240,7 @@ func (b *Benchmark) launchPerimeter(n, offset, peri int) {
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsacoPerimeter,
 		[3]uint32{globalX, bSize, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -263,13 +252,13 @@ func (b *Benchmark) launchInternal(n, offset, intern int) {
 	globalX := uint32(intern * bSize)
 	globalY := uint32(intern * bSize)
 	args := SimpleKernelArgs{
-		A:      b.gA,
+		A:      b.GA,
 		N:      int32(n),
 		Offset: int32(offset),
 	}
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsacoInternal,
 		[3]uint32{globalX, globalY, 1},
 		[3]uint16{bSize, bSize, 1},
@@ -283,7 +272,7 @@ func (b *Benchmark) launchInternal(n, offset, intern int) {
 func (b *Benchmark) verify() error {
 	n := b.N
 	lu := make([]float32, n*n)
-	if err := b.driver.ReadResult(b.readbacks[0], lu); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], lu); err != nil {
 		return err
 	}
 
@@ -303,9 +292,9 @@ func (b *Benchmark) verify() error {
 				u := float64(lu[k*n+j])
 				sum += l * u
 			}
-			diff := float64(b.aOrig[i*n+j]) - sum
+			diff := float64(b.AOrig[i*n+j]) - sum
 			err += diff * diff
-			normA += float64(b.aOrig[i*n+j]) * float64(b.aOrig[i*n+j])
+			normA += float64(b.AOrig[i*n+j]) * float64(b.AOrig[i*n+j])
 		}
 	}
 
@@ -321,15 +310,17 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GA, 4*((b.N)*(b.N))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -343,7 +334,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

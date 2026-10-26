@@ -3,25 +3,29 @@ package cifar10
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training"
-	//"fmt"
 )
 
 // A DataSource provides convenient solution to feed data to neural networks.
 type DataSource struct {
-	to            tensor.Operator
-	dataSet       *DataSet
-	pixelPerImage int
-	currPtr       int
-	allData       []float64
-	allLabel      []int
+	*training.ResidentDataSource
+	dataSet *DataSet
 }
 
 // NewTrainingDataSource returns a DataSource object that fetches data from
 // the training set.
 func NewTrainingDataSource(to tensor.Operator) *DataSource {
 	ds := &DataSource{
-		to:            to,
-		pixelPerImage: 1024,
+		ResidentDataSource: &training.ResidentDataSource{
+			Operator: to,
+			State: &training.DataState{
+				Shape: []int{
+					3,
+					32,
+					32,
+				},
+				Descriptor: "NCHW",
+			},
+		},
 	}
 
 	ds.dataSet = new(DataSet)
@@ -36,8 +40,17 @@ func NewTrainingDataSource(to tensor.Operator) *DataSource {
 // test set.
 func NewTestDataSource(to tensor.Operator) *DataSource {
 	ds := &DataSource{
-		to:            to,
-		pixelPerImage: 1024,
+		ResidentDataSource: &training.ResidentDataSource{
+			Operator: to,
+			State: &training.DataState{
+				Shape: []int{
+					3,
+					32,
+					32,
+				},
+				Descriptor: "NCHW",
+			},
+		},
 	}
 
 	ds.dataSet = new(DataSet)
@@ -55,55 +68,10 @@ func (ds *DataSource) loadAllData() {
 		for i := 0; i < len(d); i++ {
 			normalizedD[i] = float64(d[i]) / 255
 		}
-		ds.allData = append(ds.allData, normalizedD...)
+		ds.State.Data = append(ds.State.Data, normalizedD...)
 		if ds.dataSet.isFirstChannel() {
 			// only first channel got label for the whole images
-			ds.allLabel = append(ds.allLabel, int(l))
+			ds.State.Labels = append(ds.State.Labels, int(l))
 		}
-	}
-}
-
-// NextBatch returns another batch of data.
-func (ds *DataSource) NextBatch(batchSize int) (
-	data tensor.Tensor,
-	label []int,
-) {
-	channelPerImage := 3
-	if ds.currPtr >= len(ds.allLabel) {
-		return nil, nil
-	}
-	start := ds.currPtr
-	end := start + batchSize
-
-	if end > len(ds.allLabel) {
-		end = len(ds.allLabel)
-	}
-
-	valuePerImage := ds.pixelPerImage * channelPerImage
-	rawData := ds.allData[start*valuePerImage : end*valuePerImage]
-
-	data = ds.to.CreateWithData(rawData, []int{end - start, 3, 32, 32}, "NCHW")
-
-	label = ds.allLabel[start:end]
-
-	ds.currPtr = end
-
-	return data, label
-}
-
-// Rewind resets the pointer to the beginning of the dataset.
-func (ds *DataSource) Rewind() {
-	ds.currPtr = 0
-}
-
-// to test with lenet, add test function to change the dimension of a picture, currently 3*32*32, to 1*28*28
-
-func (ds *DataSource) SnapshotData() training.DataState {
-	return training.DataState{
-		Data:       ds.allData,
-		Labels:     ds.allLabel,
-		Shape:      []int{3, 32, 32},
-		Descriptor: "NCHW",
-		Cursor:     ds.currPtr,
 	}
 }

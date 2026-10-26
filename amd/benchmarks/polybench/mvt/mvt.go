@@ -14,15 +14,14 @@
 package mvt
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -50,31 +49,13 @@ type KernelArgs struct {
 
 // Benchmark defines the MVT benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	kernel1   *insts.KernelCodeObject
-	kernel2   *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
-	N    int
+	driver *driver.Runtime
 
-	a  []float32
-	y1 []float32
-	y2 []float32
-
-	gA  driver.Ptr
-	gY1 driver.Ptr
-	gY2 driver.Ptr
-	gX1 driver.Ptr
-	gX2 driver.Ptr
-
-	useUnifiedMemory bool
+	kernel1 *insts.KernelCodeObject
+	kernel2 *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -83,9 +64,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new MVT benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -106,12 +89,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. MVT uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -123,8 +106,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -137,36 +120,36 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	b.a = make([]float32, numElem)
-	b.y1 = make([]float32, n)
-	b.y2 = make([]float32, n)
+	b.A = make([]float32, numElem)
+	b.Y1 = make([]float32, n)
+	b.Y2 = make([]float32, n)
 
 	// Deterministic host init, reproduced exactly in Verify().
 	for i := 0; i < numElem; i++ {
-		b.a[i] = float32(i%100) / 10.0
+		b.A[i] = float32(i%100) / 10.0
 	}
 	for j := 0; j < n; j++ {
-		b.y1[j] = float32((j*3)%100) / 10.0
-		b.y2[j] = float32((j*7)%100) / 10.0
+		b.Y1[j] = float32((j*3)%100) / 10.0
+		b.Y2[j] = float32((j*7)%100) / 10.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, uint64(numElem*4))
-		b.gY1 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gY2 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gX1 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
-		b.gX2 = b.driver.AllocateUnifiedMemory(b.context, uint64(n*4))
+	if b.UseUnifiedMemory {
+		b.GA = b.driver.AllocateUnifiedMemory(b.Context, uint64(numElem*4))
+		b.GY1 = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GY2 = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GX1 = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GX2 = b.driver.AllocateUnifiedMemory(b.Context, uint64(n*4))
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, uint64(numElem*4))
-		b.gY1 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gY2 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gX1 = b.driver.AllocateMemory(b.context, uint64(n*4))
-		b.gX2 = b.driver.AllocateMemory(b.context, uint64(n*4))
+		b.GA = b.driver.AllocateMemory(b.Context, uint64(numElem*4))
+		b.GY1 = b.driver.AllocateMemory(b.Context, uint64(n*4))
+		b.GY2 = b.driver.AllocateMemory(b.Context, uint64(n*4))
+		b.GX1 = b.driver.AllocateMemory(b.Context, uint64(n*4))
+		b.GX2 = b.driver.AllocateMemory(b.Context, uint64(n*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.a)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gY1, b.y1)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gY2, b.y2)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.A)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GY1, b.Y1)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GY2, b.Y2)
 }
 
 func (b *Benchmark) exec() {
@@ -176,13 +159,13 @@ func (b *Benchmark) exec() {
 
 	// Kernel 1: x1 = A * y1
 	args1 := KernelArgs{
-		A: b.gA,
-		Y: b.gY1,
-		X: b.gX1,
+		A: b.GA,
+		Y: b.GY1,
+		X: b.GX1,
 		N: int32(n),
 	}
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.kernel1,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -191,13 +174,13 @@ func (b *Benchmark) exec() {
 
 	// Kernel 2: x2 = A^T * y2
 	args2 := KernelArgs{
-		A: b.gA,
-		Y: b.gY2,
-		X: b.gX2,
+		A: b.GA,
+		Y: b.GY2,
+		X: b.GX2,
 		N: int32(n),
 	}
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.kernel2,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -211,10 +194,10 @@ func (b *Benchmark) verify() error {
 
 	gpuX1 := make([]float32, n)
 	gpuX2 := make([]float32, n)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuX1); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuX1); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], gpuX2); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], gpuX2); err != nil {
 		return err
 	}
 
@@ -222,7 +205,7 @@ func (b *Benchmark) verify() error {
 	for i := 0; i < n; i++ {
 		var sum float64
 		for j := 0; j < n; j++ {
-			sum += float64(b.a[i*n+j]) * float64(b.y1[j])
+			sum += float64(b.A[i*n+j]) * float64(b.Y1[j])
 		}
 		got := float64(gpuX1[i])
 		if relErr(sum, got) > 1e-3 {
@@ -235,7 +218,7 @@ func (b *Benchmark) verify() error {
 	for j := 0; j < n; j++ {
 		var sum float64
 		for i := 0; i < n; i++ {
-			sum += float64(b.a[i*n+j]) * float64(b.y2[i])
+			sum += float64(b.A[i*n+j]) * float64(b.Y2[i])
 		}
 		got := float64(gpuX2[j])
 		if relErr(sum, got) > 1e-3 {
@@ -250,8 +233,8 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gX1, 4*(b.N)))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gX2, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GX1, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GX2, 4*(b.N)))
 }
 
 func relErr(ref, got float64) float64 {
@@ -264,10 +247,12 @@ func relErr(ref, got float64) float64 {
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -281,7 +266,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

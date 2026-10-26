@@ -1,28 +1,29 @@
 package cutcp
 
 import (
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"io"
 )
 
-type checkpointState struct {
-	InitialConfig    checkpointConfig
-	ConfigCaptured   bool
-	Progress         benchmarks.Progress
-	Readbacks        []driver.CommandID
-	Context          driver.Context
-	Queue            driver.CommandQueue
-	Gpus             []int
-	Arch             arch.Type
-	NumAtoms         int
-	GridSide         int
-	GridSpacing      float32
+type State struct {
+	benchmarks.Progress
+	Readbacks []driver.CommandID
+	Context   driver.Context
+	Queue     driver.CommandQueue
+	Gpus      []int
+	Arch      arch.Type
+	// NumAtoms is the number of atoms (point charges).
+	NumAtoms int
+	// GridSide is the number of grid points along each axis (grid is
+	// GridSide^3 points).
+	GridSide int
+	// GridSpacing is the distance between adjacent grid points.
+	GridSpacing float32
+	// Cutoff is the interaction cutoff radius.
 	Cutoff           float32
-	Atoms            []float32
-	Potential        []float32
+	Atoms            []float32 // flat float4: [x,y,z,q] per atom
+	Potential        []float32 // GridSide^3 grid points
 	GAtoms           driver.Ptr
 	GPot             driver.Ptr
 	UseUnifiedMemory bool
@@ -40,65 +41,16 @@ type checkpointConfig struct {
 
 func (b *Benchmark) checkpointConfig() checkpointConfig {
 	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.gpus,
+		Gpus:             b.Gpus,
 		Arch:             b.Arch,
 		NumAtoms:         b.NumAtoms,
 		GridSide:         b.GridSide,
 		GridSpacing:      b.GridSpacing,
 		Cutoff:           b.Cutoff,
-		UseUnifiedMemory: b.useUnifiedMemory,
+		UseUnifiedMemory: b.UseUnifiedMemory,
 	}
 }
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, b.configuration(), checkpointState{
-		InitialConfig:    b.initialConfig,
-		ConfigCaptured:   b.configCaptured,
-		Progress:         b.Progress,
-		Readbacks:        b.readbacks,
-		Context:          b.context,
-		Queue:            b.queue,
-		Gpus:             b.gpus,
-		Arch:             b.Arch,
-		NumAtoms:         b.NumAtoms,
-		GridSide:         b.GridSide,
-		GridSpacing:      b.GridSpacing,
-		Cutoff:           b.Cutoff,
-		Atoms:            b.atoms,
-		Potential:        b.potential,
-		GAtoms:           b.gAtoms,
-		GPot:             b.gPot,
-		UseUnifiedMemory: b.useUnifiedMemory,
-	}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.configuration(), &s, nil); err != nil {
-		return err
-	}
-	b.initialConfig = s.InitialConfig
-	b.configCaptured = s.ConfigCaptured
-	b.Progress = s.Progress
-	b.readbacks = s.Readbacks
-	b.context = s.Context
-	b.queue = s.Queue
-	b.gpus = s.Gpus
-	b.Arch = s.Arch
-	b.NumAtoms = s.NumAtoms
-	b.GridSide = s.GridSide
-	b.GridSpacing = s.GridSpacing
-	b.Cutoff = s.Cutoff
-	b.atoms = s.Atoms
-	b.potential = s.Potential
-	b.gAtoms = s.GAtoms
-	b.gPot = s.GPot
-	b.useUnifiedMemory = s.UseUnifiedMemory
+func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil
-}
-
-func (b *Benchmark) configuration() checkpointConfig {
-	if b.configCaptured {
-		return b.initialConfig
-	}
-	return b.checkpointConfig()
 }

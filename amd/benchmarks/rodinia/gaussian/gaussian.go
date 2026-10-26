@@ -15,15 +15,14 @@
 package gaussian
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -62,28 +61,13 @@ type Fan2KernelArgs struct {
 
 // Benchmark defines the Gaussian elimination benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks  []driver.CommandID
-	driver     *driver.Runtime
-	context    driver.Context
-	queue      driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+
+	driver *driver.Runtime
+
 	fan1Kernel *insts.KernelCodeObject
 	fan2Kernel *insts.KernelCodeObject
-	gpus       []int
-
-	Arch arch.Type
-	N    int
-
-	aInit []float32 // original A (row-major NxN)
-	bInit []float32 // original b (N)
-
-	gA driver.Ptr
-	gB driver.Ptr
-	gM driver.Ptr
-
-	useUnifiedMemory bool
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -92,9 +76,12 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new Gaussian elimination benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -113,12 +100,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Gaussian uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -130,8 +117,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -140,8 +127,8 @@ func (b *Benchmark) submit() {
 // reproduces exactly. A_ii = N + small; off-diagonal in [0, 0.9]; b in [1, 1.9].
 func (b *Benchmark) initData() {
 	n := b.N
-	b.aInit = make([]float32, n*n)
-	b.bInit = make([]float32, n)
+	b.AInit = make([]float32, n*n)
+	b.BInit = make([]float32, n)
 
 	// Off-diagonal entries are kept strictly in [0.1, 1.0] (never exactly
 	// 0). A pivot column with an exact-zero entry below the diagonal yields
@@ -149,13 +136,13 @@ func (b *Benchmark) initData() {
 	// the hardware fast-divide's zero-numerator path. Avoiding exact zeros
 	// keeps the system well-conditioned and the result faithful.
 	for i := 0; i < n*n; i++ {
-		b.aInit[i] = float32((i*7+3)%9)/10.0 + 0.1
+		b.AInit[i] = float32((i*7+3)%9)/10.0 + 0.1
 	}
 	for i := 0; i < n; i++ {
-		b.aInit[i*n+i] += float32(n) // diagonal dominance: no pivoting needed
+		b.AInit[i*n+i] += float32(n) // diagonal dominance: no pivoting needed
 	}
 	for i := 0; i < n; i++ {
-		b.bInit[i] = float32((i*3+1)%9)/10.0 + 1.0
+		b.BInit[i] = float32((i*3+1)%9)/10.0 + 1.0
 	}
 }
 
@@ -170,22 +157,22 @@ func (b *Benchmark) initMem() {
 	bytesA := uint64(n * n * 4)
 	bytesB := uint64(n * 4)
 
-	if b.useUnifiedMemory {
-		b.gA = b.driver.AllocateUnifiedMemory(b.context, bytesA)
-		b.gB = b.driver.AllocateUnifiedMemory(b.context, bytesB)
-		b.gM = b.driver.AllocateUnifiedMemory(b.context, bytesA)
+	if b.UseUnifiedMemory {
+		b.GA = b.driver.AllocateUnifiedMemory(b.Context, bytesA)
+		b.GB = b.driver.AllocateUnifiedMemory(b.Context, bytesB)
+		b.GM = b.driver.AllocateUnifiedMemory(b.Context, bytesA)
 	} else {
-		b.gA = b.driver.AllocateMemory(b.context, bytesA)
-		b.gB = b.driver.AllocateMemory(b.context, bytesB)
-		b.gM = b.driver.AllocateMemory(b.context, bytesA)
+		b.GA = b.driver.AllocateMemory(b.Context, bytesA)
+		b.GB = b.driver.AllocateMemory(b.Context, bytesB)
+		b.GM = b.driver.AllocateMemory(b.Context, bytesA)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gA, b.aInit)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gB, b.bInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GA, b.AInit)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GB, b.BInit)
 
 	// Zero-initialize the multiplier matrix.
 	mZero := make([]float32, n*n)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gM, mZero)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GM, mZero)
 }
 
 func (b *Benchmark) exec() {
@@ -197,13 +184,13 @@ func (b *Benchmark) exec() {
 		// fan1: 1D grid, BLOCK1D threads/block.
 		grid1 := uint32((remaining + block1D - 1) / block1D)
 		fan1Args := Fan1KernelArgs{
-			M:    b.gM,
-			A:    b.gA,
+			M:    b.GM,
+			A:    b.GA,
 			Size: int32(n),
 			T:    int32(t),
 		}
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.fan1Kernel,
 			[3]uint32{grid1 * block1D, 1, 1},
 			[3]uint16{block1D, 1, 1},
@@ -213,14 +200,14 @@ func (b *Benchmark) exec() {
 		// fan2: 2D grid, BLOCK2D x BLOCK2D threads/block.
 		grid2 := uint32((remaining + block2D - 1) / block2D)
 		fan2Args := Fan2KernelArgs{
-			M:    b.gM,
-			A:    b.gA,
-			B:    b.gB,
+			M:    b.GM,
+			A:    b.GA,
+			B:    b.GB,
 			Size: int32(n),
 			T:    int32(t),
 		}
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.fan2Kernel,
 			[3]uint32{grid2 * block2D, grid2 * block2D, 1},
 			[3]uint16{block2D, block2D, 1},
@@ -237,10 +224,10 @@ func (b *Benchmark) verify() error {
 
 	a := make([]float32, n*n)
 	bb := make([]float32, n)
-	if err := b.driver.ReadResult(b.readbacks[0], a); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], a); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], bb); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], bb); err != nil {
 		return err
 	}
 
@@ -257,12 +244,12 @@ func (b *Benchmark) verify() error {
 	// Relative residual of the ORIGINAL system using the original A and b.
 	var normRes, normB float64
 	for i := 0; i < n; i++ {
-		res := -float64(b.bInit[i])
+		res := -float64(b.BInit[i])
 		for j := 0; j < n; j++ {
-			res += float64(b.aInit[i*n+j]) * x[j]
+			res += float64(b.AInit[i*n+j]) * x[j]
 		}
 		normRes += res * res
-		normB += float64(b.bInit[i]) * float64(b.bInit[i])
+		normB += float64(b.BInit[i]) * float64(b.BInit[i])
 	}
 	relErr := math.Sqrt(normRes / (normB + 1e-30))
 
@@ -278,16 +265,18 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gA, 4*((b.N)*(b.N))))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gB, 4*(b.N)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GB, 4*(b.N)))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -301,7 +290,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

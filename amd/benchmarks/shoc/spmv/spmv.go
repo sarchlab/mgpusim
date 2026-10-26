@@ -2,17 +2,16 @@
 package spmv
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"encoding/binary"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 	"os"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -59,51 +58,34 @@ type CDNA3KernelArgs struct {
 
 // Benchmark set up test parameters
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readbacks      []benchmarks.Readback
-	queue          driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	driver           *driver.Runtime
-	context          driver.Context
-	gpus             []int
-	queues           []driver.CommandQueue
-	useUnifiedMemory bool
-	spmvKernel       *insts.KernelCodeObject
+	driver *driver.Runtime
 
-	Arch      arch.Type
-	Dim       int32
-	Sparsity  float64
-	dValData  driver.Ptr
-	dVecData  driver.Ptr
-	dColsData driver.Ptr
-	dRowDData driver.Ptr
-	dOutData  driver.Ptr
-	nItems    int32
-	vec       []float32
-	out       []float32
-	maxval    float32
-	matrix    csr.Matrix
+	spmvKernel *insts.KernelCodeObject
 }
 
 // NewBenchmark creates a new benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
-	b.maxval = 10
+	b.Context = driver.Init()
+	b.Maxval = 10
 	return b
 }
 
 // SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed spmv.hsaco
@@ -129,38 +111,37 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	for _, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
 	}
 
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
-	b.nItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
-	fmt.Fprintf(os.Stderr, "Number of non-zero elements %d\n", b.nItems)
+	b.NItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
+	fmt.Fprintf(os.Stderr, "Number of non-zero elements %d\n", b.NItems)
 
-	b.matrix = csr.
-		MakeMatrixGenerator(uint32(b.Dim), uint32(b.nItems)).
+	b.Matrix = csr.MakeMatrixGenerator(uint32(b.Dim), uint32(b.NItems)).
 		GenerateMatrix()
-	b.vec = make([]float32, b.Dim)
-	b.out = make([]float32, b.Dim)
+	b.Vec = make([]float32, b.Dim)
+	b.Out = make([]float32, b.Dim)
 
 	// Use a local random source so the input is reproducible. The global
 	// generator is seeded randomly at startup (rand.Seed is a no-op since
 	// Go 1.24), which made this benchmark's input differ on every run.
 	rng := rand.New(rand.NewSource(1))
 	for j := int32(0); j < b.Dim; j++ {
-		b.vec[j] = (rng.Float32() * b.maxval)
+		b.Vec[j] = (rng.Float32() * b.Maxval)
 	}
 
-	if b.useUnifiedMemory {
+	if b.UseUnifiedMemory {
 		b.allocateUnifiedMemory()
 	} else {
 		b.allocateMemory()
@@ -168,37 +149,37 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) allocateUnifiedMemory() {
-	b.dValData = b.driver.AllocateUnifiedMemory(b.context,
-		uint64(b.nItems*4))
-	b.dVecData = b.driver.AllocateUnifiedMemory(b.context,
+	b.DValData = b.driver.AllocateUnifiedMemory(b.Context,
+		uint64(b.NItems*4))
+	b.DVecData = b.driver.AllocateUnifiedMemory(b.Context,
 		uint64(b.Dim*4))
-	b.dColsData = b.driver.AllocateUnifiedMemory(b.context,
-		uint64(b.nItems*4))
-	b.dRowDData = b.driver.AllocateUnifiedMemory(b.context,
+	b.DColsData = b.driver.AllocateUnifiedMemory(b.Context,
+		uint64(b.NItems*4))
+	b.DRowDData = b.driver.AllocateUnifiedMemory(b.Context,
 		uint64((b.Dim+1)*4))
-	b.dOutData = b.driver.AllocateUnifiedMemory(b.context,
+	b.DOutData = b.driver.AllocateUnifiedMemory(b.Context,
 		uint64(b.Dim*4))
 }
 
 func (b *Benchmark) allocateMemory() {
-	b.dValData = b.driver.AllocateMemory(b.context,
-		uint64(b.nItems*4))
-	b.dVecData = b.driver.AllocateMemory(b.context,
+	b.DValData = b.driver.AllocateMemory(b.Context,
+		uint64(b.NItems*4))
+	b.DVecData = b.driver.AllocateMemory(b.Context,
 		uint64(b.Dim*4))
-	b.dColsData = b.driver.AllocateMemory(b.context,
-		uint64(b.nItems*4))
-	b.dRowDData = b.driver.AllocateMemory(b.context,
+	b.DColsData = b.driver.AllocateMemory(b.Context,
+		uint64(b.NItems*4))
+	b.DRowDData = b.driver.AllocateMemory(b.Context,
 		uint64((b.Dim+1)*4))
-	b.dOutData = b.driver.AllocateMemory(b.context,
+	b.DOutData = b.driver.AllocateMemory(b.Context,
 		uint64(b.Dim*4))
 }
 
 func (b *Benchmark) exec() {
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dValData, b.matrix.Values)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dVecData, b.vec)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dColsData, b.matrix.ColumnNumbers)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dRowDData, b.matrix.RowOffsets)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dOutData, b.out)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DValData, b.Matrix.Values)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DVecData, b.Vec)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DColsData, b.Matrix.ColumnNumbers)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DRowDData, b.Matrix.RowOffsets)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DOutData, b.Out)
 
 	blockSize := int32(128)
 
@@ -211,23 +192,23 @@ func (b *Benchmark) exec() {
 		b.execGCN3(globalSize, localSize)
 	}
 
-	b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dOutData, Target: 0})
+	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DOutData, Target: 0})
 }
 
 func (b *Benchmark) execGCN3(
 	globalSize [3]uint32, localSize [3]uint16,
 ) {
 	args := KernelArgs{
-		Val:           b.dValData,
-		Vec:           b.dVecData,
-		Cols:          b.dColsData,
-		RowDelimiters: b.dRowDData,
+		Val:           b.DValData,
+		Vec:           b.DVecData,
+		Cols:          b.DColsData,
+		RowDelimiters: b.DRowDData,
 		Dim:           b.Dim,
 		Padding:       0,
-		Out:           b.dOutData,
+		Out:           b.DOutData,
 	}
 
-	b.driver.EnqueueLaunchKernel(b.queue,
+	b.driver.EnqueueLaunchKernel(b.Queue,
 		b.spmvKernel,
 		globalSize, localSize,
 		&args,
@@ -238,15 +219,15 @@ func (b *Benchmark) execCDNA3(
 	globalSize [3]uint32, localSize [3]uint16,
 ) {
 	args := CDNA3KernelArgs{
-		Val:           b.dValData,
-		Vec:           b.dVecData,
-		Cols:          b.dColsData,
-		RowDelimiters: b.dRowDData,
+		Val:           b.DValData,
+		Vec:           b.DVecData,
+		Cols:          b.DColsData,
+		RowDelimiters: b.DRowDData,
 		Dim:           b.Dim,
-		Out:           b.dOutData,
+		Out:           b.DOutData,
 	}
 
-	b.driver.EnqueueLaunchKernel(b.queue,
+	b.driver.EnqueueLaunchKernel(b.Queue,
 		b.spmvKernel,
 		globalSize, localSize,
 		&args,
@@ -259,11 +240,11 @@ func (b *Benchmark) verify() error {
 
 	mismatch := false
 	for i := int32(0); i < b.Dim; i++ {
-		if b.out[i] != cpuOutput[i] {
+		if b.Out[i] != cpuOutput[i] {
 			mismatch = true
 			log.Printf("not match at (%d), expected %f to equal %f\n",
 				i,
-				b.out[i], cpuOutput[i])
+				b.Out[i], cpuOutput[i])
 		}
 	}
 
@@ -280,9 +261,9 @@ func (b *Benchmark) spmvCPU() []float32 {
 	cpuOutput := make([]float32, b.Dim)
 	for i := int32(0); i < b.Dim; i++ {
 		t := float32(0)
-		for j := b.matrix.RowOffsets[i]; j < b.matrix.RowOffsets[i+1]; j++ {
-			col := b.matrix.ColumnNumbers[j]
-			t += b.matrix.Values[j] * b.vec[col]
+		for j := b.Matrix.RowOffsets[i]; j < b.Matrix.RowOffsets[i+1]; j++ {
+			col := b.Matrix.ColumnNumbers[j]
+			t += b.Matrix.Values[j] * b.Vec[col]
 		}
 		cpuOutput[i] = t
 	}
@@ -290,31 +271,33 @@ func (b *Benchmark) spmvCPU() []float32 {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
 		b.exec()
 		b.Phase = 2
 	case 2:
-		for i := range b.readbacks {
+		for i := range b.Readbacks {
 			var dst any
-			switch b.readbacks[i].Target {
+			switch b.Readbacks[i].Target {
 			case 0:
-				dst = b.out
+				dst = b.Out
 			}
-			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
-		for _, copy := range b.readbacks {
+		for _, copy := range b.Readbacks {
 			var dst any
 			switch copy.Target {
 			case 0:
-				dst = b.out
+				dst = b.Out
 			}
 			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
 				return err
@@ -325,7 +308,7 @@ func (b *Benchmark) Step() error {
 				return err
 			}
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

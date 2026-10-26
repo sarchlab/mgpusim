@@ -11,14 +11,13 @@
 package lavamd
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	// embed hsaco files
+	_ "embed"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -58,44 +57,12 @@ type KernelArgs struct {
 
 // Benchmark defines the LavaMD benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch arch.Type
+	driver *driver.Runtime
 
-	// NumBoxes is the number of boxes per dimension (the grid is
-	// NumBoxes^3 boxes).
-	NumBoxes int
-	// ParticlesPerBox is the number of particles in each box.
-	ParticlesPerBox int
-
-	totalBoxes     int
-	totalParticles int
-
-	hPosX          []float32
-	hPosY          []float32
-	hPosZ          []float32
-	hNeighborList  []int32
-	hNeighborCount []int32
-
-	gPosX          driver.Ptr
-	gPosY          driver.Ptr
-	gPosZ          driver.Ptr
-	gForceX        driver.Ptr
-	gForceY        driver.Ptr
-	gForceZ        driver.Ptr
-	gEnergy        driver.Ptr
-	gNeighborList  driver.Ptr
-	gNeighborCount driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -104,9 +71,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new LavaMD benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -121,12 +90,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. LavaMD uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -138,8 +107,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -161,11 +130,11 @@ func (b *Benchmark) initHostData() { //nolint:funlen,gocognit
 	nb := b.NumBoxes
 	ppb := b.ParticlesPerBox
 
-	b.hPosX = make([]float32, b.totalParticles)
-	b.hPosY = make([]float32, b.totalParticles)
-	b.hPosZ = make([]float32, b.totalParticles)
-	b.hNeighborList = make([]int32, b.totalBoxes*27)
-	b.hNeighborCount = make([]int32, b.totalBoxes)
+	b.HPosX = make([]float32, b.TotalParticles)
+	b.HPosY = make([]float32, b.TotalParticles)
+	b.HPosZ = make([]float32, b.TotalParticles)
+	b.HNeighborList = make([]int32, b.TotalBoxes*27)
+	b.HNeighborCount = make([]int32, b.TotalBoxes)
 
 	var seed uint32 = 42
 
@@ -176,11 +145,11 @@ func (b *Benchmark) initHostData() { //nolint:funlen,gocognit
 				base := boxID * ppb
 
 				for p := 0; p < ppb; p++ {
-					b.hPosX[base+p] = float32(bx)*boxSize +
+					b.HPosX[base+p] = float32(bx)*boxSize +
 						randFloat(&seed, 0.5, boxSize-0.5)
-					b.hPosY[base+p] = float32(by)*boxSize +
+					b.HPosY[base+p] = float32(by)*boxSize +
 						randFloat(&seed, 0.5, boxSize-0.5)
-					b.hPosZ[base+p] = float32(bz)*boxSize +
+					b.HPosZ[base+p] = float32(bz)*boxSize +
 						randFloat(&seed, 0.5, boxSize-0.5)
 				}
 
@@ -195,13 +164,13 @@ func (b *Benchmark) initHostData() { //nolint:funlen,gocognit
 								nny >= 0 && nny < nb &&
 								nnz >= 0 && nnz < nb {
 								nid := nnz*nb*nb + nny*nb + nnx
-								b.hNeighborList[boxID*27+count] = int32(nid)
+								b.HNeighborList[boxID*27+count] = int32(nid)
 								count++
 							}
 						}
 					}
 				}
-				b.hNeighborCount[boxID] = int32(count)
+				b.HNeighborCount[boxID] = int32(count)
 			}
 		}
 	}
@@ -215,57 +184,57 @@ func (b *Benchmark) initMem() {
 		b.ParticlesPerBox = 100
 	}
 
-	b.totalBoxes = b.NumBoxes * b.NumBoxes * b.NumBoxes
-	b.totalParticles = b.totalBoxes * b.ParticlesPerBox
+	b.TotalBoxes = b.NumBoxes * b.NumBoxes * b.NumBoxes
+	b.TotalParticles = b.TotalBoxes * b.ParticlesPerBox
 
 	b.initHostData()
 
-	posBytes := uint64(b.totalParticles * 4)
-	neighBytes := uint64(b.totalBoxes * 27 * 4)
-	ncountBytes := uint64(b.totalBoxes * 4)
+	posBytes := uint64(b.TotalParticles * 4)
+	neighBytes := uint64(b.TotalBoxes * 27 * 4)
+	ncountBytes := uint64(b.TotalBoxes * 4)
 
 	alloc := b.driver.AllocateMemory
-	if b.useUnifiedMemory {
+	if b.UseUnifiedMemory {
 		alloc = b.driver.AllocateUnifiedMemory
 	}
 
-	b.gPosX = alloc(b.context, posBytes)
-	b.gPosY = alloc(b.context, posBytes)
-	b.gPosZ = alloc(b.context, posBytes)
-	b.gForceX = alloc(b.context, posBytes)
-	b.gForceY = alloc(b.context, posBytes)
-	b.gForceZ = alloc(b.context, posBytes)
-	b.gEnergy = alloc(b.context, posBytes)
-	b.gNeighborList = alloc(b.context, neighBytes)
-	b.gNeighborCount = alloc(b.context, ncountBytes)
+	b.GPosX = alloc(b.Context, posBytes)
+	b.GPosY = alloc(b.Context, posBytes)
+	b.GPosZ = alloc(b.Context, posBytes)
+	b.GForceX = alloc(b.Context, posBytes)
+	b.GForceY = alloc(b.Context, posBytes)
+	b.GForceZ = alloc(b.Context, posBytes)
+	b.GEnergy = alloc(b.Context, posBytes)
+	b.GNeighborList = alloc(b.Context, neighBytes)
+	b.GNeighborCount = alloc(b.Context, ncountBytes)
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosX, b.hPosX)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosY, b.hPosY)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gPosZ, b.hPosZ)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gNeighborList, b.hNeighborList)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gNeighborCount, b.hNeighborCount)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosX, b.HPosX)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosY, b.HPosY)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPosZ, b.HPosZ)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNeighborList, b.HNeighborList)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GNeighborCount, b.HNeighborCount)
 }
 
 func (b *Benchmark) exec() {
 	args := KernelArgs{
-		PosX:            b.gPosX,
-		PosY:            b.gPosY,
-		PosZ:            b.gPosZ,
-		ForceX:          b.gForceX,
-		ForceY:          b.gForceY,
-		ForceZ:          b.gForceZ,
-		EnergyOut:       b.gEnergy,
-		NeighborList:    b.gNeighborList,
-		NeighborCount:   b.gNeighborCount,
+		PosX:            b.GPosX,
+		PosY:            b.GPosY,
+		PosZ:            b.GPosZ,
+		ForceX:          b.GForceX,
+		ForceY:          b.GForceY,
+		ForceZ:          b.GForceZ,
+		EnergyOut:       b.GEnergy,
+		NeighborList:    b.GNeighborList,
+		NeighborCount:   b.GNeighborCount,
 		ParticlesPerBox: int32(b.ParticlesPerBox),
-		TotalBoxes:      int32(b.totalBoxes),
+		TotalBoxes:      int32(b.TotalBoxes),
 	}
 
 	// Grid: one workgroup per box, blockSize work-items per workgroup.
-	globalX := uint32(b.totalBoxes) * blockSize
+	globalX := uint32(b.TotalBoxes) * blockSize
 
 	b.driver.EnqueueLaunchKernel(
-		b.queue,
+		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{blockSize, 1, 1},
@@ -277,47 +246,47 @@ func (b *Benchmark) exec() {
 //
 //nolint:funlen // Keep the CPU reference algorithm and comparison together.
 func (b *Benchmark) verify() error {
-	gpuFX := make([]float32, b.totalParticles)
-	gpuFY := make([]float32, b.totalParticles)
-	gpuFZ := make([]float32, b.totalParticles)
-	gpuPE := make([]float32, b.totalParticles)
-	if err := b.driver.ReadResult(b.readbacks[0], gpuFX); err != nil {
+	gpuFX := make([]float32, b.TotalParticles)
+	gpuFY := make([]float32, b.TotalParticles)
+	gpuFZ := make([]float32, b.TotalParticles)
+	gpuPE := make([]float32, b.TotalParticles)
+	if err := b.driver.ReadResult(b.Readbacks[0], gpuFX); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[1], gpuFY); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[1], gpuFY); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[2], gpuFZ); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[2], gpuFZ); err != nil {
 		return err
 	}
-	if err := b.driver.ReadResult(b.readbacks[3], gpuPE); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[3], gpuPE); err != nil {
 		return err
 	}
 
 	ppb := b.ParticlesPerBox
 
-	for boxID := 0; boxID < b.totalBoxes; boxID++ {
+	for boxID := 0; boxID < b.TotalBoxes; boxID++ {
 		baseI := boxID * ppb
-		nNeighbors := int(b.hNeighborCount[boxID])
+		nNeighbors := int(b.HNeighborCount[boxID])
 
 		for p := 0; p < ppb; p++ {
 			i := baseI + p
-			px := b.hPosX[i]
-			py := b.hPosY[i]
-			pz := b.hPosZ[i]
+			px := b.HPosX[i]
+			py := b.HPosY[i]
+			pz := b.HPosZ[i]
 
 			var fx, fy, fz, pe float32
 
 			for n := 0; n < nNeighbors; n++ {
-				nbox := int(b.hNeighborList[boxID*27+n])
+				nbox := int(b.HNeighborList[boxID*27+n])
 				baseJ := nbox * ppb
 
 				for q := 0; q < ppb; q++ {
 					j := baseJ + q
 
-					dx := px - b.hPosX[j]
-					dy := py - b.hPosY[j]
-					dz := pz - b.hPosZ[j]
+					dx := px - b.HPosX[j]
+					dy := py - b.HPosY[j]
+					dz := pz - b.HPosZ[j]
 
 					r2 := dx*dx + dy*dy + dz*dz
 
@@ -348,10 +317,10 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceX, 4*(b.totalParticles)))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceY, 4*(b.totalParticles)))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gForceZ, 4*(b.totalParticles)))
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.gEnergy, 4*(b.totalParticles)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceX, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceY, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GForceZ, 4*(b.TotalParticles)))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.GEnergy, 4*(b.TotalParticles)))
 }
 
 func checkClose(idx int, name string, ref, got float32) {
@@ -367,10 +336,12 @@ func checkClose(idx int, name string, ref, got float32) {
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -384,7 +355,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

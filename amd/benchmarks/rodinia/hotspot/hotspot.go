@@ -11,15 +11,14 @@
 package hotspot
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -59,31 +58,12 @@ type KernelArgs struct {
 
 // Benchmark defines the Hotspot benchmark.
 type Benchmark struct {
-	initialConfig  checkpointConfig
-	configCaptured bool
-	benchmarks.Progress
-	readbacks []driver.CommandID
-	driver    *driver.Runtime
-	context   driver.Context
-	queue     driver.CommandQueue
-	hsaco     *insts.KernelCodeObject
-	gpus      []int
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	Arch          arch.Type
-	GridSize      int // grid is GridSize x GridSize
-	NumIterations int // stencil time-steps per run
+	driver *driver.Runtime
 
-	temp  []float32 // initial temperature grid
-	power []float32 // power density grid
-
-	gTempA driver.Ptr
-	gTempB driver.Ptr
-	gPower driver.Ptr
-
-	// which buffer holds the final result after the iteration loop
-	finalSrc driver.Ptr
-
-	useUnifiedMemory bool
+	hsaco *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -92,9 +72,11 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new Hotspot benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State, b.checkpointConfig, b.bind)
 
 	b.driver = driver
-	b.context = b.driver.Init()
+	b.Context = b.driver.Init()
 
 	return b
 }
@@ -109,12 +91,12 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to run on. Hotspot uses a single GPU.
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory requests the use of unified memory.
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
@@ -126,8 +108,8 @@ func (b *Benchmark) submit() {
 
 	b.loadProgram()
 
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
 }
@@ -143,26 +125,26 @@ func (b *Benchmark) initMem() {
 	n := b.GridSize
 	total := n * n
 
-	b.temp = make([]float32, total)
-	b.power = make([]float32, total)
+	b.Temp = make([]float32, total)
+	b.Power = make([]float32, total)
 	for i := 0; i < total; i++ {
 		// Deterministic synthetic init (reproducible in Verify).
-		b.temp[i] = float32(ambTemp) + float32(i%200)/10.0
-		b.power[i] = float32(i%100) / 500.0
+		b.Temp[i] = float32(ambTemp) + float32(i%200)/10.0
+		b.Power[i] = float32(i%100) / 500.0
 	}
 
-	if b.useUnifiedMemory {
-		b.gTempA = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gTempB = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
-		b.gPower = b.driver.AllocateUnifiedMemory(b.context, uint64(total*4))
+	if b.UseUnifiedMemory {
+		b.GTempA = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GTempB = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
+		b.GPower = b.driver.AllocateUnifiedMemory(b.Context, uint64(total*4))
 	} else {
-		b.gTempA = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gTempB = b.driver.AllocateMemory(b.context, uint64(total*4))
-		b.gPower = b.driver.AllocateMemory(b.context, uint64(total*4))
+		b.GTempA = b.driver.AllocateMemory(b.Context, uint64(total*4))
+		b.GTempB = b.driver.AllocateMemory(b.Context, uint64(total*4))
+		b.GPower = b.driver.AllocateMemory(b.Context, uint64(total*4))
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gTempA, b.temp)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gPower, b.power)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GTempA, b.Temp)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.GPower, b.Power)
 }
 
 // thermalParams computes the derived thermal scalars for the current grid.
@@ -191,14 +173,14 @@ func (b *Benchmark) exec() {
 
 	stepDivCap, rx1, ry1, rz1 := b.thermalParams()
 
-	src := b.gTempA
-	dst := b.gTempB
+	src := b.GTempA
+	dst := b.GTempB
 
 	for k := 0; k < b.NumIterations; k++ {
 		args := KernelArgs{
 			TempSrc:    src,
 			TempDst:    dst,
-			Power:      b.gPower,
+			Power:      b.GPower,
 			GridCols:   int32(n),
 			GridRows:   int32(n),
 			StepDivCap: stepDivCap,
@@ -208,7 +190,7 @@ func (b *Benchmark) exec() {
 		}
 
 		b.driver.EnqueueLaunchKernel(
-			b.queue,
+			b.Queue,
 			b.hsaco,
 			[3]uint32{globalX, globalY, 1},
 			[3]uint16{blockSize, blockSize, 1},
@@ -219,7 +201,7 @@ func (b *Benchmark) exec() {
 	}
 
 	// After the loop, src holds the most recent result.
-	b.finalSrc = src
+	b.FinalSrc = src
 }
 
 // Verify checks the GPU result against a CPU reference computation that
@@ -229,7 +211,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 	total := n * n
 
 	gpu := make([]float32, total)
-	if err := b.driver.ReadResult(b.readbacks[0], gpu); err != nil {
+	if err := b.driver.ReadResult(b.Readbacks[0], gpu); err != nil {
 		return err
 	}
 
@@ -237,7 +219,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 
 	cur := make([]float32, total)
 	next := make([]float32, total)
-	copy(cur, b.temp)
+	copy(cur, b.Temp)
 
 	for k := 0; k < b.NumIterations; k++ {
 		for row := 0; row < n; row++ {
@@ -263,7 +245,7 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 				}
 
 				delta := stepDivCap *
-					(b.power[idx] +
+					(b.Power[idx] +
 						(tn+ts-2.0*tc)*ry1 +
 						(tw+te-2.0*tc)*rx1 +
 						(float32(ambTemp)-tc)*rz1)
@@ -294,15 +276,17 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.readbacks = append(b.readbacks, b.driver.EnqueueMemCopyD2H(b.queue, b.finalSrc, 4*((b.GridSize)*(b.GridSize))))
+	b.Readbacks = append(b.Readbacks, b.driver.EnqueueMemCopyD2H(b.Queue, b.FinalSrc, 4*((b.GridSize)*(b.GridSize))))
 }
 
 // Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.submit()
 		b.Phase = 1
 	case 1:
@@ -316,7 +300,7 @@ func (b *Benchmark) Step() error {
 		if err := b.verify(); err != nil {
 			return err
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

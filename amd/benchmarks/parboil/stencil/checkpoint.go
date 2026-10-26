@@ -1,27 +1,25 @@
 package stencil
 
 import (
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"io"
 )
 
-type checkpointState struct {
-	InitialConfig    checkpointConfig
-	ConfigCaptured   bool
-	Progress         benchmarks.Progress
-	Readbacks        []driver.CommandID
-	Context          driver.Context
-	Queue            driver.CommandQueue
-	Gpus             []int
-	Arch             arch.Type
-	N                int
-	NumTimesteps     int
-	HData            []float32
-	GA               driver.Ptr
-	GB               driver.Ptr
+type State struct {
+	benchmarks.Progress
+	Readbacks    []driver.CommandID
+	Context      driver.Context
+	Queue        driver.CommandQueue
+	Gpus         []int
+	Arch         arch.Type
+	N            int // grid dimension (N*N*N)
+	NumTimesteps int
+	HData        []float32 // initial host data
+	GA           driver.Ptr
+	GB           driver.Ptr
+	// finalSrc tracks which device buffer holds the final result after the
+	// ping-pong iterations.
 	FinalSrc         driver.Ptr
 	UseUnifiedMemory bool
 }
@@ -36,59 +34,14 @@ type checkpointConfig struct {
 
 func (b *Benchmark) checkpointConfig() checkpointConfig {
 	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.gpus,
+		Gpus:             b.Gpus,
 		Arch:             b.Arch,
 		N:                b.N,
 		NumTimesteps:     b.NumTimesteps,
-		UseUnifiedMemory: b.useUnifiedMemory,
+		UseUnifiedMemory: b.UseUnifiedMemory,
 	}
 }
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, b.configuration(), checkpointState{
-		InitialConfig:    b.initialConfig,
-		ConfigCaptured:   b.configCaptured,
-		Progress:         b.Progress,
-		Readbacks:        b.readbacks,
-		Context:          b.context,
-		Queue:            b.queue,
-		Gpus:             b.gpus,
-		Arch:             b.Arch,
-		N:                b.N,
-		NumTimesteps:     b.NumTimesteps,
-		HData:            b.hData,
-		GA:               b.gA,
-		GB:               b.gB,
-		FinalSrc:         b.finalSrc,
-		UseUnifiedMemory: b.useUnifiedMemory,
-	}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.configuration(), &s, nil); err != nil {
-		return err
-	}
-	b.initialConfig = s.InitialConfig
-	b.configCaptured = s.ConfigCaptured
-	b.Progress = s.Progress
-	b.readbacks = s.Readbacks
-	b.context = s.Context
-	b.queue = s.Queue
-	b.gpus = s.Gpus
-	b.Arch = s.Arch
-	b.N = s.N
-	b.NumTimesteps = s.NumTimesteps
-	b.hData = s.HData
-	b.gA = s.GA
-	b.gB = s.GB
-	b.finalSrc = s.FinalSrc
-	b.useUnifiedMemory = s.UseUnifiedMemory
+func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil
-}
-
-func (b *Benchmark) configuration() checkpointConfig {
-	if b.configCaptured {
-		return b.initialConfig
-	}
-	return b.checkpointConfig()
 }

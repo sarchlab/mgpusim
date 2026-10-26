@@ -3,16 +3,15 @@
 package bitonicsort
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math/rand"
 	"os"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -58,37 +57,24 @@ type CDNA3BitonicKernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig          checkpointConfig
-	configCaptured         bool
-	queues                 []driver.CommandQueue
-	stage, pass, numStages int
-	readback               driver.CommandID
-	PerPassVerify          bool
-	gpusToUse              []int
-	driver                 *driver.Runtime
-	context                driver.Context
+	*State
+	benchmarks.Saved[checkpointConfig, State]
+
+	driver *driver.Runtime
 
 	hsaco *insts.KernelCodeObject
-
-	Arch           arch.Type
-	Length         int
-	OrderAscending bool
-
-	inputData             []uint32
-	outputData            []uint32
-	gInputData            driver.Ptr
-	perPassIn, perPassOut []uint32
-
-	useUnifiedMemory bool
 }
 
 // NewBenchmark creates a new bitonic sort benchmark.
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.gpusToUse = []int{1}
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
+
+	b.GpusToUse = []int{1}
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	return b
 }
 
@@ -114,56 +100,56 @@ func (b *Benchmark) loadProgram() {
 
 // SelectGPU selects the GPUs to use.
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
-	b.gpusToUse = gpuIDs
+	b.GpusToUse = gpuIDs
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
 	b.loadProgram()
 
-	for _, gpu := range b.gpusToUse {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	for _, gpu := range b.GpusToUse {
+		b.driver.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
 	}
-	b.driver.SelectGPU(b.context, b.gpusToUse[0])
+	b.driver.SelectGPU(b.Context, b.GpusToUse[0])
 	b.initMem()
 }
 
 func (b *Benchmark) initMem() {
 	rng := rand.New(rand.NewSource(1))
-	b.inputData = make([]uint32, b.Length)
-	b.outputData = make([]uint32, b.Length)
+	b.InputData = make([]uint32, b.Length)
+	b.OutputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.inputData[i] = rng.Uint32()
+		b.InputData[i] = rng.Uint32()
 		// b.inputData[i] = uint32(i)
 	}
 
 	if b.PerPassVerify && b.Verification {
-		b.perPassIn = make([]uint32, b.Length)
-		b.perPassOut = make([]uint32, b.Length)
+		b.PerPassIn = make([]uint32, b.Length)
+		b.PerPassOut = make([]uint32, b.Length)
 	}
 
-	if b.useUnifiedMemory {
-		b.gInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+	if b.UseUnifiedMemory {
+		b.GInputData = b.driver.AllocateUnifiedMemory(b.Context, uint64(b.Length*4))
 	} else {
-		b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+		b.GInputData = b.driver.AllocateMemory(b.Context, uint64(b.Length*4))
 		b.driver.Distribute(
-			b.context,
-			b.gInputData, uint64(b.Length*4),
-			b.gpusToUse)
+			b.Context,
+			b.GInputData, uint64(b.Length*4),
+			b.GpusToUse)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queues[0], b.gInputData, b.inputData)
+	b.driver.EnqueueMemCopyH2D(b.Queues[0], b.GInputData, b.InputData)
 }
 
 func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, offset int) CDNA3BitonicKernelArgs {
 	return CDNA3BitonicKernelArgs{
-		Input:               b.gInputData,
+		Input:               b.GInputData,
 		Stage:               uint32(stage),
 		PassOfStage:         uint32(passOfStage),
 		Direction:           uint32(direction),
@@ -185,7 +171,7 @@ func (b *Benchmark) createCDNA3KernelArgs(stage, passOfStage, direction, numWi, 
 
 func (b *Benchmark) createGCN3KernelArgs(stage, passOfStage, direction, offset int) BitonicKernelArgs {
 	return BitonicKernelArgs{
-		b.gInputData,
+		b.GInputData,
 		uint32(stage),
 		uint32(passOfStage),
 		uint32(direction),
@@ -300,14 +286,14 @@ func (b *Benchmark) verify() error {
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
-			if b.outputData[i] > b.outputData[i+1] {
+			if b.OutputData[i] > b.OutputData[i+1] {
 				return fmt.Errorf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
-					b.outputData[i], b.outputData[i+1])
+					b.OutputData[i], b.OutputData[i+1])
 			}
 		} else {
-			if b.outputData[i] < b.outputData[i+1] {
+			if b.OutputData[i] < b.OutputData[i+1] {
 				return fmt.Errorf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
-					b.outputData[i], b.outputData[i+1])
+					b.OutputData[i], b.OutputData[i+1])
 			}
 		}
 	}
@@ -318,45 +304,49 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
 		b.begin()
 	case 1:
-		if b.stage == b.numStages {
+		if b.Stage == b.NumStages {
 			b.Phase = 5
 			return nil
 		}
 		if b.PerPassVerify && b.Verification {
-			b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.gInputData, b.Length*4)
+			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 2
 		} else {
 			b.submitPass()
 		}
 	case 2:
-		if err := b.driver.ReadResult(b.readback, b.perPassIn); err != nil {
+		if err := b.driver.ReadResult(b.Readback, b.PerPassIn); err != nil {
 			return err
 		}
 		b.submitPass()
 	case 3:
 		if b.PerPassVerify && b.Verification {
-			b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.gInputData, b.Length*4)
+			b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
 			b.Phase = 4
 		} else {
 			b.nextPass()
 		}
 	case 4:
-		if err := b.driver.ReadResult(b.readback, b.perPassOut); err != nil {
+		if err := b.driver.ReadResult(b.Readback, b.PerPassOut); err != nil {
 			return err
 		}
-		if err := b.verifyPass(b.perPassIn, b.perPassOut, b.stage, b.pass); err != nil {
+		if err := b.verifyPass(b.PerPassIn, b.PerPassOut, b.Stage, b.Pass); err != nil {
 			return err
 		}
 		b.nextPass()
 	case 5:
-		b.readback = b.driver.EnqueueMemCopyD2H(b.queues[0], b.gInputData, b.Length*4)
+		b.Readback = b.driver.EnqueueMemCopyD2H(b.Queues[0], b.GInputData, b.Length*4)
 		b.Phase = 6
 	case 6:
-		if err := b.driver.ReadResult(b.readback, b.outputData); err != nil {
+		if err := b.driver.ReadResult(b.Readback, b.OutputData); err != nil {
 			return err
 		}
 		if b.Verification {
@@ -373,24 +363,22 @@ func (b *Benchmark) submitPass() {
 	if b.OrderAscending {
 		direction = 1
 	}
-	b.runPass(b.stage, b.pass, direction, b.queues)
+	b.runPass(b.Stage, b.Pass, direction, b.Queues)
 	b.Phase = 3
 }
 func (b *Benchmark) nextPass() {
-	b.pass++
-	if b.pass > b.stage {
-		b.stage++
-		b.pass = 0
+	b.Pass++
+	if b.Pass > b.Stage {
+		b.Stage++
+		b.Pass = 0
 	}
 	b.Phase = 1
 }
 
 func (b *Benchmark) begin() {
-	b.initialConfig = b.checkpointConfig()
-	b.configCaptured = true
 	b.setup()
 	for n := b.Length; n > 1; n >>= 1 {
-		b.numStages++
+		b.NumStages++
 	}
 	b.Phase = 1
 }

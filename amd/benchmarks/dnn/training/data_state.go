@@ -11,14 +11,14 @@ type DataState struct {
 	Cursor     int
 }
 type ResidentDataSource struct {
-	State    DataState
+	State    *DataState
 	Operator tensor.Operator
 }
 
-func (d *ResidentDataSource) SnapshotData() DataState { return d.State }
-func (d *ResidentDataSource) Rewind()                 { d.State.Cursor = 0 }
+func (d *ResidentDataSource) SavedData() *DataState { return d.State }
+func (d *ResidentDataSource) Rewind()               { d.State.Cursor = 0 }
 func (d *ResidentDataSource) NextBatch(n int) (tensor.Tensor, []int) {
-	s := &d.State
+	s := d.State
 	if s.Cursor >= len(s.Labels) {
 		return nil, nil
 	}

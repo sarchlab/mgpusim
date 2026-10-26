@@ -49,7 +49,7 @@ func TestLazySourceRestoresWithoutReopeningConsumedImage(t *testing.T) {
 	o := &tensor.CPUOperator{}
 	source := NewTrainingDataSource(o)
 	source.NextBatch(1)
-	saved := source.Snapshot()
+	saved := *source.State
 	if saved.Image != 1 || saved.Cursor != 1 {
 		t.Fatalf("cursor %+v", saved)
 	}
@@ -57,11 +57,11 @@ func TestLazySourceRestoresWithoutReopeningConsumedImage(t *testing.T) {
 	if err := os.Remove(first); err != nil {
 		t.Fatal(err)
 	}
-	restored, err := Restore(o, saved)
+	restored, err := Bind(o, &saved)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(restored.Snapshot(), saved) {
+	if !reflect.DeepEqual(*restored.State, saved) {
 		t.Fatal("restore advanced source")
 	}
 	actual, actualLabels := restored.NextBatch(1)
@@ -75,7 +75,7 @@ func TestLazySourceRestoresWithoutReopeningConsumedImage(t *testing.T) {
 		t.Fatal("restored batch changed")
 	}
 	*imagenetDataFolder = t.TempDir()
-	if _, err := Restore(o, saved); err == nil {
+	if _, err := Bind(o, &saved); err == nil {
 		t.Fatal("accepted a different input root")
 	}
 }

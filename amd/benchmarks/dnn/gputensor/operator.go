@@ -1,11 +1,10 @@
 package gputensor
 
 import (
-	"fmt"
-	"math"
-
 	// embed hsaco files
 	_ "embed"
+	"fmt"
+	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
@@ -18,23 +17,11 @@ var sizeOfInt32 = 4
 
 // GPUOperator can perform operations on GPU tensors.
 type GPUOperator struct {
-	readbackEpochs map[driver.CommandID]uint64
-	mutationEpoch  uint64
-	randomState    uint64
-	queue          driver.CommandQueue
-	pendingFrees   []driver.Ptr
-	checks         []verification
-	timers         []timerRecord
-	timer          driver.Event
-
+	*OperatorState
 	driver        *driver.Runtime
-	ctx           driver.Context
-	Arch          arch.Type
+	tensors       map[tensor.ID]*Tensor
 	kernelsLoaded bool
 	loadedArch    arch.Type
-	verification  bool
-
-	reportTime bool
 
 	sumKernel                           *insts.KernelCodeObject
 	transposeKernel                     *insts.KernelCodeObject
@@ -64,11 +51,9 @@ func NewGPUOperator(
 	gpuDriver *driver.Runtime,
 	ctx driver.Context,
 ) *GPUOperator {
-	o := &GPUOperator{
-		driver: gpuDriver,
-		ctx:    ctx,
-		queue:  gpuDriver.CreateCommandQueue(ctx),
-	}
+	o := BindOperator(gpuDriver, &OperatorState{
+		Context: ctx, CommandQueue: gpuDriver.CreateCommandQueue(ctx), Tensors: make(map[tensor.ID]*TensorState),
+	})
 
 	return o
 }
@@ -85,12 +70,12 @@ func (o *GPUOperator) ensureKernelsLoaded() {
 // EnableVerification will run the same operations in a CPU operator and
 // compare the results.
 func (o *GPUOperator) EnableVerification() {
-	o.verification = true
+	o.Verification = true
 }
 
 // ReportTime lets the operator to report the execution time of each kernel.
 func (o *GPUOperator) ReportTime() {
-	o.reportTime = true
+	o.ReportTiming = true
 }
 
 // GCN3 HSACO embeds
@@ -193,13 +178,9 @@ func loadKernel(hsaco **insts.KernelCodeObject, kernelBytes []byte, name string)
 
 // Create creates a new GPU tensor
 func (o *GPUOperator) Create(size []int) tensor.Tensor {
-	t := &Tensor{owner: o,
-		driver: o.driver,
-		ctx:    o.ctx,
-		size:   size,
-	}
+	t := o.newTensor(TensorState{Shape: size})
 
-	t.ptr = o.driver.AllocateMemory(o.ctx, uint64(t.NumElement()*sizeOfFloat32))
+	t.Address = o.driver.AllocateMemory(o.Context, uint64(t.NumElement()*sizeOfFloat32))
 
 	return t
 }
@@ -212,13 +193,13 @@ func (o *GPUOperator) CreateWithData(
 	descriptor string,
 ) tensor.Tensor {
 	t := o.Create(size).(*Tensor)
-	t.descriptor = descriptor
+	t.Description = descriptor
 
-	t.hostReady = false
+	t.HostReady = false
 	f32Data := f64SliceToF32Slice(data)
 
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, t.ptr, f32Data)
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, t.Address, f32Data)
 
 	return t
 }
@@ -235,15 +216,20 @@ func f64SliceToF32Slice(in []float64) []float32 {
 
 // Free releases the allocated GPU memory.
 func (o *GPUOperator) Free(t tensor.Tensor) {
-	o.deferFree(t.(*Tensor).ptr)
-	t.(*Tensor).ptr = 0
+	o.deferFree(t.(*Tensor).Address)
+	v := t.(*Tensor)
+	v.Address = 0
+	v.Host = nil
+	v.HostReady = false
+	delete(o.Tensors, v.id)
+	delete(o.tensors, v.id)
 }
 
 // Copy copies data from one tensor to another tensor. The src and dst tensor
 // must have the same number of elements.
 func (o *GPUOperator) Copy(dst tensor.Tensor, src tensor.Tensor) {
 	d := dst.(*Tensor)
-	d.hostReady = false
+	d.HostReady = false
 	s := src.(*Tensor)
 
 	if d.NumElement() != s.NumElement() {
@@ -251,8 +237,8 @@ func (o *GPUOperator) Copy(dst tensor.Tensor, src tensor.Tensor) {
 			src.Size(), dst.Size()))
 	}
 
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyD2D(o.queue, d.ptr, s.ptr, dst.NumElement()*sizeOfFloat32)
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyD2D(o.CommandQueue, d.Address, s.Address, dst.NumElement()*sizeOfFloat32)
 }
 
 // Clone duplicates the input tensor.
@@ -260,8 +246,8 @@ func (o *GPUOperator) Clone(t tensor.Tensor) tensor.Tensor {
 	inT := t.(*Tensor)
 	outT := o.Create(t.Size()).(*Tensor)
 
-	outT.size = make([]int, len(inT.size))
-	copy(outT.size, inT.size)
+	outT.Shape = make([]int, len(inT.Shape))
+	copy(outT.Shape, inT.Shape)
 
 	o.Copy(outT, inT)
 
@@ -313,24 +299,18 @@ func (o *GPUOperator) Init(t tensor.Tensor, data []float64) {
 		panic("mismatch in buffer shape")
 	}
 
-	t.(*Tensor).hostReady = false
+	t.(*Tensor).HostReady = false
 	f32Data := f64SliceToF32Slice(data)
 
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, t.(*Tensor).ptr, f32Data)
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, t.(*Tensor).Address, f32Data)
 }
 
 // Slice will create another tensor that shares part of the buffer with the
 // input tensor.
 func (o *GPUOperator) Slice(t tensor.Tensor, start int, end int) tensor.Tensor {
-	out := &Tensor{owner: o,
-		driver: o.driver,
-		ctx:    o.ctx,
-
-		size: []int{end - start},
-		ptr: driver.Ptr(uint64(t.(*Tensor).ptr) +
-			uint64(start*sizeOfFloat32)),
-	}
+	out := o.newTensor(TensorState{Shape: []int{end - start},
+		Address: driver.Ptr(uint64(t.(*Tensor).Address) + uint64(start*sizeOfFloat32))})
 
 	return out
 }
@@ -352,8 +332,8 @@ func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
 
 	outLength := times * t.NumElement()
 	args := repeatArgs{
-		Output:       out.ptr,
-		Input:        t.(*Tensor).ptr,
+		Output:       out.Address,
+		Input:        t.(*Tensor).Address,
 		InputLength:  uint32(t.NumElement()),
 		OutputLength: uint32(outLength),
 	}
@@ -363,7 +343,7 @@ func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
 
 	if o.Arch == arch.CDNA3 {
 		o.launchRepeatCDNA3(globalSize, localSize,
-			out.ptr, t.(*Tensor).ptr,
+			out.Address, t.(*Tensor).Address,
 			uint32(t.NumElement()), uint32(outLength))
 	} else {
 		o.enqueueKernel(o.repeatKernel,
@@ -456,18 +436,18 @@ func (o *GPUOperator) prepareTranspose(
 
 	output := o.Create(outSize).(*Tensor)
 
-	dOrder := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dOrder, hOrder)
-	dInSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dInSize, hInSize)
-	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dOutSize, hOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dOrder := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOrder, hOrder)
+	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
-	dOutIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 
 	cleanup := func() {
@@ -479,7 +459,7 @@ func (o *GPUOperator) prepareTranspose(
 	}
 
 	args := transposeKernelArgs{
-		In: t.(*Tensor).ptr, Out: output.ptr,
+		In: t.(*Tensor).Address, Out: output.Address,
 		InSize: dInSize, OutSize: dOutSize, Order: dOrder,
 		InIndexBuf: dInIndexBuf, OutIndexBuf: dOutIndexBuf,
 		Dim: int32(len(order)),
@@ -492,9 +472,9 @@ func (o *GPUOperator) setTransposeOutputDescriptor(
 	output, input *Tensor,
 	order []int,
 ) {
-	output.descriptor = ""
+	output.Description = ""
 	for i := 0; i < len(input.Descriptor()); i++ {
-		output.descriptor += string(input.Descriptor()[order[i]])
+		output.Description += string(input.Descriptor()[order[i]])
 	}
 }
 
@@ -522,24 +502,24 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 
 	output := o.Create(outSize).(*Tensor)
 
-	dInSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dInSize, hInSize)
+	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
-	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dOutSize, hOutSize)
+	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dInIndexBuf)
-	dOutIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(t.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dOutIndexBuf)
 
 	args := rotateKernelArgs{
-		In:          t.(*Tensor).ptr,
-		Out:         output.ptr,
+		In:          t.(*Tensor).Address,
+		Out:         output.Address,
 		InSize:      dInSize,
 		OutSize:     dOutSize,
 		InIndexBuf:  dInIndexBuf,
@@ -596,28 +576,28 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 		hOutSize[i] = int32(outSize[i])
 	}
 
-	dInSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dInSize, hInSize)
+	dInSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
 	defer o.deferFree(dInSize)
-	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(dim*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dOutSize, hOutSize)
+	dOutSize := o.driver.AllocateMemory(o.Context, uint64(dim*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
 	defer o.deferFree(dOutSize)
-	dDilate := o.driver.AllocateMemory(o.ctx, uint64(2*sizeOfInt32))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dDilate, hDilate)
+	dDilate := o.driver.AllocateMemory(o.Context, uint64(2*sizeOfInt32))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dDilate, hDilate)
 	defer o.deferFree(dDilate)
-	dInIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dInIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(output.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dInIndexBuf)
-	dOutIndexBuf := o.driver.AllocateMemory(o.ctx,
+	dOutIndexBuf := o.driver.AllocateMemory(o.Context,
 		uint64(output.NumElement()*dim*sizeOfInt32))
 	defer o.deferFree(dOutIndexBuf)
 
 	args := dilateKernelArgs{
-		In:          t.(*Tensor).ptr,
-		Out:         output.ptr,
+		In:          t.(*Tensor).Address,
+		Out:         output.Address,
 		InSize:      dInSize,
 		OutSize:     dOutSize,
 		Dilate:      dDilate,
@@ -722,14 +702,14 @@ func (o *GPUOperator) prepareSumOneAxis(
 	}
 
 	globalSize := out.NumElement()
-	dInSize := o.driver.AllocateMemory(o.ctx, uint64(t.Dim()*4))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dInSize, hInSize)
-	dOutSize := o.driver.AllocateMemory(o.ctx, uint64(len(outSize)*4))
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dOutSize, hOutSize)
-	dInIndexBuf := o.driver.AllocateMemory(o.ctx, uint64(globalSize*t.Dim()*4))
-	dOutIndexBuf := o.driver.AllocateMemory(o.ctx, uint64(globalSize*out.Dim()*4))
+	dInSize := o.driver.AllocateMemory(o.Context, uint64(t.Dim()*4))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dInSize, hInSize)
+	dOutSize := o.driver.AllocateMemory(o.Context, uint64(len(outSize)*4))
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dOutSize, hOutSize)
+	dInIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*t.Dim()*4))
+	dOutIndexBuf := o.driver.AllocateMemory(o.Context, uint64(globalSize*out.Dim()*4))
 
 	cleanup := func() {
 		o.deferFree(dInSize)
@@ -739,7 +719,7 @@ func (o *GPUOperator) prepareSumOneAxis(
 	}
 
 	args := sumOneAxisKernelArgs{
-		In: t.(*Tensor).ptr, Out: out.(*Tensor).ptr,
+		In: t.(*Tensor).Address, Out: out.(*Tensor).Address,
 		InSize: dInSize, OutSize: dOutSize,
 		InDim: int32(t.Dim()), Axis: int32(axis),
 		InIndexBuf: dInIndexBuf, OutIndexBuf: dOutIndexBuf,
@@ -817,10 +797,10 @@ func (o *GPUOperator) matrixMultiplication(
 		K:     int32(k),
 		Alpha: float32(alpha),
 		Beta:  float32(beta),
-		A:     a.(*Tensor).ptr,
-		B:     b.(*Tensor).ptr,
-		C:     c.(*Tensor).ptr,
-		D:     d.(*Tensor).ptr,
+		A:     a.(*Tensor).Address,
+		B:     b.(*Tensor).Address,
+		C:     c.(*Tensor).Address,
+		D:     d.(*Tensor).Address,
 	}
 
 	globalSize := [3]uint32{uint32(wiWidth), uint32(wiHeight), 1}
@@ -904,8 +884,8 @@ func (o *GPUOperator) Im2Col(
 	output := o.Create([]int{outHeight, outWidth})
 
 	kernArg := im2ColKernelArg{
-		Input:    t.(*Tensor).ptr,
-		Output:   output.(*Tensor).ptr,
+		Input:    t.(*Tensor).Address,
+		Output:   output.(*Tensor).Address,
 		InputDim: [2]uint32{uint32(inputSize[3]), uint32(inputSize[2])},
 		MaskDim:  [2]uint32{uint32(kernelSize[1]), uint32(kernelSize[0])},
 		Stride:   [2]uint32{uint32(stride[1]), uint32(stride[0])},
@@ -956,10 +936,10 @@ func (o *GPUOperator) MaxPoolingForward(
 ) (out tensor.Tensor, mask tensor.Tensor) {
 	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
-	n := input.size[0]
-	c := input.size[1]
-	hIn := input.size[2]
-	wIn := input.size[3]
+	n := input.Shape[0]
+	c := input.Shape[1]
+	hIn := input.Shape[2]
+	wIn := input.Shape[3]
 
 	hOut := (hIn+2*padding[0]-kernelSize[0])/stride[0] + 1
 	wOut := (wIn+2*padding[1]-kernelSize[1])/stride[1] + 1
@@ -969,7 +949,7 @@ func (o *GPUOperator) MaxPoolingForward(
 
 	kernArg := maxPoolingForwardKernelArgs{
 		NThreads:   int32(n * c * hOut * wOut),
-		BottomData: input.ptr,
+		BottomData: input.Address,
 		Num:        int32(n),
 		Channels:   int32(c),
 		Height:     int32(hIn),
@@ -982,8 +962,8 @@ func (o *GPUOperator) MaxPoolingForward(
 		StrideW:    int32(stride[1]),
 		PadH:       int32(padding[0]),
 		PadW:       int32(padding[1]),
-		TopData:    outT.ptr,
-		MaskData:   maskT.ptr,
+		TopData:    outT.Address,
+		MaskData:   maskT.Address,
 	}
 
 	globalSize := [3]uint32{uint32(n * c * hOut * wOut), 1, 1}
@@ -1032,8 +1012,8 @@ func (o *GPUOperator) MaxPoolingBackward(
 
 	kernArg := maxPoolingBackwardKernelArgs{
 		NThreads:     int32(n * c * hIn * hOut),
-		TopDiff:      backwardIn.(*Tensor).ptr,
-		TopMask:      mask.(*Tensor).ptr,
+		TopDiff:      backwardIn.(*Tensor).Address,
+		TopMask:      mask.(*Tensor).Address,
 		Num:          int32(n),
 		Channels:     int32(c),
 		Height:       int32(hIn),
@@ -1046,7 +1026,7 @@ func (o *GPUOperator) MaxPoolingBackward(
 		StrideW:      int32(stride[1]),
 		PadH:         int32(padding[0]),
 		PadW:         int32(padding[1]),
-		BottomDiff:   out.(*Tensor).ptr,
+		BottomDiff:   out.(*Tensor).Address,
 	}
 
 	globalSize := [3]uint32{uint32(n * c * hIn * wIn), 1, 1}
@@ -1100,23 +1080,23 @@ func (o *GPUOperator) AvgPoolingForward(
 
 	o.ensureKernelsLoaded()
 	input := t.(*Tensor)
-	B := input.size[0]
-	C := input.size[1]
-	Hin := input.size[2]
-	Win := input.size[3]
+	B := input.Shape[0]
+	C := input.Shape[1]
+	Hin := input.Shape[2]
+	Win := input.Shape[3]
 	ks := kernelSize
 	Hout := (Hin+2*padding[0]-ks[0])/stride[0] + 1
 	Wout := (Win+2*padding[1]-ks[1])/stride[1] + 1
 	output := o.Create([]int{B, C, Hout, Wout}).(*Tensor)
 
 	kernArg := AvgPoolingKernelArgsForward{
-		uint64(B * C * Hout * Wout), input.ptr,
+		uint64(B * C * Hout * Wout), input.Address,
 		int32(B), int32(C), int32(Hin), int32(Win),
 		int32(Hout), int32(Wout),
 		int32(ks[0]), int32(ks[1]),
 		int32(stride[0]), int32(stride[1]),
 		int32(padding[0]), int32(padding[1]),
-		output.ptr,
+		output.Address,
 		0, 0, 0,
 	}
 
@@ -1185,13 +1165,13 @@ func (o *GPUOperator) AvgPoolingBackward(
 	output := o.Create([]int{B, C, Hin, Win}).(*Tensor)
 
 	kernArg := AvgPoolingKernelArgsBackward{
-		uint64(B * C * Hin * Win), input.(*Tensor).ptr,
+		uint64(B * C * Hin * Win), input.(*Tensor).Address,
 		int32(B), int32(C), int32(Hin), int32(Win),
 		int32(Hout), int32(Wout),
 		int32(ks[0]), int32(ks[1]),
 		int32(stride[0]), int32(stride[1]),
 		int32(padding[0]), int32(padding[1]),
-		output.ptr,
+		output.Address,
 		0, 0, 0,
 	}
 
@@ -1244,9 +1224,9 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 	o.mustBeTwoDimension(t)
 
 	input := t.(*Tensor)
-	output := o.Create(input.size).(*Tensor)
+	output := o.Create(input.Shape).(*Tensor)
 	expInput := o.Create(
-		[]int{input.size[0], t.NumElement() / input.size[0]},
+		[]int{input.Shape[0], t.NumElement() / input.Shape[0]},
 	).(*Tensor)
 	defer o.Free(expInput)
 
@@ -1255,11 +1235,11 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 
 	if o.Arch == arch.CDNA3 {
 		o.launchSoftmaxExpCDNA3(expGlobalSize, expLocalSize,
-			input.ptr, expInput.ptr, int32(input.NumElement()))
+			input.Address, expInput.Address, int32(input.NumElement()))
 	} else {
 		expArgs := softmaxExpKernelArg{
-			Input:  input.ptr,
-			Output: expInput.ptr,
+			Input:  input.Address,
+			Output: expInput.Address,
 			N:      int32(input.NumElement()),
 		}
 		o.enqueueKernel(o.softmaxExpKernel,
@@ -1274,13 +1254,13 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 	o.timerStart()
 	if o.Arch == arch.CDNA3 {
 		o.launchSoftmaxDivCDNA3(divGlobalSize, divLocalSize,
-			expInput.ptr, output.ptr, denominator.(*Tensor).ptr,
+			expInput.Address, output.Address, denominator.(*Tensor).Address,
 			int32(expInput.NumElement()), int32(t.Size()[0]))
 	} else {
 		divArgs := softmaxDivKernelArg{
-			ExpInput:    expInput.ptr,
-			Output:      output.ptr,
-			Denominator: denominator.(*Tensor).ptr,
+			ExpInput:    expInput.Address,
+			Output:      output.Address,
+			Denominator: denominator.(*Tensor).Address,
 			NumElement:  int32(expInput.NumElement()),
 			BatchSize:   int32(t.Size()[0]),
 		}
@@ -1338,16 +1318,16 @@ func (o *GPUOperator) CrossEntropyDerivative(
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
 	}
-	dLabel := o.driver.AllocateMemory(o.ctx, uint64(len(label)*4))
+	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dLabel, hLabel)
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 
 	args := crossEntropyDerivativeArgs{
-		Output:      output.ptr,
-		Input:       t.(*Tensor).ptr,
+		Output:      output.Address,
+		Input:       t.(*Tensor).Address,
 		Label:       dLabel,
 		BatchSize:   int32(t.Size()[0]),
 		NumPerImage: int32(t.Size()[1]),
@@ -1383,16 +1363,16 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	for i := 0; i < len(label); i++ {
 		hLabel[i] = int32(label[i])
 	}
-	dLabel := o.driver.AllocateMemory(o.ctx, uint64(len(label)*4))
+	dLabel := o.driver.AllocateMemory(o.Context, uint64(len(label)*4))
 	defer o.deferFree(dLabel)
-	o.mutationEpoch++
-	o.driver.EnqueueMemCopyH2D(o.queue, dLabel, hLabel)
+	o.MutationEpoch++
+	o.driver.EnqueueMemCopyH2D(o.CommandQueue, dLabel, hLabel)
 
 	output := o.Create(t.Size()).(*Tensor)
 
 	args := crossEntropyDerivativeArgs{
-		Output:      output.ptr,
-		Input:       t.(*Tensor).ptr,
+		Output:      output.Address,
+		Input:       t.(*Tensor).Address,
 		Label:       dLabel,
 		BatchSize:   int32(t.Size()[0]),
 		NumPerImage: int32(t.Size()[1]),
@@ -1436,9 +1416,9 @@ func (o *GPUOperator) ElementWiseMul(
 
 	out := o.Create(a.Size()).(*Tensor)
 	args := elemWiseMulKernArg{
-		Out: out.ptr,
-		In1: a.(*Tensor).ptr,
-		In2: b.(*Tensor).ptr,
+		Out: out.Address,
+		In1: a.(*Tensor).Address,
+		In2: b.(*Tensor).Address,
 		N:   int32(a.NumElement()),
 	}
 
@@ -1448,7 +1428,7 @@ func (o *GPUOperator) ElementWiseMul(
 	o.timerStart()
 	if o.Arch == arch.CDNA3 {
 		o.launchElemWiseMulCDNA3(globalSize, localSize,
-			out.ptr, a.(*Tensor).ptr, b.(*Tensor).ptr,
+			out.Address, a.(*Tensor).Address, b.(*Tensor).Address,
 			int32(a.NumElement()))
 	} else {
 		o.enqueueKernel(o.elemWiseMulKernel,
@@ -1482,9 +1462,9 @@ func (o *GPUOperator) ScaleAdd(
 
 	out := o.Create(a.Size()).(*Tensor)
 	args := scaleAddKernArg{
-		Out:   out.ptr,
-		In1:   a.(*Tensor).ptr,
-		In2:   b.(*Tensor).ptr,
+		Out:   out.Address,
+		In1:   a.(*Tensor).Address,
+		In2:   b.(*Tensor).Address,
 		Alpha: float32(alpha),
 		Beta:  float32(beta),
 		N:     int32(a.NumElement()),
@@ -1525,12 +1505,12 @@ func (o *GPUOperator) RMSProp(
 		panic("size mismatch")
 	}
 
-	params.(*Tensor).hostReady = false
-	sHistory.(*Tensor).hostReady = false
+	params.(*Tensor).HostReady = false
+	sHistory.(*Tensor).HostReady = false
 	args := rmsPropKernArg{
-		Params:       params.(*Tensor).ptr,
-		Gradients:    gradient.(*Tensor).ptr,
-		SHistory:     sHistory.(*Tensor).ptr,
+		Params:       params.(*Tensor).Address,
+		Gradients:    gradient.(*Tensor).Address,
+		SHistory:     sHistory.(*Tensor).Address,
 		SmoothFactor: float32(smoothFactor),
 		LearningRate: float32(learningRate),
 		N:            int32(params.NumElement()),
@@ -1577,10 +1557,10 @@ func (o *GPUOperator) Adam(
 	}
 
 	args := adamKernArg{
-		Params:        params.(*Tensor).ptr,
-		Gradients:     gradient.(*Tensor).ptr,
-		SHistory:      sHistory.(*Tensor).ptr,
-		VHistory:      vHistory.(*Tensor).ptr,
+		Params:        params.(*Tensor).Address,
+		Gradients:     gradient.(*Tensor).Address,
+		SHistory:      sHistory.(*Tensor).Address,
+		VHistory:      vHistory.(*Tensor).Address,
 		SmoothFactor1: float32(smoothFactor1),
 		SmoothFactor2: float32(smoothFactor2),
 		LearningRate:  float32(learningRate),
@@ -1616,11 +1596,11 @@ func (o *GPUOperator) ReluForward(
 
 	o.ensureKernelsLoaded()
 	out := o.Create(in.Size()).(*Tensor)
-	out.descriptor = in.Descriptor()
+	out.Description = in.Descriptor()
 
 	args := reluForwardKernelArgs{
-		In:    in.(*Tensor).ptr,
-		Out:   out.ptr,
+		In:    in.(*Tensor).Address,
+		Out:   out.Address,
 		Count: int32(in.NumElement()),
 	}
 
@@ -1630,7 +1610,7 @@ func (o *GPUOperator) ReluForward(
 	o.timerStart()
 	if o.Arch == arch.CDNA3 {
 		o.launchReluForwardCDNA3(globalSize, localSize,
-			in.(*Tensor).ptr, out.ptr, int32(in.NumElement()))
+			in.(*Tensor).Address, out.Address, int32(in.NumElement()))
 	} else {
 		o.enqueueKernel(o.reluForwardKernel,
 			globalSize, localSize, &args)
@@ -1657,9 +1637,9 @@ func (o *GPUOperator) ReluBackward(
 	o.ensureKernelsLoaded()
 	out := o.Create(forwardIn.Size()).(*Tensor)
 	args := reluBackwardKernelArgs{
-		In:     forwardIn.(*Tensor).ptr,
-		Backin: backIn.(*Tensor).ptr,
-		Out:    out.ptr,
+		In:     forwardIn.(*Tensor).Address,
+		Backin: backIn.(*Tensor).Address,
+		Out:    out.Address,
 		Count:  int32(forwardIn.NumElement()),
 	}
 
@@ -1669,8 +1649,8 @@ func (o *GPUOperator) ReluBackward(
 	o.timerStart()
 	if o.Arch == arch.CDNA3 {
 		o.launchReluBackwardCDNA3(globalSize, localSize,
-			forwardIn.(*Tensor).ptr, backIn.(*Tensor).ptr,
-			out.ptr, int32(forwardIn.NumElement()))
+			forwardIn.(*Tensor).Address, backIn.(*Tensor).Address,
+			out.Address, int32(forwardIn.NumElement()))
 	} else {
 		o.enqueueKernel(o.reluBackwardKernel,
 			globalSize, localSize, &args)

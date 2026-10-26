@@ -2,7 +2,6 @@ package gputensor
 
 import (
 	"fmt"
-	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -13,115 +12,88 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
-// TensorState is a tensor's host continuation, without a Runtime pointer.
-// Device bytes belong to the simulated memory resource.
+// TensorState is the canonical mutable data for a live tensor. Device bytes
+// belong to simulated memory; layer/trainer references save only tensor IDs.
 type TensorState struct {
-	HostEpoch  uint64
-	Present    bool
-	Size       []int
-	Address    driver.Ptr
-	Descriptor string
-	Host       []float64
-	HostReady  bool
+	HostEpoch   uint64
+	Shape       []int
+	Address     driver.Ptr
+	Description string
+	Host        []float64
+	HostReady   bool
 }
 
-func Snapshot(t tensor.Tensor) TensorState {
+// OperatorState is used directly by the operator and owned by its benchmark.
+type OperatorState struct {
+	ReadbackEpochs             map[driver.CommandID]uint64
+	MutationEpoch              uint64
+	RandomState                uint64
+	Context                    driver.Context
+	CommandQueue               driver.CommandQueue
+	Arch                       arch.Type
+	Verification, ReportTiming bool
+	PendingFrees               []driver.Ptr
+	Checks                     []verification
+	Timers                     []timerRecord
+	Timer                      driver.Event
+	NextTensor                 tensor.ID
+	Tensors                    map[tensor.ID]*TensorState
+}
+
+// BindOperator reconnects saved state without allocation or submission.
+func BindOperator(r *driver.Runtime, state *OperatorState) *GPUOperator {
+	return &GPUOperator{OperatorState: state, driver: r, tensors: make(map[tensor.ID]*Tensor)}
+}
+func (o *GPUOperator) newTensor(state TensorState) *Tensor {
+	if o.Tensors == nil {
+		o.Tensors = make(map[tensor.ID]*TensorState)
+	}
+	o.NextTensor++
+	o.Tensors[o.NextTensor] = &state
+	return o.Resolve(o.NextTensor).(*Tensor)
+}
+func (o *GPUOperator) Reference(t tensor.Tensor) tensor.ID {
 	if t == nil {
-		return TensorState{}
+		return 0
 	}
 	v := t.(*Tensor)
-	return TensorState{
-		v.hostEpoch,
-		true,
-		slices.Clone(v.size),
-		v.ptr,
-		v.descriptor,
-		slices.Clone(v.host),
-		v.hostReady,
+	if v.owner != o {
+		panic("gputensor: tensor belongs to another operator")
 	}
+	return v.id
 }
-func (o *GPUOperator) RestoreTensor(s TensorState) tensor.Tensor {
-	if !s.Present {
+func (o *GPUOperator) Resolve(id tensor.ID) tensor.Tensor {
+	if id == 0 {
 		return nil
 	}
-	return &Tensor{
-		owner:      o,
-		hostEpoch:  s.HostEpoch,
-		driver:     o.driver,
-		ctx:        o.ctx,
-		size:       slices.Clone(s.Size),
-		ptr:        s.Address,
-		descriptor: s.Descriptor,
-		host:       slices.Clone(s.Host),
-		hostReady:  s.HostReady,
+	state, ok := o.Tensors[id]
+	if !ok {
+		return nil
+	} // A freed handle has no live tensor to bind.
+	if t := o.tensors[id]; t != nil {
+		return t
 	}
+	t := &Tensor{TensorState: state, owner: o, id: id}
+	o.tensors[id] = t
+	return t
 }
-
-// OperatorState is embedded in the owning benchmark's checkpoint.
-type OperatorState struct {
-	ReadbackEpochs           map[driver.CommandID]uint64
-	MutationEpoch            uint64
-	RandomState              uint64
-	Context                  driver.Context
-	Queue                    driver.CommandQueue
-	Arch                     arch.Type
-	Verification, ReportTime bool
-	PendingFrees             []driver.Ptr
-	Checks                   []verification
-	Timers                   []timerRecord
-	Timer                    driver.Event
-}
-
-func (o *GPUOperator) Snapshot() OperatorState {
-	return OperatorState{
-		maps.Clone(o.readbackEpochs), o.mutationEpoch,
-		o.randomState,
-		o.ctx,
-		o.queue,
-		o.Arch,
-		o.verification,
-		o.reportTime,
-		slices.Clone(o.pendingFrees),
-		o.checks,
-		o.timers,
-		o.timer,
-	}
-}
-
-// RestoreOperator reconnects a saved operator without allocating or submitting.
-func RestoreOperator(r *driver.Runtime, s OperatorState) *GPUOperator {
-	return &GPUOperator{
-		readbackEpochs: maps.Clone(s.ReadbackEpochs), mutationEpoch: s.MutationEpoch,
-		randomState:  s.RandomState,
-		driver:       r,
-		ctx:          s.Context,
-		queue:        s.Queue,
-		Arch:         s.Arch,
-		verification: s.Verification,
-		reportTime:   s.ReportTime,
-		pendingFrees: s.PendingFrees,
-		checks:       s.Checks,
-		timers:       s.Timers,
-		timer:        s.Timer,
-	}
-}
-func (o *GPUOperator) Queue() driver.CommandQueue   { return o.queue }
-func (o *GPUOperator) SetVerification(enabled bool) { o.verification = enabled }
-func (o *GPUOperator) deferFree(ptr driver.Ptr)     { o.pendingFrees = append(o.pendingFrees, ptr) }
+func (o *GPUOperator) Queue() driver.CommandQueue   { return o.CommandQueue }
+func (o *GPUOperator) SetVerification(enabled bool) { o.Verification = enabled }
+func (o *GPUOperator) deferFree(ptr driver.Ptr)     { o.PendingFrees = append(o.PendingFrees, ptr) }
 
 // EnqueueReadback snapshots the tensor at its position in the shared stream.
 func (o *GPUOperator) EnqueueReadback(t tensor.Tensor) driver.CommandID {
-	id := o.driver.EnqueueMemCopyD2H(o.queue, t.(*Tensor).ptr, t.NumElement()*4)
-	if o.readbackEpochs == nil {
-		o.readbackEpochs = make(map[driver.CommandID]uint64)
+	id := o.driver.EnqueueMemCopyD2H(o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)
+	if o.ReadbackEpochs == nil {
+		o.ReadbackEpochs = make(map[driver.CommandID]uint64)
 	}
-	o.readbackEpochs[id] = o.mutationEpoch
+	o.ReadbackEpochs[id] = o.MutationEpoch
 	return id
 }
 
 // ReadTensor copies a completed result into the tensor's explicit host cache.
 func (o *GPUOperator) ReadTensor(id driver.CommandID, t tensor.Tensor) error {
-	epoch, ok := o.readbackEpochs[id]
+	epoch, ok := o.ReadbackEpochs[id]
 	if !ok {
 		return fmt.Errorf("gputensor: readback %d was not submitted by this operator", id)
 	}
@@ -130,13 +102,13 @@ func (o *GPUOperator) ReadTensor(id driver.CommandID, t tensor.Tensor) error {
 		return err
 	}
 	v := t.(*Tensor)
-	v.host = make([]float64, len(raw))
+	v.Host = make([]float64, len(raw))
 	for i, x := range raw {
-		v.host[i] = float64(x)
+		v.Host[i] = float64(x)
 	}
-	v.hostReady = true
-	v.hostEpoch = epoch
-	delete(o.readbackEpochs, id)
+	v.HostReady = true
+	v.HostEpoch = epoch
+	delete(o.ReadbackEpochs, id)
 	return nil
 }
 
@@ -154,13 +126,13 @@ type verification struct {
 }
 
 func (o *GPUOperator) capture(t tensor.Tensor) tensorReadback {
-	state := Snapshot(t)
+	state := TensorState{Shape: slices.Clone(t.Size()), Description: t.Descriptor()}
 	state.Host = nil
 	state.HostReady = false
-	return tensorReadback{state, o.driver.EnqueueMemCopyD2H(o.queue, t.(*Tensor).ptr, t.NumElement()*4)}
+	return tensorReadback{state, o.driver.EnqueueMemCopyD2H(o.CommandQueue, t.(*Tensor).Address, t.NumElement()*4)}
 }
 func (o *GPUOperator) beginVerification(v verification, inputs ...tensor.Tensor) int {
-	if !o.verification {
+	if !o.Verification {
 		return -1
 	}
 	v.Order = slices.Clone(v.Order)
@@ -173,22 +145,22 @@ func (o *GPUOperator) beginVerification(v verification, inputs ...tensor.Tensor)
 	for _, t := range inputs {
 		v.Inputs = append(v.Inputs, o.capture(t))
 	}
-	o.checks = append(o.checks, v)
-	return len(o.checks) - 1
+	o.Checks = append(o.Checks, v)
+	return len(o.Checks) - 1
 }
 func (o *GPUOperator) endVerification(index int, outputs ...tensor.Tensor) {
 	for _, t := range outputs {
-		t.(*Tensor).hostReady = false
+		t.(*Tensor).HostReady = false
 	}
 	if index < 0 {
 		return
 	}
 	for _, t := range outputs {
-		o.checks[index].Outputs = append(o.checks[index].Outputs, o.capture(t))
+		o.Checks[index].Outputs = append(o.Checks[index].Outputs, o.capture(t))
 	}
 }
 func (o *GPUOperator) readVerification(r tensorReadback) (tensor.Tensor, error) {
-	values := make([]float32, lenOf(r.Tensor.Size))
+	values := make([]float32, lenOf(r.Tensor.Shape))
 	if err := o.driver.ReadResult(r.Command, values); err != nil {
 		return nil, err
 	}
@@ -196,7 +168,7 @@ func (o *GPUOperator) readVerification(r tensorReadback) (tensor.Tensor, error) 
 	for i, v := range values {
 		data[i] = float64(v)
 	}
-	return tensor.CPUOperator{}.CreateWithData(data, r.Tensor.Size, r.Tensor.Descriptor), nil
+	return tensor.CPUOperator{}.CreateWithData(data, r.Tensor.Shape, r.Tensor.Description), nil
 }
 func lenOf(shape []int) int {
 	n := 1
@@ -246,13 +218,13 @@ type timerRecord struct {
 }
 
 func (o *GPUOperator) timerStart() {
-	if o.reportTime {
-		o.timer = o.driver.EnqueueRecordEvent(o.queue)
+	if o.ReportTiming {
+		o.Timer = o.driver.EnqueueRecordEvent(o.CommandQueue)
 	}
 }
 func (o *GPUOperator) timerEnd(name string) {
-	if o.reportTime {
-		o.timers = append(o.timers, timerRecord{name, o.timer, o.driver.EnqueueRecordEvent(o.queue)})
+	if o.ReportTiming {
+		o.Timers = append(o.Timers, timerRecord{name, o.Timer, o.driver.EnqueueRecordEvent(o.CommandQueue)})
 	}
 }
 
@@ -260,17 +232,17 @@ func (o *GPUOperator) timerEnd(name string) {
 // runner has globally drained simulation. It never drives the engine.
 func (o *GPUOperator) CompleteStep() error {
 	counts := o.driver.Unfinished()
-	if int(o.queue) > len(counts) || counts[o.queue-1] != 0 {
+	if int(o.CommandQueue) > len(counts) || counts[o.CommandQueue-1] != 0 {
 		return fmt.Errorf("gputensor: batch has not completed")
 	}
-	for len(o.checks) > 0 {
-		if err := o.check(o.checks[0]); err != nil {
+	for len(o.Checks) > 0 {
+		if err := o.check(o.Checks[0]); err != nil {
 			return err
 		}
-		o.checks = o.checks[1:]
+		o.Checks = o.Checks[1:]
 	}
-	for len(o.timers) > 0 {
-		timer := o.timers[0]
+	for len(o.Timers) > 0 {
+		timer := o.Timers[0]
 		start, err := o.driver.EventTime(timer.Start)
 		if err != nil {
 			return err
@@ -285,26 +257,26 @@ func (o *GPUOperator) CompleteStep() error {
 			float64(start)*1e-12,
 			float64(end-start)*1e-12,
 		)
-		o.timers = o.timers[1:]
+		o.Timers = o.Timers[1:]
 	}
-	for len(o.pendingFrees) > 0 {
-		if err := o.driver.FreeMemory(o.ctx, o.pendingFrees[0]); err != nil {
+	for len(o.PendingFrees) > 0 {
+		if err := o.driver.FreeMemory(o.Context, o.PendingFrees[0]); err != nil {
 			return err
 		}
-		o.pendingFrees = o.pendingFrees[1:]
+		o.PendingFrees = o.PendingFrees[1:]
 	}
 	return nil
 }
 
 // RandomFloat64 advances a local, checkpointed parameter initializer.
 func (o *GPUOperator) RandomFloat64() float64 {
-	o.randomState = o.randomState*6364136223846793005 + 1442695040888963407
-	return float64(o.randomState>>11) * (1.0 / (1 << 53))
+	o.RandomState = o.RandomState*6364136223846793005 + 1442695040888963407
+	return float64(o.RandomState>>11) * (1.0 / (1 << 53))
 }
 
 func (o *GPUOperator) enqueueKernel(co *insts.KernelCodeObject, global [3]uint32, local [3]uint16, args any) {
-	o.mutationEpoch++
-	o.driver.EnqueueLaunchKernel(o.queue, co, global, local, args)
+	o.MutationEpoch++
+	o.driver.EnqueueLaunchKernel(o.CommandQueue, co, global, local, args)
 }
 
 func reference(v verification, inputs []tensor.Tensor) ([]tensor.Tensor, error) {
@@ -349,3 +321,6 @@ func reference(v verification, inputs []tensor.Tensor) ([]tensor.Tensor, error) 
 		return nil, fmt.Errorf("gputensor: unknown verification operation %q", v.Operation)
 	}
 }
+
+// Replace changes a saved reference; Free owns GPU tensor retirement.
+func (o *GPUOperator) Replace(_ tensor.ID, t tensor.Tensor) tensor.ID { return o.Reference(t) }

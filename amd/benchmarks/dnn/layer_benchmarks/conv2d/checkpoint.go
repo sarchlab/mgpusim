@@ -1,24 +1,20 @@
 package conv2d
 
 import (
-	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
-	"io"
 )
 
-type checkpointState struct {
-	Operator              gputensor.OperatorState
-	Initialized           bool
-	Layer                 layers.State
-	ForwardIn, BackwardIn gputensor.TensorState
+type State struct {
+	Operator                  *gputensor.OperatorState
+	Layer                     layers.State
+	ForwardInID, BackwardInID tensor.ID
 
-	Progress         benchmarks.Progress
-	InitialConfig    checkpointConfig
-	ConfigCaptured   bool
+	benchmarks.Progress
 	Context          driver.Context
 	Gpus             []int
 	UseUnifiedMemory bool
@@ -59,8 +55,8 @@ type checkpointConfig struct {
 
 func (b *Benchmark) checkpointConfig() checkpointConfig {
 	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.gpus,
-		UseUnifiedMemory: b.useUnifiedMemory,
+		Gpus:             b.Gpus,
+		UseUnifiedMemory: b.UseUnifiedMemory,
 		Arch:             b.Arch,
 		N:                b.N,
 		C:                b.C,
@@ -76,83 +72,14 @@ func (b *Benchmark) checkpointConfig() checkpointConfig {
 		EnableBackward:   b.EnableBackward,
 	}
 }
-func (b *Benchmark) configuration() checkpointConfig {
-	if b.configCaptured {
-		return b.initialConfig
+func (b *Benchmark) bind() error {
+	b.operator = nil
+	if b.Operator != nil {
+		b.operator = gputensor.BindOperator(b.driver, b.Operator)
 	}
-	return b.checkpointConfig()
-}
-func (b *Benchmark) SaveCheckpoint(w io.Writer) error {
-	var operator gputensor.OperatorState
-	initialized := b.operator != nil
-	if initialized {
-		operator = b.operator.Snapshot()
-	}
-	var layer layers.State
-	if b.layer != nil {
-		var err error
-		layer, err = layers.Snapshot(b.layer)
-		if err != nil {
-			return err
-		}
-	}
-	return modeling.WriteCheckpoint(w, b.configuration(), checkpointState{Operator: operator, Initialized: initialized,
-		Layer: layer, ForwardIn: gputensor.Snapshot(b.forwardIn), BackwardIn: gputensor.Snapshot(b.backwardIn),
-
-		Progress:         b.Progress,
-		InitialConfig:    b.initialConfig,
-		ConfigCaptured:   b.configCaptured,
-		Context:          b.context,
-		Gpus:             b.gpus,
-		UseUnifiedMemory: b.useUnifiedMemory,
-		Arch:             b.Arch,
-		N:                b.N,
-		C:                b.C,
-		H:                b.H,
-		W:                b.W,
-		OutputH:          b.outputH,
-		OutputW:          b.outputW,
-		KernelChannel:    b.KernelChannel,
-		KernelHeight:     b.KernelHeight,
-		KernelWidth:      b.KernelWidth,
-		PadX:             b.PadX,
-		PadY:             b.PadY,
-		StrideX:          b.StrideX,
-		StrideY:          b.StrideY,
-		EnableBackward:   b.EnableBackward,
-	}, nil)
-}
-func (b *Benchmark) LoadCheckpoint(r io.Reader) error {
-	var s checkpointState
-	if err := modeling.ReadCheckpoint(r, b.configuration(), &s, nil); err != nil {
-		return err
-	}
-	b.Progress = s.Progress
-	b.initialConfig = s.InitialConfig
-	b.configCaptured = s.ConfigCaptured
-	b.context = s.Context
-	b.gpus = s.Gpus
-	b.useUnifiedMemory = s.UseUnifiedMemory
-	b.Arch = s.Arch
-	b.N = s.N
-	b.C = s.C
-	b.H = s.H
-	b.W = s.W
-	b.outputH = s.OutputH
-	b.outputW = s.OutputW
-	b.KernelChannel = s.KernelChannel
-	b.KernelHeight = s.KernelHeight
-	b.KernelWidth = s.KernelWidth
-	b.PadX = s.PadX
-	b.PadY = s.PadY
-	b.StrideX = s.StrideX
-	b.StrideY = s.StrideY
-	b.EnableBackward = s.EnableBackward
-	if s.Initialized {
-		b.operator = gputensor.RestoreOperator(b.driver, s.Operator)
-		b.forwardIn = b.operator.RestoreTensor(s.ForwardIn)
-		b.backwardIn = b.operator.RestoreTensor(s.BackwardIn)
-		l, err := layers.Restore(b.operator, s.Layer)
+	b.layer = nil
+	if b.Operator != nil {
+		l, err := layers.Bind(b.operator, b.Layer)
 		if err != nil {
 			return err
 		}

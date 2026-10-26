@@ -2,17 +2,16 @@
 package pagerank
 
 import (
+	// embed hsaco files
+	_ "embed"
 	"encoding/binary"
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"log"
 	"math"
 	"os"
 
-	// embed hsaco files
-	_ "embed"
-
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/matrix/csr"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -62,54 +61,34 @@ type CDNA3KernelArgs struct {
 
 // Benchmark defines a benchmark
 type Benchmark struct {
-	benchmarks.Progress
-	initialConfig  checkpointConfig
-	configCaptured bool
-	readbacks      []benchmarks.Readback
-	queue          driver.CommandQueue
+	*State
+	benchmarks.Saved[checkpointConfig, State]
 
-	driver  *driver.Runtime
-	context driver.Context
-	gpus    []int
-	queues  []driver.CommandQueue
-	kernel  *insts.KernelCodeObject
+	driver *driver.Runtime
 
-	Arch           arch.Type
-	NumNodes       uint32
-	NumConnections uint32
-	MaxIterations  uint32
-
-	hMatrix         csr.Matrix
-	hPageRank       []float32
-	verPageRank     []float32
-	verPageRankTemp []float32
-
-	dPageRank      driver.Ptr
-	dPageRankTemp  driver.Ptr
-	dRowOffsets    driver.Ptr
-	dColumnNumbers driver.Ptr
-	dValues        driver.Ptr
-	dLocalValues   driver.LocalPtr
-
-	useUnifiedMemory bool
+	kernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Runtime) *Benchmark {
 	b := new(Benchmark)
+	b.State = &State{}
+	b.Saved = benchmarks.NewSaved(b.State,
+		b.checkpointConfig, b.bind)
+
 	b.driver = driver
-	b.context = driver.Init()
+	b.Context = driver.Init()
 	return b
 }
 
 // SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
-	b.gpus = gpus
+	b.Gpus = gpus
 }
 
 // SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
-	b.useUnifiedMemory = true
+	b.UseUnifiedMemory = true
 }
 
 //go:embed kernels.hsaco
@@ -134,14 +113,14 @@ func (b *Benchmark) loadProgram() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) setup() {
-	b.driver.SelectGPU(b.context, b.gpus[0])
-	b.queue = b.driver.CreateCommandQueue(b.context)
+	b.driver.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.driver.CreateCommandQueue(b.Context)
 
 	b.loadProgram()
 
-	for _, gpu := range b.gpus {
-		b.driver.SelectGPU(b.context, gpu)
-		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	for _, gpu := range b.Gpus {
+		b.driver.SelectGPU(b.Context, gpu)
+		b.Queues = append(b.Queues, b.driver.CreateCommandQueue(b.Context))
 	}
 
 	b.initMem()
@@ -149,39 +128,39 @@ func (b *Benchmark) setup() {
 
 func (b *Benchmark) initMem() {
 	initData := float32(1.0) / float32(b.NumNodes)
-	b.hPageRank = make([]float32, b.NumNodes)
-	b.verPageRank = make([]float32, b.NumNodes)
-	b.verPageRankTemp = make([]float32, b.NumNodes)
-	b.hMatrix = csr.MakeMatrixGenerator(b.NumNodes, b.NumConnections).
+	b.HPageRank = make([]float32, b.NumNodes)
+	b.VerPageRank = make([]float32, b.NumNodes)
+	b.VerPageRankTemp = make([]float32, b.NumNodes)
+	b.HMatrix = csr.MakeMatrixGenerator(b.NumNodes, b.NumConnections).
 		GenerateMatrix()
 
 	for i := uint32(0); i < b.NumNodes; i++ {
-		b.hPageRank[i] = initData
-		b.verPageRank[i] = initData
+		b.HPageRank[i] = initData
+		b.VerPageRank[i] = initData
 	}
 
-	if b.useUnifiedMemory {
-		b.dPageRank = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumNodes*4))
-		b.dPageRankTemp = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumNodes*4))
-		b.dRowOffsets = b.driver.AllocateUnifiedMemory(
-			b.context, uint64((b.NumNodes+1)*4))
-		b.dColumnNumbers = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumConnections*4))
-		b.dValues = b.driver.AllocateUnifiedMemory(
-			b.context, uint64(b.NumConnections*4))
+	if b.UseUnifiedMemory {
+		b.DPageRank = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumNodes*4))
+		b.DPageRankTemp = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumNodes*4))
+		b.DRowOffsets = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64((b.NumNodes+1)*4))
+		b.DColumnNumbers = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumConnections*4))
+		b.DValues = b.driver.AllocateUnifiedMemory(
+			b.Context, uint64(b.NumConnections*4))
 	} else {
-		b.dPageRank = b.driver.AllocateMemory(
-			b.context, uint64(b.NumNodes*4))
-		b.dPageRankTemp = b.driver.AllocateMemory(
-			b.context, uint64(b.NumNodes*4))
-		b.dRowOffsets = b.driver.AllocateMemory(
-			b.context, uint64((b.NumNodes+1)*4))
-		b.dColumnNumbers = b.driver.AllocateMemory(
-			b.context, uint64(b.NumConnections*4))
-		b.dValues = b.driver.AllocateMemory(
-			b.context, uint64(b.NumConnections*4))
+		b.DPageRank = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumNodes*4))
+		b.DPageRankTemp = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumNodes*4))
+		b.DRowOffsets = b.driver.AllocateMemory(
+			b.Context, uint64((b.NumNodes+1)*4))
+		b.DColumnNumbers = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumConnections*4))
+		b.DValues = b.driver.AllocateMemory(
+			b.Context, uint64(b.NumConnections*4))
 	}
 }
 
@@ -201,18 +180,18 @@ func (b *Benchmark) launchCDNA3PageRank(
 ) {
 	var xPtr, yPtr driver.Ptr
 	if i%2 == 0 {
-		xPtr = b.dPageRank
-		yPtr = b.dPageRankTemp
+		xPtr = b.DPageRank
+		yPtr = b.DPageRankTemp
 	} else {
-		xPtr = b.dPageRankTemp
-		yPtr = b.dPageRank
+		xPtr = b.DPageRankTemp
+		yPtr = b.DPageRank
 	}
 
 	kernArg := CDNA3KernelArgs{
 		NumRows:             b.NumNodes,
-		RowOffset:           b.dRowOffsets,
-		Col:                 b.dColumnNumbers,
-		Val:                 b.dValues,
+		RowOffset:           b.DRowOffsets,
+		Col:                 b.DColumnNumbers,
+		Val:                 b.DValues,
 		X:                   xPtr,
 		Y:                   yPtr,
 		HiddenBlockCountX:   globalSize[0] / uint32(localSize[0]),
@@ -230,7 +209,7 @@ func (b *Benchmark) launchCDNA3PageRank(
 		HiddenGridDims:      1,
 	}
 
-	b.driver.EnqueueLaunchKernel(b.queue,
+	b.driver.EnqueueLaunchKernel(b.Queue,
 		b.kernel,
 		globalSize,
 		localSize,
@@ -247,26 +226,26 @@ func (b *Benchmark) launchGCN3PageRank(
 	if i%2 == 0 {
 		kernArg = KernelArgs{
 			NumRows:   b.NumNodes,
-			RowOffset: b.dRowOffsets,
-			Col:       b.dColumnNumbers,
-			Val:       b.dValues,
-			Vals:      b.dLocalValues,
-			X:         b.dPageRank,
-			Y:         b.dPageRankTemp,
+			RowOffset: b.DRowOffsets,
+			Col:       b.DColumnNumbers,
+			Val:       b.DValues,
+			Vals:      b.DLocalValues,
+			X:         b.DPageRank,
+			Y:         b.DPageRankTemp,
 		}
 	} else {
 		kernArg = KernelArgs{
 			NumRows:   b.NumNodes,
-			RowOffset: b.dRowOffsets,
-			Col:       b.dColumnNumbers,
-			Val:       b.dValues,
-			Vals:      b.dLocalValues,
-			X:         b.dPageRankTemp,
-			Y:         b.dPageRank,
+			RowOffset: b.DRowOffsets,
+			Col:       b.DColumnNumbers,
+			Val:       b.DValues,
+			Vals:      b.DLocalValues,
+			X:         b.DPageRankTemp,
+			Y:         b.DPageRank,
 		}
 	}
 
-	b.driver.EnqueueLaunchKernel(b.queue,
+	b.driver.EnqueueLaunchKernel(b.Queue,
 		b.kernel,
 		globalSize,
 		localSize,
@@ -287,15 +266,15 @@ func (b *Benchmark) launchPageRankKernel(
 }
 
 func (b *Benchmark) exec() {
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dPageRank, b.hPageRank)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dRowOffsets,
-		b.hMatrix.RowOffsets)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dColumnNumbers,
-		b.hMatrix.ColumnNumbers)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.dValues,
-		b.hMatrix.Values)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DPageRank, b.HPageRank)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DRowOffsets,
+		b.HMatrix.RowOffsets)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DColumnNumbers,
+		b.HMatrix.ColumnNumbers)
+	b.driver.EnqueueMemCopyH2D(b.Queue, b.DValues,
+		b.HMatrix.Values)
 
-	b.dLocalValues = driver.LocalPtr(256)
+	b.DLocalValues = driver.LocalPtr(256)
 
 	localWorkSize := uint16(64)
 	globalSize := [3]uint32{b.NumNodes * 64, 1, 1}
@@ -307,31 +286,31 @@ func (b *Benchmark) exec() {
 	}
 
 	if i%2 != 0 {
-		b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPageRankTemp, Target: 0})
+		b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DPageRankTemp, Target: 0})
 	} else {
-		b.readbacks = append(b.readbacks, benchmarks.Readback{Source: b.dPageRank, Target: 1})
+		b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DPageRank, Target: 1})
 	}
 }
 
 // Verify verifies
 func (b *Benchmark) verify() error {
 	var i uint32
-	m := b.hMatrix
+	m := b.HMatrix
 	for i = 0; i < b.MaxIterations; i++ {
 		for i := uint32(0); i < b.NumNodes; i++ {
 			newValue := float32(0)
 			for j := m.RowOffsets[i]; j < m.RowOffsets[i+1]; j++ {
-				newValue += m.Values[j] * b.verPageRank[m.ColumnNumbers[j]]
+				newValue += m.Values[j] * b.VerPageRank[m.ColumnNumbers[j]]
 			}
-			b.verPageRankTemp[i] = newValue
+			b.VerPageRankTemp[i] = newValue
 		}
-		copy(b.verPageRank, b.verPageRankTemp)
+		copy(b.VerPageRank, b.VerPageRankTemp)
 	}
 
 	for i := uint32(0); i < b.NumNodes; i++ {
-		if math.Abs(float64(b.verPageRank[i]-b.hPageRank[i])) > 1e-5 {
+		if math.Abs(float64(b.VerPageRank[i]-b.HPageRank[i])) > 1e-5 {
 			return fmt.Errorf("Mismatch at %d, expected %f, but get %f\n",
-				i, b.verPageRank[i], b.hPageRank[i])
+				i, b.VerPageRank[i], b.HPageRank[i])
 		}
 	}
 
@@ -341,35 +320,37 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) Step() error {
+	if err := b.Prepare(); err != nil {
+		return err
+	}
+
 	switch b.Phase {
 	case 0:
-		b.initialConfig = b.checkpointConfig()
-		b.configCaptured = true
 		b.setup()
 		b.Phase = 1
 	case 1:
 		b.exec()
 		b.Phase = 2
 	case 2:
-		for i := range b.readbacks {
+		for i := range b.Readbacks {
 			var dst any
-			switch b.readbacks[i].Target {
+			switch b.Readbacks[i].Target {
 			case 0:
-				dst = b.hPageRank
+				dst = b.HPageRank
 			case 1:
-				dst = b.hPageRank
+				dst = b.HPageRank
 			}
-			b.readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.queue, b.readbacks[i].Source, binary.Size(dst))
+			b.Readbacks[i].Command = b.driver.EnqueueMemCopyD2H(b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
-		for _, copy := range b.readbacks {
+		for _, copy := range b.Readbacks {
 			var dst any
 			switch copy.Target {
 			case 0:
-				dst = b.hPageRank
+				dst = b.HPageRank
 			case 1:
-				dst = b.hPageRank
+				dst = b.HPageRank
 			}
 			if err := b.driver.ReadResult(copy.Command, dst); err != nil {
 				return err
@@ -380,7 +361,7 @@ func (b *Benchmark) Step() error {
 				return err
 			}
 		}
-		b.readbacks = nil
+		b.Readbacks = nil
 		b.Ended = true
 	}
 	return nil

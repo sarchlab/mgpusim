@@ -101,14 +101,14 @@ func prepareGraph(t *testing.T, s *sim.Simulation, rt *driver.Runtime, b *Benchm
 	// Exercise the actual full VGG layer/parameter/view constructor. Seed the
 	// trainer at epoch completion to bound this graph test; do not randomize the
 	// >50-million-element FC matrix or claim full VGG training coverage.
-	b.init()
-	b.Phase = 1
-	state, err := b.trainer.Snapshot()
-	if err != nil {
+	if err := b.init(); err != nil {
 		t.Fatal(err)
 	}
+	b.Phase = 1
+	state := b.trainer.State
 	state.Phase = "epoch"
-	b.trainer, err = gputraining.Restore(rt, state)
+	var err error
+	b.trainer, err = gputraining.Bind(rt, state)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,10 +177,7 @@ func finishGraph(
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err := b.trainer.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
+	state := b.trainer.State
 	if !b.IsEnded() || state.Networks[0].Source.Images.Cursor != 1 {
 		t.Fatal("wrapper completion or dataset cursor changed")
 	}
