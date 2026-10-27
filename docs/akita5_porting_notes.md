@@ -52,14 +52,12 @@ with memcontrolprotocol on a "Control" port (CmdDrain/CmdEnable).
 
 ## amd/timing/wavefront (ported)
 
-- `Inst.ID`: `string` → `uint64`.
+- Instructions are stored by `uint64` ID in CU State.
 - `ExecutionState.LastFetchTime` uses `timing.VTimeInPicoSec`; the CU owns the value.
-- `NewWfCompletionEvent(time timing.VTimeInPicoSec, handlerID string, wf)
-  WfCompletionEvent` — value event; the CU must register the handler under
-  that ID via `engine.(timing.HandlerRegistrar).RegisterHandler`.
+- Sampled completion work belongs to `cu.State.SampledCompletions`, with each
+  due time requested once through `comp.TickAt`. The CU has no extra handlers.
 - Wavefront and work-group execution views moved to `cu`; `wavefront` retains
-  the shared execution-value definitions, temporary decoded `Inst` value, and
-  completion event. Work-group requests are canonical `messaging.Msg` values in
+  the shared execution-value definitions and generation-bearing local `Handle`. Work-group requests are canonical `messaging.Msg` values in
   CU State. There are no standalone pointer-graph constructors.
 
 ## amd/timing/rob (ported)

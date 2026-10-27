@@ -1,11 +1,7 @@
 package cu
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"strings"
 	"testing"
 
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -17,7 +13,7 @@ func assertLifecycleHolders(t *testing.T, c *ComputeUnit) {
 	t.Helper()
 	holders := testOperationHolders(c)
 	for _, evt := range testPendingCompletions(t, c) {
-		holders[evt.Handle] = append(holders[evt.Handle], "sample event")
+		holders[evt.Wave] = append(holders[evt.Wave], "sample event")
 	}
 	for handle, locations := range holders {
 		w := c.wave(handle) // validates occupied slot and generation
@@ -162,53 +158,9 @@ func testMemoryHolders(s *State, add func(waveHandle, string)) {
 	}
 }
 
-func testPendingCompletions(t *testing.T, c *ComputeUnit) []wavefront.WfCompletionEvent {
+func testPendingCompletions(t *testing.T, c *ComputeUnit) []SampledCompletion {
 	t.Helper()
-	if fake, ok := c.engine.(*fakeEngine); ok {
-		var events []wavefront.WfCompletionEvent
-		for _, e := range fake.scheduled {
-			if v, ok := e.(wavefront.WfCompletionEvent); ok {
-				if v.HandlerID() == c.wfCompletionHandlerID {
-					events = append(events, v)
-				}
-			}
-		}
-		return events
-	}
-	var archive bytes.Buffer
-	// Use the public engine checkpoint to inspect scheduled custom events without
-	// adding any production holder registry or reaching into the engine's queues.
-	if err := c.engine.(interface{ SaveCheckpoint(io.Writer) error }).SaveCheckpoint(&archive); err != nil {
-		t.Fatal(err)
-	}
-	type envelope struct {
-		Type    string          `json:"type"`
-		Payload json.RawMessage `json:"payload"`
-	}
-	var saved struct {
-		Primary   []envelope `json:"primary"`
-		Secondary []envelope `json:"secondary"`
-	}
-	if err := json.Unmarshal(archive.Bytes(), &saved); err != nil {
-		t.Fatal(err)
-	}
-	var events []wavefront.WfCompletionEvent
-	for _, e := range append(saved.Primary, saved.Secondary...) {
-		if !strings.HasSuffix(e.Type, ".WfCompletionEvent") {
-			continue
-		}
-		var value struct {
-			Handle  waveHandle `json:"Handle"`
-			Handler string     `json:"handler_id"`
-		}
-		if err := json.Unmarshal(e.Payload, &value); err != nil {
-			t.Fatal(err)
-		}
-		if value.Handler == c.wfCompletionHandlerID {
-			events = append(events, wavefront.NewWfCompletionEvent(0, 0, value.Handler, value.Handle))
-		}
-	}
-	return events
+	return c.comp.State.SampledCompletions
 }
 
 // Check from the holders toward the encoding map too: a missing encoding would

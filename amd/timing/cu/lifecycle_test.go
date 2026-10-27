@@ -227,30 +227,36 @@ func completeAsyncInstruction(t *testing.T, c *ComputeUnit, w *Wavefront, kind s
 }
 
 func TestSampledWaitingSurvivesCheckpointAndPartialCompletion(t *testing.T) {
-	c := checkpointCU(t)
+	c, simulation := checkpointCUAndSimulation(t, false)
 	g := lifecycleGroup(c, 2)
 	for i, w := range g.waves() {
 		w.execution().State = wavefront.WfSampledWaiting
-		c.engine.Schedule(wavefront.NewWfCompletionEvent(
-			c.comp.NewID(), timing.VTimeInPicoSec(10+i*10), c.wfCompletionHandlerID, w.handle))
+		c.scheduleSampledCompletion(timing.VTimeInPicoSec(1000+i*1000), w.handle)
 	}
 	assertLifecycleHolders(t, c)
 	if len(testPendingCompletions(t, c)) != 2 {
 		t.Fatal("sampled event audit missed queued waves")
 	}
 	var archive bytes.Buffer
-	if err := c.engine.(*timing.SerialEngine).SaveCheckpoint(&archive); err != nil {
+	if err := simulation.Engine().(*timing.SerialEngine).SaveCheckpoint(&archive); err != nil {
 		t.Fatal(err)
 	}
-	restored := roundTripCUState(t, c)
-	if err := restored.engine.(*timing.SerialEngine).LoadCheckpoint(&archive); err != nil {
+	var state bytes.Buffer
+	if err := c.comp.SaveCheckpoint(&state); err != nil {
+		t.Fatal(err)
+	}
+	restored, restoredSimulation := checkpointCUAndSimulation(t, false)
+	if err := restored.comp.LoadCheckpoint(&state); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoredSimulation.Engine().(*timing.SerialEngine).LoadCheckpoint(&archive); err != nil {
 		t.Fatal(err)
 	}
 	assertLifecycleHolders(t, restored)
 	ace := newFakePort("CU.ACE")
 	ace.full = true
 	restored.ToACE = ace
-	if err := restored.engine.(*timing.SerialEngine).RunUntil(15); err != nil {
+	if err := restoredSimulation.Engine().(*timing.SerialEngine).RunUntil(1500); err != nil {
 		t.Fatal(err)
 	}
 	if restored.wave(g.state().Waves[0]).execution().State != wavefront.WfCompleted ||
@@ -258,7 +264,7 @@ func TestSampledWaitingSurvivesCheckpointAndPartialCompletion(t *testing.T) {
 		t.Fatal("partial sampled completion released peers")
 	}
 	assertLifecycleHolders(t, restored)
-	if err := restored.engine.(*timing.SerialEngine).RunUntil(25); err != nil {
+	if err := restoredSimulation.Engine().(*timing.SerialEngine).RunUntil(2500); err != nil {
 		t.Fatal(err)
 	}
 	assertLifecycleHolders(t, restored)
@@ -266,7 +272,7 @@ func TestSampledWaitingSurvivesCheckpointAndPartialCompletion(t *testing.T) {
 		t.Fatal("sampled completion bypassed ACE backpressure")
 	}
 	ace.full = false
-	if err := restored.engine.(timing.Engine).Run(); err != nil {
+	if err := restoredSimulation.Engine().Run(); err != nil {
 		t.Fatal(err)
 	}
 	assertLifecycleHolders(t, restored)

@@ -146,12 +146,7 @@ func newTestComputeUnit(
 	comp := modeling.MakeBuilder[*Comp](DefaultSpec()).WithSimulation(s).Build(name)
 	comp.State.Initialize(comp)
 
-	cuMW := &ComputeUnit{
-		comp:                  comp,
-		engine:                engine,
-		wfCompletionHandlerID: name + ".WfCompletion",
-		wfDispatchHandlerID:   name + ".WfDispatch",
-	}
+	cuMW := &ComputeUnit{comp: comp}
 	cuMW.Decoder = fixtureDecoder{}
 	cuMW.InFlightVectorMemAccessLimit = 512
 

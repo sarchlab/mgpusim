@@ -37,9 +37,9 @@ func DefaultSpec() Spec {
 // A Builder can construct a fully functional Compute Unit. Configuration is
 // supplied as a whole through WithSpec; shared references (decoder, ALU,
 // vector memory address mapper) through WithResources; wiring through
-// WithSimulation. The component declares its "Top", "Ctrl", "InstMem",
+// WithSimulation. The component declares its "Top", "InstMem",
 // "ScalarMem", and "VectorMem" ports; the port instances are supplied
-// externally after Build with AssignPort. The destinations of instruction
+// externally after Build with BindPort. The destinations of instruction
 // and scalar memory accesses are supplied in Spec before Build.
 type Builder struct {
 	spec      Spec
@@ -52,9 +52,7 @@ func MakeBuilder() Builder {
 	return Builder{spec: DefaultSpec()}
 }
 
-// WithSimulation wires the builder to a registrar (a *simulation.Simulation
-// in platform assembly, or modeling.NewStandaloneRegistrar(engine) in
-// isolated tests).
+// WithSimulation supplies the simulation that owns the component and its clock.
 func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
@@ -86,7 +84,6 @@ func (b Builder) Build(name string) *Comp {
 		b.spec.IsCDNA3 = d.IsCDNA3
 	}
 
-	b.resources.engine = b.registrar.Engine()
 	comp := modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 
 	return comp

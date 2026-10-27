@@ -9,7 +9,6 @@ import (
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
-	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
@@ -103,21 +102,22 @@ func TestCheckpointDuringDrainThenSlotReuse(t *testing.T) {
 }
 
 func TestSampledCompletionBackpressureSchedulesRetryExactlyOnce(t *testing.T) {
-	c := checkpointCU(t)
+	c, simulation := checkpointCUAndSimulation(t, false)
 	g := checkpointGroup(c)
 	w := g.waves()[0]
 	port := newFakePort("CU.ACE")
 	port.full = true
 	c.ToACE = port
 	w.execution().State = wavefront.WfSampledWaiting
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, w.handle))
+	c.scheduleSampledCompletion(0, w.handle)
+	c.Tick()
 	if len(port.sent) != 0 || w.execution().State != wavefront.WfCompleted {
 		t.Fatal("sampled completion did not remain pending")
 	}
-	// The custom event must arrange a regular tick even though no instruction or
+	// Completion must arrange a regular tick even though no instruction or
 	// memory work remains. Run the actual serial engine after freeing the port.
 	port.full = false
-	if err := c.engine.(timing.Engine).Run(); err != nil {
+	if err := simulation.Engine().Run(); err != nil {
 		t.Fatal(err)
 	}
 	if len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 0 {
@@ -247,7 +247,8 @@ func TestSampledCompletionPreservesResidentRegistersDuringBackpressure(t *testin
 	port := newFakePort("CU.ACE")
 	port.full = true
 	c.ToACE = port
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, sampled.handle))
+	c.scheduleSampledCompletion(0, sampled.handle)
+	c.completeSampledWaves()
 	c.retireGroups()
 	if !unchanged() || len(port.sent) != 0 || resident.execution().State != wavefront.WfRunning {
 		t.Fatal("sampled completion changed resident registers while ACE was full")
@@ -260,23 +261,26 @@ func TestSampledCompletionPreservesResidentRegistersDuringBackpressure(t *testin
 	}
 }
 
-func TestTypedSampledEventSurvivesRestoreAndRejectsRecycledSlot(t *testing.T) {
+func TestTypedSampledCompletionSurvivesRestoreAndRejectsRecycledSlot(t *testing.T) {
 	c := checkpointCU(t)
 	w := checkpointGroup(c).waves()[0]
 	w.execution().State = wavefront.WfSampledWaiting
-	event := wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, w.handle)
-	var handle wavefront.Handle = event.Handle
+	completion := SampledCompletion{Wave: w.handle}
+	c.comp.State.SampledCompletions = []SampledCompletion{completion}
+	var handle wavefront.Handle = completion.Wave
 	restored := roundTripCUState(t, c)
 	if restored.wave(handle).UID != w.UID {
 		t.Fatal("typed local handle lost global identity across restore")
 	}
 	restored.ToACE = newFakePort("CU.ACE")
-	restored.Handle(event)
+	restored.completeSampledWaves()
+	restored.retireGroups()
 	next := checkpointGroup(restored).waves()[0]
 	if slotIndex(next.handle) != slotIndex(handle) || next.handle == handle {
 		t.Fatal("slot was not recycled with a new generation")
 	}
-	requireSlotPanic(t, func() { restored.Handle(event) })
+	restored.comp.State.SampledCompletions = []SampledCompletion{completion}
+	requireSlotPanic(t, func() { restored.completeSampledWaves() })
 	if next.execution().State != wavefront.WfDispatching {
 		t.Fatal("stale sampled event affected new occupant")
 	}

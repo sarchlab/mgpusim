@@ -72,6 +72,12 @@ func checkpointCU(t *testing.T, specs ...Spec) *ComputeUnit {
 
 func checkpointCUWithTracking(t *testing.T, tracking bool, specs ...Spec) *ComputeUnit {
 	t.Helper()
+	c, _ := checkpointCUAndSimulation(t, tracking, specs...)
+	return c
+}
+
+func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*ComputeUnit, *sim.Simulation) {
+	t.Helper()
 	builder := sim.MakeBuilder()
 	if tracking {
 		builder = builder.WithTaskTracking()
@@ -92,7 +98,7 @@ func checkpointCUWithTracking(t *testing.T, tracking bool, specs ...Spec) *Compu
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}
 	simulation.Initialize()
-	return MiddlewareOf(comp)
+	return MiddlewareOf(comp), simulation
 }
 
 func checkpointGroup(c *ComputeUnit) *WorkGroup {
@@ -285,7 +291,8 @@ func TestSampledCompletionRetiresGroupWithoutAnotherTick(t *testing.T) {
 	c.comp.State.WGTasks[wg.state().Request.ID] = 0
 	port := newFakePort("CU.Top")
 	c.ToACE = port
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, handleOf(wf)))
+	c.scheduleSampledCompletion(0, handleOf(wf))
+	c.Tick()
 	if len(port.sent) != 1 {
 		t.Fatal("sampled completion response was not sent")
 	}

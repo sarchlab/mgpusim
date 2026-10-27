@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -19,19 +18,13 @@ import (
 
 // A ComputeUnit provides a detailed and accurate simulation of a GCN3
 // ComputeUnit. It is the (single) middleware of the timing compute-unit
-// component: its Tick method advances the pipeline and drains completed groups; it
-// also serves as the timing.Handler for the CU's custom events
-// (WfCompletionEvent, WfDispatchEvent).
+// component: its Tick method completes sampled waves, advances the pipeline,
+// and drains completed groups.
 //
 // Mutable execution values belong to comp.State; the middleware holds only
 // behavior, fixed dependencies, and a pure immutable instruction-description cache.
 type ComputeUnit struct {
-	comp   *Comp
-	engine timing.EventScheduler
-
-	// Handler IDs that the custom events of this CU dispatch on.
-	wfCompletionHandlerID string
-	wfDispatchHandlerID   string
+	comp *Comp
 
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
@@ -105,10 +98,16 @@ func (cu *ComputeUnit) CurrentTime() timing.VTimeInPicoSec {
 
 // Tick advances the pipeline, handles input, and releases drained groups.
 func (cu *ComputeUnit) Tick() bool {
-	madeProgress := false
+	madeProgress := cu.completeSampledWaves()
+	if madeProgress {
+		cu.retireGroups()
+	}
 
 	madeProgress = cu.runPipeline() || madeProgress
 	madeProgress = cu.processInput() || madeProgress
+	// A zero-duration prediction added by processInput is due on this edge.
+	// TickAt deduplicates the current edge, so finish it before leaving the tick.
+	madeProgress = cu.completeSampledWaves() || madeProgress
 	cu.retireGroups()
 
 	return madeProgress
@@ -160,40 +159,31 @@ func (cu *ComputeUnit) processInputFromACE() bool {
 	}
 }
 
-// Handle processes the custom events of the compute unit (the regular tick
-// events are dispatched to the component's own handler).
-func (cu *ComputeUnit) Handle(evt timing.Event) {
-	ctx := hooking.HookCtx{
-		Domain: cu.comp,
-		Pos:    timing.HookPosBeforeEvent,
-		Item:   evt,
+// completeSampledWaves drains the time-ordered State list under the tick's lock.
+func (cu *ComputeUnit) completeSampledWaves() bool {
+	pending := cu.comp.State.SampledCompletions
+	n := 0
+	for n < len(pending) && pending[n].At <= cu.CurrentTime() {
+		wf := cu.wave(pending[n].Wave)
+		wf.state().StopFetch = true
+		wf.execution().State = wavefront.WfCompleted
+		// Sampled waves never initialize or use physical register locations.
+		cu.endWaveTask(wf)
+		n++
 	}
-	cu.comp.InvokeHook(ctx)
-
-	switch evt := evt.(type) {
-	case wavefront.WfCompletionEvent:
-		cu.handleWfCompletionEvent(evt)
-	case WfDispatchEvent:
-		// The v4 code defined this event but never scheduled it. The handler
-		// is registered for completeness; nothing needs to happen.
-	default:
-		log.Panicf("Unable to process event of type %s",
-			reflect.TypeOf(evt))
-	}
-
-	ctx.Pos = timing.HookPosAfterEvent
-	cu.comp.InvokeHook(ctx)
+	cu.comp.State.SampledCompletions = slices.Delete(pending, 0, n)
+	return n > 0
 }
 
-func (cu *ComputeUnit) handleWfCompletionEvent(
-	evt wavefront.WfCompletionEvent,
-) {
-	wf := cu.wave(evt.Handle)
-	wf.state().StopFetch = true
-	wf.execution().State = wavefront.WfCompleted
-	// Sampled waves never initialize or use physical register locations.
-	cu.endWaveTask(wf)
-	cu.retireGroups()
+func (cu *ComputeUnit) scheduleSampledCompletion(at timing.VTimeInPicoSec, wave wavefront.Handle) {
+	pending := cu.comp.State.SampledCompletions
+	// Insert after equal-time entries to preserve wave dispatch order.
+	i := len(pending)
+	for i > 0 && pending[i-1].At > at {
+		i--
+	}
+	cu.comp.State.SampledCompletions = slices.Insert(pending, i, SampledCompletion{At: at, Wave: wave})
+	cu.comp.TickAt(at)
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
@@ -249,10 +239,7 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 			if skipSimulate {
 				predictedTime := predtime + now
 				wf.execution().State = wavefront.WfSampledWaiting
-				newEvent := wavefront.NewWfCompletionEvent(
-					cu.comp.NewID(),
-					predictedTime, cu.wfCompletionHandlerID, handleOf(wf))
-				cu.engine.Schedule(newEvent)
+				cu.scheduleSampledCompletion(predictedTime, handleOf(wf))
 				cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 					ParentID: cu.comp.State.WGTasks[wg.state().Request.ID],
 					Kind:     "wavefront",

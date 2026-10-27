@@ -103,7 +103,8 @@ func TestCustomCompletionEventResolvesReplacedState(t *testing.T) {
 	old := replaceCUState(t, c)
 	port := newFakePort("CU.Top")
 	c.ToACE = port
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, handleOf(w)))
+	c.scheduleSampledCompletion(0, handleOf(w))
+	c.Tick()
 	if len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 0 || liveTestWaves(&c.comp.State) != 0 {
 		t.Fatal("custom completion did not retire replacement state")
 	}

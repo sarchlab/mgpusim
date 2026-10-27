@@ -1,10 +1,10 @@
-# Akita v5 RC2 migration and checkpoints
+# Akita v5 RC3 migration and checkpoints
 
-MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.2`
-release. RC2 includes the scoped task-notification index and redundant-map
-cleanup from [Akita PR #567](https://github.com/sarchlab/akita/pull/567), fixing
-rc1's reporting performance regression without changing its APIs or checkpoint
-format. No local module replacement is required. AMD GCN3,
+MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.3`
+release. RC3 guarantees each requested `TickAt` clock edge and stores the
+pending tick guard as a list. **RC2 checkpoints are incompatible; regenerate
+checkpoints with RC3.** Recording tables now have the `akita$` prefix; MGPUSim's
+own metric tables are unchanged. No local module replacement is required. AMD GCN3,
 AMD CDNA3 and the NVIDIA trace simulator use native Akita components, ports,
 message envelopes, task tracking and checkpoint resources. Platform frequencies,
 cache geometry, dispatch policies, instruction semantics and sample CLI flags
@@ -140,7 +140,8 @@ differ from the final reporter, while counts and simulation times are unchanged.
 A timing CU is one ticking component. Its `State` owns work-group and wavefront
 execution values, shared LDS, scoreboards, register bytes, instruction encodings,
 in-flight memory records, scheduler queues, decoder progress, SIMD slots, and
-vector-memory pipelines. Queue, pipeline, and sampled-event references use
+vector-memory pipelines, and the time-ordered `SampledCompletions` list.
+Queue, pipeline, and sampled-completion references use
 CU-local slot handles containing a slot index and generation. Global wave UIDs
 remain the tracing and protocol identity.
 There is no CU Runtime resource or per-SIMD checkpoint resource, and saving does
@@ -152,6 +153,23 @@ The work-group completion message releases CP resources only after this drain;
 a full completion port retains the slots and schedules a retry. This is a
 conservative modeling choice, so workloads with late fetch replies may finish
 later than with early CP release. There is no retired-wave spill storage.
+
+Sampled waves append `{At, Wave}` to State and call `TickAt(At)` once. Each tick
+completes due waves before pipeline work, ends their tasks, and retires drained
+groups. It also drains newly due work after input, so a zero-duration prediction
+finishes on the current edge. There is no custom completion/dispatch event,
+additional engine handler, or engine resource on the CU. Future entries keep
+their original wakeups without re-requesting them. Completion-port backpressure
+retains the completed group and retries on a normal tick.
+
+`TickAt` rounds up to the first CU clock edge at or after the predicted time.
+This can move sampled completions by less than one period compared with RC2's
+unaligned engine events. `TestSampledFIRCheckpointFreshProcess` trains the sampler
+with a controlled history (FIR256 alone is below its warmup threshold), saves
+with sampled waves pending, and checks exact aligned completion times and an
+identical final archive after a fresh-process restore. The first kernel uses
+sampling, so this test does not assert its numerical output; the existing
+unsampled GCN3/CDNA3 tests verify FIR output independently.
 
 The work-group's final S_ENDPGM task closes before its wavefront task; completion
 port retries do not replay either completion. The previous final-wave completion

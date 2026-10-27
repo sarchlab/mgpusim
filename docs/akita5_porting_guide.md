@@ -199,24 +199,20 @@ req := memprotocol.ReadReq{
   `Period()`, `ThisTick(t)`, `NextTick(t)`, `NCyclesLater(n, t)`.
 - `Tick(now sim.VTimeInSec) bool` → `Tick() bool`. Current time:
   `comp.CurrentTime()`.
-- `TickNow()` / `TickLater()` take no arguments.
+- `TickLater()` requests the next cycle; `TickAt(t)` guarantees the first clock
+  edge at or after `t`, deduplicating requests for the same edge.
 - Cycle-counting countdowns are preferred over scheduling ad-hoc events.
 
-## Custom events (only where truly needed)
+## Deferred work
 
-Events carry `HandlerID() string`; engines dispatch via a registry. The
-component's own ticking handler is registered under the component name. For a
-custom event (e.g. WfCompletionEvent):
-
-- Keep a custom event type embedding `timing.EventBase`; create with
-  `timing.MakeEventBase(time, handlerID)`.
-- Register the handler:
-  `engine.(timing.HandlerRegistrar).RegisterHandler("Comp.Name.EventKind", h)`
-  during Build (cast is safe for both serial/parallel engines).
-- Where the v4 code scheduled an event merely to delay work, prefer
-  converting to a countdown inside Tick, or to
-  `modeling.EventDrivenComponent` + `ScheduleWakeAt` for reactive components
-  (see `akita/examples/ping`).
+A ticking component stores deferred work in State and calls `TickAt(due)` once
+when adding each item. Its tick processes the due items; remaining entries do
+not need re-requesting. Keep timed work on the normal ticking path so it runs
+under the component lock and survives checkpoints. The CU's sampled completion
+list follows this pattern. It also handles zero-duration work added during the
+tick before returning, since another tick on the current edge is deduplicated.
+Do not retain an engine or register additional event handlers for delayed work.
+Wakeup components use `WakeAt(t)` with the same State-owned work pattern.
 
 ## Control protocol (CP ↔ caches/TLBs/AT/memory)
 

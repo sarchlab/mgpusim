@@ -7,11 +7,12 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // Port names of the ComputeUnit. The port instances are created externally
 // (by the platform configuration or the test setup) and supplied with
-// AssignPort after Build.
+// BindPort after Build.
 const (
 	// DispatchPortName receives MapWGReqs from the dispatcher and sends
 	// WGCompletionMsgs back (v4: ToACE / "Top").
@@ -98,8 +99,15 @@ type Spec struct {
 	InstBufByteSize int `json:"inst_buf_byte_size"`
 }
 
+// SampledCompletion is a pending wave completion, ordered by At in State.
+type SampledCompletion struct {
+	At   timing.VTimeInPicoSec
+	Wave wavefront.Handle
+}
+
 // State is the sole owner of mutable compute-unit execution data.
 type State struct {
+	SampledCompletions                        []SampledCompletion
 	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
 	Groups                                    []WorkGroupState
 	Waves                                     []WaveState
@@ -124,7 +132,6 @@ type State struct {
 
 // Resources holds the shared references that a timing ComputeUnit needs.
 type Resources struct {
-	engine  timing.Engine
 	Sampler *sampling.SampledEngine
 	// Decoder decodes raw instruction bytes. Defaults to
 	// insts.NewDisassembler() when nil at Build time.
@@ -151,14 +158,8 @@ type cuMiddleware struct{ cu *ComputeUnit }
 
 func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
 func (m *Middlewares) Initialize(c *Comp) {
-	if c.Resources.engine == nil {
-		panic("cu: construct with MakeBuilder")
-	}
-	cu := &ComputeUnit{comp: c, engine: c.Resources.engine, Decoder: c.Resources.Decoder,
-		wfCompletionHandlerID: c.Name() + ".WfCompletion", wfDispatchHandlerID: c.Name() + ".WfDispatch"}
+	cu := &ComputeUnit{comp: c, Decoder: c.Resources.Decoder}
 	m.CU = &cuMiddleware{cu: cu}
-	c.Resources.engine.RegisterHandler(cu.wfCompletionHandlerID, cu)
-	c.Resources.engine.RegisterHandler(cu.wfDispatchHandlerID, cu)
 	cu.initializeUnits()
 }
 
