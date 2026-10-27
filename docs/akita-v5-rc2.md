@@ -225,20 +225,25 @@ binds their ports, then obtains their actual remote addresses:
 spec := cu.DefaultSpec()
 spec.InstMem = instructionROB.Ports.Top.AsRemote()
 spec.ScalarMem = scalarROB.Ports.Top.AsRemote()
+spec.VectorMemModules = mem.AddressMapper{
+    Destinations: []messaging.RemotePort{vectorROB.Ports.Top.AsRemote()},
+}
 computeUnit := cu.MakeBuilder().WithSimulation(simulation).
     WithSpec(spec).WithResources(resources).Build(name)
 // Bind the CU's local ports, then connect those ports to the ROBs.
 // Initialize the simulation after the full topology has been assembled.
 ```
 
-Changing either destination changes the checkpoint Spec hash. Routing through
-`Resources.VectorMemModules` is deferred to MGPUSim #321. Downstream-first
+Changing either destination changes the checkpoint Spec hash. Vector routing now uses
+concrete `Spec.VectorMemModules` (MGPUSim #321), populated before Build. Downstream-first
 construction is temporary: Akita #576 tracks a Blueprint that declares the whole
 topology, instantiates it, and then connects it, including cyclic topologies.
-This CU change does not add a lifecycle phase or predict port names.
+CU-to-ROB wiring uses actual bound addresses and adds no lifecycle phase.
+Cross-GPU RDMA assembly separately precomputes the declared GPU/RDMA port names
+before building any GPU, so each component receives complete routing.
 
-Checkpoint compatibility with previous implementations is not supported. Rebuild
-and resume with the same program and configuration; this also applies after v5.
+Checkpoint compatibility with previous implementations is not supported. Create new checkpoints with the new build; restore them only with matching
+program and configuration. This also applies after v5.
 SIMD task names and timing remain unchanged, while reporting routes their task
 notifications through one simulation observer rather than registering the SIMD
 behavior views as simulation entities.
@@ -277,7 +282,8 @@ including after the v5 release.
 The DMA component now lives in `amd/timing/dma`. Replace `cp.DMAComp`,
 `cp.DefaultDMASpec`, and `cp.MakeDMAEngineBuilder` with `dma.Comp`,
 `dma.DefaultSpec`, and `dma.MakeBuilder`. Its processing behavior and port names
-are unchanged. DMA `Resources.LocalDataSource` routing remains deferred to #321.
+are unchanged. DMA routing now uses concrete `Spec.LocalDataSource` (#321);
+populate its destinations before Build instead of injecting a Resources mapper.
 
 CP peer addresses and CU capacities belong to `cp.Spec`. Build DMA, RDMA,
 compute units and caches first, then collect their actual bound addresses.

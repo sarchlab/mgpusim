@@ -72,7 +72,9 @@ func NewRequestCollection(
 
 // Spec contains the immutable configuration of the DMA engine.
 type Spec struct {
-	Freq timing.Freq `json:"freq"`
+	// LocalDataSource selects the memory bank serving each copy request.
+	LocalDataSource mem.AddressMapper `json:"local_data_source"`
+	Freq            timing.Freq       `json:"freq"`
 
 	// Log2AccessSize is the log2 of the number of bytes accessed by each
 	// memory request that the DMA engine generates.
@@ -94,11 +96,8 @@ type State struct {
 
 func (s *State) Initialize(*Comp) { s.PendingTaskIDs = make(map[uint64]uint64) }
 
-// Resources holds the shared references used by the DMA engine.
-type Resources struct {
-	// LocalDataSource maps addresses to the ports that can provide the data.
-	LocalDataSource mem.AddressToPortMapper
-}
+// Resources is empty; all routing configuration belongs to Spec.
+type Resources struct{}
 
 // Comp is a DMAEngine component. A DMAEngine is responsible for accessing
 // data that does not belong to the GPU that the DMAEngine works in.
@@ -113,7 +112,12 @@ type Ports struct {
 }
 type Middlewares struct{ DMA *dmaMiddleware }
 
-func (m *Middlewares) Initialize(c *Comp)         { m.DMA = &dmaMiddleware{comp: c} }
+func (m *Middlewares) Initialize(c *Comp) {
+	if err := c.Spec.LocalDataSource.Validate(); err != nil {
+		panic("dma: LocalDataSource: " + err.Error())
+	}
+	m.DMA = &dmaMiddleware{comp: c}
+}
 func (m *dmaMiddleware) Handle(timing.Event) bool { return m.Tick() }
 
 // dmaMiddleware implements the behavior of the DMA engine.
@@ -351,7 +355,7 @@ func (m *dmaMiddleware) parseMemCopyH2D(
 			length = lengthInUnit
 		}
 
-		module := m.comp.Resources.LocalDataSource.Find(addr)
+		module := m.comp.Spec.LocalDataSource.Find(addr)
 		reqToBottom := messaging.Msg{ID: m.comp.NewID(),
 			Src: m.toMem().AsRemote(),
 			Dst: module, Payload: memprotocol.WriteReq{Address: addr,
@@ -390,7 +394,7 @@ func (m *dmaMiddleware) parseMemCopyD2H(
 			length = lengthInUnit
 		}
 
-		module := m.comp.Resources.LocalDataSource.Find(addr)
+		module := m.comp.Spec.LocalDataSource.Find(addr)
 		reqToBottom := messaging.Msg{ID: m.comp.NewID(),
 			Src: m.toMem().AsRemote(),
 			Dst: module, Payload: memprotocol.ReadReq{Address: addr,
@@ -445,8 +449,7 @@ func (b Builder) WithSpec(spec Spec) Builder {
 	return b
 }
 
-// WithResources injects the address-to-port mapper that locates the modules
-// holding the data.
+// WithResources sets the empty resource record.
 func (b Builder) WithResources(r Resources) Builder {
 	b.resources = r
 	return b

@@ -96,7 +96,7 @@ type Builder struct {
 	dramSize                       uint64
 	globalStorage                  *mem.Storage
 	mmu                            *mmu.Comp
-	rdmaAddressMapper              mem.AddressToPortMapper
+	rdmaAddressMapper              mem.AddressMapper
 	driverPort                     messaging.RemotePort
 
 	gpu                  *gpubuilder.GPU
@@ -267,7 +267,7 @@ func (b Builder) WithGlobalStorage(
 
 // WithRDMAAddressMapper sets the RDMA address mapper.
 func (b Builder) WithRDMAAddressMapper(
-	mapper mem.AddressToPortMapper,
+	mapper mem.AddressMapper,
 ) gpubuilder.GPUBuilder {
 	b.rdmaAddressMapper = mapper
 	return b
@@ -441,15 +441,6 @@ func (b *Builder) connectL2AndMALL() {
 	for _, mall := range b.malls {
 		topPort := mall.Ports.Top
 		b.l2ToMALLConnection.BindPort(topPort)
-
-		// The MALL is a memory-side cache: it fronts DRAM for ALL memory
-		// traffic, not just GPU L2 misses. So the DMA engine (host MemCopy)
-		// targets the MALL too, via the same interleaving the L1->L2 path
-		// uses. This keeps the MALL coherent with host copies and lets an
-		// H2D copy populate it (write-through), so a subsequent kernel reads
-		// resident data instead of always missing to DRAM.
-		b.dmaLocalDataSource.Destinations = append(
-			b.dmaLocalDataSource.Destinations, topPort.AsRemote())
 	}
 
 	b.l2ToMALLConnection.BindPort(b.dmaEngine.Ports.ToMem)
@@ -622,6 +613,13 @@ func (b *Builder) buildMALL() {
 		b.buildPort(mall, "Control", l2CachePortBufSize)
 
 		b.malls = append(b.malls, mall)
+		// The MALL is a memory-side cache: it fronts DRAM for ALL memory
+		// traffic, not just GPU L2 misses. So the DMA engine (host MemCopy)
+		// targets the MALL too, via the same interleaving the L1->L2 path
+		// uses. This keeps the MALL coherent with host copies and lets an
+		// H2D copy populate it (write-through), so a subsequent kernel reads
+		// resident data instead of always missing to DRAM.
+		b.dmaLocalDataSource.Destinations = append(b.dmaLocalDataSource.Destinations, mall.Ports.Top.AsRemote())
 	}
 }
 
@@ -673,14 +671,13 @@ func (b *Builder) buildRDMAEngine() {
 
 	spec := rdma.DefaultSpec()
 	spec.Freq = 1 * timing.GHz
+	b.l1AddressMapper.Fallback = messaging.RemotePort(name + ".RDMARequestInside")
+	spec.LocalModules = *b.l1AddressMapper
+	spec.RemoteRDMAAddressTable = b.rdmaAddressMapper
 
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithSimulation(b.simulation).
 		WithSpec(spec).
-		WithResources(rdma.Resources{
-			LocalModules:           b.l1AddressMapper,
-			RemoteRDMAAddressTable: b.rdmaAddressMapper,
-		}).
 		Build(name)
 
 	b.buildPort(b.rdmaEngine, "RDMARequestInside", rdmaPortBufSize)
@@ -688,18 +685,14 @@ func (b *Builder) buildRDMAEngine() {
 	b.buildPort(b.rdmaEngine, "RDMADataInside", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "RDMADataOutside", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "Ctrl", rdmaPortBufSize)
-
-	b.l1AddressMapper.Fallback =
-		b.rdmaEngine.Ports.RDMARequestInside.AsRemote()
 }
 
 func (b *Builder) buildDMAEngine() {
+	spec := dma.DefaultSpec()
+	spec.LocalDataSource = *b.dmaLocalDataSource
 	b.dmaEngine = dma.MakeBuilder().
 		WithSimulation(b.simulation).
-		WithSpec(dma.DefaultSpec()).
-		WithResources(dma.Resources{
-			LocalDataSource: b.dmaLocalDataSource,
-		}).
+		WithSpec(spec).
 		Build(fmt.Sprintf("%s.DMA", b.name))
 
 	b.buildPort(b.dmaEngine, "ToCP", dmaToCPBufSize)

@@ -10,12 +10,16 @@ import (
 
 // Spec contains the immutable configuration of the RDMA engine.
 type Spec struct {
-	Freq                timing.Freq `json:"freq"`
-	BufferSize          int         `json:"buffer_size"`
-	IncomingReqPerCycle int         `json:"incoming_req_per_cycle"`
-	IncomingRspPerCycle int         `json:"incoming_rsp_per_cycle"`
-	OutgoingReqPerCycle int         `json:"outgoing_req_per_cycle"`
-	OutgoingRspPerCycle int         `json:"outgoing_rsp_per_cycle"`
+	// RemoteRDMAAddressTable selects the owner GPU for an outgoing address.
+	RemoteRDMAAddressTable mem.AddressMapper `json:"remote_rdma_address_table"`
+	// LocalModules selects local memory for requests received from other GPUs.
+	LocalModules        mem.AddressMapper `json:"local_modules"`
+	Freq                timing.Freq       `json:"freq"`
+	BufferSize          int               `json:"buffer_size"`
+	IncomingReqPerCycle int               `json:"incoming_req_per_cycle"`
+	IncomingRspPerCycle int               `json:"incoming_rsp_per_cycle"`
+	OutgoingReqPerCycle int               `json:"outgoing_req_per_cycle"`
+	OutgoingRspPerCycle int               `json:"outgoing_rsp_per_cycle"`
 }
 
 // transaction records one memory request that the RDMA engine has forwarded
@@ -54,17 +58,8 @@ type State struct {
 	TransactionsFromOutside []transaction `json:"transactions_from_outside"`
 }
 
-// Resources holds the shared references used by the RDMA engine to route
-// memory requests.
-type Resources struct {
-	// LocalModules finds the local module (e.g., an L2 cache or a memory
-	// controller) that serves requests arriving from other GPUs.
-	LocalModules mem.AddressToPortMapper
-
-	// RemoteRDMAAddressTable finds the RDMA engine of the GPU that owns a
-	// given address.
-	RemoteRDMAAddressTable mem.AddressToPortMapper
-}
+// Resources is empty; all routing configuration belongs to Spec.
+type Resources struct{}
 
 // Comp is an RDMA engine, a component that helps one GPU access the memory on
 // another GPU. It forwards memory requests received on its inside ports to
@@ -84,6 +79,13 @@ type Middlewares struct {
 }
 
 func (m *Middlewares) Initialize(c *Comp) {
+	if err := c.Spec.LocalModules.Validate(); err != nil {
+		panic("rdma: LocalModules: " + err.Error())
+	}
+	if err := c.Spec.RemoteRDMAAddressTable.Validate(); err != nil {
+		panic("rdma: RemoteRDMAAddressTable: " + err.Error())
+	}
+
 	m.Ctrl = &ctrlMiddleware{comp: c}
 	m.Forward = &forwardMiddleware{comp: c}
 }

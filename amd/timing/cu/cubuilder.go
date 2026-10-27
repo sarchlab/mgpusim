@@ -36,11 +36,11 @@ func DefaultSpec() Spec {
 
 // A Builder can construct a fully functional Compute Unit. Configuration is
 // supplied as a whole through WithSpec; shared references (decoder, ALU,
-// vector memory address mapper) through WithResources; wiring through
+// sampler) through WithResources; wiring through
 // WithSimulation. The component declares its "Top", "InstMem",
 // "ScalarMem", and "VectorMem" ports; the port instances are supplied
-// externally after Build with BindPort. The destinations of instruction
-// and scalar memory accesses are supplied in Spec before Build.
+// externally after Build with BindPort. The destinations of instruction,
+// scalar, and vector memory accesses are supplied in Spec before Build.
 type Builder struct {
 	spec      Spec
 	resources Resources

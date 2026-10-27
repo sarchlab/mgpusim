@@ -75,7 +75,7 @@ func (m *forwardMiddleware) processFromL1() bool {
 		return false
 	}
 
-	dst := m.comp.Resources.RemoteRDMAAddressTable.Find(requestAddress(req))
+	dst := m.comp.Spec.RemoteRDMAAddressTable.Find(requestAddress(req))
 	cloned := cloneReq(m.comp.NewID(), req, outPort.AsRemote(), dst)
 
 	trans := m.startTransaction(req, cloned)
@@ -147,7 +147,7 @@ func (m *forwardMiddleware) processIncomingReq() bool {
 		return false
 	}
 
-	dst := m.comp.Resources.LocalModules.Find(requestAddress(req))
+	dst := m.comp.Spec.LocalModules.Find(requestAddress(req))
 	cloned := cloneReq(m.comp.NewID(), req, inPort.AsRemote(), dst)
 
 	trans := m.startTransaction(req, cloned)

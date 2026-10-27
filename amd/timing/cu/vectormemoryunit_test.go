@@ -3,7 +3,6 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/queueing"
@@ -35,7 +34,6 @@ var _ = Describe("Vector Memory Unit", func() {
 	BeforeEach(func() {
 		engine := newFakeEngine()
 		cu = newTestComputeUnit("CU", engine)
-		cu.comp.Resources.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 
 		cu.InFlightVectorMemAccessLimit = 128
 

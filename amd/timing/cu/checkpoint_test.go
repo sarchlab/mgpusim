@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
@@ -89,8 +90,12 @@ func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*Com
 		}
 	})
 	spec := DefaultSpec()
+	spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 	if len(specs) > 0 {
 		spec = specs[0]
+		if len(spec.VectorMemModules.Destinations) == 0 {
+			spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
+		}
 	}
 	comp := MakeBuilder().WithSimulation(simulation).WithSpec(spec).Build("CU")
 	for _, name := range []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {

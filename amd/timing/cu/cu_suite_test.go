@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/naming"
 	"github.com/sarchlab/akita/v5/sim/tasks"
@@ -143,7 +144,9 @@ func newTestComputeUnit(
 	}
 	s := &cuTestSimulation{Simulation: sim.MakeBuilder().Build(), engine: engine.(timing.Engine)}
 	s.tracker = tasks.NewTracker(engine, s.NewID, func(n naming.Named) bool { return true })
-	comp := modeling.MakeBuilder[*Comp](DefaultSpec()).WithSimulation(s).Build(name)
+	spec := DefaultSpec()
+	spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
+	comp := modeling.MakeBuilder[*Comp](spec).WithSimulation(s).Build(name)
 	comp.State.Initialize(comp)
 
 	cuMW := &ComputeUnit{comp: comp}

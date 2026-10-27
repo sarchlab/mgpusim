@@ -30,9 +30,11 @@ var _ = Describe("DMAEngine", func() {
 
 		dmaEngine = MakeBuilder().
 			WithSimulation(reg).
-			WithResources(Resources{
-				LocalDataSource: mem.AddressMapper{Destinations: []messaging.RemotePort{memPort}},
-			}).
+			WithSpec(func() Spec {
+				spec := DefaultSpec()
+				spec.LocalDataSource = mem.AddressMapper{Destinations: []messaging.RemotePort{memPort}}
+				return spec
+			}()).
 			Build("DMA")
 
 		assign := func(name string) messaging.Port {

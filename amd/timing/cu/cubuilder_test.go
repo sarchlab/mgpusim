@@ -3,6 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
@@ -13,9 +14,10 @@ var _ = Describe("Builder", func() {
 		reg := sim.MakeBuilder().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
-		comp := MakeBuilder().
+		spec := DefaultSpec()
+		spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"Memory.Top"}}
+		comp := MakeBuilder().WithSpec(spec).
 			WithSimulation(reg).
-			WithSpec(DefaultSpec()).
 			Build("GPU.CU")
 
 		// All four ports must be declared so external code can assign them.

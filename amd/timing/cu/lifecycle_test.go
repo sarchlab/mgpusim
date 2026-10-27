@@ -290,12 +290,12 @@ func checkPipelineLifecycle(t *testing.T, scoreboard bool) {
 	t.Helper()
 	spec := DefaultSpec()
 	spec.RegisterScoreboard = scoreboard
+	spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 	c := checkpointCU(t, spec)
 	w := checkpointGroup(c).waves()[0]
 	// Scalar/vector ALU, async scalar/vector loads, then s_endpgm.
 	code := []byte{0x81, 0, 0x80, 0xbe, 0x81, 2, 0, 0x7e,
 		0, 0, 0, 0xc0, 0, 0, 0, 0, 0, 0, 0x50, 0xdc, 0, 0, 0, 0, 0, 0, 0x81, 0xbf}
-	c.comp.Resources.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 	scalar, vector := newFakePort("CU.ScalarMem"), newFakePort("CU.VectorMem")
 	scalar.full = true
 	vector.full = true

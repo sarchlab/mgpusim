@@ -34,6 +34,8 @@ const numWfPools = 4
 
 // Spec is the immutable configuration of a timing ComputeUnit.
 type Spec struct {
+	// VectorMemModules selects the destination for vector memory requests.
+	VectorMemModules mem.AddressMapper `json:"vector_mem_modules"`
 	// InstMem and ScalarMem are fixed request destinations, supplied before Build.
 	InstMem   messaging.RemotePort `json:"inst_mem"`
 	ScalarMem messaging.RemotePort `json:"scalar_mem"`
@@ -140,9 +142,6 @@ type Resources struct {
 	// ALU executes the instructions. Defaults to gcn3.NewALU(nil) when nil at
 	// Build time.
 	ALU emu.ALU
-
-	// VectorMemModules maps addresses to the ports that serve them.
-	VectorMemModules mem.AddressToPortMapper
 }
 
 // Comp is the timing ComputeUnit component.
@@ -158,6 +157,10 @@ type cuMiddleware struct{ cu *ComputeUnit }
 
 func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
 func (m *Middlewares) Initialize(c *Comp) {
+	if err := c.Spec.VectorMemModules.Validate(); err != nil {
+		panic("cu: VectorMemModules: " + err.Error())
+	}
+
 	cu := &ComputeUnit{comp: c, Decoder: c.Resources.Decoder}
 	m.CU = &cuMiddleware{cu: cu}
 	cu.initializeUnits()

@@ -1,9 +1,13 @@
 package timingconfig
 
 import (
+	"fmt"
 	"testing"
 
 	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
 // buildPlatform assembles a platform of the given GPU type and count. The
@@ -38,6 +42,7 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 	found := make(map[string]bool)
 	for _, c := range s.Components() {
 		found[c.Name()] = true
+		checkRouting(t, s, c, numGPUs)
 	}
 	if !found["Driver"] {
 		t.Fatal("driver must be registered with the simulation")
@@ -59,4 +64,41 @@ func TestBuildR9NanoMultiGPUPlatform(t *testing.T) {
 
 func TestBuildMI300XPlatform(t *testing.T) {
 	buildPlatform(t, "mi300x", 1)
+}
+
+func TestBuildMI300XMultiGPUPlatform(t *testing.T) { buildPlatform(t, "mi300x", 2) }
+
+func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
+	t.Helper()
+	switch c := c.(type) {
+	case *rdma.Comp:
+		mapper := c.Spec.RemoteRDMAAddressTable
+		if len(mapper.Destinations) != numGPUs+1 || mapper.Find(0) != "CPU" {
+			t.Fatal("missing CPU/GPU routing slots")
+		}
+		for i := 1; i <= numGPUs; i++ {
+			name := fmt.Sprintf("GPU[%d].RDMA", i)
+			var destination messaging.RemotePort
+			for _, peer := range s.Components() {
+				if r, ok := peer.(*rdma.Comp); ok && r.Name() == name {
+					destination = r.Ports.RDMADataOutside.AsRemote()
+				}
+			}
+			if destination == "" || mapper.Find(uint64(i)*mapper.InterleavingSize) != destination {
+				t.Fatalf("%s routes GPU %d incorrectly", c.Name(), i)
+			}
+		}
+		if c.Spec.LocalModules.Fallback != c.Ports.RDMARequestInside.AsRemote() {
+			t.Fatal("wrong local fallback")
+		}
+	case *dma.Comp:
+		for _, dst := range c.Spec.LocalDataSource.Destinations {
+			if dst == "" {
+				t.Fatal("empty DMA destination")
+			}
+		}
+		if len(c.Spec.LocalDataSource.Destinations) == 0 {
+			t.Fatal("missing DMA routes")
+		}
+	}
 }

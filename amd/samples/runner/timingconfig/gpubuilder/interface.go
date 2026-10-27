@@ -56,7 +56,7 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 type GPUBuilder interface {
 	WithGPUID(id uint64) GPUBuilder
 	WithMemAddrOffset(offset uint64) GPUBuilder
-	WithRDMAAddressMapper(mapper mem.AddressToPortMapper) GPUBuilder
+	WithRDMAAddressMapper(mapper mem.AddressMapper) GPUBuilder
 	WithDriverPort(port messaging.RemotePort) GPUBuilder
 	Build(name string) *GPU
 }
