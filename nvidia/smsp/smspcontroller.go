@@ -367,7 +367,8 @@ func (s *SMSPController) Status() (warps, unsentMem, inflightMem int) {
 
 func (s *State) Initialize(c *Comp) {
 	if c.Spec.ToSM == "" || c.Spec.ToVectorMem == "" {
-		panic("SMSP requires SM and memory destinations")
+		panic(fmt.Sprintf("SMSP requires SM and memory destinations: to_sm=%q to_vector_mem=%q",
+			c.Spec.ToSM, c.Spec.ToVectorMem))
 	}
 	s.Scheduler = *NewSMSPScheduler()
 	s.ResourcePool = *NewH100SMSPResourcePool()

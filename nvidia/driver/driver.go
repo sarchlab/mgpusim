@@ -124,7 +124,8 @@ func (d *Driver) RegisterGPU(g *gpu.GPUController) {
 			return
 		}
 	}
-	panic("GPU does not match driver Spec")
+	panic(fmt.Sprintf("GPU %q does not match driver Spec: port=%q return=%q, want return=%q",
+		g.Name(), g.Ports.ToDriver.AsRemote(), g.Spec.ToDriver, d.Ports.ToDevices.AsRemote()))
 }
 
 // RunKernel queues a kernel for execution.
@@ -226,7 +227,7 @@ func (s *State) Initialize(c *Comp) {
 	ports := make(map[messaging.RemotePort]bool)
 	for _, peer := range c.Spec.Devices {
 		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
-			panic("invalid or duplicate driver peer")
+			panic(fmt.Sprintf("invalid or duplicate driver peer: name=%q port=%q", peer.Name, peer.Port))
 		}
 		names[peer.Name] = true
 		ports[peer.Port] = true

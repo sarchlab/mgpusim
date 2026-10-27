@@ -8,14 +8,14 @@ import (
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
-func indexedWarp() trace.WarpTrace {
+func lookupTestWarp() trace.WarpTrace {
 	return trace.WarpTrace{Instructions: []trace.InstructionTrace{{OpCode: "IADD3", Mask: 1}}}
 }
 
-func TestSchedulerIndexesFollowGrowthCompactionAndRestore(t *testing.T) {
+func TestSchedulerLookupsFollowGrowthCompactionAndRestore(t *testing.T) {
 	s := NewSMSPScheduler()
 	for range 64 {
-		s.insertWarp(indexedWarp())
+		s.insertWarp(lookupTestWarp())
 	}
 	for i := range s.WarpUnits {
 		w := &s.WarpUnits[i]
@@ -29,15 +29,15 @@ func TestSchedulerIndexesFollowGrowthCompactionAndRestore(t *testing.T) {
 	}
 	c := &SMSPController{Comp: &Comp{}}
 	c.State.Scheduler = *s
-	retireIndexedPipelines(c)
+	retireTestPipelines(c)
 	s = &c.State.Scheduler
 	assertLookupPanics(t, func() { s.warp(1) })
-	checkCompactedIndexes(t, s)
-	s.insertWarp(indexedWarp())
+	checkCompactedLookups(t, s)
+	s.insertWarp(lookupTestWarp())
 	if s.warp(65).ID != 65 {
 		t.Fatal("insertion after retirement broke ordering")
 	}
-	// Replace canonical state using the same IDs; indexes must resolve restored values.
+	// Replace canonical state using the same IDs; lookups must resolve restored values.
 	var restored SMSPSWarpScheduler
 	if err := gob.NewDecoder(&snapshot).Decode(&restored); err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestSchedulerIndexesFollowGrowthCompactionAndRestore(t *testing.T) {
 	}
 }
 
-func retireIndexedPipelines(c *SMSPController) {
+func retireTestPipelines(c *SMSPController) {
 	// Retire all pipelines in one warp and alternating pipelines in the others.
 	for wi := range c.State.Scheduler.WarpUnits {
 		w := &c.State.Scheduler.WarpUnits[wi]
@@ -67,15 +67,15 @@ func retireIndexedPipelines(c *SMSPController) {
 	c.collectFinishedWarps()
 }
 
-func checkCompactedIndexes(t *testing.T, s *SMSPSWarpScheduler) {
+func checkCompactedLookups(t *testing.T, s *SMSPSWarpScheduler) {
 	t.Helper()
 	for _, w := range s.WarpUnits {
 		if s.warp(w.ID).ID != w.ID {
-			t.Fatal("warp index changed after compaction")
+			t.Fatal("warp lookup failed after compaction")
 		}
 		for _, p := range w.InFlightPipelines {
 			if s.pipeline(p.Ref()).InstIndex != p.InstIndex {
-				t.Fatal("pipeline index changed after compaction")
+				t.Fatal("pipeline lookup failed after compaction")
 			}
 		}
 		assertLookupPanics(t, func() { s.pipeline(PipelineRef{WarpID: w.ID, InstIndex: 0}) })

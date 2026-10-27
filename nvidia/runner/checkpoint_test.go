@@ -112,7 +112,7 @@ func prepareCheckpoint(t *testing.T, phase string, path string) {
 func rewindCheckpoint(t *testing.T, s *sim.Simulation, p *platform.Platform, path string) {
 	t.Helper()
 	// Restore the same component instances twice after they have completed all work.
-	// This catches indexes or observers that retain pre-restore State references.
+	// This catches lookups or observers that retain pre-restore State references.
 	for range 2 {
 		if err := s.LoadCheckpoint(path); err != nil {
 			t.Fatal(err)

@@ -234,12 +234,12 @@ func (s *SMController) GetTotalWarpsCount() uint64 {
 
 func (s *State) Initialize(c *Comp) {
 	if c.Spec.ToGPU == "" {
-		panic("SM requires a GPU destination")
+		panic(fmt.Sprintf("SM requires a GPU destination: to_gpu=%q", c.Spec.ToGPU))
 	}
 	ports := make(map[messaging.RemotePort]bool)
 	for _, peer := range c.Spec.SMSPs {
 		if peer == "" || ports[peer] {
-			panic("invalid or duplicate SMSP destination")
+			panic(fmt.Sprintf("invalid or duplicate SMSP destination: port=%q", peer))
 		}
 		ports[peer] = true
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 // BenchmarkNVIDIAExecution excludes construction and measures repeated kernel
-// execution, including scheduling, index maintenance, and memory traffic.
+// execution, including scheduling, warp/pipeline lookups, and memory traffic.
 func BenchmarkNVIDIAExecution(b *testing.B) {
 	bm := benchmark.Load("../trace/testdata/vectoradd")
 	d := platform.H100()

@@ -284,14 +284,14 @@ func (g *GPUController) Status() (undispatched, unfinished uint64) {
 
 func (s *State) Initialize(c *Comp) {
 	if c.Spec.ToDriver == "" {
-		panic("GPU requires a driver destination")
+		panic(fmt.Sprintf("GPU requires a driver destination: to_driver=%q", c.Spec.ToDriver))
 	}
 
 	names := make(map[string]bool)
 	ports := make(map[messaging.RemotePort]bool)
 	for _, peer := range c.Spec.SMs {
 		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
-			panic("invalid or duplicate gpu peer")
+			panic(fmt.Sprintf("invalid or duplicate GPU peer: name=%q port=%q", peer.Name, peer.Port))
 		}
 		names[peer.Name] = true
 		ports[peer.Port] = true
