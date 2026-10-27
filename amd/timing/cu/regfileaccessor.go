@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // CURegFileAccessor implements wavefront.RegFileAccessor by delegating to the
@@ -12,13 +11,26 @@ import (
 // are handled via the wavefront's own fields.
 type CURegFileAccessor struct {
 	CU *ComputeUnit
-	WF *wavefront.Wavefront
+	WF *Wavefront
+}
+
+// operationRegAccessor is created only within one read/write or ALU operation.
+type operationRegAccessor struct {
+	CU *ComputeUnit
+	WF *operationWave
+}
+
+func (a *CURegFileAccessor) ReadReg(reg *insts.Reg, count, lane, offset int) []byte {
+	return a.WF.operation().regAccessor().ReadReg(reg, count, lane, offset)
+}
+func (a *CURegFileAccessor) WriteReg(reg *insts.Reg, count, lane, offset int, data []byte) {
+	a.WF.operation().regAccessor().WriteReg(reg, count, lane, offset, data)
 }
 
 // ReadReg reads from the appropriate register file based on register type.
 //
 //nolint:gocyclo,funlen
-func (a *CURegFileAccessor) ReadReg(
+func (a *operationRegAccessor) ReadReg(
 	reg *insts.Reg, regCount int, laneID int, waveOffset int,
 ) []byte {
 	// Handle special registers via the wavefront fields
@@ -45,7 +57,7 @@ func (a *CURegFileAccessor) ReadReg(
 		}
 		return insts.Uint32ToBytes(uint32(a.WF.EXEC()))
 	case insts.M0:
-		return insts.Uint32ToBytes(a.WF.M0)
+		return insts.Uint32ToBytes(a.WF.value.M0)
 	}
 
 	// Handle regular SReg and VReg via register files
@@ -53,7 +65,7 @@ func (a *CURegFileAccessor) ReadReg(
 	if reg.IsSReg() {
 		regFile = a.CU.SRegFile
 	} else if reg.IsVReg() {
-		regFile = a.CU.VRegFile[a.WF.SIMDID]
+		regFile = a.CU.VRegFile[a.WF.value.SIMDID]
 	} else {
 		// Fallback by name for vcclo/vcchi
 		if reg.Name == "vcclo" {
@@ -91,7 +103,7 @@ func (a *CURegFileAccessor) ReadReg(
 // WriteReg writes to the appropriate register file based on register type.
 //
 //nolint:gocyclo,funlen
-func (a *CURegFileAccessor) WriteReg(
+func (a *operationRegAccessor) WriteReg(
 	reg *insts.Reg, regCount int, laneID int, waveOffset int, data []byte,
 ) {
 	// Handle special registers via the wavefront fields
@@ -128,7 +140,7 @@ func (a *CURegFileAccessor) WriteReg(
 		}
 		return
 	case insts.M0:
-		a.WF.M0 = insts.BytesToUint32(data)
+		a.WF.value.M0 = insts.BytesToUint32(data)
 		return
 	}
 
@@ -137,7 +149,7 @@ func (a *CURegFileAccessor) WriteReg(
 	if reg.IsSReg() {
 		regFile = a.CU.SRegFile
 	} else if reg.IsVReg() {
-		regFile = a.CU.VRegFile[a.WF.SIMDID]
+		regFile = a.CU.VRegFile[a.WF.value.SIMDID]
 	} else {
 		// Fallback by name for vcclo/vcchi
 		if reg.Name == "vcclo" {

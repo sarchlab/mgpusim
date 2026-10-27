@@ -11,9 +11,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
 	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v5/mem/rob"
 	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
-	"github.com/sarchlab/akita/v5/mem/vm/addresstranslator"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
 	simulation "github.com/sarchlab/akita/v5/sim"
@@ -351,8 +349,6 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToDMA)
 	b.internalConn.BindPort(b.cp.Ports.ToCaches)
 	b.internalConn.BindPort(b.cp.Ports.ToCUs)
-	b.internalConn.BindPort(b.cp.Ports.ToTLBs)
-	b.internalConn.BindPort(b.cp.Ports.ToAddressTranslators)
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
@@ -364,8 +360,6 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(dmaToCPPort)
 
 	b.connectCPWithCUs()
-	b.connectCPWithAddressTranslators()
-	b.connectCPWithTLBs()
 	b.connectCPWithCaches()
 	b.connectCPWithDRAMControllers()
 }
@@ -376,60 +370,7 @@ func (b *Builder) connectCPWithCUs() {
 			cp.RegisterCU(b.cp, cu.DispatcherView{CU: cuComp})
 
 			b.internalConn.BindPort(cuComp.Ports.Top)
-			b.internalConn.BindPort(cuComp.Ports.Ctrl)
 		}
-	}
-}
-
-// connectCPWithAddressTranslators wires the Control ports of the address
-// translators and the reorder buffers to the CP. The ROB list is new in v5:
-// the CP requires the ROB control ports split from the AT control ports
-// (v4 mixed them into the AT list).
-func (b *Builder) connectCPWithAddressTranslators() {
-	addAT := func(at *addresstranslator.Comp) {
-		ctrlPort := at.Ports.Control
-		b.cp.State.AddressTranslators = append(
-			b.cp.State.AddressTranslators, ctrlPort.AsRemote())
-		b.internalConn.BindPort(ctrlPort)
-	}
-	addROB := func(robComp *rob.Comp) {
-		ctrlPort := robComp.Ports.Control
-		b.cp.State.ROBs = append(b.cp.State.ROBs, ctrlPort.AsRemote())
-		b.internalConn.BindPort(ctrlPort)
-	}
-
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			addAT(sa.L1VATs[i])
-			addROB(sa.L1VROBs[i])
-		}
-
-		addAT(sa.L1SAT)
-		addROB(sa.L1SROB)
-
-		addAT(sa.L1IAT)
-		addROB(sa.L1IROB)
-	}
-}
-
-func (b *Builder) connectCPWithTLBs() {
-	addTLB := func(tlbComp *tlb.Comp) {
-		ctrlPort := tlbComp.Ports.Control
-		b.cp.State.TLBs = append(b.cp.State.TLBs, ctrlPort.AsRemote())
-		b.internalConn.BindPort(ctrlPort)
-	}
-
-	for _, sa := range b.sas {
-		for i := range b.numCUPerShaderArray {
-			addTLB(sa.L1VTLBs[i])
-		}
-
-		addTLB(sa.L1STLB)
-		addTLB(sa.L1ITLB)
-	}
-
-	for _, l2TLB := range b.l2TLBs {
-		addTLB(l2TLB)
 	}
 }
 
@@ -810,8 +751,6 @@ func (b *Builder) buildCP() {
 	b.buildPort(b.cp, "ToDriver", cpPortBufSize)
 	b.buildPort(b.cp, "ToDMA", cpPortBufSize)
 	b.buildPort(b.cp, "ToCUs", cpPortBufSize)
-	b.buildPort(b.cp, "ToTLBs", cpPortBufSize)
-	b.buildPort(b.cp, "ToAddressTranslators", cpPortBufSize)
 	b.buildPort(b.cp, "ToCaches", cpPortBufSize)
 	b.buildPort(b.cp, "ToRDMA", cpPortBufSize)
 

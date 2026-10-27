@@ -27,7 +27,9 @@ type RegisterFile interface {
 // A SimpleRegisterFile is a Register file that can always read and write
 // registers immediately
 type SimpleRegisterFile struct {
-	storage []byte
+	storage     []byte
+	owner       *Comp
+	vectorIndex int
 
 	// In vector register, each lane can have up-to 256 VGPRs. Then the offset
 	// difference from v0 lane 0 to v0 lane 1 is 256*4 = 1024B. Field
@@ -54,7 +56,7 @@ func (r *SimpleRegisterFile) Write(access RegisterAccess) {
 	}
 
 	size := access.RegCount * 4
-	copy(r.storage[offset:offset+size], access.Data[0:access.RegCount*4])
+	copy(r.bytes()[offset:offset+size], access.Data[0:access.RegCount*4])
 	access.OK = true
 }
 
@@ -66,7 +68,7 @@ func (r *SimpleRegisterFile) Read(access RegisterAccess) {
 	}
 
 	size := access.RegCount * 4
-	copy(access.Data, r.storage[offset:offset+size])
+	copy(access.Data, r.bytes()[offset:offset+size])
 	access.OK = true
 }
 
@@ -83,4 +85,14 @@ func (r *SimpleRegisterFile) getRegOffset(reg *insts.Reg, offset int, laneID int
 	log.Panic("Register type not supported by register files")
 
 	return 0
+}
+
+func (r *SimpleRegisterFile) bytes() []byte {
+	if r.owner == nil {
+		return r.storage
+	}
+	if r.vectorIndex < 0 {
+		return r.owner.State.SRegisters
+	}
+	return r.owner.State.VRegisters[r.vectorIndex]
 }

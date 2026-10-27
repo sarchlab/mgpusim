@@ -9,7 +9,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type mockScheduler struct {
@@ -19,20 +18,14 @@ func (m *mockScheduler) Run() bool {
 	return true
 }
 
-func (m *mockScheduler) Pause() {
-}
-
-func (m *mockScheduler) Resume() {
-}
-
-func (m *mockScheduler) Flush() {
-}
-
 type mockDecoder struct {
 	Inst *insts.Inst
 }
 
 func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
+	if i, ok := fixtureInstructions[string(buf)]; ok {
+		return i, nil
+	}
 	return d.Inst, nil
 }
 
@@ -41,7 +34,7 @@ type fakeWfDispatcher struct {
 }
 
 func (d *fakeWfDispatcher) DispatchWf(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	location protocol.WfDispatchLocation,
 ) {
 	d.dispatched = append(d.dispatched, location)
@@ -79,7 +72,6 @@ var _ = Describe("ComputeUnit", func() {
 		toScalarMem      *fakePort
 		toVectorMem      *fakePort
 		toACE            *fakePort
-		toCP             *fakePort
 		branchUnit       *mockCUComponent
 		vectorMemDecoder *mockCUComponent
 		vectorMemUnit    *mockCUComponent
@@ -129,22 +121,20 @@ var _ = Describe("ComputeUnit", func() {
 		cu.LDSUnit = ldsUnit
 
 		for i := 0; i < 4; i++ {
-			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
+			cu.WfPools = append(cu.WfPools, NewWavefrontPool(cu, i, 10))
 		}
 
 		toInstMem = newFakePort("CU.InstMem")
 		toACE = newFakePort("CU.Top")
 		toScalarMem = newFakePort("CU.ScalarMem")
 		toVectorMem = newFakePort("CU.VectorMem")
-		toCP = newFakePort("CU.Ctrl")
 		cu.ToInstMem = toInstMem
 		cu.ToACE = toACE
 		cu.ToScalarMem = toScalarMem
 		cu.ToVectorMem = toVectorMem
-		cu.ToCP = toCP
 
-		cu.comp.State.InstMem = "InstMem"
-		cu.comp.State.ScalarMem = "ScalarMem"
+		cu.comp.Spec.InstMem = "InstMem"
+		cu.comp.Spec.ScalarMem = "ScalarMem"
 
 		grid = exampleGrid()
 	})
@@ -196,28 +186,28 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wfDispatcher.dispatched).To(HaveLen(2))
 			Expect(wfDispatcher.dispatched[0]).To(Equal(req.Payload.(protocol.MapWGReq).Wavefronts[0]))
 			Expect(wfDispatcher.dispatched[1]).To(Equal(req.Payload.(protocol.MapWGReq).Wavefronts[1]))
-			Expect(cu.WfPools[1].wfs).To(HaveLen(1))
-			Expect(cu.WfPools[2].wfs).To(HaveLen(1))
+			Expect(cu.WfPools[1].waves()).To(HaveLen(1))
+			Expect(cu.WfPools[2].waves()).To(HaveLen(1))
 		})
 	})
 
 	Context("when handling DataReady from ToInstMem Port", func() {
 		var (
-			wf *wavefront.Wavefront
+			wf *Wavefront
 		)
 		BeforeEach(func() {
-			wf = wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
-			inst := wavefront.NewInst(testIDs.NewID(), nil)
-			wf.SetDynamicInst(inst)
+			wf = newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+			inst := testInst(testIDs.NewID(), nil)
+			wf.setTestInst(inst)
 			wf.SetPC(0x1000)
 
 			req := messaging.Msg{ID: testIDs.NewID(),
 				Src: cu.ToInstMem.AsRemote(),
-				Dst: cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
+				Dst: cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
 					AccessByteSize: 64}}
 
 			dataReady := messaging.Msg{ID: testIDs.NewID(),
-				Src:   cu.comp.State.InstMem,
+				Src:   cu.comp.Spec.InstMem,
 				Dst:   cu.ToInstMem.AsRemote(),
 				RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: []byte{
 					1, 2, 3, 4, 5, 6, 7, 8,
@@ -235,7 +225,7 @@ var _ = Describe("ComputeUnit", func() {
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
 			info.Req = req
-			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
+			cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, info))
 		})
 
 		It("should handle fetch return", func() {
@@ -243,24 +233,24 @@ var _ = Describe("ComputeUnit", func() {
 
 			madeProgress := cu.processInputFromInstMem()
 
-			Expect(wf.LastFetchTime).To(Equal(timing.VTimeInPicoSec(10)))
+			Expect(wf.execution().LastFetchTime).To(Equal(timing.VTimeInPicoSec(10)))
 			Expect(wf.PC()).To(Equal(uint64(0x1000)))
-			Expect(cu.InFlightInstFetch).To(HaveLen(0))
-			Expect(wf.InstBuffer).To(HaveLen(64))
+			Expect(cu.comp.State.InstFetch).To(HaveLen(0))
+			Expect(wf.execution().InstBuffer).To(HaveLen(64))
 			Expect(madeProgress).To(BeTrue())
 		})
 	})
 
 	Context("should handle DataReady from ToScalarMem port", func() {
 		var (
-			wf *wavefront.Wavefront
+			wf *Wavefront
 		)
 
 		BeforeEach(func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SRegOffset = 0
-			wf.OutstandingScalarMemAccess = 1
+			wf = newTestRawWave(rawWf)
+			wf.execution().SRegOffset = 0
+			wf.execution().OutstandingScalarMemAccess = 1
 		})
 
 		It("should handle scalar data load return", func() {
@@ -269,12 +259,14 @@ var _ = Describe("ComputeUnit", func() {
 					AccessByteSize: 64}}
 
 			info := new(ScalarMemAccessInfo)
-			info.Inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			fixture := testInst(testIDs.NewID(), insts.NewInst())
+			wf.setTestInst(fixture)
+			info.InstID = fixture.ID
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
-			cu.InFlightScalarMemAccess = append(
-				cu.InFlightScalarMemAccess, info)
+			cu.comp.State.Scalar = append(
+				cu.comp.State.Scalar, testScalarState(cu, info))
 
 			rsp := messaging.Msg{ID: testIDs.NewID(),
 				RspTo: read.ID, Payload: memprotocol.DataReadyRsp{Data: insts.Uint32ToBytes(32)}}
@@ -291,30 +283,30 @@ var _ = Describe("ComputeUnit", func() {
 			}
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.InFlightScalarMemAccess).To(HaveLen(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
+			Expect(cu.comp.State.Scalar).To(HaveLen(0))
 		})
 	})
 
 	Context("should handle DataReady from ToVectorMem", func() {
 		var (
 			rawWf *kernels.Wavefront
-			wf    *wavefront.Wavefront
-			inst  *wavefront.Inst
+			wf    *Wavefront
+			inst  *testInstruction
 			read  messaging.Msg
 			info  VectorMemAccessInfo
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			inst = testInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SIMDID = 0
-			wf.SetDynamicInst(inst)
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-			wf.OutstandingScalarMemAccess = 1
+			wf = newTestRawWave(rawWf)
+			wf.execution().SIMDID = 0
+			wf.setTestInst(inst)
+			wf.execution().VRegOffset = 0
+			wf.execution().OutstandingVectorMemAccess = 1
+			wf.execution().OutstandingScalarMemAccess = 1
 
 			read = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x100,
 				AccessByteSize: 16}}
@@ -322,15 +314,15 @@ var _ = Describe("ComputeUnit", func() {
 			info = VectorMemAccessInfo{}
 			info.Read = read
 			info.Wavefront = wf
-			info.Inst = inst
+			info.InstID = inst.ID
 			info.laneInfo = []vectorMemAccessLaneInfo{
 				{0, insts.VReg(0), 1, 0},
 				{1, insts.VReg(0), 1, 4},
 				{2, insts.VReg(0), 1, 8},
 				{3, insts.VReg(0), 1, 12},
 			}
-			cu.InFlightVectorMemAccess = append(
-				cu.InFlightVectorMemAccess, info)
+			cu.comp.State.Vector = append(
+				cu.comp.State.Vector, testVectorState(cu, info))
 
 			dataReady := messaging.Msg{ID: testIDs.NewID(),
 				RspTo: read.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 16)}}
@@ -348,10 +340,10 @@ var _ = Describe("ComputeUnit", func() {
 					AccessByteSize: 16}},
 
 				Wavefront: wf,
-				Inst:      inst,
+				InstID:    inst.ID,
 			}
-			cu.InFlightVectorMemAccess = append(
-				cu.InFlightVectorMemAccess, sibling)
+			cu.comp.State.Vector = append(
+				cu.comp.State.Vector, testVectorState(cu, sibling))
 		}
 
 		It("should handle vector data load return, and the return is not "+
@@ -371,9 +363,9 @@ var _ = Describe("ComputeUnit", func() {
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(1))
+			Expect(cu.comp.State.Vector).To(HaveLen(1))
 		})
 
 		It("should not release the wait counters when the last generated "+
@@ -382,17 +374,17 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(1))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(1))
+			Expect(cu.comp.State.Vector).To(HaveLen(1))
 		})
 
 		It("should handle vector data load return, and the return is the "+
 			"last one for an instruction", func() {
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
 			for i := 0; i < 4; i++ {
 				access := RegisterAccess{}
 				access.RegCount = 1
@@ -409,31 +401,31 @@ var _ = Describe("ComputeUnit", func() {
 	Context("handle write done respond from ToVectorMem port", func() {
 		var (
 			rawWf    *kernels.Wavefront
-			inst     *wavefront.Inst
-			wf       *wavefront.Wavefront
+			inst     *testInstruction
+			wf       *Wavefront
 			info     VectorMemAccessInfo
 			writeReq messaging.Msg
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+			inst = testInst(testIDs.NewID(), insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = wavefront.NewWavefront(rawWf)
-			wf.SIMDID = 0
-			wf.SetDynamicInst(inst)
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-			wf.OutstandingScalarMemAccess = 1
+			wf = newTestRawWave(rawWf)
+			wf.execution().SIMDID = 0
+			wf.setTestInst(inst)
+			wf.execution().VRegOffset = 0
+			wf.execution().OutstandingVectorMemAccess = 1
+			wf.execution().OutstandingScalarMemAccess = 1
 
 			writeReq = messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.WriteReq{Address: 0x100}}
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
-			info.Inst = inst
+			info.InstID = inst.ID
 			info.Write = writeReq
-			cu.InFlightVectorMemAccess = append(
-				cu.InFlightVectorMemAccess, info)
+			cu.comp.State.Vector = append(
+				cu.comp.State.Vector, testVectorState(cu, info))
 
 			doneRsp := messaging.Msg{ID: testIDs.NewID(),
 				RspTo: writeReq.ID, Payload: memprotocol.WriteDoneRsp{}}
@@ -445,7 +437,7 @@ var _ = Describe("ComputeUnit", func() {
 			"the last one from an instruction", func() {
 			madeProgress := cu.processInputFromVectorMem()
 
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.comp.State.Vector).To(HaveLen(0))
 			Expect(madeProgress).To(BeTrue())
 		})
 
@@ -453,156 +445,10 @@ var _ = Describe("ComputeUnit", func() {
 			"last one from an instruction", func() {
 			cu.processInputFromVectorMem()
 
-			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
+			Expect(wf.execution().OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.execution().OutstandingScalarMemAccess).To(Equal(0))
+			Expect(cu.comp.State.Vector).To(HaveLen(0))
 		})
 	})
 
-	Context("should handle flush request", func() {
-		It("should handle a pipeline flush request from CU", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
-
-			toCP.incoming = append(toCP.incoming, req)
-
-			cu.processInputFromCP()
-
-			Expect(cu.comp.State.IsFlushing).To(BeTrue())
-			Expect(cu.comp.State.HasFlushReq).To(BeTrue())
-			Expect(cu.comp.State.FlushReqID).To(Equal(req.ID))
-			Expect(cu.comp.State.FlushReqSrc).To(Equal(req.Src))
-			Expect(toCP.incoming).To(HaveLen(0))
-		})
-
-		It("should flush internal CU buffers", func() {
-			info := new(InstFetchReqInfo)
-			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.InFlightScalarMemAccess = append(
-				cu.InFlightScalarMemAccess, scalarMemInfo)
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			cu.InFlightVectorMemAccess = append(
-				cu.InFlightVectorMemAccess, vectorMemInfo)
-
-			cu.flushCUBuffers()
-
-			Expect(cu.InFlightInstFetch).To(BeNil())
-			Expect(cu.InFlightVectorMemAccess).To(BeNil())
-			Expect(cu.InFlightScalarMemAccess).To(BeNil())
-		})
-
-		It("should handle a restart request", func() {
-			cu.comp.State.IsPaused = true
-
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineRestartReq{}}
-
-			toCP.incoming = append(toCP.incoming, req)
-
-			cu.processInputFromCP()
-
-			Expect(toCP.sent).To(HaveLen(1))
-			Expect(toCP.sent[0].Payload).To(BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
-			Expect(cu.comp.State.IsPaused).To(BeTrue())
-			Expect(cu.comp.State.IsSendingOutShadowBufferReqs).To(BeTrue())
-		})
-
-		It("should flush the full CU", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
-
-			cu.comp.State.HasFlushReq = true
-			cu.comp.State.FlushReqID = req.ID
-			cu.comp.State.FlushReqSrc = req.Src
-
-			info := new(InstFetchReqInfo)
-			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.InFlightScalarMemAccess = append(
-				cu.InFlightScalarMemAccess, scalarMemInfo)
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			cu.InFlightVectorMemAccess = append(
-				cu.InFlightVectorMemAccess, vectorMemInfo)
-
-			cu.flushPipeline()
-
-			Expect(cu.InFlightInstFetch).To(BeNil())
-			Expect(cu.InFlightVectorMemAccess).To(BeNil())
-			Expect(cu.InFlightScalarMemAccess).To(BeNil())
-
-			Expect(cu.shadowInFlightInstFetch).To(Not(BeNil()))
-			Expect(cu.shadowInFlightVectorMemAccess).To(Not(BeNil()))
-			Expect(cu.shadowInFlightScalarMemAccess).To(Not(BeNil()))
-
-			Expect(branchUnit.flushed).To(BeTrue())
-			Expect(scalarUnit.flushed).To(BeTrue())
-			Expect(scalarDecoder.flushed).To(BeTrue())
-			Expect(simdUnit.flushed).To(BeTrue())
-			Expect(vectorDecoder.flushed).To(BeTrue())
-			Expect(ldsUnit.flushed).To(BeTrue())
-			Expect(ldsDecoder.flushed).To(BeTrue())
-			Expect(vectorMemDecoder.flushed).To(BeTrue())
-			Expect(vectorMemUnit.flushed).To(BeTrue())
-
-			Expect(cu.comp.State.HasPendingCPRsp).To(BeTrue())
-			Expect(cu.comp.State.IsFlushing).To(BeFalse())
-			Expect(cu.comp.State.IsPaused).To(BeTrue())
-		})
-
-		It("should not restart a CU where there are shadow buffer reqs "+
-			"pending", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: cu.ToInstMem.AsRemote(),
-				Dst: cu.comp.State.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
-					AccessByteSize: 64}}
-
-			info := new(InstFetchReqInfo)
-			info.Req = req
-			cu.shadowInFlightInstFetch = append(
-				cu.shadowInFlightInstFetch, info)
-
-			// Mem accesses always carry their instruction in production (set
-			// in executeSMEMLoad / the coalescer); the shadow resend parents
-			// the replacement req_out task on it.
-			inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			scalarMemInfo.Req = req
-			scalarMemInfo.Inst = inst
-			cu.shadowInFlightScalarMemAccess = append(
-				cu.shadowInFlightScalarMemAccess, scalarMemInfo)
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			readCopy := req
-			vectorMemInfo.Read = readCopy
-			vectorMemInfo.Inst = inst
-			cu.shadowInFlightVectorMemAccess = append(
-				cu.shadowInFlightVectorMemAccess, vectorMemInfo)
-
-			cu.checkShadowBuffers()
-
-			Expect(toInstMem.sent).To(HaveLen(1))
-			Expect(toScalarMem.sent).To(HaveLen(1))
-			Expect(toVectorMem.sent).To(HaveLen(1))
-		})
-
-		It("should restart a CU where there are no shadow buffer reqs "+
-			"pending", func() {
-			cu.shadowInFlightInstFetch = nil
-			cu.shadowInFlightScalarMemAccess = nil
-			cu.shadowInFlightVectorMemAccess = nil
-
-			cu.checkShadowBuffers()
-
-			Expect(cu.comp.State.IsPaused).To(BeFalse())
-		})
-	})
 })

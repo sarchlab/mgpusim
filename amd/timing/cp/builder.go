@@ -86,7 +86,7 @@ func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
 }
 
 // Build builds a new Command Processor. It declares the component's ports
-// ("ToDriver", "ToDMA", "ToCUs", "ToTLBs", "ToAddressTranslators",
+// ("ToDriver", "ToDMA", "ToCUs",
 // "ToCaches", "ToRDMA"); assign the port instances after Build with
 // AssignPort.
 func (b Builder) Build(name string) *Comp {

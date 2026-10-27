@@ -89,196 +89,178 @@ var _ = Describe("Scalar Unit", func() {
 		bu = NewScalarUnit(cu, alu)
 		bu.log2CachelineSize = 6
 
-		cu.comp.State.ScalarMem = "ScalarMem"
+		cu.comp.Spec.ScalarMem = "ScalarMem"
 
 		toScalarMem = newFakePort("CU.ScalarMem")
 		cu.ToScalarMem = toScalarMem
 	})
 
 	It("should allow accepting wavefront", func() {
-		bu.toRead = nil
+		bu.state().Stages.Read = 0
 		Expect(bu.CanAcceptWave()).To(BeTrue())
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer "+
 		"is occupied", func() {
-		bu.toRead = new(wavefront.Wavefront)
+		bu.state().Stages.Read = testWaveID(cu, newTestWave())
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(wavefront.Wavefront)
+		wave := newTestWave()
+		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(bu.toRead).To(BeIdenticalTo(wave))
+		Expect(cu.wave(bu.state().Stages.Read)).To(Equal(wave))
 	})
 
 	It("should run", func() {
-		wave1 := new(wavefront.Wavefront)
-		wave2 := new(wavefront.Wavefront)
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		wave1 := newTestWave()
+		wave2 := newTestWave()
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOP2
-		wave2.SetDynamicInst(inst)
-		wave3 := new(wavefront.Wavefront)
-		wave3.SetDynamicInst(inst)
-		wave3.State = wavefront.WfRunning
+		wave2.setTestInst(inst)
+		wave3 := newTestWave()
+		wave3.setTestInst(inst)
+		wave3.execution().State = wavefront.WfRunning
 
-		bu.toRead = wave1
-		bu.toExec = wave2
-		bu.toWrite = wave3
+		bu.state().Stages.Read = testWaveID(cu, wave1)
+		bu.state().Stages.Exec = testWaveID(cu, wave2)
+		bu.state().Stages.Write = testWaveID(cu, wave3)
 
 		bu.Run()
 
-		Expect(wave3.State).To(Equal(wavefront.WfReady))
-		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
-		Expect(bu.toExec).To(BeIdenticalTo(wave1))
-		Expect(bu.toRead).To(BeNil())
+		Expect(wave3.execution().State).To(Equal(wavefront.WfReady))
+		Expect(cu.wave(bu.state().Stages.Write)).To(Equal(wave2))
+		Expect(cu.wave(bu.state().Stages.Exec)).To(Equal(wave1))
+		Expect(cu.wave(bu.state().Stages.Read)).To(BeNil())
 
-		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
 	})
 
 	It("should run s_load_dword", func() {
-		wave := wavefront.NewWavefront(nil)
+		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 0
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
-		bu.toExec = wave
+		bu.state().Stages.Exec = testWaveID(cu, wave)
 
 		bu.Run()
 
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(len(cu.InFlightScalarMemAccess)).To(Equal(1))
-		Expect(bu.readBuf).To(HaveLen(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
+		Expect(len(cu.comp.State.Scalar)).To(Equal(1))
+		Expect(bu.state().Reads).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx2", func() {
-		wave := wavefront.NewWavefront(nil)
+		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
-		bu.toExec = wave
+		bu.state().Stages.Exec = testWaveID(cu, wave)
 
 		bu.Run()
 
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(bu.readBuf).To(HaveLen(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
+		Expect(bu.state().Reads).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx4, access cross cacheline", func() {
-		wave := wavefront.NewWavefront(nil)
+		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 2
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 56)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
-		bu.toExec = wave
+		bu.state().Stages.Exec = testWaveID(cu, wave)
 
 		start := uint64(0x1000 + 56)
 		bu.Run()
 		Expect(bu.numCacheline(start, uint64(16))).To(Equal(2))
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(bu.readBuf).To(HaveLen(2))
-		Expect(bu.readBuf[0].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1038)))
-		Expect(bu.readBuf[0].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
-		Expect(bu.readBuf[1].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1040)))
-		Expect(bu.readBuf[1].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
+		Expect(bu.state().Reads).To(HaveLen(2))
+		Expect(bu.state().Reads[0].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1038)))
+		Expect(bu.state().Reads[0].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
+		Expect(bu.state().Reads[1].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1040)))
+		Expect(bu.state().Reads[1].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
 	})
 
 	It("should send request out", func() {
 		req := messaging.Msg{ID: testIDs.NewID(),
 			Src: cu.ToScalarMem.AsRemote(),
-			Dst: cu.comp.State.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
+			Dst: cu.comp.Spec.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
 				AccessByteSize: 4}}
 
-		bu.readBuf = append(bu.readBuf, req)
+		bu.state().Reads = append(bu.state().Reads, req)
 
 		bu.Run()
 
 		Expect(toScalarMem.sent).To(HaveLen(1))
 		sentReq := toScalarMem.sent[0]
-		Expect(sentReq.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
+		Expect(sentReq.Src).To(Equal(cu.ToScalarMem.AsRemote()))
 		Expect(sentReq.Dst).To(
-			BeIdenticalTo(messaging.RemotePort("ScalarMem")))
+			Equal(messaging.RemotePort("ScalarMem")))
 		Expect(sentReq.Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(1024)))
 		Expect(sentReq.Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(4)))
 
-		Expect(bu.readBuf).To(HaveLen(0))
+		Expect(bu.state().Reads).To(HaveLen(0))
 	})
 
 	It("should retry if send request failed", func() {
 		req := messaging.Msg{ID: testIDs.NewID(),
 			Src: cu.ToScalarMem.AsRemote(),
-			Dst: cu.comp.State.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
+			Dst: cu.comp.Spec.ScalarMem, Payload: memprotocol.ReadReq{Address: 1024,
 				AccessByteSize: 4}}
 
-		bu.readBuf = append(bu.readBuf, req)
+		bu.state().Reads = append(bu.state().Reads, req)
 
 		toScalarMem.full = true
 
 		bu.Run()
 
-		Expect(bu.readBuf).To(HaveLen(1))
-	})
-
-	It("should flush the scalar unit", func() {
-		wave := wavefront.NewWavefront(nil)
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SMEM
-		inst.Opcode = 1
-		inst.Data = insts.NewSRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
-
-		bu.toExec = wave
-		bu.toWrite = wave
-		bu.toRead = wave
-
-		bu.Flush()
-
-		Expect(bu.toRead).To(BeNil())
-		Expect(bu.toWrite).To(BeNil())
-		Expect(bu.toExec).To(BeNil())
+		Expect(bu.state().Reads).To(HaveLen(1))
 	})
 
 	It("should return correct num of cacheline", func() {

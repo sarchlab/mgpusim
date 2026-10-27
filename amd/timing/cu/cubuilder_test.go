@@ -18,6 +18,19 @@ var _ = Describe("Builder", func() {
 			WithSpec(DefaultSpec()).
 			Build("GPU.CU")
 
+		// All four ports must be declared so external code can assign them.
+		for _, portName := range []string{
+			DispatchPortName,
+			InstMemPortName, ScalarMemPortName, VectorMemPortName,
+		} {
+			p := twowaybuffered.MakeBuilder().
+				WithSimulation(reg).
+				WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).
+				Build()
+			Expect(func() { comp.BindPort(portName, p) }).NotTo(Panic())
+		}
+
+		reg.Initialize()
 		cuMW := MiddlewareOf(comp)
 
 		Expect(cuMW.Scheduler).NotTo(BeNil())
@@ -39,18 +52,6 @@ var _ = Describe("Builder", func() {
 		Expect(comp.Resources.Decoder).NotTo(BeNil())
 		Expect(comp.Resources.ALU).NotTo(BeNil())
 
-		// All five ports must be declared so external code can assign them.
-		for _, portName := range []string{
-			DispatchPortName, CtrlPortName,
-			InstMemPortName, ScalarMemPortName, VectorMemPortName,
-		} {
-			p := twowaybuffered.MakeBuilder().
-				WithSimulation(reg).
-				WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).
-				Build()
-			Expect(func() { comp.BindPort(portName, p) }).NotTo(Panic())
-		}
-
 		view := DispatcherView{CU: comp}
 		Expect(view.WfPoolSizes()).To(Equal([]int{10, 10, 10, 10}))
 		Expect(view.VRegCounts()).To(
@@ -59,7 +60,5 @@ var _ = Describe("Builder", func() {
 		Expect(view.LDSBytes()).To(Equal(64 * 1024))
 		Expect(view.DispatchingPort()).To(
 			Equal(messaging.RemotePort("GPU.CU.Top")))
-		Expect(view.ControlPort()).To(
-			Equal(messaging.RemotePort("GPU.CU.Ctrl")))
 	})
 })

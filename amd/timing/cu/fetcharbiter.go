@@ -16,20 +16,21 @@ type FetchArbiter struct {
 // Arbitrate decide which wavefront can fetch the next instruction
 func (a *FetchArbiter) Arbitrate(
 	wfPools []*WavefrontPool,
-) []*wavefront.Wavefront {
-	list := make([]*wavefront.Wavefront, 0, 1)
+) []*Wavefront {
+	list := make([]*Wavefront, 0, 1)
 
 	oldestTime := timing.VTimeInPicoSec(math.MaxUint64)
-	var toFetch *wavefront.Wavefront
+	var toFetch *Wavefront
 	for _, wfPool := range wfPools {
-		for _, wf := range wfPool.wfs {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if !a.canFetchFromWF(wf) {
 				continue
 			}
 
-			if wf.LastFetchTime < oldestTime {
+			if wf.execution().LastFetchTime < oldestTime {
 				toFetch = wf
-				oldestTime = wf.LastFetchTime
+				oldestTime = wf.execution().LastFetchTime
 			}
 		}
 	}
@@ -41,24 +42,27 @@ func (a *FetchArbiter) Arbitrate(
 	return list
 }
 
-func (a *FetchArbiter) canFetchFromWF(wf *wavefront.Wavefront) bool {
-	if wf.IsFetching {
+func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
+	state := wf.execution()
+	if wf.state().StopFetch || state.IsFetching {
 		return false
 	}
 
-	if wf.State == wavefront.WfCompleted {
+	if state.State == wavefront.WfCompleted {
 		return false
 	}
 
-	if len(wf.InstBuffer) >= a.InstBufByteSize {
+	if len(state.InstBuffer) >= a.InstBufByteSize {
 		return false
 	}
 
-	if wf.CodeObject != nil && wf.CodeObject.Symbol != nil {
-		lastPCInBinary := wf.CodeObject.Symbol.Size +
-			wf.WG.Packet.KernelObject
-		lastPCInInstBuffer := wf.InstBufferStartPC +
-			uint64(len(wf.InstBuffer))
+	group := wf.group()
+	co := &group.raw().CodeObject
+	if co.Present && co.HasSymbol {
+		lastPCInBinary := co.Symbol.Size +
+			group.packet().KernelObject
+		lastPCInInstBuffer := state.InstBufferStartPC +
+			uint64(len(state.InstBuffer))
 		if lastPCInInstBuffer >= lastPCInBinary {
 			return false
 		}

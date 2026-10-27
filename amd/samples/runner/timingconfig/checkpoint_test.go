@@ -113,13 +113,12 @@ func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 		}
 		for _, c := range s.Components() {
 			if comp, ok := c.(*cu.Comp); ok {
-				runtime := cu.MiddlewareOf(comp)
-				if len(runtime.InFlightVectorMemAccess) > 0 {
+				if len(comp.State.Vector) > 0 {
 					reached = true
 					t.Logf(
 						"checkpoint at %d ps with %d vector memory accesses in flight",
 						e.CurrentTime(),
-						len(runtime.InFlightVectorMemAccess),
+						len(comp.State.Vector),
 					)
 					break
 				}

@@ -52,13 +52,13 @@ with memcontrolprotocol on a "Control" port (CmdDrain/CmdEnable).
 
 ## amd/timing/wavefront (ported)
 
-- `Inst.ID`: `string` → `uint64`.
-- `Wavefront.LastFetchTime`: → `timing.VTimeInPicoSec`.
-- `NewWfCompletionEvent(time timing.VTimeInPicoSec, handlerID string, wf)
-  WfCompletionEvent` — value event; the CU must register the handler under
-  that ID via `engine.(timing.HandlerRegistrar).RegisterHandler`.
-- `WorkGroup.MapReq` is a value `protocol.MapWGReq`;
-  `NewWorkGroup(raw, req protocol.MapWGReq)`.
+- Instructions are stored by `uint64` ID in CU State.
+- `ExecutionState.LastFetchTime` uses `timing.VTimeInPicoSec`; the CU owns the value.
+- Sampled completion work belongs to `cu.State.SampledCompletions`, with each
+  due time requested once through `comp.TickAt`. The CU has no extra handlers.
+- Wavefront and work-group execution views moved to `cu`; `wavefront` retains
+  the shared execution-value definitions and generation-bearing local `Handle`. Work-group requests are canonical `messaging.Msg` values in
+  CU State. There are no standalone pointer-graph constructors.
 
 ## amd/timing/rob (ported)
 
@@ -141,26 +141,47 @@ Dependents: samples/runner + timingconfig + emusystem, benchmarks
 
 Dependents: shaderarray config, CP resource pool, runner report/tracers.
 
-- `*cu.ComputeUnit` (component) → `*cu.Comp`; runtime guts via
-  `cu.MiddlewareOf(comp) *cu.ComputeUnit`.
-- Builder: `WithRegistrar(reg)` + `WithSpec(cu.DefaultSpec())` (fields:
-  Freq, SIMDCount, WfPoolSize, VGPRCounts, SGPRCount, LDSBytes,
-  Log2CachelineSize, NumSinglePrecisionUnits, VecMemInst/Trans pipeline
-  dims, MemPipelineBufferSize, MaxCoalescingPenalty, RegisterScoreboard,
-  InFlightVectorMemAccessLimit, InstBufByteSize) +
-  `WithResources(cu.Resources{Decoder, ALU, VectorMemModules})`.
-- Destinations: `comp.State.InstMem` / `State.ScalarMem` (RemotePort,
-  post-build OK); VectorMemModules mapper pre-Build via Resources.
-- Ports declared: "Top", "Ctrl", "InstMem", "ScalarMem", "VectorMem" —
-  build externally with v4 buffer sizes for parity: Top 4, Ctrl 4,
-  InstMem 4, ScalarMem 32, VectorMem 64; AssignPort.
-- `WithVisTracer` dropped (simulation auto-attaches); per-SIMD pipeline
-  tracing attach externally on `MiddlewareOf(comp).SIMDUnit[i]`.
+- `*cu.ComputeUnit` (component) → `*cu.Comp`. All mutable execution data lives
+  in `comp.State`; there is no CU Runtime or per-SIMD checkpoint resource.
+- Builder: `WithSimulation(simulation)` + `WithSpec(spec)`, starting from
+  `cu.DefaultSpec()`. Geometry, frequency, pipeline dimensions, scoreboard
+  configuration and memory limits belong to Spec. Shared decoder, ALU,
+  sampler and vector-memory mapper belong to `WithResources(cu.Resources{...})`.
+- Destinations: `spec.InstMem` and `spec.ScalarMem` are immutable RemotePorts.
+  Build the downstream instruction/scalar ROBs and bind their ports first;
+  copy their actual `Ports.Top.AsRemote()` addresses into Spec before building
+  the CU. `Resources.VectorMemModules` remains the vector-memory mapper.
+- Ports: `"Top"`, `"InstMem"`, `"ScalarMem"`, `"VectorMem"`. Build
+  them externally with `twowaybuffered.MakeBuilder().WithSimulation(simulation)`
+  and bind with `comp.BindPort(name, port)` before connecting. Buffer capacities
+  for parity: Top 4, InstMem 4, ScalarMem 32, VectorMem 64. Access bound
+  ports through `comp.Ports`.
+- Wire the complete topology, then call `simulation.Initialize()`. Only then
+  obtain behavior views using `cu.MiddlewareOf(comp) *cu.ComputeUnit`, including
+  for `NewISADebugger(logger, cu.MiddlewareOf(comp))`. Wave/group views now live
+  in `cu` and carry owner, local slot handle, and global UID; they resolve current
+  State on each operation.
+  State replacement needs no rebinding or next tick, and initialization is not
+  rerun during restore. Fixed `State.Waves` / `State.Groups` arrays own hardware
+  slots. Local generations reject recycled handles; global UIDs remain in
+  tracing/protocol. Execution ends stop fetch; original slots and CP resources
+  remain occupied until dependent work drains and completion can be sent. ALU LDS access
+  is scoped to one execution call; retained tracing detail uses IDs and scalar
+  metadata rather than wave/instruction objects.
+- `WithVisTracer` is dropped. SIMD tasks retain their original owner names and
+  labels, but SIMD views are not registered simulation entities. Subscribe one
+  simulation observer with `simulation.TaskTracker().Subscribe(observer)` and
+  route completed `pipeline` tasks by their SIMD name to per-SIMD tracers.
+  Reporter setup derives those names from CU names and `Spec.SIMDCount`, so it
+  does not need middleware views before Initialize.
 - Capability methods → `cu.DispatcherView{CU: comp}` adapter.
-- `NewISADebugger(logger, cu.MiddlewareOf(comp))`;
-  `NewCPIStackInstHook(comp, tt)`; `NewInstTracer(tt timing.TimeTeller)`.
-- Behavior delta: pipeline-restart ack waits for Ctrl capacity (v4
-  panicked under backpressure).
+- Other tracing helpers: `NewCPIStackInstHook(comp, tt)` and
+  `NewInstTracer(tt timing.TimeTeller)`.
+- The legacy CU pipeline flush/restart and shadow-buffer replay API is removed.
+  Page migration does not flush or replay CU execution.
+
+See [Compute-unit State and construction](akita-v5-rc2.md#compute-unit-state-and-construction)
+for the canonical-state lifecycle and the future Blueprint migration.
 
 ## amd/timing/cp (ported)
 
@@ -174,20 +195,19 @@ Dependents: timingconfig core + r9nano/mi300x/shaderarray configs.
   PerfAnalyzer option removed.
 - `*cp.CommandProcessor` → `*cp.Comp`. `cp.RegisterCU(comp, cu)` is a
   package function; `CUInterfaceForCP` = DispatchingPort/WfPoolSizes/
-  VRegCounts/SRegCount/LDSBytes/ControlPort, all RemotePort-based —
+  VRegCounts/SRegCount/LDSBytes, all RemotePort-based —
   satisfied by `emu.DispatcherView` and `cu.DispatcherView`.
-- Ports (external build + AssignPort): ToDriver, ToDMA, ToCUs, ToTLBs,
-  ToAddressTranslators, ToCaches, ToRDMA. Use ~4096 buffers for parity.
-- Config must set State RemotePort lists: Driver, DMAEngine, RDMA, CUs,
-  TLBs, AddressTranslators, **ROBs (new, split from ATs)**, L1V/L1S/L1I
-  Caches, L2Caches, DRAMControllers. Cache/TLB/AT/ROB/DRAM entries are
+- Ports (external build + AssignPort): ToDriver, ToDMA, ToCUs, ToCaches, ToRDMA. Use ~4096 buffers for parity.
+- Config must set State RemotePort lists: Driver, DMAEngine, RDMA, L1V/L1S/L1I
+  Caches, L2Caches, DRAMControllers. Cache/DRAM entries are
   the components' "Control" ports.
 - DMA: `cp.MakeDMAEngineBuilder().WithRegistrar(reg).WithSpec(
   cp.DefaultDMASpec()).WithResources(cp.DMAResources{LocalDataSource:
   mapper}).Build(name)`; ports "ToCP"/"ToMem" external; `*cp.DMAComp`.
-- Behavior deltas: shootdown drains (not discards) in-flight cache
-  transactions; L1-then-L2 sequencing; driver commands stall during any
-  active control sequence; driver rsps CanSend-queued.
+- Legacy GPU shootdown/restart commands and their CU/AT/ROB/TLB control
+  sequence are removed. Ordinary driver cache flush still drains, flushes,
+  invalidates L1 then L2, and enables caches. Kernel-start L1 invalidation and
+  independent RDMA drain/restart remain. Driver responses wait for port capacity.
 
 ## amd/samples/runner/emusystem (ported)
 
@@ -235,8 +255,9 @@ Runner core:
   type name (v5 `msgTypeName`), so `*protocol.LaunchKernelReq` →
   `"LaunchKernelReq"`, `*mem.ReadReq`/`WriteReq` →
   `"ReadReq"`/`"WriteReq"` (Detail is a value `memprotocol.ReadReq`).
-- SIMD busy-time tracers attach to `cu.MiddlewareOf(comp).SIMDUnit`
-  entries (SIMD units are no longer registered components).
+- SIMD busy-time tracers receive completed pipeline tasks through one global
+  task observer, routed by SIMD name. No scoped subscription or pre-Initialize
+  `cu.MiddlewareOf` call is needed.
 - insttracer/dramtracer embed `tracing.NopTracer`; inflight maps are
   keyed by `uint64`; dram latency derives from stamped
   `TaskStart.Time`/`TaskEnd.Time`.

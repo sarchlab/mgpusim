@@ -3,9 +3,9 @@ package cu
 import (
 	"log"
 	"reflect"
+	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -18,32 +18,20 @@ import (
 
 // A ComputeUnit provides a detailed and accurate simulation of a GCN3
 // ComputeUnit. It is the (single) middleware of the timing compute-unit
-// component: its Tick method reproduces the v4 ComputeUnit.Tick body, and it
-// also serves as the timing.Handler for the CU's custom events
-// (WfCompletionEvent, WfDispatchEvent).
+// component: its Tick method completes sampled waves, advances the pipeline,
+// and drains completed groups.
 //
-// Its registered checkpoint resource flattens the runtime graph into values
-// and stable IDs, and restores canonical work-group and instruction identities.
+// Mutable execution values belong to comp.State; the middleware holds only
+// behavior, fixed dependencies, and a pure immutable instruction-description cache.
 type ComputeUnit struct {
-	comp   *Comp
-	engine timing.EventScheduler
-
-	// Handler IDs that the custom events of this CU dispatch on.
-	wfCompletionHandlerID string
-	wfDispatchHandlerID   string
+	comp *Comp
 
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
+	decoded      map[decodeKey]*insts.Inst
 	WfPools      []*WavefrontPool
 
-	InFlightInstFetch            []*InstFetchReqInfo
-	InFlightScalarMemAccess      []*ScalarMemAccessInfo
-	InFlightVectorMemAccess      []VectorMemAccessInfo
 	InFlightVectorMemAccessLimit int
-
-	shadowInFlightInstFetch       []*InstFetchReqInfo
-	shadowInFlightScalarMemAccess []*ScalarMemAccessInfo
-	shadowInFlightVectorMemAccess []VectorMemAccessInfo
 
 	Scheduler        Scheduler
 	BranchUnit       SubComponent
@@ -64,11 +52,6 @@ type ComputeUnit struct {
 	ToInstMem   messaging.Port
 	ToScalarMem messaging.Port
 	ToVectorMem messaging.Port
-	ToCP        messaging.Port
-
-	// wftime records, for sampling, the time each wavefront was mapped.
-	wftime     map[uint64]timing.VTimeInPicoSec
-	workGroups map[uint64]*wavefront.WorkGroup
 }
 
 // Comp returns the component this middleware belongs to.
@@ -108,28 +91,24 @@ func (cu *ComputeUnit) vectorMemPort() messaging.Port {
 	return cu.ToVectorMem
 }
 
-func (cu *ComputeUnit) cpPort() messaging.Port {
-	if cu.ToCP == nil {
-		cu.ToCP = cu.comp.Ports.Ctrl
-	}
-
-	return cu.ToCP
-}
-
 // CurrentTime returns the current simulation time.
 func (cu *ComputeUnit) CurrentTime() timing.VTimeInPicoSec {
 	return cu.comp.CurrentTime()
 }
 
-// Tick ticks. The order of the four phases reproduces the v4
-// ComputeUnit.Tick body exactly.
+// Tick advances the pipeline, handles input, and releases drained groups.
 func (cu *ComputeUnit) Tick() bool {
-	madeProgress := false
+	madeProgress := cu.completeSampledWaves()
+	if madeProgress {
+		cu.retireGroups()
+	}
 
 	madeProgress = cu.runPipeline() || madeProgress
-	madeProgress = cu.sendToCP() || madeProgress
 	madeProgress = cu.processInput() || madeProgress
-	madeProgress = cu.doFlush() || madeProgress
+	// A zero-duration prediction added by processInput is due on this edge.
+	// TickAt deduplicates the current edge, so finish it before leaving the tick.
+	madeProgress = cu.completeSampledWaves() || madeProgress
+	cu.retireGroups()
 
 	return madeProgress
 }
@@ -138,39 +117,18 @@ func (cu *ComputeUnit) Tick() bool {
 func (cu *ComputeUnit) runPipeline() bool {
 	madeProgress := false
 
-	if !cu.comp.State.IsPaused {
-		madeProgress = cu.BranchUnit.Run() || madeProgress
-		madeProgress = cu.ScalarUnit.Run() || madeProgress
-		madeProgress = cu.ScalarDecoder.Run() || madeProgress
-		for _, simdUnit := range cu.SIMDUnit {
-			madeProgress = simdUnit.Run() || madeProgress
-		}
-		madeProgress = cu.VectorDecoder.Run() || madeProgress
-		madeProgress = cu.LDSUnit.Run() || madeProgress
-		madeProgress = cu.LDSDecoder.Run() || madeProgress
-		madeProgress = cu.VectorMemUnit.Run() || madeProgress
-		madeProgress = cu.VectorMemDecoder.Run() || madeProgress
-		madeProgress = cu.Scheduler.Run() || madeProgress
+	madeProgress = cu.BranchUnit.Run() || madeProgress
+	madeProgress = cu.ScalarUnit.Run() || madeProgress
+	madeProgress = cu.ScalarDecoder.Run() || madeProgress
+	for _, simdUnit := range cu.SIMDUnit {
+		madeProgress = simdUnit.Run() || madeProgress
 	}
-
-	return madeProgress
-}
-
-func (cu *ComputeUnit) doFlush() bool {
-	madeProgress := false
-	if cu.comp.State.IsFlushing {
-		// If a flush request arrives before the shadow buffer requests have
-		// been sent out.
-		if cu.comp.State.IsSendingOutShadowBufferReqs {
-			madeProgress =
-				cu.reInsertShadowBufferReqsToOriginalBuffers() || madeProgress
-		}
-		madeProgress = cu.flushPipeline() || madeProgress
-	}
-
-	if cu.comp.State.IsSendingOutShadowBufferReqs {
-		madeProgress = cu.checkShadowBuffers() || madeProgress
-	}
+	madeProgress = cu.VectorDecoder.Run() || madeProgress
+	madeProgress = cu.LDSUnit.Run() || madeProgress
+	madeProgress = cu.LDSDecoder.Run() || madeProgress
+	madeProgress = cu.VectorMemUnit.Run() || madeProgress
+	madeProgress = cu.VectorMemDecoder.Run() || madeProgress
+	madeProgress = cu.Scheduler.Run() || madeProgress
 
 	return madeProgress
 }
@@ -178,180 +136,12 @@ func (cu *ComputeUnit) doFlush() bool {
 func (cu *ComputeUnit) processInput() bool {
 	madeProgress := false
 
-	state := &cu.comp.State
-	if !state.IsPaused || state.IsSendingOutShadowBufferReqs {
-		madeProgress = cu.processInputFromACE() || madeProgress
-		madeProgress = cu.processInputFromInstMem() || madeProgress
-		madeProgress = cu.processInputFromScalarMem() || madeProgress
-		madeProgress = cu.processInputFromVectorMem() || madeProgress
-	}
-
-	madeProgress = cu.processInputFromCP() || madeProgress
+	madeProgress = cu.processInputFromACE() || madeProgress
+	madeProgress = cu.processInputFromInstMem() || madeProgress
+	madeProgress = cu.processInputFromScalarMem() || madeProgress
+	madeProgress = cu.processInputFromVectorMem() || madeProgress
 
 	return madeProgress
-}
-
-func (cu *ComputeUnit) processInputFromCP() bool {
-	req, ok := cu.cpPort().PeekIncoming()
-	if !ok {
-		return false
-	}
-
-	switch req.Payload.(type) {
-	case protocol.CUPipelineRestartReq:
-
-		return cu.handlePipelineResume(req)
-	case protocol.CUPipelineFlushReq:
-
-		return cu.handlePipelineFlushReq(req)
-	default:
-		panic("unknown msg type")
-	}
-}
-
-func (cu *ComputeUnit) handlePipelineFlushReq(
-	req messaging.Msg,
-) bool {
-	state := &cu.comp.State
-	state.IsFlushing = true
-	state.HasFlushReq = true
-	state.FlushReqID = req.ID
-	state.FlushReqSrc = req.Src
-
-	cu.cpPort().RetrieveIncoming()
-
-	return true
-}
-
-func (cu *ComputeUnit) handlePipelineResume(
-	req messaging.Msg,
-) bool {
-	// v4 sent the restart response unconditionally and panicked when the
-	// port was full. v5 ports panic on Send when full, so the request stays
-	// queued until the response can go out.
-	if !cu.cpPort().CanSend() {
-		return false
-	}
-
-	state := &cu.comp.State
-	state.IsSendingOutShadowBufferReqs = true
-
-	rsp := messaging.Msg{ID: cu.comp.NewID(),
-		Src:   cu.cpPort().AsRemote(),
-		Dst:   req.Src,
-		RspTo: req.ID, Payload: protocol.CUPipelineRestartRsp{}}
-
-	cu.cpPort().Send(rsp)
-
-	cu.cpPort().RetrieveIncoming()
-
-	return true
-}
-
-func (cu *ComputeUnit) sendToCP() bool {
-	state := &cu.comp.State
-	if !state.HasPendingCPRsp {
-		return false
-	}
-
-	if !cu.cpPort().CanSend() {
-		return false
-	}
-
-	rsp := messaging.Msg{ID: cu.comp.NewID(),
-		Src:   cu.cpPort().AsRemote(),
-		Dst:   state.PendingCPRspDst,
-		RspTo: state.PendingCPRspTo, Payload: protocol.CUPipelineFlushRsp{}}
-
-	cu.cpPort().Send(rsp)
-
-	state.HasPendingCPRsp = false
-
-	return true
-}
-
-func (cu *ComputeUnit) flushPipeline() bool {
-	state := &cu.comp.State
-
-	if !state.HasFlushReq {
-		return false
-	}
-
-	if state.IsHandlingWfCompletionEvent {
-		return false
-	}
-
-	cu.shadowInFlightInstFetch = nil
-	cu.shadowInFlightScalarMemAccess = nil
-	cu.shadowInFlightVectorMemAccess = nil
-
-	cu.populateShadowBuffers()
-	cu.endInflightTracingTasks()
-	cu.setWavesToReady()
-	cu.Scheduler.Flush()
-	cu.flushInternalComponents()
-	cu.Scheduler.Pause()
-	state.IsPaused = true
-
-	state.HasPendingCPRsp = true
-	state.PendingCPRspDst = state.FlushReqSrc
-	state.PendingCPRspTo = state.FlushReqID
-	state.HasFlushReq = false
-	state.IsFlushing = false
-
-	return true
-}
-
-func (cu *ComputeUnit) flushInternalComponents() {
-	cu.BranchUnit.Flush()
-
-	cu.ScalarUnit.Flush()
-	cu.ScalarDecoder.Flush()
-
-	for _, simdUnit := range cu.SIMDUnit {
-		simdUnit.Flush()
-	}
-
-	cu.VectorDecoder.Flush()
-	cu.LDSUnit.Flush()
-	cu.LDSDecoder.Flush()
-	cu.VectorMemDecoder.Flush()
-	cu.VectorMemUnit.Flush()
-}
-
-// endInflightTracingTasks ends the tracing tasks that a pipeline flush drops,
-// so they do not leak as started-never-ended. A flush resets every running
-// wavefront to WfReady (setWavesToReady) and clears the sub-unit pipeline
-// stages and the scheduler's internalExecuting slice; an instruction sitting in
-// one of those stages is re-issued from scratch (with a new ID) after the
-// restart, so its "inst" task would otherwise never end. Such a wavefront is in
-// the WfRunning state, so ending the inst task of every running wavefront
-// covers all sub-unit stages and internalExecuting uniformly.
-//
-// In-flight memory accesses are not dropped: they are preserved in the shadow
-// buffers and re-sent, and their inst tasks end when the (shadowed) response
-// returns. Those wavefronts have already advanced past the issuing instruction
-// and sit in WfReady, so the WfRunning filter correctly skips them and the inst
-// task is not double-ended. The shadowed accesses' req_out tasks are ended in
-// populateShadowBuffers, where the re-send regenerates the message ID.
-func (cu *ComputeUnit) endInflightTracingTasks() {
-	for _, wfPool := range cu.WfPools {
-		for _, wf := range wfPool.wfs {
-			if wf.State != wavefront.WfRunning {
-				continue
-			}
-
-			if inst := wf.DynamicInst(); inst != nil {
-				// This running inst's task is force-ended here, bypassing
-				// logInstTask, so keep the in-flight counter balanced.
-				if wf.InFlightInsts > 0 {
-					wf.InFlightInsts--
-				}
-				cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
-				delete(cu.comp.State.InstTasks, inst.ID)
-			}
-		}
-	}
 }
 
 func (cu *ComputeUnit) processInputFromACE() bool {
@@ -369,66 +159,31 @@ func (cu *ComputeUnit) processInputFromACE() bool {
 	}
 }
 
-// Handle processes the custom events of the compute unit (the regular tick
-// events are dispatched to the component's own handler).
-func (cu *ComputeUnit) Handle(evt timing.Event) {
-	ctx := hooking.HookCtx{
-		Domain: cu.comp,
-		Pos:    timing.HookPosBeforeEvent,
-		Item:   evt,
+// completeSampledWaves drains the time-ordered State list under the tick's lock.
+func (cu *ComputeUnit) completeSampledWaves() bool {
+	pending := cu.comp.State.SampledCompletions
+	n := 0
+	for n < len(pending) && pending[n].At <= cu.CurrentTime() {
+		wf := cu.wave(pending[n].Wave)
+		wf.state().StopFetch = true
+		wf.execution().State = wavefront.WfCompleted
+		// Sampled waves never initialize or use physical register locations.
+		cu.endWaveTask(wf)
+		n++
 	}
-	cu.comp.InvokeHook(ctx)
-
-	switch evt := evt.(type) {
-	case wavefront.WfCompletionEvent:
-		cu.handleWfCompletionEvent(evt)
-	case WfDispatchEvent:
-		// The v4 code defined this event but never scheduled it. The handler
-		// is registered for completeness; nothing needs to happen.
-	default:
-		log.Panicf("Unable to process event of type %s",
-			reflect.TypeOf(evt))
-	}
-
-	ctx.Pos = timing.HookPosAfterEvent
-	cu.comp.InvokeHook(ctx)
+	cu.comp.State.SampledCompletions = slices.Delete(pending, 0, n)
+	return n > 0
 }
 
-func (cu *ComputeUnit) handleWfCompletionEvent(
-	evt wavefront.WfCompletionEvent,
-) {
-	wf := cu.wavefrontByID(evt.WavefrontID)
-	wf.State = wavefront.WfCompleted
-	s := cu.Scheduler.(*SchedulerImpl)
-
-	if !s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
-		return
+func (cu *ComputeUnit) scheduleSampledCompletion(at timing.VTimeInPicoSec, wave wavefront.Handle) {
+	pending := cu.comp.State.SampledCompletions
+	// Insert after equal-time entries to preserve wave dispatch order.
+	i := len(pending)
+	for i > 0 && pending[i-1].At > at {
+		i--
 	}
-
-	now := evt.Time()
-
-	done := s.sendWGCompletionMessage(wf.WG)
-	if !done {
-		newEvent := wavefront.NewWfCompletionEvent(
-			cu.comp.NewID(),
-			cu.comp.Spec.Freq.NextTick(now), cu.wfCompletionHandlerID, wf.UID)
-		cu.engine.Schedule(newEvent)
-
-		return
-	}
-
-	s.resetRegisterValue(wf)
-	cu.clearWGResource(wf.WG)
-
-	// This path only runs for sampled wavefronts, each of which opened its own
-	// "wavefront" task in handleMapWGReq. The work-group completes as a unit
-	// here, so end every wavefront's task, not just the one whose completion
-	// event fired — otherwise the other wavefronts' tasks leak.
-	for _, wgWf := range wf.WG.Wfs {
-		cu.comp.TaskTracker().EndTask(cu.comp.State.WFTasks[wgWf.UID])
-		delete(cu.comp.State.WFTasks, wgWf.UID)
-	}
-	cu.completeWGTask(wf.WG.MapReq.ID)
+	cu.comp.State.SampledCompletions = slices.Insert(pending, i, SampledCompletion{At: at, Wave: wave})
+	cu.comp.TickAt(at)
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
@@ -441,18 +196,17 @@ func (cu *ComputeUnit) handleMapWGReq(
 		panic(err)
 	}
 	wg := cu.wrapWG(raw, req)
-	cu.workGroups[wg.UID] = wg
 
 	cu.comp.State.WGTasks[req.ID] = cu.comp.TaskTracker().StartReqIn(cu.comp, req)
 
 	skipSimulate := cu.scheduleSampledWaves(wg, now)
 
 	if !skipSimulate {
-		for i, wf := range wg.Wfs {
+		for i, wf := range wg.waves() {
 			location := req.Payload.(protocol.MapWGReq).Wavefronts[i]
 			cu.WfPools[location.SIMDID].AddWf(wf)
 			cu.WfDispatcher.DispatchWf(wf, req.Payload.(protocol.MapWGReq).Wavefronts[i])
-			wf.State = wavefront.WfReady
+			wf.execution().State = wavefront.WfReady
 
 			cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 				ParentID: cu.comp.State.WGTasks[req.ID],
@@ -469,28 +223,25 @@ func (cu *ComputeUnit) handleMapWGReq(
 	return true
 }
 
-func (cu *ComputeUnit) scheduleSampledWaves(wg *wavefront.WorkGroup, now timing.VTimeInPicoSec) bool {
+func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPicoSec) bool {
 	// sampling
 	skipSimulate := false
 	if cu.comp.Resources.Sampler != nil && !cu.comp.Resources.Sampler.IfDisable() {
-		for _, wf := range wg.Wfs {
-			cu.wftime[wf.UID] = now
+		for _, wf := range wg.waves() {
+			cu.comp.State.WFTimes[wf.UID] = now
 		}
 
 		wfpredicttime, wfsampled := cu.comp.Resources.Sampler.Predict()
 		predtime := wfpredicttime
 		skipSimulate = wfsampled
 
-		for _, wf := range wg.Wfs {
+		for _, wf := range wg.waves() {
 			if skipSimulate {
 				predictedTime := predtime + now
-				wf.State = wavefront.WfSampledCompleted
-				newEvent := wavefront.NewWfCompletionEvent(
-					cu.comp.NewID(),
-					predictedTime, cu.wfCompletionHandlerID, wf.UID)
-				cu.engine.Schedule(newEvent)
+				wf.execution().State = wavefront.WfSampledWaiting
+				cu.scheduleSampledCompletion(predictedTime, handleOf(wf))
 				cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
-					ParentID: cu.comp.State.WGTasks[wg.MapReq.ID],
+					ParentID: cu.comp.State.WGTasks[wg.state().Request.ID],
 					Kind:     "wavefront",
 					What:     "wavefront",
 					// The sampled fast path forgot the location, so the wavefront task
@@ -505,17 +256,20 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *wavefront.WorkGroup, now timing.
 	return skipSimulate
 }
 
-func (cu *ComputeUnit) clearWGResource(wg *wavefront.WorkGroup) {
-	delete(cu.workGroups, wg.UID)
-	for _, wf := range wg.Wfs {
-		wfPool := cu.WfPools[wf.SIMDID]
+func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
+	g := wg.state()
+	belongsToGroup := func(id waveHandle) bool { return slices.Contains(g.Waves, id) }
+	cu.comp.State.Scheduler.Internal = slices.DeleteFunc(cu.comp.State.Scheduler.Internal, belongsToGroup)
+	cu.comp.State.Scheduler.Barrier = slices.DeleteFunc(cu.comp.State.Scheduler.Barrier, belongsToGroup)
+	for _, wf := range wg.waves() {
+		wfPool := cu.WfPools[wf.execution().SIMDID]
 		wfPool.RemoveWf(wf)
 	}
 }
 
-func (cu *ComputeUnit) isAllWfInWGCompleted(wg *wavefront.WorkGroup) bool {
-	for _, wf := range wg.Wfs {
-		if wf.State != wavefront.WfCompleted {
+func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
+	for _, wf := range wg.waves() {
+		if wf.execution().State != wavefront.WfCompleted {
 			return false
 		}
 	}
@@ -524,7 +278,7 @@ func (cu *ComputeUnit) isAllWfInWGCompleted(wg *wavefront.WorkGroup) bool {
 
 func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 	for _, wfpool := range cu.WfPools {
-		if len(wfpool.wfs) > 0 {
+		if len(wfpool.ids()) > 0 {
 			return true
 		}
 	}
@@ -534,21 +288,8 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 func (cu *ComputeUnit) wrapWG(
 	raw *kernels.WorkGroup,
 	req messaging.Msg,
-) *wavefront.WorkGroup {
-	wg := wavefront.NewWorkGroup(raw, req)
-
-	lds := make([]byte, raw.Packet.GroupSegmentSize)
-	wg.LDS = lds
-
-	for _, rawWf := range raw.Wavefronts {
-		wf := wavefront.NewWavefront(rawWf)
-		wf.RegAccessor = &CURegFileAccessor{CU: cu, WF: wf}
-		wg.Wfs = append(wg.Wfs, wf)
-		wf.WG = wg
-		wf.SetPID(req.Payload.(protocol.MapWGReq).PID)
-	}
-
-	return wg
+) *WorkGroup {
+	return cu.newGroup(raw, req)
 }
 
 func (cu *ComputeUnit) processInputFromInstMem() bool {
@@ -573,7 +314,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	rsp messaging.Msg,
 ) bool {
 	matchIdx := -1
-	for i, info := range cu.InFlightInstFetch {
+	for i, info := range cu.comp.State.InstFetch {
 		if info.Req.ID == rsp.RspTo {
 			matchIdx = i
 			break
@@ -583,20 +324,23 @@ func (cu *ComputeUnit) handleFetchReturn(
 		return false
 	}
 
-	info := cu.InFlightInstFetch[matchIdx]
-	wf := info.Wavefront
+	info := cu.comp.State.InstFetch[matchIdx]
+	wf := cu.wave(info.WF)
 	addr := info.Address
-	wasWaitingForFetch := wf.InFlightInsts == 0 && !wfHasInstructionReady(wf)
-	cu.InFlightInstFetch = append(
-		cu.InFlightInstFetch[:matchIdx],
-		cu.InFlightInstFetch[matchIdx+1:]...)
+	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf)
+	cu.comp.State.InstFetch = append(
+		cu.comp.State.InstFetch[:matchIdx],
+		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
-		wf.InstBuffer = append(wf.InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
+	if addr == wf.execution().InstBufferStartPC+uint64(len(wf.execution().InstBuffer)) {
+		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
-	wf.IsFetching = false
-	wf.LastFetchTime = cu.CurrentTime()
+	wf.execution().IsFetching = false
+	if wf.execution().State == wavefront.WfDraining {
+		wf.execution().State = wavefront.WfCompleted
+	}
+	wf.execution().LastFetchTime = cu.CurrentTime()
 
 	if wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
@@ -605,7 +349,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	cu.completeRequest(info.Req.ID)
-	cu.comp.TaskTracker().EndTask(info.FetchTaskID)
+	cu.comp.TaskTracker().EndTask(info.Task)
 	return true
 }
 
@@ -631,7 +375,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	rsp messaging.Msg,
 ) {
 	matchIdx := -1
-	for i, info := range cu.InFlightScalarMemAccess {
+	for i, info := range cu.comp.State.Scalar {
 		if info.Req.ID == rsp.RspTo {
 			matchIdx = i
 			break
@@ -641,21 +385,21 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 		return
 	}
 
-	info := cu.InFlightScalarMemAccess[matchIdx]
+	info := cu.comp.State.Scalar[matchIdx]
 	req := info.Req
 
-	wf := info.Wavefront
+	wf := cu.wave(info.WF)
 	access := RegisterAccess{
-		WaveOffset: wf.SRegOffset,
-		Reg:        info.DstSGPR,
+		WaveOffset: wf.execution().SRegOffset,
+		Reg:        insts.Regs[info.Register],
 		RegCount:   len(rsp.Payload.(memprotocol.DataReadyRsp).Data) / 4,
 		Data:       rsp.Payload.(memprotocol.DataReadyRsp).Data,
 	}
 	cu.SRegFile.Write(access)
 
-	cu.InFlightScalarMemAccess = append(
-		cu.InFlightScalarMemAccess[:matchIdx],
-		cu.InFlightScalarMemAccess[matchIdx+1:]...)
+	cu.comp.State.Scalar = append(
+		cu.comp.State.Scalar[:matchIdx],
+		cu.comp.State.Scalar[matchIdx+1:]...)
 
 	cu.completeRequest(req.ID)
 
@@ -666,9 +410,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	// lets the wavefront reuse the destination SGPRs before the remaining
 	// responses overwrite them.
 	if !cu.hasInFlightScalarMemFor(info.Inst) {
-		wf.OutstandingScalarMemAccess--
+		wf.execution().OutstandingScalarMemAccess--
 		cu.markInstDataReturned(info.Inst, "smem")
-		cu.logInstTask(wf, info.Inst, true)
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
@@ -677,25 +421,18 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 // that same moment, so this closes the otherwise-unattributed gap between the
 // memory request going out (or the in-flight slot being acquired) and the data
 // coming back.
-func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
+func (cu *ComputeUnit) markInstDataReturned(inst uint64, what string) {
 	cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: cu.comp.State.InstTasks[inst.ID],
+		TaskID: cu.comp.State.InstTasks[inst],
 		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})
 }
 
 // hasInFlightVectorMemFor reports whether any vector-memory transaction for the
-// given instruction is still in flight — including siblings parked in the
-// shadow buffer during a flush resend but not yet re-sent.
-func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
-	for _, info := range cu.InFlightVectorMemAccess {
-		if info.Inst == inst {
-			return true
-		}
-	}
-
-	for _, info := range cu.shadowInFlightVectorMemAccess {
+// given instruction is still in flight.
+func (cu *ComputeUnit) hasInFlightVectorMemFor(inst uint64) bool {
+	for _, info := range cu.comp.State.Vector {
 		if info.Inst == inst {
 			return true
 		}
@@ -705,16 +442,9 @@ func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 }
 
 // hasInFlightScalarMemFor reports whether any scalar-memory access for the given
-// instruction is still in flight — including shadow-buffered siblings that have
-// not been re-sent yet.
-func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
-	for _, info := range cu.InFlightScalarMemAccess {
-		if info.Inst == inst {
-			return true
-		}
-	}
-
-	for _, info := range cu.shadowInFlightScalarMemAccess {
+// instruction is still in flight.
+func (cu *ComputeUnit) hasInFlightScalarMemFor(inst uint64) bool {
+	for _, info := range cu.comp.State.Scalar {
 		if info.Inst == inst {
 			return true
 		}
@@ -753,7 +483,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	rsp messaging.Msg,
 ) {
 	matchIdx := -1
-	for i, info := range cu.InFlightVectorMemAccess {
+	for i, info := range cu.comp.State.Vector {
 		if info.Read.ID != 0 && info.Read.ID == rsp.RspTo {
 			matchIdx = i
 			break
@@ -763,28 +493,28 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[matchIdx]
-	cu.InFlightVectorMemAccess = append(
-		cu.InFlightVectorMemAccess[:matchIdx],
-		cu.InFlightVectorMemAccess[matchIdx+1:]...)
+	info := cu.comp.State.Vector[matchIdx]
+	cu.comp.State.Vector = append(
+		cu.comp.State.Vector[:matchIdx],
+		cu.comp.State.Vector[matchIdx+1:]...)
 	cu.completeRequest(info.Read.ID)
 
-	wf := info.Wavefront
-	inst := info.Inst
+	wf := cu.wave(info.WF)
+	inst := cu.instruction(info.Inst)
 
-	for _, laneInfo := range info.laneInfo {
-		offset := laneInfo.addrOffsetInCacheLine
+	for _, laneInfo := range info.Lanes {
+		offset := laneInfo.Offset
 		access := RegisterAccess{}
-		access.WaveOffset = wf.VRegOffset
-		access.Reg = laneInfo.reg
-		access.RegCount = laneInfo.regCount
-		access.LaneID = laneInfo.laneID
+		access.WaveOffset = wf.execution().VRegOffset
+		access.Reg = insts.Regs[laneInfo.Register]
+		access.RegCount = laneInfo.Count
+		access.LaneID = laneInfo.Lane
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Payload.(memprotocol.DataReadyRsp).Data[offset]))
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Payload.(memprotocol.DataReadyRsp).Data[offset]))
 		} else {
-			end := offset + uint64(4*laneInfo.regCount)
+			end := offset + uint64(4*laneInfo.Count)
 			if end > uint64(len(rsp.Payload.(memprotocol.DataReadyRsp).Data)) {
 				end = uint64(len(rsp.Payload.(memprotocol.DataReadyRsp).Data))
 				if offset >= end {
@@ -793,7 +523,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 			}
 			access.Data = rsp.Payload.(memprotocol.DataReadyRsp).Data[offset:end]
 		}
-		cu.VRegFile[wf.SIMDID].Write(access)
+		cu.VRegFile[wf.execution().SIMDID].Write(access)
 	}
 
 	// Coalesced responses can return out of order, so the last request
@@ -803,13 +533,13 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	// the counter earlier lets the wavefront reuse the destination VGPRs
 	// before the remaining responses overwrite them.
 	if !cu.hasInFlightVectorMemFor(info.Inst) {
-		wf.OutstandingVectorMemAccess--
-		if info.Inst.FormatType == insts.FLAT {
-			wf.OutstandingScalarMemAccess--
+		wf.execution().OutstandingVectorMemAccess--
+		if cu.instruction(info.Inst).FormatType == insts.FLAT {
+			wf.execution().OutstandingScalarMemAccess--
 		}
 
 		cu.markInstDataReturned(info.Inst, "vmem")
-		cu.logInstTask(wf, info.Inst, true)
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
@@ -817,7 +547,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	rsp messaging.Msg,
 ) {
 	matchIdx := -1
-	for i, info := range cu.InFlightVectorMemAccess {
+	for i, info := range cu.comp.State.Vector {
 		if info.Write.ID != 0 && info.Write.ID == rsp.RspTo {
 			matchIdx = i
 			break
@@ -827,66 +557,60 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		return
 	}
 
-	info := cu.InFlightVectorMemAccess[matchIdx]
-	cu.InFlightVectorMemAccess = append(
-		cu.InFlightVectorMemAccess[:matchIdx],
-		cu.InFlightVectorMemAccess[matchIdx+1:]...)
+	info := cu.comp.State.Vector[matchIdx]
+	cu.comp.State.Vector = append(
+		cu.comp.State.Vector[:matchIdx],
+		cu.comp.State.Vector[matchIdx+1:]...)
 	cu.completeRequest(info.Write.ID)
 
-	wf := info.Wavefront
+	wf := cu.wave(info.WF)
 
 	// Coalesced responses can return out of order; release the s_waitcnt
 	// counters, end the inst task and mark the data wait only once no
 	// transaction for this instruction remains in flight (see
 	// handleVectorDataLoadReturn).
 	if !cu.hasInFlightVectorMemFor(info.Inst) {
-		wf.OutstandingVectorMemAccess--
-		if info.Inst.FormatType == insts.FLAT {
-			wf.OutstandingScalarMemAccess--
+		wf.execution().OutstandingVectorMemAccess--
+		if cu.instruction(info.Inst).FormatType == insts.FLAT {
+			wf.execution().OutstandingScalarMemAccess--
 		}
 
 		cu.markInstDataReturned(info.Inst, "vmem")
-		cu.logInstTask(wf, info.Inst, true)
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
 // UpdatePCAndSetReady is self explained
-func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
-	wf.State = wavefront.WfReady
+func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
+	wf.execution().State = wavefront.WfReady
 	wf.SetPC(wf.PC() + uint64(wf.Inst().ByteSize))
 	cu.removeStaleInstBuffer(wf)
 }
 
-func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
-	if len(wf.InstBuffer) != 0 {
-		for wf.PC() >= wf.InstBufferStartPC+64 {
-			wf.InstBuffer = wf.InstBuffer[64:]
-			wf.InstBufferStartPC += 64
+func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
+	if len(wf.execution().InstBuffer) != 0 {
+		for wf.PC() >= wf.execution().InstBufferStartPC+64 {
+			wf.execution().InstBuffer = wf.execution().InstBuffer[64:]
+			wf.execution().InstBufferStartPC += 64
 		}
 	}
 }
 
-func wfHasInstructionReady(wf *wavefront.Wavefront) bool {
-	if wf.InstToIssue != nil {
+func wfHasInstructionReady(wf *Wavefront) bool {
+	if wf.NextInst() != nil {
 		return true
 	}
 
-	if len(wf.InstBuffer) == 0 || wf.PC() < wf.InstBufferStartPC {
+	if len(wf.execution().InstBuffer) == 0 || wf.PC() < wf.execution().InstBufferStartPC {
 		return false
 	}
 
-	offset := wf.PC() - wf.InstBufferStartPC
-	if offset > uint64(len(wf.InstBuffer)) {
+	offset := wf.PC() - wf.execution().InstBufferStartPC
+	if offset > uint64(len(wf.execution().InstBuffer)) {
 		return false
 	}
 
-	return len(wf.InstBuffer[int(offset):]) >= 4
-}
-
-func (cu *ComputeUnit) flushCUBuffers() {
-	cu.InFlightInstFetch = nil
-	cu.InFlightScalarMemAccess = nil
-	cu.InFlightVectorMemAccess = nil
+	return len(wf.execution().InstBuffer[int(offset):]) >= 4
 }
 
 // markWfMilestone records a milestone on the wavefront task itself (TaskID
@@ -894,10 +618,10 @@ func (cu *ComputeUnit) flushCUBuffers() {
 // execution (work) and the reasons for a gap between instructions — waiting
 // to fetch (hardware_resource), waiting for the fetched bytes (data), and
 // waiting for the exec unit to accept the issue (hardware_resource). They are
-// only emitted while nothing is in flight (see logInstTask), so they never
+// only emitted while nothing is in flight (see beginInstruction), so they never
 // overlap and a prefetch overlapping execution stays silent.
 func (cu *ComputeUnit) markWfMilestone(
-	wf *wavefront.Wavefront, kind tasks.MilestoneKind, what string,
+	wf *Wavefront, kind tasks.MilestoneKind, what string,
 ) {
 	cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
 		TaskID: cu.comp.State.WFTasks[wf.UID],
@@ -906,41 +630,49 @@ func (cu *ComputeUnit) markWfMilestone(
 	})
 }
 
-func (cu *ComputeUnit) logInstTask(
-	wf *wavefront.Wavefront,
-	inst *wavefront.Inst,
-	completed bool,
-) {
-	if completed {
-		wf.InFlightInsts--
-		if wf.InFlightInsts == 0 {
-			// The last in-flight instruction finished: close the execution burst
-			// as work, so the gap that follows is attributed separately.
-			cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
-		}
-		cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
-		delete(cu.comp.State.InstTasks, inst.ID)
-		return
+// completeInstruction ends execution (including every async memory response).
+// Observers can still resolve the instruction until their completion callbacks return.
+func (cu *ComputeUnit) completeInstruction(wf *Wavefront, inst uint64) {
+	wf.execution().InFlightInsts--
+	if wf.execution().InFlightInsts == 0 {
+		// The last in-flight instruction finished: close the execution burst
+		// as work, so the gap that follows is attributed separately.
+		cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
 	}
+	cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst])
+	delete(cu.comp.State.InstTasks, inst)
+	instruction := cu.comp.State.Instructions[inst]
+	instruction.ExecutionPending = false
+	cu.comp.State.Instructions[inst] = instruction
+	cu.releaseInstruction(inst)
+}
 
-	if wf.InFlightInsts == 0 {
+// beginInstruction starts semantic execution even when task tracking is disabled.
+func (cu *ComputeUnit) beginInstruction(wf *Wavefront, inst uint64) {
+	description := cu.instruction(inst)
+	instruction := cu.comp.State.Instructions[inst]
+	instruction.ExecutionPending = true
+	cu.comp.State.Instructions[inst] = instruction
+
+	if wf.execution().InFlightInsts == 0 {
 		// Issuing after a gap (nothing was in flight): the time since the last
 		// milestone was spent waiting to issue this instruction — decode is ~1
 		// cycle, so it is dominated by waiting for the exec unit to accept the
 		// wave. Attribute it to that unit as a hardware resource.
 		cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
-			cu.comp.Name()+"."+cu.execUnitToString(inst.ExeUnit))
+			cu.comp.Name()+"."+cu.execUnitToString(description.ExeUnit))
 	}
-	wf.InFlightInsts++
+	wf.execution().InFlightInsts++
 
-	cu.comp.State.InstTasks[inst.ID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
+	cu.comp.State.InstTasks[inst] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 		ParentID: cu.comp.State.WFTasks[wf.UID],
 		Kind:     "inst",
-		What:     cu.execUnitToString(inst.ExeUnit),
-		Location: cu.comp.Name() + "." + cu.execUnitToString(inst.ExeUnit),
+		What:     cu.execUnitToString(description.ExeUnit),
+		Location: cu.comp.Name() + "." + cu.execUnitToString(description.ExeUnit),
 		Detail: map[string]interface{}{
-			"inst": inst,
-			"wf":   wf,
+			"inst":   inst,
+			"format": description.FormatName,
+			"wf":     wf.UID,
 		},
 	})
 }
@@ -965,167 +697,7 @@ func (cu *ComputeUnit) execUnitToString(u insts.ExeUnit) string {
 	panic("unknown exec unit")
 }
 
-func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {
-	cu.comp.State.IsSendingOutShadowBufferReqs = false
-	for i := 0; i < len(cu.shadowInFlightVectorMemAccess); i++ {
-		cu.InFlightVectorMemAccess = append(
-			cu.InFlightVectorMemAccess, cu.shadowInFlightVectorMemAccess[i])
-	}
-
-	for i := 0; i < len(cu.shadowInFlightScalarMemAccess); i++ {
-		cu.InFlightScalarMemAccess = append(
-			cu.InFlightScalarMemAccess, cu.shadowInFlightScalarMemAccess[i])
-	}
-
-	for i := 0; i < len(cu.shadowInFlightInstFetch); i++ {
-		cu.InFlightInstFetch = append(
-			cu.InFlightInstFetch, cu.shadowInFlightInstFetch[i])
-	}
-
-	return true
-}
-
-func (cu *ComputeUnit) checkShadowBuffers() bool {
-	numReqsPendingToSend :=
-		len(cu.shadowInFlightScalarMemAccess) +
-			len(cu.shadowInFlightVectorMemAccess) +
-			len(cu.shadowInFlightInstFetch)
-
-	if numReqsPendingToSend == 0 {
-		cu.comp.State.IsSendingOutShadowBufferReqs = false
-		cu.Scheduler.Resume()
-		cu.comp.State.IsPaused = false
-		return true
-	}
-
-	return cu.sendOutShadowBufferReqs()
-}
-
-func (cu *ComputeUnit) sendOutShadowBufferReqs() bool {
-	madeProgress := false
-
-	madeProgress = cu.sendScalarShadowBufferAccesses() || madeProgress
-	madeProgress = cu.sendVectorShadowBufferAccesses() || madeProgress
-	madeProgress = cu.sendInstFetchShadowBufferAccesses() || madeProgress
-
-	return madeProgress
-}
-
-func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
-	if len(cu.shadowInFlightScalarMemAccess) > 0 {
-		info := cu.shadowInFlightScalarMemAccess[0]
-
-		info.Req.ID = cu.comp.NewID()
-		if cu.scalarMemPort().CanSend() {
-			cu.startRequest(info.Req, cu.comp.State.InstTasks[info.Inst.ID])
-			cu.scalarMemPort().Send(info.Req)
-			// The resend has a fresh message ID; open a replacement req_out
-			// task (the original was ended in populateShadowBuffers) so the
-			// post-flush round trip is traced and completion matches.
-			cu.InFlightScalarMemAccess =
-				append(cu.InFlightScalarMemAccess, info)
-			cu.shadowInFlightScalarMemAccess =
-				cu.shadowInFlightScalarMemAccess[1:]
-			return true
-		}
-	}
-
-	return false
-}
-
-func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
-	if len(cu.shadowInFlightVectorMemAccess) > 0 {
-		info := cu.shadowInFlightVectorMemAccess[0]
-		if info.Read.ID != 0 {
-			info.Read.ID = cu.comp.NewID()
-			if cu.vectorMemPort().CanSend() {
-				cu.startRequest(info.Read, cu.comp.State.InstTasks[info.Inst.ID])
-				cu.vectorMemPort().Send(info.Read)
-				cu.InFlightVectorMemAccess = append(
-					cu.InFlightVectorMemAccess, info)
-				cu.shadowInFlightVectorMemAccess =
-					cu.shadowInFlightVectorMemAccess[1:]
-				return true
-			}
-		} else if info.Write.ID != 0 {
-			info.Write.ID = cu.comp.NewID()
-			if cu.vectorMemPort().CanSend() {
-				cu.startRequest(info.Write, cu.comp.State.InstTasks[info.Inst.ID])
-				cu.vectorMemPort().Send(info.Write)
-				cu.InFlightVectorMemAccess = append(
-					cu.InFlightVectorMemAccess, info)
-				cu.shadowInFlightVectorMemAccess =
-					cu.shadowInFlightVectorMemAccess[1:]
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
-	if len(cu.shadowInFlightInstFetch) > 0 {
-		info := cu.shadowInFlightInstFetch[0]
-		info.Req.ID = cu.comp.NewID()
-		if cu.instMemPort().CanSend() {
-			cu.startRequest(info.Req, info.FetchTaskID)
-			cu.instMemPort().Send(info.Req)
-			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
-			cu.shadowInFlightInstFetch = cu.shadowInFlightInstFetch[1:]
-			return true
-		}
-	}
-	return false
-}
-
-func (cu *ComputeUnit) populateShadowBuffers() {
-	// The shadowed accesses are re-sent after the restart with freshly
-	// generated message IDs (see sendOutShadowBufferReqs), and the resend opens
-	// a fresh req_out task for the new ID. End the original req_out tasks —
-	// keyed on the old message ID — here, so they are not left unfinalized
-	// across the flush. EndTaskOnReset is a no-op for an access that was
-	// buffered but never sent (no req_out was opened).
-	for i := 0; i < len(cu.InFlightInstFetch); i++ {
-		cu.completeRequest(cu.InFlightInstFetch[i].Req.ID)
-		cu.shadowInFlightInstFetch = append(
-			cu.shadowInFlightInstFetch, cu.InFlightInstFetch[i])
-	}
-
-	for i := 0; i < len(cu.InFlightScalarMemAccess); i++ {
-		cu.completeRequest(cu.InFlightScalarMemAccess[i].Req.ID)
-		cu.shadowInFlightScalarMemAccess = append(
-			cu.shadowInFlightScalarMemAccess, cu.InFlightScalarMemAccess[i])
-	}
-
-	for i := 0; i < len(cu.InFlightVectorMemAccess); i++ {
-		info := cu.InFlightVectorMemAccess[i]
-		if info.Read.ID != 0 {
-			cu.completeRequest(info.Read.ID)
-		}
-		if info.Write.ID != 0 {
-			cu.completeRequest(info.Write.ID)
-		}
-		cu.shadowInFlightVectorMemAccess = append(
-			cu.shadowInFlightVectorMemAccess, info)
-	}
-
-	cu.InFlightScalarMemAccess = nil
-	cu.InFlightInstFetch = nil
-	cu.InFlightVectorMemAccess = nil
-}
-
-func (cu *ComputeUnit) setWavesToReady() {
-	for _, wfPool := range cu.WfPools {
-		for _, wf := range wfPool.wfs {
-			if wf.State != wavefront.WfCompleted {
-				wf.State = wavefront.WfReady
-				wf.IsFetching = false
-			}
-		}
-	}
-}
-
-func (cu *ComputeUnit) wavefrontByID(id uint64) *wavefront.Wavefront {
+func (cu *ComputeUnit) wavefrontByID(id uint64) *Wavefront {
 	wf := cu.findWavefront(id)
 	if wf == nil {
 		panic("cu: unknown wavefront ID")
@@ -1133,12 +705,11 @@ func (cu *ComputeUnit) wavefrontByID(id uint64) *wavefront.Wavefront {
 	return wf
 }
 
-func (cu *ComputeUnit) findWavefront(id uint64) *wavefront.Wavefront {
-	for _, wg := range cu.workGroups {
-		for _, wf := range wg.Wfs {
-			if wf.UID == id {
-				return wf
-			}
+func (cu *ComputeUnit) findWavefront(id uint64) *Wavefront {
+	for index := range cu.comp.State.Waves {
+		state := &cu.comp.State.Waves[index]
+		if state.ID == id && id != 0 {
+			return &Wavefront{cu: cu, UID: id, handle: makeWaveHandle(index, state.Generation)}
 		}
 	}
 	return nil
@@ -1154,4 +725,31 @@ func (cu *ComputeUnit) completeRequest(id uint64) {
 func (cu *ComputeUnit) completeWGTask(id uint64) {
 	cu.comp.TaskTracker().EndReqIn(cu.comp.State.WGTasks[id])
 	delete(cu.comp.State.WGTasks, id)
+}
+
+func (cu *ComputeUnit) endWaveTask(wf *Wavefront) {
+	if task, ok := cu.comp.State.WFTasks[wf.UID]; ok {
+		cu.comp.TaskTracker().EndTask(task)
+		delete(cu.comp.State.WFTasks, wf.UID)
+	}
+}
+
+func (cu *ComputeUnit) sendWGCompletionMessage(
+	wg *WorkGroup,
+) (done bool) {
+	if !cu.acePort().CanSend() {
+		return false
+	}
+	mapReq := wg.state().Request
+	dispatcher := mapReq.Src
+
+	msg := messaging.Msg{ID: cu.comp.NewID(),
+		Src: cu.acePort().AsRemote(),
+		Dst: dispatcher,
+		Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapReq.ID},
+			Timings: workGroupTimings(wg)}}
+
+	cu.acePort().Send(msg)
+
+	return true
 }

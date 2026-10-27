@@ -1,10 +1,10 @@
-# Akita v5 RC2 migration and checkpoints
+# Akita v5 RC3 migration and checkpoints
 
-MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.2`
-release. RC2 includes the scoped task-notification index and redundant-map
-cleanup from [Akita PR #567](https://github.com/sarchlab/akita/pull/567), fixing
-rc1's reporting performance regression without changing its APIs or checkpoint
-format. No local module replacement is required. AMD GCN3,
+MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.3`
+release. RC3 guarantees each requested `TickAt` clock edge and stores the
+pending tick guard as a list. **RC2 checkpoints are incompatible; regenerate
+checkpoints with RC3.** Recording tables now have the `akita$` prefix; MGPUSim's
+own metric tables are unchanged. No local module replacement is required. AMD GCN3,
 AMD CDNA3 and the NVIDIA trace simulator use native Akita components, ports,
 message envelopes, task tracking and checkpoint resources. Platform frequencies,
 cache geometry, dispatch policies, instruction semantics and sample CLI flags
@@ -31,7 +31,7 @@ closures are no longer accepted by the launch/grid APIs.
 
 Custom platforms must build with a simulation, bind each port to its component
 before connecting it, and call `Simulation.Initialize()` after wiring. Shared
-memory, page tables, dispatchers, compute-unit runtime graphs and sampling state
+memory, page tables, dispatchers and sampling state
 are registered resources. Sampling history belongs to one simulation. Existing
 sample main functions explicitly initialize the composed simulation.
 
@@ -134,3 +134,139 @@ rounding noise observed by the exact-equality CI check; it does not change
 instruction scheduling or attributed intervals. The earlier 857-row diagnostic
 above used the previous floating-point accumulator. Its last few CPI digits may
 differ from the final reporter, while counts and simulation times are unchanged.
+
+## Compute-unit State and construction
+
+A timing CU is one ticking component. Its `State` owns work-group and wavefront
+execution values, shared LDS, scoreboards, register bytes, instruction encodings,
+in-flight memory records, scheduler queues, decoder progress, SIMD slots, and
+vector-memory pipelines, and the time-ordered `SampledCompletions` list.
+Queue, pipeline, and sampled-completion references use
+CU-local slot handles containing a slot index and generation. Global wave UIDs
+remain the tracing and protocol identity.
+There is no CU Runtime resource or per-SIMD checkpoint resource, and saving does
+not collect a second execution graph. Finished instructions are retired when
+neither wavefronts nor in-flight requests reference them. Execution completion
+stops further instruction fetch. A terminal wave keeps
+its original hardware slot until dependent requests and pipeline work drain.
+The work-group completion message releases CP resources only after this drain;
+a full completion port retains the slots and schedules a retry. This is a
+conservative modeling choice, so workloads with late fetch replies may finish
+later than with early CP release. There is no retired-wave spill storage.
+
+Sampled waves append `{At, Wave}` to State and call `TickAt(At)` once. Each tick
+completes due waves before pipeline work, ends their tasks, and retires drained
+groups. It also drains newly due work after input, so a zero-duration prediction
+finishes on the current edge. There is no custom completion/dispatch event,
+additional engine handler, or engine resource on the CU. Future entries keep
+their original wakeups without re-requesting them. Completion-port backpressure
+retains the completed group and retries on a normal tick.
+
+`TickAt` rounds up to the first CU clock edge at or after the predicted time.
+This can move sampled completions by less than one period compared with RC2's
+unaligned engine events. `TestSampledFIRCheckpointFreshProcess` trains the sampler
+with a controlled history (FIR256 alone is below its warmup threshold), saves
+with sampled waves pending, and checks exact aligned completion times and an
+identical final archive after a fresh-process restore. The first kernel uses
+sampling, so this test does not assert its numerical output; the existing
+unsampled GCN3/CDNA3 tests verify FIR output independently.
+
+The work-group's final S_ENDPGM task closes before its wavefront task; completion
+port retries do not replay either completion. The previous final-wave completion
+branch closed the wavefront first, omitting the last S_ENDPGM interval from some
+CPI Special buckets. Including this interval
+can change those buckets without changing instruction counts or simulation time.
+
+`Middlewares.Initialize` creates the scheduler and execution-unit behavior.
+Wavefront and work-group views live in the `cu` package and carry only their CU
+owner, slot handle, and global UID. `State.Initialize` allocates fixed-length
+`State.Waves` and `State.Groups` arrays, each bounded by `numWfPools * WfPoolSize`.
+Retirement clears occupancy without resizing or moving slots. Wave state links
+directly to its group slot; generation checks reject stale recycled handles.
+`wavefront.Handle` is a distinct local-slot type used by saved wave references
+and pending sampled-completion records. Global kernel wave UIDs, instruction IDs
+and task IDs remain separate `uint64` values.
+Scheduler ordering is still defined by its membership queues.
+Replacing State therefore requires no invalidation sentinel, rebinding callback,
+load hook, or subsequent tick. Previously acquired ID views and register-file
+accessors see the replacement immediately, as long as the referenced ID remains
+live. Temporary pointers and slices returned internally are used only during the
+operation that obtained them.
+
+Pools, barriers, pipelines, and memory requests resolve the same canonical wave
+values; all waves of a group share its canonical LDS. The ALU borrows LDS only
+for an execution call and releases that reference before returning. ALU and
+coalescing operations resolve a call-local state/register adapter once for all
+lanes and retain no state references after the call. Instruction
+encodings and dynamic IDs remain in State. `wavefront.Inst` is removed: `Inst()`
+returns a shared read-only `*insts.Inst` description and `InstID()` returns the
+separate dynamic execution identity. Async records and tracing carry the ID.
+The pure built-in decode cache is keyed by full encoding, decoder instance
+(which owns its fixed ISA tables), CDNA3 mode, and the canonical stored PC.
+Hits reuse the description without copying or allocating. The stored PC semantics
+are unchanged; execution uses the wave's PC. Custom decoders still bypass the
+cache because their interface does not declare purity or configuration identity.
+Callers must not modify descriptions or their operands/formats.
+
+Code-object metadata is borrowed directly from the current group's canonical
+`CodeObjectValue` for each dispatch, register reset, or debugger operation. The
+borrow includes version and metadata; required missing metadata fails fast.
+No code object is reconstructed or cached. Callers must not mutate the value or
+retain its pointer beyond the immediate operation. State replacement therefore
+changes subsequent reads immediately without invalidation or rebinding.
+Tracing detail retains wave/instruction IDs and format metadata, so debugger
+observers do not keep a second execution graph alive across ticks.
+
+The instruction and scalar memory destinations are immutable `Spec.InstMem` and
+`Spec.ScalarMem`. A platform builder first builds the instruction/scalar ROBs and
+binds their ports, then obtains their actual remote addresses:
+
+```go
+spec := cu.DefaultSpec()
+spec.InstMem = instructionROB.Ports.Top.AsRemote()
+spec.ScalarMem = scalarROB.Ports.Top.AsRemote()
+computeUnit := cu.MakeBuilder().WithSimulation(simulation).
+    WithSpec(spec).WithResources(resources).Build(name)
+// Bind the CU's local ports, then connect those ports to the ROBs.
+// Initialize the simulation after the full topology has been assembled.
+```
+
+Changing either destination changes the checkpoint Spec hash. Routing through
+`Resources.VectorMemModules` is deferred to MGPUSim #321. Downstream-first
+construction is temporary: Akita #576 tracks a Blueprint that declares the whole
+topology, instantiates it, and then connects it, including cyclic topologies.
+This CU change does not add a lifecycle phase or predict port names.
+
+Checkpoint compatibility with previous implementations is not supported. Rebuild
+and resume with the same program and configuration; this also applies after v5.
+SIMD task names and timing remain unchanged, while reporting routes their task
+notifications through one simulation observer rather than registering the SIMD
+behavior views as simulation entities.
+
+### CU execution and retirement
+
+A detailed wave stops fetching when it reaches `S_ENDPGM`, including while it
+waits for outstanding scalar/vector memory instructions. After execution ends,
+`WfDraining` retains the original hardware slot while an already-issued prefetch
+returns. `WfCompleted` means fully drained and waiting for the group's completion
+message. The CU sends that message and releases slots only when the dispatch
+port accepts it; backpressure schedules a retry. Barrier peer checks distinguish
+execution-ended waves from waves still executing. Sampled waves instead remain
+`WfSampledWaiting` until Tick processes their due sampled-completion records.
+They never clear detailed wave register allocations.
+
+These state transitions replace CU-wide searches for saved wave handles. Tests
+independently inspect decoder, pipeline, SIMD, scheduler, memory and
+sampled-completion records at operation boundaries. Instructions record their
+owning local slot and whether execution is pending. An asynchronous instruction retains its encoding
+through its last memory response even after its wave advances; completion
+observers finish before the encoding can be retired. Tracing does not control
+this lifetime. No per-holder reference counts or retired-wave spill storage are
+used.
+
+The old CU shadow buffers, flush/restart/replay API, and CP GPU shootdown/restart
+sequence are removed. Ordinary driver cache flush, kernel-start L1 invalidation,
+and independent RDMA control remain. Future page migration must drain already
+issued accesses without replaying CU execution. This change does not implement
+that migration protocol. There is no backward checkpoint compatibility contract,
+including after the v5 release.

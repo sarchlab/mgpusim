@@ -7,19 +7,16 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // Port names of the ComputeUnit. The port instances are created externally
 // (by the platform configuration or the test setup) and supplied with
-// AssignPort after Build.
+// BindPort after Build.
 const (
 	// DispatchPortName receives MapWGReqs from the dispatcher and sends
 	// WGCompletionMsgs back (v4: ToACE / "Top").
 	DispatchPortName = "Top"
-
-	// CtrlPortName receives pipeline flush/restart requests from the command
-	// processor (v4: ToCP / "Ctrl").
-	CtrlPortName = "Ctrl"
 
 	// InstMemPortName sends instruction-fetch reads (v4: ToInstMem).
 	InstMemPortName = "InstMem"
@@ -37,6 +34,10 @@ const numWfPools = 4
 
 // Spec is the immutable configuration of a timing ComputeUnit.
 type Spec struct {
+	// InstMem and ScalarMem are fixed request destinations, supplied before Build.
+	InstMem   messaging.RemotePort `json:"inst_mem"`
+	ScalarMem messaging.RemotePort `json:"scalar_mem"`
+
 	// IsCDNA3 is captured from the configured decoder by the builder.
 	IsCDNA3 bool        `json:"is_cdna3"`
 	Freq    timing.Freq `json:"freq"`
@@ -98,44 +99,40 @@ type Spec struct {
 	InstBufByteSize int `json:"inst_buf_byte_size"`
 }
 
-// State is the pure, serializable runtime state of a timing ComputeUnit.
-//
-// The complex runtime structures (wavefront pools, in-flight access records,
-// sub-unit pipeline contents) hold pointers and live on the ComputeUnit
-// runtime resource, which serializes values and reconstructs shared links.
-type State struct {
-	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
-	// InstMem is the port instruction fetches are sent to.
-	InstMem messaging.RemotePort `json:"inst_mem"`
+// SampledCompletion is a pending wave completion, ordered by At in State.
+type SampledCompletion struct {
+	At   timing.VTimeInPicoSec
+	Wave wavefront.Handle
+}
 
-	// ScalarMem is the port scalar memory accesses are sent to.
-	ScalarMem messaging.RemotePort `json:"scalar_mem"`
+// State is the sole owner of mutable compute-unit execution data.
+type State struct {
+	SampledCompletions                        []SampledCompletion
+	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
+	Groups                                    []WorkGroupState
+	Waves                                     []WaveState
+	Instructions                              map[uint64]InstructionState
+	Pools                                     [][]waveHandle
+	InstFetch                                 []FetchState
+	Scalar                                    []ScalarAccessState
+	Vector                                    []VectorAccessState
+	WFTimes                                   map[uint64]timing.VTimeInPicoSec
+	SRegisters                                []byte
+	VRegisters                                [][]byte
+	Scheduler                                 SchedulerState
+	Decoders                                  []DecoderState
+	Branch, LDS                               StageState
+	ScalarUnit                                ScalarUnitState
+	VectorUnit                                VectorUnitState
+	SIMDs                                     []SIMDState
 
 	// Running indicates that at least one work-group has been mapped.
 	Running bool `json:"running"`
-
-	IsFlushing                   bool `json:"is_flushing"`
-	IsPaused                     bool `json:"is_paused"`
-	IsSendingOutShadowBufferReqs bool `json:"is_sending_out_shadow_buffer_reqs"`
-	IsHandlingWfCompletionEvent  bool `json:"is_handling_wf_completion_event"`
-
-	// HasFlushReq, FlushReqID, and FlushReqSrc record the pipeline flush
-	// request currently being served (v4: currentFlushReq).
-	HasFlushReq bool                 `json:"has_flush_req"`
-	FlushReqID  uint64               `json:"flush_req_id"`
-	FlushReqSrc messaging.RemotePort `json:"flush_req_src"`
-
-	// HasPendingCPRsp, PendingCPRspTo, and PendingCPRspDst record the flush
-	// response waiting to be sent to the command processor (v4: toSendToCP).
-	HasPendingCPRsp bool                 `json:"has_pending_cp_rsp"`
-	PendingCPRspTo  uint64               `json:"pending_cp_rsp_to"`
-	PendingCPRspDst messaging.RemotePort `json:"pending_cp_rsp_dst"`
 }
 
 // Resources holds the shared references that a timing ComputeUnit needs.
 type Resources struct {
 	Sampler *sampling.SampledEngine
-	Runtime *ComputeUnit
 	// Decoder decodes raw instruction bytes. Defaults to
 	// insts.NewDisassembler() when nil at Build time.
 	Decoder emu.Decoder
@@ -152,7 +149,6 @@ type Resources struct {
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
 	Top       messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
-	Ctrl      messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
 	InstMem   messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 	ScalarMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 	VectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
@@ -161,13 +157,23 @@ type Middlewares struct{ CU *cuMiddleware }
 type cuMiddleware struct{ cu *ComputeUnit }
 
 func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
-func (m *Middlewares) Initialize(c *Comp)        { m.CU = &cuMiddleware{cu: c.Resources.Runtime} }
+func (m *Middlewares) Initialize(c *Comp) {
+	cu := &ComputeUnit{comp: c, Decoder: c.Resources.Decoder}
+	m.CU = &cuMiddleware{cu: cu}
+	cu.initializeUnits()
+}
 
 // MiddlewareOf returns the ComputeUnit middleware attached to a timing
 // compute-unit component. It is used by external code (e.g., the ISA
 // debugger) that needs access to the register files and other complex
 // runtime state.
-func MiddlewareOf(comp *Comp) *ComputeUnit { return comp.Resources.Runtime }
+func MiddlewareOf(comp *Comp) *ComputeUnit {
+	if comp.Middlewares.CU == nil {
+		panic("cu: middleware is not constructed")
+	}
+	cu := comp.Middlewares.CU.cu
+	return cu
+}
 
 // DispatcherView adapts a timing ComputeUnit to the interface that the
 // command processor's resource pool expects from a dispatchable CU.
@@ -179,12 +185,6 @@ type DispatcherView struct {
 // work-groups to the CU.
 func (v DispatcherView) DispatchingPort() messaging.RemotePort {
 	return v.CU.Ports.Top.AsRemote()
-}
-
-// ControlPort returns the port that can receive controlling messages from
-// the Command Processor.
-func (v DispatcherView) ControlPort() messaging.RemotePort {
-	return v.CU.Ports.Ctrl.AsRemote()
 }
 
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD
