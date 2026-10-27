@@ -80,7 +80,8 @@ func (s *SchedulerImpl) Run() bool {
 func (s *SchedulerImpl) tickScoreboards() bool {
 	ticked := false
 	for _, wfPool := range s.cu.WfPools {
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if wf.scoreboard() != nil {
 				sb := wf.scoreboard()
 				if sb.AnyBusy() {
@@ -97,7 +98,8 @@ func (s *SchedulerImpl) tickScoreboards() bool {
 func (s *SchedulerImpl) DecodeNextInst() bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if len(wf.execution().InstBuffer) == 0 {
 				wf.execution().InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 				continue
@@ -107,7 +109,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				continue
 			}
 
-			if wf.NextInst() != nil {
+			if wf.execution().ToIssueID != 0 {
 				continue
 			}
 
@@ -207,24 +209,24 @@ func (s *SchedulerImpl) DoIssue() bool {
 	if s.state().Paused == false {
 		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 		for _, wf := range wfs {
-			if wf.NextInst().ExeUnit == insts.ExeUnitSpecial {
+			inst := wf.NextInst()
+			if inst.ExeUnit == insts.ExeUnitSpecial {
 				madeProgress = s.issueToInternal(wf) || madeProgress
 
 				continue
 			}
 
-			unit := s.getUnitToIssueTo(wf.NextInst().ExeUnit)
+			unit := s.getUnitToIssueTo(inst.ExeUnit)
 			if unit.CanAcceptWave() {
-				wf.SetDynamicInst(wf.NextInst())
-				wf.SetNextInst(nil)
+				wf.issueNext()
 
-				s.cu.logInstTask(wf, wf.DynamicInst(), false)
+				s.cu.logInstTask(wf, inst, false)
 
 				if s.scoreboardEnabled && wf.scoreboard() != nil {
-					latency := GetScoreboardLatency(wf.DynamicInst().Inst)
+					latency := GetScoreboardLatency(inst.Inst)
 					if latency > 0 {
 						wf.scoreboard().MarkBusy(
-							wf.DynamicInst().Inst, latency)
+							inst.Inst, latency)
 					}
 				}
 
@@ -239,8 +241,7 @@ func (s *SchedulerImpl) DoIssue() bool {
 }
 
 func (s *SchedulerImpl) issueToInternal(wf *Wavefront) bool {
-	wf.SetDynamicInst(wf.NextInst())
-	wf.SetNextInst(nil)
+	wf.issueNext()
 	s.state().Internal = append(s.state().Internal, s.cu.useWave(wf))
 	wf.execution().State = wavefront.WfRunning
 
@@ -284,7 +285,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 		instCompleted := false
 		passBarrier := false
 
-		switch executing.Inst().Opcode {
+		switch instruction.Opcode {
 		case 1: // S_ENDPGM
 			instProgress, instCompleted = s.evalSEndPgm(executing)
 		case 10: // S_BARRIER
@@ -307,6 +308,9 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 
 		if instCompleted {
 			s.cu.logInstTask(executing, instruction, true)
+			if executing.execution().State == wavefront.WfCompleted {
+				s.cu.endWaveTask(executing)
+			}
 		} else {
 			newExecuting = append(newExecuting, id)
 		}
@@ -320,6 +324,7 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 func (s *SchedulerImpl) evalSEndPgm(
 	wf *Wavefront,
 ) (madeProgress bool, instCompleted bool) {
+	wf.state().StopFetch = true
 	if wf.execution().OutstandingVectorMemAccess > 0 ||
 		wf.execution().OutstandingScalarMemAccess > 0 {
 		return false, false
@@ -337,56 +342,13 @@ func (s *SchedulerImpl) evalSEndPgm(
 		}
 	}
 
-	allCompleted := s.areAllOtherWfsInWGCompleted(wf.group(), wf)
-
-	// The only path that cannot retire this tick is the work-group-completing
-	// one when the ACE port is full. Decide that here, before emitting the
-	// milestone, so a retry does not re-emit it.
-	if allCompleted && !s.cu.acePort().CanSend() {
-		return false, false
-	}
-
-	// S_ENDPGM will retire this tick: mark the end of the drain wait exactly
-	// once, before any branch below ends the inst task (the barrier and
-	// executing paths close it via logInstTask).
 	s.markMemDrained(wf, "s_endpgm")
-
-	// Cap the wavefront's final execution burst with a work milestone before it
-	// completes. The tail can keep InFlightInsts > 0 (e.g. a long outstanding
-	// VMem) right up to S_ENDPGM, so no count->0 work milestone fires on its own;
-	// without this the busy tail would be left unattributed.
 	s.cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
-
-	if allCompleted {
-		s.sendWGCompletionMessage(wf.group())
-
-		wf.execution().State = wavefront.WfCompleted
-
-		s.resetRegisterValue(wf)
-		s.cu.clearWGResource(wf.group())
-
-		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
-		delete(s.cu.comp.State.WFTasks, wf.UID)
-		s.cu.completeWGTask(wf.group().state().Request.ID)
-	} else if s.areAllOtherWfsInWGAtBarrier(wf.group(), wf) {
+	if s.areAllOtherWfsInWGAtBarrier(wf.group(), wf) && !s.areAllOtherWfsInWGCompleted(wf.group(), wf) {
 		s.passBarrier(wf.group())
-		s.resetRegisterValue(wf)
-
-		wf.execution().State = wavefront.WfCompleted
-
-		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
-		delete(s.cu.comp.State.WFTasks, wf.UID)
-	} else if s.atLeaseOneWfIsExecuting(wf.group()) {
-		s.resetRegisterValue(wf)
-
-		wf.execution().State = wavefront.WfCompleted
-
-		s.cu.logInstTask(wf, wf.DynamicInst(), true)
-		s.cu.comp.TaskTracker().EndTask(s.cu.comp.State.WFTasks[wf.UID])
-		delete(s.cu.comp.State.WFTasks, wf.UID)
-	} else {
-		panic("never")
 	}
+	s.resetRegisterValue(wf)
+	wf.execution().State = wavefront.WfCompleted
 
 	return true, true
 }
@@ -408,21 +370,12 @@ func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
 	return true
 }
 
-func (s *SchedulerImpl) atLeaseOneWfIsExecuting(
-	wg *WorkGroup,
-) bool {
-	for _, wf := range wg.waves() {
-		if wf.execution().State == wavefront.WfRunning || wf.execution().State == wavefront.WfReady {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (s *SchedulerImpl) sendWGCompletionMessage(
 	wg *WorkGroup,
 ) (done bool) {
+	if !s.cu.acePort().CanSend() {
+		return false
+	}
 	mapReq := wg.state().Request
 	dispatcher := mapReq.Src
 
@@ -431,10 +384,6 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 		Dst: dispatcher,
 		Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapReq.ID},
 			Timings: workGroupTimings(wg)}}
-
-	if !s.cu.acePort().CanSend() {
-		return false
-	}
 
 	s.cu.acePort().Send(msg)
 

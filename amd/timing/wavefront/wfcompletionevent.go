@@ -10,6 +10,7 @@ import (
 // same handler ID when constructing the event.
 type WfCompletionEvent struct {
 	timing.EventBase
+	// WavefrontID is the receiving CU's generation-bearing local slot handle.
 	WavefrontID uint64
 }
 

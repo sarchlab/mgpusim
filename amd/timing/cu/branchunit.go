@@ -70,7 +70,7 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.state().Write == 0 {
-		u.alu.Run(u.cu.wave(u.state().Exec))
+		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 
 		u.state().Write = u.state().Exec
 		u.state().Exec = 0

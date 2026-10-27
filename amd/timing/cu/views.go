@@ -2,8 +2,6 @@ package cu
 
 import (
 	"fmt"
-	"log"
-	"math"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -14,40 +12,37 @@ import (
 // Wavefront is an ID view. It never retains a pointer into component State.
 // Views are created for an operation; every accessor resolves the current State.
 type Wavefront struct {
-	cu  *ComputeUnit
-	UID uint64
+	cu     *ComputeUnit
+	UID    uint64
+	handle uint64
 }
 
 // WorkGroup is an ID view of the canonical group in component State.
 type WorkGroup struct {
-	cu  *ComputeUnit
-	UID uint64
+	cu   *ComputeUnit
+	UID  uint64
+	slot int
 }
 
-// WaveLocation is a checkpointed index into the canonical work-group wave array.
-type WaveLocation struct {
-	Group int
-	Index int
-}
-
-func (wf *Wavefront) location() WaveLocation {
-	loc, ok := wf.cu.comp.State.WaveLocations[wf.UID]
-	if !ok {
-		panic(fmt.Sprintf("cu: unknown wavefront %d", wf.UID))
-	}
-	return loc
+func slotIndex(handle uint64) int { return int(uint32(handle)) - 1 }
+func waveHandle(index int, generation uint32) uint64 {
+	return uint64(generation)<<32 | uint64(index+1)
 }
 func (wf *Wavefront) state() *WaveState {
-	loc := wf.location()
-	return &wf.cu.comp.State.Groups[loc.Group].Waves[loc.Index]
+	s := &wf.cu.comp.State.Waves[slotIndex(wf.handle)]
+	if s.ID != wf.UID || s.Generation != uint32(wf.handle>>32) || s.ID == 0 {
+		panic(fmt.Sprintf("cu: stale wavefront %d", wf.UID))
+	}
+	return s
 }
 func (wf *Wavefront) execution() *wavefront.ExecutionState { return &wf.state().Execution }
 func (wf *Wavefront) raw() *kernels.WavefrontValue {
-	loc := wf.location()
-	return &wf.cu.comp.State.Groups[loc.Group].Raw.Wavefronts[loc.Index]
+	s := wf.state()
+	return &wf.cu.comp.State.Groups[s.Group].Raw.Wavefronts[s.Index]
 }
 func (wf *Wavefront) group() *WorkGroup {
-	return &WorkGroup{cu: wf.cu, UID: wf.cu.comp.State.Groups[wf.location().Group].Raw.UID}
+	index := wf.state().Group
+	return &WorkGroup{cu: wf.cu, UID: wf.cu.comp.State.Groups[index].Raw.UID, slot: index}
 }
 func (wf *Wavefront) packet() *kernels.HsaKernelDispatchPacket { return wf.group().packet() }
 func (wf *Wavefront) codeObject() *insts.KernelCodeObject      { return wf.group().codeObject() }
@@ -59,14 +54,13 @@ func (wf *Wavefront) scoreboard() *Scoreboard {
 	return &s.Scoreboard
 }
 func (wf *Wavefront) regAccessor() *CURegFileAccessor { return &CURegFileAccessor{CU: wf.cu, WF: wf} }
-func (cu *ComputeUnit) groupState(id uint64) *WorkGroupState {
-	index, ok := cu.comp.State.GroupLocations[id]
-	if !ok {
-		panic(fmt.Sprintf("cu: unknown work-group %d", id))
+func (wg *WorkGroup) state() *WorkGroupState {
+	s := &wg.cu.comp.State.Groups[wg.slot]
+	if !s.Occupied || s.Raw.UID != wg.UID {
+		panic("cu: stale work-group")
 	}
-	return &cu.comp.State.Groups[index]
+	return s
 }
-func (wg *WorkGroup) state() *WorkGroupState       { return wg.cu.groupState(wg.UID) }
 func (wg *WorkGroup) raw() *kernels.WorkGroupValue { return &wg.state().Raw }
 func (wg *WorkGroup) packet() *kernels.HsaKernelDispatchPacket {
 	p := wg.raw().Packet
@@ -95,7 +89,7 @@ func (wg *WorkGroup) waves() []*Wavefront {
 	s := wg.state()
 	out := make([]*Wavefront, len(s.Waves))
 	for i := range s.Waves {
-		out[i] = wg.cu.wave(s.Waves[i].ID)
+		out[i] = wg.cu.wave(s.Waves[i])
 	}
 	return out
 }
@@ -127,143 +121,27 @@ func (wf *Wavefront) ManagedInst() *wavefront.Inst {
 	return wf.cu.instruction(wf.execution().InstID)
 }
 
-// PID returns pid
-func (wf *Wavefront) PID() vm.PID {
-	return wf.execution().PID
-}
-
-// SetPID sets pid
-func (wf *Wavefront) SetPID(pid vm.PID) {
-	wf.execution().PID = pid
-}
-
-// PC returns the program counter
-func (wf *Wavefront) PC() uint64 {
-	return wf.execution().PC
-}
-
-// SetPC sets the program counter
-func (wf *Wavefront) SetPC(v uint64) {
-	wf.execution().PC = v
-}
-
-// EXEC returns the exec mask
-func (wf *Wavefront) EXEC() uint64 {
-	return wf.execution().EXEC
-}
-
-// SetEXEC sets the exec mask
-func (wf *Wavefront) SetEXEC(v uint64) {
-	wf.execution().EXEC = v
-}
-
-// VCC returns the vector condition code
-func (wf *Wavefront) VCC() uint64 {
-	return wf.execution().VCC
-}
-
-// SetVCC sets the vector condition code
-func (wf *Wavefront) SetVCC(v uint64) {
-	wf.execution().VCC = v
-}
-
-// SCC returns the scalar condition code
-func (wf *Wavefront) SCC() byte {
-	return wf.execution().SCC
-}
-
-// SetSCC sets the scalar condition code
-func (wf *Wavefront) SetSCC(v byte) {
-	wf.execution().SCC = v
-}
-
-// ReadOperand reads the value of an operand using the RegFileAccessor
+func (wf *Wavefront) PID() vm.PID       { return wf.operation().PID() }
+func (wf *Wavefront) SetPID(pid vm.PID) { wf.operation().SetPID(pid) }
+func (wf *Wavefront) PC() uint64        { return wf.operation().PC() }
+func (wf *Wavefront) SetPC(v uint64)    { wf.operation().SetPC(v) }
+func (wf *Wavefront) EXEC() uint64      { return wf.operation().EXEC() }
+func (wf *Wavefront) SetEXEC(v uint64)  { wf.operation().SetEXEC(v) }
+func (wf *Wavefront) VCC() uint64       { return wf.operation().VCC() }
+func (wf *Wavefront) SetVCC(v uint64)   { wf.operation().SetVCC(v) }
+func (wf *Wavefront) SCC() byte         { return wf.operation().SCC() }
+func (wf *Wavefront) SetSCC(v byte)     { wf.operation().SetSCC(v) }
 func (wf *Wavefront) ReadOperand(operand *insts.Operand, laneID int) uint64 {
-	switch operand.OperandType {
-	case insts.RegOperand:
-		waveOffset := wf.execution().SRegOffset
-		if operand.Register.IsVReg() {
-			waveOffset = wf.execution().VRegOffset
-		}
-		buf := wf.regAccessor().ReadReg(operand.Register, operand.RegCount, laneID, waveOffset)
-		if len(buf) < 8 {
-			padded := make([]byte, 8)
-			copy(padded, buf)
-			buf = padded
-		}
-		return insts.BytesToUint64(buf)
-	case insts.IntOperand:
-		return uint64(operand.IntValue)
-	case insts.FloatOperand:
-		return uint64(math.Float32bits(float32(operand.FloatValue)))
-	case insts.LiteralConstant:
-		return uint64(operand.LiteralConstant)
-	default:
-		log.Panicf("Unsupported operand type: %s", operand.String())
-		return 0
-	}
+	return wf.operation().ReadOperand(operand, laneID)
 }
-
-// WriteOperand writes a value to an operand using the RegFileAccessor
 func (wf *Wavefront) WriteOperand(operand *insts.Operand, laneID int, value uint64) {
-	if operand.OperandType != insts.RegOperand {
-		log.Panicf("Cannot write to non-register operand: %s", operand.String())
-	}
-
-	numBytes := operand.Register.ByteSize
-	if operand.RegCount >= 2 {
-		numBytes *= operand.RegCount
-	}
-
-	waveOffset := wf.execution().SRegOffset
-	if operand.Register.IsVReg() {
-		waveOffset = wf.execution().VRegOffset
-	}
-
-	data := insts.Uint64ToBytes(value)
-	wf.regAccessor().WriteReg(operand.Register, operand.RegCount, laneID, waveOffset, data[:numBytes])
+	wf.operation().WriteOperand(operand, laneID, value)
 }
-
-// ReadOperandBytes reads the raw bytes of an operand
 func (wf *Wavefront) ReadOperandBytes(operand *insts.Operand, laneID int, byteCount int) []byte {
-	switch operand.OperandType {
-	case insts.RegOperand:
-		waveOffset := wf.execution().SRegOffset
-		if operand.Register.IsVReg() {
-			waveOffset = wf.execution().VRegOffset
-		}
-		buf := wf.regAccessor().ReadReg(operand.Register, operand.RegCount, laneID, waveOffset)
-		if len(buf) > byteCount {
-			return buf[:byteCount]
-		}
-		return buf
-	case insts.IntOperand:
-		data := insts.Uint64ToBytes(uint64(operand.IntValue))
-		return data[:byteCount]
-	case insts.FloatOperand:
-		data := insts.Uint64ToBytes(uint64(math.Float32bits(float32(operand.FloatValue))))
-		return data[:byteCount]
-	case insts.LiteralConstant:
-		data := insts.Uint64ToBytes(uint64(operand.LiteralConstant))
-		return data[:byteCount]
-	default:
-		log.Panicf("Unsupported operand type: %s", operand.String())
-		return nil
-	}
+	return wf.operation().ReadOperandBytes(operand, laneID, byteCount)
 }
-
-// WriteOperandBytes writes raw bytes to an operand
 func (wf *Wavefront) WriteOperandBytes(operand *insts.Operand, laneID int, data []byte) {
-	if operand.OperandType != insts.RegOperand {
-		log.Panicf("Cannot write to non-register operand: %s", operand.String())
-	}
-
-	waveOffset := wf.execution().SRegOffset
-	if operand.Register.IsVReg() {
-		waveOffset = wf.execution().VRegOffset
-	}
-
-	wf.regAccessor().WriteReg(operand.Register, operand.RegCount, laneID, waveOffset, data)
+	wf.operation().WriteOperandBytes(operand, laneID, data)
 }
 
 // NextInst returns the decoded instruction awaiting issue.
@@ -274,5 +152,14 @@ func (wf *Wavefront) SetNextInst(i *wavefront.Inst) {
 	old := wf.execution().ToIssueID
 	wf.cu.rememberInstruction(i)
 	wf.execution().ToIssueID = instID(i)
+	wf.cu.releaseInstruction(old)
+}
+
+// issueNext transfers canonical instruction ownership without re-registering
+// or decoding it. The previous instruction may still belong to memory traffic.
+func (wf *Wavefront) issueNext() {
+	state := wf.execution()
+	old := state.InstID
+	state.InstID, state.ToIssueID = state.ToIssueID, 0
 	wf.cu.releaseInstruction(old)
 }

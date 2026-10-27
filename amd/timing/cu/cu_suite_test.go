@@ -188,18 +188,28 @@ func registerTestWave(c *ComputeUnit, w *Wavefront) {
 		c.VRegFile = source.VRegFile
 	}
 	group := w.group()
-	g := group.state()
-	putTestGroup(c, group.UID, *g)
-	for i := range g.Waves {
-		v := &g.Waves[i]
-		c.comp.State.WaveLocations[v.ID] = WaveLocation{Group: c.comp.State.GroupLocations[group.UID], Index: i}
-		for _, id := range []uint64{v.Execution.InstID, v.Execution.ToIssueID} {
+	target := findTestGroup(c, group.UID)
+	if target == nil {
+		target = c.allocateGroup(group.state().Raw, group.state().Request)
+		target.state().LDS = group.state().LDS
+	}
+	target.state().Raw = group.state().Raw
+	for _, old := range group.waves() {
+		if c.findWavefront(old.UID) != nil {
+			continue
+		}
+		value := *old.state()
+		c.allocateWave(target, value.Index, value)
+		for _, id := range []uint64{value.Execution.InstID, value.Execution.ToIssueID} {
 			if id != 0 {
 				c.comp.State.Instructions[id] = source.comp.State.Instructions[id]
 			}
 		}
 	}
-	w.cu = c
+	if original := fixtureGroups[group.UID]; original != nil {
+		*original = *target
+	}
+	*w = *c.wavefrontByID(w.UID)
 }
 func testWaveID(c *ComputeUnit, w *Wavefront) uint64 {
 	registerTestWave(c, w)
@@ -241,6 +251,8 @@ func testVectorStates(c *ComputeUnit, vs []VectorMemAccessInfo) []VectorAccessSt
 
 // Fixtures use synthetic instruction encodings to exercise units independently
 // of the real ISA decoder. Production views still resolve the canonical encoding.
+var fixtureGroups = map[uint64]*WorkGroup{}
+
 var fixtureInstructions = map[string]*insts.Inst{}
 
 type fixtureDecoder struct{}
@@ -272,8 +284,9 @@ func newTestRawGroup(raw *kernels.WorkGroup, req messaging.Msg) *WorkGroup {
 		raw.UID = testIDs.NewID()
 	}
 	value := kernels.WorkGroupSnapshot(raw)
-	putTestGroup(c, raw.UID, WorkGroupState{Raw: value, Request: req})
-	return &WorkGroup{cu: c, UID: raw.UID}
+	g := c.allocateGroup(value, req)
+	fixtureGroups[g.UID] = g
+	return g
 }
 func newTestRawWave(raw *kernels.Wavefront) *Wavefront {
 	if raw == nil {
@@ -296,10 +309,8 @@ func newTestRawWave(raw *kernels.Wavefront) *Wavefront {
 	g := wg.state()
 	g.Raw.Wavefronts = []kernels.WavefrontValue{{UID: raw.UID, PacketAddress: raw.PacketAddress,
 		FirstWiFlatID: raw.FirstWiFlatID, InitExecMask: raw.InitExecMask}}
-	g.Waves = []WaveState{{ID: raw.UID, Execution: wavefront.ExecutionState{InstBuffer: make([]byte, 0, 256)}}}
-
-	wg.cu.comp.State.WaveLocations[raw.UID] = WaveLocation{Group: wg.cu.comp.State.GroupLocations[wg.UID], Index: 0}
-	return &Wavefront{cu: wg.cu, UID: raw.UID}
+	return wg.cu.allocateWave(wg, 0, WaveState{ID: raw.UID,
+		Execution: wavefront.ExecutionState{InstBuffer: make([]byte, 0, 256)}})
 }
 func setTestGroup(w *Wavefront, g *WorkGroup) {
 	state := *w.state()
@@ -313,27 +324,31 @@ func setTestGroup(w *Wavefront, g *WorkGroup) {
 		dst.Raw.Packet = w.group().raw().Packet
 	}
 	index := len(dst.Waves)
-	for i := range dst.Waves {
-		if dst.Waves[i].ID == w.UID {
-			index = i
-			break
-		}
-	}
-	if index == len(dst.Waves) {
-		dst.Waves = append(dst.Waves, state)
+	existing := g.cu.findWavefront(w.UID)
+	if existing == nil {
+		existing = g.cu.allocateWave(g, index, state)
 		dst.Raw.Wavefronts = append(dst.Raw.Wavefronts, raw)
 	} else {
-		dst.Waves[index] = state
-		dst.Raw.Wavefronts[index] = raw
+		old := existing.state()
+		if old.Group != g.slot {
+			previous := existing.group().state()
+			for i, h := range previous.Waves {
+				if h == existing.handle {
+					previous.Waves = append(previous.Waves[:i], previous.Waves[i+1:]...)
+					break
+				}
+			}
+			old.Group, old.Index = g.slot, index
+			dst.Waves = append(dst.Waves, existing.handle)
+			dst.Raw.Wavefronts = append(dst.Raw.Wavefronts, raw)
+		}
 	}
-
-	g.cu.comp.State.WaveLocations[w.UID] = WaveLocation{Group: g.cu.comp.State.GroupLocations[g.UID], Index: index}
 	for _, id := range []uint64{state.Execution.InstID, state.Execution.ToIssueID} {
 		if id != 0 {
 			g.cu.comp.State.Instructions[id] = source.comp.State.Instructions[id]
 		}
 	}
-	w.cu = g.cu
+	*w = *existing
 }
 func setTestWaves(g *WorkGroup, ws []*Wavefront) {
 	for _, w := range ws {
@@ -383,11 +398,30 @@ func setTestRequest(wg *WorkGroup, r messaging.Msg) {
 	g.Request = r
 }
 
-func putTestGroup(c *ComputeUnit, id uint64, g WorkGroupState) {
-	if index, ok := c.comp.State.GroupLocations[id]; ok {
-		c.comp.State.Groups[index] = g
-	} else {
-		c.comp.State.GroupLocations[id] = len(c.comp.State.Groups)
-		c.comp.State.Groups = append(c.comp.State.Groups, g)
+func findTestGroup(c *ComputeUnit, id uint64) *WorkGroup {
+	for i := range c.comp.State.Groups {
+		g := &c.comp.State.Groups[i]
+		if g.Occupied && g.Raw.UID == id {
+			return &WorkGroup{cu: c, UID: id, slot: i}
+		}
 	}
+	return nil
+}
+func liveTestGroups(s *State) int {
+	n := 0
+	for i := range s.Groups {
+		if s.Groups[i].Occupied {
+			n++
+		}
+	}
+	return n
+}
+func liveTestWaves(s *State) int {
+	n := 0
+	for i := range s.Waves {
+		if s.Waves[i].ID != 0 {
+			n++
+		}
+	}
+	return n
 }

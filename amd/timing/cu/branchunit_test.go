@@ -65,7 +65,7 @@ var _ = Describe("Branch Unit", func() {
 		Expect(cu.wave(bu.state().Exec)).To(Equal(wave1))
 		Expect(cu.wave(bu.state().Read)).To(BeNil())
 
-		Expect(alu.wfExecuted).To(Equal(wave2))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
 		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 

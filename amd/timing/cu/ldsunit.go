@@ -73,7 +73,7 @@ func (u *LDSUnit) runExecStage() bool {
 	if u.state().Cycles == 0 {
 		u.alu.SetLDS(u.cu.wave(u.state().Exec).group().state().LDS)
 		defer u.alu.SetLDS(nil)
-		u.alu.Run(u.cu.wave(u.state().Exec))
+		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 		u.state().Cycles = 14
 		return true
 	}

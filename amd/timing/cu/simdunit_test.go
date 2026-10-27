@@ -70,7 +70,7 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(cu.wave(bu.state().Exec)).To(BeNil())
 		Expect(bu.state().Cycles).To(Equal(0))
 
-		Expect(alu.wfExecuted).To(Equal(wave))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave.execution()))
 
 		Expect(wave.execution().InstBuffer).To(HaveLen(192))
 

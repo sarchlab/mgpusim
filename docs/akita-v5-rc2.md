@@ -140,20 +140,32 @@ differ from the final reporter, while counts and simulation times are unchanged.
 A timing CU is one ticking component. Its `State` owns work-group and wavefront
 execution values, shared LDS, scoreboards, register bytes, instruction encodings,
 in-flight memory records, scheduler queues, decoder progress, SIMD slots, and
-vector-memory pipelines. Queue and pipeline references use simulation IDs.
+vector-memory pipelines. Queue, pipeline, and sampled-event references use
+CU-local slot handles containing a slot index and generation. Global wave UIDs
+remain the tracing and protocol identity.
 There is no CU Runtime resource or per-SIMD checkpoint resource, and saving does
 not collect a second execution graph. Finished instructions are retired when
-neither wavefronts nor in-flight requests reference them. A completed work-group
-remains in State while a fetch-ahead response or another pipeline reference still
-needs its wavefronts.
+neither wavefronts nor in-flight requests reference them. Execution completion
+stops further instruction fetch. A terminal wave keeps
+its original hardware slot until dependent requests and pipeline work drain.
+The work-group completion message releases CP resources only after this drain;
+a full completion port retains the slots and schedules a retry. This is a
+conservative modeling choice, so workloads with late fetch replies may finish
+later than with early CP release. There is no retired-wave spill storage.
+
+The work-group's final S_ENDPGM task closes before its wavefront task; completion
+port retries do not replay either completion. The previous final-wave completion
+branch closed the wavefront first, omitting the last S_ENDPGM interval from some
+CPI Special buckets. Including this interval
+can change those buckets without changing instruction counts or simulation time.
 
 `Middlewares.Initialize` creates the scheduler and execution-unit behavior.
 Wavefront and work-group views live in the `cu` package and carry only their CU
-owner and simulation ID. Every operation resolves the current `State`; the
-checkpointed `State.WaveLocations` index locates each wave directly in the dense
-`State.Groups` array, while `State.GroupLocations` resolves group IDs. Retirement
-compacts the array and updates the moved group's indexes; scheduler ordering is
-still defined by its separate ID queues.
+owner, slot handle, and global UID. `State.Initialize` allocates fixed-length
+`State.Waves` and `State.Groups` arrays, each bounded by `numWfPools * WfPoolSize`.
+Retirement clears occupancy without resizing or moving slots. Wave state links
+directly to its group slot; generation checks reject stale recycled handles.
+Scheduler ordering is still defined by its membership queues.
 Replacing State therefore requires no invalidation sentinel, rebinding callback,
 load hook, or subsequent tick. Previously acquired ID views and register-file
 accessors see the replacement immediately, as long as the referenced ID remains
@@ -162,7 +174,9 @@ operation that obtained them.
 
 Pools, barriers, pipelines, and memory requests resolve the same canonical wave
 values; all waves of a group share its canonical LDS. The ALU borrows LDS only
-for an execution call and releases that reference before returning. Instruction
+for an execution call and releases that reference before returning. ALU and
+coalescing operations resolve a call-local state/register adapter once for all
+lanes and retain no state references after the call. Instruction
 encodings remain in State; decoded instructions are temporary operation values.
 A pure decode cache for the built-in disassembler is keyed by the full instruction
 encoding, decoder instance (which owns its fixed ISA tables), and CDNA3 mode. Custom

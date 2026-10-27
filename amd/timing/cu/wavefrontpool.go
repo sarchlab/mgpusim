@@ -25,9 +25,12 @@ func (p *WavefrontPool) Availability() int { return p.Capacity - len(p.cu.comp.S
 func (p *WavefrontPool) RemoveWf(w *Wavefront) {
 	ids := p.cu.comp.State.Pools[p.index]
 	for i, id := range ids {
-		if id == w.UID {
+		if id == w.handle {
 			p.cu.comp.State.Pools[p.index] = append(ids[:i], ids[i+1:]...)
 			return
 		}
 	}
 }
+
+// ids returns membership for an immediate operation, never for retention.
+func (p *WavefrontPool) ids() []uint64 { return p.cu.comp.State.Pools[p.index] }

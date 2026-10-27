@@ -106,8 +106,7 @@ type Spec struct {
 type State struct {
 	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
 	Groups                                    []WorkGroupState
-	GroupLocations                            map[uint64]int
-	WaveLocations                             map[uint64]WaveLocation
+	Waves                                     []WaveState
 	Instructions                              map[uint64]InstructionState
 	Pools                                     [][]uint64
 	InstFetch, ShadowInstFetch                []FetchState

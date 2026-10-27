@@ -14,20 +14,21 @@ type defaultCoalescer struct {
 func (c defaultCoalescer) generateMemTransactions(
 	wf *Wavefront,
 ) []VectorMemAccessInfo {
-	c.mustBeAFlatLoadOrStore(wf)
+	op := wf.emulation()
+	c.mustBeAFlatLoadOrStore(op)
 	var transactions []VectorMemAccessInfo
-	if c.isLoadInst(wf.Inst()) {
-		reqs := c.generateReadReqs(wf)
-		transactions = c.generateReadTransactions(wf, reqs)
+	if c.isLoadInst(op.Inst()) {
+		reqs := c.generateReadReqs(op)
+		transactions = c.generateReadTransactions(op, reqs)
 	} else {
-		reqs := c.generateWriteReqs(wf)
-		transactions = c.generateWriteTransactions(wf, reqs)
+		reqs := c.generateWriteReqs(op)
+		transactions = c.generateWriteTransactions(op, reqs)
 	}
 	return transactions
 }
 
 func (c defaultCoalescer) mustBeAFlatLoadOrStore(
-	wf *Wavefront,
+	wf *operationWave,
 ) {
 	if wf.Inst().FormatType != insts.FLAT {
 		panic("must be a flat instruction")
@@ -39,7 +40,7 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 }
 
 func (c defaultCoalescer) generateReadReqs(
-	wf *Wavefront,
+	wf *operationWave,
 ) []messaging.Msg {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -61,7 +62,7 @@ func (c defaultCoalescer) generateReadReqs(
 }
 
 func (c defaultCoalescer) generateWriteReqs(
-	wf *Wavefront,
+	wf *operationWave,
 ) []messaging.Msg {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -90,14 +91,14 @@ func (c defaultCoalescer) generateWriteReqs(
 }
 
 func (c defaultCoalescer) generateReadTransactions(
-	wf *Wavefront,
+	wf *operationWave,
 	reqs []messaging.Msg,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
 		transaction := VectorMemAccessInfo{
 			Read:      req,
-			Wavefront: wf,
+			Wavefront: wf.view,
 			Inst:      wf.DynamicInst(),
 		}
 
@@ -109,14 +110,14 @@ func (c defaultCoalescer) generateReadTransactions(
 }
 
 func (c defaultCoalescer) generateWriteTransactions(
-	wf *Wavefront,
+	wf *operationWave,
 	reqs []messaging.Msg,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
 		transaction := VectorMemAccessInfo{
 			Write:     req,
-			Wavefront: wf,
+			Wavefront: wf.view,
 			Inst:      wf.DynamicInst(),
 		}
 
@@ -198,7 +199,7 @@ func (c defaultCoalescer) addressRangeMustFallInReq(
 
 func (c defaultCoalescer) addLaneInfo(
 	transaction *VectorMemAccessInfo,
-	wf *Wavefront,
+	wf *operationWave,
 ) {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -228,7 +229,7 @@ func (c defaultCoalescer) addLaneInfo(
 }
 
 func (c defaultCoalescer) readFlatAddr(
-	wf *Wavefront,
+	wf *operationWave,
 	inst *insts.Inst,
 	laneID int,
 ) uint64 {

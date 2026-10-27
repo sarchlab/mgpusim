@@ -93,7 +93,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wave.UID})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wfID(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
@@ -127,7 +127,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wave.UID})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wfID(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()

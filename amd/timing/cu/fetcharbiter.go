@@ -22,7 +22,8 @@ func (a *FetchArbiter) Arbitrate(
 	oldestTime := timing.VTimeInPicoSec(math.MaxUint64)
 	var toFetch *Wavefront
 	for _, wfPool := range wfPools {
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if !a.canFetchFromWF(wf) {
 				continue
 			}
@@ -43,7 +44,7 @@ func (a *FetchArbiter) Arbitrate(
 
 func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	state := wf.execution()
-	if state.IsFetching {
+	if wf.state().StopFetch || state.IsFetching {
 		return false
 	}
 

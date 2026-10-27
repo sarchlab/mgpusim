@@ -15,16 +15,19 @@ type InstructionState struct {
 }
 type WaveState struct {
 	ID            uint64
+	Generation    uint32
+	Group, Index  int
+	StopFetch     bool
 	Execution     wavefront.ExecutionState
 	HasScoreboard bool
 	Scoreboard    Scoreboard
 }
 type WorkGroupState struct {
-	Completed bool
-	Raw       kernels.WorkGroupValue
-	Request   messaging.Msg
-	LDS       []byte
-	Waves     []WaveState
+	Occupied bool
+	Raw      kernels.WorkGroupValue
+	Request  messaging.Msg
+	LDS      []byte
+	Waves    []uint64
 }
 type FetchState struct {
 	Req               messaging.Msg
@@ -97,7 +100,8 @@ func (s *State) Initialize(c *Comp) {
 	*s = State{
 		InstTasks: make(map[uint64]uint64), WFTasks: make(map[uint64]uint64),
 		WGTasks: make(map[uint64]uint64), RequestTasks: make(map[uint64]uint64),
-		GroupLocations: make(map[uint64]int), WaveLocations: make(map[uint64]WaveLocation),
+		Groups:       make([]WorkGroupState, numWfPools*c.Spec.WfPoolSize),
+		Waves:        make([]WaveState, numWfPools*c.Spec.WfPoolSize),
 		Instructions: make(map[uint64]InstructionState),
 		WFTimes:      make(map[uint64]timing.VTimeInPicoSec), Pools: make([][]uint64, numWfPools),
 		SRegisters: make([]byte, c.Spec.SGPRCount*4), VRegisters: make([][]byte, c.Spec.SIMDCount),

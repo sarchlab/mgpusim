@@ -27,7 +27,8 @@ func (a *IssueArbiter) Arbitrate(
 
 		typeMask := make([]bool, 7)
 		wfPool := wfPools[simdID]
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if wf.execution().State != wavefront.WfReady {
 				continue
 			}
@@ -64,7 +65,7 @@ func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {
 
 func (a *IssueArbiter) isAllWfPoolsEmpty(wfPools []*WavefrontPool) bool {
 	for _, wfPool := range wfPools {
-		if len(wfPool.waves()) != 0 {
+		if len(wfPool.ids()) != 0 {
 			return false
 		}
 	}

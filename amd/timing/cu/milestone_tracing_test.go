@@ -64,10 +64,8 @@ func TestSWaitCntRecordsDataMilestone(t *testing.T) {
 	}
 }
 
-// The s_endpgm milestone must be emitted exactly once. If S_ENDPGM is the last
-// wavefront in the work-group and the ACE port is full, the wavefront stays
-// pending and re-enters evalSEndPgm next tick; the milestone must not be
-// emitted on that retry, only when the instruction actually retires.
+// S_ENDPGM retires once, independently of later completion-port retries. The
+// drain milestone and instruction task must not be replayed while ACE is full.
 func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
 	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
@@ -92,19 +90,24 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	testAddWave(cu.WfPools[0], wf)
 	taskID := startTestInst(cu, wf.DynamicInst())
 
-	// ACE port full: cannot send the WGCompletion, so the wavefront stays
-	// pending. The drain milestone must not be emitted on this retry path.
+	// Execution retires independently of ACE delivery. Completion retries must
+	// retain the hardware slot and must not replay instruction milestones.
+	cu.Scheduler = s
 	ace.full = true
-	if _, completed := s.evalSEndPgm(wf); completed {
-		t.Fatal("S_ENDPGM should not complete while the ACE port is full")
+	if _, completed := s.evalSEndPgm(wf); !completed {
+		t.Fatal("execution should finish before ACE delivery")
 	}
-	if rec.has(taskID, tasks.MilestoneKindData, "s_endpgm") {
-		t.Fatal("s_endpgm milestone must not be emitted on the ACE-full retry")
+	cu.logInstTask(wf, wf.DynamicInst(), true)
+	cu.retireGroups()
+	cu.retireGroups()
+	if len(ace.sent) != 0 || wf.execution().State != wavefront.WfCompleted {
+		t.Fatal("full ACE released wave")
 	}
-
-	// ACE port free: the wavefront retires and the milestone is emitted once.
 	ace.full = false
-	s.evalSEndPgm(wf)
+	cu.retireGroups()
+	if len(ace.sent) != 1 {
+		t.Fatal("completion was not delivered exactly once")
+	}
 
 	count := 0
 	for _, m := range rec.milestones {
@@ -173,6 +176,8 @@ func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 	if _, completed := s.evalSEndPgm(wf); !completed {
 		t.Fatal("S_ENDPGM should retire on the executing branch")
 	}
+
+	cu.logInstTask(wf, wf.DynamicInst(), true)
 
 	if len(rec.events) != 2 ||
 		rec.events[0] != "milestone" || rec.events[1] != "endTask" {

@@ -3,6 +3,7 @@ package cu
 import (
 	"log"
 	"reflect"
+	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/hooking"
@@ -18,7 +19,7 @@ import (
 
 // A ComputeUnit provides a detailed and accurate simulation of a GCN3
 // ComputeUnit. It is the (single) middleware of the timing compute-unit
-// component: its Tick method reproduces the v4 ComputeUnit.Tick body, and it
+// component: its Tick method advances the pipeline and drains completed groups; it
 // also serves as the timing.Handler for the CU's custom events
 // (WfCompletionEvent, WfDispatchEvent).
 //
@@ -111,8 +112,7 @@ func (cu *ComputeUnit) CurrentTime() timing.VTimeInPicoSec {
 	return cu.comp.CurrentTime()
 }
 
-// Tick ticks. The order of the four phases reproduces the v4
-// ComputeUnit.Tick body exactly.
+// Tick advances the pipeline, handles control/input, and releases drained groups.
 func (cu *ComputeUnit) Tick() bool {
 	madeProgress := false
 
@@ -327,7 +327,8 @@ func (cu *ComputeUnit) flushInternalComponents() {
 // populateShadowBuffers, where the re-send regenerates the message ID.
 func (cu *ComputeUnit) endInflightTracingTasks() {
 	for _, wfPool := range cu.WfPools {
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if wf.execution().State != wavefront.WfRunning {
 				continue
 			}
@@ -389,39 +390,11 @@ func (cu *ComputeUnit) Handle(evt timing.Event) {
 func (cu *ComputeUnit) handleWfCompletionEvent(
 	evt wavefront.WfCompletionEvent,
 ) {
-	wf := cu.wavefrontByID(evt.WavefrontID)
+	wf := cu.wave(evt.WavefrontID)
+	wf.state().StopFetch = true
 	wf.execution().State = wavefront.WfCompleted
-	s := cu.Scheduler.(*SchedulerImpl)
-
-	if !s.areAllOtherWfsInWGCompleted(wf.group(), wf) {
-		return
-	}
-
-	now := evt.Time()
-
-	done := s.sendWGCompletionMessage(wf.group())
-	if !done {
-		newEvent := wavefront.NewWfCompletionEvent(
-			cu.comp.NewID(),
-			cu.comp.Spec.Freq.NextTick(now), cu.wfCompletionHandlerID, wf.UID)
-		cu.engine.Schedule(newEvent)
-
-		return
-	}
-
-	s.resetRegisterValue(wf)
-	cu.clearWGResource(wf.group())
-
-	// This path only runs for sampled wavefronts, each of which opened its own
-	// "wavefront" task in handleMapWGReq. The work-group completes as a unit
-	// here, so end every wavefront's task, not just the one whose completion
-	// event fired — otherwise the other wavefronts' tasks leak.
-	for _, wgWf := range wf.group().waves() {
-		cu.comp.TaskTracker().EndTask(cu.comp.State.WFTasks[wgWf.UID])
-		delete(cu.comp.State.WFTasks, wgWf.UID)
-	}
-	cu.completeWGTask(wf.group().state().Request.ID)
-	// A sampled completion may be the last event, with no subsequent CU tick.
+	cu.Scheduler.(*SchedulerImpl).resetRegisterValue(wf)
+	cu.endWaveTask(wf)
 	cu.retireGroups()
 }
 
@@ -480,7 +453,7 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 				wf.execution().State = wavefront.WfSampledCompleted
 				newEvent := wavefront.NewWfCompletionEvent(
 					cu.comp.NewID(),
-					predictedTime, cu.wfCompletionHandlerID, wf.UID)
+					predictedTime, cu.wfCompletionHandlerID, wfID(wf))
 				cu.engine.Schedule(newEvent)
 				cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 					ParentID: cu.comp.State.WGTasks[wg.state().Request.ID],
@@ -500,7 +473,9 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 
 func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
 	g := wg.state()
-	g.Completed = true
+	belongsToGroup := func(id uint64) bool { return slices.Contains(g.Waves, id) }
+	cu.comp.State.Scheduler.Internal = slices.DeleteFunc(cu.comp.State.Scheduler.Internal, belongsToGroup)
+	cu.comp.State.Scheduler.Barrier = slices.DeleteFunc(cu.comp.State.Scheduler.Barrier, belongsToGroup)
 	for _, wf := range wg.waves() {
 		wfPool := cu.WfPools[wf.execution().SIMDID]
 		wfPool.RemoveWf(wf)
@@ -518,7 +493,7 @@ func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
 
 func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 	for _, wfpool := range cu.WfPools {
-		if len(wfpool.waves()) > 0 {
+		if len(wfpool.ids()) > 0 {
 			return true
 		}
 	}
@@ -1099,7 +1074,8 @@ func (cu *ComputeUnit) populateShadowBuffers() {
 
 func (cu *ComputeUnit) setWavesToReady() {
 	for _, wfPool := range cu.WfPools {
-		for _, wf := range wfPool.waves() {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
 			if wf.execution().State != wavefront.WfCompleted {
 				wf.execution().State = wavefront.WfReady
 				wf.execution().IsFetching = false
@@ -1117,10 +1093,13 @@ func (cu *ComputeUnit) wavefrontByID(id uint64) *Wavefront {
 }
 
 func (cu *ComputeUnit) findWavefront(id uint64) *Wavefront {
-	if _, ok := cu.comp.State.WaveLocations[id]; !ok {
-		return nil
+	for index := range cu.comp.State.Waves {
+		state := &cu.comp.State.Waves[index]
+		if state.ID == id && id != 0 {
+			return &Wavefront{cu: cu, UID: id, handle: waveHandle(index, state.Generation)}
+		}
 	}
-	return &Wavefront{cu: cu, UID: id}
+	return nil
 }
 
 func (cu *ComputeUnit) startRequest(req messaging.Msg, parent uint64) {
@@ -1133,4 +1112,11 @@ func (cu *ComputeUnit) completeRequest(id uint64) {
 func (cu *ComputeUnit) completeWGTask(id uint64) {
 	cu.comp.TaskTracker().EndReqIn(cu.comp.State.WGTasks[id])
 	delete(cu.comp.State.WGTasks, id)
+}
+
+func (cu *ComputeUnit) endWaveTask(wf *Wavefront) {
+	if task, ok := cu.comp.State.WFTasks[wf.UID]; ok {
+		cu.comp.TaskTracker().EndTask(task)
+		delete(cu.comp.State.WFTasks, wf.UID)
+	}
 }

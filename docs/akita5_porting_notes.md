@@ -161,9 +161,13 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
 - Wire the complete topology, then call `simulation.Initialize()`. Only then
   obtain behavior views using `cu.MiddlewareOf(comp) *cu.ComputeUnit`, including
   for `NewISADebugger(logger, cu.MiddlewareOf(comp))`. Wave/group views now live
-  in `cu` and carry only owner + ID; they resolve current State on each operation.
+  in `cu` and carry owner, local slot handle, and global UID; they resolve current
+  State on each operation.
   State replacement needs no rebinding or next tick, and initialization is not
-  rerun during restore. `State.WaveLocations` owns the ID index. ALU LDS access
+  rerun during restore. Fixed `State.Waves` / `State.Groups` arrays own hardware
+  slots. Local generations reject recycled handles; global UIDs remain in
+  tracing/protocol. Execution ends stop fetch; original slots and CP resources
+  remain occupied until dependent work drains and completion can be sent. ALU LDS access
   is scoped to one execution call; retained tracing detail uses IDs and scalar
   metadata rather than wave/instruction objects.
 - `WithVisTracer` is dropped. SIMD tasks retain their original owner names and

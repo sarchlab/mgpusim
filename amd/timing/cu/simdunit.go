@@ -107,7 +107,7 @@ func (u *SIMDUnit) runPipelined() bool {
 		madeProgress = true
 
 		if slot.Cycles <= 0 {
-			u.alu.Run(u.cu.wave(slot.WF))
+			u.alu.Run(u.cu.wave(slot.WF).emulation())
 			u.cu.UpdatePCAndSetReady(u.cu.wave(slot.WF))
 
 			u.logPipelineTaskEnd(slot.Task)
@@ -131,7 +131,7 @@ func (u *SIMDUnit) runExecStage() bool {
 		return true
 	}
 
-	u.alu.Run(u.cu.wave(u.state().Exec))
+	u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Exec))
 
 	u.logPipelineTaskEnd(u.state().Task)

@@ -74,7 +74,7 @@ var _ = Describe("LDS Unit", func() {
 		// wave2: ALU runs, cycleLeft set to 14, stays in toExec
 		Expect(cu.wave(bu.state().Exec)).To(Equal(wave2))
 		Expect(cu.wave(bu.state().Write)).To(BeNil())
-		Expect(alu.wfExecuted).To(Equal(wave2))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
 
 		// wave1: can't move from toRead because toExec is occupied
 		Expect(cu.wave(bu.state().Read)).To(Equal(wave1))

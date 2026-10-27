@@ -2,9 +2,9 @@ package cu
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -14,7 +14,7 @@ func wfID(w *Wavefront) uint64 {
 	if w == nil {
 		return 0
 	}
-	return w.UID
+	return w.handle
 }
 func instID(i *wavefront.Inst) uint64 {
 	if i == nil {
@@ -27,11 +27,15 @@ func (cu *ComputeUnit) wave(id uint64) *Wavefront {
 	if id == 0 {
 		return nil
 	}
-	w := cu.findWavefront(id)
-	if w == nil {
-		panic(fmt.Sprintf("cu: unknown wavefront %d", id))
+	index := slotIndex(id)
+	if index < 0 || index >= len(cu.comp.State.Waves) {
+		panic("cu: invalid wave slot")
 	}
-	return w
+	state := &cu.comp.State.Waves[index]
+	if state.ID == 0 || state.Generation != uint32(id>>32) {
+		panic("cu: stale wave slot")
+	}
+	return &Wavefront{cu: cu, UID: state.ID, handle: id}
 }
 
 func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
@@ -42,9 +46,20 @@ func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
 	if !ok {
 		panic(fmt.Sprintf("cu: missing instruction %d", id))
 	}
-	raw, err := cu.decodeInstruction(v.Raw)
+	raw, err := cu.decodeDescription(v.Raw)
 	if err != nil {
 		panic(fmt.Sprintf("cu: decode instruction %d: %v", id, err))
+	}
+	// One operation-local allocation holds both the immutable description copy
+	// and its dynamic identity; neither escapes into middleware state.
+	if _, ok := cu.Decoder.(*insts.Disassembler); ok {
+		value := &struct {
+			dynamic wavefront.Inst
+			decoded insts.Inst
+		}{decoded: *raw}
+		value.decoded.PC = v.PC
+		value.dynamic = wavefront.Inst{Inst: &value.decoded, ID: id, Raw: v.Raw}
+		return &value.dynamic
 	}
 	raw.PC = v.PC
 	i := wavefront.NewInst(id, raw)
@@ -67,23 +82,55 @@ func (cu *ComputeUnit) rememberInstruction(i *wavefront.Inst) {
 	cu.comp.State.Instructions[i.ID] = InstructionState{ID: i.ID, PC: pc, Raw: i.Raw}
 }
 
+func (cu *ComputeUnit) allocateGroup(raw kernels.WorkGroupValue, req messaging.Msg) *WorkGroup {
+	for index := range cu.comp.State.Groups {
+		if cu.comp.State.Groups[index].Occupied {
+			continue
+		}
+		cu.comp.State.Groups[index] = WorkGroupState{Occupied: true, Raw: raw, Request: req}
+		return &WorkGroup{cu: cu, UID: raw.UID, slot: index}
+	}
+	panic("cu: hardware work-group slots exhausted")
+}
+func (cu *ComputeUnit) allocateWave(group *WorkGroup, index int, value WaveState) *Wavefront {
+	for slot := range cu.comp.State.Waves {
+		old := &cu.comp.State.Waves[slot]
+		if old.ID != 0 {
+			continue
+		}
+		generation := old.Generation + 1
+		if generation == 0 {
+			panic("cu: wave slot generation exhausted")
+		}
+		value.Generation, value.Group, value.Index = generation, group.slot, index
+		*old = value
+		handle := waveHandle(slot, generation)
+		group.state().Waves = append(group.state().Waves, handle)
+		return &Wavefront{cu: cu, UID: value.ID, handle: handle}
+	}
+	panic("cu: hardware wavefront slots exhausted")
+}
 func (cu *ComputeUnit) newGroup(raw *kernels.WorkGroup, req messaging.Msg) *WorkGroup {
-	g := WorkGroupState{
-		Raw: kernels.WorkGroupSnapshot(raw), Request: req,
-		LDS: make([]byte, raw.Packet.GroupSegmentSize), Waves: make([]WaveState, len(raw.Wavefronts)),
+	free := 0
+	for i := range cu.comp.State.Waves {
+		if cu.comp.State.Waves[i].ID == 0 {
+			free++
+		}
 	}
+	if free < len(raw.Wavefronts) {
+		panic("cu: hardware wavefront slots exhausted")
+	}
+	group := cu.allocateGroup(kernels.WorkGroupSnapshot(raw), req)
+	group.state().LDS = make([]byte, raw.Packet.GroupSegmentSize)
 	for i, w := range raw.Wavefronts {
-		cu.comp.State.WaveLocations[w.UID] = WaveLocation{Group: len(cu.comp.State.Groups), Index: i}
-		g.Waves[i].ID = w.UID
-		g.Waves[i].Execution.SampleIssueTime = w.IssueTime
-		g.Waves[i].Execution.SampleFinishTime = w.FinishTime
-		g.Waves[i].Execution.PID = req.Payload.(protocol.MapWGReq).PID
-		g.Waves[i].Execution.InstBuffer = make([]byte, 0, 256)
-		g.Waves[i].HasScoreboard = cu.comp.Spec.RegisterScoreboard
+		value := WaveState{ID: w.UID, HasScoreboard: cu.comp.Spec.RegisterScoreboard}
+		value.Execution.SampleIssueTime = w.IssueTime
+		value.Execution.SampleFinishTime = w.FinishTime
+		value.Execution.PID = req.Payload.(protocol.MapWGReq).PID
+		value.Execution.InstBuffer = make([]byte, 0, 256)
+		cu.allocateWave(group, i, value)
 	}
-	cu.comp.State.GroupLocations[raw.UID] = len(cu.comp.State.Groups)
-	cu.comp.State.Groups = append(cu.comp.State.Groups, g)
-	return &WorkGroup{cu: cu, UID: raw.UID}
+	return group
 }
 
 // useWave is the stable reference stored by pipeline and queue state.
@@ -94,7 +141,7 @@ func (cu *ComputeUnit) useWave(w *Wavefront) uint64 {
 	if w.cu != cu {
 		panic("cu: wavefront is not owned by this CU")
 	}
-	return w.UID
+	return w.handle
 }
 
 func (cu *ComputeUnit) fetchState(v *InstFetchReqInfo) FetchState {
@@ -128,12 +175,10 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 	if _, live := cu.comp.State.InstTasks[id]; live {
 		return
 	}
-	for _, g := range cu.comp.State.Groups {
-		for i := range g.Waves {
-			w := &g.Waves[i]
-			if w.Execution.InstID == id || w.Execution.ToIssueID == id {
-				return
-			}
+	for i := range cu.comp.State.Waves {
+		w := &cu.comp.State.Waves[i]
+		if w.ID != 0 && (w.Execution.InstID == id || w.Execution.ToIssueID == id) {
+			return
 		}
 	}
 	for _, records := range [][]ScalarAccessState{cu.comp.State.Scalar, cu.comp.State.ShadowScalar} {
@@ -155,64 +200,53 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 	delete(cu.comp.State.Instructions, id)
 }
 
-// Completion releases scheduling resources immediately, but fetch-ahead replies
-// may still refer to a completed wave. Retire its canonical values only after
-// the last live queue/stage reference has disappeared.
+// Completion retains the original hardware slots until all dependent work
+// drains. This deliberately conservative timing model also delays CP release.
 func (cu *ComputeUnit) retireGroups() {
-	for index := 0; index < len(cu.comp.State.Groups); {
+	for index := range cu.comp.State.Groups {
 		group := &cu.comp.State.Groups[index]
-		live := !group.Completed
-		if !live {
-			for i := range group.Waves {
-				if cu.waveReferenced(group.Waves[i].ID) {
-					live = true
-					break
-				}
-			}
-		}
-		if live {
-			index++
+		if !group.Occupied || len(group.Waves) == 0 {
 			continue
 		}
+		drained := true
+		for _, handle := range group.Waves {
+			if cu.wave(handle).execution().State != wavefront.WfCompleted || cu.waveReferenced(handle) {
+				drained = false
+				break
+			}
+		}
+		if !drained {
+			continue
+		}
+		wg := &WorkGroup{cu: cu, UID: group.Raw.UID, slot: index}
+		scheduler := cu.Scheduler.(*SchedulerImpl)
+		if !scheduler.sendWGCompletionMessage(wg) {
+			cu.comp.TickLater()
+			continue
+		}
+		for _, handle := range group.Waves {
+			cu.endWaveTask(cu.wave(handle))
+		}
+		cu.clearWGResource(wg)
+		cu.completeWGTask(group.Request.ID)
 		cu.retireGroup(index)
-		// Inspect the group moved into this slot before advancing.
 	}
 }
-
 func (cu *ComputeUnit) retireGroup(index int) {
 	s := &cu.comp.State
-	retired := s.Groups[index]
-	delete(s.GroupLocations, retired.Raw.UID)
-	for i := range retired.Waves {
-		delete(s.WaveLocations, retired.Waves[i].ID)
-		delete(s.WFTimes, retired.Waves[i].ID)
+	group := &s.Groups[index]
+	for _, handle := range group.Waves {
+		wave := &s.Waves[slotIndex(handle)]
+		inst, next := wave.Execution.InstID, wave.Execution.ToIssueID
+		delete(s.WFTimes, wave.ID)
+		*wave = WaveState{Generation: wave.Generation}
+		cu.releaseInstruction(inst)
+		cu.releaseInstruction(next)
 	}
-	last := len(s.Groups) - 1
-	if index != last {
-		s.Groups[index] = s.Groups[last]
-		moved := &s.Groups[index]
-		s.GroupLocations[moved.Raw.UID] = index
-		for i := range moved.Waves {
-			s.WaveLocations[moved.Waves[i].ID] = WaveLocation{Group: index, Index: i}
-		}
-	}
-	s.Groups[last] = WorkGroupState{}
-	s.Groups = s.Groups[:last]
-	for i := range retired.Waves {
-		cu.releaseInstruction(retired.Waves[i].Execution.InstID)
-		cu.releaseInstruction(retired.Waves[i].Execution.ToIssueID)
-	}
+	*group = WorkGroupState{}
 }
 func (cu *ComputeUnit) waveReferenced(id uint64) bool {
 	s := &cu.comp.State
-	for _, ids := range s.Pools {
-		if slices.Contains(ids, id) {
-			return true
-		}
-	}
-	if slices.Contains(s.Scheduler.Internal, id) || slices.Contains(s.Scheduler.Barrier, id) {
-		return true
-	}
 	for _, d := range s.Decoders {
 		for _, w := range d.ToDecode {
 			if w == id {

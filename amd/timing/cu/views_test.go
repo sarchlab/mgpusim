@@ -48,13 +48,13 @@ func TestViewsResolveReplacedStateWithoutLifecycleHook(t *testing.T) {
 	issue := NewIssueArbiter(c)
 	old := replaceCUState(t, c)
 	s := &c.comp.State
-	s.Groups[s.GroupLocations[g.UID]].Waves[0].Execution.PC = 128
-	s.Groups[s.GroupLocations[g.UID]].Waves[0].Execution.SRegOffset = 16
-	s.Groups[s.GroupLocations[g.UID]].Waves[0].Execution.VRegOffset = 32
-	s.Groups[s.GroupLocations[g.UID]].Waves[0].Scoreboard.VGPRBusyUntil[3] = 17
+	s.Waves[slotIndex(g.state().Waves[0])].Execution.PC = 128
+	s.Waves[slotIndex(g.state().Waves[0])].Execution.SRegOffset = 16
+	s.Waves[slotIndex(g.state().Waves[0])].Execution.VRegOffset = 32
+	s.Waves[slotIndex(g.state().Waves[0])].Scoreboard.VGPRBusyUntil[3] = 17
 	s.SRegisters[16] = 43
 	s.VRegisters[0][32] = 47
-	s.Groups[s.GroupLocations[g.UID]].LDS = []byte{53}
+	s.Groups[g.slot].LDS = []byte{53}
 	changed := s.Instructions[i.ID]
 	changed.Raw = []byte{1, 0, 0x80, 0xbf}
 	s.Instructions[i.ID] = changed
@@ -76,13 +76,13 @@ func TestViewsResolveReplacedStateWithoutLifecycleHook(t *testing.T) {
 	if w.execution().M0 != 59 ||
 		s.SRegisters[16] != 61 ||
 		s.VRegisters[0][32] != 67 ||
-		s.Groups[s.GroupLocations[g.UID]].Waves[0].Scoreboard.VGPRBusyUntil[3] != 71 {
+		s.Waves[slotIndex(g.state().Waves[0])].Scoreboard.VGPRBusyUntil[3] != 71 {
 		t.Fatal("view writes did not reach canonical replacement state")
 	}
-	if old.Groups[old.GroupLocations[g.UID]].Waves[0].Execution.M0 != 0 ||
+	if old.Waves[slotIndex(w.handle)].Execution.M0 != 0 ||
 		old.SRegisters[16] != 0 ||
 		old.VRegisters[0][32] != 0 ||
-		old.Groups[old.GroupLocations[g.UID]].Waves[0].Scoreboard.VGPRBusyUntil[3] != 0 {
+		old.Waves[slotIndex(w.handle)].Scoreboard.VGPRBusyUntil[3] != 0 {
 		t.Fatal("view write mutated detached state")
 	}
 	// Another view must resolve the same canonical LDS through its group ID.
@@ -103,11 +103,11 @@ func TestCustomCompletionEventResolvesReplacedState(t *testing.T) {
 	old := replaceCUState(t, c)
 	port := newFakePort("CU.Top")
 	c.ToACE = port
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, w.UID))
-	if len(port.sent) != 1 || len(c.comp.State.Groups) != 0 || len(c.comp.State.WaveLocations) != 0 {
+	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, wfID(w)))
+	if len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 0 || liveTestWaves(&c.comp.State) != 0 {
 		t.Fatal("custom completion did not retire replacement state")
 	}
-	if old.Groups[old.GroupLocations[g.UID]].Waves[0].Execution.State != wavefront.WfSampledCompleted {
+	if old.Waves[slotIndex(w.handle)].Execution.State != wavefront.WfSampledCompleted {
 		t.Fatal("custom completion mutated detached state")
 	}
 	if c.findWavefront(w.UID) != nil {
@@ -119,18 +119,18 @@ func TestLDSExecutionDoesNotRetainStateStorage(t *testing.T) {
 	c := checkpointCU(t)
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	group := c.comp.State.Groups[c.comp.State.GroupLocations[g.UID]]
+	group := c.comp.State.Groups[g.slot]
 	group.LDS = []byte{79}
-	c.comp.State.Groups[c.comp.State.GroupLocations[g.UID]] = group
+	c.comp.State.Groups[g.slot] = group
 	alu := &ldsViewProbe{}
 	u := NewLDSUnit(c, alu)
-	c.comp.State.LDS.Exec = w.UID
+	c.comp.State.LDS.Exec = wfID(w)
 	old := replaceCUState(t, c)
-	c.comp.State.Groups[c.comp.State.GroupLocations[g.UID]].LDS[0] = 83
+	c.comp.State.Groups[g.slot].LDS[0] = 83
 	if !u.Run() || alu.seen != 83 || alu.LDS() != nil {
 		t.Fatal("LDS operation retained or read stale State storage")
 	}
-	if old.Groups[old.GroupLocations[g.UID]].LDS[0] != 79 {
+	if old.Groups[g.slot].LDS[0] != 79 {
 		t.Fatal("LDS operation mutated detached state")
 	}
 }
@@ -156,8 +156,8 @@ func TestMemoryResponsesResolveReplacedState(t *testing.T) {
 	w.execution().InFlightInsts = 2
 	scalarReq := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{}}
 	vectorReq := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{}}
-	c.comp.State.Scalar = []ScalarAccessState{{Req: scalarReq, WF: w.UID, Inst: i.ID, Register: insts.SReg(1).RegType}}
-	c.comp.State.Vector = []VectorAccessState{{Read: vectorReq, WF: w.UID, Inst: i.ID,
+	c.comp.State.Scalar = []ScalarAccessState{{Req: scalarReq, WF: wfID(w), Inst: i.ID, Register: insts.SReg(1).RegType}}
+	c.comp.State.Vector = []VectorAccessState{{Read: vectorReq, WF: wfID(w), Inst: i.ID,
 		Lanes: []LaneState{{Lane: 0, Register: insts.VReg(1).RegType, Count: 1}}}}
 	old := replaceCUState(t, c)
 	w.execution().SRegOffset = 16
@@ -175,8 +175,8 @@ func TestMemoryResponsesResolveReplacedState(t *testing.T) {
 	}
 	if old.SRegisters[20] != 0 ||
 		old.VRegisters[0][36] != 0 ||
-		old.Groups[old.GroupLocations[g.UID]].Waves[0].Execution.OutstandingScalarMemAccess != 1 ||
-		old.Groups[old.GroupLocations[g.UID]].Waves[0].Execution.OutstandingVectorMemAccess != 1 {
+		old.Waves[slotIndex(w.handle)].Execution.OutstandingScalarMemAccess != 1 ||
+		old.Waves[slotIndex(w.handle)].Execution.OutstandingVectorMemAccess != 1 {
 		t.Fatal("memory completion mutated detached state")
 	}
 }
@@ -239,10 +239,10 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	c.Decoder = insts.NewDisassembler()
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	group := c.comp.State.Groups[c.comp.State.GroupLocations[g.UID]]
+	group := c.comp.State.Groups[g.slot]
 	group.Raw.IDX = 75
 	group.Raw.IDY = 1
-	c.comp.State.Groups[c.comp.State.GroupLocations[g.UID]] = group
+	c.comp.State.Groups[g.slot] = group
 	i := checkpointInstruction(t, c)
 	w.SetDynamicInst(i)
 	var output bytes.Buffer
@@ -265,51 +265,50 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	if !strings.Contains(output.String(), `"PCLo":256`) || len(h.executingInst) != 0 {
 		t.Fatalf("debugger used stale State or retained completed task: %s", output.String())
 	}
-	if old.Groups[old.GroupLocations[g.UID]].Waves[0].Execution.InFlightInsts != 1 {
+	if old.Waves[slotIndex(w.handle)].Execution.InFlightInsts != 1 {
 		t.Fatal("completion mutated old state")
 	}
 }
 
-func TestGroupRetirementUpdatesDenseIndexesAndSurvivingViews(t *testing.T) {
+func TestGroupRetirementPreservesFixedSlotsAndSurvivingViews(t *testing.T) {
 	c := checkpointCU(t)
+	c.ToACE = newFakePort("CU.ACE")
 	groups := []*WorkGroup{checkpointGroup(c), checkpointGroup(c), checkpointGroup(c)}
 	waves := []*Wavefront{groups[0].waves()[0], groups[1].waves()[0], groups[2].waves()[0]}
 	for n, w := range waves {
 		w.SetPC(uint64(n + 1))
 		w.SetDynamicInst(checkpointInstruction(t, c))
 	}
-	groups[1].state().Completed = true
+	waves[1].execution().State = wavefront.WfCompleted
 	c.retireGroups()
-	if len(c.comp.State.Groups) != 2 ||
-		len(c.comp.State.GroupLocations) != 2 ||
-		len(c.comp.State.WaveLocations) != 2 ||
+	if liveTestGroups(&c.comp.State) != 2 ||
+		liveTestWaves(&c.comp.State) != 2 ||
 		len(c.comp.State.Instructions) != 2 {
-		t.Fatal("middle group retirement did not remove canonical values/indexes")
+		t.Fatal("middle group retirement did not remove canonical values")
 	}
 	if c.findWavefront(waves[1].UID) != nil ||
-		c.comp.State.GroupLocations[groups[2].UID] != 1 ||
-		waves[2].location().Group != 1 {
-		t.Fatal("moved group/wave index is stale")
+		groups[2].slot != 2 ||
+		waves[2].state().Group != 2 {
+		t.Fatal("surviving group/wave slot moved")
 	}
 	if waves[0].PC() != 1 || waves[2].PC() != 3 || groups[2].waves()[0].UID != waves[2].UID {
-		t.Fatal("surviving handles lost identity during compaction")
+		t.Fatal("surviving handles lost identity during retirement")
 	}
 	old := replaceCUState(t, c)
 	waves[0].SetPC(101)
 	waves[2].SetPC(303)
 	if groups[0].waves()[0].PC() != 101 ||
 		groups[2].waves()[0].PC() != 303 ||
-		old.Groups[0].Waves[0].Execution.PC != 1 ||
-		old.Groups[1].Waves[0].Execution.PC != 3 {
-		t.Fatal("surviving handles did not resolve State replacement after compaction")
+		old.Waves[slotIndex(waves[0].handle)].Execution.PC != 1 ||
+		old.Waves[slotIndex(waves[2].handle)].Execution.PC != 3 {
+		t.Fatal("surviving handles did not resolve State replacement after retirement")
 	}
-	groups[0].state().Completed = true
-	groups[2].state().Completed = true
+	waves[0].execution().State = wavefront.WfCompleted
+	waves[2].execution().State = wavefront.WfCompleted
 	c.retireGroups()
-	if len(c.comp.State.Groups) != 0 ||
-		len(c.comp.State.GroupLocations) != 0 ||
-		len(c.comp.State.WaveLocations) != 0 ||
+	if liveTestGroups(&c.comp.State) != 0 ||
+		liveTestWaves(&c.comp.State) != 0 ||
 		len(c.comp.State.Instructions) != 0 {
-		t.Fatal("retirement skipped a group moved into the current slot")
+		t.Fatal("retirement retained occupied slots")
 	}
 }

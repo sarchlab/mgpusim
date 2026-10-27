@@ -134,7 +134,7 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(cu.wave(bu.state().Stages.Exec)).To(Equal(wave1))
 		Expect(cu.wave(bu.state().Stages.Read)).To(BeNil())
 
-		Expect(alu.wfExecuted).To(Equal(wave2))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
 	})
 
 	It("should run s_load_dword", func() {

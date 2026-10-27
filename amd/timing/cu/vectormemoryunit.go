@@ -79,7 +79,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *Wavefront,
 ) {
-	u.state().InstructionsPipeline.Accept(vectorMemInst{WavefrontID: wave.UID})
+	u.state().InstructionsPipeline.Accept(vectorMemInst{WavefrontID: wfID(wave)})
 	u.state().Instructions++
 }
 
@@ -175,7 +175,7 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 
 	item, _ := u.state().InstructionsOutput.Peek()
 
-	wave := u.cu.wavefrontByID(item.WavefrontID)
+	wave := u.cu.wave(item.WavefrontID)
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:

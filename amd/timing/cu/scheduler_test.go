@@ -225,7 +225,7 @@ var _ = Describe("Scheduler", func() {
 		}
 		scheduler.DoIssue()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 		Expect(wf.PC()).To(Equal(uint64(10)))
 		Expect(wf.NextInst()).To(BeNil())
@@ -243,7 +243,7 @@ var _ = Describe("Scheduler", func() {
 		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 	})
 
@@ -259,7 +259,7 @@ var _ = Describe("Scheduler", func() {
 		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 	})
 
@@ -277,7 +277,7 @@ var _ = Describe("Scheduler", func() {
 		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfReady))
 	})
 
@@ -413,7 +413,11 @@ var _ = Describe("Scheduler", func() {
 				scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 				scheduler.EvaluateInternalInst()
 
-				Expect(scheduler.state().Internal).To(ContainElement(wf.UID))
+				cu.Scheduler = scheduler
+				cu.retireGroups()
+				Expect(scheduler.state().Internal).To(BeEmpty())
+				Expect(toACE.sent).To(BeEmpty())
+				Expect(wf.execution().State).To(Equal(wavefront.WfCompleted))
 				for i := 0; i < 3; i++ {
 					wf := wg.waves()[i]
 					Expect(wf.execution().State).To(Equal(wavefront.WfCompleted))
@@ -451,8 +455,10 @@ var _ = Describe("Scheduler", func() {
 				scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 				scheduler.EvaluateInternalInst()
 
+				cu.Scheduler = scheduler
+				cu.retireGroups()
 				Expect(toACE.sent).To(HaveLen(1))
-				Expect(scheduler.state().Internal).NotTo(ContainElement(wf.UID))
+				Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
 				Expect(cu.WfPools[0].waves()).To(HaveLen(0))
 			})
 		})
@@ -478,7 +484,7 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.execution().State).To(Equal(wavefront.WfAtBarrier))
 		Expect(len(scheduler.state().Barrier)).To(Equal(1))
 		Expect(cu.wave(scheduler.state().Barrier[0])).To(Equal(wf))
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
 	})
 
 	It("should continue execution if all wavefronts from a workgroup hits "+
@@ -505,7 +511,7 @@ var _ = Describe("Scheduler", func() {
 		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
 		Expect(len(scheduler.state().Barrier)).To(Equal(0))
 		for _, wf := range wg.waves() {
 			Expect(wf.execution().State).To(Equal(wavefront.WfReady))
@@ -531,7 +537,7 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.Flush()
 
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wf.UID))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
 		Expect(scheduler.state().Barrier).To(BeNil())
 
 	})

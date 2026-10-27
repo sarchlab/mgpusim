@@ -114,7 +114,7 @@ func (u *ScalarUnit) runExecStage() bool {
 			return true
 		}
 
-		u.alu.Run(u.cu.wave(u.state().Stages.Exec))
+		u.alu.Run(u.cu.wave(u.state().Stages.Exec).emulation())
 
 		u.state().Stages.Write = u.state().Stages.Exec
 		u.state().Stages.Exec = 0
