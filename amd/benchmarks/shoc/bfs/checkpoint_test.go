@@ -19,7 +19,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
 )
 
 type recoveryResult struct {
@@ -156,7 +156,7 @@ func TestBFSFreshProcessRecovery(t *testing.T) {
 								}
 								found = len(cu.State.PendingCompletions) > 0
 							}
-							if dma, ok := component.(*cp.DMAComp); ok && mode == "d2h" {
+							if dma, ok := component.(*dma.Comp); ok && mode == "d2h" {
 								for _, copy := range dma.State.ProcessingReqs {
 									if _, ok := copy.SuperiorRequest.Payload.(protocol.MemCopyD2HReq); ok && copy.SubordinateCount > 0 {
 										found = true

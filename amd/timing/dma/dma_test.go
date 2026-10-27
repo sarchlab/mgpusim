@@ -1,4 +1,4 @@
-package cp
+package dma
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -14,7 +14,7 @@ import (
 var _ = Describe("DMAEngine", func() {
 	var (
 		reg       *sim.Simulation
-		dmaEngine *DMAComp
+		dmaEngine *Comp
 		dmaMW     *dmaMiddleware
 
 		toCP  messaging.Port
@@ -28,9 +28,9 @@ var _ = Describe("DMAEngine", func() {
 		reg = sim.MakeBuilder().WithTaskTracking().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
-		dmaEngine = MakeDMAEngineBuilder().
+		dmaEngine = MakeBuilder().
 			WithSimulation(reg).
-			WithResources(DMAResources{
+			WithResources(Resources{
 				LocalDataSource: mem.AddressMapper{Destinations: []messaging.RemotePort{memPort}},
 			}).
 			Build("DMA")

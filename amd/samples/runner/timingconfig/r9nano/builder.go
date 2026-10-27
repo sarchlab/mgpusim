@@ -24,6 +24,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
@@ -67,7 +68,7 @@ type Builder struct {
 	gpu                *gpubuilder.GPU
 	cp                 *cp.Comp
 	rdmaEngine         *rdma.Comp
-	dmaEngine          *cp.DMAComp
+	dmaEngine          *dma.Comp
 	sas                []*shaderarray.ShaderArray
 	l2Caches           []*writeback.Comp
 	l2TLBs             []*tlb.Comp
@@ -566,10 +567,10 @@ func (b *Builder) buildRDMAEngine() {
 }
 
 func (b *Builder) buildDMAEngine() {
-	b.dmaEngine = cp.MakeDMAEngineBuilder().
+	b.dmaEngine = dma.MakeBuilder().
 		WithSimulation(b.simulation).
-		WithSpec(cp.DefaultDMASpec()).
-		WithResources(cp.DMAResources{
+		WithSpec(dma.DefaultSpec()).
+		WithResources(dma.Resources{
 			LocalDataSource: b.dmaLocalDataSource,
 		}).
 		Build(fmt.Sprintf("%s.DMA", b.name))

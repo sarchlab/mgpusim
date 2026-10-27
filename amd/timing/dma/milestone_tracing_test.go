@@ -1,4 +1,4 @@
-package cp
+package dma
 
 import (
 	"testing"
@@ -45,9 +45,9 @@ func TestDMARecordsDataMilestoneOnMemCopyComplete(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	dma := MakeDMAEngineBuilder().
+	dma := MakeBuilder().
 		WithSimulation(reg).
-		WithResources(DMAResources{
+		WithResources(Resources{
 			LocalDataSource: mem.AddressMapper{Destinations: []messaging.RemotePort{memPort}},
 		}).
 		Build("DMA")
