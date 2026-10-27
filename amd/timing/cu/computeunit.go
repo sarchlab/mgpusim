@@ -393,7 +393,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(
 	wf := cu.wave(evt.WavefrontID)
 	wf.state().StopFetch = true
 	wf.execution().State = wavefront.WfCompleted
-	cu.Scheduler.(*SchedulerImpl).resetRegisterValue(wf)
+	// Sampled waves never initialize or use physical register locations.
 	cu.endWaveTask(wf)
 	cu.retireGroups()
 }

@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"bytes"
+	"slices"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
@@ -278,5 +280,41 @@ func checkRestartAfterEnd(t *testing.T, c *ComputeUnit, w *Wavefront, terminal b
 		if w.NextInst().Opcode != 1 {
 			t.Fatal("resumed wrong instruction")
 		}
+	}
+}
+
+func TestSampledCompletionPreservesResidentRegistersDuringBackpressure(t *testing.T) {
+	c := checkpointCU(t)
+	resident := checkpointGroup(c).waves()[0]
+	resident.execution().State = wavefront.WfRunning
+	c.WfPools[0].AddWf(resident)
+	sampledGroup := checkpointGroup(c)
+	sampledGroup.state().Raw.CodeObject.Meta.WIVgprCount = 4
+	sampledGroup.state().Raw.CodeObject.Meta.WFSgprCount = 4
+	sampled := sampledGroup.waves()[0]
+	sampled.execution().State = wavefront.WfSampledCompleted
+	scalar := bytes.Repeat([]byte{0x35}, len(c.comp.State.SRegisters))
+	copy(c.comp.State.SRegisters, scalar)
+	vectors := make([][]byte, len(c.comp.State.VRegisters))
+	for i := range vectors {
+		vectors[i] = bytes.Repeat([]byte{byte(i + 0x51)}, len(c.comp.State.VRegisters[i]))
+		copy(c.comp.State.VRegisters[i], vectors[i])
+	}
+	unchanged := func() bool {
+		return bytes.Equal(scalar, c.comp.State.SRegisters) && slices.EqualFunc(vectors, c.comp.State.VRegisters, bytes.Equal)
+	}
+	port := newFakePort("CU.ACE")
+	port.full = true
+	c.ToACE = port
+	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, sampled.handle))
+	c.retireGroups()
+	if !unchanged() || len(port.sent) != 0 || resident.execution().State != wavefront.WfRunning {
+		t.Fatal("sampled completion changed resident registers while ACE was full")
+	}
+	port.full = false
+	c.retireGroups()
+	c.retireGroups()
+	if !unchanged() || len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 1 {
+		t.Fatal("sampled completion retry changed resident registers or delivered more than once")
 	}
 }
