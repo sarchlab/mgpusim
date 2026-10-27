@@ -69,7 +69,6 @@ type ScalarUnitState struct {
 type SchedulerState struct {
 	Internal, Barrier    []uint64
 	NoProgress, LastSIMD int
-	Paused               bool
 }
 type VectorUnitState struct {
 	Instructions, Transactions uint64

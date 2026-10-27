@@ -126,14 +126,6 @@ func TestSampledCompletionBackpressureSchedulesRetryExactlyOnce(t *testing.T) {
 	}
 }
 
-func TestStopFetchSurvivesFlushWhileEndingAndWhileDraining(t *testing.T) {
-	for _, terminal := range []bool{false, true} {
-		t.Run(map[bool]string{false: "waiting-data", true: "terminal-fetch"}[terminal], func(t *testing.T) {
-			checkStopFetchFlush(t, terminal)
-		})
-	}
-}
-
 // The observer must see one instruction completion before its enclosing wave
 // closes. CPI tracing can then include the final S_ENDPGM interval.
 type finalWaveOrderRecorder struct {
@@ -213,73 +205,6 @@ func checkRepeatedSlotReuse(t *testing.T, c *ComputeUnit, old *Wavefront, group 
 		requireSlotPanic(t, func() { group.state() })
 		w.execution().State = wavefront.WfCompleted
 		c.retireGroups()
-	}
-}
-
-func checkStopFetchFlush(t *testing.T, terminal bool) {
-	t.Helper()
-	c := checkpointCU(t)
-	g := checkpointGroup(c)
-	w := g.waves()[0]
-	c.WfPools[0].AddWf(w)
-	inst := checkpointInstruction(t, c)
-	w.SetDynamicInst(inst)
-	w.execution().InstBuffer = []byte{0, 0, 0x81, 0xbf} // s_endpgm
-	w.execution().State = wavefront.WfRunning
-	w.execution().OutstandingScalarMemAccess = 1
-	scheduler := c.Scheduler.(*SchedulerImpl)
-	scheduler.state().Internal = []uint64{w.handle}
-	if progress, _ := scheduler.evalSEndPgm(w); progress {
-		t.Fatal("did not wait for data")
-	}
-	if terminal {
-		w.execution().State = wavefront.WfCompleted
-		w.execution().OutstandingScalarMemAccess = 0
-	}
-	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
-	c.comp.State.InstFetch = []FetchState{{Req: req, WF: w.handle}}
-	w.execution().IsFetching = true
-	c.comp.State.HasFlushReq = true
-	if !c.flushPipeline() {
-		t.Fatal("flush failed")
-	}
-	if !w.state().StopFetch || (&FetchArbiter{InstBufByteSize: 256}).canFetchFromWF(w) {
-		t.Fatal("flush restarted fetching after end")
-	}
-	if terminal && w.execution().State != wavefront.WfCompleted {
-		t.Fatal("flush revived terminal wave")
-	}
-	if len(c.comp.State.ShadowInstFetch) != 1 || len(c.comp.State.InstFetch) != 0 {
-		t.Fatal("flush lost fetch reference")
-	}
-	port := newFakePort("CU.ACE")
-	c.ToACE = port
-	c.retireGroups()
-	if len(port.sent) != 0 {
-		t.Fatal("shadow fetch allowed early completion")
-	}
-	checkRestartAfterEnd(t, c, w, terminal)
-}
-
-func checkRestartAfterEnd(t *testing.T, c *ComputeUnit, w *Wavefront, terminal bool) {
-	t.Helper()
-	scheduler := c.Scheduler.(*SchedulerImpl)
-	c.ToInstMem = newFakePort("CU.Inst")
-	if !c.sendInstFetchShadowBufferAccesses() {
-		t.Fatal("shadow fetch did not resend")
-	}
-	c.checkShadowBuffers()
-	if !w.state().StopFetch || (&FetchArbiter{InstBufByteSize: 256}).canFetchFromWF(w) {
-		t.Fatal("restart resumed fetching")
-	}
-	if !terminal {
-		w.execution().OutstandingScalarMemAccess = 0
-		if !scheduler.DecodeNextInst() {
-			t.Fatal("ending instruction could not resume after flush")
-		}
-		if w.NextInst().Opcode != 1 {
-			t.Fatal("resumed wrong instruction")
-		}
 	}
 }
 

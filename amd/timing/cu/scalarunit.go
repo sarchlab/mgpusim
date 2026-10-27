@@ -254,21 +254,4 @@ func (u *ScalarUnit) sendRequest() bool {
 	return madeProgress
 }
 
-// Flush clears the unit
-func (u *ScalarUnit) Flush() {
-	u.state().Stages.Read = 0
-	u.state().Stages.Exec = 0
-	u.state().Stages.Write = 0
-	u.state().Reads = nil
-	for instID, taskID := range u.state().Tasks {
-		u.cu.comp.TaskTracker().EndTask(taskID)
-		u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-			TaskID: u.cu.comp.State.InstTasks[instID],
-			Kind:   tasks.MilestoneKindWork,
-			What:   u.cu.comp.Name() + ".smem_issue",
-		})
-		delete(u.state().Tasks, instID)
-	}
-}
-
 func (u *ScalarUnit) state() *ScalarUnitState { return &u.cu.comp.State.ScalarUnit }

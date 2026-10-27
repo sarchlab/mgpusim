@@ -99,12 +99,4 @@ func (u *LDSUnit) runWriteStage() bool {
 	return true
 }
 
-// Flush clears the unit
-func (u *LDSUnit) Flush() {
-	u.state().Read = 0
-	u.state().Exec = 0
-	u.state().Write = 0
-	u.state().Cycles = 0
-}
-
 func (u *LDSUnit) state() *StageState { return &u.cu.comp.State.LDS }

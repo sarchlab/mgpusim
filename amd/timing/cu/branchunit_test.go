@@ -69,28 +69,4 @@ var _ = Describe("Branch Unit", func() {
 		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 
-	It("should flush", func() {
-		wave1 := newTestWave()
-		wave2 := newTestWave()
-		wave3 := newTestWave()
-		wave3.execution().State = wavefront.WfRunning
-		wave3.execution().InstBuffer = make([]byte, 256)
-		wave3.execution().InstBufferStartPC = 0x100
-		inst := testInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SOPP
-		inst.SImm16 = insts.NewIntOperand(1, 1)
-		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
-
-		bu.state().Read = testWaveID(cu, wave1)
-		bu.state().Exec = testWaveID(cu, wave2)
-		bu.state().Write = testWaveID(cu, wave3)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Read)).To(BeNil())
-		Expect(cu.wave(bu.state().Write)).To(BeNil())
-		Expect(cu.wave(bu.state().Exec)).To(BeNil())
-
-	})
 })

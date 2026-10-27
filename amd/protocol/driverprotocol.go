@@ -41,17 +41,6 @@ type MemCopyD2HReq struct {
 	DstOffset  uint64
 }
 
-// ShootDownCommand requests the GPU to perform a TLB shootdown and invalidate
-// the corresponding PTEs.
-type ShootDownCommand struct {
-	VAddr []uint64
-	PID   vm.PID
-}
-
-// ShootDownCompleteRsp indicates the completion of a TLB shootdown.
-type ShootDownCompleteRsp struct {
-}
-
 // RDMADrainCmdFromDriver is the driver asking CP to drain the local RDMA.
 type RDMADrainCmdFromDriver struct {
 }
@@ -67,15 +56,6 @@ type RDMARestartCmdFromDriver struct {
 
 // RDMARestartRspToDriver indicates the RDMA restart is complete.
 type RDMARestartRspToDriver struct {
-}
-
-// GPURestartReq is a req to GPU to start the pipeline and unpause all paused
-// components.
-type GPURestartReq struct {
-}
-
-// GPURestartRsp is a rsp indicating the restart is complete.
-type GPURestartRsp struct {
 }
 
 // GeneralRsp is a generic acknowledgement that a request has completed. The

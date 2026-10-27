@@ -263,25 +263,6 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.state().Reads).To(HaveLen(1))
 	})
 
-	It("should flush the scalar unit", func() {
-		wave := newTestWave()
-		inst := testInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SMEM
-		inst.Opcode = 1
-		inst.Data = insts.NewSRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
-
-		bu.state().Stages.Exec = testWaveID(cu, wave)
-		bu.state().Stages.Write = testWaveID(cu, wave)
-		bu.state().Stages.Read = testWaveID(cu, wave)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Stages.Read)).To(BeNil())
-		Expect(cu.wave(bu.state().Stages.Write)).To(BeNil())
-		Expect(cu.wave(bu.state().Stages.Exec)).To(BeNil())
-	})
-
 	It("should return correct num of cacheline", func() {
 		Expect(bu.numCacheline(0x1038, uint64(80))).To(Equal(3))
 	})

@@ -33,7 +33,6 @@ func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*Wavefront {
 type mockCUComponent struct {
 	canAccept    bool
 	isIdle       bool
-	flushed      bool
 	acceptedWave []*Wavefront
 }
 
@@ -51,10 +50,6 @@ func (c *mockCUComponent) Run() bool {
 
 func (c *mockCUComponent) IsIdle() bool {
 	return c.isIdle
-}
-
-func (c *mockCUComponent) Flush() {
-	c.flushed = true
 }
 
 var _ = Describe("Scheduler", func() {
@@ -519,26 +514,4 @@ var _ = Describe("Scheduler", func() {
 
 	})
 
-	It("should flush", func() {
-		wg := newTestRawGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
-		for i := 0; i < 4; i++ {
-			wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
-			wf.execution().State = wavefront.WfRunning
-			wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 10
-			setTestGroup(wf, wg)
-			setTestWaves(wg, append(wg.waves(), wf))
-		}
-		wf := wg.waves()[0]
-
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
-		scheduler.state().Barrier = append(scheduler.state().Barrier, testWaveID(cu, wf))
-
-		scheduler.Flush()
-
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
-		Expect(scheduler.state().Barrier).To(BeNil())
-
-	})
 })

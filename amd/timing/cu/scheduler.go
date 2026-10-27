@@ -14,9 +14,6 @@ import (
 // Scheduler does its job
 type Scheduler interface {
 	Run() bool
-	Pause()
-	Resume()
-	Flush()
 }
 
 // SchedulerImpl implements scheduler
@@ -56,15 +53,13 @@ func NewScheduler(
 // Run runs scheduler
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
-	if s.state().Paused == false {
-		if s.scoreboardEnabled {
-			madeProgress = s.tickScoreboards() || madeProgress
-		}
-		madeProgress = s.EvaluateInternalInst() || madeProgress
-		madeProgress = s.DecodeNextInst() || madeProgress
-		madeProgress = s.DoIssue() || madeProgress
-		madeProgress = s.DoFetch() || madeProgress
+	if s.scoreboardEnabled {
+		madeProgress = s.tickScoreboards() || madeProgress
 	}
+	madeProgress = s.EvaluateInternalInst() || madeProgress
+	madeProgress = s.DecodeNextInst() || madeProgress
+	madeProgress = s.DoIssue() || madeProgress
+	madeProgress = s.DoFetch() || madeProgress
 	if !madeProgress {
 		s.state().NoProgress++
 	} else {
@@ -206,35 +201,33 @@ func (s *SchedulerImpl) DoFetch() bool {
 func (s *SchedulerImpl) DoIssue() bool {
 	madeProgress := false
 
-	if s.state().Paused == false {
-		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
-		for _, wf := range wfs {
-			inst := wf.NextInst()
-			if inst.ExeUnit == insts.ExeUnitSpecial {
-				madeProgress = s.issueToInternal(wf) || madeProgress
+	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
+	for _, wf := range wfs {
+		inst := wf.NextInst()
+		if inst.ExeUnit == insts.ExeUnitSpecial {
+			madeProgress = s.issueToInternal(wf) || madeProgress
 
-				continue
-			}
+			continue
+		}
 
-			unit := s.getUnitToIssueTo(inst.ExeUnit)
-			if unit.CanAcceptWave() {
-				wf.issueNext()
+		unit := s.getUnitToIssueTo(inst.ExeUnit)
+		if unit.CanAcceptWave() {
+			wf.issueNext()
 
-				s.cu.logInstTask(wf, inst, false)
+			s.cu.logInstTask(wf, inst, false)
 
-				if s.scoreboardEnabled && wf.scoreboard() != nil {
-					latency := GetScoreboardLatency(inst.Inst)
-					if latency > 0 {
-						wf.scoreboard().MarkBusy(
-							inst.Inst, latency)
-					}
+			if s.scoreboardEnabled && wf.scoreboard() != nil {
+				latency := GetScoreboardLatency(inst.Inst)
+				if latency > 0 {
+					wf.scoreboard().MarkBusy(
+						inst.Inst, latency)
 				}
-
-				unit.AcceptWave(wf)
-				wf.execution().State = wavefront.WfRunning
-
-				madeProgress = true
 			}
+
+			unit.AcceptWave(wf)
+			wf.execution().State = wavefront.WfRunning
+
+			madeProgress = true
 		}
 	}
 	return madeProgress
@@ -537,22 +530,6 @@ func (s *SchedulerImpl) markMemDrained(wf *Wavefront, what string) {
 		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})
-}
-
-// Pause pauses
-func (s *SchedulerImpl) Pause() {
-	s.state().Paused = true
-}
-
-// Resume resumes
-func (s *SchedulerImpl) Resume() {
-	s.state().Paused = false
-}
-
-// Flush flushes
-func (s *SchedulerImpl) Flush() {
-	s.state().Barrier = nil
-	s.state().Internal = nil
 }
 
 func workGroupTimings(wg *WorkGroup) []protocol.WavefrontTiming {

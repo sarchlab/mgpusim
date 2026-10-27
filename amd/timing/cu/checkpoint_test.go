@@ -35,7 +35,6 @@ func TestCheckpointPreservesBarrierAndLDSIdentity(t *testing.T) {
 	}
 	original.comp.State.Scheduler.Barrier = []uint64{wfID(wg.waves()[0])}
 	original.comp.State.Scheduler.NoProgress = 27
-	original.comp.State.Scheduler.Paused = true
 	original.comp.State.LDS.Exec = wfID(wg.waves()[1])
 	original.comp.State.LDS.Cycles = 3
 	restored := roundTripCUState(t, original)
@@ -50,7 +49,7 @@ func TestCheckpointPreservesBarrierAndLDSIdentity(t *testing.T) {
 	}
 	lds := restored.LDSUnit.(*LDSUnit)
 	if restored.wave(lds.state().Exec).state() != restoredWG.waves()[1].state() || lds.state().Cycles != 3 ||
-		rs.state().NoProgress != 27 || !rs.state().Paused {
+		rs.state().NoProgress != 27 {
 		t.Fatal("pipeline progress was not restored")
 	}
 	if restoredWG.waves()[0].execution().SampleIssueTime != 123 ||
@@ -88,7 +87,7 @@ func checkpointCUWithTracking(t *testing.T, tracking bool, specs ...Spec) *Compu
 		spec = specs[0]
 	}
 	comp := MakeBuilder().WithSimulation(simulation).WithSpec(spec).Build("CU")
-	for _, name := range []string{DispatchPortName, CtrlPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
+	for _, name := range []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
 		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}
@@ -164,53 +163,6 @@ func TestCheckpointRegistersAndSIMDResumeFromCanonicalState(t *testing.T) {
 	}
 	if restored.comp.State.Waves[slotIndex(wg.state().Waves[0])].Execution.PC != 4 {
 		t.Fatal("wave view is a shadow copy")
-	}
-}
-
-func TestCheckpointFlushRetainsInstructionUntilShadowResponse(t *testing.T) {
-	original := checkpointCU(t)
-	wg := checkpointGroup(original)
-	wf := wg.waves()[0]
-	old := checkpointInstruction(t, original)
-	wf.SetDynamicInst(old)
-	wf.execution().State = wavefront.WfReady
-	wf.execution().OutstandingVectorMemAccess = 1
-	wf.execution().InFlightInsts = 1
-	original.comp.State.InstTasks[old.ID] = 0
-	read := messaging.Msg{ID: original.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
-	record := VectorAccessState{Read: read, WF: wfID(wf), Inst: old.ID,
-		Lanes: []LaneState{{Register: insts.VReg(0).RegType, Count: 1}}}
-	original.comp.State.Vector = []VectorAccessState{record}
-	original.comp.State.VectorUnit.Waiting = []VectorAccessState{record}
-	original.populateShadowBuffers()
-	original.VectorMemUnit.Flush()
-	original.endInflightTracingTasks()
-	wf.SetDynamicInst(checkpointInstruction(t, original))
-	if _, ok := original.comp.State.Instructions[old.ID]; !ok {
-		t.Fatal("shadow request lost its encoding")
-	}
-	var archive bytes.Buffer
-	if err := original.comp.SaveCheckpoint(&archive); err != nil {
-		t.Fatal(err)
-	}
-	restored := checkpointCU(t)
-	if err := restored.comp.LoadCheckpoint(&archive); err != nil {
-		t.Fatal(err)
-	}
-	restored = MiddlewareOf(restored.comp)
-	port := newFakePort("CU.VectorMem")
-	restored.ToVectorMem = port
-	if !restored.sendVectorShadowBufferAccesses() || len(port.sent) != 1 {
-		t.Fatal("shadow request was not resent")
-	}
-	restored.handleVectorDataLoadReturn(messaging.Msg{
-		RspTo: port.sent[0].ID, Payload: memprotocol.DataReadyRsp{Data: []byte{43, 0, 0, 0}},
-	})
-	if restored.comp.State.VRegisters[0][0] != 43 || restored.wave(wfID(wf)).execution().OutstandingVectorMemAccess != 0 {
-		t.Fatal("shadow response did not complete restored wave")
-	}
-	if _, ok := restored.comp.State.Instructions[old.ID]; ok {
-		t.Fatal("completed memory encoding leaked")
 	}
 }
 

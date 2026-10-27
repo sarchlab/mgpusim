@@ -348,32 +348,4 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 	return madeProgress
 }
 
-// Flush flushes
-func (u *VectorMemoryUnit) Flush() {
-	// An instruction flushed between admission and its first send keeps its
-	// parent inst task — it is WfReady, so endInflightTracingTasks leaves it
-	// open for the shadow response — but the shadow resend bypasses this unit
-	// and never calls endIssueSubtask. Emit the coalesce work milestone and end
-	// its subtask here, so the issue work is still attributed (and the subtask
-	// does not leak) rather than folding into the post-flush data wait.
-	for instID, id := range u.state().IssueTasks {
-		u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-			TaskID: u.cu.comp.State.InstTasks[instID],
-			Kind:   tasks.MilestoneKindWork,
-			What:   u.cu.comp.Name() + ".coalesce",
-		})
-		u.cu.comp.TaskTracker().EndTask(id)
-	}
-
-	clear(u.state().IssueTasks)
-	u.state().InstructionsPipeline.Clear()
-	u.state().TransactionsPipeline.Clear()
-	u.state().InstructionsOutput.Clear()
-	u.state().TransactionsOutput.Clear()
-	u.state().Waiting = nil
-	u.state().Instructions = 0
-	u.state().Transactions = 0
-	u.state().Stall = 0
-}
-
 func (u *VectorMemoryUnit) state() *VectorUnitState { return &u.cu.comp.State.VectorUnit }

@@ -111,15 +111,4 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(du.state().ToDecode).To(HaveLen(1))
 	})
 
-	It("should flush the decode unit", func() {
-		wave := newTestWave()
-		wave.execution().SIMDID = 1
-		registerTestWave(cu, wave)
-		du.AcceptWave(wave)
-
-		du.Flush()
-
-		Expect(du.state().ToDecode).To(BeEmpty())
-	})
-
 })

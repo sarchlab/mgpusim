@@ -181,7 +181,7 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 			return
 		}
 	}
-	for _, records := range [][]ScalarAccessState{cu.comp.State.Scalar, cu.comp.State.ShadowScalar} {
+	for _, records := range [][]ScalarAccessState{cu.comp.State.Scalar} {
 		for _, record := range records {
 			if record.Inst == id {
 				return
@@ -189,7 +189,7 @@ func (cu *ComputeUnit) releaseInstruction(id uint64) {
 		}
 	}
 	for _, records := range [][]VectorAccessState{
-		cu.comp.State.Vector, cu.comp.State.ShadowVector, cu.comp.State.VectorUnit.Waiting,
+		cu.comp.State.Vector, cu.comp.State.VectorUnit.Waiting,
 	} {
 		for _, record := range records {
 			if record.Inst == id {
@@ -288,21 +288,21 @@ func (cu *ComputeUnit) waveReferenced(id uint64) bool {
 
 func (cu *ComputeUnit) waveInMemory(id uint64) bool {
 	s := &cu.comp.State
-	for _, xs := range [][]FetchState{s.InstFetch, s.ShadowInstFetch} {
+	for _, xs := range [][]FetchState{s.InstFetch} {
 		for _, x := range xs {
 			if x.WF == id {
 				return true
 			}
 		}
 	}
-	for _, xs := range [][]ScalarAccessState{s.Scalar, s.ShadowScalar} {
+	for _, xs := range [][]ScalarAccessState{s.Scalar} {
 		for _, x := range xs {
 			if x.WF == id {
 				return true
 			}
 		}
 	}
-	for _, xs := range [][]VectorAccessState{s.Vector, s.ShadowVector, s.VectorUnit.Waiting} {
+	for _, xs := range [][]VectorAccessState{s.Vector, s.VectorUnit.Waiting} {
 		for _, x := range xs {
 			if x.WF == id {
 				return true

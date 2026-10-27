@@ -94,11 +94,4 @@ func (u *BranchUnit) runWriteStage() bool {
 	return true
 }
 
-// Flush clear the unit
-func (u *BranchUnit) Flush() {
-	u.state().Read = 0
-	u.state().Write = 0
-	u.state().Exec = 0
-}
-
 func (u *BranchUnit) state() *StageState { return &u.cu.comp.State.Branch }

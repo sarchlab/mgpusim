@@ -19,15 +19,6 @@ func (m *mockScheduler) Run() bool {
 	return true
 }
 
-func (m *mockScheduler) Pause() {
-}
-
-func (m *mockScheduler) Resume() {
-}
-
-func (m *mockScheduler) Flush() {
-}
-
 type mockDecoder struct {
 	Inst *insts.Inst
 }
@@ -82,7 +73,6 @@ var _ = Describe("ComputeUnit", func() {
 		toScalarMem      *fakePort
 		toVectorMem      *fakePort
 		toACE            *fakePort
-		toCP             *fakePort
 		branchUnit       *mockCUComponent
 		vectorMemDecoder *mockCUComponent
 		vectorMemUnit    *mockCUComponent
@@ -139,12 +129,10 @@ var _ = Describe("ComputeUnit", func() {
 		toACE = newFakePort("CU.Top")
 		toScalarMem = newFakePort("CU.ScalarMem")
 		toVectorMem = newFakePort("CU.VectorMem")
-		toCP = newFakePort("CU.Ctrl")
 		cu.ToInstMem = toInstMem
 		cu.ToACE = toACE
 		cu.ToScalarMem = toScalarMem
 		cu.ToVectorMem = toVectorMem
-		cu.ToCP = toCP
 
 		cu.comp.Spec.InstMem = "InstMem"
 		cu.comp.Spec.ScalarMem = "ScalarMem"
@@ -462,150 +450,4 @@ var _ = Describe("ComputeUnit", func() {
 		})
 	})
 
-	Context("should handle flush request", func() {
-		It("should handle a pipeline flush request from CU", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
-
-			toCP.incoming = append(toCP.incoming, req)
-
-			cu.processInputFromCP()
-
-			Expect(cu.comp.State.IsFlushing).To(BeTrue())
-			Expect(cu.comp.State.HasFlushReq).To(BeTrue())
-			Expect(cu.comp.State.FlushReqID).To(Equal(req.ID))
-			Expect(cu.comp.State.FlushReqSrc).To(Equal(req.Src))
-			Expect(toCP.incoming).To(HaveLen(0))
-		})
-
-		It("should flush internal CU buffers", func() {
-			info := new(InstFetchReqInfo)
-			cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, info))
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.comp.State.Scalar = append(
-				cu.comp.State.Scalar, testScalarState(cu, scalarMemInfo))
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			cu.comp.State.Vector = append(
-				cu.comp.State.Vector, testVectorState(cu, vectorMemInfo))
-
-			cu.flushCUBuffers()
-
-			Expect(cu.comp.State.InstFetch).To(BeNil())
-			Expect(cu.comp.State.Vector).To(BeNil())
-			Expect(cu.comp.State.Scalar).To(BeNil())
-		})
-
-		It("should handle a restart request", func() {
-			cu.comp.State.IsPaused = true
-
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineRestartReq{}}
-
-			toCP.incoming = append(toCP.incoming, req)
-
-			cu.processInputFromCP()
-
-			Expect(toCP.sent).To(HaveLen(1))
-			Expect(toCP.sent[0].Payload).To(BeAssignableToTypeOf(protocol.CUPipelineRestartRsp{}))
-			Expect(cu.comp.State.IsPaused).To(BeTrue())
-			Expect(cu.comp.State.IsSendingOutShadowBufferReqs).To(BeTrue())
-		})
-
-		It("should flush the full CU", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: "CP",
-				Dst: cu.ToCP.AsRemote(), Payload: protocol.CUPipelineFlushReq{}}
-
-			cu.comp.State.HasFlushReq = true
-			cu.comp.State.FlushReqID = req.ID
-			cu.comp.State.FlushReqSrc = req.Src
-
-			info := new(InstFetchReqInfo)
-			cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, info))
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			cu.comp.State.Scalar = append(
-				cu.comp.State.Scalar, testScalarState(cu, scalarMemInfo))
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			cu.comp.State.Vector = append(
-				cu.comp.State.Vector, testVectorState(cu, vectorMemInfo))
-
-			cu.flushPipeline()
-
-			Expect(cu.comp.State.InstFetch).To(BeNil())
-			Expect(cu.comp.State.Vector).To(BeNil())
-			Expect(cu.comp.State.Scalar).To(BeNil())
-
-			Expect(cu.comp.State.ShadowInstFetch).To(Not(BeNil()))
-			Expect(cu.comp.State.ShadowVector).To(Not(BeNil()))
-			Expect(cu.comp.State.ShadowScalar).To(Not(BeNil()))
-
-			Expect(branchUnit.flushed).To(BeTrue())
-			Expect(scalarUnit.flushed).To(BeTrue())
-			Expect(scalarDecoder.flushed).To(BeTrue())
-			Expect(simdUnit.flushed).To(BeTrue())
-			Expect(vectorDecoder.flushed).To(BeTrue())
-			Expect(ldsUnit.flushed).To(BeTrue())
-			Expect(ldsDecoder.flushed).To(BeTrue())
-			Expect(vectorMemDecoder.flushed).To(BeTrue())
-			Expect(vectorMemUnit.flushed).To(BeTrue())
-
-			Expect(cu.comp.State.HasPendingCPRsp).To(BeTrue())
-			Expect(cu.comp.State.IsFlushing).To(BeFalse())
-			Expect(cu.comp.State.IsPaused).To(BeTrue())
-		})
-
-		It("should not restart a CU where there are shadow buffer reqs "+
-			"pending", func() {
-			req := messaging.Msg{ID: testIDs.NewID(),
-				Src: cu.ToInstMem.AsRemote(),
-				Dst: cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: 0x100,
-					AccessByteSize: 64}}
-
-			info := new(InstFetchReqInfo)
-			info.Req = req
-			cu.comp.State.ShadowInstFetch = append(
-				cu.comp.State.ShadowInstFetch, testFetchState(cu, info))
-
-			// Mem accesses always carry their instruction in production (set
-			// in executeSMEMLoad / the coalescer); the shadow resend parents
-			// the replacement req_out task on it.
-			inst := testInst(testIDs.NewID(), insts.NewInst())
-
-			scalarMemInfo := new(ScalarMemAccessInfo)
-			scalarMemInfo.Req = req
-			scalarMemInfo.Inst = inst
-			cu.comp.State.ShadowScalar = append(
-				cu.comp.State.ShadowScalar, testScalarState(cu, scalarMemInfo))
-
-			vectorMemInfo := VectorMemAccessInfo{}
-			readCopy := req
-			vectorMemInfo.Read = readCopy
-			vectorMemInfo.Inst = inst
-			cu.comp.State.ShadowVector = append(
-				cu.comp.State.ShadowVector, testVectorState(cu, vectorMemInfo))
-
-			cu.checkShadowBuffers()
-
-			Expect(toInstMem.sent).To(HaveLen(1))
-			Expect(toScalarMem.sent).To(HaveLen(1))
-			Expect(toVectorMem.sent).To(HaveLen(1))
-		})
-
-		It("should restart a CU where there are no shadow buffer reqs "+
-			"pending", func() {
-			cu.comp.State.ShadowInstFetch = nil
-			cu.comp.State.ShadowScalar = nil
-			cu.comp.State.ShadowVector = nil
-
-			cu.checkShadowBuffers()
-
-			Expect(cu.comp.State.IsPaused).To(BeFalse())
-		})
-	})
 })

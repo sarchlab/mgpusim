@@ -182,20 +182,4 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(vecMemUnit.state().TransactionsOutput.Size()).To(Equal(0))
 	})
 
-	It("should flush the vector memory unit", func() {
-		vecMemUnit.state().Instructions = 1
-		vecMemUnit.state().Transactions = 1
-		vecMemUnit.state().Waiting = append(vecMemUnit.state().Waiting,
-			VectorAccessState{})
-		vecMemUnit.state().InstructionsPipeline.Accept(vectorMemInst{})
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{})
-
-		vecMemUnit.Flush()
-
-		Expect(vecMemUnit.state().Instructions).To(Equal(uint64(0)))
-		Expect(vecMemUnit.state().Transactions).To(Equal(uint64(0)))
-		Expect(vecMemUnit.state().Waiting).To(BeEmpty())
-		Expect(vecMemUnit.state().InstructionsPipeline.Stages()).To(BeEmpty())
-		Expect(vecMemUnit.state().InstructionsOutput.Size()).To(Equal(0))
-	})
 })

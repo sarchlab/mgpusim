@@ -59,7 +59,6 @@ type ComputeUnit struct {
 	ToInstMem   messaging.Port
 	ToScalarMem messaging.Port
 	ToVectorMem messaging.Port
-	ToCP        messaging.Port
 }
 
 // Comp returns the component this middleware belongs to.
@@ -99,27 +98,17 @@ func (cu *ComputeUnit) vectorMemPort() messaging.Port {
 	return cu.ToVectorMem
 }
 
-func (cu *ComputeUnit) cpPort() messaging.Port {
-	if cu.ToCP == nil {
-		cu.ToCP = cu.comp.Ports.Ctrl
-	}
-
-	return cu.ToCP
-}
-
 // CurrentTime returns the current simulation time.
 func (cu *ComputeUnit) CurrentTime() timing.VTimeInPicoSec {
 	return cu.comp.CurrentTime()
 }
 
-// Tick advances the pipeline, handles control/input, and releases drained groups.
+// Tick advances the pipeline, handles input, and releases drained groups.
 func (cu *ComputeUnit) Tick() bool {
 	madeProgress := false
 
 	madeProgress = cu.runPipeline() || madeProgress
-	madeProgress = cu.sendToCP() || madeProgress
 	madeProgress = cu.processInput() || madeProgress
-	madeProgress = cu.doFlush() || madeProgress
 	cu.retireGroups()
 
 	return madeProgress
@@ -129,39 +118,18 @@ func (cu *ComputeUnit) Tick() bool {
 func (cu *ComputeUnit) runPipeline() bool {
 	madeProgress := false
 
-	if !cu.comp.State.IsPaused {
-		madeProgress = cu.BranchUnit.Run() || madeProgress
-		madeProgress = cu.ScalarUnit.Run() || madeProgress
-		madeProgress = cu.ScalarDecoder.Run() || madeProgress
-		for _, simdUnit := range cu.SIMDUnit {
-			madeProgress = simdUnit.Run() || madeProgress
-		}
-		madeProgress = cu.VectorDecoder.Run() || madeProgress
-		madeProgress = cu.LDSUnit.Run() || madeProgress
-		madeProgress = cu.LDSDecoder.Run() || madeProgress
-		madeProgress = cu.VectorMemUnit.Run() || madeProgress
-		madeProgress = cu.VectorMemDecoder.Run() || madeProgress
-		madeProgress = cu.Scheduler.Run() || madeProgress
+	madeProgress = cu.BranchUnit.Run() || madeProgress
+	madeProgress = cu.ScalarUnit.Run() || madeProgress
+	madeProgress = cu.ScalarDecoder.Run() || madeProgress
+	for _, simdUnit := range cu.SIMDUnit {
+		madeProgress = simdUnit.Run() || madeProgress
 	}
-
-	return madeProgress
-}
-
-func (cu *ComputeUnit) doFlush() bool {
-	madeProgress := false
-	if cu.comp.State.IsFlushing {
-		// If a flush request arrives before the shadow buffer requests have
-		// been sent out.
-		if cu.comp.State.IsSendingOutShadowBufferReqs {
-			madeProgress =
-				cu.reInsertShadowBufferReqsToOriginalBuffers() || madeProgress
-		}
-		madeProgress = cu.flushPipeline() || madeProgress
-	}
-
-	if cu.comp.State.IsSendingOutShadowBufferReqs {
-		madeProgress = cu.checkShadowBuffers() || madeProgress
-	}
+	madeProgress = cu.VectorDecoder.Run() || madeProgress
+	madeProgress = cu.LDSUnit.Run() || madeProgress
+	madeProgress = cu.LDSDecoder.Run() || madeProgress
+	madeProgress = cu.VectorMemUnit.Run() || madeProgress
+	madeProgress = cu.VectorMemDecoder.Run() || madeProgress
+	madeProgress = cu.Scheduler.Run() || madeProgress
 
 	return madeProgress
 }
@@ -169,182 +137,12 @@ func (cu *ComputeUnit) doFlush() bool {
 func (cu *ComputeUnit) processInput() bool {
 	madeProgress := false
 
-	state := &cu.comp.State
-	if !state.IsPaused || state.IsSendingOutShadowBufferReqs {
-		madeProgress = cu.processInputFromACE() || madeProgress
-		madeProgress = cu.processInputFromInstMem() || madeProgress
-		madeProgress = cu.processInputFromScalarMem() || madeProgress
-		madeProgress = cu.processInputFromVectorMem() || madeProgress
-	}
-
-	madeProgress = cu.processInputFromCP() || madeProgress
+	madeProgress = cu.processInputFromACE() || madeProgress
+	madeProgress = cu.processInputFromInstMem() || madeProgress
+	madeProgress = cu.processInputFromScalarMem() || madeProgress
+	madeProgress = cu.processInputFromVectorMem() || madeProgress
 
 	return madeProgress
-}
-
-func (cu *ComputeUnit) processInputFromCP() bool {
-	req, ok := cu.cpPort().PeekIncoming()
-	if !ok {
-		return false
-	}
-
-	switch req.Payload.(type) {
-	case protocol.CUPipelineRestartReq:
-
-		return cu.handlePipelineResume(req)
-	case protocol.CUPipelineFlushReq:
-
-		return cu.handlePipelineFlushReq(req)
-	default:
-		panic("unknown msg type")
-	}
-}
-
-func (cu *ComputeUnit) handlePipelineFlushReq(
-	req messaging.Msg,
-) bool {
-	state := &cu.comp.State
-	state.IsFlushing = true
-	state.HasFlushReq = true
-	state.FlushReqID = req.ID
-	state.FlushReqSrc = req.Src
-
-	cu.cpPort().RetrieveIncoming()
-
-	return true
-}
-
-func (cu *ComputeUnit) handlePipelineResume(
-	req messaging.Msg,
-) bool {
-	// v4 sent the restart response unconditionally and panicked when the
-	// port was full. v5 ports panic on Send when full, so the request stays
-	// queued until the response can go out.
-	if !cu.cpPort().CanSend() {
-		return false
-	}
-
-	state := &cu.comp.State
-	state.IsSendingOutShadowBufferReqs = true
-
-	rsp := messaging.Msg{ID: cu.comp.NewID(),
-		Src:   cu.cpPort().AsRemote(),
-		Dst:   req.Src,
-		RspTo: req.ID, Payload: protocol.CUPipelineRestartRsp{}}
-
-	cu.cpPort().Send(rsp)
-
-	cu.cpPort().RetrieveIncoming()
-
-	return true
-}
-
-func (cu *ComputeUnit) sendToCP() bool {
-	state := &cu.comp.State
-	if !state.HasPendingCPRsp {
-		return false
-	}
-
-	if !cu.cpPort().CanSend() {
-		return false
-	}
-
-	rsp := messaging.Msg{ID: cu.comp.NewID(),
-		Src:   cu.cpPort().AsRemote(),
-		Dst:   state.PendingCPRspDst,
-		RspTo: state.PendingCPRspTo, Payload: protocol.CUPipelineFlushRsp{}}
-
-	cu.cpPort().Send(rsp)
-
-	state.HasPendingCPRsp = false
-
-	return true
-}
-
-func (cu *ComputeUnit) flushPipeline() bool {
-	state := &cu.comp.State
-
-	if !state.HasFlushReq {
-		return false
-	}
-
-	if state.IsHandlingWfCompletionEvent {
-		return false
-	}
-
-	cu.comp.State.ShadowInstFetch = nil
-	cu.comp.State.ShadowScalar = nil
-	cu.comp.State.ShadowVector = nil
-
-	cu.populateShadowBuffers()
-	cu.endInflightTracingTasks()
-	cu.setWavesToReady()
-	cu.Scheduler.Flush()
-	cu.flushInternalComponents()
-	cu.Scheduler.Pause()
-	state.IsPaused = true
-
-	state.HasPendingCPRsp = true
-	state.PendingCPRspDst = state.FlushReqSrc
-	state.PendingCPRspTo = state.FlushReqID
-	state.HasFlushReq = false
-	state.IsFlushing = false
-
-	return true
-}
-
-func (cu *ComputeUnit) flushInternalComponents() {
-	cu.BranchUnit.Flush()
-
-	cu.ScalarUnit.Flush()
-	cu.ScalarDecoder.Flush()
-
-	for _, simdUnit := range cu.SIMDUnit {
-		simdUnit.Flush()
-	}
-
-	cu.VectorDecoder.Flush()
-	cu.LDSUnit.Flush()
-	cu.LDSDecoder.Flush()
-	cu.VectorMemDecoder.Flush()
-	cu.VectorMemUnit.Flush()
-}
-
-// endInflightTracingTasks ends the tracing tasks that a pipeline flush drops,
-// so they do not leak as started-never-ended. A flush resets every running
-// wavefront to WfReady (setWavesToReady) and clears the sub-unit pipeline
-// stages and the scheduler's internalExecuting slice; an instruction sitting in
-// one of those stages is re-issued from scratch (with a new ID) after the
-// restart, so its "inst" task would otherwise never end. Such a wavefront is in
-// the WfRunning state, so ending the inst task of every running wavefront
-// covers all sub-unit stages and internalExecuting uniformly.
-//
-// In-flight memory accesses are not dropped: they are preserved in the shadow
-// buffers and re-sent, and their inst tasks end when the (shadowed) response
-// returns. Those wavefronts have already advanced past the issuing instruction
-// and sit in WfReady, so the WfRunning filter correctly skips them and the inst
-// task is not double-ended. The shadowed accesses' req_out tasks are ended in
-// populateShadowBuffers, where the re-send regenerates the message ID.
-func (cu *ComputeUnit) endInflightTracingTasks() {
-	for _, wfPool := range cu.WfPools {
-		for _, handle := range wfPool.ids() {
-			wf := wfPool.cu.wave(handle)
-			if wf.execution().State != wavefront.WfRunning {
-				continue
-			}
-
-			if inst := wf.DynamicInst(); inst != nil {
-				// This running inst's task is force-ended here, bypassing
-				// logInstTask, so keep the in-flight counter balanced.
-				if wf.execution().InFlightInsts > 0 {
-					wf.execution().InFlightInsts--
-				}
-				cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
-				delete(cu.comp.State.InstTasks, inst.ID)
-				cu.releaseInstruction(inst.ID)
-			}
-		}
-	}
 }
 
 func (cu *ComputeUnit) processInputFromACE() bool {
@@ -642,16 +440,9 @@ func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
 }
 
 // hasInFlightVectorMemFor reports whether any vector-memory transaction for the
-// given instruction is still in flight — including siblings parked in the
-// shadow buffer during a flush resend but not yet re-sent.
+// given instruction is still in flight.
 func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 	for _, info := range cu.comp.State.Vector {
-		if info.Inst == instID(inst) {
-			return true
-		}
-	}
-
-	for _, info := range cu.comp.State.ShadowVector {
 		if info.Inst == instID(inst) {
 			return true
 		}
@@ -661,16 +452,9 @@ func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 }
 
 // hasInFlightScalarMemFor reports whether any scalar-memory access for the given
-// instruction is still in flight — including shadow-buffered siblings that have
-// not been re-sent yet.
+// instruction is still in flight.
 func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
 	for _, info := range cu.comp.State.Scalar {
-		if info.Inst == instID(inst) {
-			return true
-		}
-	}
-
-	for _, info := range cu.comp.State.ShadowScalar {
 		if info.Inst == instID(inst) {
 			return true
 		}
@@ -839,12 +623,6 @@ func wfHasInstructionReady(wf *Wavefront) bool {
 	return len(wf.execution().InstBuffer[int(offset):]) >= 4
 }
 
-func (cu *ComputeUnit) flushCUBuffers() {
-	cu.comp.State.InstFetch = nil
-	cu.comp.State.Scalar = nil
-	cu.comp.State.Vector = nil
-}
-
 // markWfMilestone records a milestone on the wavefront task itself (TaskID
 // wf.UID), not on its instruction. These tile the wavefront's life into
 // execution (work) and the reasons for a gap between instructions — waiting
@@ -921,167 +699,6 @@ func (cu *ComputeUnit) execUnitToString(u insts.ExeUnit) string {
 		return "Special"
 	}
 	panic("unknown exec unit")
-}
-
-func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {
-	cu.comp.State.IsSendingOutShadowBufferReqs = false
-	for i := 0; i < len(cu.comp.State.ShadowVector); i++ {
-		cu.comp.State.Vector = append(
-			cu.comp.State.Vector, cu.comp.State.ShadowVector[i])
-	}
-
-	for i := 0; i < len(cu.comp.State.ShadowScalar); i++ {
-		cu.comp.State.Scalar = append(
-			cu.comp.State.Scalar, cu.comp.State.ShadowScalar[i])
-	}
-
-	for i := 0; i < len(cu.comp.State.ShadowInstFetch); i++ {
-		cu.comp.State.InstFetch = append(
-			cu.comp.State.InstFetch, cu.comp.State.ShadowInstFetch[i])
-	}
-
-	return true
-}
-
-func (cu *ComputeUnit) checkShadowBuffers() bool {
-	numReqsPendingToSend :=
-		len(cu.comp.State.ShadowScalar) +
-			len(cu.comp.State.ShadowVector) +
-			len(cu.comp.State.ShadowInstFetch)
-
-	if numReqsPendingToSend == 0 {
-		cu.comp.State.IsSendingOutShadowBufferReqs = false
-		cu.Scheduler.Resume()
-		cu.comp.State.IsPaused = false
-		return true
-	}
-
-	return cu.sendOutShadowBufferReqs()
-}
-
-func (cu *ComputeUnit) sendOutShadowBufferReqs() bool {
-	madeProgress := false
-
-	madeProgress = cu.sendScalarShadowBufferAccesses() || madeProgress
-	madeProgress = cu.sendVectorShadowBufferAccesses() || madeProgress
-	madeProgress = cu.sendInstFetchShadowBufferAccesses() || madeProgress
-
-	return madeProgress
-}
-
-func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
-	if len(cu.comp.State.ShadowScalar) > 0 {
-		info := &cu.comp.State.ShadowScalar[0]
-
-		info.Req.ID = cu.comp.NewID()
-		if cu.scalarMemPort().CanSend() {
-			cu.startRequest(info.Req, cu.comp.State.InstTasks[info.Inst])
-			cu.scalarMemPort().Send(info.Req)
-			// The resend has a fresh message ID; open a replacement req_out
-			// task (the original was ended in populateShadowBuffers) so the
-			// post-flush round trip is traced and completion matches.
-			cu.comp.State.Scalar =
-				append(cu.comp.State.Scalar, *info)
-			cu.comp.State.ShadowScalar =
-				cu.comp.State.ShadowScalar[1:]
-			return true
-		}
-	}
-
-	return false
-}
-
-func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
-	if len(cu.comp.State.ShadowVector) > 0 {
-		info := cu.comp.State.ShadowVector[0]
-		if info.Read.ID != 0 {
-			info.Read.ID = cu.comp.NewID()
-			if cu.vectorMemPort().CanSend() {
-				cu.startRequest(info.Read, cu.comp.State.InstTasks[info.Inst])
-				cu.vectorMemPort().Send(info.Read)
-				cu.comp.State.Vector = append(
-					cu.comp.State.Vector, info)
-				cu.comp.State.ShadowVector =
-					cu.comp.State.ShadowVector[1:]
-				return true
-			}
-		} else if info.Write.ID != 0 {
-			info.Write.ID = cu.comp.NewID()
-			if cu.vectorMemPort().CanSend() {
-				cu.startRequest(info.Write, cu.comp.State.InstTasks[info.Inst])
-				cu.vectorMemPort().Send(info.Write)
-				cu.comp.State.Vector = append(
-					cu.comp.State.Vector, info)
-				cu.comp.State.ShadowVector =
-					cu.comp.State.ShadowVector[1:]
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
-	if len(cu.comp.State.ShadowInstFetch) > 0 {
-		info := &cu.comp.State.ShadowInstFetch[0]
-		info.Req.ID = cu.comp.NewID()
-		if cu.instMemPort().CanSend() {
-			cu.startRequest(info.Req, info.Task)
-			cu.instMemPort().Send(info.Req)
-			cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, *info)
-			cu.comp.State.ShadowInstFetch = cu.comp.State.ShadowInstFetch[1:]
-			return true
-		}
-	}
-	return false
-}
-
-func (cu *ComputeUnit) populateShadowBuffers() {
-	// The shadowed accesses are re-sent after the restart with freshly
-	// generated message IDs (see sendOutShadowBufferReqs), and the resend opens
-	// a fresh req_out task for the new ID. End the original req_out tasks —
-	// keyed on the old message ID — here, so they are not left unfinalized
-	// across the flush. EndTaskOnReset is a no-op for an access that was
-	// buffered but never sent (no req_out was opened).
-	for i := 0; i < len(cu.comp.State.InstFetch); i++ {
-		cu.completeRequest(cu.comp.State.InstFetch[i].Req.ID)
-		cu.comp.State.ShadowInstFetch = append(
-			cu.comp.State.ShadowInstFetch, cu.comp.State.InstFetch[i])
-	}
-
-	for i := 0; i < len(cu.comp.State.Scalar); i++ {
-		cu.completeRequest(cu.comp.State.Scalar[i].Req.ID)
-		cu.comp.State.ShadowScalar = append(
-			cu.comp.State.ShadowScalar, cu.comp.State.Scalar[i])
-	}
-
-	for i := 0; i < len(cu.comp.State.Vector); i++ {
-		info := cu.comp.State.Vector[i]
-		if info.Read.ID != 0 {
-			cu.completeRequest(info.Read.ID)
-		}
-		if info.Write.ID != 0 {
-			cu.completeRequest(info.Write.ID)
-		}
-		cu.comp.State.ShadowVector = append(
-			cu.comp.State.ShadowVector, info)
-	}
-
-	cu.comp.State.Scalar = nil
-	cu.comp.State.InstFetch = nil
-	cu.comp.State.Vector = nil
-}
-
-func (cu *ComputeUnit) setWavesToReady() {
-	for _, wfPool := range cu.WfPools {
-		for _, handle := range wfPool.ids() {
-			wf := wfPool.cu.wave(handle)
-			if wf.execution().State != wavefront.WfCompleted {
-				wf.execution().State = wavefront.WfReady
-				wf.execution().IsFetching = false
-			}
-		}
-	}
 }
 
 func (cu *ComputeUnit) wavefrontByID(id uint64) *Wavefront {

@@ -153,10 +153,10 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
   Build the downstream instruction/scalar ROBs and bind their ports first;
   copy their actual `Ports.Top.AsRemote()` addresses into Spec before building
   the CU. `Resources.VectorMemModules` remains the vector-memory mapper.
-- Ports: `"Top"`, `"Ctrl"`, `"InstMem"`, `"ScalarMem"`, `"VectorMem"`. Build
+- Ports: `"Top"`, `"InstMem"`, `"ScalarMem"`, `"VectorMem"`. Build
   them externally with `twowaybuffered.MakeBuilder().WithSimulation(simulation)`
   and bind with `comp.BindPort(name, port)` before connecting. Buffer capacities
-  for parity: Top 4, Ctrl 4, InstMem 4, ScalarMem 32, VectorMem 64. Access bound
+  for parity: Top 4, InstMem 4, ScalarMem 32, VectorMem 64. Access bound
   ports through `comp.Ports`.
 - Wire the complete topology, then call `simulation.Initialize()`. Only then
   obtain behavior views using `cu.MiddlewareOf(comp) *cu.ComputeUnit`, including
@@ -179,8 +179,8 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
 - Capability methods → `cu.DispatcherView{CU: comp}` adapter.
 - Other tracing helpers: `NewCPIStackInstHook(comp, tt)` and
   `NewInstTracer(tt timing.TimeTeller)`.
-- Behavior delta: pipeline-restart ack waits for Ctrl capacity (v4 panicked
-  under backpressure).
+- The legacy CU pipeline flush/restart and shadow-buffer replay API is removed.
+  Page migration does not flush or replay CU execution.
 
 See [Compute-unit State and construction](akita-v5-rc2.md#compute-unit-state-and-construction)
 for the canonical-state lifecycle and the future Blueprint migration.
@@ -197,20 +197,19 @@ Dependents: timingconfig core + r9nano/mi300x/shaderarray configs.
   PerfAnalyzer option removed.
 - `*cp.CommandProcessor` → `*cp.Comp`. `cp.RegisterCU(comp, cu)` is a
   package function; `CUInterfaceForCP` = DispatchingPort/WfPoolSizes/
-  VRegCounts/SRegCount/LDSBytes/ControlPort, all RemotePort-based —
+  VRegCounts/SRegCount/LDSBytes, all RemotePort-based —
   satisfied by `emu.DispatcherView` and `cu.DispatcherView`.
-- Ports (external build + AssignPort): ToDriver, ToDMA, ToCUs, ToTLBs,
-  ToAddressTranslators, ToCaches, ToRDMA. Use ~4096 buffers for parity.
-- Config must set State RemotePort lists: Driver, DMAEngine, RDMA, CUs,
-  TLBs, AddressTranslators, **ROBs (new, split from ATs)**, L1V/L1S/L1I
-  Caches, L2Caches, DRAMControllers. Cache/TLB/AT/ROB/DRAM entries are
+- Ports (external build + AssignPort): ToDriver, ToDMA, ToCUs, ToCaches, ToRDMA. Use ~4096 buffers for parity.
+- Config must set State RemotePort lists: Driver, DMAEngine, RDMA, L1V/L1S/L1I
+  Caches, L2Caches, DRAMControllers. Cache/DRAM entries are
   the components' "Control" ports.
 - DMA: `cp.MakeDMAEngineBuilder().WithRegistrar(reg).WithSpec(
   cp.DefaultDMASpec()).WithResources(cp.DMAResources{LocalDataSource:
   mapper}).Build(name)`; ports "ToCP"/"ToMem" external; `*cp.DMAComp`.
-- Behavior deltas: shootdown drains (not discards) in-flight cache
-  transactions; L1-then-L2 sequencing; driver commands stall during any
-  active control sequence; driver rsps CanSend-queued.
+- Legacy GPU shootdown/restart commands and their CU/AT/ROB/TLB control
+  sequence are removed. Ordinary driver cache flush still drains, flushes,
+  invalidates L1 then L2, and enables caches. Kernel-start L1 invalidation and
+  independent RDMA drain/restart remain. Driver responses wait for port capacity.
 
 ## amd/samples/runner/emusystem (ported)
 

@@ -17,10 +17,6 @@ const (
 	// WGCompletionMsgs back (v4: ToACE / "Top").
 	DispatchPortName = "Top"
 
-	// CtrlPortName receives pipeline flush/restart requests from the command
-	// processor (v4: ToCP / "Ctrl").
-	CtrlPortName = "Ctrl"
-
 	// InstMemPortName sends instruction-fetch reads (v4: ToInstMem).
 	InstMemPortName = "InstMem"
 
@@ -109,9 +105,9 @@ type State struct {
 	Waves                                     []WaveState
 	Instructions                              map[uint64]InstructionState
 	Pools                                     [][]uint64
-	InstFetch, ShadowInstFetch                []FetchState
-	Scalar, ShadowScalar                      []ScalarAccessState
-	Vector, ShadowVector                      []VectorAccessState
+	InstFetch                                 []FetchState
+	Scalar                                    []ScalarAccessState
+	Vector                                    []VectorAccessState
 	WFTimes                                   map[uint64]timing.VTimeInPicoSec
 	SRegisters                                []byte
 	VRegisters                                [][]byte
@@ -124,23 +120,6 @@ type State struct {
 
 	// Running indicates that at least one work-group has been mapped.
 	Running bool `json:"running"`
-
-	IsFlushing                   bool `json:"is_flushing"`
-	IsPaused                     bool `json:"is_paused"`
-	IsSendingOutShadowBufferReqs bool `json:"is_sending_out_shadow_buffer_reqs"`
-	IsHandlingWfCompletionEvent  bool `json:"is_handling_wf_completion_event"`
-
-	// HasFlushReq, FlushReqID, and FlushReqSrc record the pipeline flush
-	// request currently being served (v4: currentFlushReq).
-	HasFlushReq bool                 `json:"has_flush_req"`
-	FlushReqID  uint64               `json:"flush_req_id"`
-	FlushReqSrc messaging.RemotePort `json:"flush_req_src"`
-
-	// HasPendingCPRsp, PendingCPRspTo, and PendingCPRspDst record the flush
-	// response waiting to be sent to the command processor (v4: toSendToCP).
-	HasPendingCPRsp bool                 `json:"has_pending_cp_rsp"`
-	PendingCPRspTo  uint64               `json:"pending_cp_rsp_to"`
-	PendingCPRspDst messaging.RemotePort `json:"pending_cp_rsp_dst"`
 }
 
 // Resources holds the shared references that a timing ComputeUnit needs.
@@ -163,7 +142,6 @@ type Resources struct {
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
 	Top       messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
-	Ctrl      messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
 	InstMem   messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 	ScalarMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 	VectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
@@ -206,12 +184,6 @@ type DispatcherView struct {
 // work-groups to the CU.
 func (v DispatcherView) DispatchingPort() messaging.RemotePort {
 	return v.CU.Ports.Top.AsRemote()
-}
-
-// ControlPort returns the port that can receive controlling messages from
-// the Command Processor.
-func (v DispatcherView) ControlPort() messaging.RemotePort {
-	return v.CU.Ports.Ctrl.AsRemote()
 }
 
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD

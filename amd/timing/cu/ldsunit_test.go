@@ -95,36 +95,5 @@ var _ = Describe("LDS Unit", func() {
 		Expect(cu.wave(bu.state().Read)).To(BeNil())
 
 	})
-	It("should flush the LDS", func() {
-		wave1 := newTestWave()
-		wave2 := newTestWave()
-		setTestGroup(wave2, newTestRawGroup(nil, messaging.Msg{Payload: protocol.MapWGReq{}}))
-		setTestLDS(wave2.group(), make([]byte, 0))
-		wave3 := newTestWave()
-		inst := testInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.DS
-		inst.Opcode = 0
-		inst.Addr = insts.NewVRegOperand(0, 0, 1)
-		inst.Data = insts.NewVRegOperand(2, 2, 2)
-		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
-		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
-		wave3.SetPC(0x13C)
-		wave3.execution().InstBuffer = make([]byte, 256)
-		wave3.execution().InstBufferStartPC = 0x100
 
-		wave3.execution().State = wavefront.WfRunning
-
-		bu.state().Read = testWaveID(cu, wave1)
-		bu.state().Exec = testWaveID(cu, wave2)
-		bu.state().Write = testWaveID(cu, wave3)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Read)).To(BeNil())
-		Expect(cu.wave(bu.state().Write)).To(BeNil())
-		Expect(cu.wave(bu.state().Exec)).To(BeNil())
-		Expect(bu.state().Cycles).To(Equal(0))
-
-	})
 })

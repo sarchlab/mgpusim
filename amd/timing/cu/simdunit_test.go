@@ -76,24 +76,4 @@ var _ = Describe("SIMD Unit", func() {
 
 	})
 
-	It("should flush SIMD", func() {
-		wave := newTestWave()
-		inst := testInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.VOPC
-		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
-		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
-		inst.ByteSize = 4
-		wave.execution().InstBuffer = make([]byte, 256)
-		wave.execution().InstBufferStartPC = 0x100
-		wave.SetDynamicInst(inst)
-		wave.SetPC(0x13C)
-
-		wave.execution().State = wavefront.WfRunning
-
-		bu.state().Exec = testWaveID(cu, wave)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Exec)).To(BeNil())
-	})
 })

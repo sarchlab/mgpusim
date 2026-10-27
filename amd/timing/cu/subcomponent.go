@@ -6,5 +6,4 @@ type SubComponent interface {
 	AcceptWave(wave *Wavefront)
 	Run() bool
 	IsIdle() bool
-	Flush()
 }

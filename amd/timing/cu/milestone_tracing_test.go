@@ -333,8 +333,6 @@ func (u *decodeTraceUnit) IsIdle() bool {
 	return len(u.accepted) == 0
 }
 
-func (u *decodeTraceUnit) Flush() {}
-
 // Decode is the first pipeline interval inside an instruction task. Record it
 // explicitly so the instruction timeline does not have an unexplained prefix
 // before the execution unit's own subtasks begin.
@@ -518,38 +516,6 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 	}
 }
 
-// A vector-memory instruction flushed after admission but before its first send
-// must keep its coalesce work milestone. Its parent inst task survives the
-// flush (for the shadow response) and the resend bypasses the unit, so Flush
-// itself must emit the milestone and end the subtask.
-func TestVectorMemFlushPreservesCoalesceWork(t *testing.T) {
-	cu := newTestComputeUnit("CU", newFakeEngine())
-	rec := &cuMilestoneRecorder{}
-	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
-
-	vmu := NewVectorMemoryUnit(cu, nil)
-	vmu.state().InstructionsPipeline = queueing.MakePipeline[vectorMemInst](1, 6)
-	vmu.state().InstructionsOutput =
-		queueing.MakeBuffer[vectorMemInst](16)
-	vmu.state().TransactionsPipeline = queueing.MakePipeline[uint64](2, 10)
-	vmu.state().TransactionsOutput =
-		queueing.MakeBuffer[uint64](8)
-
-	inst := testInst(testIDs.NewID(), nil)
-	instTask := startTestInst(cu, inst)
-	vmu.startIssueSubtask(inst) // admitted; issue work not yet done
-
-	vmu.Flush()
-
-	if got := countCoalesceWork(rec, instTask); got != 1 {
-		t.Fatalf("flush must preserve the coalesce work milestone for an "+
-			"in-issue instruction; got %d", got)
-	}
-	if _, ok := vmu.state().IssueTasks[inst.ID]; ok {
-		t.Fatal("the issue subtask should be cleared on flush")
-	}
-}
-
 func countVMemData(rec *cuMilestoneRecorder, instID uint64) int {
 	count := 0
 	for _, m := range rec.milestones {
@@ -601,41 +567,6 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	if got := countVMemData(rec, instTask); got != 1 {
 		t.Fatalf("expected one data milestone after the last response; got %d",
 			got)
-	}
-}
-
-// During a flush resend, coalesced siblings that have not been re-sent yet live
-// in the shadow buffer. The data milestone must not fire while such a sibling
-// is still parked there.
-func TestVectorMemDataMilestoneWaitsForShadowSiblings(t *testing.T) {
-	cu := newTestComputeUnit("CU", newFakeEngine())
-	rec := &cuMilestoneRecorder{}
-	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
-
-	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
-	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
-	startTestWave(cu, wf)
-
-	resent := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
-
-	cu.comp.State.Vector = testVectorStates(cu, []VectorMemAccessInfo{
-		{Read: resent, Inst: inst, Wavefront: wf},
-	})
-	// A coalesced sibling still parked in the shadow buffer, not yet re-sent.
-	shadowSibling := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
-
-	cu.comp.State.ShadowVector = testVectorStates(cu, []VectorMemAccessInfo{
-		{Read: shadowSibling, Inst: inst, Wavefront: wf},
-	})
-
-	cu.handleVectorDataLoadReturn(messaging.Msg{ID: testIDs.NewID(),
-		RspTo: resent.ID, Payload: memprotocol.DataReadyRsp{}},
-	)
-
-	if countVMemData(rec, instTask) != 0 {
-		t.Fatal("data milestone must not fire while a sibling is parked in the " +
-			"shadow buffer")
 	}
 }
 

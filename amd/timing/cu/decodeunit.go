@@ -148,19 +148,4 @@ func (du *DecodeUnit) markExecUnitReady(wave *Wavefront) {
 	})
 }
 
-// Flush clear the unit
-func (du *DecodeUnit) Flush() {
-	for instID, taskID := range du.state().Tasks {
-		du.cu.comp.TaskTracker().EndTask(taskID)
-		du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-			TaskID: du.cu.comp.State.InstTasks[instID],
-			Kind:   tasks.MilestoneKindWork,
-			What:   "decode",
-		})
-		delete(du.state().Tasks, instID)
-	}
-	du.state().Done = make(map[uint64]bool)
-	du.state().ToDecode = du.state().ToDecode[:0]
-}
-
 func (du *DecodeUnit) state() *DecoderState { return &du.cu.comp.State.Decoders[du.index] }

@@ -141,22 +141,6 @@ func (u *SIMDUnit) runExecStage() bool {
 	return true
 }
 
-// Flush flushes
-func (u *SIMDUnit) Flush() {
-	// End the per-SIMD "pipeline" tasks of the instructions dropped from the
-	// pipeline, so they do not leak as started-never-ended. (The instructions'
-	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
-	if u.state().Exec != 0 {
-		u.cu.comp.TaskTracker().EndTask(u.state().Task)
-	}
-	for _, slot := range u.state().Slots {
-		u.cu.comp.TaskTracker().EndTask(slot.Task)
-	}
-
-	u.state().Exec = 0
-	u.state().Slots = u.state().Slots[:0]
-}
-
 // logPipelineTaskStart starts the per-SIMD pipeline task for the given
 // instruction and returns the task ID (v4 used the string ID
 // inst.ID+"_simd_exec").

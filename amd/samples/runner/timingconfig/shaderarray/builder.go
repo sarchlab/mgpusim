@@ -27,7 +27,6 @@ import (
 // ROBs: 2*NumReqPerCycle; control ports: 1).
 const (
 	cuTopBufSize       = 4
-	cuCtrlBufSize      = 4
 	cuInstMemBufSize   = 4
 	cuScalarMemBufSize = 32
 	cuVectorMemBufSize = 64
@@ -464,7 +463,6 @@ func (b *Builder) buildCUs() {
 			Build(cuName)
 
 		b.buildPort(computeUnit, cu.DispatchPortName, cuTopBufSize)
-		b.buildPort(computeUnit, cu.CtrlPortName, cuCtrlBufSize)
 		b.buildPort(computeUnit, cu.InstMemPortName, cuInstMemBufSize)
 		b.buildPort(computeUnit, cu.ScalarMemPortName, cuScalarMemBufSize)
 		b.buildPort(computeUnit, cu.VectorMemPortName, cuVectorMemBufSize)
