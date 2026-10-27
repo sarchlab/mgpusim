@@ -18,13 +18,14 @@ import (
 // accesses to its L1 vector cache.
 type SMSPController struct {
 	*Comp
-	*topology
 }
 
 type Spec struct {
-	Freq                   timing.Freq
-	Log2CacheLineSize      uint64
-	MemResponseHandleWidth uint64
+	ToSM                   messaging.RemotePort `json:"to_sm"`
+	ToVectorMem            messaging.RemotePort `json:"to_vector_mem"`
+	Freq                   timing.Freq          `json:"freq"`
+	Log2CacheLineSize      uint64               `json:"log2_cache_line_size"`
+	MemResponseHandleWidth uint64               `json:"mem_response_handle_width"`
 }
 
 type State struct {
@@ -36,13 +37,7 @@ type State struct {
 	InstsCount           uint64
 }
 
-type topology struct {
-	ID                string
-	toSMRemote        messaging.RemotePort
-	toVectorMemRemote messaging.RemotePort
-}
-
-type Resources struct{ Topology *topology }
+type Resources struct{}
 type Ports struct {
 	ToSM        messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.smsp"`
 	ToVectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
@@ -51,20 +46,9 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Middlewares struct{ Controller *SMSPController }
 
 func (m *Middlewares) Initialize(c *Comp) {
-	m.Controller = &SMSPController{Comp: c, topology: c.Resources.Topology}
+	m.Controller = &SMSPController{Comp: c}
 }
 func (c *SMSPController) Handle(timing.Event) bool { return c.Tick() }
-
-// SetSMRemotePort sets the SM port that finished warps are reported to.
-func (s *SMSPController) SetSMRemotePort(remote messaging.RemotePort) {
-	s.toSMRemote = remote
-}
-
-// SetVectorMemRemote sets the L1 vector cache port that memory requests are
-// sent to.
-func (s *SMSPController) SetVectorMemRemote(remote messaging.RemotePort) {
-	s.toVectorMemRemote = remote
-}
 
 // Tick advances the SMSP by one cycle.
 func (s *SMSPController) Tick() bool {
@@ -228,7 +212,6 @@ func (s *SMSPController) tickInFlightPipelines() bool {
 
 				continue
 			}
-
 			remaining = append(remaining, *pipe)
 		}
 
@@ -251,7 +234,6 @@ func (s *SMSPController) collectFinishedWarps() bool {
 
 			continue
 		}
-
 		remaining = append(remaining, *wu)
 	}
 
@@ -285,9 +267,9 @@ func (s *SMSPController) reportFinishedWarps() bool {
 		return false
 	}
 
-	msg := messaging.Msg{ID: s.NewID(), Src: s.Ports.ToSM.AsRemote(), Dst: s.toSMRemote, Payload: message.SMSPToSMMsg{
+	msg := messaging.Msg{ID: s.NewID(), Src: s.Ports.ToSM.AsRemote(), Dst: s.Spec.ToSM, Payload: message.SMSPToSMMsg{
 		WarpFinished: true,
-		SMSPID:       s.ID,
+		SMSPID:       s.Name(),
 		Warp:         s.State.FinishedWarps[0],
 	}}
 	s.Ports.ToSM.Send(msg)
@@ -346,7 +328,7 @@ func (s *SMSPController) readReq(inst *trace.InstructionTrace) messaging.Msg {
 	return messaging.Msg{
 		ID:  s.NewID(),
 		Src: s.Ports.ToVectorMem.AsRemote(),
-		Dst: s.toVectorMemRemote,
+		Dst: s.Spec.ToVectorMem,
 		Payload: memprotocol.ReadReq{
 			Address:        addr,
 			AccessByteSize: byteSize,
@@ -361,7 +343,7 @@ func (s *SMSPController) writeReq(inst *trace.InstructionTrace) messaging.Msg {
 	return messaging.Msg{
 		ID:  s.NewID(),
 		Src: s.Ports.ToVectorMem.AsRemote(),
-		Dst: s.toVectorMemRemote,
+		Dst: s.Spec.ToVectorMem,
 		Payload: memprotocol.WriteReq{
 			Address: addr,
 			Data:    make([]byte, byteSize),
@@ -384,6 +366,10 @@ func (s *SMSPController) Status() (warps, unsentMem, inflightMem int) {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Spec.ToSM == "" || c.Spec.ToVectorMem == "" {
+		panic(fmt.Sprintf("SMSP requires SM and memory destinations: to_sm=%q to_vector_mem=%q",
+			c.Spec.ToSM, c.Spec.ToVectorMem))
+	}
 	s.Scheduler = *NewSMSPScheduler()
 	s.ResourcePool = *NewH100SMSPResourcePool()
 	s.InflightMemPipelines = make(map[uint64]PipelineRef)

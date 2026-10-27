@@ -322,3 +322,28 @@ golangci-lint run ./nvidia/...
 
 The tests use a two-thread-block excerpt of a vectorAdd trace in
 `trace/testdata/vectoradd`, so they need no GPU.
+
+## Topology configuration and checkpoints
+
+GPU, SM, SMSP, and driver destinations are immutable Spec fields. Builders
+supply peer names and addresses before component construction; the hierarchy
+uses its deterministic component/port names for forward references, preserving
+construction order. `RegisterGPU` only connects ports and checks that the GPU
+matches the driver's configured peer and return address. It does not change
+routing configuration. Child component lists on builder-returned wrappers are
+for assembly and observation; the ticking middleware routes exclusively from
+Spec.
+
+Custom platforms pass `driver.Builder.WithDevices`,
+`gpu.Builder.WithDriverRemotePort`, `sm.SMBuilder.WithGPURemotePort`, and
+`smsp.MakeBuilder().WithSMRemotePort(...).WithVectorMemRemote(...)` during setup.
+The previous `Set*RemotePort`/`SetVectorMemRemote` methods and redundant controller
+`ID` fields are removed; use `Name()` for component identity. SMSP builders now
+have value semantics like the other builders.
+
+Peer configuration participates in checkpoint compatibility. Checkpoints from
+before this topology migration must be rebuilt.
+
+Scheduler lookups binary-search the canonical State slices: IDs increase on
+insertion and retirement preserves order. No derived map or pointer cache is
+retained across checkpoint restoration.

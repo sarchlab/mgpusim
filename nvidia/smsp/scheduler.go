@@ -2,6 +2,7 @@ package smsp
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
@@ -176,20 +177,24 @@ func (s *SMSPSWarpScheduler) isEmpty() bool {
 	return len(s.WarpUnits) == 0
 }
 
+// Warp IDs increase on insertion and retirement preserves slice order. Search
+// the current canonical slice; no pointer or derived index survives a restore.
 func (s *SMSPSWarpScheduler) warp(id uint64) *SMSPWarpUnit {
-	for i := range s.WarpUnits {
-		if s.WarpUnits[i].ID == id {
-			return &s.WarpUnits[i]
-		}
+	i := sort.Search(len(s.WarpUnits), func(i int) bool { return s.WarpUnits[i].ID >= id })
+	if i == len(s.WarpUnits) || s.WarpUnits[i].ID != id {
+		panic(fmt.Sprintf("unknown resident warp %d", id))
 	}
-	panic(fmt.Sprintf("unknown resident warp %d", id))
+	return &s.WarpUnits[i]
 }
+
+// Instructions issue in trace order, and pipeline retirement is stable.
 func (s *SMSPSWarpScheduler) pipeline(ref PipelineRef) *PipelineInstance {
 	w := s.warp(ref.WarpID)
-	for i := range w.InFlightPipelines {
-		if w.InFlightPipelines[i].InstIndex == ref.InstIndex {
-			return &w.InFlightPipelines[i]
-		}
+	i := sort.Search(len(w.InFlightPipelines), func(i int) bool {
+		return w.InFlightPipelines[i].InstIndex >= ref.InstIndex
+	})
+	if i == len(w.InFlightPipelines) || w.InFlightPipelines[i].InstIndex != ref.InstIndex {
+		panic(fmt.Sprintf("unknown pipeline %v", ref))
 	}
-	panic(fmt.Sprintf("unknown pipeline %v", ref))
+	return &w.InFlightPipelines[i]
 }

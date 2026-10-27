@@ -21,14 +21,17 @@ const warpSize = 32
 // thread blocks back to the GPU.
 type SMController struct {
 	*Comp
-	*topology
+	SMSPs     []*smsp.SMSPController
+	L1VCaches []*writethroughcache.Comp
 }
 
 type Spec struct {
-	Freq                    timing.Freq
-	SM2SMSPWarpIssueLatency uint64
-	SMReceiveGPULatency     uint64
-	SMSPResponseHandleWidth uint64
+	ToGPU                   messaging.RemotePort   `json:"to_gpu"`
+	SMSPs                   []messaging.RemotePort `json:"smsps"`
+	Freq                    timing.Freq            `json:"freq"`
+	SM2SMSPWarpIssueLatency uint64                 `json:"sm2smsp_warp_issue_latency"`
+	SMReceiveGPULatency     uint64                 `json:"sm_receive_gpu_latency"`
+	SMSPResponseHandleWidth uint64                 `json:"smsp_response_handle_width"`
 }
 
 type State struct {
@@ -43,14 +46,7 @@ type State struct {
 	CWDAdmissionPathCostLatencyRemaining uint64
 }
 
-type topology struct {
-	ID          string
-	toGPURemote messaging.RemotePort
-	SMSPs       []*smsp.SMSPController
-	L1VCaches   []*writethroughcache.Comp
-}
-
-type Resources struct{ Topology *topology }
+type Resources struct{}
 type Ports struct {
 	ToGPU   messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
 	ToSMSPs messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
@@ -59,15 +55,9 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Middlewares struct{ Controller *SMController }
 
 func (m *Middlewares) Initialize(c *Comp) {
-	m.Controller = &SMController{Comp: c, topology: c.Resources.Topology}
+	m.Controller = &SMController{Comp: c}
 }
 func (c *SMController) Handle(timing.Event) bool { return c.Tick() }
-
-// SetGPURemotePort sets the GPU port that finished thread blocks are
-// reported to.
-func (s *SMController) SetGPURemotePort(remote messaging.RemotePort) {
-	s.toGPURemote = remote
-}
 
 // Tick advances the SM by one cycle.
 func (s *SMController) Tick() bool {
@@ -182,10 +172,10 @@ func (s *SMController) reportFinishedThreadblocks() bool {
 	msg := messaging.Msg{
 		ID:  s.NewID(),
 		Src: s.Ports.ToGPU.AsRemote(),
-		Dst: s.toGPURemote,
+		Dst: s.Spec.ToGPU,
 		Payload: message.SMToDeviceMsg{
 			NumThreadFinished: s.State.ThreadblockWarpCountOrigin[fmt.Sprint(tbID)] * warpSize,
-			SMID:              s.ID,
+			SMID:              s.Name(),
 		},
 	}
 	s.Ports.ToGPU.Send(msg)
@@ -199,7 +189,7 @@ func (s *SMController) reportFinishedThreadblocks() bool {
 // dispatchWarpsToSMSPs sends all waiting warps to the SMSPs round-robin, one
 // message per SMSP.
 func (s *SMController) dispatchWarpsToSMSPs() bool {
-	if len(s.SMSPs) == 0 || len(s.State.UndispatchedWarps) == 0 {
+	if len(s.Spec.SMSPs) == 0 || len(s.State.UndispatchedWarps) == 0 {
 		return false
 	}
 
@@ -208,14 +198,14 @@ func (s *SMController) dispatchWarpsToSMSPs() bool {
 		return true
 	}
 
-	if s.Ports.ToSMSPs.OutgoingBuf().Size()+len(s.SMSPs) > portBufSize {
+	if s.Ports.ToSMSPs.OutgoingBuf().Size()+len(s.Spec.SMSPs) > portBufSize {
 		return false
 	}
 
-	warpLists := make([][]trace.WarpTrace, len(s.SMSPs))
+	warpLists := make([][]trace.WarpTrace, len(s.Spec.SMSPs))
 	for _, warp := range s.State.UndispatchedWarps {
 		warpLists[s.State.SmspIssueIndex] = append(warpLists[s.State.SmspIssueIndex], warp)
-		s.State.SmspIssueIndex = (s.State.SmspIssueIndex + 1) % len(s.SMSPs)
+		s.State.SmspIssueIndex = (s.State.SmspIssueIndex + 1) % len(s.Spec.SMSPs)
 	}
 
 	for i, warps := range warpLists {
@@ -223,7 +213,7 @@ func (s *SMController) dispatchWarpsToSMSPs() bool {
 			continue
 		}
 
-		dst := s.SMSPs[i].Ports.ToSM.AsRemote()
+		dst := s.Spec.SMSPs[i]
 		s.Ports.ToSMSPs.Send(
 			messaging.Msg{ID: s.NewID(), Src: s.Ports.ToSMSPs.AsRemote(), Dst: dst, Payload: message.SMToSMSPMsg{
 				WarpList: warps,
@@ -243,6 +233,17 @@ func (s *SMController) GetTotalWarpsCount() uint64 {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Spec.ToGPU == "" {
+		panic(fmt.Sprintf("SM requires a GPU destination: to_gpu=%q", c.Spec.ToGPU))
+	}
+	ports := make(map[messaging.RemotePort]bool)
+	for _, peer := range c.Spec.SMSPs {
+		if peer == "" || ports[peer] {
+			panic(fmt.Sprintf("invalid or duplicate SMSP destination: port=%q", peer))
+		}
+		ports[peer] = true
+	}
+
 	s.ThreadblockWarpCount = make(map[string]uint64)
 	s.ThreadblockWarpCountOrigin = make(map[string]uint64)
 	s.SM2SMSPWarpIssueLatencyRemaining = c.Spec.SM2SMSPWarpIssueLatency

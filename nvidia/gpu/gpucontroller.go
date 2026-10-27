@@ -20,18 +20,26 @@ const warpSize = 32
 // finished kernels back to the driver.
 type GPUController struct {
 	*Comp
-	*topology
+	SMList []*sm.SMController
 }
 
 type Spec struct {
-	Freq                               timing.Freq
-	SMThreadCapacity                   uint64
-	GPU2SMThreadBlockAllocationLatency uint64
-	GPUReceiveCTALatencyUnit           float64
-	GPUReceiveSMLatency                uint64
-	CWDIssueWidth                      uint64
-	SMResponseHandleWidth              uint64
-	MaxCTAPerSM                        uint64
+	ToDriver                           messaging.RemotePort `json:"to_driver"`
+	SMs                                []SMPeer             `json:"sms"`
+	Freq                               timing.Freq          `json:"freq"`
+	SMThreadCapacity                   uint64               `json:"sm_thread_capacity"`
+	GPU2SMThreadBlockAllocationLatency uint64               `json:"gpu2sm_thread_block_allocation_latency"`
+	GPUReceiveCTALatencyUnit           float64              `json:"gpu_receive_cta_latency_unit"`
+	GPUReceiveSMLatency                uint64               `json:"gpu_receive_sm_latency"`
+	CWDIssueWidth                      uint64               `json:"cwd_issue_width"`
+	SMResponseHandleWidth              uint64               `json:"sm_response_handle_width"`
+	MaxCTAPerSM                        uint64               `json:"max_cta_per_sm"`
+}
+
+// SMPeer is an SM identity and its dispatch port.
+type SMPeer struct {
+	Name string               `json:"name"`
+	Port messaging.RemotePort `json:"port"`
 }
 
 type State struct {
@@ -46,13 +54,7 @@ type State struct {
 	GPUReceiveSMLatencyRemaining                uint64
 }
 
-type topology struct {
-	ID             string
-	toDriverRemote messaging.RemotePort
-	SMList         []*sm.SMController
-}
-
-type Resources struct{ Topology *topology }
+type Resources struct{}
 type Ports struct {
 	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
 	ToSMs    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
@@ -61,15 +63,9 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Middlewares struct{ Controller *GPUController }
 
 func (m *Middlewares) Initialize(c *Comp) {
-	m.Controller = &GPUController{Comp: c, topology: c.Resources.Topology}
+	m.Controller = &GPUController{Comp: c}
 }
 func (c *GPUController) Handle(timing.Event) bool { return c.Tick() }
-
-// SetDriverRemotePort sets the driver port that finished kernels are
-// reported to.
-func (g *GPUController) SetDriverRemotePort(remote messaging.RemotePort) {
-	g.toDriverRemote = remote
-}
 
 // Tick advances the GPU controller by one cycle.
 func (g *GPUController) Tick() bool {
@@ -188,10 +184,10 @@ func (g *GPUController) reportFinishedKernels() bool {
 	msg := messaging.Msg{
 		ID:  g.NewID(),
 		Src: g.Ports.ToDriver.AsRemote(),
-		Dst: g.toDriverRemote,
+		Dst: g.Spec.ToDriver,
 		Payload: message.DeviceToDriverMsg{
 			KernelFinished: true,
-			DeviceID:       g.ID,
+			DeviceID:       g.Name(),
 		},
 	}
 	g.Ports.ToDriver.Send(msg)
@@ -208,9 +204,9 @@ func (g *GPUController) pickSM(nThreads uint64) int {
 	bestCTAs := ^uint64(0)
 	bestThreads := ^uint64(0)
 
-	for i := range g.SMList {
-		index := (g.State.SMIssueIndex + i) % len(g.SMList)
-		smID := g.SMList[index].ID
+	for i := range g.Spec.SMs {
+		index := (g.State.SMIssueIndex + i) % len(g.Spec.SMs)
+		smID := g.Spec.SMs[index].Name
 		threads := g.State.SMAssignedThreadTable[smID]
 		ctas := g.State.SMAssignedCTACountTable[smID]
 
@@ -229,7 +225,7 @@ func (g *GPUController) pickSM(nThreads uint64) int {
 }
 
 func (g *GPUController) dispatchThreadblocksToSMs() bool {
-	if len(g.SMList) == 0 || len(g.State.UndispatchedThreadblocks) == 0 {
+	if len(g.Spec.SMs) == 0 || len(g.State.UndispatchedThreadblocks) == 0 {
 		return false
 	}
 
@@ -253,12 +249,12 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 			break
 		}
 
-		target := g.SMList[smIndex]
-		g.State.SMAssignedThreadTable[target.ID] += nThreads
-		g.State.SMAssignedCTACountTable[target.ID]++
+		target := g.Spec.SMs[smIndex]
+		g.State.SMAssignedThreadTable[target.Name] += nThreads
+		g.State.SMAssignedCTACountTable[target.Name]++
 		g.State.SMIssueIndex = smIndex
 
-		dst := target.Ports.ToGPU.AsRemote()
+		dst := target.Port
 		g.Ports.ToSMs.Send(
 			messaging.Msg{ID: g.NewID(), Src: g.Ports.ToSMs.AsRemote(), Dst: dst, Payload: message.DeviceToSMMsg{
 				Threadblock: tb,
@@ -287,6 +283,20 @@ func (g *GPUController) Status() (undispatched, unfinished uint64) {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Spec.ToDriver == "" {
+		panic(fmt.Sprintf("GPU requires a driver destination: to_driver=%q", c.Spec.ToDriver))
+	}
+
+	names := make(map[string]bool)
+	ports := make(map[messaging.RemotePort]bool)
+	for _, peer := range c.Spec.SMs {
+		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
+			panic(fmt.Sprintf("invalid or duplicate GPU peer: name=%q port=%q", peer.Name, peer.Port))
+		}
+		names[peer.Name] = true
+		ports[peer.Port] = true
+	}
+
 	s.SMAssignedThreadTable = make(map[string]uint64)
 	s.SMAssignedCTACountTable = make(map[string]uint64)
 	s.GPU2SMThreadBlockAllocationLatencyRemaining = c.Spec.GPU2SMThreadBlockAllocationLatency

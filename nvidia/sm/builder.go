@@ -25,6 +25,7 @@ func DefaultSpec() Spec {
 // SMBuilder builds SMs. Each SM contains its SMSPs and one L1 vector cache
 // per SMSP.
 type SMBuilder struct {
+	toGPU     messaging.RemotePort
 	registrar modeling.Simulation
 	freq      timing.Freq
 
@@ -103,19 +104,27 @@ func (b SMBuilder) WithMemResponseHandleWidth(w uint64) SMBuilder {
 	return b
 }
 
+// WithGPURemotePort sets the immutable parent destination.
+func (b SMBuilder) WithGPURemotePort(remote messaging.RemotePort) SMBuilder {
+	b.toGPU = remote
+	return b
+}
+
 // Build creates an SM with the given name. The SM exposes a "ToGPU" port and
 // the L1 caches expose their "Bottom" ports for the connection to L2.
 func (b SMBuilder) Build(name string) *SMController {
-	t := &topology{ID: name}
 	spec := Spec{
+		ToGPU:                   b.toGPU,
 		Freq:                    b.freq,
 		SM2SMSPWarpIssueLatency: b.SM2SMSPWarpIssueLatency,
 		SMReceiveGPULatency:     b.SMReceiveGPULatency,
 		SMSPResponseHandleWidth: b.SMSPResponseHandleWidth,
 	}
-	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).
-		WithResources(Resources{Topology: t}).Build(name)
-	s := &SMController{Comp: c, topology: t}
+	for i := range b.smspsCount {
+		spec.SMSPs = append(spec.SMSPs, messaging.RemotePort(fmt.Sprintf("%s.SMSP[%d].ToSM", name, i)))
+	}
+	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).Build(name)
+	s := &SMController{Comp: c}
 	b.buildPort(s, "ToGPU", portBufSize)
 	b.buildPort(s, "ToSMSPs", portBufSize)
 
@@ -140,15 +149,16 @@ func (b SMBuilder) buildPort(
 }
 
 func (b SMBuilder) buildSMSPs(s *SMController) {
-	smspBuilder := new(smsp.SMSPBuilder).
+	smspBuilder := smsp.MakeBuilder().
 		WithSimulation(b.registrar).
 		WithFreq(b.freq).
+		WithSMRemotePort(s.Ports.ToSMSPs.AsRemote()).
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithMemResponseHandleWidth(b.MemResponseHandleWidth)
 
 	for i := range b.smspsCount {
-		sp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", s.Name(), i))
-		sp.SetSMRemotePort(s.Ports.ToSMSPs.AsRemote())
+		memory := messaging.RemotePort(fmt.Sprintf("%s.L1VCache[%d].Top", s.Name(), i))
+		sp := smspBuilder.WithVectorMemRemote(memory).Build(fmt.Sprintf("%s.SMSP[%d]", s.Name(), i))
 		s.SMSPs = append(s.SMSPs, sp)
 	}
 }
@@ -191,10 +201,12 @@ func (b SMBuilder) connectSMSPs(s *SMController) {
 	smToSMSPs.BindPort(s.Ports.ToSMSPs)
 
 	for i, sp := range s.SMSPs {
-		smToSMSPs.BindPort(sp.Ports.ToSM)
-
 		l1Top := s.L1VCaches[i].Ports.Top
-		sp.SetVectorMemRemote(l1Top.AsRemote())
+		if s.Spec.SMSPs[i] != sp.Ports.ToSM.AsRemote() ||
+			sp.Spec.ToSM != s.Ports.ToSMSPs.AsRemote() || sp.Spec.ToVectorMem != l1Top.AsRemote() {
+			panic("built SMSP does not match SM and memory peer configuration")
+		}
+		smToSMSPs.BindPort(sp.Ports.ToSM)
 
 		conn := directconnection.NewConnection(fmt.Sprintf("%s.SMSPToL1V[%d]", s.Name(), i), b.registrar, b.freq)
 		conn.BindPort(sp.Ports.ToVectorMem)
