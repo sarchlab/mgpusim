@@ -146,13 +146,11 @@ AMD launch messages and dispatch snapshots (`WorkGroupValue` and
 contain executable bytes: instruction fetch uses the packet's `KernelObject`
 address in its process address space and canonical GPU storage. Code uploads
 remain owned by the runtime and storage resources. Restoring a dispatch snapshot
-alone therefore yields metadata, not a stand-alone executable. Old snapshots
-that embed executable `Data` are explicitly rejected; rebuild them.
+alone therefore yields metadata, not a stand-alone executable.
 
 The runtime allocator checkpoint stores consecutive free pages as ordered runs.
 It preserves free-list allocation order, including fragmented pages appended by
-frees; it never sorts the allocation queue. Runtime checkpoint format 2 rejects
-the previous expanded-page format. CU execution uses fixed-slot wave handles;
+frees; it never sorts the allocation queue. CU execution uses fixed-slot wave handles;
 the cold debugger lookup scans those slots without maintaining a second index.
 Vector transactions stay ordered by increasing request identity, permitting
 binary search without a cache across restore. Emulation decodes use bounded

@@ -44,11 +44,11 @@ func (s *Store) Name() string { return s.name }
 func (s *Store) SaveCheckpoint(w io.Writer) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return modeling.WriteCheckpoint(w, struct{ Version int }{1}, s.state, nil)
+	return modeling.WriteCheckpoint(w, struct{}{}, s.state, nil)
 }
 func (s *Store) LoadCheckpoint(r io.Reader) error {
 	var state storeState
-	if err := modeling.ReadCheckpoint(r, struct{ Version int }{1}, &state, nil); err != nil {
+	if err := modeling.ReadCheckpoint(r, struct{}{}, &state, nil); err != nil {
 		return err
 	}
 	for id, kernel := range state.Kernels {

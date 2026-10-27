@@ -2,8 +2,6 @@ package insts
 
 import (
 	"debug/elf"
-	"encoding/json"
-	"fmt"
 	"slices"
 )
 
@@ -92,26 +90,6 @@ func (v CodeObjectMetadata) Restore() *KernelCodeObject {
 		o.Symbol = &v.Symbol
 	}
 	return o
-}
-
-// UnmarshalJSON rejects the old executable-bearing snapshot explicitly instead
-// of silently accepting its unknown Data field and discarding the binary.
-//
-//nolint:musttag // Flatten the existing checkpoint field names through a method-free alias.
-func (v *CodeObjectMetadata) UnmarshalJSON(data []byte) error {
-	type metadata CodeObjectMetadata
-	var value struct {
-		metadata
-		Data json.RawMessage
-	}
-	if err := json.Unmarshal(data, &value); err != nil {
-		return err
-	}
-	if value.Data != nil {
-		return fmt.Errorf("code metadata: incompatible executable-bearing checkpoint; rebuild checkpoint")
-	}
-	*v = CodeObjectMetadata(value.metadata)
-	return nil
 }
 
 // Metadata returns the launch metadata without cloning executable storage.

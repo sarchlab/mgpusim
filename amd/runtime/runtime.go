@@ -44,7 +44,6 @@ type runtimeState struct {
 	Codes                    []codeAddress
 }
 type runtimeCheckpoint struct {
-	Version   int
 	State     runtimeState
 	Allocator internal.AllocatorState
 }
@@ -81,7 +80,7 @@ func (r *Runtime) SaveCheckpoint(w io.Writer) error {
 	return modeling.WriteCheckpoint(
 		w,
 		r.config,
-		runtimeCheckpoint{Version: 2, State: r.state, Allocator: internal.SnapshotAllocator(r.allocator, r.devices)},
+		runtimeCheckpoint{State: r.state, Allocator: internal.SnapshotAllocator(r.allocator, r.devices)},
 		nil,
 	)
 }
@@ -89,9 +88,6 @@ func (r *Runtime) LoadCheckpoint(reader io.Reader) error {
 	var s runtimeCheckpoint
 	if err := modeling.ReadCheckpoint(reader, r.config, &s, nil); err != nil {
 		return err
-	}
-	if s.Version != 2 {
-		return fmt.Errorf("runtime: incompatible checkpoint version %d; rebuild checkpoint", s.Version)
 	}
 	allocator, devices, err := internal.RestoreAllocator(s.Allocator, r.pageTable)
 	if err != nil {
