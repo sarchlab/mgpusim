@@ -24,13 +24,22 @@ and `MilestoneKindWork`).
 | Dispatcher | — | MapWGReq → CU | — |
 | RDMA | forwarded request | forwarded clone | — |
 
-### Reset / flush teardown
+### Execution completion
 
-A CU pipeline flush discards in-flight work; the tracing tasks of that work are
-ended so they do not leak (`endInflightTracingTasks`, `SIMDUnit.Flush`, the
-`populateShadowBuffers` req_out teardown, and the sampled-run work-group
-completion). The CP's `FlushReq` req_in is completed when the flush-done
-response is sent. See `flush_tracing_test.go` (`tracingtest.LeakRecorder`).
+CU execution uses `beginInstruction` / `completeInstruction`, including final
+memory responses. Completion callbacks finish before the instruction encoding
+can be retired. Instruction task `Detail` contains `inst` (dynamic instruction ID),
+`wf` (global kernel wave UID), and `format`; it holds no execution wrapper or
+State pointer. The debugger resolves the ID while the completion callback runs.
+Decoded descriptions may be shared across dynamic IDs, so pointer identity is
+not execution identity. Local `wavefront.Handle` values identify CU slots and
+are distinct from these tracing IDs. The final `S_ENDPGM` task closes before the wave task; completion
+port retries do not repeat either task completion. Sampled waves close their
+wave tasks when their completion events run. The CU retains hardware slots until
+outstanding prefetches drain and the work-group completion message can be sent.
+There is no CU flush/replay teardown. See `slots_test.go` and `lifecycle_test.go`
+for completion ordering, tracking-disabled execution, and backpressure coverage.
+The CP's ordinary cache `FlushReq` req_in closes when the flush-done response is sent.
 
 ## Milestones (blocked-time attribution)
 
@@ -76,7 +85,8 @@ asserting its milestones with a recording tracer.
   per-SIMD `BusyTimeTracer` (report.go) needs them there. The cross-domain
   parent ("inst" on cu.comp) resolves because the vis DBTracer is one instance
   on both domains.
-- **Control plane** (shootdown / GPU-restart / RDMA drain in `ctrlMiddleware`)
-  is not instrumented beyond completing the FlushReq req_in.
+- **Control plane** (ordinary cache flush, kernel-start invalidation, and RDMA
+  drain/restart in `ctrlMiddleware`) is not instrumented beyond completing the
+  FlushReq req_in. The legacy GPU shootdown/restart sequence is removed.
 - **Tags** are not emitted; the read/write/direction distinctions live in each
   task's `What`/`Detail`.

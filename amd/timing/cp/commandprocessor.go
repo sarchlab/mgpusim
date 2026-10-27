@@ -50,16 +50,12 @@ type Spec struct {
 const (
 	ctrlSeqNone        = ""
 	ctrlSeqFlush       = "flush"
-	ctrlSeqShootdown   = "shootdown"
-	ctrlSeqRestart     = "restart"
 	ctrlSeqKernelStart = "kernelStart"
 )
 
 // Driver-response kinds queued in State.PendingDriverRsps.
 const (
 	driverRspFlushDone       = "flushDone"
-	driverRspShootdownDone   = "shootdownDone"
-	driverRspRestartDone     = "restartDone"
 	driverRspRDMADrainDone   = "rdmaDrainDone"
 	driverRspRDMARestartDone = "rdmaRestartDone"
 )
@@ -70,20 +66,16 @@ type State struct {
 	CopySendTasks map[uint64]uint64
 	FlushTaskID   uint64
 	// Destinations of the messages that the Command Processor sends. They are
-	// set by the configuration code after Build. The TLB, address translator,
-	// ROB, cache, and DRAM destinations are the "Control" ports of the
+	// set by the configuration code after Build. Cache and DRAM
+	// destinations are the "Control" ports of the
 	// respective components (they speak memcontrolprotocol).
-	Driver             messaging.RemotePort   `json:"driver"`
-	DMAEngine          messaging.RemotePort   `json:"dma_engine"`
-	RDMA               messaging.RemotePort   `json:"rdma"`
-	CUs                []messaging.RemotePort `json:"cus"`
-	TLBs               []messaging.RemotePort `json:"tlbs"`
-	AddressTranslators []messaging.RemotePort `json:"address_translators"`
-	ROBs               []messaging.RemotePort `json:"robs"`
-	L1VCaches          []messaging.RemotePort `json:"l1v_caches"`
-	L1SCaches          []messaging.RemotePort `json:"l1s_caches"`
-	L1ICaches          []messaging.RemotePort `json:"l1i_caches"`
-	L2Caches           []messaging.RemotePort `json:"l2_caches"`
+	Driver    messaging.RemotePort   `json:"driver"`
+	DMAEngine messaging.RemotePort   `json:"dma_engine"`
+	RDMA      messaging.RemotePort   `json:"rdma"`
+	L1VCaches []messaging.RemotePort `json:"l1v_caches"`
+	L1SCaches []messaging.RemotePort `json:"l1s_caches"`
+	L1ICaches []messaging.RemotePort `json:"l1i_caches"`
+	L2Caches  []messaging.RemotePort `json:"l2_caches"`
 
 	// DRAMControllers list the Control ports of the DRAM controllers. The
 	// Command Processor currently sends no commands to them (the page
@@ -97,18 +89,15 @@ type State struct {
 	BottomMemCopyD2HToTop map[uint64]messaging.Msg `json:"bottom_mem_copy_d2h_to_top"`
 
 	// Control-sequence bookkeeping. CtrlSeq names the sequence in progress
-	// (flush, shootdown, restart, kernelStart), CtrlStep is the index of the
+	// (flush or kernelStart), CtrlStep is the index of the
 	// current step within the sequence, and PendingAcks counts the responses
 	// that must arrive before the sequence advances to the next step.
 	CtrlSeq     string `json:"ctrl_seq"`
 	CtrlStep    int    `json:"ctrl_step"`
 	PendingAcks uint64 `json:"pending_acks"`
 
-	ShootDownInProcess bool `json:"shoot_down_in_process"`
-
 	// Requests from the driver that are being served by a control sequence.
-	CurrFlushReq  messaging.Msg `json:"curr_flush_req"`
-	CurrShootdown messaging.Msg `json:"curr_shootdown"`
+	CurrFlushReq messaging.Msg `json:"curr_flush_req"`
 
 	// KernelStartReqID is the ID of the LaunchKernelReq whose kernel-start
 	// L1 invalidation has been started. The request stays in the incoming
@@ -118,12 +107,8 @@ type State struct {
 
 	// Outbound message queues, drained by the control middleware as the
 	// corresponding ports become available.
-	PendingCacheReqs     []messaging.Msg `json:"pending_cache_reqs"`
-	PendingTLBReqs       []messaging.Msg `json:"pending_tlb_reqs"`
-	PendingATReqs        []messaging.Msg `json:"pending_at_reqs"`
-	PendingCUFlushReqs   []messaging.Msg `json:"pending_cu_flush_reqs"`
-	PendingCURestartReqs []messaging.Msg `json:"pending_cu_restart_reqs"`
-	PendingDriverRsps    []string        `json:"pending_driver_rsps"`
+	PendingCacheReqs  []messaging.Msg `json:"pending_cache_reqs"`
+	PendingDriverRsps []string        `json:"pending_driver_rsps"`
 }
 
 // Comp is the Command Processor, an Akita component that is responsible for
@@ -133,10 +118,7 @@ type State struct {
 // Ports (declared in Build, assigned externally):
 //   - "ToDriver": connects to the driver.
 //   - "ToDMA": connects to the DMA engine.
-//   - "ToCUs": connects to the Compute Units (dispatching + pipeline control).
-//   - "ToTLBs": connects to the Control ports of the TLBs.
-//   - "ToAddressTranslators": connects to the Control ports of the address
-//     translators and the reorder buffers.
+//   - "ToCUs": connects to the Compute Units (dispatching).
 //   - "ToCaches": connects to the Control ports of the L1/L2 caches.
 //   - "ToRDMA": connects to the Ctrl port of the RDMA engine.
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
@@ -146,13 +128,11 @@ type Resources struct {
 	Sampler     *sampling.SampledEngine
 }
 type Ports struct {
-	ToDriver             messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
-	ToDMA                messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
-	ToCUs                messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
-	ToTLBs               messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
-	ToAddressTranslators messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
-	ToCaches             messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
-	ToRDMA               messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/timing/rdma.requester"`
+	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToDMA    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToCUs    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
+	ToCaches messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
+	ToRDMA   messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/timing/rdma.requester"`
 }
 type Middlewares struct {
 	Data    *cpMiddleware
@@ -184,16 +164,10 @@ type CommandProcessor = Comp
 // CUInterfaceForCP defines the interface that a CP requires from CU.
 type CUInterfaceForCP interface {
 	resource.DispatchableCU
-
-	// ControlPort returns a port on the CU that the CP can send controlling
-	// messages to.
-	ControlPort() messaging.RemotePort
 }
 
-// RegisterCU allows the Command Processor to control and dispatch to the CU.
+// RegisterCU allows the Command Processor to dispatch to the CU.
 func RegisterCU(cp *Comp, cu CUInterfaceForCP) {
-	cp.State.CUs = append(cp.State.CUs, cu.ControlPort())
-
 	for _, d := range cp.Resources.Dispatchers {
 		d.RegisterCU(cu)
 	}

@@ -35,21 +35,21 @@ var _ = Describe("Branch Unit", func() {
 		wave := newTestWave()
 		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(cu.wave(bu.state().Read)).To(BeIdenticalTo(wave))
+		Expect(cu.wave(bu.state().Read)).To(Equal(wave))
 	})
 
 	It("should run", func() {
 		wave1 := newTestWave()
 		wave2 := newTestWave()
 		wave3 := newTestWave()
-		wave3.State = wavefront.WfRunning
-		wave3.InstBuffer = make([]byte, 256)
-		wave3.InstBufferStartPC = 0x100
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		wave3.execution().State = wavefront.WfRunning
+		wave3.execution().InstBuffer = make([]byte, 256)
+		wave3.execution().InstBufferStartPC = 0x100
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
+		wave3.setTestInst(inst)
 		wave3.SetPC(0x13C)
 
 		bu.state().Read = testWaveID(cu, wave1)
@@ -58,39 +58,15 @@ var _ = Describe("Branch Unit", func() {
 
 		bu.Run()
 
-		Expect(wave3.State).To(Equal(wavefront.WfReady))
+		Expect(wave3.execution().State).To(Equal(wavefront.WfReady))
 		Expect(wave3.PC()).To(Equal(uint64(0x140)))
 
-		Expect(cu.wave(bu.state().Write)).To(BeIdenticalTo(wave2))
-		Expect(cu.wave(bu.state().Exec)).To(BeIdenticalTo(wave1))
+		Expect(cu.wave(bu.state().Write)).To(Equal(wave2))
+		Expect(cu.wave(bu.state().Exec)).To(Equal(wave1))
 		Expect(cu.wave(bu.state().Read)).To(BeNil())
 
-		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
-		Expect(wave3.InstBuffer).To(HaveLen(0))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
+		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 
-	It("should flush", func() {
-		wave1 := newTestWave()
-		wave2 := newTestWave()
-		wave3 := newTestWave()
-		wave3.State = wavefront.WfRunning
-		wave3.InstBuffer = make([]byte, 256)
-		wave3.InstBufferStartPC = 0x100
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SOPP
-		inst.SImm16 = insts.NewIntOperand(1, 1)
-		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
-
-		bu.state().Read = testWaveID(cu, wave1)
-		bu.state().Exec = testWaveID(cu, wave2)
-		bu.state().Write = testWaveID(cu, wave3)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Read)).To(BeNil())
-		Expect(cu.wave(bu.state().Write)).To(BeNil())
-		Expect(cu.wave(bu.state().Exec)).To(BeNil())
-
-	})
 })

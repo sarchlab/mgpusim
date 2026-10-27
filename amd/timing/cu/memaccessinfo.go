@@ -3,7 +3,6 @@ package cu
 import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemAccessLaneInfo struct {
@@ -19,15 +18,15 @@ type vectorMemAccessLaneInfo struct {
 type VectorMemAccessInfo struct {
 	Read      messaging.Msg
 	Write     messaging.Msg
-	Wavefront *wavefront.Wavefront
-	Inst      *wavefront.Inst
+	Wavefront *Wavefront
+	InstID    uint64
 	laneInfo  []vectorMemAccessLaneInfo
 }
 
 // InstFetchReqInfo defines request info
 type InstFetchReqInfo struct {
 	Req       messaging.Msg
-	Wavefront *wavefront.Wavefront
+	Wavefront *Wavefront
 	Address   uint64
 
 	// FetchTaskID is the tracing task ID of the fetch task (v4 used the
@@ -38,9 +37,9 @@ type InstFetchReqInfo struct {
 // ScalarMemAccessInfo defines request info
 type ScalarMemAccessInfo struct {
 	Req       messaging.Msg
-	Wavefront *wavefront.Wavefront
+	Wavefront *Wavefront
 	DstSGPR   *insts.Reg
-	Inst      *wavefront.Inst
+	InstID    uint64
 }
 
 func (v VectorMemAccessInfo) requestID() uint64 {

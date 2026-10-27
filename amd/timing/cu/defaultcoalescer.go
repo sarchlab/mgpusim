@@ -4,7 +4,6 @@ import (
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type defaultCoalescer struct {
@@ -13,22 +12,23 @@ type defaultCoalescer struct {
 }
 
 func (c defaultCoalescer) generateMemTransactions(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 ) []VectorMemAccessInfo {
-	c.mustBeAFlatLoadOrStore(wf)
+	op := wf.emulation()
+	c.mustBeAFlatLoadOrStore(op)
 	var transactions []VectorMemAccessInfo
-	if c.isLoadInst(wf.Inst()) {
-		reqs := c.generateReadReqs(wf)
-		transactions = c.generateReadTransactions(wf, reqs)
+	if c.isLoadInst(op.Inst()) {
+		reqs := c.generateReadReqs(op)
+		transactions = c.generateReadTransactions(op, reqs)
 	} else {
-		reqs := c.generateWriteReqs(wf)
-		transactions = c.generateWriteTransactions(wf, reqs)
+		reqs := c.generateWriteReqs(op)
+		transactions = c.generateWriteTransactions(op, reqs)
 	}
 	return transactions
 }
 
 func (c defaultCoalescer) mustBeAFlatLoadOrStore(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 ) {
 	if wf.Inst().FormatType != insts.FLAT {
 		panic("must be a flat instruction")
@@ -40,7 +40,7 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 }
 
 func (c defaultCoalescer) generateReadReqs(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 ) []messaging.Msg {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -52,7 +52,7 @@ func (c defaultCoalescer) generateReadReqs(
 			continue
 		}
 
-		addr := c.readFlatAddr(wf, int(i))
+		addr := c.readFlatAddr(wf, inst, int(i))
 		for j := 0; j < regCount; j++ {
 			c.findOrCreateReadReq(&reqs, addr+uint64(4*j))
 		}
@@ -62,7 +62,7 @@ func (c defaultCoalescer) generateReadReqs(
 }
 
 func (c defaultCoalescer) generateWriteReqs(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 ) []messaging.Msg {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -73,7 +73,7 @@ func (c defaultCoalescer) generateWriteReqs(
 			continue
 		}
 
-		addr := c.readFlatAddr(wf, int(i))
+		addr := c.readFlatAddr(wf, inst, int(i))
 		regCount := uint(c.instRegCount(inst))
 		for j := uint(0); j < regCount; j++ {
 			dataReg := insts.NewVRegOperand(
@@ -91,15 +91,15 @@ func (c defaultCoalescer) generateWriteReqs(
 }
 
 func (c defaultCoalescer) generateReadTransactions(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 	reqs []messaging.Msg,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
 		transaction := VectorMemAccessInfo{
 			Read:      req,
-			Wavefront: wf,
-			Inst:      wf.DynamicInst(),
+			Wavefront: wf.view,
+			InstID:    wf.InstID(),
 		}
 
 		c.addLaneInfo(&transaction, wf)
@@ -110,15 +110,15 @@ func (c defaultCoalescer) generateReadTransactions(
 }
 
 func (c defaultCoalescer) generateWriteTransactions(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 	reqs []messaging.Msg,
 ) []VectorMemAccessInfo {
 	transactions := []VectorMemAccessInfo{}
 	for _, req := range reqs {
 		transaction := VectorMemAccessInfo{
 			Write:     req,
-			Wavefront: wf,
-			Inst:      wf.DynamicInst(),
+			Wavefront: wf.view,
+			InstID:    wf.InstID(),
 		}
 
 		transactions = append(transactions, transaction)
@@ -199,7 +199,7 @@ func (c defaultCoalescer) addressRangeMustFallInReq(
 
 func (c defaultCoalescer) addLaneInfo(
 	transaction *VectorMemAccessInfo,
-	wf *wavefront.Wavefront,
+	wf *operationWave,
 ) {
 	exec := wf.EXEC()
 	inst := wf.Inst()
@@ -212,7 +212,7 @@ func (c defaultCoalescer) addLaneInfo(
 		}
 
 		for j := 0; j < regCount; j++ {
-			addr := c.readFlatAddr(wf, int(i)) + uint64(j*4)
+			addr := c.readFlatAddr(wf, inst, int(i)) + uint64(j*4)
 			reg := insts.VReg(inst.Dst.Register.RegIndex() + j)
 			if c.isInSameCacheLine(addr, req.Payload.(memprotocol.ReadReq).Address) {
 				laneInfo := vectorMemAccessLaneInfo{
@@ -229,11 +229,10 @@ func (c defaultCoalescer) addLaneInfo(
 }
 
 func (c defaultCoalescer) readFlatAddr(
-	wf *wavefront.Wavefront,
+	wf *operationWave,
+	inst *insts.Inst,
 	laneID int,
 ) uint64 {
-	inst := wf.Inst()
-
 	// Handle SAddr mode.
 	// Use inst.Addr.RegCount to determine the addressing mode. The disassembler
 	// already resolves the architecture-dependent SADDR/OFF rule at decode time

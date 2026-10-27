@@ -39,9 +39,6 @@ var _ = Describe("CommandProcessor", func() {
 
 		toDriver messaging.Port
 		toDMA    messaging.Port
-		toCUs    messaging.Port
-		toTLBs   messaging.Port
-		toATs    messaging.Port
 		toCaches messaging.Port
 		toRDMA   messaging.Port
 	)
@@ -136,19 +133,13 @@ var _ = Describe("CommandProcessor", func() {
 
 		toDriver = assign("ToDriver")
 		toDMA = assign("ToDMA")
-		toCUs = assign("ToCUs")
-		toTLBs = assign("ToTLBs")
-		toATs = assign("ToAddressTranslators")
+		assign("ToCUs")
 		toCaches = assign("ToCaches")
 		toRDMA = assign("ToRDMA")
 
 		Expect(reg.Initialize()).To(Succeed())
 		cp.State.DMAEngine = dmaPort
 		cp.State.RDMA = rdmaPort
-		cp.State.CUs = remoteList("CU", 10)
-		cp.State.TLBs = remoteList("TLB", 10)
-		cp.State.AddressTranslators = remoteList("AT", 10)
-		cp.State.ROBs = remoteList("ROB", 10)
 		cp.State.L1ICaches = remoteList("L1I", 2)
 		cp.State.L1SCaches = remoteList("L1S", 2)
 		cp.State.L1VCaches = remoteList("L1V", 2)
@@ -177,11 +168,6 @@ var _ = Describe("CommandProcessor", func() {
 
 	allCacheDsts := func() []messaging.RemotePort {
 		return append(l1Dsts(), cp.State.L2Caches...)
-	}
-
-	atAndROBDsts := func() []messaging.RemotePort {
-		return append(append([]messaging.RemotePort{},
-			cp.State.AddressTranslators...), cp.State.ROBs...)
 	}
 
 	It("should forward kernel launching request to a Dispatcher", func() {
@@ -379,138 +365,6 @@ var _ = Describe("CommandProcessor", func() {
 			Expect(rsp.Dst).To(Equal(driverPort))
 		}
 		Expect(toDriver.OutgoingBuf().Size()).To(BeZero())
-	})
-
-	It("should handle a shootdown command", func() {
-		cmd := messaging.Msg{ID: cp.NewID(),
-			Src: driverPort,
-			Dst: toDriver.AsRemote(), Payload: protocol.ShootDownCommand{VAddr: []uint64{0x1000},
-				PID: 1}}
-
-		toDriver.Deliver(cmd)
-
-		tickUntilQuiet()
-
-		Expect(cp.State.ShootDownInProcess).To(BeTrue())
-
-		// Step 1: flush the CU pipelines.
-		var cuFlushReqs []messaging.Msg
-		for {
-			msg, ok := toCUs.RetrieveOutgoing()
-			if !ok {
-				break
-			}
-			cuFlushReqs = append(
-				cuFlushReqs, msg)
-		}
-		Expect(cuFlushReqs).To(HaveLen(10))
-		Expect(cp.State.PendingAcks).To(Equal(uint64(10)))
-
-		for range cuFlushReqs {
-			rsp := messaging.Msg{ID: cp.NewID(),
-				Src: "CU",
-				Dst: toCUs.AsRemote(), Payload: protocol.CUPipelineFlushRsp{}}
-
-			toCUs.Deliver(rsp)
-		}
-		tickUntilQuiet()
-
-		// Step 2: pause the address translators and the ROBs.
-		expectCtrlStep(toATs, memcontrolprotocol.CmdPause, atAndROBDsts())
-
-		// Step 3: reset the address translators.
-		expectCtrlStep(toATs, memcontrolprotocol.CmdReset,
-			cp.State.AddressTranslators)
-
-		// Steps 4-9: drain + flush + invalidate the caches, L1 first.
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain,
-			cp.State.L2Caches)
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush,
-			cp.State.L2Caches)
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate,
-			cp.State.L2Caches)
-
-		// Step 10: pause the TLBs.
-		expectCtrlStep(toTLBs, memcontrolprotocol.CmdPause, cp.State.TLBs)
-
-		// Step 11: invalidate the TLBs with the shootdown filter.
-		tlbReqs := collectCtrlReqs(toTLBs)
-		Expect(tlbReqs).To(HaveLen(10))
-		for _, req := range tlbReqs {
-			Expect(req.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdInvalidate))
-			Expect(req.Payload.(memcontrolprotocol.Req).Addresses).To(Equal([]uint64{0x1000}))
-			Expect(req.Payload.(memcontrolprotocol.Req).PID).To(Equal(cmd.Payload.(protocol.ShootDownCommand).PID))
-		}
-		ackCtrlReqs(toTLBs, tlbReqs)
-
-		// Finally, the CP responds to the driver.
-		rsp, ok := toDriver.RetrieveOutgoing()
-		Expect(ok).To(BeTrue())
-		Expect(rsp.Payload).To(BeAssignableToTypeOf(protocol.ShootDownCompleteRsp{}))
-		Expect(rsp.Dst).To(Equal(driverPort))
-		Expect(cp.State.ShootDownInProcess).To(BeFalse())
-		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
-	})
-
-	It("should handle a GPU restart request", func() {
-		req := messaging.Msg{ID: cp.NewID(),
-			Src: driverPort,
-			Dst: toDriver.AsRemote(), Payload: protocol.GPURestartReq{}}
-
-		toDriver.Deliver(req)
-
-		tickUntilQuiet()
-
-		// Step 1: hard-reset the caches.
-		expectCtrlStep(toCaches, memcontrolprotocol.CmdReset, allCacheDsts())
-
-		// Step 2: re-enable the TLBs.
-		expectCtrlStep(toTLBs, memcontrolprotocol.CmdEnable, cp.State.TLBs)
-
-		// Step 3: re-enable the ATs, reset the ROBs.
-		atReqs := collectCtrlReqs(toATs)
-		Expect(atReqs).To(HaveLen(20))
-		for _, r := range atReqs {
-			switch {
-			case r.Dst[:2] == "AT":
-				Expect(r.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdEnable))
-			case r.Dst[:3] == "ROB":
-				Expect(r.Payload.(memcontrolprotocol.Req).Command).To(Equal(memcontrolprotocol.CmdReset))
-			default:
-				Fail("unexpected destination " + string(r.Dst))
-			}
-		}
-		ackCtrlReqs(toATs, atReqs)
-
-		// Step 4: restart the CU pipelines.
-		var cuRestartReqs []messaging.Msg
-		for {
-			msg, ok := toCUs.RetrieveOutgoing()
-			if !ok {
-				break
-			}
-			cuRestartReqs = append(
-				cuRestartReqs, msg)
-		}
-		Expect(cuRestartReqs).To(HaveLen(10))
-
-		for range cuRestartReqs {
-			rsp := messaging.Msg{ID: cp.NewID(),
-				Src: "CU",
-				Dst: toCUs.AsRemote(), Payload: protocol.CUPipelineRestartRsp{}}
-
-			toCUs.Deliver(rsp)
-		}
-		tickUntilQuiet()
-
-		rsp, ok := toDriver.RetrieveOutgoing()
-		Expect(ok).To(BeTrue())
-		Expect(rsp.Payload).To(BeAssignableToTypeOf(protocol.GPURestartRsp{}))
-		Expect(rsp.Dst).To(Equal(driverPort))
-		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 	})
 
 	It("should handle a RDMA drain command from the driver", func() {

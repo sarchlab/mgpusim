@@ -2,7 +2,6 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations
@@ -36,7 +35,7 @@ func (u *LDSUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront) {
+func (u *LDSUnit) AcceptWave(wave *Wavefront) {
 	u.state().Read = u.cu.useWave(wave)
 }
 
@@ -72,8 +71,9 @@ func (u *LDSUnit) runExecStage() bool {
 	}
 
 	if u.state().Cycles == 0 {
-		u.alu.SetLDS(u.cu.wave(u.state().Exec).WG.LDS)
-		u.alu.Run(u.cu.wave(u.state().Exec))
+		u.alu.SetLDS(u.cu.wave(u.state().Exec).group().state().LDS)
+		defer u.alu.SetLDS(nil)
+		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 		u.state().Cycles = 14
 		return true
 	}
@@ -91,20 +91,12 @@ func (u *LDSUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.cu.logInstTask(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst(), true)
+	u.cu.completeInstruction(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).InstID())
 
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))
 
 	u.state().Write = 0
 	return true
-}
-
-// Flush clears the unit
-func (u *LDSUnit) Flush() {
-	u.state().Read = 0
-	u.state().Exec = 0
-	u.state().Write = 0
-	u.state().Cycles = 0
 }
 
 func (u *LDSUnit) state() *StageState { return &u.cu.comp.State.LDS }

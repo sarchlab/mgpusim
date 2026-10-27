@@ -7,6 +7,11 @@ import (
 
 // InstEmuState is the interface used by the emulator to track the instruction
 // execution status.
+//
+// InstEmuState is borrowed for one execution call. Implementations may resolve
+// directly into current component State; ALUs must not retain it or values
+// borrowed from it after Run returns. Inst returns a read-only description;
+// its fields and referenced operands/formats must not be mutated.
 type InstEmuState interface {
 	PID() vm.PID
 	Inst() *insts.Inst

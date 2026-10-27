@@ -5,7 +5,6 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type taskType int
@@ -102,9 +101,9 @@ func taskTypeFromString(thisTask tasks.Task) (t taskType) {
 
 func separateScalarTask(thisTask tasks.Task) (t taskType) {
 	detail := thisTask.Detail.(map[string]interface{})
-	inst := detail["inst"].(*wavefront.Inst)
+	format := detail["format"].(string)
 
-	if inst.FormatName == "smem" {
+	if format == "smem" {
 		return taskTypeScalarMemInst
 	}
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 	"github.com/tebeka/atexit"
 )
 
@@ -46,8 +45,8 @@ func (h *ISADebugger) TaskStarted(task tasks.Task) {
 
 	// For debugging
 	detail := task.Detail.(map[string]interface{})
-	wf := detail["wf"].(*wavefront.Wavefront)
-	if wf.FirstWiFlatID != 0 {
+	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
+	if wf.raw().FirstWiFlatID != 0 {
 		return
 	}
 
@@ -73,10 +72,10 @@ func (h *ISADebugger) TaskEnded(task tasks.Task) {
 	}
 
 	detail := originalTask.Detail.(map[string]interface{})
-	wf := detail["wf"].(*wavefront.Wavefront)
-	inst := detail["inst"].(*wavefront.Inst).Inst
+	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
+	inst := h.cu.instruction(detail["inst"].(uint64))
 
-	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
+	if wf.group().raw().IDX == 75 && wf.group().raw().IDY == 1 {
 		h.logWholeWf(inst, wf)
 	}
 
@@ -85,7 +84,7 @@ func (h *ISADebugger) TaskEnded(task tasks.Task) {
 
 func (h *ISADebugger) logWholeWf(
 	inst *insts.Inst,
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 ) {
 	output := ""
 	if h.isFirstEntry {
@@ -96,7 +95,7 @@ func (h *ISADebugger) logWholeWf(
 
 	output += "{"
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
-		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
+		wf.group().raw().IDX, wf.group().raw().IDY, wf.group().raw().IDZ, wf.raw().FirstWiFlatID)
 	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(inst))
 	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC()&0xffffffff)
 	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC()>>32)
@@ -107,7 +106,8 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
 	output += `"SGPRs":[`
-	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
+	co := &wf.codeObject().Meta
+	for i := 0; i < int(co.WFSgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}
@@ -118,7 +118,7 @@ func (h *ISADebugger) logWholeWf(
 	output += "]"
 
 	output += `,"VGPRs":[`
-	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
+	for i := 0; i < int(co.WIVgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}
@@ -145,15 +145,15 @@ func (h *ISADebugger) logWholeWf(
 }
 
 func (h *ISADebugger) getVRegValue(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	regIndex, laneID int,
 ) uint32 {
-	registerFile := h.cu.VRegFile[wf.SIMDID]
+	registerFile := h.cu.VRegFile[wf.execution().SIMDID]
 	regRead := RegisterAccess{}
 	regRead.Reg = insts.VReg(regIndex)
 	regRead.RegCount = 1
 	regRead.LaneID = laneID
-	regRead.WaveOffset = wf.VRegOffset
+	regRead.WaveOffset = wf.execution().VRegOffset
 	regRead.Data = make([]byte, 4)
 	registerFile.Read(regRead)
 
@@ -162,14 +162,14 @@ func (h *ISADebugger) getVRegValue(
 }
 
 func (h *ISADebugger) getSRegValue(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	regIndex int,
 ) uint32 {
 	registerFile := h.cu.SRegFile
 	regRead := RegisterAccess{}
 	regRead.Reg = insts.SReg(regIndex)
 	regRead.RegCount = 1
-	regRead.WaveOffset = wf.SRegOffset
+	regRead.WaveOffset = wf.execution().SRegOffset
 	regRead.Data = make([]byte, 4)
 	registerFile.Read(regRead)
 

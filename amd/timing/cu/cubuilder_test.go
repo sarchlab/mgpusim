@@ -18,9 +18,9 @@ var _ = Describe("Builder", func() {
 			WithSpec(DefaultSpec()).
 			Build("GPU.CU")
 
-		// All five ports must be declared so external code can assign them.
+		// All four ports must be declared so external code can assign them.
 		for _, portName := range []string{
-			DispatchPortName, CtrlPortName,
+			DispatchPortName,
 			InstMemPortName, ScalarMemPortName, VectorMemPortName,
 		} {
 			p := twowaybuffered.MakeBuilder().
@@ -60,7 +60,5 @@ var _ = Describe("Builder", func() {
 		Expect(view.LDSBytes()).To(Equal(64 * 1024))
 		Expect(view.DispatchingPort()).To(
 			Equal(messaging.RemotePort("GPU.CU.Top")))
-		Expect(view.ControlPort()).To(
-			Equal(messaging.RemotePort("GPU.CU.Ctrl")))
 	})
 })

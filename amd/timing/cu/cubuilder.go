@@ -111,7 +111,7 @@ func (b *Builder) fillResourceDefaults() {
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
-	issueArbitor := &IssueArbiter{state: &cu.comp.State.Scheduler}
+	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard

@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A SIMDUnit performs branch operations
@@ -65,7 +64,7 @@ func (u *SIMDUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
+func (u *SIMDUnit) AcceptWave(wave *Wavefront) {
 	cycleLeft := 64 / u.NumSinglePrecisionUnit
 	if strings.Contains(wave.Inst().InstName, "f64") {
 		cycleLeft = 64 / (u.NumSinglePrecisionUnit / 2)
@@ -77,13 +76,13 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
 			Cycles: cycleLeft,
 		}
 		u.state().Slots = append(u.state().Slots, slot)
-		u.state().Slots[len(u.state().Slots)-1].Task = u.logPipelineTaskStart(wave.DynamicInst())
+		u.state().Slots[len(u.state().Slots)-1].Task = u.logPipelineTaskStart(wave.InstID())
 		return
 	}
 
 	u.state().Exec = u.cu.useWave(wave)
 	u.state().Cycles = cycleLeft
-	u.state().Task = u.logPipelineTaskStart(u.cu.wave(u.state().Exec).DynamicInst())
+	u.state().Task = u.logPipelineTaskStart(u.cu.wave(u.state().Exec).InstID())
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -107,11 +106,11 @@ func (u *SIMDUnit) runPipelined() bool {
 		madeProgress = true
 
 		if slot.Cycles <= 0 {
-			u.alu.Run(u.cu.wave(slot.WF))
+			u.alu.Run(u.cu.wave(slot.WF).emulation())
 			u.cu.UpdatePCAndSetReady(u.cu.wave(slot.WF))
 
 			u.logPipelineTaskEnd(slot.Task)
-			u.cu.logInstTask(u.cu.wave(slot.WF), u.cu.wave(slot.WF).DynamicInst(), true)
+			u.cu.completeInstruction(u.cu.wave(slot.WF), u.cu.wave(slot.WF).InstID())
 		} else {
 			remaining = append(remaining, slot)
 		}
@@ -131,46 +130,30 @@ func (u *SIMDUnit) runExecStage() bool {
 		return true
 	}
 
-	u.alu.Run(u.cu.wave(u.state().Exec))
+	u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Exec))
 
 	u.logPipelineTaskEnd(u.state().Task)
-	u.cu.logInstTask(u.cu.wave(u.state().Exec), u.cu.wave(u.state().Exec).DynamicInst(), true)
+	u.cu.completeInstruction(u.cu.wave(u.state().Exec), u.cu.wave(u.state().Exec).InstID())
 
 	u.state().Exec = 0
 	return true
 }
 
-// Flush flushes
-func (u *SIMDUnit) Flush() {
-	// End the per-SIMD "pipeline" tasks of the instructions dropped from the
-	// pipeline, so they do not leak as started-never-ended. (The instructions'
-	// parent "inst" tasks are ended by ComputeUnit.endInflightTracingTasks.)
-	if u.state().Exec != 0 {
-		u.cu.comp.TaskTracker().EndTask(u.state().Task)
-	}
-	for _, slot := range u.state().Slots {
-		u.cu.comp.TaskTracker().EndTask(slot.Task)
-	}
-
-	u.state().Exec = 0
-	u.state().Slots = u.state().Slots[:0]
-}
-
 // logPipelineTaskStart starts the per-SIMD pipeline task for the given
 // instruction and returns the task ID (v4 used the string ID
-// inst.ID+"_simd_exec").
+// inst+"_simd_exec").
 //
 // The task keeps the SIMD's owner name and What label for trace identity.
 // SIMD views are not registered simulation entities. The sample reporter uses
 // one simulation observer to route completed pipeline tasks by their SIMD name
 // to per-SIMD BusyTimeTracers; it does not subscribe on the SIMD view itself.
 // The parent instruction task belongs to the CU component.
-func (u *SIMDUnit) logPipelineTaskStart(inst *wavefront.Inst) uint64 {
+func (u *SIMDUnit) logPipelineTaskStart(inst uint64) uint64 {
 	taskID := u.cu.comp.TaskTracker().StartTask(u, tasks.StartInfo{
-		ParentID: u.cu.comp.State.InstTasks[inst.ID],
+		ParentID: u.cu.comp.State.InstTasks[inst],
 		Kind:     "pipeline",
-		What:     u.Name() + "." + u.cu.execUnitToString(inst.ExeUnit),
+		What:     u.Name() + "." + u.cu.execUnitToString(u.cu.instruction(inst).ExeUnit),
 	})
 
 	return taskID

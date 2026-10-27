@@ -14,11 +14,11 @@ import (
 
 type fakeCoalescer struct {
 	toReturn []VectorMemAccessInfo
-	received []*wavefront.Wavefront
+	received []*Wavefront
 }
 
 func (c *fakeCoalescer) generateMemTransactions(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 ) []VectorMemAccessInfo {
 	c.received = append(c.received, wf)
 	return c.toReturn
@@ -65,7 +65,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should accept wave", func() {
-		wave := wavefront.NewWavefront(kernels.NewWavefront(testIDs.NewID()))
+		wave := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 
 		registerTestWave(cu, wave)
 		vecMemUnit.AcceptWave(wave)
@@ -76,12 +76,12 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	It("should run flat_load_dword", func() {
 		kernelWave := kernels.NewWavefront(testIDs.NewID())
-		wave := wavefront.NewWavefront(kernelWave)
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		wave := newTestRawWave(kernelWave)
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
@@ -93,16 +93,16 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wave.UID})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{Handle: handleOf(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(coalescer.received).To(ContainElement(wave))
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingVectorMemAccess).To(Equal(1))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.comp.State.Vector).To(HaveLen(4))
 		Expect(vecMemUnit.state().Waiting).To(HaveLen(4))
 		Expect(vecMemUnit.state().InstructionsOutput.Size()).To(Equal(0))
@@ -111,12 +111,12 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	It("should run flat_store_dword", func() {
 		kernelWave := kernels.NewWavefront(testIDs.NewID())
-		wave := wavefront.NewWavefront(kernelWave)
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		wave := newTestRawWave(kernelWave)
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
@@ -127,15 +127,15 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wave.UID})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{Handle: handleOf(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingVectorMemAccess).To(Equal(1))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.comp.State.Vector).To(HaveLen(4))
 		Expect(vecMemUnit.state().Waiting).To(HaveLen(4))
 	})
@@ -159,15 +159,15 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should send memory access requests", func() {
-		inst := wavefront.NewInst(testIDs.NewID(), nil)
+		inst := testInst(testIDs.NewID(), nil)
 		loadReq := messaging.Msg{ID: testIDs.NewID(),
 			Src: cu.ToVectorMem.AsRemote(),
 			Dst: "VectorMem", Payload: memprotocol.ReadReq{Address: 0,
 				AccessByteSize: 4}}
 
 		trans := VectorMemAccessInfo{
-			Read: loadReq,
-			Inst: inst,
+			Read:   loadReq,
+			InstID: inst.ID,
 		}
 		vecMemUnit.state().Transactions = 1
 
@@ -182,20 +182,4 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(vecMemUnit.state().TransactionsOutput.Size()).To(Equal(0))
 	})
 
-	It("should flush the vector memory unit", func() {
-		vecMemUnit.state().Instructions = 1
-		vecMemUnit.state().Transactions = 1
-		vecMemUnit.state().Waiting = append(vecMemUnit.state().Waiting,
-			VectorAccessState{})
-		vecMemUnit.state().InstructionsPipeline.Accept(vectorMemInst{})
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{})
-
-		vecMemUnit.Flush()
-
-		Expect(vecMemUnit.state().Instructions).To(Equal(uint64(0)))
-		Expect(vecMemUnit.state().Transactions).To(Equal(uint64(0)))
-		Expect(vecMemUnit.state().Waiting).To(BeEmpty())
-		Expect(vecMemUnit.state().InstructionsPipeline.Stages()).To(BeEmpty())
-		Expect(vecMemUnit.state().InstructionsOutput.Size()).To(Equal(0))
-	})
 })

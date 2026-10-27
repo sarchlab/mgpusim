@@ -36,64 +36,44 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should accept wave", func() {
 		wave := newTestWave()
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-		wave.SetDynamicInst(inst)
+		inst := testInst(testIDs.NewID(), insts.NewInst())
+		wave.setTestInst(inst)
 		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(cu.wave(bu.state().Exec)).To(BeIdenticalTo(wave))
+		Expect(cu.wave(bu.state().Exec)).To(Equal(wave))
 		Expect(bu.state().Cycles).To(Equal(4))
 	})
 
 	It("should run", func() {
 		wave := newTestWave()
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
 		inst.ByteSize = 4
-		wave.InstBuffer = make([]byte, 256)
-		wave.InstBufferStartPC = 0x100
-		wave.SetDynamicInst(inst)
+		wave.execution().InstBuffer = make([]byte, 256)
+		wave.execution().InstBufferStartPC = 0x100
+		wave.setTestInst(inst)
 
 		wave.SetPC(0x13C)
 
-		wave.State = wavefront.WfRunning
+		wave.execution().State = wavefront.WfRunning
 
 		bu.state().Exec = testWaveID(cu, wave)
 		bu.state().Cycles = 1
 
 		bu.Run()
 
-		Expect(wave.State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC()).To(Equal(uint64(0x140)))
 
 		Expect(cu.wave(bu.state().Exec)).To(BeNil())
 		Expect(bu.state().Cycles).To(Equal(0))
 
-		Expect(alu.wfExecuted).To(BeIdenticalTo(wave))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave.execution()))
 
-		Expect(wave.InstBuffer).To(HaveLen(192))
+		Expect(wave.execution().InstBuffer).To(HaveLen(192))
 
 	})
 
-	It("should flush SIMD", func() {
-		wave := newTestWave()
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.VOPC
-		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
-		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
-		inst.ByteSize = 4
-		wave.InstBuffer = make([]byte, 256)
-		wave.InstBufferStartPC = 0x100
-		wave.SetDynamicInst(inst)
-		wave.SetPC(0x13C)
-
-		wave.State = wavefront.WfRunning
-
-		bu.state().Exec = testWaveID(cu, wave)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Exec)).To(BeNil())
-	})
 })

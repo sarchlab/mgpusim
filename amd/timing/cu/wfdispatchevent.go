@@ -12,9 +12,9 @@ import (
 type WfDispatchEvent struct {
 	timing.EventBase
 
-	WavefrontID uint64
-	IsLastInWG  bool
-	MapWGReq    messaging.Msg
+	Handle     waveHandle
+	IsLastInWG bool
+	MapWGReq   messaging.Msg
 }
 
 // NewWfDispatchEvent creates a new WfDispatchEvent.
@@ -22,11 +22,11 @@ func NewWfDispatchEvent(
 	id uint64,
 	t timing.VTimeInPicoSec,
 	handlerID string,
-	wfID uint64,
+	handle waveHandle,
 ) WfDispatchEvent {
 	return WfDispatchEvent{
-		EventBase:   timing.MakeEventBase(id, t, handlerID),
-		WavefrontID: wfID,
+		EventBase: timing.MakeEventBase(id, t, handlerID),
+		Handle:    handle,
 	}
 }
 

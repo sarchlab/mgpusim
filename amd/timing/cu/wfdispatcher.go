@@ -5,13 +5,12 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
 	DispatchWf(
-		wf *wavefront.Wavefront,
+		wf *Wavefront,
 		location protocol.WfDispatchLocation,
 	)
 }
@@ -35,33 +34,35 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	location protocol.WfDispatchLocation,
 ) {
-	d.setWfInfo(wf, location)
-	d.initRegisters(wf)
+	co := wf.codeObject()
+	d.setWfInfo(wf, location, co)
+	d.initRegisters(wf, co)
 
 	if d.scoreboardEnabled {
-		*wf.ScoreboardData.(*Scoreboard) = Scoreboard{}
+		*wf.scoreboard() = Scoreboard{}
 	}
 }
 
 func (d *WfDispatcherImpl) setWfInfo(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	location protocol.WfDispatchLocation,
+	co *insts.CodeObjectValue,
 ) {
-	wf.SIMDID = location.SIMDID
-	wf.SRegOffset = location.SGPROffset
-	wf.VRegOffset = location.VGPROffset
-	wf.LDSOffset = location.LDSOffset
-	wf.SetPC(wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset)
-	wf.SetEXEC(wf.InitExecMask)
+	wf.execution().SIMDID = location.SIMDID
+	wf.execution().SRegOffset = location.SGPROffset
+	wf.execution().VRegOffset = location.VGPROffset
+	wf.execution().LDSOffset = location.LDSOffset
+	wf.SetPC(wf.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset)
+	wf.SetEXEC(wf.raw().InitExecMask)
 }
 
 //nolint:gocyclo,funlen
-func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
-	co := wf.CodeObject
-	pkt := wf.Packet
+func (d *WfDispatcherImpl) initRegisters(wf *Wavefront, value *insts.CodeObjectValue) {
+	co := &value.Meta
+	pkt := wf.packet()
 
 	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer {
@@ -72,8 +73,8 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 
 	if co.EnableSgprDispatchPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
-			insts.Uint64ToBytes(wf.PacketAddress),
+			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.execution().SRegOffset,
+			insts.Uint64ToBytes(wf.raw().PacketAddress),
 			false,
 		})
 
@@ -89,7 +90,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 
 	if co.EnableSgprKernargSegmentPtr {
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
+			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.execution().SRegOffset,
 			insts.Uint64ToBytes(pkt.KernargAddress),
 			false,
 		})
@@ -123,7 +124,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			uint32(pkt.WorkgroupSizeX)
 
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
 			insts.Uint32ToBytes(wgCountX),
 			false,
 		})
@@ -138,7 +139,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			uint32(pkt.WorkgroupSizeY)
 
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
 			insts.Uint32ToBytes(wgCountY),
 			false,
 		})
@@ -153,7 +154,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			uint32(pkt.WorkgroupSizeZ)
 
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
 			insts.Uint32ToBytes(wgCountZ),
 			false,
 		})
@@ -163,8 +164,8 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 
 	if co.EnableSgprWorkGroupIDX() {
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
-			insts.Uint32ToBytes(uint32(wf.WG.IDX)),
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.group().raw().IDX)),
 			false,
 		})
 
@@ -174,8 +175,8 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 
 	if co.EnableSgprWorkGroupIDY() {
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
-			insts.Uint32ToBytes(uint32(wf.WG.IDY)),
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.group().raw().IDY)),
 			false,
 		})
 
@@ -188,11 +189,11 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	// more than one z work-group means the kernel allocated this SGPR for
 	// blockIdx.z. Without this, 3D kernels read blockIdx.z as garbage.
 	if co.EnableSgprWorkGroupIDZ() ||
-		(wf.WG.Packet != nil &&
-			wf.WG.Packet.GridSizeZ > uint32(wf.WG.Packet.WorkgroupSizeZ)) {
+		(wf.group().packet() != nil &&
+			wf.group().packet().GridSizeZ > uint32(wf.group().packet().WorkgroupSizeZ)) {
 		d.cu.SRegFile.Write(RegisterAccess{
-			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
-			insts.Uint32ToBytes(uint32(wf.WG.IDZ)),
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.execution().SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.group().raw().IDZ)),
 			false,
 		})
 
@@ -211,13 +212,13 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	}
 
 	var x, y, z int
-	for i := wf.FirstWiFlatID; i < wf.FirstWiFlatID+64; i++ {
-		z = i / (wf.WG.SizeX * wf.WG.SizeY)
-		y = i % (wf.WG.SizeX * wf.WG.SizeY) / wf.WG.SizeX
-		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
-		laneID := i - wf.FirstWiFlatID
+	for i := wf.raw().FirstWiFlatID; i < wf.raw().FirstWiFlatID+64; i++ {
+		z = i / (wf.group().raw().SizeX * wf.group().raw().SizeY)
+		y = i % (wf.group().raw().SizeX * wf.group().raw().SizeY) / wf.group().raw().SizeX
+		x = i % (wf.group().raw().SizeX * wf.group().raw().SizeY) % wf.group().raw().SizeX
+		laneID := i - wf.raw().FirstWiFlatID
 
-		if co.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
+		if value.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
 			// For gfx9+/CDNA V5 code objects (e.g. gfx942), the work-item IDs
 			// are packed into v0 as v0 = (z << 20) | (y << 10) | x. This mirrors
 			// the functional emulator (amd/emu/computeunit.go). Without this,
@@ -225,31 +226,31 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			// that uses a 2D/3D workgroup. gfx8 (GCN3) uses separate VGPRs even
 			// as a V5 code object, so it takes the branch below.
 			packed := uint32(x) | (uint32(y) << 10) | (uint32(z) << 20)
-			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+			d.cu.VRegFile[wf.execution().SIMDID].Write(RegisterAccess{
+				0, insts.VReg(0), 1, laneID, wf.execution().VRegOffset,
 				insts.Uint32ToBytes(packed),
 				false,
 			})
 		} else {
 			// For V2/V3 (GCN3) and gfx8 V5 code objects, the work-item IDs use separate
 			// registers v0=x, v1=y, v2=z.
-			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-				0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+			d.cu.VRegFile[wf.execution().SIMDID].Write(RegisterAccess{
+				0, insts.VReg(0), 1, laneID, wf.execution().VRegOffset,
 				insts.Uint32ToBytes(uint32(x)),
 				false,
 			})
 
 			if co.EnableVgprWorkItemID() > 0 {
-				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-					0, insts.VReg(1), 1, laneID, wf.VRegOffset,
+				d.cu.VRegFile[wf.execution().SIMDID].Write(RegisterAccess{
+					0, insts.VReg(1), 1, laneID, wf.execution().VRegOffset,
 					insts.Uint32ToBytes(uint32(y)),
 					false,
 				})
 			}
 
 			if co.EnableVgprWorkItemID() > 1 {
-				d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
-					0, insts.VReg(2), 1, laneID, wf.VRegOffset,
+				d.cu.VRegFile[wf.execution().SIMDID].Write(RegisterAccess{
+					0, insts.VReg(2), 1, laneID, wf.execution().VRegOffset,
 					insts.Uint32ToBytes(uint32(z)),
 					false,
 				})

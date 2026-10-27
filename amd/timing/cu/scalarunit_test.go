@@ -110,18 +110,18 @@ var _ = Describe("Scalar Unit", func() {
 		wave := newTestWave()
 		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
-		Expect(cu.wave(bu.state().Stages.Read)).To(BeIdenticalTo(wave))
+		Expect(cu.wave(bu.state().Stages.Read)).To(Equal(wave))
 	})
 
 	It("should run", func() {
 		wave1 := newTestWave()
 		wave2 := newTestWave()
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOP2
-		wave2.SetDynamicInst(inst)
+		wave2.setTestInst(inst)
 		wave3 := newTestWave()
-		wave3.SetDynamicInst(inst)
-		wave3.State = wavefront.WfRunning
+		wave3.setTestInst(inst)
+		wave3.execution().State = wavefront.WfRunning
 
 		bu.state().Stages.Read = testWaveID(cu, wave1)
 		bu.state().Stages.Exec = testWaveID(cu, wave2)
@@ -129,39 +129,39 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run()
 
-		Expect(wave3.State).To(Equal(wavefront.WfReady))
-		Expect(cu.wave(bu.state().Stages.Write)).To(BeIdenticalTo(wave2))
-		Expect(cu.wave(bu.state().Stages.Exec)).To(BeIdenticalTo(wave1))
+		Expect(wave3.execution().State).To(Equal(wavefront.WfReady))
+		Expect(cu.wave(bu.state().Stages.Write)).To(Equal(wave2))
+		Expect(cu.wave(bu.state().Stages.Exec)).To(Equal(wave1))
 		Expect(cu.wave(bu.state().Stages.Read)).To(BeNil())
 
-		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(alu.wfExecuted.(*operationWave).value).To(BeIdenticalTo(wave2.execution()))
 	})
 
 	It("should run s_load_dword", func() {
 		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 0
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
 		bu.state().Stages.Exec = testWaveID(cu, wave)
 
 		bu.Run()
 
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
 		Expect(len(cu.comp.State.Scalar)).To(Equal(1))
 		Expect(bu.state().Reads).To(HaveLen(1))
 	})
@@ -170,27 +170,27 @@ var _ = Describe("Scalar Unit", func() {
 		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
 		bu.state().Stages.Exec = testWaveID(cu, wave)
 
 		bu.Run()
 
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
 		Expect(bu.state().Reads).To(HaveLen(1))
 	})
 
@@ -198,19 +198,19 @@ var _ = Describe("Scalar Unit", func() {
 		wave := newTestWave()
 
 		regAccessor := newMockRegFileAccessor()
-		wave.RegAccessor = regAccessor
+		setTestAccessor(wave, regAccessor)
 
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
+		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 2
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 56)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
-		regAccessor.setRegValue(baseReg, 2, 0, wave.SRegOffset,
+		regAccessor.setRegValue(baseReg, 2, 0, wave.execution().SRegOffset,
 			insts.Uint64ToBytes(0x1000)[:8])
 
 		bu.state().Stages.Exec = testWaveID(cu, wave)
@@ -218,8 +218,8 @@ var _ = Describe("Scalar Unit", func() {
 		start := uint64(0x1000 + 56)
 		bu.Run()
 		Expect(bu.numCacheline(start, uint64(16))).To(Equal(2))
-		Expect(wave.State).To(Equal(wavefront.WfReady))
-		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
 		Expect(bu.state().Reads).To(HaveLen(2))
 		Expect(bu.state().Reads[0].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x1038)))
 		Expect(bu.state().Reads[0].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
@@ -239,9 +239,9 @@ var _ = Describe("Scalar Unit", func() {
 
 		Expect(toScalarMem.sent).To(HaveLen(1))
 		sentReq := toScalarMem.sent[0]
-		Expect(sentReq.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
+		Expect(sentReq.Src).To(Equal(cu.ToScalarMem.AsRemote()))
 		Expect(sentReq.Dst).To(
-			BeIdenticalTo(messaging.RemotePort("ScalarMem")))
+			Equal(messaging.RemotePort("ScalarMem")))
 		Expect(sentReq.Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(1024)))
 		Expect(sentReq.Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(4)))
 
@@ -261,25 +261,6 @@ var _ = Describe("Scalar Unit", func() {
 		bu.Run()
 
 		Expect(bu.state().Reads).To(HaveLen(1))
-	})
-
-	It("should flush the scalar unit", func() {
-		wave := newTestWave()
-		inst := wavefront.NewInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SMEM
-		inst.Opcode = 1
-		inst.Data = insts.NewSRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
-
-		bu.state().Stages.Exec = testWaveID(cu, wave)
-		bu.state().Stages.Write = testWaveID(cu, wave)
-		bu.state().Stages.Read = testWaveID(cu, wave)
-
-		bu.Flush()
-
-		Expect(cu.wave(bu.state().Stages.Read)).To(BeNil())
-		Expect(cu.wave(bu.state().Stages.Write)).To(BeNil())
-		Expect(cu.wave(bu.state().Stages.Exec)).To(BeNil())
 	})
 
 	It("should return correct num of cacheline", func() {

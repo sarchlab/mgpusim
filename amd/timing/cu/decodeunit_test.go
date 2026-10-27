@@ -39,7 +39,7 @@ var _ = Describe("DecodeUnit", func() {
 		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 		Expect(du.state().ToDecode).To(HaveLen(1))
-		Expect(cu.wave(du.state().ToDecode[0])).To(BeIdenticalTo(wave))
+		Expect(cu.wave(du.state().ToDecode[0])).To(Equal(wave))
 	})
 
 	It("should accept multiple waves", func() {
@@ -63,7 +63,7 @@ var _ = Describe("DecodeUnit", func() {
 
 	It("should deliver the wave to the execution unit", func() {
 		wave := newTestWave()
-		wave.SIMDID = 1
+		wave.execution().SIMDID = 1
 		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 
@@ -78,9 +78,9 @@ var _ = Describe("DecodeUnit", func() {
 
 	It("should deliver multiple waves to different execution units", func() {
 		wave1 := newTestWave()
-		wave1.SIMDID = 0
+		wave1.execution().SIMDID = 0
 		wave2 := newTestWave()
-		wave2.SIMDID = 2
+		wave2.execution().SIMDID = 2
 		registerTestWave(cu, wave1)
 		du.AcceptWave(wave1)
 		registerTestWave(cu, wave2)
@@ -97,7 +97,7 @@ var _ = Describe("DecodeUnit", func() {
 
 	It("should not deliver to the execution unit, if busy", func() {
 		wave := newTestWave()
-		wave.SIMDID = 1
+		wave.execution().SIMDID = 1
 		registerTestWave(cu, wave)
 		du.AcceptWave(wave)
 		execUnits[1].canAccept = false
@@ -109,17 +109,6 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[2].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
 		Expect(du.state().ToDecode).To(HaveLen(1))
-	})
-
-	It("should flush the decode unit", func() {
-		wave := newTestWave()
-		wave.SIMDID = 1
-		registerTestWave(cu, wave)
-		du.AcceptWave(wave)
-
-		du.Flush()
-
-		Expect(du.state().ToDecode).To(BeEmpty())
 	})
 
 })

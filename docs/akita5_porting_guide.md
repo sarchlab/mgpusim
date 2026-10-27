@@ -228,10 +228,10 @@ Success, Error}` sent to each component's `"Control"` port. v4
 "flush + discard" maps to Pause/Drain + Invalidate (+ Flush for writeback);
 "restart" maps to CmdReset or CmdEnable depending on intent (read
 `akita/mem/CONTROL_PROTOCOL.md`). MGPUSim's own components that accept
-control commands (ROB, AT, custom caches' wrappers, CU pipeline
-flush/restart stays mgpusim-internal via cuprotocol) should implement a
+control commands (ROB, AT, custom caches' wrappers) should implement a
 `"Control"` port speaking memcontrolprotocol when they replace a v4
-flush/restart flow.
+flush/restart flow. The old CU pipeline flush/restart and CP GPU
+shootdown/restart chain have been removed; page migration must not replay CU work.
 
 ## Tracing
 

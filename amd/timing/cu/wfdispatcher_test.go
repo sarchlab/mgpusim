@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 var _ = Describe("WfDispatcher", func() {
@@ -50,19 +49,19 @@ var _ = Describe("WfDispatcher", func() {
 		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.KernelObject = 65536
 
-		wf := wavefront.NewWavefront(rawWf)
-		wg := wavefront.NewWorkGroup(rawWG, messaging.Msg{Payload: protocol.MapWGReq{}})
-		wf.WG = wg
-		wf.CodeObject = co
-		wf.Packet = packet
+		wf := newTestRawWave(rawWf)
+		wg := newTestRawGroup(rawWG, messaging.Msg{Payload: protocol.MapWGReq{}})
+		setTestGroup(wf, wg)
+		setTestCodeObject(wf.group(), co)
+		setTestPacket(wf.group(), packet)
 		//req := mgpusim.NewDispatchWfReq(nil, cu.ToACE, 10, nil)
 		wfDispatcher.DispatchWf(wf, wfDispatchInfo)
 
 		//Expect(len(engine.ScheduledEvent)).To(Equal(1))
-		Expect(wf.SIMDID).To(Equal(1))
-		Expect(wf.VRegOffset).To(Equal(16))
-		Expect(wf.SRegOffset).To(Equal(8))
-		Expect(wf.LDSOffset).To(Equal(512))
+		Expect(wf.execution().SIMDID).To(Equal(1))
+		Expect(wf.execution().VRegOffset).To(Equal(16))
+		Expect(wf.execution().SRegOffset).To(Equal(8))
+		Expect(wf.execution().LDSOffset).To(Equal(512))
 		Expect(wf.PC()).To(Equal(uint64(65536 + 256)))
 	})
 })
