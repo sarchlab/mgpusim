@@ -249,6 +249,8 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 		t.Read.Src = u.cu.vectorMemPort().AsRemote()
 		payload.PID = wave.PID()
 		t.Read.Payload = payload
+		// The coalescer allocates IDs in slice order in this call. A failed
+		// admission discards that whole batch; retries allocate newer IDs.
 		u.cu.comp.State.Vector = append(u.cu.comp.State.Vector, u.cu.vectorState(t))
 		u.state().Waiting = append(u.state().Waiting, u.cu.vectorState(t))
 	}
@@ -294,6 +296,8 @@ func (u *VectorMemoryUnit) executeFlatStore(
 		t.Write.Src = u.cu.vectorMemPort().AsRemote()
 		payload.PID = wave.PID()
 		t.Write.Payload = payload
+		// The coalescer allocates IDs in slice order in this call. A failed
+		// admission discards that whole batch; retries allocate newer IDs.
 		u.cu.comp.State.Vector = append(u.cu.comp.State.Vector, u.cu.vectorState(t))
 		u.state().Waiting = append(u.state().Waiting, u.cu.vectorState(t))
 	}
