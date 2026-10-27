@@ -35,8 +35,9 @@ Decoded descriptions may be shared across dynamic IDs, so pointer identity is
 not execution identity. Local `wavefront.Handle` values identify CU slots and
 are distinct from these tracing IDs. The final `S_ENDPGM` task closes before the wave task; completion
 port retries do not repeat either task completion. Sampled waves close their
-wave tasks when their completion events run. The CU retains hardware slots until
-outstanding prefetches drain and the work-group completion message can be sent.
+wave tasks when Tick processes their due sampled-completion records. The CU
+retains hardware slots until outstanding prefetches drain and the work-group
+completion message can be sent.
 There is no CU flush/replay teardown. See `slots_test.go` and `lifecycle_test.go`
 for completion ordering, tracking-disabled execution, and backpressure coverage.
 The CP's ordinary cache `FlushReq` req_in closes when the flush-done response is sent.

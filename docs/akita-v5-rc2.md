@@ -184,8 +184,8 @@ owner, slot handle, and global UID. `State.Initialize` allocates fixed-length
 Retirement clears occupancy without resizing or moving slots. Wave state links
 directly to its group slot; generation checks reject stale recycled handles.
 `wavefront.Handle` is a distinct local-slot type used by saved wave references
-and completion events. Global kernel wave UIDs, instruction IDs and task IDs
-remain separate `uint64` values.
+and pending sampled-completion records. Global kernel wave UIDs, instruction IDs
+and task IDs remain separate `uint64` values.
 Scheduler ordering is still defined by its membership queues.
 Replacing State therefore requires no invalidation sentinel, rebinding callback,
 load hook, or subsequent tick. Previously acquired ID views and register-file
@@ -252,13 +252,13 @@ returns. `WfCompleted` means fully drained and waiting for the group's completio
 message. The CU sends that message and releases slots only when the dispatch
 port accepts it; backpressure schedules a retry. Barrier peer checks distinguish
 execution-ended waves from waves still executing. Sampled waves instead remain
-`WfSampledWaiting` until their scheduled completion event and never clear detailed
-wave register allocations.
+`WfSampledWaiting` until Tick processes their due sampled-completion records.
+They never clear detailed wave register allocations.
 
 These state transitions replace CU-wide searches for saved wave handles. Tests
-independently inspect decoder, pipeline, SIMD, scheduler, memory and custom-event
-holders at operation boundaries. Instructions record their owning local slot and
-whether execution is pending. An asynchronous instruction retains its encoding
+independently inspect decoder, pipeline, SIMD, scheduler, memory and
+sampled-completion records at operation boundaries. Instructions record their
+owning local slot and whether execution is pending. An asynchronous instruction retains its encoding
 through its last memory response even after its wave advances; completion
 observers finish before the encoding can be retired. Tracing does not control
 this lifetime. No per-holder reference counts or retired-wave spill storage are
