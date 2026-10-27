@@ -57,6 +57,7 @@ type Config struct {
 // Builder builds a GPU: a GPU controller, its SMs, the L2 cache banks, and one
 // DRAM controller per L2 bank.
 type Builder struct {
+	toDriver  messaging.RemotePort
 	registrar modeling.Simulation
 	freq      timing.Freq
 	cfg       Config
@@ -82,6 +83,12 @@ func (b Builder) WithFreq(freq timing.Freq) Builder {
 // WithConfig sets the GPU configuration.
 func (b Builder) WithConfig(cfg Config) Builder {
 	b.cfg = cfg
+	return b
+}
+
+// WithDriverRemotePort sets the immutable parent destination.
+func (b Builder) WithDriverRemotePort(remote messaging.RemotePort) Builder {
+	b.toDriver = remote
 	return b
 }
 
@@ -111,8 +118,8 @@ func (b Builder) Build(name string) *GPUController {
 }
 
 func (b Builder) buildController(name string) *GPUController {
-	t := &topology{ID: name}
 	spec := Spec{
+		ToDriver:                           b.toDriver,
 		Freq:                               b.freq,
 		SMThreadCapacity:                   b.cfg.SMThreadCapacity,
 		GPU2SMThreadBlockAllocationLatency: b.cfg.GPU2SMThreadBlockAllocationLatency,
@@ -122,9 +129,12 @@ func (b Builder) buildController(name string) *GPUController {
 		SMResponseHandleWidth:              b.cfg.SMResponseHandleWidth,
 		MaxCTAPerSM:                        max(b.cfg.MaxCTAPerSM, 1),
 	}
-	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).
-		WithResources(Resources{Topology: t}).Build(name)
-	g := &GPUController{Comp: c, topology: t}
+	for i := range b.cfg.NumSMs {
+		child := fmt.Sprintf("%s.SM[%d]", name, i)
+		spec.SMs = append(spec.SMs, SMPeer{Name: child, Port: messaging.RemotePort(child + ".ToGPU")})
+	}
+	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).Build(name)
+	g := &GPUController{Comp: c}
 	b.buildPort(g, "ToDriver", portBufSize)
 	b.buildPort(g, "ToSMs", portBufSize)
 
@@ -151,6 +161,7 @@ func (b Builder) buildSMs(
 	smBuilder := sm.MakeBuilder().
 		WithSimulation(b.registrar).
 		WithFreq(b.freq).
+		WithGPURemotePort(g.Ports.ToSMs.AsRemote()).
 		WithSMSPsCount(b.cfg.NumSMSPsPerSM).
 		WithLog2CacheLineSize(b.cfg.Log2CacheLineSize).
 		WithL1AddressMapper(l1AddressMapper).
@@ -161,7 +172,6 @@ func (b Builder) buildSMs(
 
 	for i := range b.cfg.NumSMs {
 		s := smBuilder.Build(fmt.Sprintf("%s.SM[%d]", g.Name(), i))
-		s.SetGPURemotePort(g.Ports.ToSMs.AsRemote())
 		g.SMList = append(g.SMList, s)
 	}
 }

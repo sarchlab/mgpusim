@@ -106,6 +106,30 @@ func prepareCheckpoint(t *testing.T, phase string, path string) {
 		t.Fatal(err)
 	}
 	finishCheckpointRun(t, s, p, path+".uninterrupted")
+	rewindCheckpoint(t, s, p, path)
+}
+
+func rewindCheckpoint(t *testing.T, s *sim.Simulation, p *platform.Platform, path string) {
+	t.Helper()
+	// Restore the same component instances twice after they have completed all work.
+	// This catches indexes or observers that retain pre-restore State references.
+	for range 2 {
+		if err := s.LoadCheckpoint(path); err != nil {
+			t.Fatal(err)
+		}
+		finishCheckpointRun(t, s, p, path+".rewound")
+		want, err := os.ReadFile(path + ".uninterrupted")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(path + ".rewound")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(want, got) {
+			t.Fatal("same-component rewind changed final archive")
+		}
+	}
 }
 
 func checkpointPlatform(t *testing.T) (*sim.Simulation, *platform.Platform) {

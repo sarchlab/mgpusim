@@ -27,12 +27,19 @@ func DefaultSpec() Spec {
 // on the free GPUs, and records when the last kernel finishes.
 type Driver struct {
 	*Comp
-	*topology
+	connectionWithDevices *directconnection.Connection
 }
 
 type Spec struct {
-	Freq                  timing.Freq
-	LaunchOverheadLatency uint64
+	Freq                  timing.Freq  `json:"Freq"`
+	LaunchOverheadLatency uint64       `json:"LaunchOverheadLatency"`
+	Devices               []DevicePeer `json:"Devices"`
+}
+
+// DevicePeer identifies a device and its kernel dispatch port.
+type DevicePeer struct {
+	Name string               `json:"Name"`
+	Port messaging.RemotePort `json:"Port"`
 }
 
 type State struct {
@@ -43,13 +50,7 @@ type State struct {
 	FinishTime                     timing.VTimeInPicoSec
 }
 
-type topology struct {
-	connectionWithDevices *directconnection.Connection
-	devices               map[string]*gpu.GPUController
-	deviceOrder           []string
-}
-
-type Resources struct{ Topology *topology }
+type Resources struct{}
 type Ports struct {
 	ToDevices messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.driver"`
 }
@@ -57,12 +58,13 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Middlewares struct{ Controller *Driver }
 
 func (m *Middlewares) Initialize(c *Comp) {
-	m.Controller = &Driver{Comp: c, topology: c.Resources.Topology}
+	m.Controller = &Driver{Comp: c}
 }
 func (c *Driver) Handle(timing.Event) bool { return c.Tick() }
 
 // Builder builds a Driver.
 type Builder struct {
+	devices               []DevicePeer
 	registrar             modeling.Simulation
 	freq                  timing.Freq
 	launchOverheadLatency uint64
@@ -92,12 +94,18 @@ func (b Builder) WithLaunchOverheadLatency(latency uint64) Builder {
 	return b
 }
 
+// WithDevices sets ordered device identities and destinations.
+func (b Builder) WithDevices(devices []DevicePeer) Builder {
+	b.devices = append([]DevicePeer(nil), devices...)
+	return b
+}
+
 // Build creates a driver with the given name.
 func (b Builder) Build(name string) *Driver {
-	t := &topology{devices: make(map[string]*gpu.GPUController)}
-	c := modeling.MakeBuilder[*Comp](Spec{Freq: b.freq, LaunchOverheadLatency: b.launchOverheadLatency}).
-		WithSimulation(b.registrar).WithResources(Resources{Topology: t}).Build(name)
-	d := &Driver{Comp: c, topology: t}
+	spec := Spec{Devices: b.devices, Freq: b.freq, LaunchOverheadLatency: b.launchOverheadLatency}
+	c := modeling.MakeBuilder[*Comp](spec).
+		WithSimulation(b.registrar).Build(name)
+	d := &Driver{Comp: c}
 	port := twowaybuffered.MakeBuilder().WithSimulation(b.registrar).
 		WithSpec(twowaybuffered.Spec{IncomingCapacity: portBufSize, OutgoingCapacity: portBufSize}).Build()
 	d.BindPort("ToDevices", port)
@@ -109,11 +117,14 @@ func (b Builder) Build(name string) *Driver {
 
 // RegisterGPU connects a GPU to the driver.
 func (d *Driver) RegisterGPU(g *gpu.GPUController) {
-	g.SetDriverRemotePort(d.Ports.ToDevices.AsRemote())
-	d.connectionWithDevices.BindPort(g.Ports.ToDriver)
-
-	d.devices[g.ID] = g
-	d.deviceOrder = append(d.deviceOrder, g.ID)
+	for _, peer := range d.Spec.Devices {
+		if peer.Name == g.Name() && peer.Port == g.Ports.ToDriver.AsRemote() &&
+			g.Spec.ToDriver == d.Ports.ToDevices.AsRemote() {
+			d.connectionWithDevices.BindPort(g.Ports.ToDriver)
+			return
+		}
+	}
+	panic("GPU does not match driver Spec")
 }
 
 // RunKernel queues a kernel for execution.
@@ -182,8 +193,16 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 		return false
 	}
 
-	device := d.devices[d.State.FreeDevices[0]]
-	dst := device.Ports.ToDriver.AsRemote()
+	var dst messaging.RemotePort
+	for _, device := range d.Spec.Devices {
+		if device.Name == d.State.FreeDevices[0] {
+			dst = device.Port
+			break
+		}
+	}
+	if dst == "" {
+		panic("free device is not configured in driver Spec")
+	}
 	d.Ports.ToDevices.Send(
 		messaging.Msg{ID: d.NewID(), Src: d.Ports.ToDevices.AsRemote(), Dst: dst, Payload: message.DriverToDeviceMsg{
 			Kernel: d.State.UndispatchedKernels[0],
@@ -203,8 +222,18 @@ func (d *Driver) UnfinishedKernels() uint64 {
 }
 
 func (s *State) Initialize(c *Comp) {
+	names := make(map[string]bool)
+	ports := make(map[messaging.RemotePort]bool)
+	for _, peer := range c.Spec.Devices {
+		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
+			panic("invalid or duplicate driver peer")
+		}
+		names[peer.Name] = true
+		ports[peer.Port] = true
+	}
+
 	s.LaunchOverheadLatencyRemaining = c.Spec.LaunchOverheadLatency
-	for _, id := range c.Resources.Topology.deviceOrder {
-		s.FreeDevices = append(s.FreeDevices, id)
+	for _, peer := range c.Spec.Devices {
+		s.FreeDevices = append(s.FreeDevices, peer.Name)
 	}
 }

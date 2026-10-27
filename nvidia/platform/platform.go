@@ -88,12 +88,14 @@ func Build(registrar modeling.Simulation, device Device) *Platform {
 		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithLaunchOverheadLatency(device.LaunchOverheadLatency).
+		WithDevices([]driver.DevicePeer{{Name: "GPU[0]", Port: "GPU[0].ToDriver"}}).
 		Build("Driver")
 
 	g := gpu.MakeBuilder().
 		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithConfig(device.GPU).
+		WithDriverRemotePort(p.Driver.Ports.ToDevices.AsRemote()).
 		Build("GPU[0]")
 	p.Driver.RegisterGPU(g)
 	p.Devices = append(p.Devices, g)
