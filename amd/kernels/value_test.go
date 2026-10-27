@@ -46,6 +46,8 @@ func TestWorkGroupValueRestoresLinks(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		originalCode := original.CodeObject.Data
+		original.CodeObject.Data = nil
 		if !reflect.DeepEqual(original, restored) {
 			t.Fatalf("work-group %d changed", original.UID)
 		}
@@ -59,9 +61,13 @@ func TestWorkGroupValueRestoresLinks(t *testing.T) {
 				}
 			}
 		}
-		restored.CodeObject.Data[0] = 99
-		if original.CodeObject.Data[0] != 1 {
-			t.Fatal("restored code shares caller storage")
+		original.CodeObject.Data = originalCode
+		if len(restored.CodeObject.Data) != 0 {
+			t.Fatal("dispatch snapshot duplicated executable bytes")
+		}
+		restored.CodeObject.WFSgprCount = 99
+		if original.CodeObject.WFSgprCount != 8 {
+			t.Fatal("metadata aliases caller")
 		}
 	}
 }
@@ -103,4 +109,23 @@ func TestGridSelectionAndCursorRestore(t *testing.T) {
 			t.Fatal("restored cursor changed work-group geometry")
 		}
 	}
+}
+
+func TestDispatchSnapshotSizeIndependentOfExecutable(t *testing.T) {
+	measure := func(size int) int {
+		launch := testLaunch()
+		launch.CodeObject.Data = make([]byte, size)
+		b := NewGridBuilder(sim.MakeBuilder().Build())
+		b.SetKernel(launch)
+		var data bytes.Buffer
+		if err := modeling.WriteCheckpoint(&data, struct{}{}, WorkGroupSnapshot(b.NextWG()), nil); err != nil {
+			t.Fatal(err)
+		}
+		return data.Len()
+	}
+	small, large := measure(4), measure(1<<20)
+	if small != large {
+		t.Fatalf("work-group checkpoint embeds executable: %d -> %d", small, large)
+	}
+	t.Logf("work-group snapshot: %d bytes with both 4-byte and 1MiB executable", small)
 }

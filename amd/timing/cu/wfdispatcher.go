@@ -49,7 +49,7 @@ func (d *WfDispatcherImpl) DispatchWf(
 func (d *WfDispatcherImpl) setWfInfo(
 	wf *Wavefront,
 	location protocol.WfDispatchLocation,
-	co *insts.CodeObjectValue,
+	co *insts.CodeObjectMetadata,
 ) {
 	wf.execution().SIMDID = location.SIMDID
 	wf.execution().SRegOffset = location.SGPROffset
@@ -60,7 +60,7 @@ func (d *WfDispatcherImpl) setWfInfo(
 }
 
 //nolint:gocyclo,funlen
-func (d *WfDispatcherImpl) initRegisters(wf *Wavefront, value *insts.CodeObjectValue) {
+func (d *WfDispatcherImpl) initRegisters(wf *Wavefront, value *insts.CodeObjectMetadata) {
 	co := &value.Meta
 	pkt := wf.packet()
 

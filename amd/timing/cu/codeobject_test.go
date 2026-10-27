@@ -22,14 +22,14 @@ func TestCodeObjectBorrowResolvesCurrentStateWithoutAllocation(t *testing.T) {
 	old := replaceCUState(t, c)
 	g.raw().CodeObject.Meta.KernelCodeEntryByteOffset = 512
 	g.raw().CodeObject.Version = insts.CodeObjectV5
-	g.raw().CodeObject.Data = []byte{1, 2, 3}
+	g.raw().CodeObject.HasSymbol = true
 	current := w.codeObject()
 	if current != &g.raw().CodeObject || current.Meta.KernelCodeEntryByteOffset != 512 ||
-		current.Version != insts.CodeObjectV5 || !bytes.Equal(current.Data, []byte{1, 2, 3}) {
+		current.Version != insts.CodeObjectV5 || !current.HasSymbol {
 		t.Fatal("existing wave view did not borrow replacement code object")
 	}
 	if old.Groups[g.slot].Raw.CodeObject.Meta.KernelCodeEntryByteOffset != 256 ||
-		len(old.Groups[g.slot].Raw.CodeObject.Data) != 0 {
+		old.Groups[g.slot].Raw.CodeObject.HasSymbol {
 		t.Fatal("metadata replacement mutated old State")
 	}
 }

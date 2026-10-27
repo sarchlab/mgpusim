@@ -385,7 +385,7 @@ func (f fixtureRegisterFile) Write(v RegisterAccess) {
 
 func setTestCodeObject(wg *WorkGroup, co *insts.KernelCodeObject) {
 	g := wg.state()
-	g.Raw.CodeObject = insts.CodeObjectSnapshot(co)
+	g.Raw.CodeObject = insts.CodeObjectMetadataSnapshot(co)
 }
 func setTestPacket(wg *WorkGroup, p *kernels.HsaKernelDispatchPacket) {
 	g := wg.state()
