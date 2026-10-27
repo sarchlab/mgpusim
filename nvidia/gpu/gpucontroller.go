@@ -24,22 +24,22 @@ type GPUController struct {
 }
 
 type Spec struct {
-	ToDriver                           messaging.RemotePort `json:"ToDriver"`
-	SMs                                []SMPeer             `json:"SMs"`
-	Freq                               timing.Freq          `json:"Freq"`
-	SMThreadCapacity                   uint64               `json:"SMThreadCapacity"`
-	GPU2SMThreadBlockAllocationLatency uint64               `json:"GPU2SMThreadBlockAllocationLatency"`
-	GPUReceiveCTALatencyUnit           float64              `json:"GPUReceiveCTALatencyUnit"`
-	GPUReceiveSMLatency                uint64               `json:"GPUReceiveSMLatency"`
-	CWDIssueWidth                      uint64               `json:"CWDIssueWidth"`
-	SMResponseHandleWidth              uint64               `json:"SMResponseHandleWidth"`
-	MaxCTAPerSM                        uint64               `json:"MaxCTAPerSM"`
+	ToDriver                           messaging.RemotePort `json:"to_driver"`
+	SMs                                []SMPeer             `json:"sms"`
+	Freq                               timing.Freq          `json:"freq"`
+	SMThreadCapacity                   uint64               `json:"sm_thread_capacity"`
+	GPU2SMThreadBlockAllocationLatency uint64               `json:"gpu2sm_thread_block_allocation_latency"`
+	GPUReceiveCTALatencyUnit           float64              `json:"gpu_receive_cta_latency_unit"`
+	GPUReceiveSMLatency                uint64               `json:"gpu_receive_sm_latency"`
+	CWDIssueWidth                      uint64               `json:"cwd_issue_width"`
+	SMResponseHandleWidth              uint64               `json:"sm_response_handle_width"`
+	MaxCTAPerSM                        uint64               `json:"max_cta_per_sm"`
 }
 
 // SMPeer is an SM identity and its dispatch port.
 type SMPeer struct {
-	Name string               `json:"Name"`
-	Port messaging.RemotePort `json:"Port"`
+	Name string               `json:"name"`
+	Port messaging.RemotePort `json:"port"`
 }
 
 type State struct {

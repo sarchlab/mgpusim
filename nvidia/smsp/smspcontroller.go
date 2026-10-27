@@ -21,11 +21,11 @@ type SMSPController struct {
 }
 
 type Spec struct {
-	ToSM                   messaging.RemotePort `json:"ToSM"`
-	ToVectorMem            messaging.RemotePort `json:"ToVectorMem"`
-	Freq                   timing.Freq          `json:"Freq"`
-	Log2CacheLineSize      uint64               `json:"Log2CacheLineSize"`
-	MemResponseHandleWidth uint64               `json:"MemResponseHandleWidth"`
+	ToSM                   messaging.RemotePort `json:"to_sm"`
+	ToVectorMem            messaging.RemotePort `json:"to_vector_mem"`
+	Freq                   timing.Freq          `json:"freq"`
+	Log2CacheLineSize      uint64               `json:"log2_cache_line_size"`
+	MemResponseHandleWidth uint64               `json:"mem_response_handle_width"`
 }
 
 type State struct {

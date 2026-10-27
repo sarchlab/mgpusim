@@ -83,12 +83,13 @@ func DeviceByName(name string) (Device, error) {
 // Build creates a platform with one GPU of the given model.
 func Build(registrar modeling.Simulation, device Device) *Platform {
 	p := &Platform{}
+	const gpuName = "GPU[0]"
 
 	p.Driver = driver.MakeBuilder().
 		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithLaunchOverheadLatency(device.LaunchOverheadLatency).
-		WithDevices([]driver.DevicePeer{{Name: "GPU[0]", Port: "GPU[0].ToDriver"}}).
+		WithDevices([]driver.DevicePeer{{Name: gpuName, Port: gpuName + ".ToDriver"}}).
 		Build("Driver")
 
 	g := gpu.MakeBuilder().
@@ -96,7 +97,7 @@ func Build(registrar modeling.Simulation, device Device) *Platform {
 		WithFreq(device.Freq).
 		WithConfig(device.GPU).
 		WithDriverRemotePort(p.Driver.Ports.ToDevices.AsRemote()).
-		Build("GPU[0]")
+		Build(gpuName)
 	p.Driver.RegisterGPU(g)
 	p.Devices = append(p.Devices, g)
 

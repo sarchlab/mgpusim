@@ -201,9 +201,12 @@ func (b SMBuilder) connectSMSPs(s *SMController) {
 	smToSMSPs.BindPort(s.Ports.ToSMSPs)
 
 	for i, sp := range s.SMSPs {
-		smToSMSPs.BindPort(sp.Ports.ToSM)
-
 		l1Top := s.L1VCaches[i].Ports.Top
+		if s.Spec.SMSPs[i] != sp.Ports.ToSM.AsRemote() ||
+			sp.Spec.ToSM != s.Ports.ToSMSPs.AsRemote() || sp.Spec.ToVectorMem != l1Top.AsRemote() {
+			panic("built SMSP does not match SM and memory peer configuration")
+		}
+		smToSMSPs.BindPort(sp.Ports.ToSM)
 
 		conn := directconnection.NewConnection(fmt.Sprintf("%s.SMSPToL1V[%d]", s.Name(), i), b.registrar, b.freq)
 		conn.BindPort(sp.Ports.ToVectorMem)

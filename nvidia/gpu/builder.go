@@ -172,6 +172,11 @@ func (b Builder) buildSMs(
 
 	for i := range b.cfg.NumSMs {
 		s := smBuilder.Build(fmt.Sprintf("%s.SM[%d]", g.Name(), i))
+		peer := g.Spec.SMs[i]
+		if peer.Name != s.Name() || peer.Port != s.Ports.ToGPU.AsRemote() ||
+			s.Spec.ToGPU != g.Ports.ToSMs.AsRemote() {
+			panic("built SM does not match GPU peer configuration")
+		}
 		g.SMList = append(g.SMList, s)
 	}
 }

@@ -31,15 +31,15 @@ type Driver struct {
 }
 
 type Spec struct {
-	Freq                  timing.Freq  `json:"Freq"`
-	LaunchOverheadLatency uint64       `json:"LaunchOverheadLatency"`
-	Devices               []DevicePeer `json:"Devices"`
+	Freq                  timing.Freq  `json:"freq"`
+	LaunchOverheadLatency uint64       `json:"launch_overhead_latency"`
+	Devices               []DevicePeer `json:"devices"`
 }
 
 // DevicePeer identifies a device and its kernel dispatch port.
 type DevicePeer struct {
-	Name string               `json:"Name"`
-	Port messaging.RemotePort `json:"Port"`
+	Name string               `json:"name"`
+	Port messaging.RemotePort `json:"port"`
 }
 
 type State struct {

@@ -26,12 +26,12 @@ type SMController struct {
 }
 
 type Spec struct {
-	ToGPU                   messaging.RemotePort   `json:"ToGPU"`
-	SMSPs                   []messaging.RemotePort `json:"SMSPs"`
-	Freq                    timing.Freq            `json:"Freq"`
-	SM2SMSPWarpIssueLatency uint64                 `json:"SM2SMSPWarpIssueLatency"`
-	SMReceiveGPULatency     uint64                 `json:"SMReceiveGPULatency"`
-	SMSPResponseHandleWidth uint64                 `json:"SMSPResponseHandleWidth"`
+	ToGPU                   messaging.RemotePort   `json:"to_gpu"`
+	SMSPs                   []messaging.RemotePort `json:"smsps"`
+	Freq                    timing.Freq            `json:"freq"`
+	SM2SMSPWarpIssueLatency uint64                 `json:"sm2smsp_warp_issue_latency"`
+	SMReceiveGPULatency     uint64                 `json:"sm_receive_gpu_latency"`
+	SMSPResponseHandleWidth uint64                 `json:"smsp_response_handle_width"`
 }
 
 type State struct {

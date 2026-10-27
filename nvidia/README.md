@@ -342,6 +342,8 @@ The previous `Set*RemotePort`/`SetVectorMemRemote` methods and redundant control
 have value semantics like the other builders.
 
 Peer configuration participates in checkpoint compatibility. Checkpoints from
-before this topology migration must be rebuilt. Scheduler lookups binary-search the canonical State slices: IDs increase on
+before this topology migration must be rebuilt.
+
+Scheduler lookups binary-search the canonical State slices: IDs increase on
 insertion and retirement preserves order. No derived map or pointer cache is
 retained across checkpoint restoration.

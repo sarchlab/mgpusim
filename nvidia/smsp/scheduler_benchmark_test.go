@@ -1,11 +1,13 @@
 package smsp
 
 import (
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
-// This benchmark also runs against the base revision through a Go overlay.
+// BenchmarkSchedulerLookup resolves the last of 64 resident warps and the last
+// of its 32 in-flight pipelines, exercising both ordered lookups.
 func BenchmarkSchedulerLookup(b *testing.B) {
 	s := NewSMSPScheduler()
 	for range 64 {
