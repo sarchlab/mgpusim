@@ -152,8 +152,9 @@ that embed executable `Data` are explicitly rejected; rebuild them.
 The runtime allocator checkpoint stores consecutive free pages as ordered runs.
 It preserves free-list allocation order, including fragmented pages appended by
 frees; it never sorts the allocation queue. Runtime checkpoint format 2 rejects
-the previous expanded-page format. CU wave identity indexes live in checkpointed
-State; vector transactions stay ordered by increasing request identity, permitting
+the previous expanded-page format. CU execution uses fixed-slot wave handles;
+the cold debugger lookup scans those slots without maintaining a second index.
+Vector transactions stay ordered by increasing request identity, permitting
 binary search without a cache across restore. Emulation decodes use bounded
 scratch cleared for every atomic work-group, so bytes from another process, a
 reloaded kernel or a later execution cannot survive checkpoint rewind.

@@ -694,8 +694,12 @@ func (cu *ComputeUnit) wavefrontByID(id uint64) *Wavefront {
 }
 
 func (cu *ComputeUnit) findWavefront(id uint64) *Wavefront {
-	if handle, ok := cu.comp.State.WaveHandles[id]; ok && id != 0 {
-		return cu.wave(handle)
+	// ID lookup serves the ISA debugger; execution uses fixed-slot handles.
+	for index := range cu.comp.State.Waves {
+		state := &cu.comp.State.Waves[index]
+		if state.ID == id && id != 0 {
+			return &Wavefront{cu: cu, UID: id, handle: makeWaveHandle(index, state.Generation)}
+		}
 	}
 	return nil
 }

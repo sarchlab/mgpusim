@@ -27,15 +27,6 @@ func (d endpgmDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return inst, nil
 }
 
-// zeroStorageAccessor returns zero bytes for every read.
-type zeroStorageAccessor struct{}
-
-func (a zeroStorageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
-	return make([]byte, byteSize)
-}
-
-func (a zeroStorageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {}
-
 func exampleWorkGroup(s *sim.Simulation) *kernels.WorkGroup {
 	wg := kernels.NewWorkGroup(s.NewID())
 	wg.SizeX, wg.SizeY, wg.SizeZ = 64, 1, 1

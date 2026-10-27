@@ -85,10 +85,6 @@ func (cu *ComputeUnit) allocateWave(group *WorkGroup, index int, value WaveState
 		value.Generation, value.Group, value.Index = generation, group.slot, index
 		*old = value
 		handle := makeWaveHandle(slot, generation)
-		if cu.comp.State.WaveHandles == nil {
-			cu.comp.State.WaveHandles = make(map[uint64]waveHandle)
-		}
-		cu.comp.State.WaveHandles[value.ID] = handle
 		group.state().Waves = append(group.state().Waves, handle)
 		return &Wavefront{cu: cu, UID: value.ID, handle: handle}
 	}
@@ -208,7 +204,6 @@ func (cu *ComputeUnit) retireGroup(index int) {
 		wave := &s.Waves[slotIndex(handle)]
 		inst, next := wave.Execution.InstID, wave.Execution.ToIssueID
 		delete(s.WFTimes, wave.ID)
-		delete(s.WaveHandles, wave.ID)
 		*wave = WaveState{Generation: wave.Generation}
 		cu.releaseInstruction(inst)
 		cu.releaseInstruction(next)
