@@ -40,17 +40,21 @@ var _ = Describe("Per-Die Algorithm", func() {
 			DoAndReturn(func(i int) resource.CUResource { return cus[i] }).
 			AnyTimes()
 
-		// 2 dies, 2 CUs each: die 0 -> CU{0,1}, die 1 -> CU{2,3}.
-		alg = &perDieAlgorithm{
-			cuPool:    pool,
-			numDies:   2,
-			numWG:     8,
-			cusPerDie: 2,
-			dies: []*dieState{
-				{gridBuilder: gridBuilder0, numWGInDie: 4, firstCU: 0},
-				{gridBuilder: gridBuilder1, numWGInDie: 4, firstCU: 2},
-			},
-		}
+			// 2 dies, 2 CUs each: die 0 -> CU{0,1}, die 1 -> CU{2,3}.
+		state := &AlgorithmState{NumWG: 8,
+			CUsPerDie: 2,
+			Partitions: []PartitionState{{Count: 4,
+				FirstCU: 0}, {Count: 4,
+				FirstCU: 2}}}
+		alg = &perDieAlgorithm{cuPool: pool, numDies: 2,
+			state: func() *AlgorithmState { return state },
+			gridForDie: func(i int) kernels.GridBuilder {
+				if i == 0 {
+					return gridBuilder0
+				}
+				return gridBuilder1
+			}}
+
 	})
 
 	AfterEach(func() {
@@ -59,7 +63,11 @@ var _ = Describe("Per-Die Algorithm", func() {
 
 	It("interleaves a die's work-groups round-robin over only that die's CUs", func() {
 		wgA := kernels.NewWorkGroup(testNewID())
+		wgA.Wavefronts = nil
+		wgA.WorkItems = nil
 		wgB := kernels.NewWorkGroup(testNewID())
+		wgB.Wavefronts = nil
+		wgB.WorkItems = nil
 
 		gridBuilder0.EXPECT().NextWG().Return(wgA)
 		cus[0].EXPECT().ReserveResourceForWG(wgA).
@@ -75,12 +83,14 @@ var _ = Describe("Per-Die Algorithm", func() {
 		Expect(loc1.valid).To(BeTrue())
 		Expect(loc1.cuID).To(Equal(1)) // interleaved onto die 0's next CU
 
-		Expect(alg.dies[0].dispatchedWG).To(Equal(2))
-		Expect(alg.numDispatchedWG).To(Equal(2))
+		Expect(alg.state().Partitions[0].Dispatched).To(Equal(2))
+		Expect(alg.state().Dispatched).To(Equal(2))
 	})
 
 	It("dispatches a die onto its own CU range only (die-level block)", func() {
 		wg := kernels.NewWorkGroup(testNewID())
+		wg.Wavefronts = nil
+		wg.WorkItems = nil
 		gridBuilder1.EXPECT().NextWG().Return(wg)
 		cus[2].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, true)
@@ -91,7 +101,7 @@ var _ = Describe("Per-Die Algorithm", func() {
 	})
 
 	It("returns invalid once a die's block is exhausted", func() {
-		alg.dies[0].dispatchedWG = 4 // == numWGInDie
+		alg.state().Partitions[0].Dispatched = 4 // == numWGInDie
 
 		loc := alg.NextForDie(0)
 
@@ -100,6 +110,8 @@ var _ = Describe("Per-Die Algorithm", func() {
 
 	It("holds the pulled work-group and retries when no CU on the die is free", func() {
 		wg := kernels.NewWorkGroup(testNewID())
+		wg.Wavefronts = nil
+		wg.WorkItems = nil
 		gridBuilder0.EXPECT().NextWG().Return(wg) // pulled exactly once
 		cus[0].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, false)
@@ -109,7 +121,7 @@ var _ = Describe("Per-Die Algorithm", func() {
 		loc := alg.NextForDie(0)
 
 		Expect(loc.valid).To(BeFalse())
-		Expect(alg.dies[0].currWG).To(Equal(wg)) // held, not lost
-		Expect(alg.numDispatchedWG).To(Equal(0))
+		Expect(currentWG(alg.state().Partitions[0].Current)).To(Equal(wg)) // held, not lost
+		Expect(alg.state().Dispatched).To(Equal(0))
 	})
 })

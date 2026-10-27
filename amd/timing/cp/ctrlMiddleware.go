@@ -81,7 +81,7 @@ func (m *ctrlMiddleware) sendPendingDriverRsps() bool {
 	meta := messaging.Msg{
 		ID:  m.comp.NewID(),
 		Src: m.toDriver().AsRemote(),
-		Dst: state.Driver,
+		Dst: m.comp.Spec.Driver,
 	}
 
 	switch kind {
@@ -138,7 +138,7 @@ func (m *ctrlMiddleware) processRDMADrainCmd(
 
 	req := messaging.Msg{ID: m.comp.NewID(),
 		Src: m.toRDMA().AsRemote(),
-		Dst: m.comp.State.RDMA, Payload: rdma.DrainReq{}}
+		Dst: m.comp.Spec.RDMA, Payload: rdma.DrainReq{}}
 
 	m.toRDMA().Send(req)
 
@@ -156,7 +156,7 @@ func (m *ctrlMiddleware) processRDMARestartCmd(
 
 	req := messaging.Msg{ID: m.comp.NewID(),
 		Src: m.toRDMA().AsRemote(),
-		Dst: m.comp.State.RDMA, Payload: rdma.RestartReq{}}
+		Dst: m.comp.Spec.RDMA, Payload: rdma.RestartReq{}}
 
 	m.toRDMA().Send(req)
 
@@ -269,31 +269,27 @@ func (m *ctrlMiddleware) execStep() int {
 }
 
 func (m *ctrlMiddleware) l1Caches() []messaging.RemotePort {
-	state := &m.comp.State
-
 	l1s := make([]messaging.RemotePort, 0,
-		len(state.L1ICaches)+len(state.L1SCaches)+len(state.L1VCaches))
-	l1s = append(l1s, state.L1ICaches...)
-	l1s = append(l1s, state.L1SCaches...)
-	l1s = append(l1s, state.L1VCaches...)
+		len(m.comp.Spec.L1ICaches)+len(m.comp.Spec.L1SCaches)+len(m.comp.Spec.L1VCaches))
+	l1s = append(l1s, m.comp.Spec.L1ICaches...)
+	l1s = append(l1s, m.comp.Spec.L1SCaches...)
+	l1s = append(l1s, m.comp.Spec.L1VCaches...)
 
 	return l1s
 }
 
 func (m *ctrlMiddleware) allCaches() []messaging.RemotePort {
-	return append(m.l1Caches(), m.comp.State.L2Caches...)
+	return append(m.l1Caches(), m.comp.Spec.L2Caches...)
 }
 
 // l1DataCaches returns the scalar and vector L1 caches, which can hold data
 // written by an earlier kernel or copy. The instruction caches are left
 // alone because code objects are not rewritten while they run.
 func (m *ctrlMiddleware) l1DataCaches() []messaging.RemotePort {
-	state := &m.comp.State
-
 	l1s := make([]messaging.RemotePort, 0,
-		len(state.L1SCaches)+len(state.L1VCaches))
-	l1s = append(l1s, state.L1SCaches...)
-	l1s = append(l1s, state.L1VCaches...)
+		len(m.comp.Spec.L1SCaches)+len(m.comp.Spec.L1VCaches))
+	l1s = append(l1s, m.comp.Spec.L1SCaches...)
+	l1s = append(l1s, m.comp.Spec.L1VCaches...)
 
 	return l1s
 }
@@ -338,13 +334,13 @@ func (m *ctrlMiddleware) execFlushStep(step int) int {
 			m.l1Caches(), memcontrolprotocol.CmdInvalidate, nil, 0)
 	case 3:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			state.L2Caches, memcontrolprotocol.CmdDrain, nil, 0)
+			m.comp.Spec.L2Caches, memcontrolprotocol.CmdDrain, nil, 0)
 	case 4:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			state.L2Caches, memcontrolprotocol.CmdFlush, nil, 0)
+			m.comp.Spec.L2Caches, memcontrolprotocol.CmdFlush, nil, 0)
 	case 5:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
-			state.L2Caches, memcontrolprotocol.CmdInvalidate, nil, 0)
+			m.comp.Spec.L2Caches, memcontrolprotocol.CmdInvalidate, nil, 0)
 	case 6:
 		return m.enqueueCtrlReqs(&state.PendingCacheReqs, m.toCaches(),
 			m.allCaches(), memcontrolprotocol.CmdEnable, nil, 0)

@@ -94,22 +94,22 @@ var _ = Describe("Dispatcher", func() {
 
 		dispatcher.StartDispatching(req)
 
-		Expect(dispatcher.isDispatching).To(BeTrue())
-		Expect(dispatcher.dispatching.ID).To(Equal(req.ID))
+		Expect(dispatcher.state().IsDispatching).To(BeTrue())
+		Expect(dispatcher.state().Dispatching.ID).To(Equal(req.ID))
 	})
 
 	It("should panic if the dispatcher is dispatching another kernel", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		Expect(func() { dispatcher.StartDispatching(req) }).To(Panic())
 	})
 
 	It("should dispatch work-groups", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		firstCall := alg.EXPECT().Next().Return(dispatchLocation{
@@ -128,27 +128,27 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(dispatcher.currWG.valid).To(BeFalse())
-		Expect(dispatcher.numDispatchedWGs).To(Equal(1))
-		Expect(dispatcher.inflightWGs).To(HaveLen(1))
+		Expect(dispatcher.state().Current.Valid).To(BeFalse())
+		Expect(dispatcher.state().NumDispatchedWGs).To(Equal(1))
+		Expect(dispatcher.state().Inflight).To(HaveLen(1))
 	})
 
 	It("should wait until cycle left becomes 0", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
-		dispatcher.cycleLeft = 3
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
+		dispatcher.state().CycleLeft = 3
 
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(dispatcher.cycleLeft).To(Equal(2))
+		Expect(dispatcher.state().CycleLeft).To(Equal(2))
 	})
 
 	It("should pause if no work-group can be executed", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
@@ -160,14 +160,14 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeFalse())
-		Expect(dispatcher.currWG.valid).To(BeFalse())
-		Expect(dispatcher.numDispatchedWGs).To(Equal(0))
+		Expect(dispatcher.state().Current.Valid).To(BeFalse())
+		Expect(dispatcher.state().NumDispatchedWGs).To(Equal(0))
 	})
 
 	It("should pause if send to CU failed", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
@@ -180,17 +180,17 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeFalse())
-		Expect(dispatcher.currWG.valid).To(BeTrue())
-		Expect(dispatcher.numDispatchedWGs).To(Equal(0))
+		Expect(dispatcher.state().Current.Valid).To(BeTrue())
+		Expect(dispatcher.state().NumDispatchedWGs).To(Equal(0))
 	})
 
 	It("should do nothing if all work-groups dispatched", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 48
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 48
 
 		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
@@ -202,19 +202,19 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should receive work-group complete message", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
 
 		location := dispatchLocation{}
-		dispatcher.inflightWGs[mapWGReq.ID] = location
-		dispatcher.wgTaskIDs[mapWGReq.ID] = 0
+		dispatcher.state().Inflight[mapWGReq.ID] = saveLocation(location)
+		dispatcher.state().WgTaskIDs[mapWGReq.ID] = 0
 
 		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 48
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 48
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		alg.EXPECT().NumWG().Return(64)
@@ -234,25 +234,25 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(dispatcher.inflightWGs).NotTo(HaveKey(mapWGReq.ID))
+		Expect(dispatcher.state().Inflight).NotTo(HaveKey(mapWGReq.ID))
 	})
 
 	It(`should add kernel overhead after completing the last
 	Work-Group`, func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
 
 		location := dispatchLocation{}
-		dispatcher.inflightWGs[mapWGReq.ID] = location
-		dispatcher.wgTaskIDs[mapWGReq.ID] = 0
+		dispatcher.state().Inflight[mapWGReq.ID] = saveLocation(location)
+		dispatcher.state().WgTaskIDs[mapWGReq.ID] = 0
 
 		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 63
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 63
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		alg.EXPECT().NumWG().Return(64)
@@ -272,23 +272,23 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(dispatcher.inflightWGs).NotTo(HaveKey(mapWGReq.ID))
-		Expect(dispatcher.cycleLeft).
+		Expect(dispatcher.state().Inflight).NotTo(HaveKey(mapWGReq.ID))
+		Expect(dispatcher.state().CycleLeft).
 			To(Equal(dispatcher.constantKernelOverhead))
 	})
 
 	It(`should ignore response if the request is not sent by the
 	dispatcher`, func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
 		mapWGReq := messaging.Msg{ID: testNewID(), Payload: protocol.MapWGReq{}}
 
 		wgCompletionMsg := messaging.Msg{Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapWGReq.ID}}}
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 48
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 48
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		dispatchingPort.EXPECT().
@@ -303,11 +303,11 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should send response when a kernel is completed", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 64
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 64
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
@@ -323,16 +323,16 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(dispatcher.isDispatching).To(BeFalse())
+		Expect(dispatcher.state().IsDispatching).To(BeFalse())
 	})
 
 	It("should wait if response is failed to send", func() {
 		req := makeLaunchReq()
-		dispatcher.dispatching = req
-		dispatcher.isDispatching = true
+		dispatcher.state().Dispatching = req
+		dispatcher.state().IsDispatching = true
 
-		dispatcher.numDispatchedWGs = 64
-		dispatcher.numCompletedWGs = 64
+		dispatcher.state().NumDispatchedWGs = 64
+		dispatcher.state().NumCompletedWGs = 64
 
 		alg.EXPECT().HasNext().Return(false).AnyTimes()
 		dispatchingPort.EXPECT().PeekIncoming().Return(messaging.Msg{}, false)
@@ -341,8 +341,8 @@ var _ = Describe("Dispatcher", func() {
 		madeProgress := dispatcher.Tick()
 
 		Expect(madeProgress).To(BeFalse())
-		Expect(dispatcher.isDispatching).To(BeTrue())
-		Expect(dispatcher.dispatching.ID).To(Equal(req.ID))
+		Expect(dispatcher.state().IsDispatching).To(BeTrue())
+		Expect(dispatcher.state().Dispatching.ID).To(Equal(req.ID))
 	})
 })
 

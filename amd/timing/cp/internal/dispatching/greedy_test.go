@@ -41,7 +41,9 @@ var _ = Describe("Greedy Algorithm", func() {
 			}).
 			AnyTimes()
 
+		state := &AlgorithmState{}
 		alg = &greedyAlgorithm{
+			state:       func() *AlgorithmState { return state },
 			gridBuilder: gridBuilder,
 			cuPool:      pool,
 		}
@@ -63,7 +65,7 @@ var _ = Describe("Greedy Algorithm", func() {
 	})
 
 	It("should check if there are more work-groups to generate", func() {
-		alg.numDispatchedWGs = 10
+		alg.state().Dispatched = 10
 		gridBuilder.EXPECT().NumWG().Return(10)
 
 		hasNext := alg.HasNext()
@@ -81,7 +83,7 @@ var _ = Describe("Greedy Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeTrue())
-		Expect(alg.numDispatchedWGs).To(Equal(1))
+		Expect(alg.state().Dispatched).To(Equal(1))
 	})
 
 	It("should return invalid location is dispatch is not possible", func() {
@@ -97,6 +99,6 @@ var _ = Describe("Greedy Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeFalse())
-		Expect(alg.numDispatchedWGs).To(Equal(0))
+		Expect(alg.state().Dispatched).To(Equal(0))
 	})
 })

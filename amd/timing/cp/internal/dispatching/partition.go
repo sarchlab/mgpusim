@@ -6,66 +6,52 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
-type partition struct {
-	gridBuilder  kernels.GridBuilder
-	dispatchedWG int
-}
-
-// partitionAlgorithm can dispatch workgroups to CUs in a round robin
-// fasion.
+// partitionAlgorithm holds only behavior and resolves all cursors through State.
 type partitionAlgorithm struct {
-	ids        interface{ NewID() uint64 }
-	partitions []*partition
-	cuPool     resource.CUResourcePool
-
-	nextPartition     int
-	currWGs           []*kernels.WorkGroup
-	numWG             int
-	numDispatchedWG   int
-	numWGPerPartition int
-
-	initialized bool
+	gridForPartition func(int) kernels.GridBuilder
+	ids              interface{ NewID() uint64 }
+	cuPool           resource.CUResourcePool
+	state            func() *AlgorithmState
 }
 
-// RegisterCU allows the partitionAlgorithm to dispatch work-group to the CU.
-func (a *partitionAlgorithm) RegisterCU(cu resource.DispatchableCU) {
-	a.cuPool.RegisterCU(cu)
+func (a *partitionAlgorithm) grid(i int) kernels.GridBuilder {
+	if a.gridForPartition != nil {
+		return a.gridForPartition(i)
+	}
+	return &stateGrid{ids: a.ids, state: func() *kernels.GridBuilderState { return &a.state().Partitions[i].Grid }}
 }
 
 // StartNewKernel lets the algorithms to start dispatching a new kernel.
 func (a *partitionAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
-	a.numDispatchedWG = 0
+	a.state().Dispatched = 0
 
 	gb := kernels.NewGridBuilder(a.ids)
 	gb.SetKernel(info)
-	a.numWG = gb.NumWG()
+	a.state().NumWG = gb.NumWG()
 	numCU := a.cuPool.NumCU()
-	a.numWGPerPartition = (a.numWG-1)/numCU + 1
+	a.state().WGPerPartition = (a.state().NumWG-1)/numCU + 1
 
-	a.partitions = nil
+	a.state().Partitions = nil
 	for i := 0; i < numCU; i++ {
-		p := &partition{
-			gridBuilder: kernels.NewGridBuilder(a.ids),
-		}
+		p := PartitionState{}
+		grid := &stateGrid{ids: a.ids, state: func() *kernels.GridBuilderState { return &p.Grid }}
 
-		p.gridBuilder.SetKernel(info)
-		p.gridBuilder.Skip(i * a.numWGPerPartition)
+		grid.SetKernel(info)
+		grid.Skip(i * a.state().WGPerPartition)
 
-		a.partitions = append(a.partitions, p)
+		a.state().Partitions = append(a.state().Partitions, p)
 	}
-
-	a.currWGs = make([]*kernels.WorkGroup, numCU)
 }
 
 // NumWG returns the number of work-groups in the currently-dispatching
 // work-group.
 func (a *partitionAlgorithm) NumWG() int {
-	return a.numWG
+	return a.state().NumWG
 }
 
 // HasNext check if there are more work-groups to dispatch.
 func (a *partitionAlgorithm) HasNext() bool {
-	return a.numDispatchedWG < a.numWG
+	return a.state().Dispatched < a.state().NumWG
 }
 
 // Next finds the location to dispatch the next work-group.
@@ -74,8 +60,8 @@ func (a *partitionAlgorithm) Next() (location dispatchLocation) {
 		return dispatchLocation{}
 	}
 
-	for index := range a.partitions {
-		i := (index + a.nextPartition) % len(a.partitions)
+	for index := range a.state().Partitions {
+		i := (index + a.state().NextPartition) % len(a.state().Partitions)
 
 		wgToDispatch, wgFromPartition := a.nextWG(i)
 		if wgToDispatch == nil {
@@ -98,11 +84,11 @@ func (a *partitionAlgorithm) Next() (location dispatchLocation) {
 				dispatch.locations[i] = protocol.WfDispatchLocation(localtion)
 			}
 
-			a.currWGs[wgFromPartition] = nil
-			a.partitions[wgFromPartition].dispatchedWG++
-			a.numDispatchedWG++
+			a.state().Partitions[wgFromPartition].Current = Location{}
+			a.state().Partitions[wgFromPartition].Dispatched++
+			a.state().Dispatched++
 
-			a.nextPartition = i + 1
+			a.state().NextPartition = i + 1
 
 			return dispatch
 		}
@@ -115,32 +101,31 @@ func (a *partitionAlgorithm) nextWG(partitionIndex int) (
 	*kernels.WorkGroup, int,
 ) {
 	if a.noWGInPartition(partitionIndex) {
-		for i := range a.partitions {
-			if a.currWGs[i] != nil {
-				return a.currWGs[i], i
+		for i := range a.state().Partitions {
+			if a.state().Partitions[i].Current.HasWG {
+				return currentWG(a.state().Partitions[i].Current), i
 			}
 		}
 
 		return nil, 0
 	}
 
-	if a.currWGs[partitionIndex] != nil {
-		return a.currWGs[partitionIndex], partitionIndex
+	if a.state().Partitions[partitionIndex].Current.HasWG {
+		return currentWG(a.state().Partitions[partitionIndex].Current), partitionIndex
 	}
 
-	a.currWGs[partitionIndex] =
-		a.partitions[partitionIndex].gridBuilder.NextWG()
+	a.state().Partitions[partitionIndex].Current = retainWG(a.grid(partitionIndex).NextWG())
 
-	return a.currWGs[partitionIndex], partitionIndex
+	return currentWG(a.state().Partitions[partitionIndex].Current), partitionIndex
 }
 
 func (a *partitionAlgorithm) allWGDispatched() bool {
-	return a.numDispatchedWG >= a.numWG
+	return a.state().Dispatched >= a.state().NumWG
 }
 
 func (a *partitionAlgorithm) noWGInPartition(partitionIndex int) bool {
-	p := a.partitions[partitionIndex]
-	if p.dispatchedWG >= a.numWGPerPartition {
+	p := a.state().Partitions[partitionIndex]
+	if p.Dispatched >= a.state().WGPerPartition {
 		return true
 	}
 

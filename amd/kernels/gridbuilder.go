@@ -200,3 +200,13 @@ func (b *gridBuilderImpl) Restore(state GridBuilderState) {
 	b.numWG = state.NumWG
 	b.xid, b.yid, b.zid = state.X, state.Y, state.Z
 }
+
+// NextWorkGroup advances a canonical grid cursor. The pointer graph it returns
+// is a temporary view; callers persist WorkGroupValue when retaining the work.
+func NextWorkGroup(state *GridBuilderState, ids interface{ NewID() uint64 }) *WorkGroup {
+	b := &gridBuilderImpl{ids: ids}
+	b.Restore(*state)
+	wg := b.NextWG()
+	state.X, state.Y, state.Z = b.xid, b.yid, b.zid
+	return wg
+}

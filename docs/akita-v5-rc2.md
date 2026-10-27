@@ -31,7 +31,7 @@ closures are no longer accepted by the launch/grid APIs.
 
 Custom platforms must build with a simulation, bind each port to its component
 before connecting it, and call `Simulation.Initialize()` after wiring. Shared
-memory, page tables, dispatchers and sampling state
+memory, page tables and sampling state
 are registered resources. Sampling history belongs to one simulation. Existing
 sample main functions explicitly initialize the composed simulation.
 
@@ -270,3 +270,36 @@ and independent RDMA control remain. Future page migration must drain already
 issued accesses without replaying CU execution. This change does not implement
 that migration protocol. There is no backward checkpoint compatibility contract,
 including after the v5 release.
+
+
+## DMA package and command processor ownership
+
+The DMA component now lives in `amd/timing/dma`. Replace `cp.DMAComp`,
+`cp.DefaultDMASpec`, and `cp.MakeDMAEngineBuilder` with `dma.Comp`,
+`dma.DefaultSpec`, and `dma.MakeBuilder`. Its processing behavior and port names
+are unchanged. DMA `Resources.LocalDataSource` routing remains deferred to #321.
+
+CP peer addresses and CU capacities belong to `cp.Spec`. Build DMA, RDMA,
+compute units and caches first, then collect their actual bound addresses.
+`cp.DescribeCU(cu.DispatcherView{CU: component})` produces one immutable CU record;
+its position in `Spec.CUs` defines the dispatcher ordering. Supply Driver,
+DMAEngine, RDMA and cache control destinations before CP Build. The old
+`WithDriver`, `WithCU`, and `RegisterCU` interfaces are removed. Unused DRAM
+control addresses are no longer stored on the CP; assembly still binds their
+ports for lifecycle validation.
+
+Each CP owns its dispatcher cursors, pending dispatch locations, task handles,
+per-die rate gates, and shared CU reservations in `State`. Middleware Initialize
+constructs behavior views that resolve the current State on every operation,
+including after LoadCheckpoint replaces it. Grid and work-group values persist
+without cyclic pointer graphs. Allocation masks include unlimited allocation
+cursors. Dispatchers and CU pools are no longer separately registered resources.
+Sampler and monitor references are supplied through Resources before Build.
+
+Rebuild checkpoints from before this ownership change, including earlier RC3
+checkpoints: the component package layout, entity inventory, Spec compatibility
+hashes and state schemas have changed. Tests compare fresh-process continuation
+for all four dispatch algorithms with two active kernels, occupied shared CU
+slots and a blocked output port, including complete final archives, request
+IDs and simulated times. Changed destination order or CU capacities must reject
+restore.

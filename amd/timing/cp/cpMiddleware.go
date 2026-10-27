@@ -228,7 +228,7 @@ func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 		c := req
 		c.ID = m.comp.NewID()
 		c.Src = m.toDMA().AsRemote()
-		c.Dst = state.DMAEngine
+		c.Dst = m.comp.Spec.DMAEngine
 		state.BottomMemCopyH2DToTop[c.ID] = req
 		cloned = c
 	case protocol.MemCopyD2HReq:
@@ -236,7 +236,7 @@ func (m *cpMiddleware) processMemCopyReq(req messaging.Msg) bool {
 		c := req
 		c.ID = m.comp.NewID()
 		c.Src = m.toDMA().AsRemote()
-		c.Dst = state.DMAEngine
+		c.Dst = m.comp.Spec.DMAEngine
 		state.BottomMemCopyD2HToTop[c.ID] = req
 		cloned = c
 	default:

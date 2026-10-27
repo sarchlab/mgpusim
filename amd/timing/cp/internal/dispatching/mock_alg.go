@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	kernels "github.com/sarchlab/mgpusim/v5/amd/kernels"
-	resource "github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -93,18 +92,6 @@ func (m *MockAlgorithm) NumWG() int {
 func (mr *MockAlgorithmMockRecorder) NumWG() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumWG", reflect.TypeOf((*MockAlgorithm)(nil).NumWG))
-}
-
-// RegisterCU mocks base method.
-func (m *MockAlgorithm) RegisterCU(cu resource.DispatchableCU) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterCU", cu)
-}
-
-// RegisterCU indicates an expected call of RegisterCU.
-func (mr *MockAlgorithmMockRecorder) RegisterCU(cu any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCU", reflect.TypeOf((*MockAlgorithm)(nil).RegisterCU), cu)
 }
 
 // StartNewKernel mocks base method.
@@ -223,18 +210,6 @@ func (m *MockdieAwareAlgorithm) NumWG() int {
 func (mr *MockdieAwareAlgorithmMockRecorder) NumWG() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumWG", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).NumWG))
-}
-
-// RegisterCU mocks base method.
-func (m *MockdieAwareAlgorithm) RegisterCU(cu resource.DispatchableCU) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterCU", cu)
-}
-
-// RegisterCU indicates an expected call of RegisterCU.
-func (mr *MockdieAwareAlgorithmMockRecorder) RegisterCU(cu any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCU", reflect.TypeOf((*MockdieAwareAlgorithm)(nil).RegisterCU), cu)
 }
 
 // StartNewKernel mocks base method.

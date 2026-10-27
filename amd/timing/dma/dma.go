@@ -1,4 +1,4 @@
-package cp
+package dma
 
 import (
 	"log"
@@ -70,8 +70,8 @@ func NewRequestCollection(
 	return rqC
 }
 
-// DMASpec contains the immutable configuration of the DMA engine.
-type DMASpec struct {
+// Spec contains the immutable configuration of the DMA engine.
+type Spec struct {
 	Freq timing.Freq `json:"freq"`
 
 	// Log2AccessSize is the log2 of the number of bytes accessed by each
@@ -83,8 +83,8 @@ type DMASpec struct {
 	MaxRequestCount uint64 `json:"max_request_count"`
 }
 
-// DMAState contains all queued requests, partial copyback bytes and task handles.
-type DMAState struct {
+// State contains all queued requests, partial copyback bytes and task handles.
+type State struct {
 	ProcessingReqs []RequestCollection
 	PendingReqs    []messaging.Msg
 	ToSendToMem    []messaging.Msg
@@ -92,36 +92,33 @@ type DMAState struct {
 	PendingTaskIDs map[uint64]uint64
 }
 
-func (s *DMAState) Initialize(*DMAComp) { s.PendingTaskIDs = make(map[uint64]uint64) }
+func (s *State) Initialize(*Comp) { s.PendingTaskIDs = make(map[uint64]uint64) }
 
-// DMAResources holds the shared references used by the DMA engine.
-type DMAResources struct {
+// Resources holds the shared references used by the DMA engine.
+type Resources struct {
 	// LocalDataSource maps addresses to the ports that can provide the data.
 	LocalDataSource mem.AddressToPortMapper
 }
 
-// DMAComp is a DMAEngine component. A DMAEngine is responsible for accessing
+// Comp is a DMAEngine component. A DMAEngine is responsible for accessing
 // data that does not belong to the GPU that the DMAEngine works in.
 //
 // Ports (declared in Build, assigned externally):
 //   - "ToCP": connects to the Command Processor.
 //   - "ToMem": connects to the memory system.
-type DMAComp = ticking.Component[DMASpec, DMAState, DMAResources, DMAPorts, DMAMiddlewares]
-type DMAPorts struct {
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Ports struct {
 	ToCP  messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.dma"`
 	ToMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 }
-type DMAMiddlewares struct{ DMA *dmaMiddleware }
+type Middlewares struct{ DMA *dmaMiddleware }
 
-func (m *DMAMiddlewares) Initialize(c *DMAComp)   { m.DMA = &dmaMiddleware{comp: c} }
+func (m *Middlewares) Initialize(c *Comp)         { m.DMA = &dmaMiddleware{comp: c} }
 func (m *dmaMiddleware) Handle(timing.Event) bool { return m.Tick() }
-
-// DMAEngine is an alias of DMAComp, kept for readability at use sites.
-type DMAEngine = DMAComp
 
 // dmaMiddleware implements the behavior of the DMA engine.
 type dmaMiddleware struct {
-	comp *DMAComp
+	comp *Comp
 }
 
 func (m *dmaMiddleware) toCP() messaging.Port {
@@ -412,64 +409,57 @@ func (m *dmaMiddleware) parseMemCopyD2H(
 	}
 }
 
-// defaultDMASpec provides the default configuration for the DMA engine.
-var defaultDMASpec = DMASpec{
-	Freq:            1 * timing.GHz,
-	Log2AccessSize:  6,
-	MaxRequestCount: 4,
+// DefaultSpec returns the default DMA configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz, Log2AccessSize: 6, MaxRequestCount: 4}
 }
 
-// DefaultDMASpec returns a copy of the default DMA engine configuration.
-func DefaultDMASpec() DMASpec {
-	return defaultDMASpec
-}
-
-// DMAEngineBuilder builds DMA engines. Configuration is supplied as a whole
+// Builder builds DMA engines. Configuration is supplied as a whole
 // through WithSpec; wiring is supplied through WithSimulation and
 // WithResources. The component declares its "ToCP" and "ToMem" ports; the
-// port instances are supplied externally after Build with AssignPort.
-type DMAEngineBuilder struct {
-	spec      DMASpec
+// port instances are supplied externally after Build with BindPort.
+type Builder struct {
+	spec      Spec
 	registrar modeling.Simulation
-	resources DMAResources
+	resources Resources
 }
 
-// MakeDMAEngineBuilder returns a new DMAEngineBuilder seeded with the default
+// MakeBuilder returns a new Builder seeded with the default
 // spec.
-func MakeDMAEngineBuilder() DMAEngineBuilder {
-	return DMAEngineBuilder{spec: defaultDMASpec}
+func MakeBuilder() Builder {
+	return Builder{spec: DefaultSpec()}
 }
 
 // WithSimulation wires the builder to a registrar.
-func (b DMAEngineBuilder) WithSimulation(
+func (b Builder) WithSimulation(
 	reg modeling.Simulation,
-) DMAEngineBuilder {
+) Builder {
 	b.registrar = reg
 	return b
 }
 
-// WithSpec sets the entire configuration. Start from DefaultDMASpec() and
+// WithSpec sets the entire configuration. Start from DefaultSpec() and
 // tweak.
-func (b DMAEngineBuilder) WithSpec(spec DMASpec) DMAEngineBuilder {
+func (b Builder) WithSpec(spec Spec) Builder {
 	b.spec = spec
 	return b
 }
 
 // WithResources injects the address-to-port mapper that locates the modules
 // holding the data.
-func (b DMAEngineBuilder) WithResources(r DMAResources) DMAEngineBuilder {
+func (b Builder) WithResources(r Resources) Builder {
 	b.resources = r
 	return b
 }
 
-// Build builds a new DMAComp. It declares the component's "ToCP" and "ToMem"
-// ports; assign the port instances after Build with AssignPort.
-func (b DMAEngineBuilder) Build(name string) *DMAComp {
+// Build builds a new Comp. It declares the component's "ToCP" and "ToMem"
+// ports; assign the port instances after Build with BindPort.
+func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("cp: DMAEngineBuilder requires WithSimulation")
+		panic("dma: Builder requires WithSimulation")
 	}
 
-	return modeling.MakeBuilder[*DMAComp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
+	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 }
 func (m *dmaMiddleware) finishBottomRequest(id uint64) {
 	m.comp.TaskTracker().EndReqOut(m.comp.State.PendingTaskIDs[id])

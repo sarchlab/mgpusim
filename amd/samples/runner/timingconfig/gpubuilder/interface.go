@@ -18,7 +18,7 @@ type GPU struct {
 
 	// CommandProcessor is the GPU's command processor. The platform
 	// configuration uses it to set the driver destination port
-	// (CommandProcessor.State.Driver) after the GPU is built.
+	// (CommandProcessor.Spec.Driver) before the GPU is built.
 	CommandProcessor *cp.Comp
 
 	// CommandProcessorPort is the command processor's driver-facing port

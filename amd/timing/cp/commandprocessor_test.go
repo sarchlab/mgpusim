@@ -32,6 +32,7 @@ func (c *noopConn) NotifySend(messaging.Port)        {}
 
 var _ = Describe("CommandProcessor", func() {
 	var (
+		spec       Spec
 		mockCtrl   *gomock.Controller
 		reg        *sim.Simulation
 		cp         *Comp
@@ -112,13 +113,24 @@ var _ = Describe("CommandProcessor", func() {
 	}
 
 	BeforeEach(func() {
+		spec = DefaultSpec()
+		spec.Driver = driverPort
+		spec.DMAEngine = dmaPort
+		spec.RDMA = rdmaPort
+		spec.L1ICaches = remoteList("L1I", 2)
+		spec.L1SCaches = remoteList("L1S", 2)
+		spec.L1VCaches = remoteList("L1V", 2)
+		spec.L2Caches = remoteList("L2", 2)
+	})
+
+	JustBeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		reg = sim.MakeBuilder().WithTaskTracking().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
 		cp = MakeBuilder().
 			WithSimulation(reg).
-			WithDriver(driverPort).
+			WithSpec(spec).
 			Build("CP")
 
 		assign := func(name string) messaging.Port {
@@ -138,12 +150,6 @@ var _ = Describe("CommandProcessor", func() {
 		toRDMA = assign("ToRDMA")
 
 		Expect(reg.Initialize()).To(Succeed())
-		cp.State.DMAEngine = dmaPort
-		cp.State.RDMA = rdmaPort
-		cp.State.L1ICaches = remoteList("L1I", 2)
-		cp.State.L1SCaches = remoteList("L1S", 2)
-		cp.State.L1VCaches = remoteList("L1V", 2)
-		cp.State.L2Caches = remoteList("L2", 2)
 
 		dispatcher = NewMockDispatcher(mockCtrl)
 	})
@@ -153,21 +159,20 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	useMockDispatcher := func() {
-		cp.Resources.Dispatchers = []dispatching.Dispatcher{dispatcher}
-		cp.Middlewares.Data.dispatchers = cp.Resources.Dispatchers
+		cp.Middlewares.Data.dispatchers = []dispatching.Dispatcher{dispatcher}
 		dispatcher.EXPECT().Tick().Return(false).AnyTimes()
 	}
 
 	l1Dsts := func() []messaging.RemotePort {
 		var dsts []messaging.RemotePort
-		dsts = append(dsts, cp.State.L1ICaches...)
-		dsts = append(dsts, cp.State.L1SCaches...)
-		dsts = append(dsts, cp.State.L1VCaches...)
+		dsts = append(dsts, cp.Spec.L1ICaches...)
+		dsts = append(dsts, cp.Spec.L1SCaches...)
+		dsts = append(dsts, cp.Spec.L1VCaches...)
 		return dsts
 	}
 
 	allCacheDsts := func() []messaging.RemotePort {
-		return append(l1Dsts(), cp.State.L2Caches...)
+		return append(l1Dsts(), cp.Spec.L2Caches...)
 	}
 
 	It("should forward kernel launching request to a Dispatcher", func() {
@@ -186,7 +191,7 @@ var _ = Describe("CommandProcessor", func() {
 		// The L1 data caches are invalidated before the kernel starts, and
 		// the request waits in the buffer meanwhile.
 		l1DataDsts := append(append([]messaging.RemotePort{},
-			cp.State.L1SCaches...), cp.State.L1VCaches...)
+			cp.Spec.L1SCaches...), cp.Spec.L1VCaches...)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1DataDsts)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1DataDsts)
 		Expect(toDriver.IncomingBuf().Size()).To(BeNumerically(">", 0))
@@ -201,28 +206,6 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(toDriver.IncomingBuf().Size()).To(BeZero())
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 		Expect(cp.State.KernelStartReqID).To(BeZero())
-	})
-
-	It("should dispatch a kernel immediately when there is no cache", func() {
-		useMockDispatcher()
-		cp.State.L1ICaches = nil
-		cp.State.L1SCaches = nil
-		cp.State.L1VCaches = nil
-		cp.State.L2Caches = nil
-
-		req := messaging.Msg{ID: cp.NewID(),
-			Src: driverPort,
-			Dst: toDriver.AsRemote(), Payload: protocol.LaunchKernelReq{}}
-
-		toDriver.Deliver(req)
-
-		dispatcher.EXPECT().IsDispatching().Return(false)
-		dispatcher.EXPECT().StartDispatching(gomock.Any())
-
-		madeProgress := tickCP(cp)
-
-		Expect(madeProgress).To(BeTrue())
-		Expect(toDriver.IncomingBuf().Size()).To(BeZero())
 	})
 
 	It("should wait if there is no dispatcher available", func() {
@@ -294,11 +277,11 @@ var _ = Describe("CommandProcessor", func() {
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain,
-			cp.State.L2Caches)
+			cp.Spec.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush,
-			cp.State.L2Caches)
+			cp.Spec.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate,
-			cp.State.L2Caches)
+			cp.Spec.L2Caches)
 		expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
 
 		rsp, ok := toDriver.RetrieveOutgoing()
@@ -306,26 +289,6 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(rsp.RspTo).To(Equal(req.ID))
 		Expect(rsp.Dst).To(Equal(driverPort))
 		Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
-	})
-
-	It("should respond to a flush request immediately when there is no "+
-		"cache", func() {
-		cp.State.L1ICaches = nil
-		cp.State.L1SCaches = nil
-		cp.State.L1VCaches = nil
-		cp.State.L2Caches = nil
-
-		req := messaging.Msg{ID: cp.NewID(),
-			Src: driverPort,
-			Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
-
-		toDriver.Deliver(req)
-
-		tickUntilQuiet()
-
-		rsp, ok := toDriver.RetrieveOutgoing()
-		Expect(ok).To(BeTrue())
-		Expect(rsp.RspTo).To(Equal(req.ID))
 	})
 
 	It("should answer back-to-back flush requests in order", func() {
@@ -351,11 +314,11 @@ var _ = Describe("CommandProcessor", func() {
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate,
 				l1Dsts())
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain,
-				cp.State.L2Caches)
+				cp.Spec.L2Caches)
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush,
-				cp.State.L2Caches)
+				cp.Spec.L2Caches)
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate,
-				cp.State.L2Caches)
+				cp.Spec.L2Caches)
 			expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable,
 				allCacheDsts())
 
@@ -424,6 +387,48 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(driverRsp.Payload).To(BeAssignableToTypeOf(protocol.RDMARestartRspToDriver{}))
 		Expect(driverRsp.Dst).To(Equal(driverPort))
 	})
+	Context("without caches", func() {
+		BeforeEach(func() {
+			spec.L1ICaches = nil
+			spec.L1SCaches = nil
+			spec.L1VCaches = nil
+			spec.L2Caches = nil
+		})
+		It("should dispatch a kernel immediately when there is no cache", func() {
+			useMockDispatcher()
+
+			req := messaging.Msg{ID: cp.NewID(),
+				Src: driverPort,
+				Dst: toDriver.AsRemote(), Payload: protocol.LaunchKernelReq{}}
+
+			toDriver.Deliver(req)
+
+			dispatcher.EXPECT().IsDispatching().Return(false)
+			dispatcher.EXPECT().StartDispatching(gomock.Any())
+
+			madeProgress := tickCP(cp)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(toDriver.IncomingBuf().Size()).To(BeZero())
+		})
+
+		It("should respond to a flush request immediately when there is no "+
+			"cache", func() {
+
+			req := messaging.Msg{ID: cp.NewID(),
+				Src: driverPort,
+				Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+
+			toDriver.Deliver(req)
+
+			tickUntilQuiet()
+
+			rsp, ok := toDriver.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(rsp.RspTo).To(Equal(req.ID))
+		})
+	})
+
 })
 
 func tickCP(c *Comp) bool {
