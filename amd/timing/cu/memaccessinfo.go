@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"sort"
+
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -48,11 +50,30 @@ func (v VectorMemAccessInfo) requestID() uint64 {
 	}
 	return v.Write.ID
 }
+
+// Transactions are allocated and admitted in increasing request-ID order.
+// Retirement preserves order, including after a checkpoint rewind.
+func (cu *ComputeUnit) vectorTransactionIndex(id uint64) int {
+	values := cu.comp.State.Vector
+	index := sort.Search(len(values), func(i int) bool { return values[i].requestID() >= id })
+	if index == len(values) || values[index].requestID() != id {
+		return -1
+	}
+	return index
+}
 func (cu *ComputeUnit) vectorTransactionByID(id uint64) VectorAccessState {
-	for _, v := range cu.comp.State.Vector {
-		if v.requestID() == id {
-			return v
-		}
+	if index := cu.vectorTransactionIndex(id); index >= 0 {
+		return cu.comp.State.Vector[index]
 	}
 	panic("cu: unknown vector transaction")
+}
+
+// admitVector enforces the binary-search invariant at the mutation boundary.
+func (cu *ComputeUnit) admitVector(value VectorAccessState) {
+	values := cu.comp.State.Vector
+	id := value.requestID()
+	if id == 0 || (len(values) > 0 && id <= values[len(values)-1].requestID()) {
+		panic("cu: vector request IDs must increase on admission")
+	}
+	cu.comp.State.Vector = append(values, value)
 }

@@ -21,7 +21,8 @@ const (
 
 type SMSPWarpUnit struct {
 	ID                   uint64
-	Trace                trace.WarpTrace
+	Trace                trace.WarpRef
+	InstructionCount     uint64
 	Status               WarpStatus
 	UnfinishedInstsCount uint64
 	NextIssueInstIndex   uint64
@@ -66,14 +67,14 @@ func regsToNames(inst *trace.InstructionTrace) (srcRegs []string, dstRegs []stri
 }
 
 func (wu *SMSPWarpUnit) HasMoreToIssue() bool {
-	return wu.NextIssueInstIndex < wu.Trace.InstructionsCount()
+	return wu.NextIssueInstIndex < wu.InstructionCount
 }
 
-func (wu *SMSPWarpUnit) NextInstruction() *trace.InstructionTrace {
+func (wu *SMSPWarpUnit) NextInstruction(store *trace.Store) *trace.InstructionTrace {
 	if !wu.HasMoreToIssue() {
 		return nil
 	}
-	return &wu.Trace.Instructions[wu.NextIssueInstIndex]
+	return &store.Warp(wu.Trace).Instructions[wu.NextIssueInstIndex]
 }
 
 func (wu *SMSPWarpUnit) updateStatus() {
@@ -87,7 +88,7 @@ func (wu *SMSPWarpUnit) updateStatus() {
 	}
 }
 
-func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDecision {
+func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool, store *trace.Store) []*IssueDecision {
 	issued := []*IssueDecision{}
 	startIndex := s.NextIssueIndex
 	totalWarps := len(s.WarpUnits)
@@ -102,7 +103,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDeci
 			continue
 		}
 
-		inst := wu.NextInstruction()
+		inst := wu.NextInstruction(store)
 		pipe := NewPipelineInstance(inst, wu)
 		stage := pipe.CurrentStage()
 		if stage == nil {
@@ -147,11 +148,13 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*IssueDeci
 	return issued
 }
 
-func (s *SMSPSWarpScheduler) insertWarp(warp trace.WarpTrace) bool {
+func (s *SMSPSWarpScheduler) insertWarp(ref trace.WarpRef, store *trace.Store) bool {
+	warp := store.Warp(ref)
 	s.NextWarpID++
 	newWarpUnit := SMSPWarpUnit{
 		ID:                   s.NextWarpID,
-		Trace:                warp,
+		Trace:                ref,
+		InstructionCount:     warp.InstructionsCount(),
 		Status:               WarpStatusReady,
 		UnfinishedInstsCount: warp.InstructionsCount(),
 		NextIssueInstIndex:   0,
@@ -166,9 +169,9 @@ func (s *SMSPSWarpScheduler) insertWarp(warp trace.WarpTrace) bool {
 	return true
 }
 
-func (s *SMSPSWarpScheduler) insertWarps(warps []trace.WarpTrace) bool {
+func (s *SMSPSWarpScheduler) insertWarps(warps []trace.WarpRef, store *trace.Store) bool {
 	for _, warp := range warps {
-		s.insertWarp(warp)
+		s.insertWarp(warp, store)
 	}
 	return true
 }

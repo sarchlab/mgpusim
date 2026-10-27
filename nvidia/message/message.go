@@ -2,13 +2,12 @@ package message
 
 import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 // DriverToDeviceMsg asks a GPU to run a kernel.
 type DriverToDeviceMsg struct {
-	Kernel trace.KernelTrace
+	Kernel uint64
 }
 
 // DeviceToDriverMsg reports that a GPU has finished a kernel.
@@ -19,7 +18,7 @@ type DeviceToDriverMsg struct {
 
 // DeviceToSMMsg dispatches a thread block to an SM.
 type DeviceToSMMsg struct {
-	Threadblock trace.ThreadblockTrace
+	Threadblock trace.BlockRef
 }
 
 // SMToDeviceMsg reports that an SM has finished a thread block.
@@ -30,13 +29,13 @@ type SMToDeviceMsg struct {
 
 // SMToSMSPMsg dispatches warps to an SM sub-partition.
 type SMToSMSPMsg struct {
-	WarpList []trace.WarpTrace
+	WarpList []trace.WarpRef
 }
 
 // SMSPToSMMsg reports that an SM sub-partition has finished a warp.
 type SMSPToSMMsg struct {
 	WarpFinished bool
-	Warp         trace.WarpTrace
+	Warp         trace.WarpRef
 	SMSPID       string
 }
 

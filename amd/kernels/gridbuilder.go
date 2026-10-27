@@ -171,7 +171,7 @@ func min(a, b int) int {
 // GridBuilderState records the next work-group position and launch data. The
 // ID allocator belongs to the rebuilt simulation and is never serialized.
 type GridBuilderState struct {
-	CodeObject    insts.CodeObjectValue
+	CodeObject    insts.CodeObjectMetadata
 	Packet        PacketValue
 	Selection     WGSelection
 	PacketAddress uint64
@@ -181,7 +181,7 @@ type GridBuilderState struct {
 
 func (b *gridBuilderImpl) Snapshot() GridBuilderState {
 	return GridBuilderState{
-		CodeObject:    insts.CodeObjectSnapshot(b.hsaco),
+		CodeObject:    insts.CodeObjectMetadataSnapshot(b.hsaco),
 		Packet:        PacketSnapshot(b.packet),
 		Selection:     b.selection,
 		PacketAddress: b.packetAddr,

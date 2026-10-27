@@ -5,6 +5,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 const portBufSize = 4096
@@ -16,6 +17,7 @@ func DefaultSpec() Spec {
 
 // SMSPBuilder builds SMSPs.
 type SMSPBuilder struct {
+	traces                 *trace.Store
 	toVectorMem            messaging.RemotePort
 	toSM                   messaging.RemotePort
 	registrar              modeling.Simulation
@@ -72,7 +74,8 @@ func (b SMSPBuilder) Build(name string) *SMSPController {
 		ToVectorMem: b.toVectorMem, ToSM: b.toSM, Freq: b.freq,
 		Log2CacheLineSize: b.log2CacheLineSize, MemResponseHandleWidth: b.MemResponseHandleWidth,
 	}
-	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).Build(name)
+	c := modeling.MakeBuilder[*Comp](spec).WithResources(Resources{Traces: b.traces}).
+		WithSimulation(b.registrar).Build(name)
 	s := &SMSPController{Comp: c}
 	b.buildPort(s, "ToSM")
 	b.buildPort(s, "ToVectorMem")
@@ -88,3 +91,6 @@ func (b SMSPBuilder) buildPort(comp *SMSPController, name string) messaging.Port
 	comp.BindPort(name, port)
 	return port
 }
+
+// WithTraceStore supplies the shared checkpointed trace owner.
+func (b SMSPBuilder) WithTraceStore(store *trace.Store) SMSPBuilder { b.traces = store; return b }

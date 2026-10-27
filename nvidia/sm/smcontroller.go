@@ -3,12 +3,10 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/timing"
-
 	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
-
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
@@ -35,7 +33,7 @@ type Spec struct {
 }
 
 type State struct {
-	UndispatchedWarps                    []trace.WarpTrace
+	UndispatchedWarps                    []trace.WarpRef
 	WarpsCount                           uint64
 	SmspIssueIndex                       int
 	ThreadblockWarpCount                 map[string]uint64
@@ -46,7 +44,7 @@ type State struct {
 	CWDAdmissionPathCostLatencyRemaining uint64
 }
 
-type Resources struct{}
+type Resources struct{ Traces *trace.Store }
 type Ports struct {
 	ToGPU   messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
 	ToSMSPs messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.sm"`
@@ -83,7 +81,7 @@ func (s *SMController) processGPUInput() bool {
 
 	switch msg := msg.Payload.(type) {
 	case message.DeviceToSMMsg:
-		s.processThreadblock(&msg.Threadblock)
+		s.processThreadblock(msg.Threadblock)
 	default:
 		panic(fmt.Sprintf("%s: unexpected message %T from GPU", s.Name(), msg))
 	}
@@ -120,7 +118,8 @@ func (s *SMController) processSMSPsInput() bool {
 
 // processThreadblock admits a thread block. Admission takes a few cycles
 // that grow with the number of SMSPs the thread block occupies.
-func (s *SMController) processThreadblock(tb *trace.ThreadblockTrace) {
+func (s *SMController) processThreadblock(ref trace.BlockRef) {
+	tb := s.Resources.Traces.Block(ref)
 	if s.State.CWDAdmissionPathCostLatencyRemaining == 0 {
 		nSMSPToUse := max((tb.WarpsCount()+15)/16, 1)
 		s.State.CWDAdmissionPathCostLatencyRemaining = 2*nSMSPToUse - 1
@@ -139,7 +138,10 @@ func (s *SMController) processThreadblock(tb *trace.ThreadblockTrace) {
 
 	s.State.ThreadblockWarpCount[fmt.Sprint(tb.ID)] = tb.WarpsCount()
 	s.State.ThreadblockWarpCountOrigin[fmt.Sprint(tb.ID)] = tb.WarpsCount()
-	s.State.UndispatchedWarps = append(s.State.UndispatchedWarps, tb.Warps...)
+	for i := range tb.Warps {
+		s.State.UndispatchedWarps = append(s.State.UndispatchedWarps,
+			trace.WarpRef{Kernel: ref.Kernel, Block: ref.Block, Warp: i})
+	}
 	s.State.WarpsCount += tb.WarpsCount()
 
 	s.Ports.ToGPU.RetrieveIncoming()
@@ -150,7 +152,7 @@ func (s *SMController) processWarpFinished(msg message.SMSPToSMMsg) {
 		return
 	}
 
-	tbID := msg.Warp.FatherThreadblockID
+	tbID := s.Resources.Traces.Warp(msg.Warp).FatherThreadblockID
 	if s.State.ThreadblockWarpCount[fmt.Sprint(tbID)] == 0 {
 		panic(fmt.Sprintf("%s: unexpected finished warp of thread block %v",
 			s.Name(), tbID))
@@ -202,7 +204,7 @@ func (s *SMController) dispatchWarpsToSMSPs() bool {
 		return false
 	}
 
-	warpLists := make([][]trace.WarpTrace, len(s.Spec.SMSPs))
+	warpLists := make([][]trace.WarpRef, len(s.Spec.SMSPs))
 	for _, warp := range s.State.UndispatchedWarps {
 		warpLists[s.State.SmspIssueIndex] = append(warpLists[s.State.SmspIssueIndex], warp)
 		s.State.SmspIssueIndex = (s.State.SmspIssueIndex + 1) % len(s.Spec.SMSPs)
@@ -233,6 +235,9 @@ func (s *SMController) GetTotalWarpsCount() uint64 {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Resources.Traces == nil {
+		panic("NVIDIA component requires a shared trace store")
+	}
 	if c.Spec.ToGPU == "" {
 		panic(fmt.Sprintf("SM requires a GPU destination: to_gpu=%q", c.Spec.ToGPU))
 	}

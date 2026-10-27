@@ -74,6 +74,14 @@ Multi-kernel ELFs: Each kernel is a symbol pointing to its code object. Loading 
 - Platform configuration in `samples/*/platform.go`, `r9nano.go`, `shaderarray.go`
 - NVIDIA code (`nvidia/`) is under development and should be skipped
 
+## Checkpoints
+
+A checkpoint must restore exactly when it is loaded by the same executable on
+the same platform. Across executables, for example after a code or configuration
+change, loading is best effort: if it loads, it is used; otherwise loading
+reports an error. Breaking checkpoint compatibility is never a concern when
+changing code, and checkpoints carry no version or configuration-hash checks.
+
 ## Compiling HIP Kernels
 
 For LLVM/ROCm compiler tasks (compiling HIP code to HSACO), use the Docker image:

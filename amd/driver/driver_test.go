@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
@@ -286,8 +288,11 @@ func TestCopyCompletesForEveryFlushResponseOrder(t *testing.T) {
 }
 func TestKernelSubmitAndCompletion(t *testing.T) {
 	f := newFixture(t, false)
+	code := insts.CodeObjectValue{Present: true, HasMeta: true, Version: insts.CodeObjectV5,
+		Meta: insts.KernelCodeObjectMeta{WFSgprCount: 17}, Data: []byte{1, 2, 3, 4}}
 	cmd := gpuruntime.Command{
 		Kind: gpuruntime.LaunchKernel,
+		Code: code,
 		GPUs: []int{1},
 		Packets: []kernels.PacketValue{{Packet: kernels.HsaKernelDispatchPacket{
 			GridSizeX:      256,
@@ -307,6 +312,14 @@ func TestKernelSubmitAndCompletion(t *testing.T) {
 	req := f.c.State.Executing[0].Requests[0]
 	if req.Payload.(protocol.LaunchKernelReq).PID != 1 {
 		t.Fatal("kernel lost PID")
+	}
+	payload := req.Payload.(protocol.LaunchKernelReq)
+	if !payload.CodeObject.Present || !payload.CodeObject.HasMeta ||
+		payload.CodeObject.Version != insts.CodeObjectV5 || payload.CodeObject.Meta.WFSgprCount != 17 {
+		t.Fatal("launch lost code metadata")
+	}
+	if !bytes.Equal(f.c.State.Executing[0].Command.Code.Data, code.Data) {
+		t.Fatal("launch modified command executable")
 	}
 	f.reply(req, protocol.LaunchKernelRsp{})
 	if len(f.c.State.Executing) != 0 || f.r.Unfinished()[0] != 0 {

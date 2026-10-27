@@ -482,14 +482,8 @@ func (cu *ComputeUnit) processInputFromVectorMem() bool {
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	rsp messaging.Msg,
 ) {
-	matchIdx := -1
-	for i, info := range cu.comp.State.Vector {
-		if info.Read.ID != 0 && info.Read.ID == rsp.RspTo {
-			matchIdx = i
-			break
-		}
-	}
-	if matchIdx < 0 {
+	matchIdx := cu.vectorTransactionIndex(rsp.RspTo)
+	if matchIdx < 0 || cu.comp.State.Vector[matchIdx].Read.ID == 0 {
 		return
 	}
 
@@ -546,14 +540,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	rsp messaging.Msg,
 ) {
-	matchIdx := -1
-	for i, info := range cu.comp.State.Vector {
-		if info.Write.ID != 0 && info.Write.ID == rsp.RspTo {
-			matchIdx = i
-			break
-		}
-	}
-	if matchIdx < 0 {
+	matchIdx := cu.vectorTransactionIndex(rsp.RspTo)
+	if matchIdx < 0 || cu.comp.State.Vector[matchIdx].Write.ID == 0 {
 		return
 	}
 
@@ -706,11 +694,8 @@ func (cu *ComputeUnit) wavefrontByID(id uint64) *Wavefront {
 }
 
 func (cu *ComputeUnit) findWavefront(id uint64) *Wavefront {
-	for index := range cu.comp.State.Waves {
-		state := &cu.comp.State.Waves[index]
-		if state.ID == id && id != 0 {
-			return &Wavefront{cu: cu, UID: id, handle: makeWaveHandle(index, state.Generation)}
-		}
+	if handle, ok := cu.comp.State.WaveHandles[id]; ok && id != 0 {
+		return cu.wave(handle)
 	}
 	return nil
 }

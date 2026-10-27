@@ -3,11 +3,9 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
-
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
@@ -46,7 +44,7 @@ type State struct {
 	SMAssignedThreadTable                       map[string]uint64
 	SMAssignedCTACountTable                     map[string]uint64
 	SMIssueIndex                                int
-	UndispatchedThreadblocks                    []trace.ThreadblockTrace
+	UndispatchedThreadblocks                    []trace.BlockRef
 	UnfinishedThreadblocksCount                 uint64
 	FinishedKernelsCount                        uint64
 	GPU2SMThreadBlockAllocationLatencyRemaining uint64
@@ -54,7 +52,7 @@ type State struct {
 	GPUReceiveSMLatencyRemaining                uint64
 }
 
-type Resources struct{}
+type Resources struct{ Traces *trace.Store }
 type Ports struct {
 	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
 	ToSMs    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
@@ -86,7 +84,7 @@ func (g *GPUController) processDriverInput() bool {
 
 	switch msg := msg.Payload.(type) {
 	case message.DriverToDeviceMsg:
-		g.processKernel(&msg.Kernel)
+		g.processKernel(msg.Kernel)
 	default:
 		panic(fmt.Sprintf("%s: unexpected message %T from driver",
 			g.Name(), msg))
@@ -97,7 +95,8 @@ func (g *GPUController) processDriverInput() bool {
 
 // processKernel accepts a kernel after a delay proportional to its number of
 // thread blocks.
-func (g *GPUController) processKernel(kernel *trace.KernelTrace) {
+func (g *GPUController) processKernel(id uint64) {
+	kernel := g.Resources.Traces.Kernel(id)
 	switch {
 	case g.State.GPUReceiveCTALatencyRemaining == 1:
 		g.State.GPUReceiveCTALatencyRemaining = 0
@@ -113,8 +112,9 @@ func (g *GPUController) processKernel(kernel *trace.KernelTrace) {
 		}
 	}
 
-	g.State.UndispatchedThreadblocks = append(
-		g.State.UndispatchedThreadblocks, kernel.Threadblocks...)
+	for i := range kernel.Threadblocks {
+		g.State.UndispatchedThreadblocks = append(g.State.UndispatchedThreadblocks, trace.BlockRef{Kernel: id, Block: i})
+	}
 	g.State.UnfinishedThreadblocksCount += kernel.ThreadblocksCount()
 
 	if len(kernel.Threadblocks) == 0 {
@@ -242,7 +242,7 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 		}
 
 		tb := g.State.UndispatchedThreadblocks[0]
-		nThreads := tb.WarpsCount() * warpSize
+		nThreads := g.Resources.Traces.Block(tb).WarpsCount() * warpSize
 
 		smIndex := g.pickSM(nThreads)
 		if smIndex < 0 {
@@ -283,6 +283,9 @@ func (g *GPUController) Status() (undispatched, unfinished uint64) {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Resources.Traces == nil {
+		panic("NVIDIA component requires a shared trace store")
+	}
 	if c.Spec.ToDriver == "" {
 		panic(fmt.Sprintf("GPU requires a driver destination: to_driver=%q", c.Spec.ToDriver))
 	}

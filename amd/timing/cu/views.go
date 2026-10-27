@@ -50,7 +50,7 @@ func (wf *Wavefront) packet() *kernels.HsaKernelDispatchPacket { return wf.group
 
 // codeObject borrows canonical metadata for the immediate operation only.
 // Callers must neither mutate it nor retain it across calls or State replacement.
-func (wf *Wavefront) codeObject() *insts.CodeObjectValue {
+func (wf *Wavefront) codeObject() *insts.CodeObjectMetadata {
 	group := wf.state().Group
 	value := &wf.cu.comp.State.Groups[group].Raw.CodeObject
 	if !value.Present || !value.HasMeta {

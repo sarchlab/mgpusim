@@ -2,6 +2,8 @@ package gpu
 
 import (
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 func TestRejectInvalidPeers(t *testing.T) {
@@ -18,6 +20,7 @@ func TestRejectInvalidPeers(t *testing.T) {
 				}
 			}()
 			c := &Comp{}
+			c.Resources.Traces = &trace.Store{}
 			c.Spec = spec
 			c.State.Initialize(c)
 		}()

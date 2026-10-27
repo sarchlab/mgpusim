@@ -3,17 +3,16 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
-
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 const (
@@ -57,6 +56,7 @@ type Config struct {
 // Builder builds a GPU: a GPU controller, its SMs, the L2 cache banks, and one
 // DRAM controller per L2 bank.
 type Builder struct {
+	traces    *trace.Store
 	toDriver  messaging.RemotePort
 	registrar modeling.Simulation
 	freq      timing.Freq
@@ -133,7 +133,8 @@ func (b Builder) buildController(name string) *GPUController {
 		child := fmt.Sprintf("%s.SM[%d]", name, i)
 		spec.SMs = append(spec.SMs, SMPeer{Name: child, Port: messaging.RemotePort(child + ".ToGPU")})
 	}
-	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).Build(name)
+	c := modeling.MakeBuilder[*Comp](spec).WithResources(Resources{Traces: b.traces}).
+		WithSimulation(b.registrar).Build(name)
 	g := &GPUController{Comp: c}
 	b.buildPort(g, "ToDriver", portBufSize)
 	b.buildPort(g, "ToSMs", portBufSize)
@@ -158,7 +159,7 @@ func (b Builder) buildSMs(
 	g *GPUController,
 	l1AddressMapper mem.AddressMapper,
 ) {
-	smBuilder := sm.MakeBuilder().
+	smBuilder := sm.MakeBuilder().WithTraceStore(b.traces).
 		WithSimulation(b.registrar).
 		WithFreq(b.freq).
 		WithGPURemotePort(g.Ports.ToSMs.AsRemote()).
@@ -287,3 +288,6 @@ func (b Builder) connectL2ToDRAM(
 		conn.BindPort(dram.Ports.Top)
 	}
 }
+
+// WithTraceStore supplies the shared checkpointed trace owner.
+func (b Builder) WithTraceStore(store *trace.Store) Builder { b.traces = store; return b }

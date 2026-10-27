@@ -7,9 +7,9 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 // Platform is a driver plus the GPUs it controls.
@@ -83,16 +83,17 @@ func DeviceByName(name string) (Device, error) {
 // Build creates a platform with one GPU of the given model.
 func Build(registrar modeling.Simulation, device Device) *Platform {
 	p := &Platform{}
+	traces := trace.NewStore(registrar, "Traces")
 	const gpuName = "GPU[0]"
 
-	p.Driver = driver.MakeBuilder().
+	p.Driver = driver.MakeBuilder().WithTraceStore(traces).
 		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithLaunchOverheadLatency(device.LaunchOverheadLatency).
 		WithDevices([]driver.DevicePeer{{Name: gpuName, Port: gpuName + ".ToDriver"}}).
 		Build("Driver")
 
-	g := gpu.MakeBuilder().
+	g := gpu.MakeBuilder().WithTraceStore(traces).
 		WithSimulation(registrar).
 		WithFreq(device.Freq).
 		WithConfig(device.GPU).

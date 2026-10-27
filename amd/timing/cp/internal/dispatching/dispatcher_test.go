@@ -81,7 +81,7 @@ var _ = Describe("Dispatcher", func() {
 
 		req := makeLaunchReq()
 		req.Payload = protocol.LaunchKernelReq{
-			CodeObject:    insts.CodeObjectSnapshot(hsaco),
+			CodeObject:    insts.CodeObjectMetadataSnapshot(hsaco),
 			Packet:        *packet,
 			PacketAddress: packetAddr,
 		}

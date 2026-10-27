@@ -73,7 +73,7 @@ func launchCheckpointKernels(c *Comp) {
 			Src: c.Spec.Driver,
 			Dst: c.Ports.ToDriver.AsRemote(),
 			Payload: protocol.LaunchKernelReq{
-				CodeObject: insts.CodeObjectSnapshot(&insts.KernelCodeObject{
+				CodeObject: insts.CodeObjectMetadataSnapshot(&insts.KernelCodeObject{
 					KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{WFSgprCount: 16,
 						WIVgprCount:          4,
 						GroupSegmentByteSize: 256}}),

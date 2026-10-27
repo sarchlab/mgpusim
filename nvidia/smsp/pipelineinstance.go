@@ -13,7 +13,6 @@ type Stage struct {
 type PipelineInstance struct {
 	WarpID                uint64
 	InstIndex             uint64
-	Inst                  trace.InstructionTrace
 	Stages                []Stage
 	InstructionOpcode     string
 	SrcRegs               []string
@@ -37,7 +36,6 @@ func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *Pipe
 	p := &PipelineInstance{
 		WarpID:            warp.ID,
 		InstIndex:         warp.NextIssueInstIndex,
-		Inst:              *inst,
 		Stages:            stages,
 		InstructionOpcode: tpl.Opcode,
 		SrcRegs:           srcRegs,

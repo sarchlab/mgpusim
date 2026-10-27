@@ -72,12 +72,13 @@ func TestComputeUnitRunsWorkGroup(t *testing.T) {
 		}
 	})
 
+	decoder, storage := &recordingEndDecoder{}, &changingCodeStorage{}
 	cu := MakeBuilder().
 		WithSimulation(registrar).
 		WithResources(Resources{
-			Decoder:         endpgmDecoder{},
+			Decoder:         decoder,
 			ALU:             &mockBenchALU{},
-			StorageAccessor: zeroStorageAccessor{},
+			StorageAccessor: storage,
 		}).
 		Build("CU")
 	cuPort := twowaybuffered.MakeBuilder().WithSimulation(registrar).Build()
@@ -115,15 +116,13 @@ func TestComputeUnitRunsWorkGroup(t *testing.T) {
 		t.Fatal("expected a WGCompletionMsg, got none")
 	}
 
-	completion, ok := msg.Payload.(protocol.WGCompletionMsg)
-	if !ok {
-		t.Fatalf("expected WGCompletionMsg, got %T", msg)
-	}
+	completion := msg.Payload.(protocol.WGCompletionMsg)
 
 	if len(completion.RspToIDs) != 1 || completion.RspToIDs[0] != req.ID {
 		t.Fatalf("expected RspToIDs [%d], got %v",
 			req.ID, completion.RspToIDs)
 	}
+	checkCodeReload(t, registrar, cu, dispatcherPort, decoder, storage)
 }
 
 type testEndpointSpec struct{ Freq timing.Freq }
@@ -131,3 +130,47 @@ type testEndpointPorts struct {
 	ToCU messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
 }
 type testEndpoint = ticking.Component[testEndpointSpec, struct{}, struct{}, testEndpointPorts, struct{}]
+
+type recordingEndDecoder struct{ bytes []byte }
+
+func (d *recordingEndDecoder) Decode(data []byte) (*insts.Inst, error) {
+	d.bytes = append(d.bytes, data[0])
+	return endpgmDecoder{}.Decode(data)
+}
+
+type changingCodeStorage struct{ generation byte }
+
+func (s *changingCodeStorage) Read(pid vm.PID, address, size uint64) []byte {
+	data := make([]byte, size)
+	data[0] = byte(pid) + s.generation
+	return data
+}
+func (*changingCodeStorage) Write(vm.PID, uint64, []byte) {}
+
+func checkCodeReload(t *testing.T, registrar *sim.Simulation, cu *Comp, dispatcherPort messaging.Port,
+	decoder *recordingEndDecoder, storage *changingCodeStorage) {
+	t.Helper()
+	// The same PC belongs to a different process, then to reloaded code in the
+	// first process. Each atomic work-group must fetch current canonical bytes.
+	for _, pid := range []vm.PID{2, 1} {
+		if pid == 1 {
+			storage.generation = 10
+		}
+		next := messaging.Msg{ID: registrar.NewID(), Src: dispatcherPort.AsRemote(),
+			Dst:     cu.Ports.ToDispatcher.AsRemote(),
+			Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(exampleWorkGroup(registrar)), PID: pid}}
+		cu.Middlewares.Processor.runWG(cu, next, registrar.Engine().CurrentTime())
+		if err := registrar.Engine().Run(); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := dispatcherPort.RetrieveIncoming(); !ok {
+			t.Fatal("missing repeated completion")
+		}
+		if len(cu.Middlewares.Processor.instCache) != 0 {
+			t.Fatal("decoded scratch retained after work-group")
+		}
+	}
+	if len(decoder.bytes) != 3 || decoder.bytes[0] != 1 || decoder.bytes[1] != 2 || decoder.bytes[2] != 11 {
+		t.Fatalf("stale instruction bytes across PID/code reload: %v", decoder.bytes)
+	}
+}

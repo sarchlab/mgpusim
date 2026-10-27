@@ -29,9 +29,11 @@ func (v PacketValue) Restore() *HsaKernelDispatchPacket {
 
 // WorkGroupValue stores each work-item once. Wavefront membership uses indices
 // into WorkItems; all parent links are reconstructed in the receiving process.
+// CodeObject contains metadata only; executable bytes live at Packet.KernelObject
+// in the request process address space.
 type WorkGroupValue struct {
 	UID                             uint64
-	CodeObject                      insts.CodeObjectValue
+	CodeObject                      insts.CodeObjectMetadata
 	Packet                          PacketValue
 	PacketAddress                   uint64
 	SizeX, SizeY, SizeZ             int
@@ -55,7 +57,7 @@ type WavefrontValue struct {
 func WorkGroupSnapshot(wg *WorkGroup) WorkGroupValue {
 	v := WorkGroupValue{
 		UID:           wg.UID,
-		CodeObject:    insts.CodeObjectSnapshot(wg.CodeObject),
+		CodeObject:    insts.CodeObjectMetadataSnapshot(wg.CodeObject),
 		Packet:        PacketSnapshot(wg.Packet),
 		PacketAddress: wg.PacketAddress,
 
