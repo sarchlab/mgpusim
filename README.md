@@ -137,3 +137,25 @@ rounds separated by a global simulation drain. See
 [Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md) for composition,
 CPU buffers, and checkpoint recovery. The former AMD HTTP server and server
 sample have been removed; Akita monitoring remains available.
+
+### Checkpoint ownership in the Akita v5 port
+
+AMD dispatch snapshots (`WorkGroupValue` and `GridBuilderState`) retain
+`CodeObjectMetadata`, the dispatch packet and work-item geometry. They do not
+contain executable bytes: instruction fetch uses the packet's `KernelObject`
+address in its process address space and canonical GPU storage. Code uploads
+remain owned by the runtime and storage resources. Restoring a dispatch snapshot
+alone therefore yields metadata, not a stand-alone executable. Old snapshots
+that embed executable `Data` are explicitly rejected; rebuild them.
+
+The runtime allocator checkpoint stores consecutive free pages as ordered runs.
+It preserves free-list allocation order, including fragmented pages appended by
+frees; it never sorts the allocation queue. Runtime checkpoint format 2 rejects
+the previous expanded-page format. CU wave identity indexes live in checkpointed
+State; vector transactions stay ordered by increasing request identity, permitting
+binary search without a cache across restore. Emulation decodes use bounded
+scratch cleared for every atomic work-group, so bytes from another process, a
+reloaded kernel or a later execution cannot survive checkpoint rewind.
+
+See [NVIDIA checkpoint ownership](nvidia/README.md#topology-configuration-and-checkpoints)
+for the shared trace resource and custom-platform migration.

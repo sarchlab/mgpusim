@@ -1,6 +1,7 @@
 package platform_test
 
 import (
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,21 +23,24 @@ func TestPeerChangesRejectCheckpoint(t *testing.T) {
 			spec := gpu.DefaultSpec()
 			spec.ToDriver = remote
 			spec.SMs = []gpu.SMPeer{{Name: "SM", Port: remote}}
-			c := modeling.MakeBuilder[*gpu.Comp](spec).WithSimulation(s).Build("GPU")
+			c := modeling.MakeBuilder[*gpu.Comp](spec).WithResources(gpu.Resources{Traces: trace.NewStore(s, "Traces")}).
+				WithSimulation(s).Build("GPU")
 			bindTopologyPorts(s, c, "ToDriver", "ToSMs")
 		},
 		"SM": func(s *sim.Simulation, remote messaging.RemotePort) {
 			spec := sm.DefaultSpec()
 			spec.ToGPU = remote
 			spec.SMSPs = []messaging.RemotePort{remote}
-			c := modeling.MakeBuilder[*sm.Comp](spec).WithSimulation(s).Build("SM")
+			c := modeling.MakeBuilder[*sm.Comp](spec).WithResources(sm.Resources{Traces: trace.NewStore(s, "Traces")}).
+				WithSimulation(s).Build("SM")
 			bindTopologyPorts(s, c, "ToGPU", "ToSMSPs")
 		},
 		"SMSP": func(s *sim.Simulation, remote messaging.RemotePort) {
 			spec := smsp.DefaultSpec()
 			spec.ToSM = remote
 			spec.ToVectorMem = remote
-			c := modeling.MakeBuilder[*smsp.Comp](spec).WithSimulation(s).Build("SMSP")
+			c := modeling.MakeBuilder[*smsp.Comp](spec).WithResources(smsp.Resources{Traces: trace.NewStore(s, "Traces")}).
+				WithSimulation(s).Build("SMSP")
 			bindTopologyPorts(s, c, "ToSM", "ToVectorMem")
 		},
 	}

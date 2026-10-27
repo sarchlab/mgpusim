@@ -11,7 +11,14 @@ import (
 
 // BenchmarkNVIDIAExecution excludes construction and measures repeated kernel
 // execution, including scheduling, warp/pipeline lookups, and memory traffic.
-func BenchmarkNVIDIAExecution(b *testing.B) {
+func BenchmarkNVIDIAExecution(b *testing.B) { benchmarkNVIDIA(b, false) }
+
+// BenchmarkNVIDIASubmissionAndExecution includes the isolated trace copy and
+// lifetime management as well as simulation. Construction stays outside timing.
+func BenchmarkNVIDIASubmissionAndExecution(b *testing.B) { benchmarkNVIDIA(b, true) }
+
+func benchmarkNVIDIA(b *testing.B, includeSubmission bool) {
+	b.Helper()
 	bm := benchmark.Load("../trace/testdata/vectoradd")
 	d := platform.H100()
 	d.Freq = timing.GHz
@@ -28,13 +35,18 @@ func BenchmarkNVIDIAExecution(b *testing.B) {
 		if err := s.Initialize(); err != nil {
 			b.Fatal(err)
 		}
+		if includeSubmission {
+			b.StartTimer()
+		}
 		for range 128 {
 			for _, w := range bm.TraceExecs {
 				w.Run(p.Driver)
 			}
 		}
 		p.Driver.TickLater()
-		b.StartTimer()
+		if !includeSubmission {
+			b.StartTimer()
+		}
 		if err := s.Engine().Run(); err != nil {
 			b.Fatal(err)
 		}

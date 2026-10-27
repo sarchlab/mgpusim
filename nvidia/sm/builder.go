@@ -2,6 +2,7 @@ package sm
 
 import (
 	"fmt"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 
@@ -25,6 +26,7 @@ func DefaultSpec() Spec {
 // SMBuilder builds SMs. Each SM contains its SMSPs and one L1 vector cache
 // per SMSP.
 type SMBuilder struct {
+	traces    *trace.Store
 	toGPU     messaging.RemotePort
 	registrar modeling.Simulation
 	freq      timing.Freq
@@ -123,7 +125,8 @@ func (b SMBuilder) Build(name string) *SMController {
 	for i := range b.smspsCount {
 		spec.SMSPs = append(spec.SMSPs, messaging.RemotePort(fmt.Sprintf("%s.SMSP[%d].ToSM", name, i)))
 	}
-	c := modeling.MakeBuilder[*Comp](spec).WithSimulation(b.registrar).Build(name)
+	c := modeling.MakeBuilder[*Comp](spec).WithResources(Resources{Traces: b.traces}).
+		WithSimulation(b.registrar).Build(name)
 	s := &SMController{Comp: c}
 	b.buildPort(s, "ToGPU", portBufSize)
 	b.buildPort(s, "ToSMSPs", portBufSize)
@@ -149,7 +152,7 @@ func (b SMBuilder) buildPort(
 }
 
 func (b SMBuilder) buildSMSPs(s *SMController) {
-	smspBuilder := smsp.MakeBuilder().
+	smspBuilder := smsp.MakeBuilder().WithTraceStore(b.traces).
 		WithSimulation(b.registrar).
 		WithFreq(b.freq).
 		WithSMRemotePort(s.Ports.ToSMSPs.AsRemote()).
@@ -213,3 +216,6 @@ func (b SMBuilder) connectSMSPs(s *SMController) {
 		conn.BindPort(l1Top)
 	}
 }
+
+// WithTraceStore supplies the shared checkpointed trace owner.
+func (b SMBuilder) WithTraceStore(store *trace.Store) SMBuilder { b.traces = store; return b }

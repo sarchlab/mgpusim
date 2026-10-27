@@ -33,11 +33,11 @@ type State struct {
 	ResourcePool         ResourcePool
 	UnsentMemPipelines   []PipelineRef
 	InflightMemPipelines map[uint64]PipelineRef
-	FinishedWarps        []trace.WarpTrace
+	FinishedWarps        []trace.WarpRef
 	InstsCount           uint64
 }
 
-type Resources struct{}
+type Resources struct{ Traces *trace.Store }
 type Ports struct {
 	ToSM        messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.smsp"`
 	ToVectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
@@ -72,7 +72,7 @@ func (s *SMSPController) processSMInput() bool {
 
 	switch msg := msg.Payload.(type) {
 	case message.SMToSMSPMsg:
-		s.State.Scheduler.insertWarps(msg.WarpList)
+		s.State.Scheduler.insertWarps(msg.WarpList, s.Resources.Traces)
 	default:
 		panic(fmt.Sprintf("%s: unexpected message %T from SM", s.Name(), msg))
 	}
@@ -155,7 +155,7 @@ func (s *SMSPController) skipMaskedControlOps() bool {
 	for wi := range s.State.Scheduler.WarpUnits {
 		wu := &s.State.Scheduler.WarpUnits[wi]
 		for wu.HasMoreToIssue() {
-			inst := wu.NextInstruction()
+			inst := wu.NextInstruction(s.Resources.Traces)
 			if inst.Mask != 0 || (inst.OpCode != "BRA" && inst.OpCode != "EXIT") {
 				break
 			}
@@ -249,7 +249,7 @@ func (s *SMSPController) run() bool {
 
 	madeProgress := s.skipMaskedControlOps()
 
-	issued := s.State.Scheduler.issueWarps(&s.State.ResourcePool)
+	issued := s.State.Scheduler.issueWarps(&s.State.ResourcePool, s.Resources.Traces)
 	if len(issued) > 0 {
 		s.launchIssuedPipelines(issued)
 
@@ -289,9 +289,9 @@ func (s *SMSPController) sendMemRequests() bool {
 
 		switch pipe.CurrentStage().Def.Name {
 		case "MemoryPipeRead":
-			msg = s.readReq(&pipe.Inst)
+			msg = s.readReq(&s.Resources.Traces.Warp(s.State.Scheduler.warp(pipe.WarpID).Trace).Instructions[pipe.InstIndex])
 		case "MemoryPipeWrite":
-			msg = s.writeReq(&pipe.Inst)
+			msg = s.writeReq(&s.Resources.Traces.Warp(s.State.Scheduler.warp(pipe.WarpID).Trace).Instructions[pipe.InstIndex])
 		default:
 			panic("unknown memory pipeline stage " + pipe.CurrentStage().Def.Name)
 		}
@@ -366,6 +366,9 @@ func (s *SMSPController) Status() (warps, unsentMem, inflightMem int) {
 }
 
 func (s *State) Initialize(c *Comp) {
+	if c.Resources.Traces == nil {
+		panic("NVIDIA component requires a shared trace store")
+	}
 	if c.Spec.ToSM == "" || c.Spec.ToVectorMem == "" {
 		panic(fmt.Sprintf("SMSP requires SM and memory destinations: to_sm=%q to_vector_mem=%q",
 			c.Spec.ToSM, c.Spec.ToVectorMem))

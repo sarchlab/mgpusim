@@ -347,3 +347,16 @@ before this topology migration must be rebuilt.
 Scheduler lookups binary-search the canonical State slices: IDs increase on
 insertion and retirement preserves order. No derived map or pointer cache is
 retained across checkpoint restoration.
+
+Traces now have one checkpointed owner, `trace.Store`. `platform.Build` creates
+and injects it throughout the hierarchy. Custom platforms create one store with
+`trace.NewStore(simulation, name)` and pass it to every participating builder
+through `WithTraceStore`; components require it during initialization. Submitted
+kernels are copied once to isolate caller mutation. Messages, block queues,
+resident warps and in-flight instructions carry launch/block/warp/instruction
+identities rather than duplicate traces. The driver releases each launch after
+its GPU completion acknowledgment, so completed trace history does not grow.
+Registry access supports parallel engines; borrowed immutable values must not
+be retained across a restore. Checkpoints include all active trace data and can
+restore without the original trace files. Rebuild checkpoints from before this
+trace-ownership migration.

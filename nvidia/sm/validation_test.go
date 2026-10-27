@@ -3,6 +3,8 @@ package sm
 import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 func TestRejectInvalidPeers(t *testing.T) {
@@ -17,6 +19,7 @@ func TestRejectInvalidPeers(t *testing.T) {
 				}
 			}()
 			c := &Comp{}
+			c.Resources.Traces = &trace.Store{}
 			c.Spec = spec
 			c.State.Initialize(c)
 		}()

@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
@@ -14,8 +15,9 @@ func lookupTestWarp() trace.WarpTrace {
 
 func TestSchedulerLookupsFollowGrowthCompactionAndRestore(t *testing.T) {
 	s := NewSMSPScheduler()
+	store := trace.NewStore(sim.MakeBuilder().Build(), "Traces")
 	for range 64 {
-		s.insertWarp(lookupTestWarp())
+		s.insertWarp(testWarpRef(store, lookupTestWarp()), store)
 	}
 	for i := range s.WarpUnits {
 		w := &s.WarpUnits[i]
@@ -33,7 +35,7 @@ func TestSchedulerLookupsFollowGrowthCompactionAndRestore(t *testing.T) {
 	s = &c.State.Scheduler
 	assertLookupPanics(t, func() { s.warp(1) })
 	checkCompactedLookups(t, s)
-	s.insertWarp(lookupTestWarp())
+	s.insertWarp(testWarpRef(store, lookupTestWarp()), store)
 	if s.warp(65).ID != 65 {
 		t.Fatal("insertion after retirement broke ordering")
 	}
@@ -90,4 +92,9 @@ func assertLookupPanics(t *testing.T, lookup func()) {
 		}
 	}()
 	lookup()
+}
+
+func testWarpRef(store *trace.Store, w trace.WarpTrace) trace.WarpRef {
+	id := store.Add(&trace.KernelTrace{Threadblocks: []trace.ThreadblockTrace{{Warps: []trace.WarpTrace{w}}}})
+	return trace.WarpRef{Kernel: id}
 }

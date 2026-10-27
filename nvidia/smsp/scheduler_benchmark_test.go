@@ -3,6 +3,7 @@ package smsp
 import (
 	"testing"
 
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
@@ -10,17 +11,18 @@ import (
 // of its 32 in-flight pipelines, exercising both ordered lookups.
 func BenchmarkSchedulerLookup(b *testing.B) {
 	s := NewSMSPScheduler()
+	store := trace.NewStore(sim.MakeBuilder().Build(), "Traces")
 	for range 64 {
 		w := trace.WarpTrace{}
 		for range 32 {
 			w.Instructions = append(w.Instructions, trace.InstructionTrace{OpCode: "IADD3", Mask: 1})
 		}
-		s.insertWarp(w)
+		s.insertWarp(testWarpRef(store, w), store)
 	}
 	pool := NewH100SMSPResourcePool()
 	for range 2048 {
 		pool.Reset()
-		s.issueWarps(pool)
+		s.issueWarps(pool, store)
 	}
 	id := s.WarpUnits[63].ID
 	ref := s.WarpUnits[63].InFlightPipelines[31].Ref()

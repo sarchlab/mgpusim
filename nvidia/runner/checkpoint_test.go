@@ -2,6 +2,7 @@ package runner_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v5/nvidia/platform"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 // A fresh process only rebuilds the topology. It does not read the trace or
@@ -102,6 +104,7 @@ func prepareCheckpoint(t *testing.T, phase string, path string) {
 	if p.Driver.UnfinishedKernels() != 2 {
 		t.Fatal("checkpoint must retain active and queued work")
 	}
+	assertTraceCount(t, p, 2)
 	if err := s.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +162,7 @@ func finishCheckpointRun(t *testing.T, s *sim.Simulation, p *platform.Platform, 
 	if err := s.Engine().Run(); err != nil {
 		t.Fatal(err)
 	}
+	assertTraceCount(t, p, 0)
 	if p.Driver.UnfinishedKernels() != 0 {
 		t.Fatal("submitted kernels did not finish")
 	}
@@ -178,4 +182,38 @@ func finishCheckpointRun(t *testing.T, s *sim.Simulation, p *platform.Platform, 
 		t.Fatal(err)
 	}
 	t.Log(fmt.Sprintf("completed 2 kernels, %d instructions, %d warps at %d ps", insts, warps, p.Driver.FinishTime()))
+}
+
+//nolint:musttag // Inspect the persisted resource envelope with its canonical checkpoint field names.
+func assertTraceCount(t *testing.T, p *platform.Platform, want int) {
+	t.Helper()
+	var data bytes.Buffer
+	if err := p.Driver.Resources.Traces.SaveCheckpoint(&data); err != nil {
+		t.Fatal(err)
+	}
+	var saved struct {
+		State struct {
+			Kernels map[string]json.RawMessage `json:"Kernels"`
+		}
+	}
+	if err := json.Unmarshal(data.Bytes(), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.State.Kernels) != want {
+		t.Fatalf("trace ownership: got %d, want %d", len(saved.State.Kernels), want)
+	}
+}
+
+func TestEmptyKernelReleasesTrace(t *testing.T) {
+	s, p := checkpointPlatform(t)
+	p.Driver.RunKernel(&trace.KernelTrace{ID: "empty"})
+	assertTraceCount(t, p, 1)
+	p.Driver.TickLater()
+	if err := s.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if p.Driver.UnfinishedKernels() != 0 {
+		t.Fatal("empty kernel did not complete")
+	}
+	assertTraceCount(t, p, 0)
 }
