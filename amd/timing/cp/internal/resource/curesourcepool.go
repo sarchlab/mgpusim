@@ -30,12 +30,10 @@ type DispatchableCU interface {
 type CUResourcePool interface {
 	NumCU() int
 	GetCU(i int) CUResource
-	RegisterCU(cu DispatchableCU)
 }
 
 // CUResourcePoolImpl centralizes the resources of CUs.
 type CUResourcePoolImpl struct {
-	name          string
 	registeredCUs map[messaging.RemotePort]bool
 	cus           []CUResource
 }
@@ -64,12 +62,11 @@ func (p *CUResourcePoolImpl) RegisterCU(cu DispatchableCU) {
 		return
 	}
 
-	r := &CUResourceImpl{
-		reservedWGs: make(map[uint64][]WfLocation),
-	}
+	state := &CUState{Reserved: make(map[uint64][]WfLocation)}
+	r := &CUResourceImpl{state: func() *CUState { return state }}
 
-	r.port = cu.DispatchingPort()
-	r.wfPoolFreeCount = cu.WfPoolSizes()
+	r.config.Port = cu.DispatchingPort()
+	r.state().FreeWavefronts = cu.WfPoolSizes()
 	p.createSRegMask(r, cu)
 	p.createVRegMasks(r, cu)
 	p.createLDSMask(r, cu)
@@ -82,35 +79,33 @@ func (p *CUResourcePoolImpl) createSRegMask(
 	r *CUResourceImpl,
 	u DispatchableCU,
 ) {
-	r.sregCount = u.SRegCount()
-	r.sregGranularity = 16
+	r.config.ScalarCount = u.SRegCount()
 
-	if r.sregCount < 0 {
-		r.sregMask = &unlimitedResourceMask{}
+	if r.config.ScalarCount < 0 {
+		r.state().Scalar = Mask{Unlimited: true}
 		return
 	}
 
-	p.countMustBeAMultipleOfGranularity(r.sregCount, r.sregGranularity)
-	r.sregMask = newResourceMask(r.sregCount / r.sregGranularity)
+	p.countMustBeAMultipleOfGranularity(r.config.ScalarCount, 16)
+	r.state().Scalar = newResourceMask(r.config.ScalarCount / 16)
 }
 
 func (p *CUResourcePoolImpl) createVRegMasks(
 	r *CUResourceImpl,
 	u DispatchableCU,
 ) {
-	r.vregCounts = u.VRegCounts()
-	r.vregGranularity = 4
+	r.config.VectorCounts = u.VRegCounts()
 
-	for i := 0; i < len(r.vregCounts); i++ {
-		if r.vregCounts[i] < 0 {
-			r.vregMasks = append(r.vregMasks, &unlimitedResourceMask{})
+	for i := 0; i < len(r.config.VectorCounts); i++ {
+		if r.config.VectorCounts[i] < 0 {
+			r.state().Vector = append(r.state().Vector, Mask{Unlimited: true})
 			continue
 		}
 
 		p.countMustBeAMultipleOfGranularity(
-			r.vregCounts[i], r.vregGranularity*64)
-		r.vregMasks = append(r.vregMasks,
-			newResourceMask(r.vregCounts[i]/r.vregGranularity/64))
+			r.config.VectorCounts[i], 4*64)
+		r.state().Vector = append(r.state().Vector,
+			newResourceMask(r.config.VectorCounts[i]/4/64))
 	}
 }
 
@@ -118,16 +113,15 @@ func (p *CUResourcePoolImpl) createLDSMask(
 	r *CUResourceImpl,
 	u DispatchableCU,
 ) {
-	r.ldsByteSize = u.LDSBytes()
-	r.ldsGranularity = 256
+	r.config.LDSCapacity = u.LDSBytes()
 
-	if r.ldsByteSize < 0 {
-		r.ldsMask = &unlimitedResourceMask{}
+	if r.config.LDSCapacity < 0 {
+		r.state().LDS = Mask{Unlimited: true}
 		return
 	}
 
-	p.countMustBeAMultipleOfGranularity(r.ldsByteSize, r.ldsGranularity)
-	r.ldsMask = newResourceMask(r.ldsByteSize / r.ldsGranularity)
+	p.countMustBeAMultipleOfGranularity(r.config.LDSCapacity, 256)
+	r.state().LDS = newResourceMask(r.config.LDSCapacity / 256)
 }
 
 func (p *CUResourcePoolImpl) countMustBeAMultipleOfGranularity(

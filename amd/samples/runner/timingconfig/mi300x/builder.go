@@ -298,9 +298,11 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildDRAMControllers()
 	b.buildMALL()
 	b.buildL2Caches()
-	b.buildCP()
+	b.buildDMAEngine()
+	b.buildRDMAEngine()
 	b.buildL2TLB()
 	b.buildSAs()
+	b.buildCP()
 
 	b.connectCP()
 	b.connectL2AndMALL()
@@ -353,11 +355,9 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
-	b.cp.State.RDMA = rdmaCtrlPort.AsRemote()
 	b.internalConn.BindPort(rdmaCtrlPort)
 
 	dmaToCPPort := b.dmaEngine.Ports.ToCP
-	b.cp.State.DMAEngine = dmaToCPPort.AsRemote()
 	b.internalConn.BindPort(dmaToCPPort)
 
 	b.connectCPWithCUs()
@@ -368,8 +368,6 @@ func (b *Builder) connectCP() {
 func (b *Builder) connectCPWithCUs() {
 	for _, sa := range b.sas {
 		for _, cuComp := range sa.CUs {
-			cp.RegisterCU(b.cp, cu.DispatcherView{CU: cuComp})
-
 			b.internalConn.BindPort(cuComp.Ports.Top)
 		}
 	}
@@ -379,25 +377,18 @@ func (b *Builder) connectCPWithCaches() {
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
 			ctrlPort := sa.L1VCaches[i].Ports.Control
-			b.cp.State.L1VCaches = append(
-				b.cp.State.L1VCaches, ctrlPort.AsRemote())
 			b.internalConn.BindPort(ctrlPort)
 		}
 
 		l1sCtrlPort := sa.L1SCache.Ports.Control
-		b.cp.State.L1SCaches = append(
-			b.cp.State.L1SCaches, l1sCtrlPort.AsRemote())
 		b.internalConn.BindPort(l1sCtrlPort)
 
 		l1iCtrlPort := sa.L1ICache.Ports.Control
-		b.cp.State.L1ICaches = append(
-			b.cp.State.L1ICaches, l1iCtrlPort.AsRemote())
 		b.internalConn.BindPort(l1iCtrlPort)
 	}
 
 	for _, c := range b.l2Caches {
 		ctrlPort := c.Ports.Control
-		b.cp.State.L2Caches = append(b.cp.State.L2Caches, ctrlPort.AsRemote())
 		b.internalConn.BindPort(ctrlPort)
 	}
 
@@ -410,14 +401,10 @@ func (b *Builder) connectCPWithCaches() {
 	}
 }
 
-// connectCPWithDRAMControllers records the Control ports of the DRAM
-// controllers in the CP state. The CP currently sends no commands to them,
-// but the ports must be connected so the control protocol is reachable.
+// connectCPWithDRAMControllers binds unused DRAM control ports for lifecycle validation.
 func (b *Builder) connectCPWithDRAMControllers() {
 	for _, dramComp := range b.drams {
 		ctrlPort := dramComp.Ports.Control
-		b.cp.State.DRAMControllers = append(
-			b.cp.State.DRAMControllers, ctrlPort.AsRemote())
 		b.internalConn.BindPort(ctrlPort)
 	}
 }
@@ -742,11 +729,27 @@ func (b *Builder) buildCP() {
 	spec.NumDies = NumXCD
 	spec.WavefrontDispatchCycles = 2
 
+	spec.Driver = b.driverPort
+	spec.DMAEngine = b.dmaEngine.Ports.ToCP.AsRemote()
+	spec.RDMA = b.rdmaEngine.Ports.Ctrl.AsRemote()
+	for _, sa := range b.sas {
+		for _, c := range sa.CUs {
+			spec.CUs = append(spec.CUs, cp.DescribeCU(cu.DispatcherView{CU: c}))
+		}
+		for _, c := range sa.L1VCaches {
+			spec.L1VCaches = append(spec.L1VCaches, c.Ports.Control.AsRemote())
+		}
+		spec.L1SCaches = append(spec.L1SCaches, sa.L1SCache.Ports.Control.AsRemote())
+		spec.L1ICaches = append(spec.L1ICaches, sa.L1ICache.Ports.Control.AsRemote())
+	}
+	for _, c := range b.l2Caches {
+		spec.L2Caches = append(spec.L2Caches, c.Ports.Control.AsRemote())
+	}
+
 	b.cp = cp.MakeBuilder().WithSampler(b.sampler).
 		WithSimulation(b.simulation).
 		WithSpec(spec).
 		WithMonitor(b.monitor).
-		WithDriver(b.driverPort).
 		Build(b.name + ".CommandProcessor")
 
 	b.buildPort(b.cp, "ToDriver", cpPortBufSize)
@@ -754,9 +757,6 @@ func (b *Builder) buildCP() {
 	b.buildPort(b.cp, "ToCUs", cpPortBufSize)
 	b.buildPort(b.cp, "ToCaches", cpPortBufSize)
 	b.buildPort(b.cp, "ToRDMA", cpPortBufSize)
-
-	b.buildDMAEngine()
-	b.buildRDMAEngine()
 }
 
 func (b *Builder) buildL2TLB() {

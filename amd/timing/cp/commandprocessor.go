@@ -1,6 +1,7 @@
 package cp
 
 import (
+	"github.com/sarchlab/akita/v5/monitoring"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -11,6 +12,16 @@ import (
 
 // Spec contains the immutable configuration of the Command Processor.
 type Spec struct {
+	Driver    messaging.RemotePort   `json:"driver"`
+	DMAEngine messaging.RemotePort   `json:"dma_engine"`
+	RDMA      messaging.RemotePort   `json:"rdma"`
+	L1VCaches []messaging.RemotePort `json:"l1v_caches"`
+	L1SCaches []messaging.RemotePort `json:"l1s_caches"`
+	L1ICaches []messaging.RemotePort `json:"l1i_caches"`
+	L2Caches  []messaging.RemotePort `json:"l2_caches"`
+
+	CUs []resource.CUConfig `json:"cus"`
+
 	Freq           timing.Freq `json:"freq"`
 	NumDispatchers int         `json:"num_dispatchers"`
 
@@ -65,23 +76,8 @@ type State struct {
 	CopyRecvTasks map[uint64]uint64
 	CopySendTasks map[uint64]uint64
 	FlushTaskID   uint64
-	// Destinations of the messages that the Command Processor sends. They are
-	// set by the configuration code after Build. Cache and DRAM
-	// destinations are the "Control" ports of the
-	// respective components (they speak memcontrolprotocol).
-	Driver    messaging.RemotePort   `json:"driver"`
-	DMAEngine messaging.RemotePort   `json:"dma_engine"`
-	RDMA      messaging.RemotePort   `json:"rdma"`
-	L1VCaches []messaging.RemotePort `json:"l1v_caches"`
-	L1SCaches []messaging.RemotePort `json:"l1s_caches"`
-	L1ICaches []messaging.RemotePort `json:"l1i_caches"`
-	L2Caches  []messaging.RemotePort `json:"l2_caches"`
-
-	// DRAMControllers list the Control ports of the DRAM controllers. The
-	// Command Processor currently sends no commands to them (the page
-	// migration flow that used them has been dropped); the list is kept so
-	// that configuration code can record the topology.
-	DRAMControllers []messaging.RemotePort `json:"dram_controllers"`
+	Dispatchers   []dispatching.State
+	CUResources   []resource.CUState
 
 	// In-flight memory-copy bookkeeping: cloned request ID -> original
 	// request from the driver.
@@ -124,8 +120,8 @@ type State struct {
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 
 type Resources struct {
-	Dispatchers []dispatching.Dispatcher
-	Sampler     *sampling.SampledEngine
+	Monitor *monitoring.Monitor
+	Sampler *sampling.SampledEngine
 }
 type Ports struct {
 	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
@@ -140,7 +136,7 @@ type Middlewares struct {
 }
 
 func (m *Middlewares) Initialize(c *Comp) {
-	m.Data = &cpMiddleware{comp: c, dispatchers: c.Resources.Dispatchers}
+	m.Data = &cpMiddleware{comp: c, dispatchers: buildDispatchers(c)}
 	m.Control = &ctrlMiddleware{comp: c}
 }
 
@@ -166,9 +162,27 @@ type CUInterfaceForCP interface {
 	resource.DispatchableCU
 }
 
-// RegisterCU allows the Command Processor to dispatch to the CU.
-func RegisterCU(cp *Comp, cu CUInterfaceForCP) {
-	for _, d := range cp.Resources.Dispatchers {
-		d.RegisterCU(cu)
+// CUConfig captures immutable dispatch wiring and capacities for Spec.
+type CUConfig = resource.CUConfig
+
+// DescribeCU copies a CU's dispatch wiring and capacities before CP Build.
+func DescribeCU(c CUInterfaceForCP) CUConfig { return resource.DescribeCU(c) }
+
+func (s *State) Initialize(c *Comp) {
+	if c.Spec.NumDispatchers < 1 {
+		panic("cp: at least one dispatcher is required")
+	}
+	if c.Spec.Alg == "per-die" && (c.Spec.NumDies < 1 ||
+		len(c.Spec.CUs) < c.Spec.NumDies || len(c.Spec.CUs)%c.Spec.NumDies != 0) {
+		panic("cp: per-die dispatch requires equal nonempty CU partitions")
+	}
+
+	s.BottomMemCopyH2DToTop = make(map[uint64]messaging.Msg)
+	s.BottomMemCopyD2HToTop = make(map[uint64]messaging.Msg)
+	s.CopyRecvTasks = make(map[uint64]uint64)
+	s.CopySendTasks = make(map[uint64]uint64)
+	s.CUResources = resource.InitialState(c.Spec.CUs)
+	for i := 0; i < c.Spec.NumDispatchers; i++ {
+		s.Dispatchers = append(s.Dispatchers, dispatching.NewState(c.Spec.Alg, c.Spec.NumDies))
 	}
 }

@@ -41,7 +41,9 @@ var _ = Describe("Round Robin Algorithm", func() {
 			}).
 			AnyTimes()
 
+		state := &AlgorithmState{}
 		alg = &roundRobinAlgorithm{
+			state:       func() *AlgorithmState { return state },
 			gridBuilder: gridBuilder,
 			cuPool:      pool,
 		}
@@ -63,7 +65,7 @@ var _ = Describe("Round Robin Algorithm", func() {
 	})
 
 	It("should check if there are more work-groups to generate", func() {
-		alg.numDispatchedWGs = 10
+		alg.state().Dispatched = 10
 		gridBuilder.EXPECT().NumWG().Return(10)
 
 		hasNext := alg.HasNext()
@@ -74,7 +76,7 @@ var _ = Describe("Round Robin Algorithm", func() {
 	It("should dispatch next wg", func() {
 		wg := kernels.NewWorkGroup(testNewID())
 
-		alg.nextCU = 0
+		alg.state().NextCU = 0
 
 		gridBuilder.EXPECT().NextWG().Return(wg)
 		cus[0].EXPECT().ReserveResourceForWG(wg).
@@ -83,13 +85,13 @@ var _ = Describe("Round Robin Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeTrue())
-		Expect(alg.numDispatchedWGs).To(Equal(1))
+		Expect(alg.state().Dispatched).To(Equal(1))
 	})
 
 	It("should return invalid location is dispatch is not possible", func() {
 		wg := kernels.NewWorkGroup(testNewID())
 
-		alg.nextCU = 1
+		alg.state().NextCU = 1
 
 		gridBuilder.EXPECT().NextWG().Return(wg)
 		call1 := cus[1].EXPECT().ReserveResourceForWG(wg).
@@ -101,6 +103,6 @@ var _ = Describe("Round Robin Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeFalse())
-		Expect(alg.numDispatchedWGs).To(Equal(0))
+		Expect(alg.state().Dispatched).To(Equal(0))
 	})
 })

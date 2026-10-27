@@ -187,27 +187,31 @@ for the canonical-state lifecycle and the future Blueprint migration.
 
 Dependents: timingconfig core + r9nano/mi300x/shaderarray configs.
 
-- `cp.MakeBuilder()`: `WithRegistrar(reg)` + `WithSpec(cp.DefaultSpec())`
-  (Freq, NumDispatchers, ConstantKernelLaunchOverhead,
-  ConstantKernelOverhead, SubsequentKernelLaunchOverhead,
-  WGScalingThreshold). Kept: `WithMonitor(*monitoring2.Monitor)`,
-  `WithVisTracer`, `WithCU`, `WithDriver(messaging.RemotePort)`.
-  PerfAnalyzer option removed.
-- `*cp.CommandProcessor` → `*cp.Comp`. `cp.RegisterCU(comp, cu)` is a
-  package function; `CUInterfaceForCP` = DispatchingPort/WfPoolSizes/
-  VRegCounts/SRegCount/LDSBytes, all RemotePort-based —
-  satisfied by `emu.DispatcherView` and `cu.DispatcherView`.
-- Ports (external build + AssignPort): ToDriver, ToDMA, ToCUs, ToCaches, ToRDMA. Use ~4096 buffers for parity.
-- Config must set State RemotePort lists: Driver, DMAEngine, RDMA, L1V/L1S/L1I
-  Caches, L2Caches, DRAMControllers. Cache/DRAM entries are
-  the components' "Control" ports.
-- DMA: `cp.MakeDMAEngineBuilder().WithRegistrar(reg).WithSpec(
-  cp.DefaultDMASpec()).WithResources(cp.DMAResources{LocalDataSource:
-  mapper}).Build(name)`; ports "ToCP"/"ToMem" external; `*cp.DMAComp`.
+- `cp.MakeBuilder().WithSimulation(sim).WithSpec(spec).Build(name)` builds
+  `*cp.Comp`. Configure timing and dispatch parameters through `cp.Spec`;
+  `WithSampler` and `WithMonitor` supply shared Resources before Build.
+- Build DMA, RDMA, compute units and caches first. Set `spec.Driver`,
+  `spec.DMAEngine`, `spec.RDMA`, cache control-address slices, and `spec.CUs`
+  before CP Build. Populate CU records with
+  `cp.DescribeCU(cu.DispatcherView{CU: comp})` in dispatch order.
+  `WithDriver`, `WithCU`, and `RegisterCU` are removed; destinations are never
+  written to component State. Unused DRAM destinations are not retained.
+- Ports are externally built and bound with `BindPort`: ToDriver, ToDMA,
+  ToCUs, ToCaches, ToRDMA. Use approximately 4096-entry buffers for parity.
+- Dispatcher cursors, in-flight work, rate gates and shared CU reservations
+  belong to CP State. Initialize constructs behavior views; dispatchers and
+  the pool are no longer separately registered checkpoint resources.
+- DMA now lives in `amd/timing/dma`:
+  `dma.MakeBuilder().WithSimulation(sim).WithSpec(dma.DefaultSpec()).WithResources(dma.Resources{LocalDataSource: mapper}).Build(name)`
+  returns `*dma.Comp`. Bind its external "ToCP" and "ToMem" ports. Routing
+  through `LocalDataSource` remains deferred to #321.
 - Legacy GPU shootdown/restart commands and their CU/AT/ROB/TLB control
   sequence are removed. Ordinary driver cache flush still drains, flushes,
   invalidates L1 then L2, and enables caches. Kernel-start L1 invalidation and
   independent RDMA drain/restart remain. Driver responses wait for port capacity.
+
+See [DMA package and command processor ownership](akita-v5-rc2.md#dma-package-and-command-processor-ownership)
+for current construction and checkpoint compatibility requirements.
 
 ## amd/samples/runner/emusystem (ported)
 

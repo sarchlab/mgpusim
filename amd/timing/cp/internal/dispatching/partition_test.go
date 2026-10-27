@@ -43,20 +43,16 @@ var _ = Describe("Partition Algorithm", func() {
 			}).
 			AnyTimes()
 
-		alg = &partitionAlgorithm{
-			partitions: []*partition{
-				{
-					gridBuilder: gridBuilder0,
-				},
-				{
-					gridBuilder: gridBuilder1,
-				},
-			},
-			cuPool:            pool,
-			numWG:             16,
-			numWGPerPartition: 8,
-			currWGs:           make([]*kernels.WorkGroup, 2),
-		}
+		state := &AlgorithmState{Partitions: make([]PartitionState, 2), NumWG: 16, WGPerPartition: 8}
+		alg = &partitionAlgorithm{cuPool: pool,
+			state: func() *AlgorithmState { return state },
+			gridForPartition: func(i int) kernels.GridBuilder {
+				if i == 0 {
+					return gridBuilder0
+				}
+				return gridBuilder1
+			}}
+
 	})
 
 	AfterEach(func() {
@@ -64,8 +60,8 @@ var _ = Describe("Partition Algorithm", func() {
 	})
 
 	It("should check if there are more work-groups to generate", func() {
-		alg.numDispatchedWG = 10
-		alg.numWG = 10
+		alg.state().Dispatched = 10
+		alg.state().NumWG = 10
 
 		hasNext := alg.HasNext()
 
@@ -74,6 +70,8 @@ var _ = Describe("Partition Algorithm", func() {
 
 	It("should dispatch next wg", func() {
 		wg := kernels.NewWorkGroup(testNewID())
+		wg.Wavefronts = nil
+		wg.WorkItems = nil
 
 		gridBuilder0.EXPECT().NextWG().Return(wg)
 		cus[0].EXPECT().ReserveResourceForWG(wg).
@@ -82,16 +80,18 @@ var _ = Describe("Partition Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeTrue())
-		Expect(alg.partitions[0].dispatchedWG).To(Equal(1))
-		Expect(alg.currWGs[0]).To(BeNil())
-		Expect(alg.numDispatchedWG).To(Equal(1))
-		Expect(alg.nextPartition).To(Equal(1))
+		Expect(alg.state().Partitions[0].Dispatched).To(Equal(1))
+		Expect(currentWG(alg.state().Partitions[0].Current)).To(BeNil())
+		Expect(alg.state().Dispatched).To(Equal(1))
+		Expect(alg.state().NextPartition).To(Equal(1))
 	})
 
 	It("should return invalid location when dispatch is not possible", func() {
 		wg := kernels.NewWorkGroup(testNewID())
+		wg.Wavefronts = nil
+		wg.WorkItems = nil
 
-		alg.partitions[1].dispatchedWG = 8
+		alg.state().Partitions[1].Dispatched = 8
 		gridBuilder0.EXPECT().NextWG().Return(wg)
 		cus[0].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, false)
@@ -101,17 +101,19 @@ var _ = Describe("Partition Algorithm", func() {
 		location := alg.Next()
 
 		Expect(location.valid).To(BeFalse())
-		Expect(alg.partitions[0].dispatchedWG).To(Equal(0))
-		Expect(alg.numDispatchedWG).To(Equal(0))
+		Expect(alg.state().Partitions[0].Dispatched).To(Equal(0))
+		Expect(alg.state().Dispatched).To(Equal(0))
 	})
 
 	It("should do work stealing", func() {
 		wg := kernels.NewWorkGroup(testNewID())
+		wg.Wavefronts = nil
+		wg.WorkItems = nil
 
-		alg.nextPartition = 1
+		alg.state().NextPartition = 1
 
-		alg.partitions[1].dispatchedWG = 8
-		alg.currWGs[0] = wg
+		alg.state().Partitions[1].Dispatched = 8
+		alg.state().Partitions[0].Current = retainWG(wg)
 		cus[1].EXPECT().ReserveResourceForWG(wg).
 			Return([]resource.WfLocation{}, true)
 
@@ -119,8 +121,8 @@ var _ = Describe("Partition Algorithm", func() {
 
 		Expect(location.valid).To(BeTrue())
 		Expect(location.cuID).To(Equal(1))
-		Expect(alg.partitions[0].dispatchedWG).To(Equal(1))
-		Expect(alg.currWGs[0]).To(BeNil())
-		Expect(alg.numDispatchedWG).To(Equal(1))
+		Expect(alg.state().Partitions[0].Dispatched).To(Equal(1))
+		Expect(currentWG(alg.state().Partitions[0].Current)).To(BeNil())
+		Expect(alg.state().Dispatched).To(Equal(1))
 	})
 })

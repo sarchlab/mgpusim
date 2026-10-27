@@ -6,7 +6,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 
 	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
-	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
@@ -36,14 +35,12 @@ func DefaultSpec() Spec {
 // Builder can build Command Processors. Configuration is supplied as a whole
 // through WithSpec; wiring is supplied through WithSimulation. The component
 // declares its ports; the port instances are supplied externally after Build
-// with AssignPort.
+// with BindPort.
 type Builder struct {
 	sampler   *sampling.SampledEngine
 	spec      Spec
 	registrar modeling.Simulation
 	monitor   *monitoring2.Monitor
-	driver    messaging.RemotePort
-	cus       []CUInterfaceForCP
 }
 
 // WithSampler shares the simulation's recoverable wavefront sampling state.
@@ -54,8 +51,7 @@ func MakeBuilder() Builder {
 	return Builder{spec: DefaultSpec()}
 }
 
-// WithSimulation wires the builder to a registrar (a *simulation.Simulation in
-// assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
+// WithSimulation supplies the simulation that owns the component.
 func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
@@ -73,76 +69,53 @@ func (b Builder) WithMonitor(monitor *monitoring2.Monitor) Builder {
 	return b
 }
 
-// WithDriver sets the driver port that the command processor responds to.
-func (b Builder) WithDriver(driver messaging.RemotePort) Builder {
-	b.driver = driver
-	return b
-}
-
-// WithCU adds a compute unit to the command processor.
-func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
-	b.cus = append(b.cus, cu)
-	return b
-}
-
 // Build builds a new Command Processor. It declares the component's ports
 // ("ToDriver", "ToDMA", "ToCUs",
 // "ToCaches", "ToRDMA"); assign the port instances after Build with
-// AssignPort.
+// BindPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
 		panic("cp: WithSimulation is required")
 	}
 
-	comp := modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).Build(name)
-	comp.State = State{
-		Driver:                b.driver,
-		BottomMemCopyH2DToTop: make(map[uint64]messaging.Msg),
-		BottomMemCopyD2HToTop: make(map[uint64]messaging.Msg),
-		CopyRecvTasks:         make(map[uint64]uint64),
-		CopySendTasks:         make(map[uint64]uint64),
-	}
-	comp.Resources.Sampler = b.sampler
-	b.buildDispatchers(comp)
-	for _, cu := range b.cus {
-		RegisterCU(comp, cu)
-	}
-
-	return comp
+	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).
+		WithResources(Resources{Sampler: b.sampler, Monitor: b.monitor}).Build(name)
 }
 
-func (b Builder) buildDispatchers(comp *Comp) {
-	cuResourcePool := resource.NewCUResourcePool()
-	cuResourcePool.SetName(comp.Name() + ".CUResources")
-	b.registrar.RegisterResource(cuResourcePool)
-	alg := b.spec.Alg
+func buildDispatchers(comp *Comp) []dispatching.Dispatcher {
+	var dispatchers []dispatching.Dispatcher
+	cuResourcePool := resource.Bind(comp.Spec.CUs, func() *[]resource.CUState { return &comp.State.CUResources })
+	alg := comp.Spec.Alg
 	if alg == "" {
 		alg = "round-robin"
 	}
-	builder := dispatching.MakeBuilder().WithSampler(b.sampler).
+	builder := dispatching.MakeBuilder().WithSampler(comp.Resources.Sampler).
 		WithCP(comp).
 		WithAlg(alg).
-		WithNumDies(b.spec.NumDies).
-		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
+		WithNumDies(comp.Spec.NumDies).
+		WithWavefrontDispatchCycles(comp.Spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
 		WithPortSource(dispatcherPorts{comp}).
 		WithDispatchingPortName("ToCUs").
 		WithRespondingPortName("ToDriver").
-		WithMonitor(b.monitor).
-		WithConstantKernelLaunchOverhead(b.spec.ConstantKernelLaunchOverhead).
+		WithMonitor(comp.Resources.Monitor).
+		WithConstantKernelLaunchOverhead(comp.Spec.ConstantKernelLaunchOverhead).
 		WithSubsequentKernelLaunchOverhead(
-			b.spec.SubsequentKernelLaunchOverhead).
-		WithWGScalingThreshold(b.spec.WGScalingThreshold)
+			comp.Spec.SubsequentKernelLaunchOverhead).
+		WithWGScalingThreshold(comp.Spec.WGScalingThreshold)
 
-	if b.spec.ConstantKernelOverhead > 0 {
+	if comp.Spec.ConstantKernelOverhead > 0 {
 		builder = builder.WithConstantKernelOverhead(
-			b.spec.ConstantKernelOverhead)
+			comp.Spec.ConstantKernelOverhead)
 	}
 
-	for i := 0; i < b.spec.NumDispatchers; i++ {
-		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", comp.Name(), i))
+	for i := 0; i < comp.Spec.NumDispatchers; i++ {
+		index := i
+		disp := builder.
+			WithState(func() *dispatching.State { return &comp.State.Dispatchers[index] }).
+			Build(fmt.Sprintf("%s.Dispatcher%d", comp.Name(), i))
 
-		b.registrar.RegisterResource(disp)
-		comp.Resources.Dispatchers = append(comp.Resources.Dispatchers, disp)
+		dispatchers = append(dispatchers, disp)
 	}
+	return dispatchers
 }

@@ -7,7 +7,7 @@ import (
 
 var _ = Describe("Resource Mask", func() {
 
-	var mask *resourceMaskImpl
+	var mask Mask
 
 	BeforeEach(func() {
 		mask = newResourceMask(128)

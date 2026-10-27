@@ -6,17 +6,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
-// dieState tracks the dispatch progress of one XCD (die): the contiguous block
-// of work-groups assigned to it and a round-robin cursor over its compute units.
-type dieState struct {
-	gridBuilder  kernels.GridBuilder // skipped to this die's WG block
-	numWGInDie   int                 // size of this die's block
-	dispatchedWG int                 // WGs already dispatched from the block
-	currWG       *kernels.WorkGroup  // pulled from the block but not yet placed
-	firstCU      int                 // index of this die's first CU in the pool
-	nextCUOffset int                 // round-robin CU cursor within the die
-}
-
 // perDieAlgorithm dispatches a kernel across numDies XCDs in parallel. The grid
 // is split into numDies contiguous blocks (die-level block assignment); within a
 // die the block's work-groups are spread round-robin (interleaved) across that
@@ -29,19 +18,12 @@ type dieState struct {
 // HW-accurate cross-XCD distribution is undocumented; this is a modeling choice
 // and is irrelevant to uniform grids (e.g. empty_kernel). See issue #282.
 type perDieAlgorithm struct {
-	ids     interface{ NewID() uint64 }
-	cuPool  resource.CUResourcePool
-	numDies int
+	gridForDie func(int) kernels.GridBuilder
+	ids        interface{ NewID() uint64 }
+	cuPool     resource.CUResourcePool
+	numDies    int
 
-	numWG           int
-	cusPerDie       int
-	numDispatchedWG int
-	dies            []*dieState
-}
-
-// RegisterCU allows the algorithm to dispatch work-groups to the CU.
-func (a *perDieAlgorithm) RegisterCU(cu resource.DispatchableCU) {
-	a.cuPool.RegisterCU(cu)
+	state func() *AlgorithmState
 }
 
 // NumDies returns the number of dies the algorithm dispatches across.
@@ -53,16 +35,16 @@ func (a *perDieAlgorithm) NumDies() int {
 func (a *perDieAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
 	gb := kernels.NewGridBuilder(a.ids)
 	gb.SetKernel(info)
-	a.numWG = gb.NumWG()
-	a.numDispatchedWG = 0
+	a.state().NumWG = gb.NumWG()
+	a.state().Dispatched = 0
 
-	a.cusPerDie = a.cuPool.NumCU() / a.numDies
-	numWGPerDie := (a.numWG-1)/a.numDies + 1 // ceil; block size per die
+	a.state().CUsPerDie = a.cuPool.NumCU() / a.numDies
+	numWGPerDie := (a.state().NumWG-1)/a.numDies + 1 // ceil; block size per die
 
-	a.dies = make([]*dieState, a.numDies)
+	a.state().Partitions = make([]PartitionState, a.numDies)
 	for d := 0; d < a.numDies; d++ {
 		start := d * numWGPerDie
-		n := a.numWG - start
+		n := a.state().NumWG - start
 		if n < 0 {
 			n = 0
 		}
@@ -70,25 +52,22 @@ func (a *perDieAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
 			n = numWGPerDie
 		}
 
-		ds := &dieState{
-			gridBuilder: kernels.NewGridBuilder(a.ids),
-			numWGInDie:  n,
-			firstCU:     d * a.cusPerDie,
-		}
-		ds.gridBuilder.SetKernel(info)
-		ds.gridBuilder.Skip(start)
-		a.dies[d] = ds
+		ds := PartitionState{Count: n, FirstCU: d * a.state().CUsPerDie}
+		grid := &stateGrid{ids: a.ids, state: func() *kernels.GridBuilderState { return &ds.Grid }}
+		grid.SetKernel(info)
+		grid.Skip(start)
+		a.state().Partitions[d] = ds
 	}
 }
 
 // NumWG returns the total number of work-groups across all dies.
 func (a *perDieAlgorithm) NumWG() int {
-	return a.numWG
+	return a.state().NumWG
 }
 
 // HasNext reports whether any die still has work-groups to dispatch.
 func (a *perDieAlgorithm) HasNext() bool {
-	return a.numDispatchedWG < a.numWG
+	return a.state().Dispatched < a.state().NumWG
 }
 
 // Next is unused on the per-die path (the dispatcher drives dies via
@@ -102,21 +81,27 @@ func (a *perDieAlgorithm) Next() dispatchLocation {
 // the die's block is exhausted or no CU on the die can currently host the WG (in
 // which case the pulled WG is held and retried on a later call).
 func (a *perDieAlgorithm) NextForDie(die int) dispatchLocation {
-	ds := a.dies[die]
-	if ds.dispatchedWG >= ds.numWGInDie {
+	ds := &a.state().Partitions[die]
+	if ds.Dispatched >= ds.Count {
 		return dispatchLocation{}
 	}
 
-	if ds.currWG == nil {
-		ds.currWG = ds.gridBuilder.NextWG()
+	wg := currentWG(ds.Current)
+	if wg == nil {
+		if a.gridForDie != nil {
+			wg = a.gridForDie(die).NextWG()
+		} else {
+			wg = kernels.NextWorkGroup(&ds.Grid, a.ids)
+		}
+		ds.Current = retainWG(wg)
 	}
 
-	for k := 0; k < a.cusPerDie; k++ {
-		cuOffset := (ds.nextCUOffset + k) % a.cusPerDie
-		cuID := ds.firstCU + cuOffset
+	for k := 0; k < a.state().CUsPerDie; k++ {
+		cuOffset := (ds.NextCU + k) % a.state().CUsPerDie
+		cuID := ds.FirstCU + cuOffset
 		cu := a.cuPool.GetCU(cuID)
 
-		locations, ok := cu.ReserveResourceForWG(ds.currWG)
+		locations, ok := cu.ReserveResourceForWG(wg)
 		if !ok {
 			continue
 		}
@@ -125,17 +110,17 @@ func (a *perDieAlgorithm) NextForDie(die int) dispatchLocation {
 			valid: true,
 			cu:    cu.DispatchingPort(),
 			cuID:  cuID,
-			wg:    ds.currWG,
+			wg:    wg,
 		}
 		dispatch.locations = make([]protocol.WfDispatchLocation, len(locations))
 		for i, location := range locations {
 			dispatch.locations[i] = protocol.WfDispatchLocation(location)
 		}
 
-		ds.currWG = nil
-		ds.dispatchedWG++
-		ds.nextCUOffset = cuOffset + 1
-		a.numDispatchedWG++
+		ds.Current = Location{}
+		ds.Dispatched++
+		ds.NextCU = cuOffset + 1
+		a.state().Dispatched++
 
 		return dispatch
 	}

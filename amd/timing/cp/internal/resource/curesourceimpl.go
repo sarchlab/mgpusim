@@ -1,39 +1,19 @@
 package resource
 
 import (
-	"sync"
-
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 
 // CUResourceImpl implements CUResource
 type CUResourceImpl struct {
-	sync.Mutex
-
-	port messaging.RemotePort
-
-	wfPoolFreeCount []int
-
-	sregCount       int
-	sregGranularity int
-	sregMask        resourceMask
-
-	vregCounts      []int
-	vregGranularity int
-	vregMasks       []resourceMask
-
-	ldsByteSize    int
-	ldsGranularity int
-	ldsMask        resourceMask
-
-	nextSIMD    int
-	reservedWGs map[uint64][]WfLocation
+	config CUConfig
+	state  func() *CUState
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
 func (r *CUResourceImpl) DispatchingPort() messaging.RemotePort {
-	return r.port
+	return r.config.Port
 }
 
 // ReserveResourceForWG checks if there is space to hold the work-group. If so,
@@ -76,16 +56,16 @@ func (r *CUResourceImpl) withinSGPRLimitation(
 	locations []WfLocation,
 ) bool {
 	co := wg.CodeObject
-	required := r.unitsOccupy(int(co.WFSgprCount), r.sregGranularity)
+	required := r.unitsOccupy(int(co.WFSgprCount), 16)
 
 	for i := range wg.Wavefronts {
 		location := &locations[i]
-		offset, ok := r.sregMask.nextRegion(required, allocStatusFree)
+		offset, ok := r.state().Scalar.nextRegion(required, allocStatusFree)
 		if !ok {
 			return false
 		}
 		location.SGPROffset = offset * 16 * 4 // 16 reg, 4 byte each
-		r.sregMask.setStatus(offset, required, allocStatusToReserve)
+		r.state().Scalar.setStatus(offset, required, allocStatusToReserve)
 	}
 
 	return true
@@ -96,18 +76,18 @@ func (r *CUResourceImpl) withinLDSLimitation(
 	locations []WfLocation,
 ) bool {
 	co := wg.CodeObject
-	required := r.unitsOccupy(int(co.GroupSegmentByteSize), r.ldsGranularity)
-	offset, ok := r.ldsMask.nextRegion(required, allocStatusFree)
+	required := r.unitsOccupy(int(co.GroupSegmentByteSize), 256)
+	offset, ok := r.state().LDS.nextRegion(required, allocStatusFree)
 	if !ok {
 		return false
 	}
 
 	for i := range wg.Wavefronts {
 		location := &locations[i]
-		location.LDSOffset = offset * r.ldsGranularity
+		location.LDSOffset = offset * 256
 	}
 
-	r.ldsMask.setStatus(offset, required, allocStatusToReserve)
+	r.state().LDS.setStatus(offset, required, allocStatusToReserve)
 	return true
 }
 
@@ -119,35 +99,35 @@ func (r *CUResourceImpl) matchWfWithSIMDs(
 	wg *kernels.WorkGroup,
 	locations []WfLocation,
 ) bool {
-	vgprToUse := make([]int, len(r.wfPoolFreeCount))
-	wfPoolEntryUsed := make([]int, len(r.wfPoolFreeCount))
+	vgprToUse := make([]int, len(r.state().FreeWavefronts))
+	wfPoolEntryUsed := make([]int, len(r.state().FreeWavefronts))
 	co := wg.CodeObject
 
 	for i := range wg.Wavefronts {
 		location := &locations[i]
-		firstSIMDTested := r.nextSIMD
+		firstSIMDTested := r.state().NextSIMD
 		firstTry := true
 		found := false
-		required := r.unitsOccupy(int(co.WIVgprCount), r.vregGranularity)
+		required := r.unitsOccupy(int(co.WIVgprCount), 4)
 
-		for firstTry || r.nextSIMD != firstSIMDTested {
+		for firstTry || r.state().NextSIMD != firstSIMDTested {
 			firstTry = false
-			offset, ok := r.vregMasks[r.nextSIMD].
+			offset, ok := r.state().Vector[r.state().NextSIMD].
 				nextRegion(required, allocStatusFree)
 
-			if ok && r.wfPoolFreeCount[r.nextSIMD]-wfPoolEntryUsed[r.nextSIMD] > 0 {
+			if ok && r.state().FreeWavefronts[r.state().NextSIMD]-wfPoolEntryUsed[r.state().NextSIMD] > 0 {
 				found = true
-				vgprToUse[r.nextSIMD] += required
-				wfPoolEntryUsed[r.nextSIMD]++
-				location.SIMDID = r.nextSIMD
-				location.VGPROffset = offset * r.vregGranularity * 4 //  4 bytes per register
-				r.vregMasks[r.nextSIMD].setStatus(offset, required,
+				vgprToUse[r.state().NextSIMD] += required
+				wfPoolEntryUsed[r.state().NextSIMD]++
+				location.SIMDID = r.state().NextSIMD
+				location.VGPROffset = offset * 4 * 4 //  4 bytes per register
+				r.state().Vector[r.state().NextSIMD].setStatus(offset, required,
 					allocStatusToReserve)
 			}
 
-			r.nextSIMD++
-			if r.nextSIMD >= len(r.wfPoolFreeCount) {
-				r.nextSIMD = 0
+			r.state().NextSIMD++
+			if r.state().NextSIMD >= len(r.state().FreeWavefronts) {
+				r.state().NextSIMD = 0
 			}
 
 			if found {
@@ -175,58 +155,58 @@ func (r *CUResourceImpl) reserveResources(
 	locations []WfLocation,
 ) {
 	for _, location := range locations {
-		r.wfPoolFreeCount[location.SIMDID]--
+		r.state().FreeWavefronts[location.SIMDID]--
 	}
 
-	r.sregMask.convertStatus(allocStatusToReserve, allocStatusReserved)
-	r.ldsMask.convertStatus(allocStatusToReserve, allocStatusReserved)
-	for i := 0; i < len(r.wfPoolFreeCount); i++ {
-		r.vregMasks[i].convertStatus(allocStatusToReserve, allocStatusReserved)
+	r.state().Scalar.convertStatus(allocStatusToReserve, allocStatusReserved)
+	r.state().LDS.convertStatus(allocStatusToReserve, allocStatusReserved)
+	for i := 0; i < len(r.state().FreeWavefronts); i++ {
+		r.state().Vector[i].convertStatus(allocStatusToReserve, allocStatusReserved)
 	}
 
 	r.neverReserveTwice(wg)
-	r.reservedWGs[wg.UID] = locations
+	r.state().Reserved[wg.UID] = locations
 }
 
 func (r *CUResourceImpl) neverReserveTwice(wg *kernels.WorkGroup) {
-	if _, found := r.reservedWGs[wg.UID]; found {
+	if _, found := r.state().Reserved[wg.UID]; found {
 		panic("reserving a work-group twice")
 	}
 }
 
 func (r *CUResourceImpl) clearTempReservation(wg *kernels.WorkGroup) {
-	r.sregMask.convertStatus(allocStatusToReserve, allocStatusFree)
-	r.ldsMask.convertStatus(allocStatusToReserve, allocStatusFree)
-	for i := 0; i < len(r.wfPoolFreeCount); i++ {
-		r.vregMasks[i].convertStatus(allocStatusToReserve, allocStatusFree)
+	r.state().Scalar.convertStatus(allocStatusToReserve, allocStatusFree)
+	r.state().LDS.convertStatus(allocStatusToReserve, allocStatusFree)
+	for i := 0; i < len(r.state().FreeWavefronts); i++ {
+		r.state().Vector[i].convertStatus(allocStatusToReserve, allocStatusFree)
 	}
 }
 
 // FreeResourcesForWG marks all the resources used by a work-group available.
 func (r *CUResourceImpl) FreeResourcesForWG(wg *kernels.WorkGroup) {
-	locations, found := r.reservedWGs[wg.UID]
+	locations, found := r.state().Reserved[wg.UID]
 	if !found {
 		panic("work-group not found")
 	}
 
 	co := wg.CodeObject
 	for _, location := range locations {
-		r.wfPoolFreeCount[location.SIMDID]++
+		r.state().FreeWavefronts[location.SIMDID]++
 
 		ldsUnits := r.unitsOccupy(int(co.GroupSegmentByteSize),
-			r.ldsGranularity)
-		r.ldsMask.setStatus(location.LDSOffset/r.ldsGranularity, ldsUnits,
+			256)
+		r.state().LDS.setStatus(location.LDSOffset/256, ldsUnits,
 			allocStatusFree)
 
-		sgprUnits := r.unitsOccupy(int(co.WFSgprCount), r.sregGranularity)
-		r.sregMask.setStatus(location.SGPROffset/4/r.sregGranularity,
+		sgprUnits := r.unitsOccupy(int(co.WFSgprCount), 16)
+		r.state().Scalar.setStatus(location.SGPROffset/4/16,
 			sgprUnits, allocStatusFree)
 
-		vgprUnits := r.unitsOccupy(int(co.WIVgprCount), r.vregGranularity)
-		r.vregMasks[location.SIMDID].setStatus(
-			location.VGPROffset/4/r.vregGranularity, vgprUnits,
+		vgprUnits := r.unitsOccupy(int(co.WIVgprCount), 4)
+		r.state().Vector[location.SIMDID].setStatus(
+			location.VGPROffset/4/4, vgprUnits,
 			allocStatusFree)
 	}
 
-	delete(r.reservedWGs, wg.UID)
+	delete(r.state().Reserved, wg.UID)
 }

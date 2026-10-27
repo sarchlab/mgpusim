@@ -4,7 +4,6 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
 type dispatchLocation struct {
@@ -17,8 +16,6 @@ type dispatchLocation struct {
 
 // algorithm defines the CTA scheduling scheme.
 type algorithm interface {
-	// RegisterCU notifies the algorithm about the existence of the a cu.
-	RegisterCU(cu resource.DispatchableCU)
 
 	// StartNewKernel allows the algorithm start to process another kernel.
 	StartNewKernel(info kernels.KernelLaunchInfo)
