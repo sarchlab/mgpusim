@@ -3,12 +3,10 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/timing"
-
 	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
-
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"

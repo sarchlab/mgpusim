@@ -140,7 +140,8 @@ sample have been removed; Akita monitoring remains available.
 
 ### Checkpoint ownership in the Akita v5 port
 
-AMD dispatch snapshots (`WorkGroupValue` and `GridBuilderState`) retain
+AMD launch messages and dispatch snapshots (`WorkGroupValue` and
+`GridBuilderState`) retain
 `CodeObjectMetadata`, the dispatch packet and work-item geometry. They do not
 contain executable bytes: instruction fetch uses the packet's `KernelObject`
 address in its process address space and canonical GPU storage. Code uploads

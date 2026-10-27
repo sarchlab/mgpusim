@@ -1,8 +1,9 @@
 package kernels
 
 import (
-	"github.com/sarchlab/akita/v5/sim"
 	"testing"
+
+	"github.com/sarchlab/akita/v5/sim"
 )
 
 // BenchmarkWorkGroupSnapshotAndRestore isolates dispatch serialization from

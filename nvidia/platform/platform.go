@@ -2,15 +2,14 @@ package platform
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 	"strings"
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 // Platform is a driver plus the GPUs it controls.

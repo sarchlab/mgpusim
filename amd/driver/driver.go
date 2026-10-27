@@ -124,7 +124,7 @@ func (m *executionMW) launch(e *Execution) {
 	for i, gpu := range cmd.GPUs {
 		req := protocol.LaunchKernelReq{
 			PID:           pid,
-			CodeObject:    cmd.Code,
+			CodeObject:    cmd.Code.Metadata(),
 			Packet:        cmd.Packets[i].Packet,
 			PacketAddress: uint64(cmd.PacketAddresses[i]),
 		}

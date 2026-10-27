@@ -7,20 +7,19 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/sim"
-	"github.com/sarchlab/akita/v5/sim/naming"
-	"github.com/sarchlab/akita/v5/sim/tasks"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/naming"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 func TestSimulator(t *testing.T) {

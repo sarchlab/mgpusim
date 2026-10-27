@@ -1,9 +1,10 @@
 package cu
 
 import (
+	"sort"
+
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"sort"
 )
 
 type vectorMemAccessLaneInfo struct {
@@ -65,4 +66,14 @@ func (cu *ComputeUnit) vectorTransactionByID(id uint64) VectorAccessState {
 		return cu.comp.State.Vector[index]
 	}
 	panic("cu: unknown vector transaction")
+}
+
+// admitVector enforces the binary-search invariant at the mutation boundary.
+func (cu *ComputeUnit) admitVector(value VectorAccessState) {
+	values := cu.comp.State.Vector
+	id := value.requestID()
+	if id == 0 || (len(values) > 0 && id <= values[len(values)-1].requestID()) {
+		panic("cu: vector request IDs must increase on admission")
+	}
+	cu.comp.State.Vector = append(values, value)
 }

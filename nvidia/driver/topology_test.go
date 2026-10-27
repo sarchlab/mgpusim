@@ -1,12 +1,12 @@
 package driver
 
 import (
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 func TestDeviceSpecCopiedAndCheckpointCompatible(t *testing.T) {

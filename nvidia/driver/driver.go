@@ -3,14 +3,12 @@ package driver
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
-	"github.com/sarchlab/akita/v5/sim/modeling"
-
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"

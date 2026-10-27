@@ -113,3 +113,9 @@ func (v *CodeObjectMetadata) UnmarshalJSON(data []byte) error {
 	*v = CodeObjectMetadata(value.metadata)
 	return nil
 }
+
+// Metadata returns the launch metadata without cloning executable storage.
+func (v CodeObjectValue) Metadata() CodeObjectMetadata {
+	return CodeObjectMetadata{Present: v.Present, HasMeta: v.HasMeta, Meta: v.Meta,
+		HasSymbol: v.HasSymbol, Symbol: v.Symbol, Version: v.Version}
+}

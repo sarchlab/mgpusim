@@ -10,13 +10,15 @@ import (
 type FlushReq struct {
 }
 
-// A LaunchKernelReq is a request that asks a GPU to launch a kernel.
+// A LaunchKernelReq asks a GPU to launch an already-uploaded kernel.
+// Executable bytes live at Packet.KernelObject in the PID address space; only
+// launch metadata crosses the driver boundary.
 type LaunchKernelReq struct {
 	PID vm.PID
 
 	Packet        kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
-	CodeObject    insts.CodeObjectValue
+	CodeObject    insts.CodeObjectMetadata
 	Selection     kernels.WGSelection
 }
 

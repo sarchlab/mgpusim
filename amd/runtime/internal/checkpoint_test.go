@@ -5,9 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sarchlab/akita/v5/sim/modeling"
-
 	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim/modeling"
 )
 
 func TestAllocatorCheckpointPreservesAllocationAndFreeOrder(t *testing.T) {

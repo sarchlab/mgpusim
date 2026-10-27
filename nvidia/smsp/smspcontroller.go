@@ -3,12 +3,10 @@ package smsp
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
-
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
@@ -285,13 +283,14 @@ func (s *SMSPController) sendMemRequests() bool {
 		ref := s.State.UnsentMemPipelines[0]
 		pipe := s.State.Scheduler.pipeline(ref)
 
+		inst := &s.Resources.Traces.Warp(s.State.Scheduler.warp(pipe.WarpID).Trace).Instructions[pipe.InstIndex]
 		var msg messaging.Msg
 
 		switch pipe.CurrentStage().Def.Name {
 		case "MemoryPipeRead":
-			msg = s.readReq(&s.Resources.Traces.Warp(s.State.Scheduler.warp(pipe.WarpID).Trace).Instructions[pipe.InstIndex])
+			msg = s.readReq(inst)
 		case "MemoryPipeWrite":
-			msg = s.writeReq(&s.Resources.Traces.Warp(s.State.Scheduler.warp(pipe.WarpID).Trace).Instructions[pipe.InstIndex])
+			msg = s.writeReq(inst)
 		default:
 			panic("unknown memory pipeline stage " + pipe.CurrentStage().Def.Name)
 		}

@@ -88,3 +88,19 @@ func BenchmarkVectorLookup(b *testing.B) {
 		_ = c.vectorTransactionByID(512)
 	}
 }
+
+func TestVectorAdmissionRejectsUnorderedIDs(t *testing.T) {
+	c := checkpointCU(t)
+	c.admitVector(VectorAccessState{Read: messaging.Msg{ID: 7}})
+	c.admitVector(VectorAccessState{Write: messaging.Msg{ID: 9}})
+	for _, id := range []uint64{0, 7, 8, 9} {
+		requireSlotPanic(t, func() { c.admitVector(VectorAccessState{Read: messaging.Msg{ID: id}}) })
+	}
+	if len(c.comp.State.Vector) != 2 || c.vectorTransactionByID(9).Write.ID != 9 {
+		t.Fatal("failed admission changed live transactions")
+	}
+	c.admitVector(VectorAccessState{Read: messaging.Msg{ID: 10}})
+	if c.vectorTransactionIndex(10) != 2 {
+		t.Fatal("valid admission after rejection failed")
+	}
+}

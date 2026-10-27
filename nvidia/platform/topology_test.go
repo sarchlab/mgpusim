@@ -1,7 +1,6 @@
 package platform_test
 
 import (
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 func TestPeerChangesRejectCheckpoint(t *testing.T) {

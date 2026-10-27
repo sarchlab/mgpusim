@@ -2,19 +2,17 @@ package gpu
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
-
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 const (

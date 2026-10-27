@@ -209,7 +209,9 @@ cache because their interface does not declare purity or configuration identity.
 Callers must not modify descriptions or their operands/formats.
 
 Code-object metadata is borrowed directly from the current group's canonical
-`CodeObjectValue` for each dispatch, register reset, or debugger operation. The
+`CodeObjectMetadata` for each dispatch, register reset, or debugger operation.
+Executable bytes live at `Packet.KernelObject` in GPU storage within the request
+process address space; launch messages also carry only metadata. The
 borrow includes version and metadata; required missing metadata fails fast.
 No code object is reconstructed or cached. Callers must not mutate the value or
 retain its pointer beyond the immediate operation. State replacement therefore

@@ -2,18 +2,16 @@ package sm
 
 import (
 	"fmt"
-	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
-
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 
 	"github.com/sarchlab/akita/v5/mem"
 	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
+	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 const portBufSize = 4096
