@@ -9,7 +9,6 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type mockScheduler struct {
@@ -199,7 +198,7 @@ var _ = Describe("ComputeUnit", func() {
 		BeforeEach(func() {
 			wf = newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 			inst := testInst(testIDs.NewID(), nil)
-			wf.SetDynamicInst(inst)
+			wf.setTestInst(inst)
 			wf.SetPC(0x1000)
 
 			req := messaging.Msg{ID: testIDs.NewID(),
@@ -260,7 +259,9 @@ var _ = Describe("ComputeUnit", func() {
 					AccessByteSize: 64}}
 
 			info := new(ScalarMemAccessInfo)
-			info.Inst = testInst(testIDs.NewID(), insts.NewInst())
+			fixture := testInst(testIDs.NewID(), insts.NewInst())
+			wf.setTestInst(fixture)
+			info.InstID = fixture.ID
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
@@ -291,7 +292,7 @@ var _ = Describe("ComputeUnit", func() {
 		var (
 			rawWf *kernels.Wavefront
 			wf    *Wavefront
-			inst  *wavefront.Inst
+			inst  *testInstruction
 			read  messaging.Msg
 			info  VectorMemAccessInfo
 		)
@@ -302,7 +303,7 @@ var _ = Describe("ComputeUnit", func() {
 			inst.FormatType = insts.FLAT
 			wf = newTestRawWave(rawWf)
 			wf.execution().SIMDID = 0
-			wf.SetDynamicInst(inst)
+			wf.setTestInst(inst)
 			wf.execution().VRegOffset = 0
 			wf.execution().OutstandingVectorMemAccess = 1
 			wf.execution().OutstandingScalarMemAccess = 1
@@ -313,7 +314,7 @@ var _ = Describe("ComputeUnit", func() {
 			info = VectorMemAccessInfo{}
 			info.Read = read
 			info.Wavefront = wf
-			info.Inst = inst
+			info.InstID = inst.ID
 			info.laneInfo = []vectorMemAccessLaneInfo{
 				{0, insts.VReg(0), 1, 0},
 				{1, insts.VReg(0), 1, 4},
@@ -339,7 +340,7 @@ var _ = Describe("ComputeUnit", func() {
 					AccessByteSize: 16}},
 
 				Wavefront: wf,
-				Inst:      inst,
+				InstID:    inst.ID,
 			}
 			cu.comp.State.Vector = append(
 				cu.comp.State.Vector, testVectorState(cu, sibling))
@@ -400,7 +401,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("handle write done respond from ToVectorMem port", func() {
 		var (
 			rawWf    *kernels.Wavefront
-			inst     *wavefront.Inst
+			inst     *testInstruction
 			wf       *Wavefront
 			info     VectorMemAccessInfo
 			writeReq messaging.Msg
@@ -412,7 +413,7 @@ var _ = Describe("ComputeUnit", func() {
 			inst.FormatType = insts.FLAT
 			wf = newTestRawWave(rawWf)
 			wf.execution().SIMDID = 0
-			wf.SetDynamicInst(inst)
+			wf.setTestInst(inst)
 			wf.execution().VRegOffset = 0
 			wf.execution().OutstandingVectorMemAccess = 1
 			wf.execution().OutstandingScalarMemAccess = 1
@@ -421,7 +422,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
-			info.Inst = inst
+			info.InstID = inst.ID
 			info.Write = writeReq
 			cu.comp.State.Vector = append(
 				cu.comp.State.Vector, testVectorState(cu, info))

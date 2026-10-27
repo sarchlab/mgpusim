@@ -213,9 +213,9 @@ func registerTestWave(c *ComputeUnit, w *Wavefront) {
 	}
 	*w = *c.wavefrontByID(w.UID)
 }
-func testWaveID(c *ComputeUnit, w *Wavefront) uint64 {
+func testWaveID(c *ComputeUnit, w *Wavefront) waveHandle {
 	registerTestWave(c, w)
-	return wfID(w)
+	return handleOf(w)
 }
 func testAddWave(p *WavefrontPool, w *Wavefront) { registerTestWave(p.cu, w); p.AddWf(w) }
 
@@ -225,8 +225,8 @@ func testFetchState(c *ComputeUnit, v *InstFetchReqInfo) FetchState {
 }
 func testScalarState(c *ComputeUnit, v *ScalarMemAccessInfo) ScalarAccessState {
 	registerTestWave(c, v.Wavefront)
-	c.rememberInstruction(wfID(v.Wavefront), v.Inst)
-	s := ScalarAccessState{Req: v.Req, WF: wfID(v.Wavefront), Inst: instID(v.Inst)}
+
+	s := ScalarAccessState{Req: v.Req, WF: handleOf(v.Wavefront), Inst: v.InstID}
 	if v.DstSGPR != nil {
 		s.Register = v.DstSGPR.RegType
 	}
@@ -266,14 +266,14 @@ func (fixtureDecoder) Decode(raw []byte) (*insts.Inst, error) {
 	}
 	return i, nil
 }
-func testInst(id uint64, i *insts.Inst) *wavefront.Inst {
+func testInst(id uint64, i *insts.Inst) *testInstruction {
 	if i == nil {
 		i = insts.NewInst()
 	}
 	raw := make([]byte, 8)
 	binary.LittleEndian.PutUint64(raw, id)
 	fixtureInstructions[string(raw)] = i
-	v := wavefront.NewInst(id, i)
+	v := newTestInstruction(id, i)
 	v.Raw = raw
 	return v
 }
@@ -428,4 +428,36 @@ func liveTestWaves(s *State) int {
 		}
 	}
 	return n
+}
+
+// testInstruction holds construction inputs only. Production retains just the
+// canonical encoding/ID; fixture decoders own their mutable test descriptions.
+type testInstruction struct {
+	*insts.Inst
+	ID  uint64
+	Raw []byte
+}
+
+func newTestInstruction(id uint64, description *insts.Inst) *testInstruction {
+	return &testInstruction{Inst: description, ID: id}
+}
+func (i *testInstruction) saved() InstructionState {
+	if i == nil {
+		return InstructionState{}
+	}
+	var pc uint64
+	if i.Inst != nil {
+		pc = i.PC
+	}
+	return InstructionState{ID: i.ID, PC: pc, Raw: i.Raw}
+}
+func (wf *Wavefront) setTestInst(i *testInstruction) {
+	value := i.saved()
+	wf.cu.rememberInstruction(wf.handle, value)
+	wf.SetInstID(value.ID)
+}
+func (wf *Wavefront) setTestNextInst(i *testInstruction) {
+	value := i.saved()
+	wf.cu.rememberInstruction(wf.handle, value)
+	wf.SetNextInstID(value.ID)
 }

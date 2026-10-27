@@ -104,7 +104,7 @@ type State struct {
 	Groups                                    []WorkGroupState
 	Waves                                     []WaveState
 	Instructions                              map[uint64]InstructionState
-	Pools                                     [][]uint64
+	Pools                                     [][]waveHandle
 	InstFetch                                 []FetchState
 	Scalar                                    []ScalarAccessState
 	Vector                                    []VectorAccessState

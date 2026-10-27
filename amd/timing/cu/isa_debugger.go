@@ -73,7 +73,7 @@ func (h *ISADebugger) TaskEnded(task tasks.Task) {
 
 	detail := originalTask.Detail.(map[string]interface{})
 	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
-	inst := h.cu.instruction(detail["inst"].(uint64)).Inst
+	inst := h.cu.instruction(detail["inst"].(uint64))
 
 	if wf.group().raw().IDX == 75 && wf.group().raw().IDY == 1 {
 		h.logWholeWf(inst, wf)
@@ -106,7 +106,8 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
 	output += `"SGPRs":[`
-	for i := 0; i < int(wf.codeObject().WFSgprCount); i++ {
+	co := &wf.codeObject().Meta
+	for i := 0; i < int(co.WFSgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}
@@ -117,7 +118,7 @@ func (h *ISADebugger) logWholeWf(
 	output += "]"
 
 	output += `,"VGPRs":[`
-	for i := 0; i < int(wf.codeObject().WIVgprCount); i++ {
+	for i := 0; i < int(co.WIVgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}

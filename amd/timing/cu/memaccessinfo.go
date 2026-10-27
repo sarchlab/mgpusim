@@ -3,7 +3,6 @@ package cu
 import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemAccessLaneInfo struct {
@@ -20,7 +19,7 @@ type VectorMemAccessInfo struct {
 	Read      messaging.Msg
 	Write     messaging.Msg
 	Wavefront *Wavefront
-	Inst      *wavefront.Inst
+	InstID    uint64
 	laneInfo  []vectorMemAccessLaneInfo
 }
 
@@ -40,7 +39,7 @@ type ScalarMemAccessInfo struct {
 	Req       messaging.Msg
 	Wavefront *Wavefront
 	DstSGPR   *insts.Reg
-	Inst      *wavefront.Inst
+	InstID    uint64
 }
 
 func (v VectorMemAccessInfo) requestID() uint64 {

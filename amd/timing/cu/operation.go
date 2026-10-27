@@ -13,7 +13,7 @@ import (
 type operationWave struct {
 	cu          *ComputeUnit
 	value       *wavefront.ExecutionState
-	instruction *wavefront.Inst
+	instruction *insts.Inst
 	view        *Wavefront
 }
 
@@ -25,7 +25,7 @@ func (wf *Wavefront) emulation() *operationWave {
 	op.instruction = wf.cu.instruction(op.value.InstID)
 	return op
 }
-func (wf *operationWave) Inst() *insts.Inst { return wf.instruction.Inst }
+func (wf *operationWave) Inst() *insts.Inst { return wf.instruction }
 func (wf *operationWave) regAccessor() *operationRegAccessor {
 	return &operationRegAccessor{CU: wf.cu, WF: wf}
 }
@@ -169,4 +169,4 @@ func (wf *operationWave) WriteOperandBytes(operand *insts.Operand, laneID int, d
 	wf.regAccessor().WriteReg(operand.Register, operand.RegCount, laneID, waveOffset, data)
 }
 
-func (wf *operationWave) DynamicInst() *wavefront.Inst { return wf.instruction }
+func (wf *operationWave) InstID() uint64 { return wf.value.InstID }

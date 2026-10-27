@@ -115,10 +115,11 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 			inst, err := s.cu.Decoder.Decode(
 				wf.execution().InstBuffer[wf.PC()-wf.execution().InstBufferStartPC:])
 			if err == nil {
-				next := wavefront.NewInst(s.cu.comp.NewID(), inst)
 				start := wf.PC() - wf.execution().InstBufferStartPC
-				next.Raw = append([]byte(nil), wf.execution().InstBuffer[start:start+uint64(inst.ByteSize)]...)
-				wf.SetNextInst(next)
+				next := InstructionState{ID: s.cu.comp.NewID(), PC: inst.PC,
+					Raw: append([]byte(nil), wf.execution().InstBuffer[start:start+uint64(inst.ByteSize)]...)}
+				s.cu.rememberInstruction(wf.handle, next)
+				wf.SetNextInstID(next.ID)
 				madeProgress = true
 			}
 		}
@@ -214,13 +215,13 @@ func (s *SchedulerImpl) DoIssue() bool {
 		if unit.CanAcceptWave() {
 			wf.issueNext()
 
-			s.cu.beginInstruction(wf, inst)
+			s.cu.beginInstruction(wf, wf.InstID())
 
 			if s.scoreboardEnabled && wf.scoreboard() != nil {
-				latency := GetScoreboardLatency(inst.Inst)
+				latency := GetScoreboardLatency(inst)
 				if latency > 0 {
 					wf.scoreboard().MarkBusy(
-						inst.Inst, latency)
+						inst, latency)
 				}
 			}
 
@@ -238,7 +239,7 @@ func (s *SchedulerImpl) issueToInternal(wf *Wavefront) bool {
 	s.state().Internal = append(s.state().Internal, s.cu.useWave(wf))
 	wf.execution().State = wavefront.WfRunning
 
-	s.cu.beginInstruction(wf, wf.DynamicInst())
+	s.cu.beginInstruction(wf, wf.InstID())
 
 	return true
 }
@@ -270,15 +271,15 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 
 	madeProgress := false
 
-	newExecuting := make([]uint64, 0)
+	newExecuting := make([]waveHandle, 0)
 	for _, id := range s.state().Internal {
 		executing := s.cu.wave(id)
-		instruction := executing.DynamicInst()
+		instruction := executing.InstID()
 		instProgress := false
 		instCompleted := false
 		passBarrier := false
 
-		switch instruction.Opcode {
+		switch executing.Inst().Opcode {
 		case 1: // S_ENDPGM
 			instProgress, instCompleted = s.evalSEndPgm(executing)
 		case 10: // S_BARRIER
@@ -385,20 +386,21 @@ func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(
 }
 
 func (s *SchedulerImpl) resetRegisterValue(wf *Wavefront) {
-	if wf.codeObject().WIVgprCount > 0 {
+	co := &wf.codeObject().Meta
+	if co.WIVgprCount > 0 {
 		vRegFile := s.cu.VRegFile[wf.execution().SIMDID].(*SimpleRegisterFile)
 		vRegStorage := vRegFile.bytes()
-		data := make([]byte, wf.codeObject().WIVgprCount*4)
+		data := make([]byte, co.WIVgprCount*4)
 		for i := 0; i < 64; i++ {
 			offset := uint64(wf.execution().VRegOffset + vRegFile.ByteSizePerLane*i)
 			copy(vRegStorage[offset:], data)
 		}
 	}
 
-	if wf.codeObject().WFSgprCount > 0 {
+	if co.WFSgprCount > 0 {
 		sRegFile := s.cu.SRegFile.(*SimpleRegisterFile)
 		sRegStorage := sRegFile.bytes()
-		data := make([]byte, wf.codeObject().WFSgprCount*4)
+		data := make([]byte, co.WFSgprCount*4)
 		offset := uint64(wf.execution().SRegOffset)
 		copy(sRegStorage[offset:], data)
 	}
@@ -445,7 +447,7 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 	wg *WorkGroup,
 ) {
 	for _, wf := range wg.waves() {
-		s.cu.completeInstruction(wf, wf.DynamicInst())
+		s.cu.completeInstruction(wf, wf.InstID())
 
 		if executionEnded(wf.execution().State) {
 			continue
@@ -456,7 +458,7 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 }
 
 func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
-	newBarrierBuffer := make([]uint64, 0, s.barrierBufferSize)
+	newBarrierBuffer := make([]waveHandle, 0, s.barrierBufferSize)
 	for _, id := range s.state().Barrier {
 		wavefront := s.cu.wave(id)
 		if wavefront.group().UID != wg.UID {
@@ -468,9 +470,9 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
 
 func (s *SchedulerImpl) removeAllWfFromInternalExecuting(
 	wg *WorkGroup,
-	internalExecuting *[]uint64,
+	internalExecuting *[]waveHandle,
 ) {
-	newInternalExecuting := make([]uint64, 0)
+	newInternalExecuting := make([]waveHandle, 0)
 	for _, id := range *internalExecuting {
 		wavefront := s.cu.wave(id)
 		if wavefront.group().UID != wg.UID {
@@ -509,7 +511,7 @@ func (s *SchedulerImpl) evalSWaitCnt(
 // marking the moment the memory accesses it was waiting on have drained.
 func (s *SchedulerImpl) markMemDrained(wf *Wavefront, what string) {
 	s.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: s.cu.comp.State.InstTasks[wf.DynamicInst().ID],
+		TaskID: s.cu.comp.State.InstTasks[wf.InstID()],
 		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})

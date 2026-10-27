@@ -165,6 +165,9 @@ owner, slot handle, and global UID. `State.Initialize` allocates fixed-length
 `State.Waves` and `State.Groups` arrays, each bounded by `numWfPools * WfPoolSize`.
 Retirement clears occupancy without resizing or moving slots. Wave state links
 directly to its group slot; generation checks reject stale recycled handles.
+`wavefront.Handle` is a distinct local-slot type used by saved wave references
+and completion events. Global kernel wave UIDs, instruction IDs and task IDs
+remain separate `uint64` values.
 Scheduler ordering is still defined by its membership queues.
 Replacing State therefore requires no invalidation sentinel, rebinding callback,
 load hook, or subsequent tick. Previously acquired ID views and register-file
@@ -177,11 +180,22 @@ values; all waves of a group share its canonical LDS. The ALU borrows LDS only
 for an execution call and releases that reference before returning. ALU and
 coalescing operations resolve a call-local state/register adapter once for all
 lanes and retain no state references after the call. Instruction
-encodings remain in State; decoded instructions are temporary operation values.
-A pure decode cache for the built-in disassembler is keyed by the full instruction
-encoding, decoder instance (which owns its fixed ISA tables), and CDNA3 mode. Custom
-decoders bypass it. Cached descriptions are immutable; PC and dynamic IDs are
-attached to local copies, and no State-dependent identity is cached.
+encodings and dynamic IDs remain in State. `wavefront.Inst` is removed: `Inst()`
+returns a shared read-only `*insts.Inst` description and `InstID()` returns the
+separate dynamic execution identity. Async records and tracing carry the ID.
+The pure built-in decode cache is keyed by full encoding, decoder instance
+(which owns its fixed ISA tables), CDNA3 mode, and the canonical stored PC.
+Hits reuse the description without copying or allocating. The stored PC semantics
+are unchanged; execution uses the wave's PC. Custom decoders still bypass the
+cache because their interface does not declare purity or configuration identity.
+Callers must not modify descriptions or their operands/formats.
+
+Code-object metadata is borrowed directly from the current group's canonical
+`CodeObjectValue` for each dispatch, register reset, or debugger operation. The
+borrow includes version and metadata; required missing metadata fails fast.
+No code object is reconstructed or cached. Callers must not mutate the value or
+retain its pointer beyond the immediate operation. State replacement therefore
+changes subsequent reads immediately without invalidation or rebinding.
 Tracing detail retains wave/instruction IDs and format metadata, so debugger
 observers do not keep a second execution graph alive across ticks.
 

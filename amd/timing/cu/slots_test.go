@@ -155,10 +155,10 @@ func checkFinalInstructionOrder(t *testing.T, tracking bool) {
 	c.WfPools[0].AddWf(w)
 	instruction := checkpointInstruction(t, c)
 	instruction.Raw = []byte{0, 0, 0x81, 0xbf}
-	w.SetDynamicInst(instruction)
+	w.setTestInst(instruction)
 	w.execution().State = wavefront.WfRunning
 	startTestWave(c, w)
-	c.beginInstruction(w, w.DynamicInst())
+	c.beginInstruction(w, w.InstID())
 	recorder := &finalWaveOrderRecorder{inst: c.comp.State.InstTasks[instruction.ID], wave: c.comp.State.WFTasks[w.UID]}
 	if tracking {
 		c.comp.TaskTracker().Subscribe(recorder, c.comp)
@@ -167,7 +167,7 @@ func checkFinalInstructionOrder(t *testing.T, tracking bool) {
 	port.full = true
 	c.ToACE = port
 	scheduler := c.Scheduler.(*SchedulerImpl)
-	scheduler.state().Internal = []uint64{w.handle}
+	scheduler.state().Internal = []waveHandle{w.handle}
 	scheduler.EvaluateInternalInst()
 	expected := 0
 	if tracking {
@@ -257,5 +257,27 @@ func TestSampledCompletionPreservesResidentRegistersDuringBackpressure(t *testin
 	c.retireGroups()
 	if !unchanged() || len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 1 {
 		t.Fatal("sampled completion retry changed resident registers or delivered more than once")
+	}
+}
+
+func TestTypedSampledEventSurvivesRestoreAndRejectsRecycledSlot(t *testing.T) {
+	c := checkpointCU(t)
+	w := checkpointGroup(c).waves()[0]
+	w.execution().State = wavefront.WfSampledWaiting
+	event := wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, w.handle)
+	var handle wavefront.Handle = event.Handle
+	restored := roundTripCUState(t, c)
+	if restored.wave(handle).UID != w.UID {
+		t.Fatal("typed local handle lost global identity across restore")
+	}
+	restored.ToACE = newFakePort("CU.ACE")
+	restored.Handle(event)
+	next := checkpointGroup(restored).waves()[0]
+	if slotIndex(next.handle) != slotIndex(handle) || next.handle == handle {
+		t.Fatal("slot was not recycled with a new generation")
+	}
+	requireSlotPanic(t, func() { restored.Handle(event) })
+	if next.execution().State != wavefront.WfDispatching {
+		t.Fatal("stale sampled event affected new occupant")
 	}
 }

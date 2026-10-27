@@ -37,7 +37,7 @@ var _ = Describe("SIMD Unit", func() {
 	It("should accept wave", func() {
 		wave := newTestWave()
 		inst := testInst(testIDs.NewID(), insts.NewInst())
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 		registerTestWave(cu, wave)
 		bu.AcceptWave(wave)
 		Expect(cu.wave(bu.state().Exec)).To(Equal(wave))
@@ -53,7 +53,7 @@ var _ = Describe("SIMD Unit", func() {
 		inst.ByteSize = 4
 		wave.execution().InstBuffer = make([]byte, 256)
 		wave.execution().InstBufferStartPC = 0x100
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		wave.SetPC(0x13C)
 

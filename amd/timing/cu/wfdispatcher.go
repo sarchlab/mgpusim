@@ -37,8 +37,9 @@ func (d *WfDispatcherImpl) DispatchWf(
 	wf *Wavefront,
 	location protocol.WfDispatchLocation,
 ) {
-	d.setWfInfo(wf, location)
-	d.initRegisters(wf)
+	co := wf.codeObject()
+	d.setWfInfo(wf, location, co)
+	d.initRegisters(wf, co)
 
 	if d.scoreboardEnabled {
 		*wf.scoreboard() = Scoreboard{}
@@ -48,18 +49,19 @@ func (d *WfDispatcherImpl) DispatchWf(
 func (d *WfDispatcherImpl) setWfInfo(
 	wf *Wavefront,
 	location protocol.WfDispatchLocation,
+	co *insts.CodeObjectValue,
 ) {
 	wf.execution().SIMDID = location.SIMDID
 	wf.execution().SRegOffset = location.SGPROffset
 	wf.execution().VRegOffset = location.VGPROffset
 	wf.execution().LDSOffset = location.LDSOffset
-	wf.SetPC(wf.packet().KernelObject + wf.codeObject().KernelCodeEntryByteOffset)
+	wf.SetPC(wf.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset)
 	wf.SetEXEC(wf.raw().InitExecMask)
 }
 
 //nolint:gocyclo,funlen
-func (d *WfDispatcherImpl) initRegisters(wf *Wavefront) {
-	co := wf.codeObject()
+func (d *WfDispatcherImpl) initRegisters(wf *Wavefront, value *insts.CodeObjectValue) {
+	co := &value.Meta
 	pkt := wf.packet()
 
 	SGPRPtr := 0
@@ -216,7 +218,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *Wavefront) {
 		x = i % (wf.group().raw().SizeX * wf.group().raw().SizeY) % wf.group().raw().SizeX
 		laneID := i - wf.raw().FirstWiFlatID
 
-		if co.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
+		if value.Version == insts.CodeObjectV5 && co.MachineVersionMajor != 8 {
 			// For gfx9+/CDNA V5 code objects (e.g. gfx942), the work-item IDs
 			// are packed into v0 as v0 = (z << 20) | (y << 10) | x. This mirrors
 			// the functional emulator (amd/emu/computeunit.go). Without this,

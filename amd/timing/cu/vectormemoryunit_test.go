@@ -81,7 +81,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
@@ -93,7 +93,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wfID(wave)})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{Handle: handleOf(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
@@ -116,7 +116,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
@@ -127,7 +127,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		coalescer.toReturn = transactions
 
 		registerTestWave(cu, wave)
-		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{WavefrontID: wfID(wave)})
+		vecMemUnit.state().InstructionsOutput.Push(vectorMemInst{Handle: handleOf(wave)})
 		vecMemUnit.state().Instructions = 1
 
 		madeProgress := vecMemUnit.instToTransaction()
@@ -166,8 +166,8 @@ var _ = Describe("Vector Memory Unit", func() {
 				AccessByteSize: 4}}
 
 		trans := VectorMemAccessInfo{
-			Read: loadReq,
-			Inst: inst,
+			Read:   loadReq,
+			InstID: inst.ID,
 		}
 		vecMemUnit.state().Transactions = 1
 

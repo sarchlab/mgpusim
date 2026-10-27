@@ -28,7 +28,12 @@ and `MilestoneKindWork`).
 
 CU execution uses `beginInstruction` / `completeInstruction`, including final
 memory responses. Completion callbacks finish before the instruction encoding
-can be retired. The final `S_ENDPGM` task closes before the wave task; completion
+can be retired. Instruction task `Detail` contains `inst` (dynamic instruction ID),
+`wf` (global kernel wave UID), and `format`; it holds no execution wrapper or
+State pointer. The debugger resolves the ID while the completion callback runs.
+Decoded descriptions may be shared across dynamic IDs, so pointer identity is
+not execution identity. Local `wavefront.Handle` values identify CU slots and
+are distinct from these tracing IDs. The final `S_ENDPGM` task closes before the wave task; completion
 port retries do not repeat either task completion. Sampled waves close their
 wave tasks when their completion events run. The CU retains hardware slots until
 outstanding prefetches drain and the work-group completion message can be sent.

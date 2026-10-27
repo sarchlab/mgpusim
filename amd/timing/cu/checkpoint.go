@@ -10,20 +10,13 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-func wfID(w *Wavefront) uint64 {
+func handleOf(w *Wavefront) waveHandle {
 	if w == nil {
 		return 0
 	}
 	return w.handle
 }
-func instID(i *wavefront.Inst) uint64 {
-	if i == nil {
-		return 0
-	}
-	return i.ID
-}
-
-func (cu *ComputeUnit) wave(id uint64) *Wavefront {
+func (cu *ComputeUnit) wave(id waveHandle) *Wavefront {
 	if id == 0 {
 		return nil
 	}
@@ -38,7 +31,7 @@ func (cu *ComputeUnit) wave(id uint64) *Wavefront {
 	return &Wavefront{cu: cu, UID: state.ID, handle: id}
 }
 
-func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
+func (cu *ComputeUnit) instruction(id uint64) *insts.Inst {
 	if id == 0 {
 		return nil
 	}
@@ -46,45 +39,27 @@ func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
 	if !ok {
 		panic(fmt.Sprintf("cu: missing instruction %d", id))
 	}
-	raw, err := cu.decodeDescription(v.Raw)
+	decoded, err := cu.decodeDescription(v.Raw, v.PC)
 	if err != nil {
 		panic(fmt.Sprintf("cu: decode instruction %d: %v", id, err))
 	}
-	// One operation-local allocation holds both the immutable description copy
-	// and its dynamic identity; neither escapes into middleware state.
-	if _, ok := cu.Decoder.(*insts.Disassembler); ok {
-		value := &struct {
-			dynamic wavefront.Inst
-			decoded insts.Inst
-		}{decoded: *raw}
-		value.decoded.PC = v.PC
-		value.dynamic = wavefront.Inst{Inst: &value.decoded, ID: id, Raw: v.Raw}
-		return &value.dynamic
-	}
-	raw.PC = v.PC
-	i := wavefront.NewInst(id, raw)
-	i.Raw = v.Raw
-	return i
+	return decoded
 }
 
-func (cu *ComputeUnit) rememberInstruction(owner uint64, i *wavefront.Inst) {
-	if i == nil {
+func (cu *ComputeUnit) rememberInstruction(owner waveHandle, instruction InstructionState) {
+	if instruction.ID == 0 {
 		return
 	}
 	if cu.comp.State.Instructions == nil {
 		cu.comp.State.Instructions = make(map[uint64]InstructionState)
 	}
-	// Decoded fields are immutable views of this canonical encoding.
-	var pc uint64
-	if i.Inst != nil {
-		pc = i.PC
-	}
-	value := cu.comp.State.Instructions[i.ID]
-	if value.Owner != 0 && value.Owner != owner {
+	old := cu.comp.State.Instructions[instruction.ID]
+	if old.Owner != 0 && old.Owner != owner {
 		panic("cu: instruction belongs to another wave slot")
 	}
-	value.ID, value.PC, value.Raw, value.Owner = i.ID, pc, i.Raw, owner
-	cu.comp.State.Instructions[i.ID] = value
+	instruction.Owner = owner
+	instruction.ExecutionPending = old.ExecutionPending
+	cu.comp.State.Instructions[instruction.ID] = instruction
 }
 
 func (cu *ComputeUnit) allocateGroup(raw kernels.WorkGroupValue, req messaging.Msg) *WorkGroup {
@@ -109,7 +84,7 @@ func (cu *ComputeUnit) allocateWave(group *WorkGroup, index int, value WaveState
 		}
 		value.Generation, value.Group, value.Index = generation, group.slot, index
 		*old = value
-		handle := waveHandle(slot, generation)
+		handle := makeWaveHandle(slot, generation)
 		group.state().Waves = append(group.state().Waves, handle)
 		return &Wavefront{cu: cu, UID: value.ID, handle: handle}
 	}
@@ -139,7 +114,7 @@ func (cu *ComputeUnit) newGroup(raw *kernels.WorkGroup, req messaging.Msg) *Work
 }
 
 // useWave is the stable reference stored by pipeline and queue state.
-func (cu *ComputeUnit) useWave(w *Wavefront) uint64 {
+func (cu *ComputeUnit) useWave(w *Wavefront) waveHandle {
 	if w == nil {
 		return 0
 	}
@@ -153,12 +128,10 @@ func (cu *ComputeUnit) fetchState(v *InstFetchReqInfo) FetchState {
 	return FetchState{v.Req, cu.useWave(v.Wavefront), v.Address, v.FetchTaskID}
 }
 func (cu *ComputeUnit) scalarState(v *ScalarMemAccessInfo) ScalarAccessState {
-	cu.rememberInstruction(cu.useWave(v.Wavefront), v.Inst)
-	return ScalarAccessState{v.Req, cu.useWave(v.Wavefront), instID(v.Inst), v.DstSGPR.RegType}
+	return ScalarAccessState{v.Req, cu.useWave(v.Wavefront), v.InstID, v.DstSGPR.RegType}
 }
 func (cu *ComputeUnit) vectorState(v VectorMemAccessInfo) VectorAccessState {
-	cu.rememberInstruction(cu.useWave(v.Wavefront), v.Inst)
-	s := VectorAccessState{Read: v.Read, Write: v.Write, WF: cu.useWave(v.Wavefront), Inst: instID(v.Inst)}
+	s := VectorAccessState{Read: v.Read, Write: v.Write, WF: cu.useWave(v.Wavefront), Inst: v.InstID}
 	for _, l := range v.laneInfo {
 		s.Lanes = append(s.Lanes, LaneState{l.laneID, l.reg.RegType, l.regCount, l.addrOffsetInCacheLine})
 	}

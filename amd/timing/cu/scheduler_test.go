@@ -165,9 +165,10 @@ var _ = Describe("Scheduler", func() {
 			wf.execution().InstBuffer = make([]byte, 256)
 			wf.execution().InstBufferStartPC = 0x100
 			wf.execution().State = wavefront.WfReady
-			wf.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.NextInst().ExeUnit = issueDirs[i]
-			wf.NextInst().ByteSize = 4
+			wfDescription := insts.NewInst()
+			wfDescription.ExeUnit = issueDirs[i]
+			wfDescription.ByteSize = 4
+			wf.setTestNextInst(testInst(testIDs.NewID(), wfDescription))
 			wfs = append(wfs, wf)
 		}
 		wfs[0].SetPC(0x13C)
@@ -203,9 +204,10 @@ var _ = Describe("Scheduler", func() {
 		wfs := make([]*Wavefront, 0)
 		wf := newTestWave()
 
-		wf.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf.NextInst().ExeUnit = insts.ExeUnitSpecial
-		wf.NextInst().ByteSize = 4
+		wfDescription := insts.NewInst()
+		wfDescription.ExeUnit = insts.ExeUnitSpecial
+		wfDescription.ByteSize = 4
+		wf.setTestNextInst(testInst(testIDs.NewID(), wfDescription))
 		wf.SetPC(10)
 		wf.execution().State = wavefront.WfReady
 		wfs = append(wfs, wf)
@@ -220,7 +222,7 @@ var _ = Describe("Scheduler", func() {
 		}
 		scheduler.DoIssue()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).To(ContainElement(handleOf(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 		Expect(wf.PC()).To(Equal(uint64(10)))
 		Expect(wf.NextInst()).To(BeNil())
@@ -228,51 +230,54 @@ var _ = Describe("Scheduler", func() {
 
 	It("should wait for memory access when running wait_cnt", func() {
 		wf := newTestWave()
-		wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 12 // WAIT_CNT
-		wf.DynamicInst().LKGMCNT = 0
+		wfDescription := insts.NewInst()
+		wfDescription.Format = insts.FormatTable[insts.SOPP]
+		wfDescription.Opcode = 12 // WAIT_CNT
+		wfDescription.LKGMCNT = 0
+		wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 		wf.execution().State = wavefront.WfRunning
 		wf.execution().OutstandingScalarMemAccess = 1
 
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+		scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).To(ContainElement(handleOf(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 	})
 
 	It("should wait for memory access when running wait_cnt", func() {
 		wf := newTestWave()
-		wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 12 // WAIT_CNT
-		wf.DynamicInst().VMCNT = 0
+		wfDescription := insts.NewInst()
+		wfDescription.Format = insts.FormatTable[insts.SOPP]
+		wfDescription.Opcode = 12 // WAIT_CNT
+		wfDescription.VMCNT = 0
+		wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 		wf.execution().State = wavefront.WfRunning
 		wf.execution().OutstandingVectorMemAccess = 1
 
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+		scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).To(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).To(ContainElement(handleOf(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfRunning))
 	})
 
 	It("should pass if memory returns when running wait_cnt", func() {
 		wf := newTestWave()
-		wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 12 // WAIT_CNT
-		wf.DynamicInst().LKGMCNT = 0
-		wf.DynamicInst().VMCNT = 0
+		wfDescription := insts.NewInst()
+		wfDescription.Format = insts.FormatTable[insts.SOPP]
+		wfDescription.Opcode = 12 // WAIT_CNT
+		wfDescription.LKGMCNT = 0
+		wfDescription.VMCNT = 0
+		wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 		wf.execution().State = wavefront.WfRunning
 		wf.execution().OutstandingScalarMemAccess = 0
 		wf.execution().OutstandingVectorMemAccess = 0
 
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+		scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(handleOf(wf)))
 		Expect(wf.execution().State).To(Equal(wavefront.WfReady))
 	})
 
@@ -280,14 +285,15 @@ var _ = Describe("Scheduler", func() {
 		It("should not terminate wavefront if there are pending memory "+
 			"requests", func() {
 			wf := newTestWave()
-			wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 1 // S_ENDPGM
+			wfDescription := insts.NewInst()
+			wfDescription.Format = insts.FormatTable[insts.SOPP]
+			wfDescription.Opcode = 1 // S_ENDPGM
+			wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 			wf.execution().State = wavefront.WfRunning
 			wf.execution().OutstandingScalarMemAccess = 1
 			wf.execution().OutstandingVectorMemAccess = 1
 
-			scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+			scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 			scheduler.EvaluateInternalInst()
 
 			Expect(scheduler.state().Internal).NotTo(BeNil())
@@ -302,9 +308,10 @@ var _ = Describe("Scheduler", func() {
 			for i := 0; i < 3; i++ {
 				wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 				setTestCodeObject(wf.group(), co)
-				wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-				wf.DynamicInst().Opcode = 10
+				wfDescription := insts.NewInst()
+				wfDescription.Format = insts.FormatTable[insts.SOPP]
+				wfDescription.Opcode = 10
+				wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 				wf.execution().State = wavefront.WfRunning
 				setTestGroup(wf, wg)
 				setTestWaves(wg, append(wg.waves(), wf))
@@ -314,16 +321,17 @@ var _ = Describe("Scheduler", func() {
 
 			wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 			setTestCodeObject(wf.group(), co)
-			wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 1 // S_ENDPGM
+			wfDescription := insts.NewInst()
+			wfDescription.Format = insts.FormatTable[insts.SOPP]
+			wfDescription.Opcode = 1 // S_ENDPGM
+			wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 			setTestGroup(wf, wg)
 			wf.execution().State = wavefront.WfRunning
 			wf.execution().OutstandingScalarMemAccess = 0
 			wf.execution().OutstandingVectorMemAccess = 0
 			setTestWaves(wg, append(wg.waves(), wf))
 
-			scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+			scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 			scheduler.EvaluateInternalInst()
 
 			Expect(scheduler.state().Internal).To(HaveLen(0))
@@ -343,9 +351,10 @@ var _ = Describe("Scheduler", func() {
 				for i := 0; i < 3; i++ {
 					wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 					setTestCodeObject(wf.group(), co)
-					wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-					wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-					wf.DynamicInst().Opcode = 10
+					wfDescription := insts.NewInst()
+					wfDescription.Format = insts.FormatTable[insts.SOPP]
+					wfDescription.Opcode = 10
+					wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 					wf.execution().State = wavefront.WfAtBarrier
 					setTestGroup(wf, wg)
 					setTestWaves(wg, append(wg.waves(), wf))
@@ -355,16 +364,17 @@ var _ = Describe("Scheduler", func() {
 
 				wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 				setTestCodeObject(wf.group(), co)
-				wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wfDescription := insts.NewInst()
+				wfDescription.Format = insts.FormatTable[insts.SOPP]
+				wfDescription.Opcode = 1 // S_ENDPGM
+				wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 				setTestGroup(wf, wg)
 				wf.execution().State = wavefront.WfRunning
 				wf.execution().OutstandingScalarMemAccess = 0
 				wf.execution().OutstandingVectorMemAccess = 0
 				setTestWaves(wg, append(wg.waves(), wf))
 
-				scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+				scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 				scheduler.EvaluateInternalInst()
 
 				Expect(scheduler.state().Internal).To(HaveLen(0))
@@ -396,16 +406,17 @@ var _ = Describe("Scheduler", func() {
 
 				wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 				setTestCodeObject(wf.group(), co)
-				wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wfDescription := insts.NewInst()
+				wfDescription.Format = insts.FormatTable[insts.SOPP]
+				wfDescription.Opcode = 1 // S_ENDPGM
+				wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 				setTestGroup(wf, wg)
 				wf.execution().State = wavefront.WfRunning
 				wf.execution().OutstandingScalarMemAccess = 0
 				wf.execution().OutstandingVectorMemAccess = 0
 				setTestWaves(wg, append(wg.waves(), wf))
 
-				scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+				scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 				scheduler.EvaluateInternalInst()
 
 				cu.Scheduler = scheduler
@@ -437,9 +448,10 @@ var _ = Describe("Scheduler", func() {
 
 				wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 				setTestCodeObject(wf.group(), co)
-				wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wfDescription := insts.NewInst()
+				wfDescription.Format = insts.FormatTable[insts.SOPP]
+				wfDescription.Opcode = 1 // S_ENDPGM
+				wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 				setTestGroup(wf, wg)
 				wf.execution().State = wavefront.WfRunning
 				wf.execution().OutstandingScalarMemAccess = 0
@@ -447,13 +459,13 @@ var _ = Describe("Scheduler", func() {
 				setTestWaves(wg, append(wg.waves(), wf))
 				testAddWave(cu.WfPools[0], wf)
 
-				scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+				scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 				scheduler.EvaluateInternalInst()
 
 				cu.Scheduler = scheduler
 				cu.retireGroups()
 				Expect(toACE.sent).To(HaveLen(1))
-				Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
+				Expect(scheduler.state().Internal).NotTo(ContainElement(handleOf(wf)))
 				Expect(cu.WfPools[0].waves()).To(HaveLen(0))
 			})
 		})
@@ -464,22 +476,23 @@ var _ = Describe("Scheduler", func() {
 		for i := 0; i < 4; i++ {
 			wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 			wf.execution().State = wavefront.WfRunning
-			wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 10
+			wfDescription := insts.NewInst()
+			wfDescription.Format = insts.FormatTable[insts.SOPP]
+			wfDescription.Opcode = 10
+			wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 			setTestGroup(wf, wg)
 			setTestWaves(wg, append(wg.waves(), wf))
 		}
 
 		wf := wg.waves()[0]
 
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+		scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
 		Expect(wf.execution().State).To(Equal(wavefront.WfAtBarrier))
 		Expect(len(scheduler.state().Barrier)).To(Equal(1))
 		Expect(cu.wave(scheduler.state().Barrier[0])).To(Equal(wf))
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(handleOf(wf)))
 	})
 
 	It("should continue execution if all wavefronts from a workgroup hits "+
@@ -487,9 +500,10 @@ var _ = Describe("Scheduler", func() {
 		wg := newTestRawGroup(kernels.NewWorkGroup(testIDs.NewID()), messaging.Msg{})
 		for i := 0; i < 3; i++ {
 			wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
-			wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 10
+			wfDescription := insts.NewInst()
+			wfDescription.Format = insts.FormatTable[insts.SOPP]
+			wfDescription.Opcode = 10
+			wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 			wf.execution().State = wavefront.WfAtBarrier
 			setTestGroup(wf, wg)
 			setTestWaves(wg, append(wg.waves(), wf))
@@ -498,15 +512,16 @@ var _ = Describe("Scheduler", func() {
 
 		wf := wg.waves()[0]
 		wf.execution().State = wavefront.WfRunning
-		wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 10
+		wfDescription := insts.NewInst()
+		wfDescription.Format = insts.FormatTable[insts.SOPP]
+		wfDescription.Opcode = 10
+		wf.setTestInst(testInst(testIDs.NewID(), wfDescription))
 		setTestWaves(wg, append(wg.waves(), wf))
 
-		scheduler.state().Internal = []uint64{testWaveID(cu, wf)}
+		scheduler.state().Internal = []waveHandle{testWaveID(cu, wf)}
 		scheduler.EvaluateInternalInst()
 
-		Expect(scheduler.state().Internal).NotTo(ContainElement(wfID(wf)))
+		Expect(scheduler.state().Internal).NotTo(ContainElement(handleOf(wf)))
 		Expect(len(scheduler.state().Barrier)).To(Equal(0))
 		for _, wf := range wg.waves() {
 			Expect(wf.execution().State).To(Equal(wavefront.WfReady))

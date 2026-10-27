@@ -9,12 +9,14 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
+type waveHandle = wavefront.Handle
+
 // Wavefront is an ID view. It never retains a pointer into component State.
 // Views are created for an operation; every accessor resolves the current State.
 type Wavefront struct {
 	cu     *ComputeUnit
 	UID    uint64
-	handle uint64
+	handle waveHandle
 }
 
 // WorkGroup is an ID view of the canonical group in component State.
@@ -24,9 +26,9 @@ type WorkGroup struct {
 	slot int
 }
 
-func slotIndex(handle uint64) int { return int(uint32(handle)) - 1 }
-func waveHandle(index int, generation uint32) uint64 {
-	return uint64(generation)<<32 | uint64(index+1)
+func slotIndex(handle waveHandle) int { return int(uint32(handle)) - 1 }
+func makeWaveHandle(index int, generation uint32) waveHandle {
+	return waveHandle(generation)<<32 | waveHandle(index+1)
 }
 func (wf *Wavefront) state() *WaveState {
 	s := &wf.cu.comp.State.Waves[slotIndex(wf.handle)]
@@ -45,7 +47,17 @@ func (wf *Wavefront) group() *WorkGroup {
 	return &WorkGroup{cu: wf.cu, UID: wf.cu.comp.State.Groups[index].Raw.UID, slot: index}
 }
 func (wf *Wavefront) packet() *kernels.HsaKernelDispatchPacket { return wf.group().packet() }
-func (wf *Wavefront) codeObject() *insts.KernelCodeObject      { return wf.group().codeObject() }
+
+// codeObject borrows canonical metadata for the immediate operation only.
+// Callers must neither mutate it nor retain it across calls or State replacement.
+func (wf *Wavefront) codeObject() *insts.CodeObjectValue {
+	group := wf.state().Group
+	value := &wf.cu.comp.State.Groups[group].Raw.CodeObject
+	if !value.Present || !value.HasMeta {
+		panic("cu: wave execution requires code-object metadata")
+	}
+	return value
+}
 func (wf *Wavefront) scoreboard() *Scoreboard {
 	s := wf.state()
 	if !s.HasScoreboard {
@@ -69,22 +81,7 @@ func (wg *WorkGroup) packet() *kernels.HsaKernelDispatchPacket {
 	}
 	return &p.Packet
 }
-func (wg *WorkGroup) codeObject() *insts.KernelCodeObject {
-	v := wg.raw().CodeObject
-	if !v.Present {
-		return nil
-	}
-	// This operation-local projection shares immutable code bytes, without copying
-	// the executable on every fetch eligibility check.
-	o := &insts.KernelCodeObject{Data: v.Data, Version: v.Version}
-	if v.HasMeta {
-		o.KernelCodeObjectMeta = &v.Meta
-	}
-	if v.HasSymbol {
-		o.Symbol = &v.Symbol
-	}
-	return o
-}
+
 func (wg *WorkGroup) waves() []*Wavefront {
 	s := wg.state()
 	out := make([]*Wavefront, len(s.Waves))
@@ -94,31 +91,18 @@ func (wg *WorkGroup) waves() []*Wavefront {
 	return out
 }
 
-// Inst return the instruction that is being simulated
-func (wf *Wavefront) Inst() *insts.Inst {
-	i := wf.DynamicInst()
-	if i == nil {
-		return nil
-	}
-	return i.Inst
-}
+// Inst returns the shared read-only description of the current instruction.
+func (wf *Wavefront) Inst() *insts.Inst { return wf.cu.instruction(wf.InstID()) }
 
-// DynamicInst returns the insts with an ID
-func (wf *Wavefront) DynamicInst() *wavefront.Inst {
-	return wf.cu.instruction(wf.execution().InstID)
-}
+// InstID is the dynamic instruction identity, distinct from its description.
+func (wf *Wavefront) InstID() uint64 { return wf.execution().InstID }
 
-// SetDynamicInst sets the dynamic inst to execute
-func (wf *Wavefront) SetDynamicInst(i *wavefront.Inst) {
+// SetInstID selects an instruction already admitted to canonical State.
+func (wf *Wavefront) SetInstID(id uint64) {
+	wf.requireInstruction(id)
 	old := wf.execution().InstID
-	wf.cu.rememberInstruction(wf.handle, i)
-	wf.execution().InstID = instID(i)
+	wf.execution().InstID = id
 	wf.cu.releaseInstruction(old)
-}
-
-// ManagedInst returns the wrapped Inst
-func (wf *Wavefront) ManagedInst() *wavefront.Inst {
-	return wf.cu.instruction(wf.execution().InstID)
 }
 
 func (wf *Wavefront) PID() vm.PID       { return wf.operation().PID() }
@@ -144,15 +128,25 @@ func (wf *Wavefront) WriteOperandBytes(operand *insts.Operand, laneID int, data 
 	wf.operation().WriteOperandBytes(operand, laneID, data)
 }
 
-// NextInst returns the decoded instruction awaiting issue.
-func (wf *Wavefront) NextInst() *wavefront.Inst { return wf.cu.instruction(wf.execution().ToIssueID) }
+// NextInst returns the shared read-only description awaiting issue.
+func (wf *Wavefront) NextInst() *insts.Inst { return wf.cu.instruction(wf.execution().ToIssueID) }
 
-// SetNextInst records the instruction awaiting issue.
-func (wf *Wavefront) SetNextInst(i *wavefront.Inst) {
+// SetNextInstID selects an instruction already admitted to canonical State.
+func (wf *Wavefront) SetNextInstID(id uint64) {
+	wf.requireInstruction(id)
 	old := wf.execution().ToIssueID
-	wf.cu.rememberInstruction(wf.handle, i)
-	wf.execution().ToIssueID = instID(i)
+	wf.execution().ToIssueID = id
 	wf.cu.releaseInstruction(old)
+}
+
+func (wf *Wavefront) requireInstruction(id uint64) {
+	if id == 0 {
+		return
+	}
+	instruction, exists := wf.cu.comp.State.Instructions[id]
+	if !exists || instruction.Owner != wf.handle {
+		panic("cu: instruction is not admitted for this wave")
+	}
 }
 
 // issueNext transfers canonical instruction ownership without re-registering

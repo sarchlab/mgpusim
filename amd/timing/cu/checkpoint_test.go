@@ -33,9 +33,9 @@ func TestCheckpointPreservesBarrierAndLDSIdentity(t *testing.T) {
 		wf.execution().SampleFinishTime = 456
 		original.WfPools[0].AddWf(wf)
 	}
-	original.comp.State.Scheduler.Barrier = []uint64{wfID(wg.waves()[0])}
+	original.comp.State.Scheduler.Barrier = []waveHandle{handleOf(wg.waves()[0])}
 	original.comp.State.Scheduler.NoProgress = 27
-	original.comp.State.LDS.Exec = wfID(wg.waves()[1])
+	original.comp.State.LDS.Exec = handleOf(wg.waves()[1])
 	original.comp.State.LDS.Cycles = 3
 	restored := roundTripCUState(t, original)
 	restoredWG := &WorkGroup{cu: restored, UID: wg.UID}
@@ -106,14 +106,14 @@ func checkpointGroup(c *ComputeUnit) *WorkGroup {
 	return c.wrapWG(grid.NextWG(), messaging.Msg{ID: c.comp.NewID(), Payload: protocol.MapWGReq{}})
 }
 
-func checkpointInstruction(t *testing.T, c *ComputeUnit) *wavefront.Inst {
+func checkpointInstruction(t *testing.T, c *ComputeUnit) *testInstruction {
 	t.Helper()
 	raw := []byte{0, 0, 0x80, 0xbf} // s_nop 0
 	decoded, err := c.Decoder.Decode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	i := wavefront.NewInst(c.comp.NewID(), decoded)
+	i := newTestInstruction(c.comp.NewID(), decoded)
 	i.Raw = raw
 	return i
 }
@@ -122,12 +122,12 @@ func TestCheckpointRegistersAndSIMDResumeFromCanonicalState(t *testing.T) {
 	original := checkpointCU(t)
 	wg := checkpointGroup(original)
 	wf := wg.waves()[0]
-	wf.SetDynamicInst(checkpointInstruction(t, original))
+	wf.setTestInst(checkpointInstruction(t, original))
 	wf.execution().InstBuffer = make([]byte, 64)
 	wf.execution().State = wavefront.WfRunning
 	wf.execution().InFlightInsts = 1
 	original.comp.State.InstTasks[wf.execution().InstID] = 0
-	original.comp.State.SIMDs[0] = SIMDState{Exec: wfID(wf), Cycles: 2}
+	original.comp.State.SIMDs[0] = SIMDState{Exec: handleOf(wf), Cycles: 2}
 	original.comp.State.SRegisters[8] = 37
 	original.comp.State.VRegisters[0][12] = 41
 	var archive bytes.Buffer
@@ -157,7 +157,7 @@ func TestCheckpointRegistersAndSIMDResumeFromCanonicalState(t *testing.T) {
 		t.Fatal("SIMD did not resume its saved cycle")
 	}
 	unit.Run()
-	view := restored.wave(wfID(wf))
+	view := restored.wave(handleOf(wf))
 	if view.PC() != 4 || view.execution().State != wavefront.WfReady || restored.comp.State.SIMDs[0].Exec != 0 {
 		t.Fatal("SIMD completion did not update canonical wave")
 	}
@@ -171,9 +171,9 @@ func TestInstructionRegistryBoundedWithinLongLivedGroup(t *testing.T) {
 	wf := checkpointGroup(c).waves()[0]
 	for i := 0; i < 2000; i++ {
 		next := checkpointInstruction(t, c)
-		wf.SetNextInst(next)
-		wf.SetDynamicInst(wf.NextInst())
-		wf.SetNextInst(nil)
+		wf.setTestNextInst(next)
+		wf.SetInstID(wf.execution().ToIssueID)
+		wf.setTestNextInst(nil)
 		if len(c.comp.State.Instructions) != 1 {
 			t.Fatalf("instruction registry grows at iteration %d", i)
 		}
@@ -197,14 +197,14 @@ func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
 	spec.RegisterScoreboard = true
 	original := checkpointCU(t, spec)
 	wf := checkpointGroup(original).waves()[0]
-	wf.SetDynamicInst(checkpointInstruction(t, original))
+	wf.setTestInst(checkpointInstruction(t, original))
 	wf.execution().InstBuffer = make([]byte, 64)
 	wf.execution().State = wavefront.WfRunning
 	wf.execution().InFlightInsts = 1
 	scoreboard := wf.scoreboard()
 	scoreboard.VGPRBusyUntil[7] = 9
 	original.comp.State.InstTasks[wf.execution().InstID] = 0
-	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{{WF: wfID(wf), Cycles: 2}}
+	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{{WF: handleOf(wf), Cycles: 2}}
 	var archive bytes.Buffer
 	if err := original.comp.SaveCheckpoint(&archive); err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	restored = MiddlewareOf(restored.comp)
-	view := restored.wave(wfID(wf))
+	view := restored.wave(handleOf(wf))
 	canonical := restored.comp.State.Groups[wf.group().slot]
 	if view.scoreboard() != &restored.comp.State.Waves[slotIndex(canonical.Waves[0])].Scoreboard {
 		t.Fatal("scoreboard is not canonical")
@@ -238,16 +238,16 @@ func TestCompletedGroupRetiresAfterFetchAheadResponse(t *testing.T) {
 	c := checkpointCU(t)
 	wg := checkpointGroup(c)
 	wf := wg.waves()[0]
-	wf.SetDynamicInst(checkpointInstruction(t, c))
+	wf.setTestInst(checkpointInstruction(t, c))
 	c.WfPools[0].AddWf(wf)
 	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
-	c.comp.State.InstFetch = []FetchState{{Req: req, WF: wfID(wf)}}
+	c.comp.State.InstFetch = []FetchState{{Req: req, WF: handleOf(wf)}}
 	wf.execution().State = wavefront.WfDraining
 	wf.execution().IsFetching = true
 	port := newFakePort("CU.ACE")
 	c.ToACE = port
 	c.retireGroups()
-	if c.wave(wfID(wf)).state() != wf.state() || liveTestGroups(&c.comp.State) != 1 {
+	if c.wave(handleOf(wf)).state() != wf.state() || liveTestGroups(&c.comp.State) != 1 {
 		t.Fatal("fetch-ahead wave retired early")
 	}
 	if len(port.sent) != 0 || c.WfPools[0].Availability() != c.comp.Spec.WfPoolSize-1 {
@@ -278,14 +278,14 @@ func TestSampledCompletionRetiresGroupWithoutAnotherTick(t *testing.T) {
 	wg := checkpointGroup(c)
 	wf := wg.waves()[0]
 	wf.execution().State = wavefront.WfSampledWaiting
-	wf.SetDynamicInst(checkpointInstruction(t, c))
+	wf.setTestInst(checkpointInstruction(t, c))
 	c.WfPools[0].AddWf(wf)
 	c.comp.State.WFTimes[wf.UID] = 100
 	c.comp.State.WFTasks[wf.UID] = 0
 	c.comp.State.WGTasks[wg.state().Request.ID] = 0
 	port := newFakePort("CU.Top")
 	c.ToACE = port
-	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, wfID(wf)))
+	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 200, c.wfCompletionHandlerID, handleOf(wf)))
 	if len(port.sent) != 1 {
 		t.Fatal("sampled completion response was not sent")
 	}
@@ -312,7 +312,7 @@ func TestWavefrontLookupUsesCurrentStateAfterLoad(t *testing.T) {
 	// Lookup resolves current State; neither Tick nor MiddlewareOf runs after load.
 	got := restored.wavefrontByID(wf.UID)
 	if got == wf || got.state() != restored.findWavefront(wf.UID).state() ||
-		got.state() != restored.wave(wfID(wf)).state() {
+		got.state() != restored.wave(handleOf(wf)).state() {
 		t.Fatal("wavefront lookup does not share the canonical restored view")
 	}
 	for _, id := range []uint64{0, ^uint64(0)} {

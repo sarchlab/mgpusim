@@ -16,13 +16,13 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-func lifecycleInstruction(t *testing.T, c *ComputeUnit, raw []byte) *wavefront.Inst {
+func lifecycleInstruction(t *testing.T, c *ComputeUnit, raw []byte) *testInstruction {
 	t.Helper()
 	decoded, err := c.Decoder.Decode(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &wavefront.Inst{ID: c.comp.NewID(), Inst: decoded, Raw: raw}
+	return &testInstruction{ID: c.comp.NewID(), Inst: decoded, Raw: raw}
 }
 
 func lifecycleGroup(c *ComputeUnit, waves int) *WorkGroup {
@@ -46,11 +46,11 @@ func checkEndProgramDrain(t *testing.T, tracking bool) {
 	c := checkpointCUWithTracking(t, tracking)
 	w := checkpointGroup(c).waves()[0]
 	c.WfPools[0].AddWf(w)
-	w.SetDynamicInst(lifecycleInstruction(t, c, []byte{0, 0, 0x81, 0xbf}))
+	w.setTestInst(lifecycleInstruction(t, c, []byte{0, 0, 0x81, 0xbf}))
 	w.execution().State = wavefront.WfRunning
-	c.beginInstruction(w, w.DynamicInst())
+	c.beginInstruction(w, w.InstID())
 	scheduler := c.Scheduler.(*SchedulerImpl)
-	scheduler.state().Internal = []uint64{w.handle}
+	scheduler.state().Internal = []waveHandle{w.handle}
 	fetch := newFakePort("CU.InstMem")
 	c.ToInstMem = fetch
 	// Issue a genuine prefetch before S_ENDPGM observes the outstanding data.
@@ -124,15 +124,15 @@ func checkAsyncInstruction(t *testing.T, kind string, tracking bool) {
 	w.execution().State = wavefront.WfReady
 	// Advance many instructions while an old async operation still owns its encoding.
 	for range 128 {
-		w.SetNextInst(checkpointInstruction(t, c))
+		w.setTestNextInst(checkpointInstruction(t, c))
 		w.issueNext()
-		c.beginInstruction(w, w.DynamicInst())
-		c.completeInstruction(w, w.DynamicInst())
+		c.beginInstruction(w, w.InstID())
+		c.completeInstruction(w, w.InstID())
 		if len(c.comp.State.Instructions) != 2 {
 			t.Fatal("instruction storage was lost or grew without bound")
 		}
 	}
-	c.rememberInstruction(w.handle, inst)
+	c.rememberInstruction(w.handle, inst.saved())
 	if !tracking {
 		delete(c.comp.State.InstTasks, inst.ID)
 	}
@@ -153,7 +153,7 @@ func checkAsyncInstruction(t *testing.T, kind string, tracking bool) {
 }
 
 func prepareAsyncInstruction(t *testing.T, c *ComputeUnit, w *Wavefront, kind string) (
-	*wavefront.Inst, messaging.Msg, messaging.Msg,
+	*testInstruction, messaging.Msg, messaging.Msg,
 ) {
 	t.Helper()
 	raw := []byte{0, 0, 0x50, 0xdc, 0, 0, 0, 0} // flat_load_dword
@@ -164,8 +164,8 @@ func prepareAsyncInstruction(t *testing.T, c *ComputeUnit, w *Wavefront, kind st
 		raw = []byte{0, 0, 0x70, 0xdc, 0, 0, 0, 0}
 	} // flat_store_dword
 	inst := lifecycleInstruction(t, c, raw)
-	w.SetDynamicInst(inst)
-	c.beginInstruction(w, w.DynamicInst())
+	w.setTestInst(inst)
+	c.beginInstruction(w, w.InstID())
 	first := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
 	second := first
 	second.ID = c.comp.NewID()
@@ -362,10 +362,10 @@ func TestBarrierPeersTreatDrainingWaveAsExecutionEnded(t *testing.T) {
 	}
 	scheduler := c.Scheduler.(*SchedulerImpl)
 	end := func(w *Wavefront) {
-		w.SetDynamicInst(lifecycleInstruction(t, c, []byte{0, 0, 0x81, 0xbf}))
+		w.setTestInst(lifecycleInstruction(t, c, []byte{0, 0, 0x81, 0xbf}))
 		w.execution().State = wavefront.WfRunning
-		c.beginInstruction(w, w.DynamicInst())
-		scheduler.state().Internal = []uint64{w.handle}
+		c.beginInstruction(w, w.InstID())
+		scheduler.state().Internal = []waveHandle{w.handle}
 		scheduler.EvaluateInternalInst()
 	}
 	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
@@ -373,10 +373,10 @@ func TestBarrierPeersTreatDrainingWaveAsExecutionEnded(t *testing.T) {
 	waves[0].execution().IsFetching = true
 	end(waves[0])
 	barrier := waves[1]
-	barrier.SetDynamicInst(lifecycleInstruction(t, c, []byte{0, 0, 0x8a, 0xbf}))
+	barrier.setTestInst(lifecycleInstruction(t, c, []byte{0, 0, 0x8a, 0xbf}))
 	barrier.execution().State = wavefront.WfRunning
-	c.beginInstruction(barrier, barrier.DynamicInst())
-	scheduler.state().Internal = []uint64{barrier.handle}
+	c.beginInstruction(barrier, barrier.InstID())
+	scheduler.state().Internal = []waveHandle{barrier.handle}
 	scheduler.EvaluateInternalInst()
 	assertLifecycleHolders(t, c)
 	if barrier.execution().State != wavefront.WfAtBarrier {

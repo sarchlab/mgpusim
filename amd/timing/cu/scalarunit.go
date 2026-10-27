@@ -8,7 +8,6 @@ import (
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -51,34 +50,34 @@ func (u *ScalarUnit) IsIdle() bool {
 func (u *ScalarUnit) AcceptWave(wave *Wavefront) {
 	u.state().Stages.Read = u.cu.useWave(wave)
 	inst := wave.Inst()
-	dynInst := wave.DynamicInst()
-	if inst != nil && dynInst != nil && inst.FormatType == insts.SMEM {
+	dynInst := wave.InstID()
+	if inst != nil && dynInst != 0 && inst.FormatType == insts.SMEM {
 		u.startIssueSubtask(dynInst)
 	}
 }
 
-func (u *ScalarUnit) startIssueSubtask(inst *wavefront.Inst) {
+func (u *ScalarUnit) startIssueSubtask(inst uint64) {
 	taskID := u.cu.comp.TaskTracker().StartTask(u.cu.comp, tasks.StartInfo{
-		ParentID: u.cu.comp.State.InstTasks[inst.ID],
+		ParentID: u.cu.comp.State.InstTasks[inst],
 		Kind:     "pipeline",
 		What:     u.cu.comp.Name() + ".smem_issue",
 	})
-	u.state().Tasks[inst.ID] = taskID
+	u.state().Tasks[inst] = taskID
 }
 
-func (u *ScalarUnit) endIssueSubtask(inst *wavefront.Inst) {
-	taskID, ok := u.state().Tasks[inst.ID]
+func (u *ScalarUnit) endIssueSubtask(inst uint64) {
+	taskID, ok := u.state().Tasks[inst]
 	if !ok {
 		return
 	}
 
 	u.cu.comp.TaskTracker().EndTask(taskID)
 	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: u.cu.comp.State.InstTasks[inst.ID],
+		TaskID: u.cu.comp.State.InstTasks[inst],
 		Kind:   tasks.MilestoneKindWork,
 		What:   u.cu.comp.Name() + ".smem_issue",
 	})
-	delete(u.state().Tasks, inst.ID)
+	delete(u.state().Tasks, inst)
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -143,7 +142,7 @@ func (u *ScalarUnit) executeSMEMInst() bool {
 }
 
 func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
-	inst := u.cu.wave(u.state().Stages.Exec).DynamicInst()
+	inst := u.cu.wave(u.state().Stages.Exec).InstID()
 	rawInst := u.cu.wave(u.state().Stages.Exec).Inst()
 	baseVal := u.cu.wave(u.state().Stages.Exec).ReadOperand(rawInst.Base, 0)
 	offsetVal := u.cu.wave(u.state().Stages.Exec).ReadOperand(rawInst.Offset, 0)
@@ -156,7 +155,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 
 	curr := start
 	bytesLeft := uint64(byteSize)
-	regIndex := inst.Data.Register.RegIndex()
+	regIndex := rawInst.Data.Register.RegIndex()
 	for bytesLeft > 0 {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
@@ -173,12 +172,12 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 			Req:       req,
 			Wavefront: u.cu.wave(u.state().Stages.Exec),
 			DstSGPR:   insts.SReg(regIndex + int((curr-start)/4)),
-			Inst:      inst,
+			InstID:    inst,
 		}
 		u.cu.comp.State.Scalar = append(
 			u.cu.comp.State.Scalar, u.cu.scalarState(info))
 
-		u.cu.startRequest(req, u.cu.comp.State.InstTasks[u.cu.wave(u.state().Stages.Exec).DynamicInst().ID])
+		u.cu.startRequest(req, u.cu.comp.State.InstTasks[u.cu.wave(u.state().Stages.Exec).InstID()])
 
 		curr += bytesLeftInCacheline
 	}
@@ -231,7 +230,7 @@ func (u *ScalarUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.cu.completeInstruction(u.cu.wave(u.state().Stages.Write), u.cu.wave(u.state().Stages.Write).DynamicInst())
+	u.cu.completeInstruction(u.cu.wave(u.state().Stages.Write), u.cu.wave(u.state().Stages.Write).InstID())
 
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Stages.Write))
 

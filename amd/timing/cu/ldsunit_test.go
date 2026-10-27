@@ -53,7 +53,7 @@ var _ = Describe("LDS Unit", func() {
 		inst.Data = insts.NewVRegOperand(2, 2, 2)
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
+		wave3.setTestInst(inst)
 		wave3.SetPC(0x13C)
 		wave3.execution().InstBuffer = make([]byte, 256)
 		wave3.execution().InstBufferStartPC = 0x100

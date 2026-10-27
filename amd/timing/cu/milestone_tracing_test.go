@@ -47,8 +47,8 @@ func TestSWaitCntRecordsDataMilestone(t *testing.T) {
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
-	wf.SetDynamicInst(inst)
+	instTask := startTestInst(cu, inst.ID)
+	wf.setTestInst(inst)
 	// Outstanding counts (0) already satisfy the requested counts (0), so the
 	// wait resolves immediately.
 
@@ -83,12 +83,12 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	setTestCodeObject(wf.group(), &insts.KernelCodeObject{
 		KernelCodeObjectMeta: &insts.KernelCodeObjectMeta{},
 	})
-	wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
+	wf.setTestInst(testInst(testIDs.NewID(), insts.NewInst()))
 	setTestGroup(wf, wg)
 	wf.execution().State = wavefront.WfRunning
 	setTestWaves(wg, []*Wavefront{wf})
 	testAddWave(cu.WfPools[0], wf)
-	taskID := startTestInst(cu, wf.DynamicInst())
+	taskID := startTestInst(cu, wf.InstID())
 
 	// Execution retires independently of ACE delivery. Completion retries must
 	// retain the hardware slot and must not replay instruction milestones.
@@ -97,7 +97,7 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	if _, completed := s.evalSEndPgm(wf); !completed {
 		t.Fatal("execution should finish before ACE delivery")
 	}
-	cu.completeInstruction(wf, wf.DynamicInst())
+	cu.completeInstruction(wf, wf.InstID())
 	cu.retireGroups()
 	cu.retireGroups()
 	if len(ace.sent) != 0 || wf.execution().State != wavefront.WfCompleted {
@@ -160,7 +160,7 @@ func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	setTestCodeObject(wf.group(), co)
-	wf.SetDynamicInst(testInst(testIDs.NewID(), insts.NewInst()))
+	wf.setTestInst(testInst(testIDs.NewID(), insts.NewInst()))
 	setTestGroup(wf, wg)
 	wf.execution().State = wavefront.WfRunning
 
@@ -170,14 +170,14 @@ func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 	other.execution().State = wavefront.WfRunning // still executing -> the "executing" branch
 	setTestWaves(wg, []*Wavefront{wf, other})
 
-	rec := &orderedEndRecorder{instID: startTestInst(cu, wf.DynamicInst())}
+	rec := &orderedEndRecorder{instID: startTestInst(cu, wf.InstID())}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	if _, completed := s.evalSEndPgm(wf); !completed {
 		t.Fatal("S_ENDPGM should retire on the executing branch")
 	}
 
-	cu.completeInstruction(wf, wf.DynamicInst())
+	cu.completeInstruction(wf, wf.InstID())
 
 	if len(rec.events) != 2 ||
 		rec.events[0] != "milestone" || rec.events[1] != "endTask" {
@@ -198,14 +198,14 @@ func TestVectorMemDataReturnRecordsDataMilestone(t *testing.T) {
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
+	instTask := startTestInst(cu, inst.ID)
 	inst.ExeUnit = insts.ExeUnitVMem
-	wf.SetDynamicInst(inst)
+	wf.setTestInst(inst)
 
 	read := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
 	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu,
-		VectorMemAccessInfo{Read: read, Inst: inst, Wavefront: wf}))
+		VectorMemAccessInfo{Read: read, InstID: inst.ID, Wavefront: wf}))
 
 	cu.handleVectorDataLoadReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: read.ID, Payload: memprotocol.DataReadyRsp{}},
@@ -348,9 +348,9 @@ func TestDecodeRecordsWorkMilestone(t *testing.T) {
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
+	instTask := startTestInst(cu, inst.ID)
 	inst.ExeUnit = insts.ExeUnitScalar
-	wf.SetDynamicInst(inst)
+	wf.setTestInst(inst)
 
 	registerTestWave(cu, wf)
 	du.AcceptWave(wf)
@@ -388,13 +388,13 @@ func TestScalarMemIssueRecordsWorkMilestone(t *testing.T) {
 	setTestAccessor(wf, regAccessor)
 
 	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
+	instTask := startTestInst(cu, inst.ID)
 	inst.FormatType = insts.SMEM
 	inst.Opcode = 0
 	inst.Data = insts.NewSRegOperand(0, 0, 1)
 	inst.Base = insts.NewSRegOperand(2, 2, 2)
 	inst.Offset = insts.NewIntOperand(0, 0)
-	wf.SetDynamicInst(inst)
+	wf.setTestInst(inst)
 
 	baseReg := insts.SReg(2)
 	regAccessor.setRegValue(baseReg, 2, 0, wf.execution().SRegOffset,
@@ -430,15 +430,16 @@ func TestVectorMemSendRecordsCoalesceWorkMilestone(t *testing.T) {
 		queueing.MakeBuffer[uint64](8)
 
 	inst := testInst(testIDs.NewID(), nil)
-	instTask := startTestInst(cu, inst)
-	vmu.startIssueSubtask(inst) // as the in-flight admission would
+	instTask := startTestInst(cu, inst.ID)
+	vmu.startIssueSubtask(inst.ID) // as the in-flight admission would
 
 	read := messaging.Msg{ID: testIDs.NewID(),
 		Src: cu.ToVectorMem.AsRemote(),
 		Dst: "VectorMem", Payload: memprotocol.ReadReq{}}
 
 	vmu.state().Transactions = 1
-	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu, VectorMemAccessInfo{Read: read, Inst: inst}))
+	cu.comp.State.Vector = append(cu.comp.State.Vector,
+		testVectorState(cu, VectorMemAccessInfo{Read: read, InstID: inst.ID}))
 	vmu.state().TransactionsOutput.Push(read.ID)
 
 	vmu.sendRequest()
@@ -480,14 +481,15 @@ func TestVectorMemCoalesceWorkNotDelayedByPortBackpressure(t *testing.T) {
 		queueing.MakeBuffer[uint64](8)
 
 	inst := testInst(testIDs.NewID(), nil)
-	instTask := startTestInst(cu, inst)
-	vmu.startIssueSubtask(inst)
+	instTask := startTestInst(cu, inst.ID)
+	vmu.startIssueSubtask(inst.ID)
 	read := messaging.Msg{ID: testIDs.NewID(),
 		Src: cu.ToVectorMem.AsRemote(),
 		Dst: "VectorMem", Payload: memprotocol.ReadReq{}}
 
 	vmu.state().Transactions = 1
-	cu.comp.State.Vector = append(cu.comp.State.Vector, testVectorState(cu, VectorMemAccessInfo{Read: read, Inst: inst}))
+	cu.comp.State.Vector = append(cu.comp.State.Vector,
+		testVectorState(cu, VectorMemAccessInfo{Read: read, InstID: inst.ID}))
 	vmu.state().TransactionsOutput.Push(read.ID)
 
 	// Port full: the transaction is ready but cannot be sent. The work
@@ -538,17 +540,18 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	inst := testInst(testIDs.NewID(), insts.NewInst())
-	instTask := startTestInst(cu, inst)
+	instTask := startTestInst(cu, inst.ID)
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
+	wf.setTestInst(inst)
 
 	readSibling := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
 	readLastGenerated := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{}}
 
 	cu.comp.State.Vector = testVectorStates(cu, []VectorMemAccessInfo{
-		{Read: readSibling, Inst: inst, Wavefront: wf},
-		{Read: readLastGenerated, Inst: inst, Wavefront: wf},
+		{Read: readSibling, InstID: inst.ID, Wavefront: wf},
+		{Read: readLastGenerated, InstID: inst.ID, Wavefront: wf},
 	})
 
 	// The last-generated transaction returns first (out of order); its sibling
@@ -570,9 +573,9 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	}
 }
 
-func startTestInst(c *ComputeUnit, inst *wavefront.Inst) uint64 {
+func startTestInst(c *ComputeUnit, inst uint64) uint64 {
 	id := c.comp.TaskTracker().StartTask(c.comp, tasks.StartInfo{Kind: "inst", What: "test", Detail: inst})
-	c.comp.State.InstTasks[inst.ID] = id
+	c.comp.State.InstTasks[inst] = id
 	return id
 }
 func startTestWave(c *ComputeUnit, wf *Wavefront) {

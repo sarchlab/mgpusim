@@ -99,7 +99,7 @@ func (c defaultCoalescer) generateReadTransactions(
 		transaction := VectorMemAccessInfo{
 			Read:      req,
 			Wavefront: wf.view,
-			Inst:      wf.DynamicInst(),
+			InstID:    wf.InstID(),
 		}
 
 		c.addLaneInfo(&transaction, wf)
@@ -118,7 +118,7 @@ func (c defaultCoalescer) generateWriteTransactions(
 		transaction := VectorMemAccessInfo{
 			Write:     req,
 			Wavefront: wf.view,
-			Inst:      wf.DynamicInst(),
+			InstID:    wf.InstID(),
 		}
 
 		transactions = append(transactions, transaction)

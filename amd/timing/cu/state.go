@@ -14,7 +14,7 @@ type InstructionState struct {
 	Raw    []byte
 	// Owner is the generation-bearing local wave slot. ExecutionPending spans
 	// issue through execution completion, including the final memory response.
-	Owner            uint64
+	Owner            waveHandle
 	ExecutionPending bool
 }
 type WaveState struct {
@@ -31,15 +31,17 @@ type WorkGroupState struct {
 	Raw      kernels.WorkGroupValue
 	Request  messaging.Msg
 	LDS      []byte
-	Waves    []uint64
+	Waves    []waveHandle
 }
 type FetchState struct {
-	Req               messaging.Msg
-	WF, Address, Task uint64
+	Req           messaging.Msg
+	WF            waveHandle
+	Address, Task uint64
 }
 type ScalarAccessState struct {
 	Req      messaging.Msg
-	WF, Inst uint64
+	WF       waveHandle
+	Inst     uint64
 	Register insts.RegType
 }
 type LaneState struct {
@@ -50,17 +52,18 @@ type LaneState struct {
 }
 type VectorAccessState struct {
 	Read, Write messaging.Msg
-	WF, Inst    uint64
+	WF          waveHandle
+	Inst        uint64
 	Lanes       []LaneState
 }
 type DecoderState struct {
-	ToDecode      []uint64
+	ToDecode      []waveHandle
 	Decoded, Idle bool
 	Tasks         map[uint64]uint64
 	Done          map[uint64]bool
 }
 type StageState struct {
-	Read, Exec, Write uint64
+	Read, Exec, Write waveHandle
 	Cycles            int
 	Idle              bool
 }
@@ -71,7 +74,7 @@ type ScalarUnitState struct {
 	Tasks map[uint64]uint64
 }
 type SchedulerState struct {
-	Internal, Barrier    []uint64
+	Internal, Barrier    []waveHandle
 	NoProgress, LastSIMD int
 }
 type VectorUnitState struct {
@@ -87,12 +90,12 @@ type VectorUnitState struct {
 	TransactionsOutput   queueing.Buffer[uint64]
 }
 type SIMDSlotState struct {
-	WF     uint64
+	WF     waveHandle
 	Cycles int
 	Task   uint64
 }
 type SIMDState struct {
-	Exec   uint64
+	Exec   waveHandle
 	Cycles int
 	Task   uint64
 	Idle   bool
@@ -106,7 +109,7 @@ func (s *State) Initialize(c *Comp) {
 		Groups:       make([]WorkGroupState, numWfPools*c.Spec.WfPoolSize),
 		Waves:        make([]WaveState, numWfPools*c.Spec.WfPoolSize),
 		Instructions: make(map[uint64]InstructionState),
-		WFTimes:      make(map[uint64]timing.VTimeInPicoSec), Pools: make([][]uint64, numWfPools),
+		WFTimes:      make(map[uint64]timing.VTimeInPicoSec), Pools: make([][]waveHandle, numWfPools),
 		SRegisters: make([]byte, c.Spec.SGPRCount*4), VRegisters: make([][]byte, c.Spec.SIMDCount),
 		Decoders: make([]DecoderState, 4), SIMDs: make([]SIMDState, c.Spec.SIMDCount),
 	}

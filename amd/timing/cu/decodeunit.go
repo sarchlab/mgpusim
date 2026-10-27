@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/sarchlab/akita/v5/sim/tasks"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode
@@ -56,7 +55,7 @@ func (du *DecodeUnit) AcceptWave(
 
 	du.state().ToDecode = append(du.state().ToDecode, du.cu.useWave(wave))
 	du.state().Decoded = false
-	du.startDecodeSubtask(wave.DynamicInst())
+	du.startDecodeSubtask(wave.InstID())
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
@@ -64,21 +63,21 @@ func (du *DecodeUnit) AcceptWave(
 func (du *DecodeUnit) Run() bool {
 	madeProgress := false
 
-	remaining := make([]uint64, 0, len(du.state().ToDecode))
+	remaining := make([]waveHandle, 0, len(du.state().ToDecode))
 	for _, id := range du.state().ToDecode {
 		wave := du.cu.wave(id)
 		simdID := wave.execution().SIMDID
 		execUnit := du.ExecUnits[simdID]
 
 		if execUnit.CanAcceptWave() {
-			inst := wave.DynamicInst()
+			inst := wave.InstID()
 			du.endDecodeSubtask(inst)
-			if inst != nil && du.state().Done[inst.ID] {
+			if inst != 0 && du.state().Done[inst] {
 				du.markExecUnitReady(wave)
 			}
 			execUnit.AcceptWave(wave)
-			if inst != nil {
-				delete(du.state().Done, inst.ID)
+			if inst != 0 {
+				delete(du.state().Done, inst)
 			}
 			madeProgress = true
 		} else {
@@ -90,10 +89,10 @@ func (du *DecodeUnit) Run() bool {
 	if len(du.state().ToDecode) > 0 && !du.state().Decoded {
 		for _, id := range du.state().ToDecode {
 			wave := du.cu.wave(id)
-			inst := wave.DynamicInst()
+			inst := wave.InstID()
 			du.endDecodeSubtask(inst)
-			if inst != nil {
-				du.state().Done[inst.ID] = true
+			if inst != 0 {
+				du.state().Done[inst] = true
 			}
 		}
 		du.state().Decoded = true
@@ -103,48 +102,48 @@ func (du *DecodeUnit) Run() bool {
 	return madeProgress
 }
 
-func (du *DecodeUnit) startDecodeSubtask(inst *wavefront.Inst) {
-	if inst == nil {
+func (du *DecodeUnit) startDecodeSubtask(inst uint64) {
+	if inst == 0 {
 		return
 	}
 
 	taskID := du.cu.comp.TaskTracker().StartTask(du.cu.comp, tasks.StartInfo{
-		ParentID: du.cu.comp.State.InstTasks[inst.ID],
+		ParentID: du.cu.comp.State.InstTasks[inst],
 		Kind:     "pipeline",
 		What:     du.cu.comp.Name() + "." + du.stage,
 	})
-	du.state().Tasks[inst.ID] = taskID
+	du.state().Tasks[inst] = taskID
 }
 
-func (du *DecodeUnit) endDecodeSubtask(inst *wavefront.Inst) {
-	if inst == nil {
+func (du *DecodeUnit) endDecodeSubtask(inst uint64) {
+	if inst == 0 {
 		return
 	}
 
-	taskID, ok := du.state().Tasks[inst.ID]
+	taskID, ok := du.state().Tasks[inst]
 	if !ok {
 		return
 	}
 
 	du.cu.comp.TaskTracker().EndTask(taskID)
 	du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: du.cu.comp.State.InstTasks[inst.ID],
+		TaskID: du.cu.comp.State.InstTasks[inst],
 		Kind:   tasks.MilestoneKindWork,
 		What:   du.cu.comp.Name() + "." + du.stage,
 	})
-	delete(du.state().Tasks, inst.ID)
+	delete(du.state().Tasks, inst)
 }
 
 func (du *DecodeUnit) markExecUnitReady(wave *Wavefront) {
-	if wave.DynamicInst() == nil {
+	if wave.InstID() == 0 {
 		return
 	}
 
 	du.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: du.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		TaskID: du.cu.comp.State.InstTasks[wave.InstID()],
 		Kind:   tasks.MilestoneKindHardwareResource,
 		What: du.cu.comp.Name() + "." +
-			du.cu.execUnitToString(wave.DynamicInst().ExeUnit),
+			du.cu.execUnitToString(wave.Inst().ExeUnit),
 	})
 }
 

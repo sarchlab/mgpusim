@@ -37,13 +37,14 @@ var _ = Describe("IssueArbiter", func() {
 		for i := 0; i < len(wfState); i++ {
 			wf := newTestWave()
 			wf.execution().State = wfState[i]
-			wf.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-			wf.NextInst().ExeUnit = exeUnits[i]
+			wfDescription := insts.NewInst()
+			wfDescription.ExeUnit = exeUnits[i]
+			wf.setTestNextInst(testInst(testIDs.NewID(), wfDescription))
 			wfs = append(wfs, wf)
 			testAddWave(wfPools[0], wf)
 
 			if i == 3 || i == 6 {
-				wf.SetNextInst(nil)
+				wf.setTestNextInst(nil)
 			}
 		}
 
@@ -66,29 +67,33 @@ var _ = Describe("IssueArbiter", func() {
 		// Put a VALU wavefront in SIMD 0
 		wf0 := newTestWave()
 		wf0.execution().State = wavefront.WfReady
-		wf0.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf0.NextInst().ExeUnit = insts.ExeUnitVALU
+		wf0Description := insts.NewInst()
+		wf0Description.ExeUnit = insts.ExeUnitVALU
+		wf0.setTestNextInst(testInst(testIDs.NewID(), wf0Description))
 		testAddWave(wfPools[0], wf0)
 
 		// Put a Scalar wavefront in SIMD 1
 		wf1 := newTestWave()
 		wf1.execution().State = wavefront.WfReady
-		wf1.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf1.NextInst().ExeUnit = insts.ExeUnitScalar
+		wf1Description := insts.NewInst()
+		wf1Description.ExeUnit = insts.ExeUnitScalar
+		wf1.setTestNextInst(testInst(testIDs.NewID(), wf1Description))
 		testAddWave(wfPools[1], wf1)
 
 		// Put a VMem wavefront in SIMD 2
 		wf2 := newTestWave()
 		wf2.execution().State = wavefront.WfReady
-		wf2.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf2.NextInst().ExeUnit = insts.ExeUnitVMem
+		wf2Description := insts.NewInst()
+		wf2Description.ExeUnit = insts.ExeUnitVMem
+		wf2.setTestNextInst(testInst(testIDs.NewID(), wf2Description))
 		testAddWave(wfPools[2], wf2)
 
 		// Put a Branch wavefront in SIMD 3
 		wf3 := newTestWave()
 		wf3.execution().State = wavefront.WfReady
-		wf3.SetNextInst(testInst(testIDs.NewID(), insts.NewInst()))
-		wf3.NextInst().ExeUnit = insts.ExeUnitBranch
+		wf3Description := insts.NewInst()
+		wf3Description.ExeUnit = insts.ExeUnitBranch
+		wf3.setTestNextInst(testInst(testIDs.NewID(), wf3Description))
 		testAddWave(wfPools[3], wf3)
 
 		issueCandidate := arbiter.Arbitrate(wfPools)

@@ -39,7 +39,7 @@ func (a *IssueArbiter) Arbitrate(
 			}
 			if a.scoreboardEnabled && wf.scoreboard() != nil {
 				sb := wf.scoreboard()
-				if sb.HasHazard(next.Inst) {
+				if sb.HasHazard(next) {
 					continue
 				}
 			}

@@ -17,7 +17,7 @@ func assertLifecycleHolders(t *testing.T, c *ComputeUnit) {
 	t.Helper()
 	holders := testOperationHolders(c)
 	for _, evt := range testPendingCompletions(t, c) {
-		holders[evt.WavefrontID] = append(holders[evt.WavefrontID], "sample event")
+		holders[evt.Handle] = append(holders[evt.Handle], "sample event")
 	}
 	for handle, locations := range holders {
 		w := c.wave(handle) // validates occupied slot and generation
@@ -54,7 +54,7 @@ func assertWaveDrainState(t *testing.T, c *ComputeUnit) {
 			continue
 		}
 		state := &w.Execution
-		handle := waveHandle(i, w.Generation)
+		handle := makeWaveHandle(i, w.Generation)
 		fetches := 0
 		for _, f := range c.comp.State.InstFetch {
 			if f.WF == handle {
@@ -74,10 +74,10 @@ func assertWaveDrainState(t *testing.T, c *ComputeUnit) {
 	}
 }
 
-func testOperationHolders(c *ComputeUnit) map[uint64][]string {
+func testOperationHolders(c *ComputeUnit) map[waveHandle][]string {
 	s := &c.comp.State
-	holders := make(map[uint64][]string)
-	add := func(id uint64, where string) {
+	holders := make(map[waveHandle][]string)
+	add := func(id waveHandle, where string) {
 		if id != 0 {
 			holders[id] = append(holders[id], where)
 		}
@@ -108,14 +108,14 @@ func testOperationHolders(c *ComputeUnit) map[uint64][]string {
 	return holders
 }
 
-func testMemoryHolders(s *State, add func(uint64, string)) {
+func testMemoryHolders(s *State, add func(waveHandle, string)) {
 	for _, f := range s.InstFetch {
 		add(f.WF, "fetch")
 	}
 	for _, a := range s.Scalar {
 		add(a.WF, "scalar memory")
 	}
-	requests := make(map[uint64]uint64)
+	requests := make(map[uint64]waveHandle)
 	for _, a := range s.Vector {
 		add(a.WF, "vector memory")
 		requests[a.requestID()] = a.WF
@@ -124,11 +124,11 @@ func testMemoryHolders(s *State, add func(uint64, string)) {
 		add(a.WF, "coalescing")
 	}
 	for _, stage := range s.VectorUnit.InstructionsPipeline.Stages() {
-		add(stage.Item.WavefrontID, "vector instruction pipeline")
+		add(stage.Item.Handle, "vector instruction pipeline")
 	}
 	for i := 0; i < s.VectorUnit.InstructionsOutput.Size(); i++ {
 		v, _ := s.VectorUnit.InstructionsOutput.PeekAt(i)
-		add(v.WavefrontID, "vector instruction output")
+		add(v.Handle, "vector instruction output")
 	}
 	txn := func(id uint64, where string) {
 		if id == 0 {
@@ -198,14 +198,14 @@ func testPendingCompletions(t *testing.T, c *ComputeUnit) []wavefront.WfCompleti
 			continue
 		}
 		var value struct {
-			WavefrontID uint64 `json:"WavefrontID"`
-			Handler     string `json:"handler_id"`
+			Handle  waveHandle `json:"Handle"`
+			Handler string     `json:"handler_id"`
 		}
 		if err := json.Unmarshal(e.Payload, &value); err != nil {
 			t.Fatal(err)
 		}
 		if value.Handler == c.wfCompletionHandlerID {
-			events = append(events, wavefront.NewWfCompletionEvent(0, 0, value.Handler, value.WavefrontID))
+			events = append(events, wavefront.NewWfCompletionEvent(0, 0, value.Handler, value.Handle))
 		}
 	}
 	return events
@@ -215,7 +215,7 @@ func testPendingCompletions(t *testing.T, c *ComputeUnit) []wavefront.WfCompleti
 // otherwise escape an audit that only iterates surviving Instructions entries.
 func assertInstructionReferences(t *testing.T, c *ComputeUnit) {
 	t.Helper()
-	check := func(id, owner uint64, pending bool) {
+	check := func(id uint64, owner waveHandle, pending bool) {
 		instruction, exists := c.comp.State.Instructions[id]
 		if !exists || instruction.Owner != owner || (pending && !instruction.ExecutionPending) {
 			t.Fatalf("instruction %d lost owner %d or pending execution", id, owner)
@@ -228,7 +228,7 @@ func assertInstructionReferences(t *testing.T, c *ComputeUnit) {
 		}
 		for _, id := range []uint64{w.Execution.InstID, w.Execution.ToIssueID} {
 			if id != 0 {
-				check(id, waveHandle(i, w.Generation), false)
+				check(id, makeWaveHandle(i, w.Generation), false)
 			}
 		}
 	}

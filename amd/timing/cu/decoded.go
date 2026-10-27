@@ -9,19 +9,22 @@ type decodeKey struct {
 	decoder  *insts.Disassembler
 	cdna3    bool
 	encoding string
+	pc       uint64
 }
 
 // decodeDescription returns a read-only decoded description. Cache entries
-// contain only immutable descriptions keyed by full encoding and ISA mode. PC
-// and dynamic IDs never enter the cache. Operand and format descriptions remain
-// read-only, as they are in the disassembler's own ISA tables.
-func (cu *ComputeUnit) decodeDescription(raw []byte) (*insts.Inst, error) {
+// contain immutable descriptions keyed by encoding, decoder, ISA mode and PC.
+// Dynamic IDs never enter the cache. Operands and formats also remain read-only.
+func (cu *ComputeUnit) decodeDescription(raw []byte, pc uint64) (*insts.Inst, error) {
 	decoder, ok := cu.Decoder.(*insts.Disassembler)
 	if !ok {
-		return cu.Decoder.Decode(raw)
+		value, err := cu.Decoder.Decode(raw)
+		if err == nil {
+			value.PC = pc
+		}
+		return value, err
 	}
-	key := decodeKey{decoder: decoder, cdna3: decoder.IsCDNA3, encoding: string(raw)}
-	if value, ok := cu.decoded[key]; ok {
+	if value, ok := cu.decoded[decodeKey{decoder: decoder, cdna3: decoder.IsCDNA3, encoding: string(raw), pc: pc}]; ok {
 		return value, nil
 	}
 	value, err := decoder.Decode(raw)
@@ -31,18 +34,7 @@ func (cu *ComputeUnit) decodeDescription(raw []byte) (*insts.Inst, error) {
 	if cu.decoded == nil {
 		cu.decoded = make(map[decodeKey]*insts.Inst)
 	}
-	cu.decoded[key] = value
+	value.PC = pc
+	cu.decoded[decodeKey{decoder: decoder, cdna3: decoder.IsCDNA3, encoding: string(raw), pc: pc}] = value
 	return value, nil
-}
-
-func (cu *ComputeUnit) decodeInstruction(raw []byte) (*insts.Inst, error) {
-	value, err := cu.decodeDescription(raw)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := cu.Decoder.(*insts.Disassembler); !ok {
-		return value, nil
-	}
-	copy := *value
-	return &copy, nil
 }

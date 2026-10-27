@@ -49,7 +49,7 @@ var _ = Describe("Branch Unit", func() {
 		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		inst.ByteSize = 4
-		wave3.SetDynamicInst(inst)
+		wave3.setTestInst(inst)
 		wave3.SetPC(0x13C)
 
 		bu.state().Read = testWaveID(cu, wave1)

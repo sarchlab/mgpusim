@@ -7,11 +7,10 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemInst struct {
-	WavefrontID uint64
+	Handle waveHandle
 }
 
 // A VectorMemoryUnit is the block in a compute unit that can performs vector
@@ -40,13 +39,13 @@ func NewVectorMemoryUnit(
 // coalescing / transaction-issue work (from the in-flight admission to the
 // first transaction send), parented to the instruction's task. It is the child
 // subtask that backs the "work" milestone emitted at first send.
-func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
+func (u *VectorMemoryUnit) startIssueSubtask(inst uint64) {
 	taskID := u.cu.comp.TaskTracker().StartTask(u.cu.comp, tasks.StartInfo{
-		ParentID: u.cu.comp.State.InstTasks[inst.ID],
+		ParentID: u.cu.comp.State.InstTasks[inst],
 		Kind:     "pipeline",
 		What:     u.cu.comp.Name() + ".coalesce",
 	})
-	u.state().IssueTasks[inst.ID] = taskID
+	u.state().IssueTasks[inst] = taskID
 }
 
 // endIssueSubtask closes an instruction's issue subtask (if still open) when
@@ -55,19 +54,19 @@ func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
 // of the same instruction — and port-full retries on the same one — find no
 // open subtask and are no-ops, so the milestone lands once, at the moment the
 // transaction is ready to send rather than when it actually leaves.
-func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
-	taskID, ok := u.state().IssueTasks[inst.ID]
+func (u *VectorMemoryUnit) endIssueSubtask(inst uint64) {
+	taskID, ok := u.state().IssueTasks[inst]
 	if !ok {
 		return
 	}
 
 	u.cu.comp.TaskTracker().EndTask(taskID)
 	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: u.cu.comp.State.InstTasks[inst.ID],
+		TaskID: u.cu.comp.State.InstTasks[inst],
 		Kind:   tasks.MilestoneKindWork,
 		What:   u.cu.comp.Name() + ".coalesce",
 	})
-	delete(u.state().IssueTasks, inst.ID)
+	delete(u.state().IssueTasks, inst)
 }
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
@@ -79,7 +78,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *Wavefront,
 ) {
-	u.state().InstructionsPipeline.Accept(vectorMemInst{WavefrontID: wfID(wave)})
+	u.state().InstructionsPipeline.Accept(vectorMemInst{Handle: handleOf(wave)})
 	u.state().Instructions++
 }
 
@@ -175,7 +174,7 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 
 	item, _ := u.state().InstructionsOutput.Peek()
 
-	wave := u.cu.wave(item.WavefrontID)
+	wave := u.cu.wave(item.Handle)
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:
@@ -198,7 +197,7 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 func (u *VectorMemoryUnit) executeFlatInsts(
 	wavefront *Wavefront,
 ) bool {
-	inst := wavefront.DynamicInst()
+	inst := wavefront.Inst()
 	switch inst.Opcode {
 	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE
 		return u.executeFlatLoad(wavefront)
@@ -218,7 +217,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 
 	if len(transactions) == 0 {
 		u.cu.completeInstruction(wave,
-			wave.DynamicInst())
+			wave.InstID())
 		return true
 	}
 
@@ -232,11 +231,11 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
 	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: u.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		TaskID: u.cu.comp.State.InstTasks[wave.InstID()],
 		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
-	u.startIssueSubtask(wave.DynamicInst())
+	u.startIssueSubtask(wave.InstID())
 
 	wave.execution().OutstandingVectorMemAccess++
 	wave.execution().OutstandingScalarMemAccess++
@@ -264,7 +263,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 
 	if len(transactions) == 0 {
 		u.cu.completeInstruction(wave,
-			wave.DynamicInst())
+			wave.InstID())
 		return true
 	}
 
@@ -278,11 +277,11 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
 	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: u.cu.comp.State.InstTasks[wave.DynamicInst().ID],
+		TaskID: u.cu.comp.State.InstTasks[wave.InstID()],
 		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
-	u.startIssueSubtask(wave.DynamicInst())
+	u.startIssueSubtask(wave.InstID())
 
 	wave.execution().OutstandingVectorMemAccess++
 	wave.execution().OutstandingScalarMemAccess++
@@ -319,7 +318,7 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		// not counted as coalescing work. It is idempotent (only the first
 		// transaction per instruction finds an open subtask), so a port-full
 		// retry on the same transaction does not re-emit it.
-		u.endIssueSubtask(u.cu.instruction(info.Inst))
+		u.endIssueSubtask(info.Inst)
 
 		var req messaging.Msg
 		if info.Read.ID != 0 {

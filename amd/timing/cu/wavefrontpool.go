@@ -33,4 +33,4 @@ func (p *WavefrontPool) RemoveWf(w *Wavefront) {
 }
 
 // ids returns membership for an immediate operation, never for retention.
-func (p *WavefrontPool) ids() []uint64 { return p.cu.comp.State.Pools[p.index] }
+func (p *WavefrontPool) ids() []waveHandle { return p.cu.comp.State.Pools[p.index] }

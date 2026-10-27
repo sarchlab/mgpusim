@@ -118,9 +118,9 @@ var _ = Describe("Scalar Unit", func() {
 		wave2 := newTestWave()
 		inst := testInst(testIDs.NewID(), insts.NewInst())
 		inst.FormatType = insts.SOP2
-		wave2.SetDynamicInst(inst)
+		wave2.setTestInst(inst)
 		wave3 := newTestWave()
-		wave3.SetDynamicInst(inst)
+		wave3.setTestInst(inst)
 		wave3.execution().State = wavefront.WfRunning
 
 		bu.state().Stages.Read = testWaveID(cu, wave1)
@@ -149,7 +149,7 @@ var _ = Describe("Scalar Unit", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
@@ -178,7 +178,7 @@ var _ = Describe("Scalar Unit", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 0x24)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)
@@ -206,7 +206,7 @@ var _ = Describe("Scalar Unit", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		inst.Base = insts.NewSRegOperand(2, 2, 2)
 		inst.Offset = insts.NewIntOperand(0, 56)
-		wave.SetDynamicInst(inst)
+		wave.setTestInst(inst)
 
 		// Set base register value = 0x1000
 		baseReg := insts.SReg(2)

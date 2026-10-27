@@ -24,7 +24,7 @@ import (
 // (WfCompletionEvent, WfDispatchEvent).
 //
 // Mutable execution values belong to comp.State; the middleware holds only
-// behavior, fixed dependencies, and a pure content-keyed decode cache.
+// behavior, fixed dependencies, and a pure immutable instruction-description cache.
 type ComputeUnit struct {
 	comp   *Comp
 	engine timing.EventScheduler
@@ -188,7 +188,7 @@ func (cu *ComputeUnit) Handle(evt timing.Event) {
 func (cu *ComputeUnit) handleWfCompletionEvent(
 	evt wavefront.WfCompletionEvent,
 ) {
-	wf := cu.wave(evt.WavefrontID)
+	wf := cu.wave(evt.Handle)
 	wf.state().StopFetch = true
 	wf.execution().State = wavefront.WfCompleted
 	// Sampled waves never initialize or use physical register locations.
@@ -251,7 +251,7 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 				wf.execution().State = wavefront.WfSampledWaiting
 				newEvent := wavefront.NewWfCompletionEvent(
 					cu.comp.NewID(),
-					predictedTime, cu.wfCompletionHandlerID, wfID(wf))
+					predictedTime, cu.wfCompletionHandlerID, handleOf(wf))
 				cu.engine.Schedule(newEvent)
 				cu.comp.State.WFTasks[wf.UID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 					ParentID: cu.comp.State.WGTasks[wg.state().Request.ID],
@@ -271,7 +271,7 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 
 func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
 	g := wg.state()
-	belongsToGroup := func(id uint64) bool { return slices.Contains(g.Waves, id) }
+	belongsToGroup := func(id waveHandle) bool { return slices.Contains(g.Waves, id) }
 	cu.comp.State.Scheduler.Internal = slices.DeleteFunc(cu.comp.State.Scheduler.Internal, belongsToGroup)
 	cu.comp.State.Scheduler.Barrier = slices.DeleteFunc(cu.comp.State.Scheduler.Barrier, belongsToGroup)
 	for _, wf := range wg.waves() {
@@ -422,10 +422,10 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	// for this instruction is still in flight; releasing the counter earlier
 	// lets the wavefront reuse the destination SGPRs before the remaining
 	// responses overwrite them.
-	if !cu.hasInFlightScalarMemFor(cu.instruction(info.Inst)) {
+	if !cu.hasInFlightScalarMemFor(info.Inst) {
 		wf.execution().OutstandingScalarMemAccess--
-		cu.markInstDataReturned(cu.instruction(info.Inst), "smem")
-		cu.completeInstruction(wf, cu.instruction(info.Inst))
+		cu.markInstDataReturned(info.Inst, "smem")
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
@@ -434,9 +434,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 // that same moment, so this closes the otherwise-unattributed gap between the
 // memory request going out (or the in-flight slot being acquired) and the data
 // coming back.
-func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
+func (cu *ComputeUnit) markInstDataReturned(inst uint64, what string) {
 	cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
-		TaskID: cu.comp.State.InstTasks[inst.ID],
+		TaskID: cu.comp.State.InstTasks[inst],
 		Kind:   tasks.MilestoneKindData,
 		What:   what,
 	})
@@ -444,9 +444,9 @@ func (cu *ComputeUnit) markInstDataReturned(inst *wavefront.Inst, what string) {
 
 // hasInFlightVectorMemFor reports whether any vector-memory transaction for the
 // given instruction is still in flight.
-func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
+func (cu *ComputeUnit) hasInFlightVectorMemFor(inst uint64) bool {
 	for _, info := range cu.comp.State.Vector {
-		if info.Inst == instID(inst) {
+		if info.Inst == inst {
 			return true
 		}
 	}
@@ -456,9 +456,9 @@ func (cu *ComputeUnit) hasInFlightVectorMemFor(inst *wavefront.Inst) bool {
 
 // hasInFlightScalarMemFor reports whether any scalar-memory access for the given
 // instruction is still in flight.
-func (cu *ComputeUnit) hasInFlightScalarMemFor(inst *wavefront.Inst) bool {
+func (cu *ComputeUnit) hasInFlightScalarMemFor(inst uint64) bool {
 	for _, info := range cu.comp.State.Scalar {
-		if info.Inst == instID(inst) {
+		if info.Inst == inst {
 			return true
 		}
 	}
@@ -545,14 +545,14 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	// once no transaction for this instruction is still in flight; releasing
 	// the counter earlier lets the wavefront reuse the destination VGPRs
 	// before the remaining responses overwrite them.
-	if !cu.hasInFlightVectorMemFor(cu.instruction(info.Inst)) {
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.execution().OutstandingVectorMemAccess--
 		if cu.instruction(info.Inst).FormatType == insts.FLAT {
 			wf.execution().OutstandingScalarMemAccess--
 		}
 
-		cu.markInstDataReturned(cu.instruction(info.Inst), "vmem")
-		cu.completeInstruction(wf, cu.instruction(info.Inst))
+		cu.markInstDataReturned(info.Inst, "vmem")
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
@@ -582,14 +582,14 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	// counters, end the inst task and mark the data wait only once no
 	// transaction for this instruction remains in flight (see
 	// handleVectorDataLoadReturn).
-	if !cu.hasInFlightVectorMemFor(cu.instruction(info.Inst)) {
+	if !cu.hasInFlightVectorMemFor(info.Inst) {
 		wf.execution().OutstandingVectorMemAccess--
 		if cu.instruction(info.Inst).FormatType == insts.FLAT {
 			wf.execution().OutstandingScalarMemAccess--
 		}
 
-		cu.markInstDataReturned(cu.instruction(info.Inst), "vmem")
-		cu.completeInstruction(wf, cu.instruction(info.Inst))
+		cu.markInstDataReturned(info.Inst, "vmem")
+		cu.completeInstruction(wf, info.Inst)
 	}
 }
 
@@ -645,26 +645,27 @@ func (cu *ComputeUnit) markWfMilestone(
 
 // completeInstruction ends execution (including every async memory response).
 // Observers can still resolve the instruction until their completion callbacks return.
-func (cu *ComputeUnit) completeInstruction(wf *Wavefront, inst *wavefront.Inst) {
+func (cu *ComputeUnit) completeInstruction(wf *Wavefront, inst uint64) {
 	wf.execution().InFlightInsts--
 	if wf.execution().InFlightInsts == 0 {
 		// The last in-flight instruction finished: close the execution burst
 		// as work, so the gap that follows is attributed separately.
 		cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
 	}
-	cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
-	delete(cu.comp.State.InstTasks, inst.ID)
-	instruction := cu.comp.State.Instructions[inst.ID]
+	cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst])
+	delete(cu.comp.State.InstTasks, inst)
+	instruction := cu.comp.State.Instructions[inst]
 	instruction.ExecutionPending = false
-	cu.comp.State.Instructions[inst.ID] = instruction
-	cu.releaseInstruction(inst.ID)
+	cu.comp.State.Instructions[inst] = instruction
+	cu.releaseInstruction(inst)
 }
 
 // beginInstruction starts semantic execution even when task tracking is disabled.
-func (cu *ComputeUnit) beginInstruction(wf *Wavefront, inst *wavefront.Inst) {
-	instruction := cu.comp.State.Instructions[inst.ID]
+func (cu *ComputeUnit) beginInstruction(wf *Wavefront, inst uint64) {
+	description := cu.instruction(inst)
+	instruction := cu.comp.State.Instructions[inst]
 	instruction.ExecutionPending = true
-	cu.comp.State.Instructions[inst.ID] = instruction
+	cu.comp.State.Instructions[inst] = instruction
 
 	if wf.execution().InFlightInsts == 0 {
 		// Issuing after a gap (nothing was in flight): the time since the last
@@ -672,18 +673,18 @@ func (cu *ComputeUnit) beginInstruction(wf *Wavefront, inst *wavefront.Inst) {
 		// cycle, so it is dominated by waiting for the exec unit to accept the
 		// wave. Attribute it to that unit as a hardware resource.
 		cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
-			cu.comp.Name()+"."+cu.execUnitToString(inst.ExeUnit))
+			cu.comp.Name()+"."+cu.execUnitToString(description.ExeUnit))
 	}
 	wf.execution().InFlightInsts++
 
-	cu.comp.State.InstTasks[inst.ID] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
+	cu.comp.State.InstTasks[inst] = cu.comp.TaskTracker().StartTask(cu.comp, tasks.StartInfo{
 		ParentID: cu.comp.State.WFTasks[wf.UID],
 		Kind:     "inst",
-		What:     cu.execUnitToString(inst.ExeUnit),
-		Location: cu.comp.Name() + "." + cu.execUnitToString(inst.ExeUnit),
+		What:     cu.execUnitToString(description.ExeUnit),
+		Location: cu.comp.Name() + "." + cu.execUnitToString(description.ExeUnit),
 		Detail: map[string]interface{}{
-			"inst":   inst.ID,
-			"format": inst.FormatName,
+			"inst":   inst,
+			"format": description.FormatName,
 			"wf":     wf.UID,
 		},
 	})
@@ -721,7 +722,7 @@ func (cu *ComputeUnit) findWavefront(id uint64) *Wavefront {
 	for index := range cu.comp.State.Waves {
 		state := &cu.comp.State.Waves[index]
 		if state.ID == id && id != 0 {
-			return &Wavefront{cu: cu, UID: id, handle: waveHandle(index, state.Generation)}
+			return &Wavefront{cu: cu, UID: id, handle: makeWaveHandle(index, state.Generation)}
 		}
 	}
 	return nil
