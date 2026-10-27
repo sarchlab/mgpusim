@@ -3,6 +3,7 @@ package internal
 import (
 	"container/list"
 	"fmt"
+	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
 )
@@ -27,12 +28,19 @@ type DeviceState struct {
 type MemoryState struct {
 	Buddy, Initialized                        bool
 	Log2PageSize, InitialAddress, StorageSize uint64
-	Available                                 []uint64
+	AvailableRuns                             []PageRun
 	FreeLists                                 [][]uint64
 	Split, Merge                              BitFieldState
 	Trackers                                  map[uint64]BlockTrackerState
 	PageToBlock                               map[uint64]uint64
 }
+
+// PageRun describes consecutive free pages in allocation order. Runs are never
+// sorted: freed pages retain their position at the tail of the allocator queue.
+type PageRun struct {
+	Start, Count uint64
+}
+
 type BitFieldState struct {
 	Present bool
 	Size    uint64
@@ -62,7 +70,7 @@ func saveMemory(m DeviceMemoryState) MemoryState {
 		return MemoryState{Log2PageSize: m.log2PageSize,
 			InitialAddress: m.initialAddress,
 			StorageSize:    m.storageSize,
-			Available:      m.availablePAddrs}
+			AvailableRuns:  pageRuns(m.availablePAddrs, m.log2PageSize)}
 	case *deviceBuddyMemoryState:
 		s := MemoryState{Buddy: true,
 			Initialized:    m.initFlag,
@@ -92,11 +100,15 @@ func saveMemory(m DeviceMemoryState) MemoryState {
 
 func loadMemory(s MemoryState) (DeviceMemoryState, error) {
 	if !s.Buddy {
+		pages, err := expandPageRuns(s)
+		if err != nil {
+			return nil, err
+		}
 		return &deviceMemoryStateImpl{
 			log2PageSize:    s.Log2PageSize,
 			initialAddress:  s.InitialAddress,
 			storageSize:     s.StorageSize,
-			availablePAddrs: s.Available,
+			availablePAddrs: pages,
 		}, nil
 	}
 	m := &deviceBuddyMemoryState{
@@ -195,4 +207,63 @@ func RestoreAllocator(s AllocatorState, table *vm.PageTable) (MemoryAllocator, [
 		}
 	}
 	return a, devices, nil
+}
+
+func pageRuns(pages []uint64, log2PageSize uint64) []PageRun {
+	var runs []PageRun
+	step := uint64(1) << log2PageSize
+	for _, address := range pages {
+		if n := len(runs); n > 0 {
+			previous := &runs[n-1]
+			if address >= previous.Start && address-previous.Start == previous.Count*step {
+				previous.Count++
+				continue
+			}
+		}
+		runs = append(runs, PageRun{Start: address, Count: 1})
+	}
+	return runs
+}
+
+func expandPageRuns(s MemoryState) ([]uint64, error) {
+	if s.Log2PageSize >= 64 {
+		return nil, fmt.Errorf("allocator: invalid page size")
+	}
+	step := uint64(1) << s.Log2PageSize
+	capacity := s.StorageSize / step
+	if s.StorageSize%step != 0 {
+		capacity++
+	}
+	var total uint64
+	for _, run := range s.AvailableRuns {
+		if run.Count == 0 || run.Count > capacity-total || run.Start < s.InitialAddress ||
+			run.Start-s.InitialAddress >= s.StorageSize || (run.Start-s.InitialAddress)%step != 0 ||
+			run.Count-1 > (s.StorageSize-1-(run.Start-s.InitialAddress))/step {
+			return nil, fmt.Errorf("allocator: invalid free-page run")
+		}
+		total += run.Count
+	}
+	// Check intervals without a per-page map or changing allocation order.
+	sorted := slices.Clone(s.AvailableRuns)
+	slices.SortFunc(sorted, func(a, b PageRun) int {
+		if a.Start < b.Start {
+			return -1
+		}
+		if a.Start > b.Start {
+			return 1
+		}
+		return 0
+	})
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i].Start-sorted[i-1].Start < sorted[i-1].Count*step {
+			return nil, fmt.Errorf("allocator: overlapping free-page runs")
+		}
+	}
+	pages := make([]uint64, 0, total)
+	for _, run := range s.AvailableRuns {
+		for i := uint64(0); i < run.Count; i++ {
+			pages = append(pages, run.Start+i*step)
+		}
+	}
+	return pages, nil
 }

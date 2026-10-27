@@ -108,3 +108,69 @@ func checkpointAllocator(buddy bool) (*vm.PageTable, MemoryAllocator, []*Device)
 	devices = append(devices, unified)
 	return table, original, devices
 }
+
+func TestFreePageRunsPreserveFragmentedQueue(t *testing.T) {
+	const step = uint64(4096)
+	pages := []uint64{8 * step, 9 * step, 10 * step, 2 * step, 6 * step, 7 * step, step}
+	runs := pageRuns(pages, 12)
+	if len(runs) != 4 {
+		t.Fatalf("got %d runs: %v", len(runs), runs)
+	}
+	restored, err := expandPageRuns(MemoryState{Log2PageSize: 12, StorageSize: 16 * step, AvailableRuns: runs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(pages, restored) {
+		t.Fatalf("queue changed: %v", restored)
+	}
+	// Saving does not alias a live queue that can subsequently be reused.
+	pages[0] = 0
+	if runs[0].Start != 8*step {
+		t.Fatal("snapshot aliases queue")
+	}
+}
+
+func TestFreePageRunsRejectInvalidRanges(t *testing.T) {
+	for _, run := range []PageRun{{0, 0}, {1, 1}, {0, 17}, {16 * 4096, 1}, {15 * 4096, 2}, {^uint64(0) - 4095, 2}} {
+		_, err := expandPageRuns(MemoryState{Log2PageSize: 12, StorageSize: 16 * 4096, AvailableRuns: []PageRun{run}})
+		if err == nil {
+			t.Fatalf("accepted invalid run: %v", run)
+		}
+	}
+}
+
+func TestFreePageRunsCompactIdleDevice(t *testing.T) {
+	pages := make([]uint64, 1<<20)
+	for i := range pages {
+		pages[i] = uint64(i) * 4096
+	}
+	runs := pageRuns(pages, 12)
+	if !reflect.DeepEqual(runs, []PageRun{{0, 1 << 20}}) {
+		t.Fatalf("idle device did not compact: %d runs", len(runs))
+	}
+}
+
+func TestFreePageRunsRejectOverlap(t *testing.T) {
+	for _, runs := range [][]PageRun{{{0, 2}, {4096, 2}}, {{0, 1}, {0, 1}}} {
+		if _, err := expandPageRuns(MemoryState{Log2PageSize: 12, StorageSize: 16 * 4096, AvailableRuns: runs}); err == nil {
+			t.Fatal("overlapping runs accepted")
+		}
+	}
+}
+
+func TestFreePageRunsPreservePartialLastPage(t *testing.T) {
+	memory := &deviceMemoryStateImpl{log2PageSize: 12, storageSize: 4097}
+	memory.setInitialAddress(17)
+	restored, err := loadMemory(saveMemory(memory))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for !memory.noAvailablePAddrs() {
+		if got, want := restored.popNextAvailablePAddrs(), memory.popNextAvailablePAddrs(); got != want {
+			t.Fatalf("page order: %d != %d", got, want)
+		}
+	}
+	if !restored.noAvailablePAddrs() {
+		t.Fatal("extra restored pages")
+	}
+}

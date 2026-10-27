@@ -143,6 +143,7 @@ func prepareEmulationCheckpoint(t *testing.T, a arch.Type, path string) {
 		t.Fatal(err)
 	}
 	finishEmulation(t, s, d, results, path+".uninterrupted")
+	rewindEmulation(t, s, d, results, path)
 }
 
 func checkpointSystem(t *testing.T, a arch.Type) (*sim.Simulation, *gpuruntime.Runtime, *firResults) {
@@ -268,4 +269,27 @@ func (r *firResults) SaveCheckpoint(w io.Writer) error {
 }
 func (r *firResults) LoadCheckpoint(reader io.Reader) error {
 	return modeling.ReadCheckpoint(reader, checkpointLength, r, nil)
+}
+
+func rewindEmulation(t *testing.T, s *sim.Simulation, d *gpuruntime.Runtime, results *firResults, path string) {
+	t.Helper()
+	// Rewind completed component instances, including their caches, to the same
+	// in-flight IDs twice. No setup or lifecycle hook runs during a restore.
+	for range 2 {
+		if err := s.LoadCheckpoint(path); err != nil {
+			t.Fatal(err)
+		}
+		finishEmulation(t, s, d, results, path+".rewound")
+		want, err := os.ReadFile(path + ".uninterrupted")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(path + ".rewound")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(want, got) {
+			t.Fatal("same-instance rewind changed final checkpoint")
+		}
+	}
 }

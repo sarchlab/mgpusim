@@ -21,13 +21,12 @@ type Spec struct {
 	Freq    timing.Freq `json:"freq"`
 }
 
-// State retains queued work, completion deadlines and decoded instruction bytes.
+// State retains queued work, completion deadlines and completion state.
 // Each work-group is emulated atomically within one event. Register and LDS
 // scratch values therefore never survive an engine stop between events.
 type State struct {
 	QueuedWGs          []messaging.Msg
 	PendingCompletions []pendingWGCompletion
-	DecodedBytes       map[uint64][]byte
 	// NextEmulationAt is the time at which the queued work-groups will be
 	// emulated. Work-groups that arrive before this time are batched into
 	// the same emulation pass.
@@ -63,14 +62,8 @@ func (m *Middlewares) Initialize(c *Comp) {
 	m.Processor = &cuProcessor{
 		comp:      c,
 		wfs:       make(map[*kernels.WorkGroup][]*Wavefront),
-		instCache: make(map[uint64]cachedInstruction),
+		instCache: make(map[uint64]*insts.Inst),
 	}
-}
-func (s *State) Initialize(*Comp) { s.DecodedBytes = make(map[uint64][]byte) }
-
-type cachedInstruction struct {
-	Bytes string
-	Inst  *insts.Inst
 }
 
 // DispatcherView adapts an emulation ComputeUnit to the interface that the

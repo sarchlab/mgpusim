@@ -35,9 +35,9 @@ type pendingWGCompletion struct {
 // the work-groups, and responds with protocol.WGCompletionMsg.
 type cuProcessor struct {
 	comp *Comp
-	// Event-local execution scratch and a cache validated against saved bytes.
+	// Atomic-work-group scratch, cleared before and after every execution.
 	wfs       map[*kernels.WorkGroup][]*Wavefront
-	instCache map[uint64]cachedInstruction
+	instCache map[uint64]*insts.Inst
 }
 
 // Process reacts to a wakeup: it collects newly arrived MapWGReqs, runs the
@@ -112,6 +112,10 @@ func (p *cuProcessor) runWG(
 	if err != nil {
 		panic(err)
 	}
+	// Work-groups execute atomically. Scratch decoding never crosses an event,
+	// process address space, code reload, or checkpoint restore.
+	clear(p.instCache)
+	defer clear(p.instCache)
 	p.wfs[wg] = nil
 	defer delete(p.wfs, wg)
 	p.initWfs(wg, req)
@@ -307,21 +311,20 @@ func (p *cuProcessor) runWfUntilBarrier(comp *Comp, wf *Wavefront) {
 
 	for {
 		pc := wf.PC()
-		instBuf, saved := comp.State.DecodedBytes[pc]
-		if !saved {
-			instBuf = resources.StorageAccessor.Read(wf.pid, pc, 8)
-			comp.State.DecodedBytes[pc] = instBuf
-		}
-		cached, ok := p.instCache[pc]
-		if !ok || cached.Bytes != string(instBuf) {
-			inst, err := resources.Decoder.Decode(instBuf)
+		inst, ok := p.instCache[pc]
+		if !ok {
+			instBuf := resources.StorageAccessor.Read(wf.pid, pc, 8)
+			var err error
+			inst, err = resources.Decoder.Decode(instBuf)
 			if err != nil {
 				log.Panicf("Failed to decode instruction at PC=0x%x: %v (bytes: %x)", pc, err, instBuf)
 			}
-			cached = cachedInstruction{Bytes: string(instBuf), Inst: inst}
-			p.instCache[pc] = cached
+			// Bound scratch even for a single exceptionally long work-group.
+			if len(p.instCache) >= 4096 {
+				clear(p.instCache)
+			}
+			p.instCache[pc] = inst
 		}
-		inst := cached.Inst
 		wf.inst = inst
 
 		wf.SetPC(wf.PC() + uint64(inst.ByteSize))
