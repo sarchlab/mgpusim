@@ -111,7 +111,7 @@ func (u *SIMDUnit) runPipelined() bool {
 			u.cu.UpdatePCAndSetReady(u.cu.wave(slot.WF))
 
 			u.logPipelineTaskEnd(slot.Task)
-			u.cu.logInstTask(u.cu.wave(slot.WF), u.cu.wave(slot.WF).DynamicInst(), true)
+			u.cu.completeInstruction(u.cu.wave(slot.WF), u.cu.wave(slot.WF).DynamicInst())
 		} else {
 			remaining = append(remaining, slot)
 		}
@@ -135,7 +135,7 @@ func (u *SIMDUnit) runExecStage() bool {
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Exec))
 
 	u.logPipelineTaskEnd(u.state().Task)
-	u.cu.logInstTask(u.cu.wave(u.state().Exec), u.cu.wave(u.state().Exec).DynamicInst(), true)
+	u.cu.completeInstruction(u.cu.wave(u.state().Exec), u.cu.wave(u.state().Exec).DynamicInst())
 
 	u.state().Exec = 0
 	return true

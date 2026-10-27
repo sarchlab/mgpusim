@@ -210,3 +210,31 @@ and resume with the same program and configuration; this also applies after v5.
 SIMD task names and timing remain unchanged, while reporting routes their task
 notifications through one simulation observer rather than registering the SIMD
 behavior views as simulation entities.
+
+### CU execution and retirement
+
+A detailed wave stops fetching when it reaches `S_ENDPGM`, including while it
+waits for outstanding scalar/vector memory instructions. After execution ends,
+`WfDraining` retains the original hardware slot while an already-issued prefetch
+returns. `WfCompleted` means fully drained and waiting for the group's completion
+message. The CU sends that message and releases slots only when the dispatch
+port accepts it; backpressure schedules a retry. Barrier peer checks distinguish
+execution-ended waves from waves still executing. Sampled waves instead remain
+`WfSampledWaiting` until their scheduled completion event and never clear detailed
+wave register allocations.
+
+These state transitions replace CU-wide searches for saved wave handles. Tests
+independently inspect decoder, pipeline, SIMD, scheduler, memory and custom-event
+holders at operation boundaries. Instructions record their owning local slot and
+whether execution is pending. An asynchronous instruction retains its encoding
+through its last memory response even after its wave advances; completion
+observers finish before the encoding can be retired. Tracing does not control
+this lifetime. No per-holder reference counts or retired-wave spill storage are
+used.
+
+The old CU shadow buffers, flush/restart/replay API, and CP GPU shootdown/restart
+sequence are removed. Ordinary driver cache flush, kernel-start L1 invalidation,
+and independent RDMA control remain. Future page migration must drain already
+issued accesses without replaying CU execution. This change does not implement
+that migration protocol. There is no backward checkpoint compatibility contract,
+including after the v5 release.

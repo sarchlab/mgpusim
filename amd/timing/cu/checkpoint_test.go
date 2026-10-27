@@ -242,7 +242,8 @@ func TestCompletedGroupRetiresAfterFetchAheadResponse(t *testing.T) {
 	c.WfPools[0].AddWf(wf)
 	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
 	c.comp.State.InstFetch = []FetchState{{Req: req, WF: wfID(wf)}}
-	wf.execution().State = wavefront.WfCompleted
+	wf.execution().State = wavefront.WfDraining
+	wf.execution().IsFetching = true
 	port := newFakePort("CU.ACE")
 	c.ToACE = port
 	c.retireGroups()
@@ -276,7 +277,7 @@ func TestSampledCompletionRetiresGroupWithoutAnotherTick(t *testing.T) {
 	c := checkpointCU(t)
 	wg := checkpointGroup(c)
 	wf := wg.waves()[0]
-	wf.execution().State = wavefront.WfSampledCompleted
+	wf.execution().State = wavefront.WfSampledWaiting
 	wf.SetDynamicInst(checkpointInstruction(t, c))
 	c.WfPools[0].AddWf(wf)
 	c.comp.State.WFTimes[wf.UID] = 100

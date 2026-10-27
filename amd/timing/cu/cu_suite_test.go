@@ -199,10 +199,12 @@ func registerTestWave(c *ComputeUnit, w *Wavefront) {
 			continue
 		}
 		value := *old.state()
-		c.allocateWave(target, value.Index, value)
+		allocated := c.allocateWave(target, value.Index, value)
 		for _, id := range []uint64{value.Execution.InstID, value.Execution.ToIssueID} {
 			if id != 0 {
-				c.comp.State.Instructions[id] = source.comp.State.Instructions[id]
+				instruction := source.comp.State.Instructions[id]
+				instruction.Owner = allocated.handle
+				c.comp.State.Instructions[id] = instruction
 			}
 		}
 	}
@@ -223,7 +225,7 @@ func testFetchState(c *ComputeUnit, v *InstFetchReqInfo) FetchState {
 }
 func testScalarState(c *ComputeUnit, v *ScalarMemAccessInfo) ScalarAccessState {
 	registerTestWave(c, v.Wavefront)
-	c.rememberInstruction(v.Inst)
+	c.rememberInstruction(wfID(v.Wavefront), v.Inst)
 	s := ScalarAccessState{Req: v.Req, WF: wfID(v.Wavefront), Inst: instID(v.Inst)}
 	if v.DstSGPR != nil {
 		s.Register = v.DstSGPR.RegType
@@ -345,7 +347,9 @@ func setTestGroup(w *Wavefront, g *WorkGroup) {
 	}
 	for _, id := range []uint64{state.Execution.InstID, state.Execution.ToIssueID} {
 		if id != 0 {
-			g.cu.comp.State.Instructions[id] = source.comp.State.Instructions[id]
+			instruction := source.comp.State.Instructions[id]
+			instruction.Owner = existing.handle
+			g.cu.comp.State.Instructions[id] = instruction
 		}
 	}
 	*w = *existing

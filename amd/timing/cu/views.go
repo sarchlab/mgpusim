@@ -111,7 +111,7 @@ func (wf *Wavefront) DynamicInst() *wavefront.Inst {
 // SetDynamicInst sets the dynamic inst to execute
 func (wf *Wavefront) SetDynamicInst(i *wavefront.Inst) {
 	old := wf.execution().InstID
-	wf.cu.rememberInstruction(i)
+	wf.cu.rememberInstruction(wf.handle, i)
 	wf.execution().InstID = instID(i)
 	wf.cu.releaseInstruction(old)
 }
@@ -150,7 +150,7 @@ func (wf *Wavefront) NextInst() *wavefront.Inst { return wf.cu.instruction(wf.ex
 // SetNextInst records the instruction awaiting issue.
 func (wf *Wavefront) SetNextInst(i *wavefront.Inst) {
 	old := wf.execution().ToIssueID
-	wf.cu.rememberInstruction(i)
+	wf.cu.rememberInstruction(wf.handle, i)
 	wf.execution().ToIssueID = instID(i)
 	wf.cu.releaseInstruction(old)
 }

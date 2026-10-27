@@ -67,7 +67,7 @@ func (cu *ComputeUnit) instruction(id uint64) *wavefront.Inst {
 	return i
 }
 
-func (cu *ComputeUnit) rememberInstruction(i *wavefront.Inst) {
+func (cu *ComputeUnit) rememberInstruction(owner uint64, i *wavefront.Inst) {
 	if i == nil {
 		return
 	}
@@ -79,7 +79,12 @@ func (cu *ComputeUnit) rememberInstruction(i *wavefront.Inst) {
 	if i.Inst != nil {
 		pc = i.PC
 	}
-	cu.comp.State.Instructions[i.ID] = InstructionState{ID: i.ID, PC: pc, Raw: i.Raw}
+	value := cu.comp.State.Instructions[i.ID]
+	if value.Owner != 0 && value.Owner != owner {
+		panic("cu: instruction belongs to another wave slot")
+	}
+	value.ID, value.PC, value.Raw, value.Owner = i.ID, pc, i.Raw, owner
+	cu.comp.State.Instructions[i.ID] = value
 }
 
 func (cu *ComputeUnit) allocateGroup(raw kernels.WorkGroupValue, req messaging.Msg) *WorkGroup {
@@ -148,11 +153,11 @@ func (cu *ComputeUnit) fetchState(v *InstFetchReqInfo) FetchState {
 	return FetchState{v.Req, cu.useWave(v.Wavefront), v.Address, v.FetchTaskID}
 }
 func (cu *ComputeUnit) scalarState(v *ScalarMemAccessInfo) ScalarAccessState {
-	cu.rememberInstruction(v.Inst)
+	cu.rememberInstruction(cu.useWave(v.Wavefront), v.Inst)
 	return ScalarAccessState{v.Req, cu.useWave(v.Wavefront), instID(v.Inst), v.DstSGPR.RegType}
 }
 func (cu *ComputeUnit) vectorState(v VectorMemAccessInfo) VectorAccessState {
-	cu.rememberInstruction(v.Inst)
+	cu.rememberInstruction(cu.useWave(v.Wavefront), v.Inst)
 	s := VectorAccessState{Read: v.Read, Write: v.Write, WF: cu.useWave(v.Wavefront), Inst: instID(v.Inst)}
 	for _, l := range v.laneInfo {
 		s.Lanes = append(s.Lanes, LaneState{l.laneID, l.reg.RegType, l.regCount, l.addrOffsetInCacheLine})
@@ -166,38 +171,26 @@ func (v VectorAccessState) requestID() uint64 {
 	return v.Write.ID
 }
 
-// releaseInstruction retires an encoding only after its execution and wave
-// references disappear. In-flight memory operations retain their inst task.
+// releaseInstruction checks the instruction's owning slot and execution state.
+// No tracing status or CU-wide holder search participates in instruction lifetime.
 func (cu *ComputeUnit) releaseInstruction(id uint64) {
-	if id == 0 {
+	value, exists := cu.comp.State.Instructions[id]
+	if !exists || value.ExecutionPending {
 		return
 	}
-	if _, live := cu.comp.State.InstTasks[id]; live {
-		return
-	}
-	for i := range cu.comp.State.Waves {
-		w := &cu.comp.State.Waves[i]
-		if w.ID != 0 && (w.Execution.InstID == id || w.Execution.ToIssueID == id) {
+	if value.Owner != 0 {
+		owner := &cu.comp.State.Waves[slotIndex(value.Owner)]
+		if owner.ID != 0 && owner.Generation == uint32(value.Owner>>32) &&
+			(owner.Execution.InstID == id || owner.Execution.ToIssueID == id) {
 			return
 		}
 	}
-	for _, records := range [][]ScalarAccessState{cu.comp.State.Scalar} {
-		for _, record := range records {
-			if record.Inst == id {
-				return
-			}
-		}
-	}
-	for _, records := range [][]VectorAccessState{
-		cu.comp.State.Vector, cu.comp.State.VectorUnit.Waiting,
-	} {
-		for _, record := range records {
-			if record.Inst == id {
-				return
-			}
-		}
-	}
 	delete(cu.comp.State.Instructions, id)
+}
+
+// executionEnded differs from fully drained: prefetch can outlive S_ENDPGM.
+func executionEnded(state wavefront.WfState) bool {
+	return state == wavefront.WfDraining || state == wavefront.WfCompleted
 }
 
 // Completion retains the original hardware slots until all dependent work
@@ -210,7 +203,7 @@ func (cu *ComputeUnit) retireGroups() {
 		}
 		drained := true
 		for _, handle := range group.Waves {
-			if cu.wave(handle).execution().State != wavefront.WfCompleted || cu.waveReferenced(handle) {
+			if cu.wave(handle).execution().State != wavefront.WfCompleted {
 				drained = false
 				break
 			}
@@ -219,8 +212,7 @@ func (cu *ComputeUnit) retireGroups() {
 			continue
 		}
 		wg := &WorkGroup{cu: cu, UID: group.Raw.UID, slot: index}
-		scheduler := cu.Scheduler.(*SchedulerImpl)
-		if !scheduler.sendWGCompletionMessage(wg) {
+		if !cu.sendWGCompletionMessage(wg) {
 			cu.comp.TickLater()
 			continue
 		}
@@ -244,70 +236,4 @@ func (cu *ComputeUnit) retireGroup(index int) {
 		cu.releaseInstruction(next)
 	}
 	*group = WorkGroupState{}
-}
-func (cu *ComputeUnit) waveReferenced(id uint64) bool {
-	s := &cu.comp.State
-	for _, d := range s.Decoders {
-		for _, w := range d.ToDecode {
-			if w == id {
-				return true
-			}
-		}
-	}
-	for _, stage := range []StageState{s.Branch, s.LDS, s.ScalarUnit.Stages} {
-		if stage.Read == id || stage.Exec == id || stage.Write == id {
-			return true
-		}
-	}
-	for _, simd := range s.SIMDs {
-		if simd.Exec == id {
-			return true
-		}
-		for _, slot := range simd.Slots {
-			if slot.WF == id {
-				return true
-			}
-		}
-	}
-	if cu.waveInMemory(id) {
-		return true
-	}
-	for _, stage := range s.VectorUnit.InstructionsPipeline.Stages() {
-		if stage.Item.WavefrontID == id {
-			return true
-		}
-	}
-	for i := 0; i < s.VectorUnit.InstructionsOutput.Size(); i++ {
-		v, _ := s.VectorUnit.InstructionsOutput.PeekAt(i)
-		if v.WavefrontID == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (cu *ComputeUnit) waveInMemory(id uint64) bool {
-	s := &cu.comp.State
-	for _, xs := range [][]FetchState{s.InstFetch} {
-		for _, x := range xs {
-			if x.WF == id {
-				return true
-			}
-		}
-	}
-	for _, xs := range [][]ScalarAccessState{s.Scalar} {
-		for _, x := range xs {
-			if x.WF == id {
-				return true
-			}
-		}
-	}
-	for _, xs := range [][]VectorAccessState{s.Vector, s.VectorUnit.Waiting} {
-		for _, x := range xs {
-			if x.WF == id {
-				return true
-			}
-		}
-	}
-	return false
 }

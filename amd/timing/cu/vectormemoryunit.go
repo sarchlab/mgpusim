@@ -217,11 +217,8 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
-		u.cu.logInstTask(
-			wave,
-			wave.DynamicInst(),
-			true,
-		)
+		u.cu.completeInstruction(wave,
+			wave.DynamicInst())
 		return true
 	}
 
@@ -266,11 +263,8 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
-		u.cu.logInstTask(
-			wave,
-			wave.DynamicInst(),
-			true,
-		)
+		u.cu.completeInstruction(wave,
+			wave.DynamicInst())
 		return true
 	}
 

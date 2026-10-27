@@ -231,7 +231,7 @@ func (u *ScalarUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.cu.logInstTask(u.cu.wave(u.state().Stages.Write), u.cu.wave(u.state().Stages.Write).DynamicInst(), true)
+	u.cu.completeInstruction(u.cu.wave(u.state().Stages.Write), u.cu.wave(u.state().Stages.Write).DynamicInst())
 
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Stages.Write))
 

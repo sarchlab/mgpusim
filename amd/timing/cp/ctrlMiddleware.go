@@ -124,7 +124,6 @@ func (m *ctrlMiddleware) processReqFromDriver() bool {
 		req := msg
 
 		return m.processRDMARestartCmd(req)
-
 	}
 
 	return false

@@ -84,7 +84,7 @@ func (u *BranchUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.cu.logInstTask(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst(), true)
+	u.cu.completeInstruction(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).DynamicInst())
 
 	u.cu.wave(u.state().Write).execution().InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))

@@ -248,7 +248,7 @@ func (cu *ComputeUnit) scheduleSampledWaves(wg *WorkGroup, now timing.VTimeInPic
 		for _, wf := range wg.waves() {
 			if skipSimulate {
 				predictedTime := predtime + now
-				wf.execution().State = wavefront.WfSampledCompleted
+				wf.execution().State = wavefront.WfSampledWaiting
 				newEvent := wavefront.NewWfCompletionEvent(
 					cu.comp.NewID(),
 					predictedTime, cu.wfCompletionHandlerID, wfID(wf))
@@ -350,6 +350,9 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	wf.execution().IsFetching = false
+	if wf.execution().State == wavefront.WfDraining {
+		wf.execution().State = wavefront.WfCompleted
+	}
 	wf.execution().LastFetchTime = cu.CurrentTime()
 
 	if wasWaitingForFetch {
@@ -422,7 +425,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	if !cu.hasInFlightScalarMemFor(cu.instruction(info.Inst)) {
 		wf.execution().OutstandingScalarMemAccess--
 		cu.markInstDataReturned(cu.instruction(info.Inst), "smem")
-		cu.logInstTask(wf, cu.instruction(info.Inst), true)
+		cu.completeInstruction(wf, cu.instruction(info.Inst))
 	}
 }
 
@@ -549,7 +552,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		}
 
 		cu.markInstDataReturned(cu.instruction(info.Inst), "vmem")
-		cu.logInstTask(wf, cu.instruction(info.Inst), true)
+		cu.completeInstruction(wf, cu.instruction(info.Inst))
 	}
 }
 
@@ -586,7 +589,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		}
 
 		cu.markInstDataReturned(cu.instruction(info.Inst), "vmem")
-		cu.logInstTask(wf, cu.instruction(info.Inst), true)
+		cu.completeInstruction(wf, cu.instruction(info.Inst))
 	}
 }
 
@@ -628,7 +631,7 @@ func wfHasInstructionReady(wf *Wavefront) bool {
 // execution (work) and the reasons for a gap between instructions — waiting
 // to fetch (hardware_resource), waiting for the fetched bytes (data), and
 // waiting for the exec unit to accept the issue (hardware_resource). They are
-// only emitted while nothing is in flight (see logInstTask), so they never
+// only emitted while nothing is in flight (see beginInstruction), so they never
 // overlap and a prefetch overlapping execution stays silent.
 func (cu *ComputeUnit) markWfMilestone(
 	wf *Wavefront, kind tasks.MilestoneKind, what string,
@@ -640,23 +643,28 @@ func (cu *ComputeUnit) markWfMilestone(
 	})
 }
 
-func (cu *ComputeUnit) logInstTask(
-	wf *Wavefront,
-	inst *wavefront.Inst,
-	completed bool,
-) {
-	if completed {
-		wf.execution().InFlightInsts--
-		if wf.execution().InFlightInsts == 0 {
-			// The last in-flight instruction finished: close the execution burst
-			// as work, so the gap that follows is attributed separately.
-			cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
-		}
-		cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
-		delete(cu.comp.State.InstTasks, inst.ID)
-		cu.releaseInstruction(inst.ID)
-		return
+// completeInstruction ends execution (including every async memory response).
+// Observers can still resolve the instruction until their completion callbacks return.
+func (cu *ComputeUnit) completeInstruction(wf *Wavefront, inst *wavefront.Inst) {
+	wf.execution().InFlightInsts--
+	if wf.execution().InFlightInsts == 0 {
+		// The last in-flight instruction finished: close the execution burst
+		// as work, so the gap that follows is attributed separately.
+		cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
 	}
+	cu.comp.TaskTracker().EndTask(cu.comp.State.InstTasks[inst.ID])
+	delete(cu.comp.State.InstTasks, inst.ID)
+	instruction := cu.comp.State.Instructions[inst.ID]
+	instruction.ExecutionPending = false
+	cu.comp.State.Instructions[inst.ID] = instruction
+	cu.releaseInstruction(inst.ID)
+}
+
+// beginInstruction starts semantic execution even when task tracking is disabled.
+func (cu *ComputeUnit) beginInstruction(wf *Wavefront, inst *wavefront.Inst) {
+	instruction := cu.comp.State.Instructions[inst.ID]
+	instruction.ExecutionPending = true
+	cu.comp.State.Instructions[inst.ID] = instruction
 
 	if wf.execution().InFlightInsts == 0 {
 		// Issuing after a gap (nothing was in flight): the time since the last
@@ -736,4 +744,24 @@ func (cu *ComputeUnit) endWaveTask(wf *Wavefront) {
 		cu.comp.TaskTracker().EndTask(task)
 		delete(cu.comp.State.WFTasks, wf.UID)
 	}
+}
+
+func (cu *ComputeUnit) sendWGCompletionMessage(
+	wg *WorkGroup,
+) (done bool) {
+	if !cu.acePort().CanSend() {
+		return false
+	}
+	mapReq := wg.state().Request
+	dispatcher := mapReq.Src
+
+	msg := messaging.Msg{ID: cu.comp.NewID(),
+		Src: cu.acePort().AsRemote(),
+		Dst: dispatcher,
+		Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapReq.ID},
+			Timings: workGroupTimings(wg)}}
+
+	cu.acePort().Send(msg)
+
+	return true
 }

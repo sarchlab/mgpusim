@@ -13,10 +13,11 @@ type WfState int
 
 // A list of all possible WfState
 const (
-	WfDispatching      WfState = iota // Dispatching in progress, not ready to run
-	WfReady                           // Allow the scheduler to schedule instruction
-	WfRunning                         // Instruction in fight
-	WfCompleted                       // Wavefront completed
-	WfAtBarrier                       // Wavefront at barrier
-	WfSampledCompleted                // Wavefront completed at Sampling
+	WfDispatching    WfState = iota // Dispatching in progress, not ready to run
+	WfReady                         // Allow the scheduler to schedule instruction
+	WfRunning                       // Instruction in flight
+	WfDraining                      // Execution ended; waiting for outstanding prefetch
+	WfCompleted                     // Drained; waiting for work-group completion send
+	WfAtBarrier                     // Wavefront at barrier
+	WfSampledWaiting                // Waiting for the sampled completion event
 )

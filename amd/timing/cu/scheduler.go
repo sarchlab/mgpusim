@@ -214,7 +214,7 @@ func (s *SchedulerImpl) DoIssue() bool {
 		if unit.CanAcceptWave() {
 			wf.issueNext()
 
-			s.cu.logInstTask(wf, inst, false)
+			s.cu.beginInstruction(wf, inst)
 
 			if s.scoreboardEnabled && wf.scoreboard() != nil {
 				latency := GetScoreboardLatency(inst.Inst)
@@ -238,7 +238,7 @@ func (s *SchedulerImpl) issueToInternal(wf *Wavefront) bool {
 	s.state().Internal = append(s.state().Internal, s.cu.useWave(wf))
 	wf.execution().State = wavefront.WfRunning
 
-	s.cu.logInstTask(wf, wf.DynamicInst(), false)
+	s.cu.beginInstruction(wf, wf.DynamicInst())
 
 	return true
 }
@@ -300,8 +300,8 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 		madeProgress = instProgress || madeProgress
 
 		if instCompleted {
-			s.cu.logInstTask(executing, instruction, true)
-			if executing.execution().State == wavefront.WfCompleted {
+			s.cu.completeInstruction(executing, instruction)
+			if executionEnded(executing.execution().State) {
 				s.cu.endWaveTask(executing)
 			}
 		} else {
@@ -337,16 +337,19 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 	s.markMemDrained(wf, "s_endpgm")
 	s.cu.markWfMilestone(wf, tasks.MilestoneKindWork, "execution")
-	if s.areAllOtherWfsInWGAtBarrier(wf.group(), wf) && !s.areAllOtherWfsInWGCompleted(wf.group(), wf) {
+	if s.areAllOtherWfsInWGAtBarrier(wf.group(), wf) && !s.areAllOtherWfsExecutionEnded(wf.group(), wf) {
 		s.passBarrier(wf.group())
 	}
 	s.resetRegisterValue(wf)
 	wf.execution().State = wavefront.WfCompleted
+	if wf.execution().IsFetching {
+		wf.execution().State = wavefront.WfDraining
+	}
 
 	return true, true
 }
 
-func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
+func (s *SchedulerImpl) areAllOtherWfsExecutionEnded(
 	wg *WorkGroup,
 	currWf *Wavefront,
 ) bool {
@@ -355,30 +358,10 @@ func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
 			continue
 		}
 
-		if wf.execution().State != wavefront.WfCompleted {
+		if !executionEnded(wf.execution().State) {
 			return false
 		}
 	}
-
-	return true
-}
-
-func (s *SchedulerImpl) sendWGCompletionMessage(
-	wg *WorkGroup,
-) (done bool) {
-	if !s.cu.acePort().CanSend() {
-		return false
-	}
-	mapReq := wg.state().Request
-	dispatcher := mapReq.Src
-
-	msg := messaging.Msg{ID: s.cu.comp.NewID(),
-		Src: s.cu.acePort().AsRemote(),
-		Dst: dispatcher,
-		Payload: protocol.WGCompletionMsg{RspToIDs: []uint64{mapReq.ID},
-			Timings: workGroupTimings(wg)}}
-
-	s.cu.acePort().Send(msg)
 
 	return true
 }
@@ -393,7 +376,7 @@ func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(
 		}
 
 		if wf.execution().State != wavefront.WfAtBarrier &&
-			wf.execution().State != wavefront.WfCompleted {
+			!executionEnded(wf.execution().State) {
 			return false
 		}
 	}
@@ -462,9 +445,9 @@ func (s *SchedulerImpl) setAllWfStateToReady(
 	wg *WorkGroup,
 ) {
 	for _, wf := range wg.waves() {
-		s.cu.logInstTask(wf, wf.DynamicInst(), true)
+		s.cu.completeInstruction(wf, wf.DynamicInst())
 
-		if wf.execution().State == wavefront.WfCompleted {
+		if executionEnded(wf.execution().State) {
 			continue
 		}
 

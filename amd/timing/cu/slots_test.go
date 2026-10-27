@@ -2,6 +2,7 @@ package cu
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -37,7 +38,8 @@ func TestFixedHardwareSlotsRetainDrainingWavesAndRejectStaleHandles(t *testing.T
 		t.Fatal("incorrect fixed hardware capacity")
 	}
 	old := groups[1].waves()[0]
-	old.execution().State = wavefront.WfCompleted
+	old.execution().State = wavefront.WfDraining
+	old.execution().IsFetching = true
 	old.state().StopFetch = true
 	c.WfPools[0].AddWf(old)
 	port := newFakePort("CU.ACE")
@@ -71,7 +73,8 @@ func TestCheckpointDuringDrainThenSlotReuse(t *testing.T) {
 	c := checkpointCU(t)
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	w.execution().State = wavefront.WfCompleted
+	w.execution().State = wavefront.WfDraining
+	w.execution().IsFetching = true
 	w.state().StopFetch = true
 	c.WfPools[0].AddWf(w)
 	req := messaging.Msg{ID: c.comp.NewID(), Payload: memprotocol.ReadReq{AccessByteSize: 4}}
@@ -85,7 +88,7 @@ func TestCheckpointDuringDrainThenSlotReuse(t *testing.T) {
 		t.Fatal("restore released or revived draining wave")
 	}
 	replaceCUState(t, restored)
-	if live.execution().State != wavefront.WfCompleted {
+	if live.execution().State != wavefront.WfDraining {
 		t.Fatal("pre-replacement handle lost identity")
 	}
 	restored.handleFetchReturn(messaging.Msg{RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: []byte{0, 0, 0, 0}}})
@@ -106,7 +109,7 @@ func TestSampledCompletionBackpressureSchedulesRetryExactlyOnce(t *testing.T) {
 	port := newFakePort("CU.ACE")
 	port.full = true
 	c.ToACE = port
-	w.execution().State = wavefront.WfSampledCompleted
+	w.execution().State = wavefront.WfSampledWaiting
 	c.Handle(wavefront.NewWfCompletionEvent(c.comp.NewID(), 0, c.wfCompletionHandlerID, w.handle))
 	if len(port.sent) != 0 || w.execution().State != wavefront.WfCompleted {
 		t.Fatal("sampled completion did not remain pending")
@@ -140,7 +143,13 @@ func (r *finalWaveOrderRecorder) TaskEnded(task tasks.Task) {
 	}
 }
 func TestFinalInstructionClosesBeforeWaveExactlyOnce(t *testing.T) {
-	c := checkpointCUWithTracking(t, true)
+	for _, tracking := range []bool{false, true} {
+		t.Run(fmt.Sprint(tracking), func(t *testing.T) { checkFinalInstructionOrder(t, tracking) })
+	}
+}
+func checkFinalInstructionOrder(t *testing.T, tracking bool) {
+	t.Helper()
+	c := checkpointCUWithTracking(t, tracking)
 	g := checkpointGroup(c)
 	w := g.waves()[0]
 	c.WfPools[0].AddWf(w)
@@ -149,17 +158,24 @@ func TestFinalInstructionClosesBeforeWaveExactlyOnce(t *testing.T) {
 	w.SetDynamicInst(instruction)
 	w.execution().State = wavefront.WfRunning
 	startTestWave(c, w)
-	c.logInstTask(w, w.DynamicInst(), false)
+	c.beginInstruction(w, w.DynamicInst())
 	recorder := &finalWaveOrderRecorder{inst: c.comp.State.InstTasks[instruction.ID], wave: c.comp.State.WFTasks[w.UID]}
-	c.comp.TaskTracker().Subscribe(recorder, c.comp)
+	if tracking {
+		c.comp.TaskTracker().Subscribe(recorder, c.comp)
+	}
 	port := newFakePort("CU.ACE")
 	port.full = true
 	c.ToACE = port
 	scheduler := c.Scheduler.(*SchedulerImpl)
 	scheduler.state().Internal = []uint64{w.handle}
 	scheduler.EvaluateInternalInst()
-	if len(recorder.ended) != 2 || recorder.ended[0] != recorder.inst ||
-		recorder.ended[1] != recorder.wave || w.execution().InFlightInsts != 0 {
+	expected := 0
+	if tracking {
+		expected = 2
+	}
+	if len(recorder.ended) != expected || (tracking &&
+		(recorder.ended[0] != recorder.inst || recorder.ended[1] != recorder.wave)) ||
+		w.execution().InFlightInsts != 0 || c.comp.State.Instructions[instruction.ID].ExecutionPending {
 		t.Fatalf("incorrect final lifetime order/count: %v", recorder.ended)
 	}
 	c.retireGroups()
@@ -167,7 +183,7 @@ func TestFinalInstructionClosesBeforeWaveExactlyOnce(t *testing.T) {
 	port.full = false
 	c.retireGroups()
 	c.retireGroups()
-	if len(recorder.ended) != 2 || len(port.sent) != 1 {
+	if len(recorder.ended) != expected || len(port.sent) != 1 {
 		t.Fatal("ACE retries repeated completion")
 	}
 	if len(c.comp.State.Scheduler.Internal) != 0 || len(c.comp.State.Scheduler.Barrier) != 0 {
@@ -217,7 +233,7 @@ func TestSampledCompletionPreservesResidentRegistersDuringBackpressure(t *testin
 	sampledGroup.state().Raw.CodeObject.Meta.WIVgprCount = 4
 	sampledGroup.state().Raw.CodeObject.Meta.WFSgprCount = 4
 	sampled := sampledGroup.waves()[0]
-	sampled.execution().State = wavefront.WfSampledCompleted
+	sampled.execution().State = wavefront.WfSampledWaiting
 	scalar := bytes.Repeat([]byte{0x35}, len(c.comp.State.SRegisters))
 	copy(c.comp.State.SRegisters, scalar)
 	vectors := make([][]byte, len(c.comp.State.VRegisters))

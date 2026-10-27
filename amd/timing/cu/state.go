@@ -12,6 +12,10 @@ import (
 type InstructionState struct {
 	ID, PC uint64
 	Raw    []byte
+	// Owner is the generation-bearing local wave slot. ExecutionPending spans
+	// issue through execution completion, including the final memory response.
+	Owner            uint64
+	ExecutionPending bool
 }
 type WaveState struct {
 	ID            uint64

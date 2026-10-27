@@ -97,7 +97,7 @@ func TestSEndPgmMilestoneEmittedOnceNotOnAceRetry(t *testing.T) {
 	if _, completed := s.evalSEndPgm(wf); !completed {
 		t.Fatal("execution should finish before ACE delivery")
 	}
-	cu.logInstTask(wf, wf.DynamicInst(), true)
+	cu.completeInstruction(wf, wf.DynamicInst())
 	cu.retireGroups()
 	cu.retireGroups()
 	if len(ace.sent) != 0 || wf.execution().State != wavefront.WfCompleted {
@@ -144,7 +144,7 @@ func (r *orderedEndRecorder) TaskEnded(e tasks.Task) {
 }
 
 // When S_ENDPGM retires while other wavefronts are still executing, the branch
-// closes the inst task via logInstTask. The s_endpgm milestone must be emitted
+// closes the inst task via completeInstruction. The s_endpgm milestone must be emitted
 // before that, so it attributes the instruction's lifetime rather than landing
 // on an already-ended task.
 func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
@@ -177,7 +177,7 @@ func TestSEndPgmMilestoneEmittedBeforeInstTasks(t *testing.T) {
 		t.Fatal("S_ENDPGM should retire on the executing branch")
 	}
 
-	cu.logInstTask(wf, wf.DynamicInst(), true)
+	cu.completeInstruction(wf, wf.DynamicInst())
 
 	if len(rec.events) != 2 ||
 		rec.events[0] != "milestone" || rec.events[1] != "endTask" {

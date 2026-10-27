@@ -96,7 +96,7 @@ func TestCustomCompletionEventResolvesReplacedState(t *testing.T) {
 	c := checkpointCU(t)
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	w.execution().State = wavefront.WfSampledCompleted
+	w.execution().State = wavefront.WfSampledWaiting
 	c.WfPools[0].AddWf(w)
 	c.comp.State.WFTasks[w.UID] = 0
 	c.comp.State.WGTasks[g.state().Request.ID] = 0
@@ -107,7 +107,7 @@ func TestCustomCompletionEventResolvesReplacedState(t *testing.T) {
 	if len(port.sent) != 1 || liveTestGroups(&c.comp.State) != 0 || liveTestWaves(&c.comp.State) != 0 {
 		t.Fatal("custom completion did not retire replacement state")
 	}
-	if old.Waves[slotIndex(w.handle)].Execution.State != wavefront.WfSampledCompleted {
+	if old.Waves[slotIndex(w.handle)].Execution.State != wavefront.WfSampledWaiting {
 		t.Fatal("custom completion mutated detached state")
 	}
 	if c.findWavefront(w.UID) != nil {
@@ -185,10 +185,10 @@ func TestDecodeCacheUsesEncodingAndISAWithoutDynamicIdentity(t *testing.T) {
 	c := checkpointCU(t)
 	first := checkpointInstruction(t, c)
 	first.PC = 128
-	c.rememberInstruction(first)
+	c.rememberInstruction(0, first)
 	second := checkpointInstruction(t, c)
 	second.PC = 256
-	c.rememberInstruction(second)
+	c.rememberInstruction(0, second)
 	a := c.instruction(first.ID)
 	b := c.instruction(second.ID)
 	if a.ID == b.ID || a.PC != 128 || b.PC != 256 || len(c.decoded) != 1 {
@@ -217,7 +217,7 @@ func TestDecodeCacheUsesEncodingAndISAWithoutDynamicIdentity(t *testing.T) {
 func TestCustomDecoderBypassesContentCache(t *testing.T) {
 	c := checkpointCU(t)
 	i := checkpointInstruction(t, c)
-	c.rememberInstruction(i)
+	c.rememberInstruction(0, i)
 	decoder := &changingDecoder{}
 	c.Decoder = decoder
 	if c.instruction(i.ID).ByteSize != 1 || c.instruction(i.ID).ByteSize != 2 || len(c.decoded) != 0 {
@@ -249,7 +249,7 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	h := &ISADebugger{Logger: log.New(&output, "", 0), cu: c, isFirstEntry: true,
 		executingInst: make(map[uint64]tasks.Task)}
 	c.comp.TaskTracker().Subscribe(h, c.comp)
-	c.logInstTask(w, w.DynamicInst(), false)
+	c.beginInstruction(w, w.DynamicInst())
 	if len(h.executingInst) != 1 {
 		t.Fatal("debugger did not track instruction")
 	}
@@ -261,7 +261,7 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	}
 	old := replaceCUState(t, c)
 	w.SetPC(256)
-	c.logInstTask(w, w.DynamicInst(), true)
+	c.completeInstruction(w, w.DynamicInst())
 	if !strings.Contains(output.String(), `"PCLo":256`) || len(h.executingInst) != 0 {
 		t.Fatalf("debugger used stale State or retained completed task: %s", output.String())
 	}
