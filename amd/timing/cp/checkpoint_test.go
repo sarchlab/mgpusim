@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/monitoring"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
@@ -18,9 +19,17 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
-func checkpointCP(t *testing.T, alg string, change func(*Spec)) (*sim.Simulation, *Comp) {
+func checkpointCP(t *testing.T, alg string, change func(*Spec),
+	monitors ...*monitoring.Monitor,
+) (*sim.Simulation, *Comp) {
 	t.Helper()
-	s := sim.MakeBuilder().WithTaskTracking().Build()
+	builder := sim.MakeBuilder().WithTaskTracking()
+	var monitor *monitoring.Monitor
+	if len(monitors) > 0 {
+		monitor = monitors[0]
+		builder = builder.WithMonitor(monitor).WithOutputPath(filepath.Join(t.TempDir(), "monitor.sqlite3"))
+	}
+	s := builder.Build()
 	t.Cleanup(func() {
 		if err := s.Terminate(); err != nil {
 			t.Error(err)
@@ -45,7 +54,7 @@ func checkpointCP(t *testing.T, alg string, change func(*Spec)) (*sim.Simulation
 	if change != nil {
 		change(&spec)
 	}
-	c := MakeBuilder().WithSimulation(s).WithSpec(spec).Build("CP")
+	c := MakeBuilder().WithSimulation(s).WithSpec(spec).WithMonitor(monitor).Build("CP")
 	for _, name := range []string{"ToDriver", "ToCUs", "ToDMA", "ToCaches", "ToRDMA"} {
 		p := twowaybuffered.MakeBuilder().WithSimulation(s).WithSpec(twowaybuffered.Spec{IncomingCapacity: 64,
 			OutgoingCapacity: 1}).Build()

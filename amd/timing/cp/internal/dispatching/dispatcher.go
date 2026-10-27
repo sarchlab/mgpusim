@@ -58,9 +58,8 @@ type DispatcherImpl struct {
 	subsequentKernelLaunchOverhead int
 	wgScalingThreshold             int
 
-	monitor       *monitoring2.Monitor
-	progressBar   *daisen2.ProgressBar
-	progressState *State
+	monitor     *monitoring2.Monitor
+	progressBar *daisen2.ProgressBar
 }
 
 // Name returns the name of the dispatcher
@@ -134,13 +133,46 @@ func (d *DispatcherImpl) StartDispatching(req messaging.Msg) {
 }
 
 func (d *DispatcherImpl) initializeProgressBar(kernelID uint64) {
-	d.progressState = d.state()
 	if d.monitor != nil {
+		if d.progressBar != nil {
+			d.monitor.CompleteProgressBar(d.progressBar)
+		}
 		d.progressBar = d.monitor.CreateProgressBar(
 			fmt.Sprintf("At %s, Kernel: %d, ", d.Name(), kernelID),
 			uint64(d.alg.NumWG()),
 		)
 	}
+}
+
+// syncProgressBar derives observer state from checkpointed content. A load can
+// replace counts without changing the enclosing State address or kernel ID.
+func (d *DispatcherImpl) syncProgressBar() {
+	if d.monitor == nil {
+		return
+	}
+	state := d.state()
+	if !state.IsDispatching {
+		if d.progressBar != nil {
+			d.monitor.CompleteProgressBar(d.progressBar)
+			d.progressBar = nil
+		}
+		return
+	}
+	name := fmt.Sprintf("At %s, Kernel: %d, ", d.Name(), state.Dispatching.ID)
+	total := uint64(d.alg.NumWG())
+	finished := uint64(state.NumCompletedWGs)
+	inProgress := uint64(state.NumDispatchedWGs - state.NumCompletedWGs)
+	if d.progressBar != nil {
+		snapshot := d.progressBar.Snapshot()
+		if snapshot.Name == name && snapshot.Total == total && snapshot.Finished == finished &&
+			snapshot.InProgress == inProgress {
+			return
+		}
+		d.monitor.CompleteProgressBar(d.progressBar)
+	}
+	d.progressBar = d.monitor.CreateProgressBar(name, total)
+	d.progressBar.IncrementInProgress(inProgress)
+	d.progressBar.IncrementFinished(finished)
 }
 
 func (d *DispatcherImpl) mustNotBeDispatchingAnotherKernel() {
@@ -151,16 +183,7 @@ func (d *DispatcherImpl) mustNotBeDispatchingAnotherKernel() {
 
 // Tick updates the state of the dispatcher.
 func (d *DispatcherImpl) Tick() (madeProgress bool) {
-	// Observational UI objects are reconstructed from canonical State after load.
-	if d.monitor != nil && d.progressState != d.state() {
-		d.progressBar = nil
-		d.progressState = d.state()
-		if d.state().IsDispatching {
-			d.initializeProgressBar(d.state().Dispatching.ID)
-			d.progressBar.IncrementInProgress(uint64(d.state().NumDispatchedWGs))
-			d.progressBar.MoveInProgressToFinished(uint64(d.state().NumCompletedWGs))
-		}
-	}
+	d.syncProgressBar()
 
 	if d.state().CycleLeft > 0 {
 		d.state().CycleLeft--
@@ -304,6 +327,7 @@ func (d *DispatcherImpl) completeKernel() (
 
 	if d.monitor != nil {
 		d.monitor.CompleteProgressBar(d.progressBar)
+		d.progressBar = nil
 	}
 
 	d.cp.TaskTracker().EndReqIn(d.state().LaunchTaskID)
