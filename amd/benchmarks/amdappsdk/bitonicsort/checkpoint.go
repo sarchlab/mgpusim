@@ -27,25 +27,7 @@ type State struct {
 	PerPassOut       []uint32
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	GPUs             []int
-	PerPassVerify    bool
-	Arch             arch.Type
-	Length           int
-	OrderAscending   bool
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification, GPUs: b.GpusToUse,
-		PerPassVerify:    b.PerPassVerify,
-		Arch:             b.Arch,
-		Length:           b.Length,
-		OrderAscending:   b.OrderAscending,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

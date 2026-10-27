@@ -30,28 +30,7 @@ type State struct {
 	GpuRMSE          float64
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	NumClusters      int
-	NumPoints        int
-	NumFeatures      int
-	MaxIter          int
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		NumClusters:      b.NumClusters,
-		NumPoints:        b.NumPoints,
-		NumFeatures:      b.NumFeatures,
-		MaxIter:          b.MaxIter,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadKernels()
 	return nil

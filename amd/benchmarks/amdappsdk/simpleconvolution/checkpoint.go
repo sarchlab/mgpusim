@@ -27,25 +27,7 @@ type State struct {
 	DMasks           []gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	MaskSize         uint32
-	Gpus             []int
-	Arch             arch.Type
-	Width            uint32
-	Height           uint32
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification, MaskSize: b.MaskSize,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		Width:            b.Width,
-		Height:           b.Height,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

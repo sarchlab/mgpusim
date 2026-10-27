@@ -2,7 +2,6 @@ package driver
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
@@ -44,7 +43,7 @@ func TestDeviceSpecCopiedAndCheckpointCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 	changed := build("Other.ToDriver")
-	if err := changed.LoadCheckpoint(path); err == nil || !strings.Contains(err.Error(), "spec") {
-		t.Fatalf("changed peer not rejected by Spec compatibility: %v", err)
+	if err := changed.LoadCheckpoint(path); err != nil {
+		t.Fatalf("best-effort load failed: %v", err)
 	}
 }

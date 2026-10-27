@@ -28,28 +28,7 @@ type State struct {
 	GPot             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	NumAtoms         int
-	GridSide         int
-	GridSpacing      float32
-	Cutoff           float32
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		NumAtoms:         b.NumAtoms,
-		GridSide:         b.GridSide,
-		GridSpacing:      b.GridSpacing,
-		Cutoff:           b.Cutoff,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

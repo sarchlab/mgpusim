@@ -58,7 +58,7 @@ type CDNA3BitonicKernelArgs struct {
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[checkpointConfig, State]
+	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
@@ -68,7 +68,7 @@ type Benchmark struct {
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 
 	b.GpusToUse = []int{1}
 	b.rt = rt

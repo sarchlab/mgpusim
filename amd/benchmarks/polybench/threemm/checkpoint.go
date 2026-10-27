@@ -32,30 +32,7 @@ type State struct {
 	GG               gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	NI               int
-	NJ               int
-	NK               int
-	NL               int
-	NM               int
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		NI:               b.NI,
-		NJ:               b.NJ,
-		NK:               b.NK,
-		NL:               b.NL,
-		NM:               b.NM,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

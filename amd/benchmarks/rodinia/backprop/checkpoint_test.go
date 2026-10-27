@@ -44,8 +44,11 @@ func TestRequestedDefaultsSurviveEffectiveDimensions(t *testing.T) {
 	different.SelectGPU([]int{1})
 	different.SetVerification(true)
 	different.InputN = 128
-	if err := different.LoadCheckpoint(bytes.NewReader(initial.Bytes())); err == nil {
-		t.Fatal("unstarted configuration mismatch accepted")
+	if err := different.LoadCheckpoint(bytes.NewReader(initial.Bytes())); err != nil {
+		t.Fatal(err)
+	}
+	if different.InputN != 0 {
+		t.Fatal("initial state not restored")
 	}
 	if err := b.Step(); err != nil {
 		t.Fatal(err)
@@ -72,7 +75,10 @@ func TestRequestedDefaultsSurviveEffectiveDimensions(t *testing.T) {
 	mismatch.SelectGPU([]int{1})
 	mismatch.SetVerification(true)
 	mismatch.InputN = 128
-	if err := mismatch.LoadCheckpoint(bytes.NewReader(buf.Bytes())); err == nil {
-		t.Fatal("different requested configuration accepted")
+	if err := mismatch.LoadCheckpoint(bytes.NewReader(buf.Bytes())); err != nil {
+		t.Fatal(err)
+	}
+	if mismatch.InputN != 64 {
+		t.Fatal("effective state not restored")
 	}
 }

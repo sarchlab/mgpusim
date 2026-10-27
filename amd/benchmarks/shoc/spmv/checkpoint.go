@@ -29,24 +29,7 @@ type State struct {
 	Maxval           float32
 	Matrix           csr.Matrix
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	UseUnifiedMemory bool
-	Arch             arch.Type
-	Dim              int32
-	Sparsity         float64
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-		Arch:             b.Arch,
-		Dim:              b.Dim,
-		Sparsity:         b.Sparsity,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

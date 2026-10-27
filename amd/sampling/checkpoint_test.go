@@ -27,8 +27,11 @@ func TestSamplingCheckpointContinuesPrediction(t *testing.T) {
 			t.Fatal(err)
 		}
 		wrongConfig := NewSampledEngine(32, 0.03, false)
-		if err := wrongConfig.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err == nil {
-			t.Fatal("accepted a different sampling window")
+		if err := wrongConfig.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err != nil {
+			t.Fatal(err)
+		}
+		if wrongConfig.stableEngine.granularity != 32 {
+			t.Fatal("restore replaced configured window")
 		}
 		for i := stop; i < 1100; i++ {
 			collect(original, i)

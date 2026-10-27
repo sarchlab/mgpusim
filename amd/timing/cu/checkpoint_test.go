@@ -191,15 +191,18 @@ func TestInstructionRegistryBoundedWithinLongLivedGroup(t *testing.T) {
 	}
 }
 
-func TestCheckpointRejectsDifferentMemoryDestinations(t *testing.T) {
+func TestCheckpointRetainsDifferentMemoryDestinations(t *testing.T) {
 	c := checkpointCU(t)
 	var archive bytes.Buffer
 	if err := c.comp.SaveCheckpoint(&archive); err != nil {
 		t.Fatal(err)
 	}
 	c.comp.Spec.InstMem = "DifferentROB.Top"
-	if err := c.comp.LoadCheckpoint(&archive); err == nil {
-		t.Fatal("changed immutable destination was accepted")
+	if err := c.comp.LoadCheckpoint(&archive); err != nil {
+		t.Fatal(err)
+	}
+	if c.comp.Spec.InstMem != "DifferentROB.Top" {
+		t.Fatal("restore replaced configured destination")
 	}
 }
 

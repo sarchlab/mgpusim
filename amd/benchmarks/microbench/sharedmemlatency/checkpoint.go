@@ -31,28 +31,7 @@ type State struct {
 	NoConflictResult []float32
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	NumBlocks        int
-	InnerIters       int
-	BlockSize        int
-	AccessPattern    string
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		NumBlocks:        b.NumBlocks,
-		InnerIters:       b.InnerIters,
-		BlockSize:        b.BlockSize,
-		AccessPattern:    b.AccessPattern,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

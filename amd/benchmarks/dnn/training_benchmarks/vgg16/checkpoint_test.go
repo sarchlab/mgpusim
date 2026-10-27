@@ -33,10 +33,10 @@ type graphProbe struct {
 
 func (*graphProbe) Name() string { return "VGGProbe" }
 func (p *graphProbe) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, "probe", p, nil)
+	return modeling.WriteCheckpoint(w, p, nil)
 }
 func (p *graphProbe) LoadCheckpoint(r io.Reader) error {
-	return modeling.ReadCheckpoint(r, "probe", p, nil)
+	return modeling.ReadCheckpoint(r, p, nil)
 }
 
 func graphSystem(

@@ -77,10 +77,10 @@ func TestReadMutationReadAcrossAliasesAndRestore(t *testing.T) {
 					Parameters, View tensor.ID
 				}{*o.OperatorState, o.Reference(params), o.Reference(view)}
 				var buf bytes.Buffer
-				if err := modeling.WriteCheckpoint(&buf, "aliases", state, nil); err != nil {
+				if err := modeling.WriteCheckpoint(&buf, state, nil); err != nil {
 					t.Fatal(err)
 				}
-				if err := modeling.ReadCheckpoint(&buf, "aliases", &state, nil); err != nil {
+				if err := modeling.ReadCheckpoint(&buf, &state, nil); err != nil {
 					t.Fatal(err)
 				}
 				o = BindOperator(r, &state.Operator)
@@ -181,10 +181,10 @@ func TestReadbackBeforeAliasedWriteCannotBecomeCurrentCache(t *testing.T) {
 				state := *o.OperatorState
 				saved := o.Reference(v)
 				var buf bytes.Buffer
-				if err := modeling.WriteCheckpoint(&buf, "operator", state, nil); err != nil {
+				if err := modeling.WriteCheckpoint(&buf, state, nil); err != nil {
 					t.Fatal(err)
 				}
-				if err := modeling.ReadCheckpoint(&buf, "operator", &state, nil); err != nil {
+				if err := modeling.ReadCheckpoint(&buf, &state, nil); err != nil {
 					t.Fatal(err)
 				}
 				o = BindOperator(rt, &state)

@@ -29,11 +29,11 @@ func checkAllocatorContinuation(t *testing.T, buddy bool) {
 	original.Allocate(1, 4096, 3)
 	original.Free(1, block, 4096) // Preserve a partly freed buddy block's shared tracker.
 	var data bytes.Buffer
-	if err := modeling.WriteCheckpoint(&data, struct{}{}, SnapshotAllocator(original, devices), nil); err != nil {
+	if err := modeling.WriteCheckpoint(&data, SnapshotAllocator(original, devices), nil); err != nil {
 		t.Fatal(err)
 	}
 	var saved AllocatorState
-	if err := modeling.ReadCheckpoint(&data, struct{}{}, &saved, nil); err != nil {
+	if err := modeling.ReadCheckpoint(&data, &saved, nil); err != nil {
 		t.Fatal(err)
 	}
 	restoredTable := vm.NewPageTable(12)

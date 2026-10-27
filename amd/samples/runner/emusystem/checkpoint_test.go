@@ -265,10 +265,10 @@ type firResults struct {
 
 func (r *firResults) Name() string { return "FIRResults" }
 func (r *firResults) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, checkpointLength, r, nil)
+	return modeling.WriteCheckpoint(w, r, nil)
 }
 func (r *firResults) LoadCheckpoint(reader io.Reader) error {
-	return modeling.ReadCheckpoint(reader, checkpointLength, r, nil)
+	return modeling.ReadCheckpoint(reader, r, nil)
 }
 
 func rewindEmulation(t *testing.T, s *sim.Simulation, d *gpuruntime.Runtime, results *firResults, path string) {

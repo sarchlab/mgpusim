@@ -42,7 +42,7 @@ type KernelArgs struct {
 // Benchmark defines the cache_latency benchmark.
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[checkpointConfig, State]
+	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
 	hsaco *insts.KernelCodeObject
@@ -55,7 +55,7 @@ var cdna3HSACOBytes []byte
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 
 	b.rt = rt
 	b.Context = b.rt.Init()

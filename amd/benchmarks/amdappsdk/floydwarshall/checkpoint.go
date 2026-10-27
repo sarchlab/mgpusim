@@ -24,24 +24,7 @@ type State struct {
 	HVerificationPathDistanceMatrix []uint32
 	UseUnifiedMemory                bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	NumNodes         uint32
-	NumIterations    uint32
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		NumNodes:         b.NumNodes,
-		NumIterations:    b.NumIterations,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil
