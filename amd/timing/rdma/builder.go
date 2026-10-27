@@ -47,8 +47,7 @@ func (b Builder) WithSpec(spec Spec) Builder {
 	return b
 }
 
-// WithResources injects the address-to-port mappers used to route requests to
-// local modules and remote RDMA engines.
+// WithResources sets the empty resource record.
 func (b Builder) WithResources(r Resources) Builder {
 	b.resources = r
 	return b

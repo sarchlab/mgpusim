@@ -73,10 +73,12 @@ var _ = Describe("RDMA Engine", func() {
 
 		rdmaEngine = MakeBuilder().
 			WithSimulation(simulation).
-			WithResources(Resources{
-				LocalModules:           mem.AddressMapper{Destinations: []messaging.RemotePort{localCache}},
-				RemoteRDMAAddressTable: mem.AddressMapper{Destinations: []messaging.RemotePort{remoteGPU}},
-			}).
+			WithSpec(func() Spec {
+				spec := DefaultSpec()
+				spec.LocalModules = mem.AddressMapper{Destinations: []messaging.RemotePort{localCache}}
+				spec.RemoteRDMAAddressTable = mem.AddressMapper{Destinations: []messaging.RemotePort{remoteGPU}}
+				return spec
+			}()).
 			Build("RDMAEngine")
 
 		requestInside = makePort("RDMARequestInside", 4)

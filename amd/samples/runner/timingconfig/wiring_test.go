@@ -19,9 +19,12 @@ func TestCUDestinationsUseBuiltROBPorts(t *testing.T) {
 		WithL1AddressMapper(&mem.AddressMapper{Destinations: []messaging.RemotePort{"Memory.Top"}}).
 		WithL1TLBAddressMapper(&mem.AddressMapper{Destinations: []messaging.RemotePort{"Memory.Top"}}).
 		Build("CustomShaderArray")
-	for _, c := range sa.CUs {
+	for i, c := range sa.CUs {
 		if c.Spec.InstMem != sa.L1IROB.Ports.Top.AsRemote() || c.Spec.ScalarMem != sa.L1SROB.Ports.Top.AsRemote() {
 			t.Fatal("CU Spec does not refer to the actual bound ROB ports")
+		}
+		if c.Spec.VectorMemModules.Find(0) != sa.L1VROBs[i].Ports.Top.AsRemote() {
+			t.Fatal("vector routing does not name actual ROB port")
 		}
 		if c.Middlewares.CU != nil {
 			t.Fatal("CU behavior was constructed before Initialize")

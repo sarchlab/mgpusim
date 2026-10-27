@@ -243,7 +243,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	for _, t := range transactions {
 		payload := t.Read.Payload.(memprotocol.ReadReq)
 
-		lowModule := u.cu.comp.Resources.VectorMemModules.Find(
+		lowModule := u.cu.comp.Spec.VectorMemModules.Find(
 			t.Read.Payload.(memprotocol.ReadReq).Address)
 		t.Read.Dst = lowModule
 		t.Read.Src = u.cu.vectorMemPort().AsRemote()
@@ -288,7 +288,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 
 	for _, t := range transactions {
 		payload := t.Write.Payload.(memprotocol.WriteReq)
-		lowModule := u.cu.comp.Resources.VectorMemModules.Find(
+		lowModule := u.cu.comp.Spec.VectorMemModules.Find(
 			t.Write.Payload.(memprotocol.WriteReq).Address)
 		t.Write.Dst = lowModule
 		t.Write.Src = u.cu.vectorMemPort().AsRemote()

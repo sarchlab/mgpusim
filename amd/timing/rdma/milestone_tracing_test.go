@@ -27,10 +27,12 @@ func tracedRDMA(t *testing.T) (*sim.Simulation, *Comp, *milestoneRecorder) {
 			t.Error(err)
 		}
 	})
-	c := MakeBuilder().WithSimulation(s).WithResources(Resources{
-		LocalModules:           mem.AddressMapper{Destinations: []messaging.RemotePort{"LocalCache"}},
-		RemoteRDMAAddressTable: mem.AddressMapper{Destinations: []messaging.RemotePort{"RemoteGPU"}},
-	}).Build("RDMAEngine")
+	c := MakeBuilder().WithSimulation(s).WithSpec(func() Spec {
+		spec := DefaultSpec()
+		spec.LocalModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"LocalCache"}}
+		spec.RemoteRDMAAddressTable = mem.AddressMapper{Destinations: []messaging.RemotePort{"RemoteGPU"}}
+		return spec
+	}()).Build("RDMAEngine")
 	for _, name := range []string{"RDMARequestInside",
 		"RDMARequestOutside",
 		"RDMADataInside",

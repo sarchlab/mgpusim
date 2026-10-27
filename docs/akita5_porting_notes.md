@@ -41,8 +41,8 @@ Dependents: timingconfig builders (r9nano, mi300x), CP ctrlMiddleware.
 | `rdma.DrainReqBuilder{}...Build()` | `rdma.DrainReq{MsgMeta: messaging.MsgMeta{ID: ..., Src: ..., Dst: ...}}` value |
 | `rdma.RestartReqBuilder{}...Build()` | `rdma.RestartReq{...}` value |
 | `case *rdma.DrainRsp:` / `case *rdma.RestartRsp:` | value cases; responses carry `RspTo` |
-| `Builder.WithEngine/WithFreq/WithBufferSize/WithLocalModules/WithRemoteModules/...` | `WithRegistrar(reg)`, `WithSpec(rdma.Spec{...})` from `rdma.DefaultSpec()`, `WithResources(rdma.Resources{LocalModules, RemoteRDMAAddressTable})` |
-| `comp.SetLocalModuleFinder(m)` / `comp.RemoteRDMAAddressTable = m` post-build | pass via `WithResources` before Build (mapper contents may be populated later) |
+| `Builder.WithEngine/WithFreq/WithBufferSize/WithLocalModules/WithRemoteModules/...` | `WithRegistrar(reg)`, `WithSpec(rdma.Spec{...})` from `rdma.DefaultSpec()`, `Spec.LocalModules` and `Spec.RemoteRDMAAddressTable` as concrete `mem.AddressMapper` values |
+| `comp.SetLocalModuleFinder(m)` / `comp.RemoteRDMAAddressTable = m` post-build | fill all mapper contents in Spec before Build; no post-build routing mutation |
 | Port fields `comp.RDMARequestInside` etc. | port names: `"RDMARequestInside"` (memprotocol.Responder), `"RDMARequestOutside"` (Requester), `"RDMADataInside"` (Requester), `"RDMADataOutside"` (Responder), `"Ctrl"`. Build externally, `AssignPort`, access via `GetPortByName` |
 
 Behavior deltas (parity): per-cycle req/rsp limits now actually bind (v4 had
@@ -146,11 +146,11 @@ Dependents: shaderarray config, CP resource pool, runner report/tracers.
 - Builder: `WithSimulation(simulation)` + `WithSpec(spec)`, starting from
   `cu.DefaultSpec()`. Geometry, frequency, pipeline dimensions, scoreboard
   configuration and memory limits belong to Spec. Shared decoder, ALU,
-  sampler and vector-memory mapper belong to `WithResources(cu.Resources{...})`.
+  and sampler belong to `WithResources(cu.Resources{...})`.
 - Destinations: `spec.InstMem` and `spec.ScalarMem` are immutable RemotePorts.
   Build the downstream instruction/scalar ROBs and bind their ports first;
   copy their actual `Ports.Top.AsRemote()` addresses into Spec before building
-  the CU. `Resources.VectorMemModules` remains the vector-memory mapper.
+  the CU. `Spec.VectorMemModules` is the concrete vector-memory mapper.
 - Ports: `"Top"`, `"InstMem"`, `"ScalarMem"`, `"VectorMem"`. Build
   them externally with `twowaybuffered.MakeBuilder().WithSimulation(simulation)`
   and bind with `comp.BindPort(name, port)` before connecting. Buffer capacities
@@ -202,9 +202,10 @@ Dependents: timingconfig core + r9nano/mi300x/shaderarray configs.
   belong to CP State. Initialize constructs behavior views; dispatchers and
   the pool are no longer separately registered checkpoint resources.
 - DMA now lives in `amd/timing/dma`:
-  `dma.MakeBuilder().WithSimulation(sim).WithSpec(dma.DefaultSpec()).WithResources(dma.Resources{LocalDataSource: mapper}).Build(name)`
+  `spec := dma.DefaultSpec(); spec.LocalDataSource = mapper`, then
+  `dma.MakeBuilder().WithSimulation(sim).WithSpec(spec).Build(name)`
   returns `*dma.Comp`. Bind its external "ToCP" and "ToMem" ports. Routing
-  through `LocalDataSource` remains deferred to #321.
+  through `Spec.LocalDataSource` is immutable and checkpoint-compatible.
 - Legacy GPU shootdown/restart commands and their CU/AT/ROB/TLB control
   sequence are removed. Ordinary driver cache flush still drains, flushes,
   invalidates L1 then L2, and enables caches. Kernel-start L1 invalidation and
@@ -287,3 +288,21 @@ Tests: deterministic mains return `timing.VTimeInPicoSec`.
 `go test ./...`: only pre-existing failures in
 `amd/benchmarks/dnn/training{,/optimization}` (mockgen mocks never
 committed; v4 upstream fails identically).
+
+### Immutable AMD memory routing (#321)
+
+CU `VectorMemModules`, RDMA `LocalModules` / `RemoteRDMAAddressTable`, and
+DMA `LocalDataSource` belong to their component Spec as concrete
+`mem.AddressMapper` values. These fields have been removed from Resources;
+start from `DefaultSpec()`, populate routing, and pass it through `WithSpec`.
+GPU builder `WithRDMAAddressMapper` likewise accepts a concrete value.
+Initialization validates the routing; Build snapshots nested destination slices.
+
+Platform assembly computes all CPU/GPU RDMA slots before building any GPU,
+using the declared remote port names. DMA routes are filled while constructing
+the DRAM banks (R9 Nano) or MALL banks (MI300X), before DMA Build. Connection
+binding no longer fills shared routing tables after Build. Checkpoints include
+routing in Spec compatibility checks and reject changed mapper contents.
+
+Checkpoints from before this routing migration have different Spec hashes and
+cannot be restored by the new build. Generate new checkpoints after upgrading.

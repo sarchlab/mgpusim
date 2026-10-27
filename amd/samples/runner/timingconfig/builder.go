@@ -50,7 +50,7 @@ type Builder struct {
 	h2dCycles          int
 
 	globalStorage     *mem.Storage
-	rdmaAddressMapper *mem.AddressMapper
+	rdmaAddressMapper mem.AddressMapper
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -239,10 +239,14 @@ func (b *Builder) createGPUBuilder(
 }
 
 func (b *Builder) createRDMAAddressMapper() {
-	b.rdmaAddressMapper = new(mem.AddressMapper)
+	b.rdmaAddressMapper = mem.AddressMapper{}
 	b.rdmaAddressMapper.InterleavingSize = b.gpuMemSize
 	b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
 		messaging.RemotePort("CPU"))
+	for i := 1; i <= b.numGPUs; i++ {
+		b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
+			messaging.RemotePort(fmt.Sprintf("GPU[%d].RDMA.RDMADataOutside", i)))
+	}
 }
 
 func (b *Builder) createGPU(
@@ -258,19 +262,9 @@ func (b *Builder) createGPU(
 		WithRDMAAddressMapper(b.rdmaAddressMapper).
 		Build(name)
 
-	b.configRDMAEngine(gpu)
-
 	for _, port := range gpu.ExternalPorts() {
 		interDeviceConn.BindPort(port)
 	}
 
 	return gpu
-}
-
-func (b *Builder) configRDMAEngine(
-	gpu *gpubuilder.GPU,
-) {
-	b.rdmaAddressMapper.Destinations = append(
-		b.rdmaAddressMapper.Destinations,
-		gpu.RDMADataPort.AsRemote())
 }

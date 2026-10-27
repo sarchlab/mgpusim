@@ -443,12 +443,8 @@ func (b *Builder) buildCUs() {
 	for i := 0; i < b.numCUs; i++ {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 
-		resources := cu.Resources{
-			Sampler: b.sampler,
-			VectorMemModules: &mem.AddressMapper{
-				Destinations: []messaging.RemotePort{b.sa.L1VROBs[i].Ports.Top.AsRemote()},
-			},
-		}
+		spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{b.sa.L1VROBs[i].Ports.Top.AsRemote()}}
+		resources := cu.Resources{Sampler: b.sampler}
 		if b.aluBuilder != nil {
 			resources.ALU = b.aluBuilder()
 		}
