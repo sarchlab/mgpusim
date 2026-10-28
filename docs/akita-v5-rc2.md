@@ -1,6 +1,6 @@
-# Akita v5 RC4 migration and checkpoints
+# Akita v5.0.0 migration and checkpoints
 
-MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.4`
+MGPUSim uses the published stable `github.com/sarchlab/akita/v5 v5.0.0`
 release, including checkpoint restoration without configuration hashes. Akita
 guarantees each requested `TickAt` clock edge and stores the pending tick guard as a list. Recording tables
 now have the `akita$` prefix; MGPUSim's
