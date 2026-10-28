@@ -115,3 +115,23 @@ func TestRunnerReportsUnscheduledQueueBeforeHostStep(t *testing.T) {
 		t.Fatal("accepted checkpoint after failed drain")
 	}
 }
+
+func TestCheckpointRequiresInitializedSimulation(t *testing.T) {
+	r, _ := newTestRunner(t)
+	path := filepath.Join(t.TempDir(), "checkpoint")
+	if err := r.SaveCheckpoint(path); err == nil {
+		t.Fatal("saved before initialization")
+	}
+	initializeRunner(t, r)
+	if err := r.SaveCheckpoint(path); err != nil {
+		t.Fatal(err)
+	}
+	rebuilt, _ := newTestRunner(t)
+	if err := rebuilt.simulation.LoadCheckpoint(path); err == nil {
+		t.Fatal("loaded valid checkpoint before initialization")
+	}
+	initializeRunner(t, rebuilt)
+	if err := rebuilt.simulation.LoadCheckpoint(path); err != nil {
+		t.Fatal(err)
+	}
+}

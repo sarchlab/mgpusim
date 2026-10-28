@@ -167,7 +167,13 @@ round and Driver's tick has been scheduled**. `Runner.SaveCheckpoint` enforces
 this boundary. Direct callers of `Simulation.SaveCheckpoint` must honor the
 same host-phase precondition. Serial `RunUntil` may advance from that boundary to an event
 boundary inside simulation before saving. Never save in the middle of a host
-Step or between two benchmarks' Steps.
+Step or between two benchmarks' Steps. Both save and load require an initialized,
+idle serial simulation; Akita enforces this at the Simulation boundary. Runtime
+resource serializers do not own an engine and are not independent concurrent APIs.
+Loading into an already-used simulation intentionally replaces its saved State,
+allowing same-instance rewind; it must not reject existing queues or allocations.
+The same host-phase boundary applies before loading. Across executables or changed
+configuration, loading is best effort, with no version or configuration-hash gate.
 
 A fresh process builds the same platform and named benchmark resources with the
 same requested configuration, initializes Simulation, and loads the checkpoint.

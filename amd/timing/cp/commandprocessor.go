@@ -154,9 +154,6 @@ func (p dispatcherPorts) GetPortByName(name string) messaging.Port {
 	}
 }
 
-// CommandProcessor is an alias of Comp, kept for readability at use sites.
-type CommandProcessor = Comp
-
 // CUInterfaceForCP defines the interface that a CP requires from CU.
 type CUInterfaceForCP interface {
 	resource.DispatchableCU

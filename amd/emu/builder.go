@@ -3,7 +3,6 @@ package emu
 import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // DefaultSpec returns a copy of the default configuration. Callers obtain
@@ -68,8 +67,5 @@ func (b Builder) Build(name string) *Comp {
 			"StorageAccessor is required")
 	}
 
-	if d, ok := b.resources.Decoder.(*insts.Disassembler); ok {
-		b.spec.IsCDNA3 = d.IsCDNA3
-	}
 	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).WithResources(b.resources).Build(name)
 }

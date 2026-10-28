@@ -179,21 +179,19 @@ func (b Builder) buildComputeUnit(
 func (b Builder) buildCommandProcessor(
 	name string,
 	cu *emu.Comp,
-) (*commandProcessor, messaging.Port) {
+) (*Comp, messaging.Port) {
 	cp := buildCommandProcessor(
-		b.simulation, b.freq, name+".CommandProcessor")
+		b.simulation, b.freq, cu.Ports.ToDispatcher.AsRemote(), name+".CommandProcessor")
 
 	driverPort := b.assignPort(cp, cpDriverPortName)
 	b.assignPort(cp, cpCUPortName)
-
-	cp.State.CUDst = cu.Ports.ToDispatcher.AsRemote()
 
 	return cp, driverPort
 }
 
 func (b Builder) connectInternalComponents(
 	name string,
-	cp *commandProcessor,
+	cp *Comp,
 	cu *emu.Comp,
 	gpuMem *idealmemcontroller.Comp,
 ) {

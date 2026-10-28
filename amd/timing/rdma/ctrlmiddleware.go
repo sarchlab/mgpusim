@@ -2,7 +2,6 @@ package rdma
 
 import (
 	"log"
-	"reflect"
 
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -46,7 +45,7 @@ func (m *ctrlMiddleware) processFromCtrlPort() bool {
 		return m.processRestartReq(msg)
 	default:
 
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(msg))
+		log.Panicf("cannot process request of type %T", msg.Payload)
 		return false
 	}
 }

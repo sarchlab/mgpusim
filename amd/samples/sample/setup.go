@@ -60,7 +60,13 @@ func (c Config) Configure(b benchmarks.Benchmark) {
 	b.SetVerification(c.Verify)
 }
 func (r *assembly) initSimulation() {
-	builder := simulation.MakeBuilder().WithTaskTracking()
+	builder := simulation.MakeBuilder()
+	// Timing reports always subscribe to kernel and per-GPU busy time, even
+	// without report flags. Emulation needs tracking only for monitor/visual
+	// tracing, which the simulation builder enables with those options.
+	if r.Timing {
+		builder = builder.WithTaskTracking()
+	}
 
 	if r.Parallel {
 		builder = builder.WithParallelEngine()

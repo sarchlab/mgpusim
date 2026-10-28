@@ -1,7 +1,9 @@
 package kernels
 
 // An HsaKernelDispatchPacket is an AQL packet for launching a kernel on a
-// GPU.
+// GPU. Reserved fields retain their zero values: the runtime never writes
+// them, and JSON checkpoints omit them. Their positions preserve the AQL
+// packet layout for binary encoding.
 type HsaKernelDispatchPacket struct {
 	Header             uint16
 	Setup              uint16
