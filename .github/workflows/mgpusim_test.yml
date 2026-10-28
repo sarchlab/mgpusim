@@ -97,7 +97,7 @@ jobs:
         run: go test ./internal/architecture -count=1 -v
 
       - name: Unit Test
-        run: ginkgo -r --skip-package=mccl
+        run: ginkgo -r --skip-package=mccl,internal/architecture
 
   # Lightweight placeholder for the NVIDIA trace-driven simulator (nvidia/).
   # It only builds, tests, and lints nvidia/; collecting traces needs an

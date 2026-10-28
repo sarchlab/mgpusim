@@ -67,7 +67,7 @@ func checkPackages(pkgs []*packages.Package) []string {
 					}
 					components[pkg.PkgPath][declaration.Name.Name] = declaration.Assign.IsValid()
 				}
-				if call, ok := node.(*ast.CallExpr); ok && isTest && isModelCheck(pkg.TypesInfo, call.Fun) {
+				if call, ok := node.(*ast.CallExpr); ok && isTest && checksOwnComponent(pkg, call) {
 					// Both same-package and external-package tests count.
 					covered[strings.TrimSuffix(pkg.PkgPath, "_test")] = true
 				}
@@ -102,6 +102,24 @@ func isComponent(typ types.Type) bool {
 	return false
 }
 
+// Check helpers take the testing object first and the component pointer second.
+// Resolve the local Comp through the test package's type universe so both
+// in-package tests and external tests must check their own component.
+func checksOwnComponent(pkg *packages.Package, call *ast.CallExpr) bool {
+	if len(call.Args) < 2 || !isModelCheck(pkg.TypesInfo, call.Fun) {
+		return false
+	}
+	owner := pkg
+	if strings.HasSuffix(pkg.PkgPath, "_test") {
+		owner = pkg.Imports[strings.TrimSuffix(pkg.PkgPath, "_test")]
+	}
+	if owner == nil {
+		return false
+	}
+	comp := owner.Types.Scope().Lookup("Comp")
+	return comp != nil && types.Identical(pkg.TypesInfo.TypeOf(call.Args[1]), types.NewPointer(comp.Type()))
+}
+
 func isModelCheck(info *types.Info, expr ast.Expr) bool {
 	switch e := expr.(type) {
 	case *ast.IndexExpr:
@@ -125,6 +143,7 @@ func TestGuardRejectsMissedComponents(t *testing.T) {
 		{"multiple", "declare exactly one component"},
 		{"defined", "declare exactly one component"},
 		{"uncovered", "missing modelingtest.Check"},
+		{"foreign", "missing modelingtest.Check"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := strings.Join(checkPackages(load(t, ".", "./testdata/"+tc.name)), "\n")
