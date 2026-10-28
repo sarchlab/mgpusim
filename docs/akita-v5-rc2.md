@@ -1,8 +1,8 @@
-# Akita v5 RC3 migration and checkpoints
+# Akita v5 RC4 migration and checkpoints
 
-MGPUSim pins Akita checkpoint simplification commit `b6e960328f66`
-(`v5.0.0-rc.3.0.20261027224217-b6e960328f66`). RC3 guarantees each requested
-`TickAt` clock edge and stores the pending tick guard as a list. Recording tables
+MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.4`
+release, including checkpoint restoration without configuration hashes. Akita
+guarantees each requested `TickAt` clock edge and stores the pending tick guard as a list. Recording tables
 now have the `akita$` prefix; MGPUSim's
 own metric tables are unchanged. No local module replacement is required. AMD GCN3,
 AMD CDNA3 and the NVIDIA trace simulator use native Akita components, ports,
