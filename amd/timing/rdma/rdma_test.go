@@ -89,6 +89,13 @@ var _ = Describe("RDMA Engine", func() {
 		Expect(simulation.Initialize()).To(Succeed())
 	})
 
+	It("reports the unsupported control payload type", func() {
+		msg := messaging.Msg{ID: rdmaEngine.NewID(), Payload: memprotocol.ReadReq{}}
+		ctrlPort.Deliver(msg)
+		Expect(func() { rdmaEngine.Middlewares.Ctrl.processFromCtrlPort() }).
+			To(PanicWith("cannot process request of type memprotocol.ReadReq"))
+	})
+
 	makeReadReq := func(src, dst messaging.RemotePort) messaging.Msg {
 		return messaging.Msg{ID: rdmaEngine.NewID(),
 			Src: src,

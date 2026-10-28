@@ -11,6 +11,9 @@ go build ./...
 # Run unit tests (~17s) - uses Ginkgo framework
 ginkgo -r --skip-package=mccl
 
+# Check every AMD/NVIDIA component (inspector, Comp naming, modelingtest coverage)
+GOTOOLCHAIN=local go test ./internal/architecture -count=1 -v
+
 # Run specific package tests
 go test ./amd/emu/... -v
 

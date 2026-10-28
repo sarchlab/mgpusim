@@ -91,6 +91,11 @@ jobs:
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.32.1
 
+      - name: Component architecture guards
+        env:
+          GOTOOLCHAIN: local
+        run: go test ./internal/architecture -count=1 -v
+
       - name: Unit Test
         run: ginkgo -r --skip-package=mccl
 

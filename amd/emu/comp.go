@@ -16,9 +16,7 @@ const DispatchPortName = "ToDispatcher"
 
 // Spec is the immutable configuration of an emulation ComputeUnit.
 type Spec struct {
-	// IsCDNA3 is captured from the configured decoder by the builder.
-	IsCDNA3 bool        `json:"is_cdna3"`
-	Freq    timing.Freq `json:"freq"`
+	Freq timing.Freq `json:"freq"`
 }
 
 // State retains queued work, completion deadlines and completion state.

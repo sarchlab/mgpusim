@@ -27,38 +27,50 @@ const (
 	cpCUPortName     = "ToCU"
 )
 
-// cpSpec is the immutable configuration of the emulation command processor.
-type cpSpec struct {
-	Freq timing.Freq `json:"freq"`
+// Spec is the immutable configuration of the emulation command processor.
+type Spec struct {
+	Freq  timing.Freq          `json:"freq"`
+	CUDst messaging.RemotePort `json:"cu_dst"`
+}
+
+// DefaultSpec returns the emulation command processor's default frequency.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
 }
 
 // cpState contains queued work and all in-flight launch bookkeeping.
 type cpState struct {
-	CUDst                 messaging.RemotePort
 	WGsToSend, RspsToSend []messaging.Msg
 	Launches              map[uint64]kernelLaunch
 	WGToKernel            map[uint64]uint64
 }
-type commandProcessor = ticking.Component[cpSpec, cpState, modeling.None, cpPorts, cpMiddlewares]
+
+// Comp is the emulation command processor.
+type Comp = ticking.Component[Spec, cpState, modeling.None, cpPorts, cpMiddlewares]
 type cpPorts struct {
 	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
 	ToCU     messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
 }
 type cpMiddlewares struct{ CP *cpMiddleware }
 
-func (m *cpMiddlewares) Initialize(c *commandProcessor) { m.CP = &cpMiddleware{comp: c} }
+func (m *cpMiddlewares) Initialize(c *Comp) { m.CP = &cpMiddleware{comp: c} }
 
 type kernelLaunch struct {
 	ReqID       uint64
 	ReqSrc      messaging.RemotePort
 	Outstanding int
 }
-type cpMiddleware struct{ comp *commandProcessor }
+type cpMiddleware struct{ comp *Comp }
 
-func buildCommandProcessor(reg modeling.Simulation, freq timing.Freq, name string) *commandProcessor {
-	c := modeling.MakeBuilder[*commandProcessor](cpSpec{Freq: freq}).WithSimulation(reg).Build(name)
-	c.State = cpState{Launches: make(map[uint64]kernelLaunch), WGToKernel: make(map[uint64]uint64)}
-	return c
+func (s *cpState) Initialize(*Comp) {
+	s.Launches = make(map[uint64]kernelLaunch)
+	s.WGToKernel = make(map[uint64]uint64)
+}
+
+func buildCommandProcessor(reg modeling.Simulation, freq timing.Freq, dst messaging.RemotePort, name string) *Comp {
+	spec := DefaultSpec()
+	spec.Freq, spec.CUDst = freq, dst
+	return modeling.MakeBuilder[*Comp](spec).WithSimulation(reg).Build(name)
 }
 
 func (m *cpMiddleware) driverPort() messaging.Port {
@@ -163,7 +175,7 @@ func (m *cpMiddleware) handleLaunchKernelReq(req messaging.Msg) {
 
 		mapReq := messaging.Msg{ID: m.comp.NewID(),
 			Src: cuSrc,
-			Dst: m.comp.State.CUDst, Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(wg),
+			Dst: m.comp.Spec.CUDst, Payload: protocol.MapWGReq{WorkGroup: kernels.WorkGroupSnapshot(wg),
 				PID: req.Payload.(protocol.LaunchKernelReq).PID}}
 
 		m.comp.State.WGToKernel[mapReq.ID] = req.ID

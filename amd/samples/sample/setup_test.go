@@ -188,3 +188,31 @@ func TestUnifiedKernelMetrics(t *testing.T) {
 		t.Fatalf("active CU CPI is %g", activeCPI)
 	}
 }
+
+// Output recording alone does not need task bookkeeping. Monitor and visual
+// tracing still enable it for emulation, while timing always reports busy time.
+func TestTaskTrackingFollowsConsumers(t *testing.T) {
+	oldRTM, oldVis, oldDebug := *disableAkitaRTM, *visTracing, *isaDebug
+	t.Cleanup(func() { *disableAkitaRTM, *visTracing, *isaDebug = oldRTM, oldVis, oldDebug })
+	t.Chdir(t.TempDir())
+	for _, tc := range []struct {
+		name                              string
+		timing, monitor, vis, debug, want bool
+	}{
+		{name: "emulation"},
+		{name: "emulation ISA debug", debug: true},
+		{name: "timing", timing: true, want: true},
+		{name: "emulation monitor", monitor: true, want: true},
+		{name: "emulation visualization", vis: true, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			*disableAkitaRTM, *visTracing, *isaDebug = !tc.monitor, tc.vis, tc.debug
+			a := assembly{Config: Config{Timing: tc.timing}}
+			a.initSimulation()
+			t.Cleanup(func() { _ = a.simulation.Terminate() })
+			if got := a.simulation.TaskTracker() != nil; got != tc.want {
+				t.Fatalf("task tracking = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
