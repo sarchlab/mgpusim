@@ -301,8 +301,10 @@ Initialization validates the routing; Build snapshots nested destination slices.
 Platform assembly computes all CPU/GPU RDMA slots before building any GPU,
 using the declared remote port names. DMA routes are filled while constructing
 the DRAM banks (R9 Nano) or MALL banks (MI300X), before DMA Build. Connection
-binding no longer fills shared routing tables after Build. Checkpoints include
-routing in Spec compatibility checks and reject changed mapper contents.
+binding no longer fills shared routing tables after Build. Checkpoint loading retains the current routing configuration without comparing
+it with the saved configuration.
 
-Checkpoints from before this routing migration have different Spec hashes and
-cannot be restored by the new build. Generate new checkpoints after upgrading.
+A checkpoint must restore exactly with the same executable on the same platform.
+Across executables or configuration changes, restoration is best effort: a
+loadable checkpoint is used; otherwise loading reports an error. Checkpoints
+have no version or configuration-hash gates.

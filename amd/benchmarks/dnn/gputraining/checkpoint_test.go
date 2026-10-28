@@ -89,11 +89,11 @@ type workloadState struct {
 }
 
 func (b *trainingWorkload) SaveCheckpoint(w io.Writer) error {
-	return modeling.WriteCheckpoint(w, "tiny-conv-training-v1", workloadState{b.Progress, b.trainer.State}, nil)
+	return modeling.WriteCheckpoint(w, workloadState{b.Progress, b.trainer.State}, nil)
 }
 func (b *trainingWorkload) LoadCheckpoint(r io.Reader) error {
 	var s workloadState
-	if err := modeling.ReadCheckpoint(r, "tiny-conv-training-v1", &s, nil); err != nil {
+	if err := modeling.ReadCheckpoint(r, &s, nil); err != nil {
 		return err
 	}
 	t, err := Bind(b.runtime, s.Trainer)
@@ -285,11 +285,11 @@ func TestCrossEntropySharedTensorIdentitySurvivesBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := modeling.WriteCheckpoint(&buf, "loss", trainer.State, nil); err != nil {
+	if err := modeling.WriteCheckpoint(&buf, trainer.State, nil); err != nil {
 		t.Fatal(err)
 	}
 	var state State
-	if err := modeling.ReadCheckpoint(&buf, "loss", &state, nil); err != nil {
+	if err := modeling.ReadCheckpoint(&buf, &state, nil); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := Bind(rt, &state)

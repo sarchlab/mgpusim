@@ -12,14 +12,14 @@ import (
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[config, State]
+	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 }
 
 // NewBenchmark creates a new benchmar
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := &Benchmark{State: &State{}}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.config, nil)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, nil)
 	b.rt = rt
 	b.Context = rt.Init()
 	return b

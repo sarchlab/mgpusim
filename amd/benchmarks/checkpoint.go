@@ -7,47 +7,31 @@ import (
 	"github.com/sarchlab/akita/v5/sim/modeling"
 )
 
-// Checkpoint persists the exact state used by a benchmark. Configure reads requested
-// settings before defaults are normalized; bind reconnects only transient code
-// and interface references after loading. Neither callback is serialized.
+// Checkpoint persists benchmark state and reconnects transient references after loading.
 // The state address stays stable, including when loading into a used benchmark.
-type Checkpoint[C, S any] struct {
+type Checkpoint[S any] struct {
 	State     *S
-	Config    C
-	configure func() C
 	bind      func() error
-	captured  bool
 	loadError error
 }
 
-func NewCheckpoint[C, S any](state *S, configure func() C, bind func() error) Checkpoint[C, S] {
-	return Checkpoint[C, S]{State: state, configure: configure, bind: bind}
+func NewCheckpoint[S any](state *S, bind func() error) Checkpoint[S] {
+	return Checkpoint[S]{State: state, bind: bind}
 }
 
-// Prepare captures configuration before the first host step changes defaults.
-func (s *Checkpoint[C, S]) Prepare() error {
-	if s.loadError != nil {
-		return s.loadError
-	}
-	if !s.captured {
-		s.Config = s.configure()
-		s.captured = true
-	}
-	return nil
+// Prepare reports a prior binding error before the next host step.
+func (s *Checkpoint[S]) Prepare() error {
+	return s.loadError
 }
-func (s *Checkpoint[C, S]) SaveCheckpoint(w io.Writer) error {
+func (s *Checkpoint[S]) SaveCheckpoint(w io.Writer) error {
 	if err := s.Prepare(); err != nil {
 		return err
 	}
-	return modeling.WriteCheckpoint(w, s.Config, s.State, nil)
+	return modeling.WriteCheckpoint(w, s.State, nil)
 }
-func (s *Checkpoint[C, S]) LoadCheckpoint(r io.Reader) error {
-	if !s.captured {
-		s.Config = s.configure()
-		s.captured = true
-	}
+func (s *Checkpoint[S]) LoadCheckpoint(r io.Reader) error {
 	var next S
-	if err := modeling.ReadCheckpoint(r, s.Config, &next, nil); err != nil {
+	if err := modeling.ReadCheckpoint(r, &next, nil); err != nil {
 		return err
 	}
 	previous := *s.State

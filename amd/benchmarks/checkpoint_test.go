@@ -10,7 +10,7 @@ func TestCheckpointConfigAndTransactionalLoad(t *testing.T) {
 	type state struct{ Requested, Effective int }
 	value := state{Requested: 4}
 	binds := 0
-	saved := NewCheckpoint(&value, func() int { return value.Requested }, func() error {
+	saved := NewCheckpoint(&value, func() error {
 		binds++
 		if value.Effective < 0 {
 			return errors.New("invalid binding")
@@ -27,13 +27,13 @@ func TestCheckpointConfigAndTransactionalLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	mismatchState := state{Requested: 5}
-	mismatch := NewCheckpoint(&mismatchState, func() int { return mismatchState.Requested }, nil)
+	mismatch := NewCheckpoint(&mismatchState, nil)
 	for _, data := range [][]byte{initial.Bytes(), normalized.Bytes()} {
-		if err := mismatch.LoadCheckpoint(bytes.NewReader(data)); err == nil {
-			t.Fatal("configuration mismatch accepted")
+		if err := mismatch.LoadCheckpoint(bytes.NewReader(data)); err != nil {
+			t.Fatal(err)
 		}
-		if mismatchState.Requested != 5 || mismatchState.Effective != 0 {
-			t.Fatal("mismatch mutated state")
+		if mismatchState.Requested != 4 {
+			t.Fatal("saved state not restored")
 		}
 	}
 	value.Effective = 20

@@ -26,26 +26,7 @@ type State struct {
 	MatrixC          Matrix
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	X                uint32
-	Y                uint32
-	Z                uint32
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		X:                b.X,
-		Y:                b.Y,
-		Z:                b.Z,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadKernel()
 	return nil

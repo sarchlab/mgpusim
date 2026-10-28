@@ -2,13 +2,14 @@ package simpleconvolution
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
 )
 
-func TestCheckpointChecksRequestedMaskBeforeAndAfterSubmission(t *testing.T) {
+func TestCheckpointRestoresMaskBeforeAndAfterSubmission(t *testing.T) {
 	s := sim.MakeBuilder().Build()
 	rt := emusystem.MakeBuilder().WithSimulation(s).WithNumGPUs(1).Build()
 	b := NewBenchmark(rt)
@@ -33,12 +34,11 @@ func TestCheckpointChecksRequestedMaskBeforeAndAfterSubmission(t *testing.T) {
 			other.Width, other.Height = 16, 16
 			other.SelectGPU([]int{1})
 			other.SetMaskSize(mask)
-			err := other.LoadCheckpoint(bytes.NewReader(saved.Bytes()))
-			if mask == 3 && err != nil {
+			if err := other.LoadCheckpoint(bytes.NewReader(saved.Bytes())); err != nil {
 				t.Fatal(err)
 			}
-			if mask == 5 && err == nil {
-				t.Fatal("different mask accepted")
+			if !reflect.DeepEqual(other.State, b.State) {
+				t.Fatal("saved mask state not restored")
 			}
 		}
 		if phase == 0 {

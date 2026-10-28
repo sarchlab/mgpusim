@@ -35,11 +35,11 @@ func TestWorkGroupValueRestoresLinks(t *testing.T) {
 	for original := builder.NextWG(); original != nil; original = builder.NextWG() {
 		original.Wavefronts[0].IssueTime = 100
 		var data bytes.Buffer
-		if err := modeling.WriteCheckpoint(&data, struct{}{}, WorkGroupSnapshot(original), nil); err != nil {
+		if err := modeling.WriteCheckpoint(&data, WorkGroupSnapshot(original), nil); err != nil {
 			t.Fatal(err)
 		}
 		var value WorkGroupValue
-		if err := modeling.ReadCheckpoint(&data, struct{}{}, &value, nil); err != nil {
+		if err := modeling.ReadCheckpoint(&data, &value, nil); err != nil {
 			t.Fatal(err)
 		}
 		restored, err := value.Restore()
@@ -86,11 +86,11 @@ func TestGridSelectionAndCursorRestore(t *testing.T) {
 		t.Fatal("partition no longer uses X-fastest order")
 	}
 	var data bytes.Buffer
-	if err := modeling.WriteCheckpoint(&data, struct{}{}, builder.Snapshot(), nil); err != nil {
+	if err := modeling.WriteCheckpoint(&data, builder.Snapshot(), nil); err != nil {
 		t.Fatal(err)
 	}
 	var snapshot GridBuilderState
-	if err := modeling.ReadCheckpoint(&data, struct{}{}, &snapshot, nil); err != nil {
+	if err := modeling.ReadCheckpoint(&data, &snapshot, nil); err != nil {
 		t.Fatal(err)
 	}
 	restored := NewGridBuilder(ids)
@@ -118,7 +118,7 @@ func TestDispatchSnapshotSizeIndependentOfExecutable(t *testing.T) {
 		b := NewGridBuilder(sim.MakeBuilder().Build())
 		b.SetKernel(launch)
 		var data bytes.Buffer
-		if err := modeling.WriteCheckpoint(&data, struct{}{}, WorkGroupSnapshot(b.NextWG()), nil); err != nil {
+		if err := modeling.WriteCheckpoint(&data, WorkGroupSnapshot(b.NextWG()), nil); err != nil {
 			t.Fatal(err)
 		}
 		return data.Len()

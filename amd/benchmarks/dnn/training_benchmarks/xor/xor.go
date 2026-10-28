@@ -13,14 +13,14 @@ import (
 
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[checkpointConfig, State]
+	benchmarks.Checkpoint[State]
 	rt      *gpuruntime.Runtime
 	trainer gputraining.DataParallelismMultiGPUTrainer
 }
 
 func NewBenchmark(r *gpuruntime.Runtime) *Benchmark {
 	b := &Benchmark{State: &State{Context: r.Init(), Epoch: 50, MaxBatchPerEpoch: 1, BatchSize: 4}, rt: r}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.configuration, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 	return b
 }
 func (b *Benchmark) SelectGPU(ids []int) {

@@ -132,7 +132,7 @@ MIT © Project Akita Developers.
 
 The host API and shared command state live in `amd/runtime`. The `amd/driver`
 component executes those commands through GPU protocols. Benchmarks keep their
-continuation in `benchmarks.Checkpoint[Config, State]` and advance through Step
+continuation in `benchmarks.Checkpoint[State]` and advance through Step
 rounds separated by a global simulation drain. See
 [Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md) for composition,
 CPU buffers, and checkpoint recovery. The former AMD HTTP server and server
@@ -140,20 +140,24 @@ sample have been removed; Akita monitoring remains available.
 
 ### Checkpoint ownership in the Akita v5 port
 
+A checkpoint must restore exactly with the same executable on the same platform.
+Across executables or configuration changes, restoration is best effort: a
+loadable checkpoint is used; otherwise loading reports an error. Checkpoints
+have no version or configuration-hash gates.
+
 AMD launch messages and dispatch snapshots (`WorkGroupValue` and
 `GridBuilderState`) retain
 `CodeObjectMetadata`, the dispatch packet and work-item geometry. They do not
 contain executable bytes: instruction fetch uses the packet's `KernelObject`
 address in its process address space and canonical GPU storage. Code uploads
 remain owned by the runtime and storage resources. Restoring a dispatch snapshot
-alone therefore yields metadata, not a stand-alone executable. Old snapshots
-that embed executable `Data` are explicitly rejected; rebuild them.
+alone therefore yields metadata, not a stand-alone executable.
 
 The runtime allocator checkpoint stores consecutive free pages as ordered runs.
 It preserves free-list allocation order, including fragmented pages appended by
-frees; it never sorts the allocation queue. Runtime checkpoint format 2 rejects
-the previous expanded-page format. CU wave identity indexes live in checkpointed
-State; vector transactions stay ordered by increasing request identity, permitting
+frees; it never sorts the allocation queue. CU execution uses fixed-slot wave handles;
+the cold debugger lookup scans those slots without maintaining a second index.
+Vector transactions stay ordered by increasing request identity, permitting
 binary search without a cache across restore. Emulation decodes use bounded
 scratch cleared for every atomic work-group, so bytes from another process, a
 reloaded kernel or a later execution cannot survive checkpoint rewind.

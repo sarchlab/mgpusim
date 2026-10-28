@@ -341,8 +341,10 @@ The previous `Set*RemotePort`/`SetVectorMemRemote` methods and redundant control
 `ID` fields are removed; use `Name()` for component identity. SMSP builders now
 have value semantics like the other builders.
 
-Peer configuration participates in checkpoint compatibility. Checkpoints from
-before this topology migration must be rebuilt.
+A checkpoint must restore exactly with the same executable on the same platform.
+Across executables or configuration changes, restoration is best effort: a
+loadable checkpoint is used; otherwise loading reports an error. Checkpoints
+have no version or configuration-hash gates.
 
 Scheduler lookups binary-search the canonical State slices: IDs increase on
 insertion and retirement preserves order. No derived map or pointer cache is
@@ -358,5 +360,5 @@ identities rather than duplicate traces. The driver releases each launch after
 its GPU completion acknowledgment, so completed trace history does not grow.
 Registry access supports parallel engines; borrowed immutable values must not
 be retained across a restore. Checkpoints include all active trace data and can
-restore without the original trace files. Rebuild checkpoints from before this
-trace-ownership migration.
+restore without the original trace files. Loading checkpoints from before this
+trace-ownership migration is best effort.

@@ -26,26 +26,7 @@ type State struct {
 	Source           []Float2
 	Result           []Float2
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	UseUnifiedMemory bool
-	Arch             arch.Type
-	Bytes            int64
-	BytesMode        bool
-	Passes           int32
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-		Arch:             b.Arch,
-		Bytes:            b.Bytes,
-		BytesMode:        b.BytesMode,
-		Passes:           b.Passes,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

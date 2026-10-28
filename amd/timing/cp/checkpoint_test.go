@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/monitoring"
@@ -206,7 +207,7 @@ func TestCPFreshProcessCheckpoint(t *testing.T) {
 	}
 }
 
-func TestCPCheckpointRejectsChangedWiring(t *testing.T) {
+func TestCPCheckpointRetainsConfiguredWiring(t *testing.T) {
 	_, c := checkpointCP(t, "round-robin", nil)
 	launchCheckpointKernels(c)
 	var checkpoint bytes.Buffer
@@ -222,8 +223,12 @@ func TestCPCheckpointRejectsChangedWiring(t *testing.T) {
 		func(s *Spec) { s.L1VCaches = []messaging.RemotePort{"L1.Control"} },
 	} {
 		_, other := checkpointCP(t, "round-robin", change)
-		if err := other.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err == nil {
-			t.Fatal("accepted incompatible wiring/capacity")
+		configured := other.Spec
+		if err := other.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(other.Spec, configured) || !reflect.DeepEqual(other.State, c.State) {
+			t.Fatal("restore must load state and retain configured wiring")
 		}
 	}
 }

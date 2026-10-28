@@ -7,8 +7,8 @@ execution and protocol state. Its immutable `Spec` describes GPU destinations,
 frequency, and copy timing. `RuntimeSpec` independently owns page size, allocator
 selection, and device memory/CU properties. Driver reads those shared settings
 through its Runtime resource. Both objects use the same page table and GlobalStorage; all live
-resources are supplied before building Driver. Their checkpoint configuration
-checks follow these separate ownership boundaries.
+resources are supplied before building Driver. Checkpoints restore mutable state
+without comparing the rebuilt configuration.
 
 A platform builder registers hardware and resources with `Simulation`. It
 returns the Runtime. The command-line `sample.Config` composes a platform and
@@ -115,7 +115,7 @@ simulation drain before advancing the next stage.
 ## Direct saved state
 
 A benchmark uses one serializable `State` for execution. The common
-`benchmarks.Checkpoint[Config, State]` supplies SaveCheckpoint/LoadCheckpoint;
+`benchmarks.Checkpoint[State]` supplies SaveCheckpoint/LoadCheckpoint;
 there is no second snapshot struct or field-copy synchronization pass.
 The embedded state pointer aliases the exact state owned by Checkpoint:
 
@@ -126,17 +126,14 @@ type State struct {
     Queue runtime.CommandQueue
     Output []float32
 }
-type Config struct { Length int; Verify bool }
 type Benchmark struct {
     *State
-    benchmarks.Checkpoint[Config, State]
+    benchmarks.Checkpoint[State]
     runtime *runtime.Runtime // transient binding, excluded from State
 }
 func NewBenchmark(rt *runtime.Runtime) *Benchmark {
     b := &Benchmark{State: &State{}, runtime: rt}
-    b.Checkpoint = benchmarks.NewCheckpoint(b.State,
-        func() Config { return Config{b.Length, b.Verification} },
-        b.bind)
+    b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
     return b
 }
 func (b *Benchmark) Step() error {
@@ -146,9 +143,8 @@ func (b *Benchmark) Step() error {
 }
 ```
 
-Prepare captures requested configuration before a first Step normalizes defaults;
-a pre-Step Save or Load also captures it. Loading checks configuration and decodes
-before replacing state. The state address remains stable, and the typed `bind`
+Prepare reports a prior binding failure before the next Step. Loading decodes
+before replacing state; it does not compare configuration. The state address remains stable, and the typed `bind`
 hook reconnects kernel/runtime/interface references without allocation or command
 submission. Nested state can be replaced, so these bindings are rebuilt even
 when loading into an already-used benchmark. A failed binding prevents execution

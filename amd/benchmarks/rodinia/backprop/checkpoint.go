@@ -35,26 +35,7 @@ type State struct {
 	GDeltaHid        gpuruntime.Ptr
 	UseUnifiedMemory bool
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	Arch             arch.Type
-	InputN           int
-	HiddenN          int
-	OutputN          int
-	UseUnifiedMemory bool
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		Arch:             b.Arch,
-		InputN:           b.InputN,
-		HiddenN:          b.HiddenN,
-		OutputN:          b.OutputN,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

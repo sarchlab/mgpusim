@@ -29,7 +29,7 @@ type State struct {
 }
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[[3]int, State]
+	benchmarks.Checkpoint[State]
 	rt    *gpuruntime.Runtime
 	hsaco *insts.KernelCodeObject
 }
@@ -88,7 +88,7 @@ func run() timing.VTimeInPicoSec {
 	defer finish()
 	r := runner.New(simulation, runtime)
 	b := &Benchmark{State: &State{}, rt: runtime}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.config, func() error { b.loadProgram(); return nil })
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, func() error { b.loadProgram(); return nil })
 	config.Configure(b)
 	r.AddBenchmark(b)
 	if err := simulation.Initialize(); err != nil {
@@ -111,8 +111,6 @@ func (b *Benchmark) Step() error {
 	}
 	return nil
 }
-
-func (b *Benchmark) config() [3]int { return [3]int{b.GPU, *numWfPerWGFlag, *numWGFlag} }
 
 func main() {
 	flag.Parse()

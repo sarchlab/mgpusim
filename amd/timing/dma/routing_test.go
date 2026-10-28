@@ -2,6 +2,7 @@ package dma
 
 import (
 	"bytes"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -44,8 +45,11 @@ func TestLocalDataSourceIsImmutableCheckpointConfiguration(t *testing.T) {
 		change(&otherSpec.LocalDataSource)
 		other := MakeBuilder().WithSimulation(otherSimulation).WithSpec(otherSpec).Build("Component")
 		initializeRoutingComponent(t, otherSimulation, other)
-		if err := other.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err == nil {
-			t.Error("accepted incompatible routing")
+		if err := other.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(other.Spec, otherSpec) || !reflect.DeepEqual(other.State, c.State) {
+			t.Fatal("restore must load state and retain configured routing")
 		}
 		_ = otherSimulation.Terminate()
 	}

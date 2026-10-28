@@ -38,14 +38,6 @@ type sampleState struct {
 	Index, PredictionCount    uint64
 	Long, Short               stableState
 }
-type sampleConfig struct {
-	Granularity int
-	Boundary    float64
-}
-
-func (se *SampledEngine) config() sampleConfig {
-	return sampleConfig{se.stableEngine.granularity, se.boundary}
-}
 
 // SaveCheckpoint preserves the prediction window and decision state. Host wall
 // time measurements are deliberately restarted when a new process restores.
@@ -62,13 +54,13 @@ func (se *SampledEngine) SaveCheckpoint(w io.Writer) error {
 		se.stableEngine.snapshot(),
 		se.shortStableEngine.snapshot(),
 	}
-	return modeling.WriteCheckpoint(w, se.config(), state, nil)
+	return modeling.WriteCheckpoint(w, state, nil)
 }
 func (se *SampledEngine) LoadCheckpoint(r io.Reader) error {
 	se.mu.Lock()
 	defer se.mu.Unlock()
 	var state sampleState
-	if err := modeling.ReadCheckpoint(r, se.config(), &state, nil); err != nil {
+	if err := modeling.ReadCheckpoint(r, &state, nil); err != nil {
 		return err
 	}
 	se.predTime, se.predTimeSum = state.Prediction, state.PredictionSum

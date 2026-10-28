@@ -28,20 +28,7 @@ type State struct {
 	DOutputItemSets   gpuruntime.Ptr
 	DReference        gpuruntime.Ptr
 }
-type checkpointConfig struct {
-	GPUs             []int
-	Length, Penalty  int
-	Verification     bool
-	UseUnifiedMemory bool
-	Arch             arch.Type
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{GPUs: b.GpuIDs, Length: b.Length, Penalty: b.Penalty, Verification: b.Verification,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-		Arch:             b.Arch,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

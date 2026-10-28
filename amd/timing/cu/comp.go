@@ -113,7 +113,6 @@ type State struct {
 	InstTasks, WFTasks, WGTasks, RequestTasks map[uint64]uint64
 	Groups                                    []WorkGroupState
 	Waves                                     []WaveState
-	WaveHandles                               map[uint64]waveHandle
 	Instructions                              map[uint64]InstructionState
 	Pools                                     [][]waveHandle
 	InstFetch                                 []FetchState

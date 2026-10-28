@@ -79,7 +79,7 @@ var blosum62 = [][]int32{
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[checkpointConfig, State]
+	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
 	kernel1, kernel2 *insts.KernelCodeObject
@@ -89,7 +89,7 @@ type Benchmark struct {
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
 	b.State = &State{}
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 
 	b.rt = rt
 	b.Context = rt.Init()

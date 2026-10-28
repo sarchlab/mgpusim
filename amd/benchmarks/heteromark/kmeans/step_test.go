@@ -10,7 +10,7 @@ import (
 func TestStepRejectsNonPositiveIterationLimitBeforeSubmitting(t *testing.T) {
 	for _, limit := range []int{0, -1} {
 		b := &Benchmark{State: &State{MaxIter: limit}}
-		b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+		b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 		if err := b.Step(); err == nil || !strings.Contains(err.Error(), "MaxIter > 0") {
 			t.Fatalf("MaxIter=%d: error %v", limit, err)
 		}

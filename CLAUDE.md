@@ -117,4 +117,4 @@ Fix any linting issues before considering the task complete. Common issues inclu
 The AMD HTTP server and its sample have been removed. Compose simulations through
 `amd/samples/sample` and `amd/samples/runner`; see
 [Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md). Benchmark
-continuation uses `benchmarks.Checkpoint[Config, State]`.
+continuation uses `benchmarks.Checkpoint[State]`.

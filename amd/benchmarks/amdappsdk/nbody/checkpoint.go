@@ -38,24 +38,7 @@ type State struct {
 	DNewVel          gpuruntime.Ptr
 	LocalPosBuf      gpuruntime.Ptr
 }
-type checkpointConfig struct {
-	Verification     bool
-	Gpus             []int
-	UseUnifiedMemory bool
-	Arch             arch.Type
-	NumParticles     int32
-	NumIterations    int32
-}
 
-func (b *Benchmark) checkpointConfig() checkpointConfig {
-	return checkpointConfig{Verification: b.Verification,
-		Gpus:             b.Gpus,
-		UseUnifiedMemory: b.UseUnifiedMemory,
-		Arch:             b.Arch,
-		NumParticles:     b.NumParticles,
-		NumIterations:    b.NumIterations,
-	}
-}
 func (b *Benchmark) bind() error {
 	b.loadProgram()
 	return nil

@@ -18,21 +18,21 @@ func TestWaveLookupRetirementAndSameIDRewind(t *testing.T) {
 	}
 	c.retireGroup(g.slot)
 	if c.findWavefront(w.UID) != nil {
-		t.Fatal("retired wave is still indexed")
+		t.Fatal("retired wave is still visible")
 	}
 	next := checkpointGroup(c).waves()[0]
 	if c.wavefrontByID(next.UID).handle != next.handle {
-		t.Fatal("reused slot not indexed")
+		t.Fatal("reused slot not found")
 	}
 	if err := c.comp.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err != nil {
 		t.Fatal(err)
 	}
 	if c.wavefrontByID(w.UID).PC() != 123 || c.findWavefront(next.UID) != nil {
-		t.Fatal("wave index survived canonical State rewind")
+		t.Fatal("wave lookup ignored canonical State rewind")
 	}
 	c.retireGroup(g.slot)
-	if len(c.comp.State.WaveHandles) != 0 {
-		t.Fatal("wave index grows after retirement")
+	if c.findWavefront(w.UID) != nil || c.findWavefront(0) != nil {
+		t.Fatal("retired or empty slot is visible")
 	}
 }
 

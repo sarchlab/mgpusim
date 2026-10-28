@@ -1,9 +1,9 @@
-# Akita v5 RC3 migration and checkpoints
+# Akita v5 RC4 migration and checkpoints
 
-MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.3`
-release. RC3 guarantees each requested `TickAt` clock edge and stores the
-pending tick guard as a list. **RC2 checkpoints are incompatible; regenerate
-checkpoints with RC3.** Recording tables now have the `akita$` prefix; MGPUSim's
+MGPUSim uses the published `github.com/sarchlab/akita/v5 v5.0.0-rc.4`
+release, including checkpoint restoration without configuration hashes. Akita
+guarantees each requested `TickAt` clock edge and stores the pending tick guard as a list. Recording tables
+now have the `akita$` prefix; MGPUSim's
 own metric tables are unchanged. No local module replacement is required. AMD GCN3,
 AMD CDNA3 and the NVIDIA trace simulator use native Akita components, ports,
 message envelopes, task tracking and checkpoint resources. Platform frequencies,
@@ -236,7 +236,7 @@ computeUnit := cu.MakeBuilder().WithSimulation(simulation).
 // Initialize the simulation after the full topology has been assembled.
 ```
 
-Changing either destination changes the checkpoint Spec hash. Vector routing now uses
+Vector routing uses
 concrete `Spec.VectorMemModules` (MGPUSim #321), populated before Build. Downstream-first
 construction is temporary: Akita #576 tracks a Blueprint that declares the whole
 topology, instantiates it, and then connects it, including cyclic topologies.
@@ -244,8 +244,10 @@ CU-to-ROB wiring uses actual bound addresses and adds no lifecycle phase.
 Cross-GPU RDMA assembly separately precomputes the declared GPU/RDMA port names
 before building any GPU, so each component receives complete routing.
 
-Checkpoint compatibility with previous implementations is not supported. Create new checkpoints with the new build; restore them only with matching
-program and configuration. This also applies after v5.
+A checkpoint must restore exactly with the same executable on the same platform.
+Across executables or configuration changes, restoration is best effort: a
+loadable checkpoint is used; otherwise loading reports an error. Checkpoints
+have no version or configuration-hash gates.
 SIMD task names and timing remain unchanged, while reporting routes their task
 notifications through one simulation observer rather than registering the SIMD
 behavior views as simulation entities.
@@ -304,10 +306,9 @@ without cyclic pointer graphs. Allocation masks include unlimited allocation
 cursors. Dispatchers and CU pools are no longer separately registered resources.
 Sampler and monitor references are supplied through Resources before Build.
 
-Rebuild checkpoints from before this ownership change, including earlier RC3
-checkpoints: the component package layout, entity inventory, Spec compatibility
-hashes and state schemas have changed. Tests compare fresh-process continuation
+State schemas and entity inventories can change across builds; restoration across
+those builds is best effort. Tests compare fresh-process continuation
 for all four dispatch algorithms with two active kernels, occupied shared CU
 slots and a blocked output port, including complete final archives, request
-IDs and simulated times. Changed destination order or CU capacities must reject
-restore.
+IDs and simulated times. Loading does not compare the rebuilt Spec with the
+saved configuration.

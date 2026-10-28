@@ -109,7 +109,6 @@ func (s *State) Initialize(c *Comp) {
 		Groups:       make([]WorkGroupState, numWfPools*c.Spec.WfPoolSize),
 		Waves:        make([]WaveState, numWfPools*c.Spec.WfPoolSize),
 		Instructions: make(map[uint64]InstructionState),
-		WaveHandles:  make(map[uint64]waveHandle),
 		WFTimes:      make(map[uint64]timing.VTimeInPicoSec), Pools: make([][]waveHandle, numWfPools),
 		SRegisters: make([]byte, c.Spec.SGPRCount*4), VRegisters: make([][]byte, c.Spec.SIMDCount),
 		Decoders: make([]DecoderState, 4), SIMDs: make([]SIMDState, c.Spec.SIMDCount),

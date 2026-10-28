@@ -10,7 +10,7 @@ import (
 // A Benchmark is a benchmark for the im2col operation.
 type Benchmark struct {
 	*State
-	benchmarks.Checkpoint[checkpointConfig, State]
+	benchmarks.Checkpoint[State]
 	rt       *gpuruntime.Runtime
 	operator *gputensor.GPUOperator
 }
@@ -22,7 +22,7 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 		rt: rt, State: &State{},
 	}
 
-	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.checkpointConfig, b.bind)
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 	b.Context = b.rt.Init()
 
 	return b
