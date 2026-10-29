@@ -13,6 +13,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks/tracing"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -82,6 +83,7 @@ type cuCPIStackTracer struct {
 
 type reporter struct {
 	dataRecorder datarecording.DataRecorder
+	simulation   *simulation.Simulation
 
 	kernelTimeTracer        *kernelTimeTracer
 	perGPUKernelTimeTracers []*kernelTimeTracer
@@ -107,6 +109,7 @@ type reporter struct {
 func newReporter(s *simulation.Simulation) *reporter {
 	r := &reporter{
 		dataRecorder: s.DataRecorder(),
+		simulation:   s,
 	}
 
 	r.injectTracers(s)
@@ -389,6 +392,44 @@ func (r *reporter) report() {
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
+	r.reportPageMigration()
+}
+
+// reportPageMigration reports the page-migration statistics of the driver
+// when page migration is on.
+func (r *reporter) reportPageMigration() {
+	for _, c := range r.simulation.Components() {
+		d, ok := c.(*driver.Comp)
+		if !ok || d.Spec.PageMigration.Policy != driver.PageMigrationFault {
+			continue
+		}
+
+		s := d.State.PageMigration.Stats
+		for _, m := range []struct {
+			what  string
+			value float64
+			unit  string
+		}{
+			{"pm_faults", float64(s.Faults), "count"},
+			{"pm_batches", float64(s.Batches), "count"},
+			{"pm_migrations", float64(s.Migrations), "count"},
+			{"pm_pages_migrated", float64(s.PagesMigrated), "count"},
+			{"pm_bytes_migrated", float64(s.BytesMigrated), "byte"},
+			{"pm_releases", float64(s.Releases), "count"},
+			{"pm_ignored_faults", float64(s.IgnoredFaults), "count"},
+			{"pm_deferred_faults", float64(s.DeferredFaults), "count"},
+			{"pm_thrashing_events", float64(s.ThrashingEvents), "count"},
+			{"pm_pins", float64(s.Pins), "count"},
+			{"pm_unpins", float64(s.Unpins), "count"},
+			{"pm_migration_time_sum", secondsOf(timing.VTimeInPicoSec(s.MigrationTimeSum)), "second"},
+			{"pm_copy_time_sum", secondsOf(timing.VTimeInPicoSec(s.CopyTimeSum)), "second"},
+			{"pm_shootdown_time_sum", secondsOf(timing.VTimeInPicoSec(s.ShootdownTimeSum)), "second"},
+		} {
+			r.dataRecorder.InsertData(tableName, metric{
+				Location: d.Name(), What: m.what, Value: m.value, Unit: m.unit,
+			})
+		}
+	}
 }
 
 func (r *reporter) reportKernelTime() {
