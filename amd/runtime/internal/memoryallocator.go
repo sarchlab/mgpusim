@@ -204,7 +204,7 @@ func (a *memoryAllocatorImpl) removePage(pid vm.PID, vAddr uint64) {
 
 	deviceID := a.deviceIDByPAddr(page.PAddr)
 	dState := a.devices[deviceID].MemState
-	dState.addSinglePAddr(page.PAddr)
+	dState.retirePAddr(page.PAddr)
 
 	a.pageTable.Remove(page.PID, page.VAddr)
 }
