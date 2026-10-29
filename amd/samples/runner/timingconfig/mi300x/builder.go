@@ -454,7 +454,6 @@ func (b *Builder) connectL2AndMALL() {
 	}
 
 	b.l2ToMALLConnection.BindPort(b.dmaEngine.Ports.ToMem)
-	b.l2ToMALLConnection.BindPort(b.dataMover.Ports.Inside)
 }
 
 func (b *Builder) connectMALLAndDRAM() {
@@ -471,6 +470,11 @@ func (b *Builder) connectMALLAndDRAM() {
 	for _, dramComp := range b.drams {
 		b.mallToDramConnection.BindPort(dramComp.Ports.Top)
 	}
+
+	// The page-migration data mover writes new frames to DRAM directly,
+	// around the L2 and the MALL: a new frame was never used, so no cache
+	// holds a line of it.
+	b.mallToDramConnection.BindPort(b.dataMover.Ports.Inside)
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -773,9 +777,18 @@ func (b *Builder) buildCP() {
 // buildDataMover builds the data mover that copies the pages that migrate
 // to this GPU.
 func (b *Builder) buildDataMover() {
+	drams := mem.AddressMapper{
+		InterleavingSize: b.dmaLocalDataSource.InterleavingSize,
+		RangeLow:         b.dmaLocalDataSource.RangeLow,
+		RangeHigh:        b.dmaLocalDataSource.RangeHigh,
+	}
+	for _, d := range b.drams {
+		drams.Destinations = append(drams.Destinations, d.Ports.Top.AsRemote())
+	}
+
 	b.dataMover = gpubuilder.BuildDataMover(b.simulation,
 		b.name+".DataMover", b.freq, 1<<b.log2CacheLineSize,
-		*b.dmaLocalDataSource, b.rdmaAddressMapper)
+		drams, b.rdmaAddressMapper)
 }
 
 // connectCPWithMigrationPeers connects the Control ports of the address

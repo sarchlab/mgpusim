@@ -127,6 +127,7 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	gpuBuilder := b.createGPUBuilder(mmuComp)
 	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
 	interDeviceConn.BindPort(mmuComp.Ports.Top)
+	interDeviceConn.BindPort(mmuComp.Ports.Notification)
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
@@ -213,6 +214,7 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 
 	b.buildPort(mmuComponent, "Top", mmuTopPortBufSize)
 	b.buildPort(mmuComponent, "Control", ctrlPortBufSize)
+	b.buildPort(mmuComponent, "Notification", mmuTopPortBufSize)
 
 	return mmuComponent, pageTable
 }

@@ -411,6 +411,7 @@ func (r *reporter) reportPageMigration() {
 			unit  string
 		}{
 			{"pm_faults", float64(s.Faults), "count"},
+			{"pm_dropped_faults", float64(s.DroppedFaults), "count"},
 			{"pm_batches", float64(s.Batches), "count"},
 			{"pm_migrations", float64(s.Migrations), "count"},
 			{"pm_pages_migrated", float64(s.PagesMigrated), "count"},

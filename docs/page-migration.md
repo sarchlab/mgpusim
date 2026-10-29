@@ -32,12 +32,12 @@ summed migration, copy, and shootdown times.
 
 | Component | Role |
 |---|---|
-| MMU (Akita) | A walk of a unified page that is on another GPU and not pinned faults: the MMU answers at once with a fault response and notifies `Driver.PageMigration`. It never holds a walk. |
+| MMU (Akita) | A walk of a unified page that is on another GPU and not pinned faults: the MMU answers at once with a fault response and notifies `Driver.PageMigration` from its `Notification` port. It never holds a walk. |
 | TLBs (Akita) | Forward a fault response without caching it. |
 | Address translators (Akita) | Hold faulted accesses and accesses to held pages in a list that uses no transaction slot; `CmdHold` acks once no access to the pages and no translation of them is in flight; `CmdRelease` translates the held accesses again. |
 | Driver (`amd/driver/pagemigration.go`) | Batches faults, chooses the target (the faulting GPU), allocates frames from the Runtime, updates the page table, detects thrashing, and pins. |
 | Command processor (`amd/timing/cp/migration.go`) | Turns each driver command into a control sequence for its address translators, TLBs, or data mover. Migration sequences queue with cache flush and kernel start. |
-| Data mover (Akita, one per GPU) | Copies a page: it reads the old frame from the source GPU's `RDMADataOutside` (through the source L2, so dirty lines are copied) and writes the new frame to its own DRAM, around the L2. |
+| Data mover (Akita, one per GPU) | Copies a page: it reads the old frame from the source GPU's `RDMADataOutside` (through the source L2, so dirty lines are copied) and writes the new frame to its own DRAM controllers, around the L2 (and, on MI300X, the MALL). |
 | Runtime allocator | Physical addresses only increase, so a new frame has never been used and no cache holds a line of it. |
 
 ## A migration
@@ -46,8 +46,11 @@ GPU *g* accesses unified page *P*, resident on GPU *s*.
 
 1. **Fault.** The MMU walk finds *P* on *s*, answers with a fault, and
    notifies the driver. *g*'s address translator holds the access.
-2. **Batch.** The driver collects faults for `-pm-sw-latency-ns`. A unit that
-   already migrates ignores the fault; its release lets the access go.
+2. **Batch.** The driver collects faults for `-pm-sw-latency-ns`, up to
+   `-pm-batch`; later faults go to the next batch, and a notification that
+   finds both full is dropped, as a real fault buffer does on overflow. A
+   unit that already migrates ignores the fault; its release lets the access
+   go.
 3. **Hold.** Every GPU's command processor holds the unit's pages in all its
    address translators.
 4. **Copy.** The driver allocates frames on *g*; *g*'s data mover copies.
@@ -62,7 +65,8 @@ table changes when no TLB can be refilled with the old mapping, and the single
 shootdown that follows drops every stale entry.
 
 When nothing moves (the page is already on *g*, or the unit is pinned), the
-driver holds and releases the unit on *g* only. A memory copy never runs on a
+driver tells *g*'s command processor to release the unit; on the replay, the
+MMU returns the local or the pinned remote translation. A memory copy never runs on a
 migrating unit, and a unit never migrates under a running memory copy.
 
 ## Thrashing

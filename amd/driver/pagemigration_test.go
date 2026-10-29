@@ -159,12 +159,6 @@ func TestFaultOnALocalPageOnlyReleasesTheFaultingGPU(t *testing.T) {
 	f.fault(page, 1)
 	f.migrationTick()
 
-	holds := f.commands(t, protocol.PageHoldReq{})
-	if !reflect.DeepEqual(destinations(holds), migrationAgents[:1]) {
-		t.Fatalf("holds went to %v", destinations(holds))
-	}
-
-	f.answer(holds)
 	releases := f.commands(t, protocol.PageReleaseReq{})
 	if !reflect.DeepEqual(destinations(releases), migrationAgents[:1]) {
 		t.Fatalf("releases went to %v", destinations(releases))
@@ -201,8 +195,8 @@ func TestBatchCollectsFaultsUntilTheTimerExpires(t *testing.T) {
 	f.migrationTick()
 
 	s := f.c.State.PageMigration
-	if len(s.Batch) != 1 || s.Stats.DuplicateFaults != 1 {
-		t.Fatalf("batch %v, duplicates %d", s.Batch, s.Stats.DuplicateFaults)
+	if len(s.Batch) != 2 {
+		t.Fatalf("batch %v", s.Batch)
 	}
 
 	if msgs := f.commands(t, protocol.PageHoldReq{}); len(msgs) != 0 {
@@ -235,17 +229,16 @@ func TestThrashingPinsAUnitAndThePinExpires(t *testing.T) {
 	f.fault(page, 1)
 	f.migrationTick()
 
-	holds := f.commands(t, protocol.PageHoldReq{})
-	if !reflect.DeepEqual(destinations(holds), migrationAgents[:1]) {
-		t.Fatalf("holds went to %v", destinations(holds))
+	releases := f.commands(t, protocol.PageReleaseReq{})
+	if !reflect.DeepEqual(destinations(releases), migrationAgents[:1]) {
+		t.Fatalf("releases went to %v", destinations(releases))
 	}
 
 	if p, _ := f.p.Find(page.PID, page.VAddr); !p.IsPinned || p.DeviceID != 2 {
 		t.Fatalf("page not pinned in place: %+v", p)
 	}
 
-	f.answer(holds)
-	f.answer(f.commands(t, protocol.PageReleaseReq{}))
+	f.answer(releases)
 
 	// The pin has expired: the unit is unpinned and its remote translations
 	// are shot down on every GPU.
@@ -262,5 +255,22 @@ func TestThrashingPinsAUnitAndThePinExpires(t *testing.T) {
 	s := f.c.State.PageMigration
 	if s.Stats.Pins != 1 || s.Stats.Unpins != 1 || s.Units[0].Phase != unitIdle {
 		t.Fatalf("stats %+v, unit %+v", s.Stats, s.Units[0])
+	}
+}
+
+func TestFaultsBeyondTheQueueAreDropped(t *testing.T) {
+	f, page := newMigrationFixture(t, func(s *PageMigrationSpec) {
+		s.SoftwareLatencyNS = 5000
+		s.BatchSize = 1
+	})
+
+	f.fault(page, 2) // the batch
+	f.fault(page, 2) // the next batch
+	f.fault(page, 1) // dropped
+
+	s := f.c.State.PageMigration
+	if len(s.Batch) != 1 || len(s.NextBatch) != 1 || s.Stats.DroppedFaults != 1 {
+		t.Fatalf("batch %v, next %v, dropped %d", s.Batch, s.NextBatch,
+			s.Stats.DroppedFaults)
 	}
 }

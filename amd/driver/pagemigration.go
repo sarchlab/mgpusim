@@ -139,7 +139,7 @@ type pageFault struct {
 // PageMigrationStats are the migration statistics. Times are in picoseconds.
 type PageMigrationStats struct {
 	Faults           uint64 `json:"faults"`
-	DuplicateFaults  uint64 `json:"duplicate_faults"`
+	DroppedFaults    uint64 `json:"dropped_faults"`
 	IgnoredFaults    uint64 `json:"ignored_faults"`
 	DeferredFaults   uint64 `json:"deferred_faults"`
 	Batches          uint64 `json:"batches"`
@@ -162,7 +162,9 @@ type PageMigrationState struct {
 
 	// Batch is the batch being collected, due at BatchDue; NextBatch holds
 	// the faults that arrive while Batch is full, and the faults that wait
-	// for a memory copy.
+	// for a memory copy. Each holds at most BatchSize faults; a notification
+	// that finds both full is dropped, as a real fault buffer does on
+	// overflow.
 	Batch     []pageFault           `json:"batch"`
 	BatchDue  timing.VTimeInPicoSec `json:"batch_due"`
 	NextBatch []pageFault           `json:"next_batch"`
@@ -233,7 +235,7 @@ func (m *migrationMW) send() bool {
 }
 
 // receive always consumes the fault notifications, so the MMU never waits
-// for the driver.
+// for the driver. A notification that finds the queue full is dropped.
 func (m *migrationMW) receive() bool {
 	port := m.comp.Ports.PageMigration
 	madeProgress := false
@@ -264,26 +266,27 @@ func (m *migrationMW) unitKey(pid vm.PID, vAddr uint64) uint64 {
 	return uint64(pid)<<44 | vAddr>>m.spec().Log2Unit
 }
 
-// addFault adds a fault to the batch being collected; the first fault of a
-// batch starts its timer. A fault that repeats one of the same GPU on the
-// same unit adds nothing.
+// addFault adds a fault notification to the batch being collected; the
+// first fault of a batch starts its timer. Faults that arrive while the
+// batch is full go to the next batch; when that is full too, the
+// notification is dropped.
 func (m *migrationMW) addFault(f pageFault) {
 	s := m.state()
 	s.Stats.Faults++
 
-	for _, list := range [][]pageFault{s.Batch, s.NextBatch} {
-		for _, g := range list {
-			if g.GPU == f.GPU && m.unitKey(g.PID, g.VAddr) == m.unitKey(f.PID, f.VAddr) {
-				s.Stats.DuplicateFaults++
-				return
-			}
-		}
-	}
-
-	if len(s.Batch) >= m.spec().BatchSize {
+	switch {
+	case len(s.Batch) < m.spec().BatchSize:
+		m.joinBatch(f)
+	case len(s.NextBatch) < m.spec().BatchSize:
 		s.NextBatch = append(s.NextBatch, f)
-		return
+	default:
+		s.Stats.DroppedFaults++
 	}
+}
+
+// joinBatch adds a fault to the batch being collected.
+func (m *migrationMW) joinBatch(f pageFault) {
+	s := m.state()
 
 	if len(s.Batch) == 0 {
 		s.BatchDue = m.now() + nsToPS(m.spec().SoftwareLatencyNS)
@@ -313,12 +316,17 @@ func (m *migrationMW) serviceBatch() bool {
 		}
 	}
 
+	// The faults that wait were accepted already: they start the next
+	// batch and are never dropped.
 	waiting := append(deferred, s.NextBatch...)
 	s.NextBatch = nil
 
 	for _, f := range waiting {
-		s.Stats.Faults--
-		m.addFault(f)
+		if len(s.Batch) < m.spec().BatchSize {
+			m.joinBatch(f)
+		} else {
+			s.NextBatch = append(s.NextBatch, f)
+		}
 	}
 
 	return true
@@ -364,26 +372,29 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 	u.OldPages = u.OldPages[:0]
 
 	if u.Pinned || len(moving) == 0 {
-		// Nothing moves: the faulting GPU holds the unit, so that its fault
-		// response has arrived, and releases it. On the replay, the walk
-		// finds the page local or pinned and does not fault.
+		// Nothing moves: the faulting GPU releases the unit. On the replay,
+		// the walk finds the page local or pinned and does not fault.
 		u.Migrate = false
 		u.Targets = append(u.Targets, f.GPU)
 
 		for _, p := range all {
 			u.VAddrs = append(u.VAddrs, p.VAddr)
 		}
-	} else {
-		u.Migrate = true
-		u.OldPages = append(u.OldPages, moving...)
 
-		for _, p := range moving {
-			u.VAddrs = append(u.VAddrs, p.VAddr)
-		}
+		m.startRelease(ui)
 
-		for gpu := 1; gpu <= len(m.comp.Spec.MigrationAgents); gpu++ {
-			u.Targets = append(u.Targets, gpu)
-		}
+		return true
+	}
+
+	u.Migrate = true
+	u.OldPages = append(u.OldPages, moving...)
+
+	for _, p := range moving {
+		u.VAddrs = append(u.VAddrs, p.VAddr)
+	}
+
+	for gpu := 1; gpu <= len(m.comp.Spec.MigrationAgents); gpu++ {
+		u.Targets = append(u.Targets, gpu)
 	}
 
 	m.startHold(ui)
