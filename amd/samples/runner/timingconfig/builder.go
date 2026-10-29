@@ -26,7 +26,7 @@ const (
 	driverGPUPortBufSize = 4096
 	mmuTopPortBufSize    = 4096
 	ctrlPortBufSize      = 1
-	pmManagerPortBufSize = 1024
+	pmPortBufSize        = 1024
 )
 
 // Builder builds a hardware platform for timing simulation.
@@ -49,7 +49,8 @@ type Builder struct {
 
 	globalStorage     *mem.Storage
 	rdmaAddressMapper *mem.BankedAddressPortMapper
-	pmManager         *pagemigration.Manager
+	pmDriverMW        *pagemigration.DriverMiddleware
+	pmDriverPort      messaging.RemotePort
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -94,8 +95,7 @@ func (b Builder) WithGPUType(gpuType string) Builder {
 }
 
 // WithPageMigration configures page migration between the GPUs. With the
-// none policy (the default) nothing is built or hooked. Page migration
-// requires the serial engine.
+// none policy (the default) nothing is built.
 func (b Builder) WithPageMigration(spec pagemigration.Spec) Builder {
 	b.pageMigration = spec
 	return b
@@ -110,38 +110,77 @@ func (b Builder) Build() *driver.Driver {
 	b.globalStorage = mem.NewStorage(
 		uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize)
 
-	mmuComp, pageTable := b.createMMU()
+	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := b.buildGPUDriver(pageTable)
-	b.buildPageMigrationManager(pageTable)
+	b.buildPageMigrationService(gpuDriver, pageTable)
+	mmuComp := b.createMMU(pageTable)
 
 	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
 	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
 
-	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
+	gpus := b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
+	b.connectPageMigration(interDeviceConn, gpus)
 
 	return gpuDriver
 }
 
-// buildPageMigrationManager builds the page-migration manager when page
-// migration is enabled. The manager is built before the GPUs, whose address
-// translators take its hooks.
-func (b *Builder) buildPageMigrationManager(pageTable vm.PageTable) {
+// buildPageMigrationService installs the page-migration middleware in the
+// driver when page migration is enabled.
+func (b *Builder) buildPageMigrationService(
+	gpuDriver *driver.Driver,
+	pageTable vm.PageTable,
+) {
 	if !b.pageMigration.Enabled() {
 		return
 	}
 
-	spec := b.pageMigration
-	spec.Log2PageSize = b.log2PageSize
-	spec.GPUMemSize = b.gpuMemSize
+	b.pageMigration.Log2PageSize = b.log2PageSize
+	b.pageMigration.GPUMemSize = b.gpuMemSize
 
-	b.pmManager = pagemigration.MakeManagerBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(spec).
-		WithResources(pagemigration.ManagerResources{PageTable: pageTable}).
-		Build("PageMigrationManager")
+	b.pmDriverMW = pagemigration.NewDriverMiddleware(gpuDriver.Comp,
+		&gpuDriver.Comp.State.PageMigration, b.pageMigration, pageTable)
+	gpuDriver.Comp.AddMiddleware(b.pmDriverMW)
+	gpuDriver.Comp.DeclarePort(pagemigration.DriverPort)
+	b.pmDriverPort = b.buildPort(gpuDriver.Comp, pagemigration.DriverPort,
+		pmPortBufSize).AsRemote()
+}
 
-	if spec.Migrates() {
-		b.buildPort(b.pmManager, "ToEngines", pmManagerPortBufSize)
+// pageMigrationConfig returns what the GPU builders need to know about page
+// migration, or nil when it is disabled.
+func (b *Builder) pageMigrationConfig() *gpubuilder.PageMigrationConfig {
+	if b.pmDriverMW == nil {
+		return nil
+	}
+
+	return &gpubuilder.PageMigrationConfig{
+		Spec:       b.pageMigration,
+		DriverPort: b.pmDriverPort,
+	}
+}
+
+// connectPageMigration builds the data movers and the command-processor
+// middlewares once every GPU exists, and registers the GPUs with the
+// page-migration service of the driver.
+func (b *Builder) connectPageMigration(
+	interDeviceConn *directconnection.Comp,
+	gpus []*gpubuilder.GPU,
+) {
+	if b.pmDriverMW == nil {
+		return
+	}
+
+	ports := gpubuilder.BuildPageMigration(b.simulation, b.pageMigration, gpus)
+	for _, port := range ports {
+		interDeviceConn.PlugIn(port)
+	}
+
+	if !b.pageMigration.Migrates() {
+		return
+	}
+
+	for i, gpu := range gpus {
+		b.pmDriverMW.RegisterGPU(uint64(i+1), gpu.CommandProcessor.
+			GetPortByName(pagemigration.CPDriverPort).AsRemote())
 	}
 }
 
@@ -177,13 +216,18 @@ func (b *Builder) adjustConfigForGPUType() {
 	}
 }
 
-func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
-	pageTable := vm.NewPageTable(b.log2PageSize)
-
+func (b *Builder) createMMU(pageTable vm.PageTable) *mmu.Comp {
 	spec := mmu.DefaultSpec()
 	spec.Freq = 1 * timing.GHz
 	spec.Latency = 100 // v4: page walking latency
 	spec.Log2PageSize = b.log2PageSize
+
+	// With page migration on fault, a walk of a page on another GPU faults
+	// and is reported to the driver.
+	if b.pageMigration.Policy == pagemigration.PolicyOnFault {
+		spec.RemoteFaults = true
+		spec.FaultHandler = b.pmDriverPort
+	}
 
 	mmuComponent := mmu.MakeBuilder().
 		WithRegistrar(b.simulation).
@@ -194,7 +238,11 @@ func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
 	b.buildPort(mmuComponent, "Top", mmuTopPortBufSize)
 	b.buildPort(mmuComponent, "Control", ctrlPortBufSize)
 
-	return mmuComponent, pageTable
+	if spec.RemoteFaults {
+		b.buildPort(mmuComponent, "Fault", pmPortBufSize)
+	}
+
+	return mmuComponent
 }
 
 func (b *Builder) buildGPUDriver(
@@ -258,7 +306,7 @@ func (b *Builder) createGPUBuilder(
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort).
-			WithPageMigration(b.pmManager)
+			WithPageMigration(b.pageMigrationConfig())
 	default:
 		return r9nano.MakeBuilder().
 			WithSimulation(b.simulation).
@@ -266,7 +314,7 @@ func (b *Builder) createGPUBuilder(
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort).
-			WithPageMigration(b.pmManager)
+			WithPageMigration(b.pageMigrationConfig())
 	}
 }
 
@@ -274,10 +322,15 @@ func (b *Builder) createGPUs(
 	interDeviceConn *directconnection.Comp,
 	gpuBuilder gpubuilder.GPUBuilder,
 	gpuDriver *driver.Driver,
-) {
+) []*gpubuilder.GPU {
+	var gpus []*gpubuilder.GPU
+
 	for i := 1; i < b.numGPUs+1; i++ {
-		b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn)
+		gpus = append(gpus,
+			b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn))
 	}
+
+	return gpus
 }
 
 // createConnection creates the inter-device connection that links the
@@ -301,8 +354,12 @@ func (b *Builder) createConnection(
 	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
 	conn.PlugIn(mmuComponent.GetPortByName("Top"))
 
-	if b.pmManager != nil && b.pageMigration.Migrates() {
-		conn.PlugIn(b.pmManager.GetPortByName("ToEngines"))
+	if b.pmDriverMW != nil {
+		conn.PlugIn(gpuDriver.GetPortByName(pagemigration.DriverPort))
+	}
+
+	if mmuComponent.Spec().RemoteFaults {
+		conn.PlugIn(mmuComponent.GetPortByName("Fault"))
 	}
 
 	return conn

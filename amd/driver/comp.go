@@ -5,6 +5,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/modeling"
 	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // GPUPortName is the logical name of the port the driver uses to talk to the
@@ -37,7 +38,12 @@ type Spec struct {
 // requests, devices) is a complex object graph that cannot be represented as
 // pure data yet. It lives on the Driver struct instead.
 // TODO(akita5): state purity.
-type State struct{}
+//
+// PageMigration is the state of the page-migration middleware, when page
+// migration is enabled.
+type State struct {
+	PageMigration pagemigration.DriverState `json:"page_migration"`
+}
 
 // Resources contains the references to the shared resources the driver uses.
 type Resources struct {

@@ -11,20 +11,21 @@ type Policy int
 
 // Policies.
 const (
-	// PolicyNone disables page migration. Nothing is built or hooked.
+	// PolicyNone disables page migration. Nothing is built.
 	PolicyNone Policy = iota
 
-	// PolicyObserve installs the hooks and collects the statistics but never
+	// PolicyObserve counts the remote accesses for the statistics but never
 	// migrates. It must give the same timing as PolicyNone.
 	PolicyObserve
 
-	// PolicyOnFault migrates a page to a GPU when an access of that GPU
-	// translates to a page on another GPU. The access waits.
+	// PolicyOnFault migrates a page to a GPU when a vector access of that GPU
+	// translates to it on another GPU. The translation faults at the MMU and
+	// the access waits.
 	PolicyOnFault
 
-	// PolicyAccessCounter counts the remote accesses of each GPU to each unit
-	// and migrates a unit, asynchronously, to the GPU with the most accesses
-	// once one GPU reaches the threshold.
+	// PolicyAccessCounter counts the remote accesses of each GPU to each page
+	// and migrates the unit of a page, asynchronously, to a GPU whose count
+	// reaches the threshold.
 	PolicyAccessCounter
 )
 
@@ -63,10 +64,9 @@ type Spec struct {
 	Freq   timing.Freq `json:"freq"`
 	Policy Policy      `json:"policy"`
 
-	// Log2Unit is the migration (and access-counting) granularity: 12 for
-	// 4 KB, 21 for 2 MB. It must not be smaller than the page size. A unit
-	// larger than a page moves as a group of pages; the page size and the
-	// TLBs are not changed.
+	// Log2Unit is the migration granularity: 12 for 4 KB, 21 for 2 MB. It
+	// must not be smaller than the page size. A unit larger than a page
+	// moves as a group of pages; the page size and the TLBs are not changed.
 	Log2Unit uint64 `json:"log2_unit"`
 
 	// SoftwareLatencyNS is the service time of one batch of faults or
@@ -74,28 +74,26 @@ type Spec struct {
 	SoftwareLatencyNS uint64 `json:"software_latency_ns"`
 	BatchSize         int    `json:"batch_size"`
 
-	// ShootdownLatencyNS is the time from the start of a TLB shootdown until
-	// all GPUs acknowledged it. The shootdown also waits for the TLB
-	// invalidation messages themselves.
+	// ShootdownLatencyNS is the least time from the start of a TLB shootdown
+	// until it completes. The shootdown also waits until every TLB of every
+	// GPU has invalidated the pages.
 	ShootdownLatencyNS uint64 `json:"shootdown_latency_ns"`
 
 	// Threshold is the access-counter threshold: remote accesses of one GPU
-	// to one unit.
+	// to one page, counted by the RDMA engine of the GPU.
 	Threshold uint32 `json:"threshold"`
 
 	// A unit does not migrate again within CooldownNS after its last
-	// migration. A unit that migrated MaxMigrations times is pinned
-	// (0 = unlimited).
+	// migration; a fault on it in that time maps it remotely until the
+	// cooldown ends. A unit that migrated MaxMigrations times is pinned:
+	// it is mapped remotely for good (0 = unlimited).
 	CooldownNS    uint64 `json:"cooldown_ns"`
 	MaxMigrations int    `json:"max_migrations"`
 
-	// Copy engines: bytes per pull over the network, pulls in flight per
-	// destination engine, line accesses in flight from an engine to its L2
-	// or DRAM, and the line size.
-	ChunkBytes uint64 `json:"chunk_bytes"`
-	PullWindow int    `json:"pull_window"`
-	MemWindow  int    `json:"mem_window"`
-	LineBytes  uint64 `json:"line_bytes"`
+	// The data mover of each GPU copies a page with line accesses of
+	// LineBytes and keeps up to CopyBufferBytes of a copy in flight.
+	LineBytes       uint64 `json:"line_bytes"`
+	CopyBufferBytes uint64 `json:"copy_buffer_bytes"`
 
 	// New frames for migrated pages are taken, in order and never reused,
 	// from [FrameRegionOffset, FrameRegionOffset+FrameRegionSize) of each
@@ -103,11 +101,6 @@ type Spec struct {
 	// memory, so the region must be above everything a workload allocates.
 	FrameRegionOffset uint64 `json:"frame_region_offset"`
 	FrameRegionSize   uint64 `json:"frame_region_size"`
-
-	// Check enables the expensive invariant checks: every L2 of every GPU is
-	// searched for lines of each new frame when it is allocated and when the
-	// page is remapped.
-	Check bool `json:"check"`
 
 	// Log2PageSize is the page size of the page table and the TLBs.
 	// GPUMemSize is the size of the physical memory of each device; device d
@@ -134,10 +127,8 @@ func DefaultSpec() Spec {
 		Threshold:          256,
 		CooldownNS:         5000,
 		MaxMigrations:      3,
-		ChunkBytes:         4096,
-		PullWindow:         16,
-		MemWindow:          128,
 		LineBytes:          64,
+		CopyBufferBytes:    64 << 10,
 		FrameRegionOffset:  3 << 30,
 		FrameRegionSize:    1 << 30,
 		Log2PageSize:       12,
@@ -145,7 +136,7 @@ func DefaultSpec() Spec {
 	}
 }
 
-// Enabled reports whether the hooks are installed.
+// Enabled reports whether page migration is built at all.
 func (s Spec) Enabled() bool { return s.Policy != PolicyNone }
 
 // Migrates reports whether the policy moves pages.
@@ -160,22 +151,20 @@ func (s Spec) Validate() error {
 		return nil
 	}
 
-	log2PageSize, gpuMemSize := s.Log2PageSize, s.GPUMemSize
-
-	if s.Log2Unit < log2PageSize {
+	if s.Log2Unit < s.Log2PageSize {
 		return fmt.Errorf("migration unit 2^%d is smaller than the page 2^%d",
-			s.Log2Unit, log2PageSize)
+			s.Log2Unit, s.Log2PageSize)
 	}
 
-	pageSize := uint64(1) << log2PageSize
-	if s.LineBytes == 0 || s.ChunkBytes == 0 || pageSize%s.ChunkBytes != 0 ||
-		s.ChunkBytes%s.LineBytes != 0 {
-		return fmt.Errorf("chunk %d must divide the page %d and be a multiple "+
-			"of the line %d", s.ChunkBytes, pageSize, s.LineBytes)
+	pageSize := uint64(1) << s.Log2PageSize
+	if s.LineBytes == 0 || pageSize%s.LineBytes != 0 ||
+		s.CopyBufferBytes < s.LineBytes {
+		return fmt.Errorf("line %d must divide the page %d and fit in the "+
+			"copy buffer %d", s.LineBytes, pageSize, s.CopyBufferBytes)
 	}
 
-	if s.BatchSize <= 0 || s.PullWindow <= 0 || s.MemWindow <= 0 {
-		return fmt.Errorf("batch size and windows must be positive")
+	if s.BatchSize <= 0 {
+		return fmt.Errorf("batch size must be positive")
 	}
 
 	if s.Policy == PolicyAccessCounter && s.Threshold == 0 {
@@ -183,10 +172,10 @@ func (s Spec) Validate() error {
 	}
 
 	if s.FrameRegionSize < pageSize ||
-		s.FrameRegionOffset+s.FrameRegionSize > gpuMemSize {
+		s.FrameRegionOffset+s.FrameRegionSize > s.GPUMemSize {
 		return fmt.Errorf("frame region [%#x, %#x) is not inside the %#x-byte "+
 			"memory of a GPU", s.FrameRegionOffset,
-			s.FrameRegionOffset+s.FrameRegionSize, gpuMemSize)
+			s.FrameRegionOffset+s.FrameRegionSize, s.GPUMemSize)
 	}
 
 	return nil

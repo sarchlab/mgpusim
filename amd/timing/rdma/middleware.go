@@ -25,6 +25,8 @@ func (m *forwardMiddleware) Tick() bool {
 	madeProgress := false
 	spec := m.comp.Spec()
 
+	madeProgress = m.sendNotifications() || madeProgress
+
 	for i := 0; i < spec.OutgoingReqPerCycle; i++ {
 		madeProgress = m.processFromL1() || madeProgress
 	}
@@ -72,6 +74,7 @@ func (m *forwardMiddleware) processFromL1() bool {
 
 	outPort.Send(cloned)
 	inPort.RetrieveIncoming()
+	m.countRemoteAccess(req)
 
 	m.comp.State.TransactionsFromInside = append(
 		m.comp.State.TransactionsFromInside,

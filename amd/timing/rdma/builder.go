@@ -71,7 +71,12 @@ func (b Builder) Build(name string) *Comp {
 		WithSpec(b.spec).
 		WithResources(b.resources).
 		Build(name)
-	comp.State = State{}
+	comp.State = State{
+		AccessCounter: AccessCounterState{
+			Counts:             make(map[uint64]uint32),
+			RemoteReadsByOwner: make(map[uint64]uint64),
+		},
+	}
 
 	comp.AddMiddleware(&ctrlMiddleware{comp: comp})
 	comp.AddMiddleware(&forwardMiddleware{comp: comp})
@@ -81,6 +86,10 @@ func (b Builder) Build(name string) *Comp {
 	comp.DeclarePort("RDMADataInside", memprotocol.Requester)
 	comp.DeclarePort("RDMADataOutside", memprotocol.Responder)
 	comp.DeclarePort("Ctrl")
+
+	if b.spec.NotifiesAccesses() {
+		comp.DeclarePort("AccessCounter")
+	}
 
 	b.registrar.RegisterComponent(comp)
 

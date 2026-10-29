@@ -16,7 +16,6 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // Port buffer sizes. The CU port sizes mirror the v4 CU builder; the other
@@ -81,9 +80,9 @@ type Builder struct {
 	registerScoreboard        bool
 	l1AddressMapper           mem.AddressToPortMapper
 	l1TLBAddressMapper        mem.AddressToPortMapper
+	vectorATsCanFault         bool
 	aluBuilder                func() emu.ALU
 	decoderBuilder            func() emu.Decoder
-	pageMigration             *pagemigration.Manager
 
 	sa *ShaderArray
 
@@ -136,13 +135,6 @@ func (b Builder) WithLog2PageSize(log2PageSize uint64) Builder {
 	return b
 }
 
-// WithPageMigration installs the hooks of a page-migration manager in the
-// address translators (nil, the default, installs none).
-func (b Builder) WithPageMigration(m *pagemigration.Manager) Builder {
-	b.pageMigration = m
-	return b
-}
-
 // WithL1AddressMapper sets the L1 address mapper to use. The mapper must be
 // fully populated before Build is called: the v5 caches snapshot the mapper
 // contents at build time.
@@ -158,6 +150,14 @@ func (b Builder) WithL1TLBAddressMapper(
 	l1TLBAddressMapper mem.AddressToPortMapper,
 ) Builder {
 	b.l1TLBAddressMapper = l1TLBAddressMapper
+	return b
+}
+
+// WithVectorATsCanFault lets the translations of the vector-memory address
+// translators fault when their page is on another GPU (page migration on
+// fault). Scalar and instruction accesses never fault.
+func (b Builder) WithVectorATsCanFault(canFault bool) Builder {
+	b.vectorATsCanFault = canFault
 	return b
 }
 
@@ -517,9 +517,6 @@ func (b *Builder) buildL1VReorderBuffers() {
 	}
 }
 
-// buildAT builds an address translator. With page migration, the
-// translators of vector memory accesses (canFault) can raise migration
-// faults; the others are only held and remapped.
 func (b *Builder) buildAT(
 	name string,
 	numReqPerCycle int,
@@ -531,19 +528,15 @@ func (b *Builder) buildAT(
 	spec.DeviceID = b.gpuID
 	spec.Log2PageSize = b.log2PageSize
 	spec.NumReqPerCycle = numReqPerCycle
-
-	resources := addresstranslator.Resources{
-		MemProviderMapper:         memMapper,
-		TranslationProviderMapper: transMapper,
-	}
-	if b.pageMigration != nil {
-		resources.MigrationHook = b.pageMigration.ATHook(b.gpuID, canFault)
-	}
+	spec.CanFault = canFault
 
 	at := addresstranslator.MakeBuilder().
 		WithRegistrar(b.simulation).
 		WithSpec(spec).
-		WithResources(resources).
+		WithResources(addresstranslator.Resources{
+			MemProviderMapper:         memMapper,
+			TranslationProviderMapper: transMapper,
+		}).
 		Build(name)
 
 	// v4 AT data ports were NumReqPerCycle deep; the control port was 1 deep.
@@ -565,7 +558,7 @@ func (b *Builder) buildL1VAddressTranslators() {
 			&mem.SinglePortMapper{
 				Port: b.sa.L1VTLBs[i].GetPortByName("Top").AsRemote(),
 			},
-			true)
+			b.vectorATsCanFault)
 		b.sa.L1VATs = append(b.sa.L1VATs, at)
 	}
 }

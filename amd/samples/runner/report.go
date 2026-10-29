@@ -78,8 +78,8 @@ type cuCPIStackTracer struct {
 }
 
 type reporter struct {
-	dataRecorder  datarecording.DataRecorder
-	pageMigration *pagemigration.Manager
+	dataRecorder datarecording.DataRecorder
+	simulation   *simulation.Simulation
 
 	kernelTimeTracer        *kernelTimeTracer
 	perGPUKernelTimeTracers []*kernelTimeTracer
@@ -105,15 +105,10 @@ type reporter struct {
 func newReporter(s *simulation.Simulation) *reporter {
 	r := &reporter{
 		dataRecorder: s.GetDataRecorder(),
+		simulation:   s,
 	}
 
 	r.injectTracers(s)
-
-	for _, c := range s.Components() {
-		if m := pagemigration.ManagerOf(c); m != nil {
-			r.pageMigration = m
-		}
-	}
 
 	r.dataRecorder.CreateTable(tableName, metric{})
 
@@ -398,11 +393,7 @@ func (r *reporter) report() {
 // reportPageMigration reports the page-migration statistics whenever page
 // migration is enabled.
 func (r *reporter) reportPageMigration() {
-	if r.pageMigration == nil {
-		return
-	}
-
-	for _, m := range r.pageMigration.Metrics() {
+	for _, m := range pagemigration.Metrics(r.simulation.Components()) {
 		r.dataRecorder.InsertData(tableName, metric{
 			Location: m.Location,
 			What:     m.What,

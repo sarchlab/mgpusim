@@ -16,6 +16,44 @@ type Spec struct {
 	IncomingRspPerCycle int         `json:"incoming_rsp_per_cycle"`
 	OutgoingReqPerCycle int         `json:"outgoing_req_per_cycle"`
 	OutgoingRspPerCycle int         `json:"outgoing_rsp_per_cycle"`
+
+	// The access counter counts the remote accesses of the GPU (the
+	// requests from the local L1 caches) for page migration. With
+	// CountAccesses, the engine counts them for the statistics; DeviceMemSize
+	// attributes each remote read to the device that serves it. When
+	// CounterThreshold is also positive, it counts the accesses to each page
+	// of 2^CounterLog2PageSize bytes, and each time the count of a page
+	// reaches the threshold it resets the count and sends an
+	// AccessCounterNotification from its "AccessCounter" port (declared only
+	// then) to CounterNotifyDst.
+	CountAccesses       bool                 `json:"count_accesses"`
+	DeviceID            uint64               `json:"device_id"`
+	DeviceMemSize       uint64               `json:"device_mem_size"`
+	CounterLog2PageSize uint64               `json:"counter_log2_page_size"`
+	CounterThreshold    uint32               `json:"counter_threshold"`
+	CounterNotifyDst    messaging.RemotePort `json:"counter_notify_dst"`
+}
+
+// NotifiesAccesses reports whether the access counter sends notifications.
+func (s Spec) NotifiesAccesses() bool {
+	return s.CountAccesses && s.CounterThreshold > 0
+}
+
+// AccessCounterState is the state of the access counter.
+type AccessCounterState struct {
+	// Counts are the remote accesses to each page (by physical page number)
+	// since its last notification.
+	Counts map[uint64]uint32 `json:"counts"`
+
+	// Notifications are waiting to be sent.
+	Notifications []AccessCounterNotification `json:"notifications"`
+
+	// Statistics: remote accesses, remote reads, and remote reads by the
+	// device that serves them.
+	RemoteAccesses     uint64            `json:"remote_accesses"`
+	RemoteReads        uint64            `json:"remote_reads"`
+	RemoteReadsByOwner map[uint64]uint64 `json:"remote_reads_by_owner"`
+	NumNotifications   uint64            `json:"num_notifications"`
 }
 
 // transaction records one memory request that the RDMA engine has forwarded
@@ -51,6 +89,8 @@ type State struct {
 
 	TransactionsFromInside  []transaction `json:"transactions_from_inside"`
 	TransactionsFromOutside []transaction `json:"transactions_from_outside"`
+
+	AccessCounter AccessCounterState `json:"access_counter"`
 }
 
 // Resources holds the shared references used by the RDMA engine to route

@@ -2,171 +2,176 @@ package gpubuilder
 
 import (
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/mem/cache"
-	"github.com/sarchlab/akita/v5/mem/cache/writeback"
-	"github.com/sarchlab/akita/v5/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v5/mem/vm/tlb"
+	"github.com/sarchlab/akita/v5/mem/datamover"
+	"github.com/sarchlab/akita/v5/mem/datamoverprotocol"
+	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
 	"github.com/sarchlab/akita/v5/messaging"
 	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
-// Port buffer sizes of the page-migration engine.
+// Port buffer sizes of page migration.
 const (
-	pmRemotePortBufSize  = 64
-	pmTLBCtrlPortBufSize = 64
+	pmCtrlPortBufSize   = 64
+	pmDriverPortBufSize = 64
+	pmMoverMemBufSize   = 256
 )
 
-// PageMigrationGPU is what the page-migration manager needs from a GPU.
-type PageMigrationGPU struct {
-	GPUID  uint64
-	SAs    []*shaderarray.ShaderArray
-	L2TLBs []*tlb.Comp
-	L2s    []*writeback.Comp
-	RDMA   *rdma.Comp
+// PageMigrationConfig is what a GPU builder needs to know about page
+// migration. A nil config disables page migration.
+type PageMigrationConfig struct {
+	Spec pagemigration.Spec
 
-	// L2Mapper finds the L2 slice of a local address (the L1-to-L2
-	// interleaving). MemMapper finds the memory-side module that the DMA
-	// engine writes to.
-	L2Mapper  mem.AddressToPortMapper
-	MemMapper mem.AddressToPortMapper
+	// DriverPort is the page-migration port of the driver, where the access
+	// counters send their notifications.
+	DriverPort messaging.RemotePort
 }
 
-// BuildPageMigrationEngine builds the page-migration engine of a GPU. It
-// returns nil when the policy does not migrate (the observe policy must not
-// add any port to the platform). The caller plugs the "TLBControl" port into
-// the connection of the TLB Control ports, the "L2" port into the L1-to-L2
-// connection, the "DRAM" port into the connection that the DMA engine writes
-// to, and exports the "Remote" port with GPU.PageMigrationPort.
-func BuildPageMigrationEngine(
-	reg modeling.Registrar,
-	m *pagemigration.Manager,
-	name string,
-	g PageMigrationGPU,
-) *pagemigration.Engine {
-	if m == nil || !m.Spec().Migrates() {
-		return nil
-	}
-
-	spec := m.Spec().EngineSpec()
-	for _, t := range allTLBs(g) {
-		spec.TLBs = append(spec.TLBs,
-			t.GetPortByName("Control").AsRemote())
-	}
-
-	e := pagemigration.MakeEngineBuilder().
-		WithRegistrar(reg).
-		WithSpec(spec).
-		WithResources(pagemigration.EngineResources{
-			L2Mapper:   g.L2Mapper,
-			DRAMMapper: g.MemMapper,
-		}).
-		Build(name)
-
-	memBufSize := 2 * spec.MemWindow
-	ports := []struct {
-		name    string
-		bufSize int
-	}{
-		{"Remote", pmRemotePortBufSize},
-		{"L2", memBufSize},
-		{"DRAM", memBufSize},
-		{"TLBControl", pmTLBCtrlPortBufSize},
-	}
-
-	for _, p := range ports {
-		port := modeling.MakePortBuilder().
-			WithRegistrar(reg).
-			WithComponent(e).
-			WithSpec(modeling.PortSpec{BufSize: p.bufSize}).
-			Build(p.name)
-		e.AssignPort(p.name, port)
-	}
-
-	return e
+// VectorATsCanFault reports whether the address translators of the vector
+// memory accesses may fault.
+func (c *PageMigrationConfig) VectorATsCanFault() bool {
+	return c != nil && c.Spec.Policy == pagemigration.PolicyOnFault
 }
 
-// RegisterPageMigrationGPU registers a built GPU with the manager and hooks
-// its RDMA engine for the access counters and the statistics.
-func RegisterPageMigrationGPU(
-	m *pagemigration.Manager,
-	g PageMigrationGPU,
-	e *pagemigration.Engine,
+// ConfigureAccessCounter sets the access counter of the RDMA engine of GPU
+// gpuID: it counts for the statistics whenever page migration is enabled,
+// and notifies the driver with the access-counter policy.
+func (c *PageMigrationConfig) ConfigureAccessCounter(
+	spec *rdma.Spec,
+	gpuID uint64,
 ) {
-	if m == nil {
+	if c == nil || !c.Spec.Enabled() {
 		return
 	}
 
-	var ats []*addresstranslator.Comp
+	spec.CountAccesses = true
+	spec.DeviceID = gpuID
+	spec.DeviceMemSize = c.Spec.GPUMemSize
+	spec.CounterLog2PageSize = c.Spec.Log2PageSize
 
-	for _, sa := range g.SAs {
-		ats = append(ats, sa.L1VATs...)
-		ats = append(ats, sa.L1SAT, sa.L1IAT)
+	if c.Spec.Policy == pagemigration.PolicyAccessCounter {
+		spec.CounterThreshold = c.Spec.Threshold
+		spec.CounterNotifyDst = c.DriverPort
 	}
-
-	m.RegisterGPU(pagemigration.GPU{
-		DeviceID:           g.GPUID,
-		Engine:             e,
-		AddressTranslators: ats,
-		HoldsLine:          l2HoldsLine(g.L2Mapper, g.L2s),
-	})
-
-	g.RDMA.GetPortByName("RDMARequestInside").
-		AcceptHook(m.RemoteAccessHook(g.GPUID))
 }
 
-func allTLBs(g PageMigrationGPU) []messaging.Component {
-	var tlbs []messaging.Component
-
-	for _, sa := range g.SAs {
-		for _, t := range sa.L1VTLBs {
-			tlbs = append(tlbs, t)
-		}
-
-		tlbs = append(tlbs, sa.L1STLB, sa.L1ITLB)
-	}
-
-	for _, t := range g.L2TLBs {
-		tlbs = append(tlbs, t)
-	}
-
-	return tlbs
+// Connection is a connection that ports can be plugged into.
+type Connection interface {
+	PlugIn(port messaging.Port)
 }
 
-// l2HoldsLine returns a function that reports whether the L2 slice of a
-// local address holds the line or has an MSHR entry for it.
-func l2HoldsLine(
-	l2Mapper mem.AddressToPortMapper,
-	l2s []*writeback.Comp,
-) func(uint64) bool {
-	byPort := make(map[messaging.RemotePort]*writeback.Comp, len(l2s))
-	for _, l2 := range l2s {
-		byPort[l2.GetPortByName("Top").AsRemote()] = l2
+// PageMigrationParts are the parts of a GPU that page migration wires to
+// after every GPU is built.
+type PageMigrationParts struct {
+	CP *cp.Comp
+
+	// InternalConn connects the command processor to the Control ports of
+	// the address translators and the TLBs.
+	InternalConn Connection
+
+	// MemConn and MemMapper reach the memory-side modules that the data
+	// mover writes the new frames to, around the L2.
+	MemConn   Connection
+	MemMapper *mem.InterleavedAddressPortMapper
+}
+
+// BuildPageMigration builds the data mover of every GPU and installs the
+// page-migration middleware in every command processor. gpus are the GPUs
+// with IDs 1, 2, .... It returns the ports to plug into the inter-device
+// connection.
+func BuildPageMigration(
+	reg modeling.Registrar,
+	spec pagemigration.Spec,
+	gpus []*GPU,
+) []messaging.Port {
+	if !spec.Migrates() {
+		return nil
 	}
 
-	return func(addr uint64) bool {
-		l2, ok := byPort[l2Mapper.Find(addr)]
-		if !ok {
-			return false
-		}
+	// The data mover of a destination reads the source page through the
+	// RDMA engine of the source GPU; device d owns the d-th bank.
+	remote := mem.NewInterleavedAddressPortMapper(spec.GPUMemSize)
+	remote.LowModules = append(remote.LowModules, messaging.RemotePort("CPU"))
 
-		blockSize := uint64(1) << l2.Spec().Log2BlockSize
-		line := addr &^ (blockSize - 1)
-		dir := &l2.State.DirectoryState
-
-		if len(dir.Sets) == 0 {
-			return false
-		}
-
-		if _, _, found := cache.DirectoryLookup(
-			dir, len(dir.Sets), int(blockSize), 0, line); found {
-			return true
-		}
-
-		_, found := cache.MSHRQuery(&l2.State.MSHRState, 0, line)
-
-		return found
+	for _, g := range gpus {
+		remote.LowModules = append(remote.LowModules, g.RDMADataPort.AsRemote())
 	}
+
+	var external []messaging.Port
+
+	for _, g := range gpus {
+		external = append(external, buildGPUPageMigration(reg, spec, g, remote)...)
+	}
+
+	return external
+}
+
+func buildGPUPageMigration(
+	reg modeling.Registrar,
+	spec pagemigration.Spec,
+	g *GPU,
+	remote *mem.InterleavedAddressPortMapper,
+) []messaging.Port {
+	parts := g.PageMigration
+
+	moverSpec := datamover.DefaultSpec()
+	moverSpec.Freq = spec.Freq
+	moverSpec.BufferSize = spec.CopyBufferBytes
+	moverSpec.InsideByteGranularity = spec.LineBytes
+	moverSpec.OutsideByteGranularity = spec.LineBytes
+
+	mover := datamover.MakeBuilder().
+		WithRegistrar(reg).
+		WithSpec(moverSpec).
+		WithResources(datamover.Resources{
+			InsideMapper:  parts.MemMapper,
+			OutsideMapper: remote,
+		}).
+		Build(g.Name + ".PageMigrationDataMover")
+
+	buildPort(reg, mover, "Top", pmCtrlPortBufSize)
+	buildPort(reg, mover, "Control", pmCtrlPortBufSize)
+	buildPort(reg, mover, "Inside", pmMoverMemBufSize)
+	buildPort(reg, mover, "Outside", pmMoverMemBufSize)
+
+	parts.InternalConn.PlugIn(mover.GetPortByName("Top"))
+	parts.InternalConn.PlugIn(mover.GetPortByName("Control"))
+	parts.MemConn.PlugIn(mover.GetPortByName("Inside"))
+
+	cpComp := parts.CP
+	pmState := &cpComp.State.PageMigration
+	pmState.AddressTranslators = append(pmState.AddressTranslators[:0],
+		cpComp.State.AddressTranslators...)
+	pmState.TLBs = append(pmState.TLBs[:0], cpComp.State.TLBs...)
+	pmState.DataMover = mover.GetPortByName("Top").AsRemote()
+
+	cpComp.AddMiddleware(pagemigration.NewCPMiddleware(cpComp, pmState))
+	cpComp.DeclarePort(pagemigration.CPDriverPort)
+	cpComp.DeclarePort(pagemigration.CPCtrlPort,
+		memcontrolprotocol.Requester, datamoverprotocol.Requester)
+
+	buildPort(reg, cpComp, pagemigration.CPDriverPort, pmDriverPortBufSize)
+	buildPort(reg, cpComp, pagemigration.CPCtrlPort, pmCtrlPortBufSize)
+	parts.InternalConn.PlugIn(cpComp.GetPortByName(pagemigration.CPCtrlPort))
+
+	return []messaging.Port{
+		cpComp.GetPortByName(pagemigration.CPDriverPort),
+		mover.GetPortByName("Outside"),
+	}
+}
+
+func buildPort(
+	reg modeling.Registrar,
+	comp messaging.Component,
+	name string,
+	bufSize int,
+) {
+	port := modeling.MakePortBuilder().
+		WithRegistrar(reg).
+		WithComponent(comp).
+		WithSpec(modeling.PortSpec{BufSize: bufSize}).
+		Build(name)
+	comp.AssignPort(name, port)
 }

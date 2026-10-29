@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // defaultSpec provides the default configuration for the Command Processor.
@@ -111,6 +112,7 @@ func (b Builder) Build(name string) *Comp {
 		Driver:                b.driver,
 		BottomMemCopyH2DToTop: make(map[uint64]protocol.MemCopyH2DReq),
 		BottomMemCopyD2HToTop: make(map[uint64]protocol.MemCopyD2HReq),
+		PageMigration:         pagemigration.NewCPState(),
 	}
 
 	cpMW := &cpMiddleware{comp: comp}

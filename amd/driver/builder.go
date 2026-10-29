@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver/internal"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // defaultSpec provides the default configuration of the driver.
@@ -68,7 +69,7 @@ func (b Builder) Build(name string) *Driver {
 		WithSpec(b.spec).
 		WithResources(b.resources).
 		Build(name)
-	driver.Comp.State = State{}
+	driver.Comp.State = State{PageMigration: pagemigration.NewDriverState()}
 
 	driver.engine = b.registrar.GetEngine()
 	driver.Log2PageSize = b.spec.Log2PageSize

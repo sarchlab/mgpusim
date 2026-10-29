@@ -5,59 +5,54 @@ import (
 	"github.com/sarchlab/akita/v5/messaging"
 )
 
-const (
-	pullReqBytes    = 12 // same overhead as a memory read request
-	pullRspOverhead = 4  // same overhead as a data-ready response
-	ctrlMsgBytes    = 4
-)
+const ctrlMsgBytes = 4
 
-// PullReq asks the engine of the source GPU for Size bytes at PAddr. It is
-// sent by the engine of the destination GPU.
-type PullReq struct {
-	messaging.MsgMeta
-
-	PAddr uint64
-	Size  uint64
-}
-
-// PullRsp carries the data of a PullReq back to the destination GPU. The
-// PullReq is identified by MsgMeta.RspTo.
-type PullRsp struct {
-	messaging.MsgMeta
-
-	Data []byte
-}
-
-// CopyReq asks the engine of the destination GPU to copy Size bytes from
-// SrcPAddr, on the GPU whose engine is Source, to DstPAddr in its own
-// memory. It is sent by the manager.
-type CopyReq struct {
-	messaging.MsgMeta
-
-	Source   messaging.RemotePort
-	SrcPAddr uint64
-	DstPAddr uint64
-	Size     uint64
-}
-
-// CopyRsp reports that a CopyReq, identified by MsgMeta.RspTo, has been
-// written to the destination memory.
-type CopyRsp struct {
-	messaging.MsgMeta
-}
-
-// InvalidateReq asks the engine of a GPU to drop the translations of the
-// pages at VAddrs of process PID from every TLB of the GPU. It is sent by the
-// manager when a migration starts.
-type InvalidateReq struct {
+// HoldReq asks the command processor of a GPU to hold the pages at VAddrs of
+// process PID in every address translator of the GPU
+// (memcontrolprotocol.CmdHold). The command processor answers with a Rsp
+// once every translator has acknowledged, i.e. once no access of the GPU to
+// the pages and no translation of them is in flight.
+type HoldReq struct {
 	messaging.MsgMeta
 
 	PID    vm.PID
 	VAddrs []uint64
 }
 
-// InvalidateRsp reports that every TLB of the GPU has dropped the pages of
-// an InvalidateReq, identified by MsgMeta.RspTo.
-type InvalidateRsp struct {
+// ShootdownReq asks the command processor of a GPU to drop the translations
+// of the pages at VAddrs of process PID from every TLB of the GPU: it
+// pauses each TLB, invalidates the pages, and enables the TLB again. It
+// answers with a Rsp once every TLB is enabled again.
+type ShootdownReq struct {
+	messaging.MsgMeta
+
+	PID    vm.PID
+	VAddrs []uint64
+}
+
+// ReleaseReq asks the command processor of a GPU to release the pages at
+// VAddrs of process PID in every address translator of the GPU
+// (memcontrolprotocol.CmdRelease): the accesses that wait on a Hold or a
+// fault of the pages are translated again. It answers with a Rsp.
+type ReleaseReq struct {
+	messaging.MsgMeta
+
+	PID    vm.PID
+	VAddrs []uint64
+}
+
+// CopyReq asks the command processor of the destination GPU to copy Size
+// bytes from SrcPAddr, on another GPU, to DstPAddr in its own memory, with
+// its data mover. It answers with a Rsp once the data is written.
+type CopyReq struct {
+	messaging.MsgMeta
+
+	SrcPAddr uint64
+	DstPAddr uint64
+	Size     uint64
+}
+
+// Rsp reports that the request identified by MsgMeta.RspTo is done.
+type Rsp struct {
 	messaging.MsgMeta
 }

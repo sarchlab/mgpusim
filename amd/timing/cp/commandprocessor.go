@@ -7,6 +7,7 @@ import (
 	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/pagemigration"
 )
 
 // Spec contains the immutable configuration of the Command Processor.
@@ -121,6 +122,10 @@ type State struct {
 	PendingCUFlushReqs   []protocol.CUPipelineFlushReq   `json:"pending_cu_flush_reqs"`
 	PendingCURestartReqs []protocol.CUPipelineRestartReq `json:"pending_cu_restart_reqs"`
 	PendingDriverRsps    []string                        `json:"pending_driver_rsps"`
+
+	// PageMigration is the state of the page-migration middleware, when
+	// page migration moves pages.
+	PageMigration pagemigration.CPState `json:"page_migration"`
 }
 
 // Comp is the Command Processor, an Akita component that is responsible for
