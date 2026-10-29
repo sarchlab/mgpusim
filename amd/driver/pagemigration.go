@@ -352,14 +352,7 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 	}
 
 	all := m.unitPages(u)
-	var moving []vm.Page
-
-	for _, p := range all {
-		if p.Unified && !p.IsPinned && int(p.DeviceID) != f.GPU &&
-			m.isGPU(int(p.DeviceID)) {
-			moving = append(moving, p)
-		}
-	}
+	moving := m.movingPages(all, f.GPU)
 
 	if !u.Pinned && len(moving) > 0 && m.thrashing(u) {
 		m.pin(u, all)
@@ -400,6 +393,21 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 	m.startHold(ui)
 
 	return true
+}
+
+// movingPages returns the pages that a migration to GPU dst moves: the
+// unified, unpinned pages that are on another GPU.
+func (m *migrationMW) movingPages(pages []vm.Page, dst int) []vm.Page {
+	var moving []vm.Page
+
+	for _, p := range pages {
+		if p.Unified && !p.IsPinned && int(p.DeviceID) != dst &&
+			m.isGPU(int(p.DeviceID)) {
+			moving = append(moving, p)
+		}
+	}
+
+	return moving
 }
 
 // thrashing records a thrashing event if the unit migrated within the lapse,
