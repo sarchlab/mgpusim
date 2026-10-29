@@ -5,8 +5,45 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-func (m *executionMW) copy(e *Execution) {
+// copyUnlessMigrating starts a memory copy, unless a unit that it uses is
+// migrating: a copy uses physical addresses, so it waits until the unit is
+// idle.
+func (m *executionMW) copyUnlessMigrating(i int) {
 	c := m.comp
+	e := &c.State.Executing[i]
+	start, size, _ := copyRange(e.Command)
+
+	if m.comp.Middlewares.Migration.migrating(
+		c.Resources.Runtime.QueuePID(e.Queue), start, size) {
+		e.WaitsForMigration = true
+		return
+	}
+
+	e.WaitsForMigration = false
+	m.copy(i)
+}
+
+// startWaitingCopies starts the first memory copy that waited for a
+// migration, if it may start now. A copy that finishes at once leaves the
+// execution list, so one copy is started per tick.
+func (m *executionMW) startWaitingCopies() bool {
+	for i := range m.comp.State.Executing {
+		if !m.comp.State.Executing[i].WaitsForMigration {
+			continue
+		}
+
+		m.copyUnlessMigrating(i)
+
+		return i >= len(m.comp.State.Executing) ||
+			!m.comp.State.Executing[i].WaitsForMigration
+	}
+
+	return false
+}
+
+func (m *executionMW) copy(i int) {
+	c := m.comp
+	e := &c.State.Executing[i]
 	r := c.Resources.Runtime
 	cmd := &e.Command
 	ctx := r.QueueContext(e.Queue)
@@ -48,7 +85,7 @@ func (m *executionMW) copy(e *Execution) {
 		offset += n
 	}
 	if len(e.Requests) == 0 {
-		m.finish(len(c.State.Executing) - 1)
+		m.finish(i)
 		return
 	}
 	if cmd.Kind == gpuruntime.CopyH2D {

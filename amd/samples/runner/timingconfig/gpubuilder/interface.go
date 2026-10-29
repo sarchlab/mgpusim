@@ -37,6 +37,14 @@ type GPU struct {
 	// translation requests to the MMU over the inter-device network (v4
 	// domain ports "Translation_xx").
 	TranslationPorts []messaging.Port
+
+	// PageMigrationPort is the command processor's "PageMigration" port,
+	// which receives the driver's migration commands.
+	PageMigrationPort messaging.Port
+
+	// DataMoverPort is the data mover's Outside port, which reads the pages
+	// that migrate to this GPU from the other GPUs.
+	DataMoverPort messaging.Port
 }
 
 // ExternalPorts returns all the ports of the GPU that connect to the
@@ -46,6 +54,8 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 		g.CommandProcessorPort,
 		g.RDMARequestPort,
 		g.RDMADataPort,
+		g.PageMigrationPort,
+		g.DataMoverPort,
 	}
 	ports = append(ports, g.TranslationPorts...)
 

@@ -34,6 +34,7 @@ type fixture struct {
 	q    gpuruntime.CommandQueue
 	p    *vm.PageTable
 	port messaging.Port
+	pm   messaging.Port
 }
 
 func newFixture(t *testing.T, mixed bool) *fixture {
@@ -78,6 +79,12 @@ func newRuntimeConfiguredFixture(
 	}).Build()
 	f.c.BindPort(GPUPortName, f.port)
 	(&noopConn{}).BindPort(f.port)
+	f.pm = twowaybuffered.MakeBuilder().WithSimulation(f.s).WithSpec(twowaybuffered.Spec{
+		IncomingCapacity: 64,
+		OutgoingCapacity: 64,
+	}).Build()
+	f.c.BindPort(PageMigrationPortName, f.pm)
+	(&noopConn{}).BindPort(f.pm)
 	if err := f.s.Initialize(); err != nil {
 		t.Fatal(err)
 	}

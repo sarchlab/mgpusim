@@ -48,6 +48,7 @@ type Builder struct {
 	switchLatency      int // PCIe/interconnect switch latency in cycles
 	d2hCycles          int
 	h2dCycles          int
+	pageMigration      driver.PageMigrationSpec
 
 	globalStorage     *mem.Storage
 	rdmaAddressMapper mem.AddressMapper
@@ -67,6 +68,7 @@ func MakeBuilder() Builder {
 		switchLatency:      140, // default PCIe Gen4
 		d2hCycles:          300,
 		h2dCycles:          500,
+		pageMigration:      driver.DefaultPageMigrationSpec(),
 	}
 }
 
@@ -92,6 +94,13 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 }
 
 // WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
+// WithPageMigration configures page migration between the GPUs
+// (sarchlab/akita#589). The default policy is none.
+func (b Builder) WithPageMigration(spec driver.PageMigrationSpec) Builder {
+	b.pageMigration = spec
+	return b
+}
+
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
 	return b
@@ -124,9 +133,12 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
 	spec.D2HCycles = b.d2hCycles
 	spec.H2DCycles = b.h2dCycles
+	spec.PageMigration = b.pageMigration
 	for i := 1; i <= b.numGPUs; i++ {
 		gpu := b.createGPU(i, gpuBuilder, interDeviceConn)
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
+		spec.MigrationAgents = append(spec.MigrationAgents,
+			gpu.PageMigrationPort.AsRemote())
 		runtimeSpec.Devices = append(
 			runtimeSpec.Devices,
 			gpuruntime.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
@@ -141,6 +153,8 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		}).Build("Driver")
 	port := b.buildPort(comp, driver.GPUPortName, driverGPUPortBufSize)
 	interDeviceConn.BindPort(port)
+	interDeviceConn.BindPort(
+		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
 	return runtime
 }
 
@@ -186,6 +200,12 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 	spec.Freq = 1 * timing.GHz
 	spec.Latency = 100 // v4: page walking latency
 	spec.Log2PageSize = b.log2PageSize
+
+	// With page migration on fault, a walk of a unified page on another GPU
+	// faults and is reported to the driver.
+	if b.pageMigration.Policy == driver.PageMigrationFault {
+		spec.FaultHandler = messaging.RemotePort("Driver.PageMigration")
+	}
 
 	mmuComponent := modeling.MakeBuilder[*mmu.Comp](spec).WithSimulation(b.simulation).
 		WithResources(mmu.Resources{PageTable: pageTable}).

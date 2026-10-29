@@ -100,6 +100,10 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		}).Build()
 	comp.BindPort(driver.GPUPortName, port)
 	externalConn.BindPort(port)
+	migrationPort := twowaybuffered.MakeBuilder().WithSimulation(b.simulation).
+		WithSpec(twowaybuffered.DefaultSpec()).Build()
+	comp.BindPort(driver.PageMigrationPortName, migrationPort)
+	externalConn.BindPort(migrationPort)
 	for _, p := range ports {
 		externalConn.BindPort(p)
 	}

@@ -16,6 +16,7 @@ type MemoryAllocator interface {
 	Free(pid vm.PID, vAddr, size uint64)
 	Remap(pid vm.PID, pageVAddr, byteSize uint64, deviceID int)
 	RemovePage(pid vm.PID, vAddr uint64)
+	AllocateFrame(deviceID int) uint64
 	AllocatePageWithGivenVAddr(
 		pid vm.PID,
 		deviceID int,
@@ -207,6 +208,15 @@ func (a *memoryAllocatorImpl) removePage(pid vm.PID, vAddr uint64) {
 	dState.retirePAddr(page.PAddr)
 
 	a.pageTable.Remove(page.PID, page.VAddr)
+}
+
+// AllocateFrame takes a new physical page of a device without mapping it.
+// Physical addresses only increase, so the frame has never been used.
+func (a *memoryAllocatorImpl) AllocateFrame(deviceID int) uint64 {
+	a.Lock()
+	defer a.Unlock()
+
+	return a.devices[deviceID].allocatePage()
 }
 
 func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(

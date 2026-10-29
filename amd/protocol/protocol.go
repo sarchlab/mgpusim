@@ -13,6 +13,10 @@ var Protocol = messaging.DefineProtocol(
 			MemCopyD2HReq{},
 			RDMADrainCmdFromDriver{},
 			RDMARestartCmdFromDriver{},
+			PageHoldReq{},
+			PageShootdownReq{},
+			PageReleaseReq{},
+			PageCopyReq{},
 		},
 	},
 	messaging.RoleDef{

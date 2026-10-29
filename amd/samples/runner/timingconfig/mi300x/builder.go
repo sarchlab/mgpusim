@@ -11,6 +11,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/cache/writeback"
 	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v5/mem/datamover"
 	"github.com/sarchlab/akita/v5/mem/simplebankedmemory"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
@@ -103,6 +104,7 @@ type Builder struct {
 	cp                   *cp.Comp
 	rdmaEngine           *rdma.Comp
 	dmaEngine            *dma.Comp
+	dataMover            *datamover.Comp
 	sas                  []*shaderarray.ShaderArray
 	l2Caches             []*writeback.Comp
 	malls                []*writethroughcache.Comp
@@ -299,6 +301,7 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildMALL()
 	b.buildL2Caches()
 	b.buildDMAEngine()
+	b.buildDataMover()
 	b.buildRDMAEngine()
 	b.buildL2TLB()
 	b.buildSAs()
@@ -338,6 +341,8 @@ func (b *Builder) populateGPU() {
 		CommandProcessorPort: b.cp.Ports.ToDriver,
 		RDMARequestPort:      b.rdmaEngine.Ports.RDMARequestOutside,
 		RDMADataPort:         b.rdmaEngine.Ports.RDMADataOutside,
+		PageMigrationPort:    b.cp.Ports.PageMigration,
+		DataMoverPort:        b.dataMover.Ports.Outside,
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -353,6 +358,10 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToCaches)
 	b.internalConn.BindPort(b.cp.Ports.ToCUs)
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
+	b.internalConn.BindPort(b.cp.Ports.ToTranslation)
+	b.internalConn.BindPort(b.cp.Ports.ToDataMover)
+	b.internalConn.BindPort(b.dataMover.Ports.Top)
+	b.internalConn.BindPort(b.dataMover.Ports.Control)
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
 	b.internalConn.BindPort(rdmaCtrlPort)
@@ -362,6 +371,7 @@ func (b *Builder) connectCP() {
 
 	b.connectCPWithCUs()
 	b.connectCPWithCaches()
+	b.connectCPWithMigrationPeers()
 	b.connectCPWithDRAMControllers()
 }
 
@@ -444,6 +454,7 @@ func (b *Builder) connectL2AndMALL() {
 	}
 
 	b.l2ToMALLConnection.BindPort(b.dmaEngine.Ports.ToMem)
+	b.l2ToMALLConnection.BindPort(b.dataMover.Ports.Inside)
 }
 
 func (b *Builder) connectMALLAndDRAM() {
@@ -738,6 +749,10 @@ func (b *Builder) buildCP() {
 	for _, c := range b.l2Caches {
 		spec.L2Caches = append(spec.L2Caches, c.Ports.Control.AsRemote())
 	}
+	ats, tlbs := gpubuilder.MigrationPeers(b.sas, b.l2TLBs)
+	spec.AddressTranslators = gpubuilder.RemotePorts(ats)
+	spec.TLBs = gpubuilder.RemotePorts(tlbs)
+	spec.DataMover = b.dataMover.Ports.Top.AsRemote()
 
 	b.cp = cp.MakeBuilder().WithSampler(b.sampler).
 		WithSimulation(b.simulation).
@@ -750,6 +765,27 @@ func (b *Builder) buildCP() {
 	b.buildPort(b.cp, "ToCUs", cpPortBufSize)
 	b.buildPort(b.cp, "ToCaches", cpPortBufSize)
 	b.buildPort(b.cp, "ToRDMA", cpPortBufSize)
+	b.buildPort(b.cp, "ToTranslation", cpPortBufSize)
+	b.buildPort(b.cp, "ToDataMover", cpPortBufSize)
+	b.buildPort(b.cp, "PageMigration", cpPortBufSize)
+}
+
+// buildDataMover builds the data mover that copies the pages that migrate
+// to this GPU.
+func (b *Builder) buildDataMover() {
+	b.dataMover = gpubuilder.BuildDataMover(b.simulation,
+		b.name+".DataMover", b.freq, 1<<b.log2CacheLineSize,
+		*b.dmaLocalDataSource, b.rdmaAddressMapper)
+}
+
+// connectCPWithMigrationPeers connects the Control ports of the address
+// translators and the TLBs, which the command processor controls during
+// page migration.
+func (b *Builder) connectCPWithMigrationPeers() {
+	ats, tlbs := gpubuilder.MigrationPeers(b.sas, b.l2TLBs)
+	for _, port := range append(ats, tlbs...) {
+		b.internalConn.BindPort(port)
+	}
 }
 
 func (b *Builder) buildL2TLB() {
