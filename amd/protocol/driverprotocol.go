@@ -104,3 +104,12 @@ type PageCopyReq struct {
 	DstAddress uint64
 	ByteSize   uint64
 }
+
+// AccessCounterNotification tells the driver that the RDMA engine of GPU
+// DeviceID has forwarded a threshold of remote L1 misses to one region of
+// physical memory (sarchlab/akita#590). PAddr is the address of the miss
+// that reached the threshold. The driver does not answer.
+type AccessCounterNotification struct {
+	PAddr    uint64
+	DeviceID uint64
+}

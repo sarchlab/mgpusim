@@ -13,21 +13,33 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// Page-migration policies.
+// Page-migration policies. With PageMigrationFault, the first access of a GPU
+// to a unified page on another GPU faults (sarchlab/akita#589). With
+// PageMigrationCounter, the page stays mapped remotely and the RDMA engines'
+// access counters request the migrations (sarchlab/akita#590).
 const (
-	PageMigrationNone  = "none"
-	PageMigrationFault = "fault"
+	PageMigrationNone    = "none"
+	PageMigrationFault   = "fault"
+	PageMigrationCounter = "counter"
 )
 
-// PageMigrationSpec holds the parameters of fault-driven page migration
-// (sarchlab/akita#589). Times are in nanoseconds.
+// PageMigrationSpec holds the parameters of page migration. Times are in
+// nanoseconds.
 type PageMigrationSpec struct {
-	// Policy is PageMigrationNone or PageMigrationFault.
+	// Policy is PageMigrationNone, PageMigrationFault, or
+	// PageMigrationCounter.
 	Policy string `json:"policy"`
 
 	// Log2Unit is the migration unit, from 12 (4 KB) to 21 (2 MB). A fault
-	// migrates the unit that holds its page.
+	// or an access-counter notification migrates the unit that holds its
+	// page.
 	Log2Unit uint64 `json:"log2_unit"`
+
+	// AccessCounterThreshold is the number of remote L1 misses of a GPU to a
+	// unit that make its RDMA engine notify the driver
+	// (uvm_perf_access_counter_threshold); 0 turns the counters off. The
+	// platform sets it in the RDMA engines.
+	AccessCounterThreshold uint64 `json:"access_counter_threshold"`
 
 	// The first fault of a batch starts a timer of SoftwareLatencyNS; the
 	// faults that arrive before it expires join the batch, up to BatchSize
@@ -48,25 +60,27 @@ type PageMigrationSpec struct {
 // NVIDIA UVM driver. Page migration is off.
 func DefaultPageMigrationSpec() PageMigrationSpec {
 	return PageMigrationSpec{
-		Policy:             PageMigrationNone,
-		Log2Unit:           12,
-		SoftwareLatencyNS:  5000,
-		BatchSize:          256,
-		ThrashingLapseNS:   500000,
-		ThrashingThreshold: 3,
-		PinNS:              150000000,
+		Policy:                 PageMigrationNone,
+		Log2Unit:               12,
+		AccessCounterThreshold: 256,
+		SoftwareLatencyNS:      5000,
+		BatchSize:              256,
+		ThrashingLapseNS:       500000,
+		ThrashingThreshold:     3,
+		PinNS:                  150000000,
 	}
 }
 
-func (s PageMigrationSpec) enabled() bool {
-	return s.Policy == PageMigrationFault
+// Enabled reports whether a policy migrates pages.
+func (s PageMigrationSpec) Enabled() bool {
+	return s.Policy == PageMigrationFault || s.Policy == PageMigrationCounter
 }
 
 func (s PageMigrationSpec) validate(numGPUs, numAgents int) error {
 	switch s.Policy {
 	case "", PageMigrationNone:
 		return nil
-	case PageMigrationFault:
+	case PageMigrationFault, PageMigrationCounter:
 	default:
 		return fmt.Errorf("driver: unknown page-migration policy %q", s.Policy)
 	}
@@ -129,19 +143,29 @@ type migrationUnit struct {
 	ShootdownStart timing.VTimeInPicoSec `json:"shootdown_start"`
 }
 
-// pageFault is a fault notification waiting in a batch.
+// pageFault is a fault or, if Counter is set, an access-counter
+// notification, waiting in a batch.
 type pageFault struct {
-	PID   vm.PID `json:"pid"`
-	VAddr uint64 `json:"vaddr"`
-	GPU   int    `json:"gpu"`
+	PID     vm.PID `json:"pid"`
+	VAddr   uint64 `json:"vaddr"`
+	GPU     int    `json:"gpu"`
+	Counter bool   `json:"counter"`
 }
 
 // PageMigrationStats are the migration statistics. Times are in picoseconds.
 type PageMigrationStats struct {
-	Faults           uint64 `json:"faults"`
-	DroppedFaults    uint64 `json:"dropped_faults"`
-	IgnoredFaults    uint64 `json:"ignored_faults"`
-	DeferredFaults   uint64 `json:"deferred_faults"`
+	Faults         uint64 `json:"faults"`
+	DroppedFaults  uint64 `json:"dropped_faults"`
+	IgnoredFaults  uint64 `json:"ignored_faults"`
+	DeferredFaults uint64 `json:"deferred_faults"`
+
+	// Notifications are the access-counter notifications. A notification is
+	// dropped when the queue is full, and ignored when its unit does not
+	// move: it is already on the notifier, migrating, pinned, or not unified.
+	Notifications        uint64 `json:"notifications"`
+	DroppedNotifications uint64 `json:"dropped_notifications"`
+	IgnoredNotifications uint64 `json:"ignored_notifications"`
+
 	Batches          uint64 `json:"batches"`
 	Migrations       uint64 `json:"migrations"`
 	PagesMigrated    uint64 `json:"pages_migrated"`
@@ -185,7 +209,8 @@ func newPageMigrationState() PageMigrationState {
 }
 
 // migrationMW is the page-migration service of the driver. It receives the
-// MMU's fault notifications, services them in batches, and runs each
+// MMU's fault notifications and the RDMA engines' access-counter
+// notifications, services them in batches, and runs each
 // migration with commands to the GPUs' command processors: hold the pages on
 // every GPU, copy them with the destination's data mover, update the page
 // table, shoot down the old translations once, and release the pages.
@@ -234,8 +259,9 @@ func (m *migrationMW) send() bool {
 	return madeProgress
 }
 
-// receive always consumes the fault notifications, so the MMU never waits
-// for the driver. A notification that finds the queue full is dropped.
+// receive always consumes the notifications, so the MMU and the RDMA engines
+// never wait for the driver. A notification that finds the queue full is
+// dropped.
 func (m *migrationMW) receive() bool {
 	port := m.comp.Ports.PageMigration
 	madeProgress := false
@@ -253,6 +279,8 @@ func (m *migrationMW) receive() bool {
 			m.addFault(pageFault{
 				PID: payload.PID, VAddr: payload.VAddr, GPU: int(payload.DeviceID),
 			})
+		case protocol.AccessCounterNotification:
+			m.addNotification(payload)
 		case protocol.GeneralRsp:
 			m.ack(msg.RspTo)
 		default:
@@ -266,19 +294,44 @@ func (m *migrationMW) unitKey(pid vm.PID, vAddr uint64) uint64 {
 	return uint64(pid)<<44 | vAddr>>m.spec().Log2Unit
 }
 
-// addFault adds a fault notification to the batch being collected; the
-// first fault of a batch starts its timer. Faults that arrive while the
-// batch is full go to the next batch; when that is full too, the
+// addNotification maps the physical address of an access-counter
+// notification back to its page and queues it. The unit is found when the
+// notification is serviced.
+func (m *migrationMW) addNotification(n protocol.AccessCounterNotification) {
+	s := m.state()
+	s.Stats.Notifications++
+
+	frame := n.PAddr &^ (uint64(1)<<m.log2PageSize() - 1)
+
+	page, ok := m.comp.Resources.PageTable.ReverseLookup(frame)
+	if !ok {
+		// The page has moved since the RDMA engine counted the access.
+		s.Stats.IgnoredNotifications++
+		return
+	}
+
+	m.addFault(pageFault{
+		PID: page.PID, VAddr: page.VAddr, GPU: int(n.DeviceID), Counter: true,
+	})
+}
+
+// addFault adds a fault or an access-counter notification to the batch being
+// collected; the first one of a batch starts its timer. Those that arrive
+// while the batch is full go to the next batch; when that is full too, the
 // notification is dropped.
 func (m *migrationMW) addFault(f pageFault) {
 	s := m.state()
-	s.Stats.Faults++
+	if !f.Counter {
+		s.Stats.Faults++
+	}
 
 	switch {
 	case len(s.Batch) < m.spec().BatchSize:
 		m.joinBatch(f)
 	case len(s.NextBatch) < m.spec().BatchSize:
 		s.NextBatch = append(s.NextBatch, f)
+	case f.Counter:
+		s.Stats.DroppedNotifications++
 	default:
 		s.Stats.DroppedFaults++
 	}
@@ -335,6 +388,11 @@ func (m *migrationMW) serviceBatch() bool {
 // serviceFault decides what to do with a fault of GPU f.GPU. It returns
 // false if the fault must wait for a memory copy that uses the unit.
 func (m *migrationMW) serviceFault(f pageFault) bool {
+	if f.Counter {
+		m.serviceNotification(f)
+		return true
+	}
+
 	s := m.state()
 	ui := m.getUnit(f.PID, f.VAddr)
 	u := &s.Units[ui]
@@ -379,6 +437,51 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 		return true
 	}
 
+	m.startMigration(ui, moving)
+
+	return true
+}
+
+// serviceNotification migrates the unit of an access-counter notification
+// to the notifier, unless the unit is already there, migrating, or pinned.
+// No access waits for a notification, so nothing is released when the unit
+// does not move.
+func (m *migrationMW) serviceNotification(f pageFault) {
+	s := m.state()
+	ui := m.getUnit(f.PID, f.VAddr)
+	u := &s.Units[ui]
+
+	if u.Phase != unitIdle || u.Pinned || m.copyUses(u.PID, u.Index) {
+		s.Stats.IgnoredNotifications++
+		return
+	}
+
+	all := m.unitPages(u)
+	moving := m.movingPages(all, f.GPU)
+
+	if len(moving) == 0 {
+		s.Stats.IgnoredNotifications++
+		return
+	}
+
+	if m.thrashing(u) {
+		m.pin(u, all)
+		return
+	}
+
+	u.Dst = f.GPU
+	u.ServiceStart = m.now()
+	u.Targets = u.Targets[:0]
+	u.VAddrs = u.VAddrs[:0]
+	u.OldPages = u.OldPages[:0]
+
+	m.startMigration(ui, moving)
+}
+
+// startMigration starts moving pages of a unit to u.Dst: every GPU holds
+// them first.
+func (m *migrationMW) startMigration(ui int, moving []vm.Page) {
+	u := &m.state().Units[ui]
 	u.Migrate = true
 	u.OldPages = append(u.OldPages, moving...)
 
@@ -391,8 +494,6 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 	}
 
 	m.startHold(ui)
-
-	return true
 }
 
 // movingPages returns the pages that a migration to GPU dst moves: the

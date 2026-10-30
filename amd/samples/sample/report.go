@@ -400,7 +400,7 @@ func (r *reporter) report() {
 func (r *reporter) reportPageMigration() {
 	for _, c := range r.simulation.Components() {
 		d, ok := c.(*driver.Comp)
-		if !ok || d.Spec.PageMigration.Policy != driver.PageMigrationFault {
+		if !ok || !d.Spec.PageMigration.Enabled() {
 			continue
 		}
 
@@ -419,6 +419,9 @@ func (r *reporter) reportPageMigration() {
 			{"pm_releases", float64(s.Releases), "count"},
 			{"pm_ignored_faults", float64(s.IgnoredFaults), "count"},
 			{"pm_deferred_faults", float64(s.DeferredFaults), "count"},
+			{"pm_notifications", float64(s.Notifications), "count"},
+			{"pm_dropped_notifications", float64(s.DroppedNotifications), "count"},
+			{"pm_ignored_notifications", float64(s.IgnoredNotifications), "count"},
 			{"pm_thrashing_events", float64(s.ThrashingEvents), "count"},
 			{"pm_pins", float64(s.Pins), "count"},
 			{"pm_unpins", float64(s.Unpins), "count"},

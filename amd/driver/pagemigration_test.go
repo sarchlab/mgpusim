@@ -274,3 +274,96 @@ func TestFaultsBeyondTheQueueAreDropped(t *testing.T) {
 			s.Stats.DroppedFaults)
 	}
 }
+
+func newCounterFixture(t *testing.T, configure func(*PageMigrationSpec)) (*fixture, vm.Page) {
+	t.Helper()
+
+	return newMigrationFixture(t, func(s *PageMigrationSpec) {
+		s.Policy = PageMigrationCounter
+		configure(s)
+	})
+}
+
+func (f *fixture) notify(pAddr uint64, gpu uint64) {
+	f.pm.Deliver(messaging.Msg{
+		ID:  f.s.NewID(),
+		Src: "GPU[2].RDMA.AccessCounter",
+		Dst: f.pm.AsRemote(),
+		Payload: protocol.AccessCounterNotification{
+			PAddr: pAddr, DeviceID: gpu,
+		},
+	})
+	f.migrationTick()
+	f.migrationTick()
+}
+
+func TestNotificationMigratesTheUnitToTheNotifier(t *testing.T) {
+	f, page := newCounterFixture(t, func(*PageMigrationSpec) {})
+
+	f.notify(page.PAddr+0x40, 2)
+
+	holds := f.commands(t, protocol.PageHoldReq{})
+	if !reflect.DeepEqual(destinations(holds), migrationAgents) {
+		t.Fatalf("holds went to %v", destinations(holds))
+	}
+
+	f.answer(holds)
+	f.answer(f.commands(t, protocol.PageCopyReq{}))
+	f.answer(f.commands(t, protocol.PageShootdownReq{}))
+	f.answer(f.commands(t, protocol.PageReleaseReq{}))
+
+	if p, _ := f.p.Find(page.PID, page.VAddr); p.DeviceID != 2 {
+		t.Fatalf("page not migrated: %+v", p)
+	}
+
+	s := f.c.State.PageMigration.Stats
+	if s.Notifications != 1 || s.Migrations != 1 || s.Faults != 0 || s.Releases != 0 {
+		t.Fatalf("stats %+v", s)
+	}
+}
+
+func TestNotificationsThatMoveNothingAreIgnored(t *testing.T) {
+	f, page := newCounterFixture(t, func(*PageMigrationSpec) {})
+
+	f.notify(page.PAddr, 1)       // already on the notifier
+	f.notify(page.PAddr+1<<30, 2) // no page there
+
+	if msgs := f.commands(t, protocol.PageReleaseReq{}); len(msgs) != 0 {
+		t.Fatalf("sent %v", msgs)
+	}
+
+	if s := f.c.State.PageMigration.Stats; s.IgnoredNotifications != 2 {
+		t.Fatalf("stats %+v", s)
+	}
+}
+
+func TestThrashingNotificationsPinTheUnit(t *testing.T) {
+	f, page := newCounterFixture(t, func(s *PageMigrationSpec) {
+		s.ThrashingThreshold = 1
+	})
+
+	f.notify(page.PAddr, 2)
+	f.answer(f.commands(t, protocol.PageHoldReq{}))
+	f.answer(f.commands(t, protocol.PageCopyReq{}))
+	f.answer(f.commands(t, protocol.PageShootdownReq{}))
+	f.answer(f.commands(t, protocol.PageReleaseReq{}))
+
+	// Within the lapse: the unit is pinned where it is, and nothing is sent.
+	page, _ = f.p.Find(page.PID, page.VAddr)
+	f.notify(page.PAddr, 1)
+
+	if msgs := f.commands(t, protocol.PageHoldReq{}); len(msgs) != 0 {
+		t.Fatalf("sent %v", msgs)
+	}
+
+	if p, _ := f.p.Find(page.PID, page.VAddr); !p.IsPinned || p.DeviceID != 2 {
+		t.Fatalf("page not pinned in place: %+v", p)
+	}
+
+	f.notify(page.PAddr, 1)
+
+	s := f.c.State.PageMigration.Stats
+	if s.Pins != 1 || s.IgnoredNotifications != 1 {
+		t.Fatalf("stats %+v", s)
+	}
+}

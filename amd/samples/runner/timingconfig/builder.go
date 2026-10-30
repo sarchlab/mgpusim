@@ -242,22 +242,35 @@ func (b *Builder) createGPUBuilder(
 
 	driverPort := messaging.RemotePort("Driver.GPU")
 
+	var gpuBuilder gpubuilder.GPUBuilder
+
 	switch b.gpuType {
 	case "mi300x":
-		return mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
+		gpuBuilder = mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort)
 	default:
-		return r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
+		gpuBuilder = r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort)
 	}
+
+	// With access-counter migration, the RDMA engines count the remote L1
+	// misses per migration unit and notify the driver.
+	if b.pageMigration.Policy == driver.PageMigrationCounter {
+		gpuBuilder = gpuBuilder.WithAccessCounter(
+			messaging.RemotePort("Driver."+driver.PageMigrationPortName),
+			b.pageMigration.AccessCounterThreshold,
+			b.pageMigration.Log2Unit)
+	}
+
+	return gpuBuilder
 }
 
 func (b *Builder) createRDMAAddressMapper() {

@@ -99,6 +99,9 @@ type Builder struct {
 	mmu                            *mmu.Comp
 	rdmaAddressMapper              mem.AddressMapper
 	driverPort                     messaging.RemotePort
+	accessCounterHandler           messaging.RemotePort
+	accessCounterThreshold         uint64
+	accessCounterLog2Unit          uint64
 
 	gpu                  *gpubuilder.GPU
 	cp                   *cp.Comp
@@ -284,6 +287,19 @@ func (b Builder) WithDriverPort(
 	return b
 }
 
+// WithAccessCounter turns on the access counters of the RDMA engine: every
+// threshold remote L1 misses to a region of 2^log2Unit bytes notify handler.
+func (b Builder) WithAccessCounter(
+	handler messaging.RemotePort,
+	threshold, log2Unit uint64,
+) gpubuilder.GPUBuilder {
+	b.accessCounterHandler = handler
+	b.accessCounterThreshold = threshold
+	b.accessCounterLog2Unit = log2Unit
+
+	return b
+}
+
 // Build builds the hardware platform.
 func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.name = name
@@ -343,6 +359,7 @@ func (b *Builder) populateGPU() {
 		RDMADataPort:         b.rdmaEngine.Ports.RDMADataOutside,
 		PageMigrationPort:    b.cp.Ports.PageMigration,
 		DataMoverPort:        b.dataMover.Ports.Outside,
+		AccessCounterPort:    b.rdmaEngine.Ports.AccessCounter,
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -689,6 +706,13 @@ func (b *Builder) buildRDMAEngine() {
 	b.l1AddressMapper.Fallback = messaging.RemotePort(name + ".RDMARequestInside")
 	spec.LocalModules = *b.l1AddressMapper
 	spec.RemoteRDMAAddressTable = b.rdmaAddressMapper
+	spec.DeviceID = b.gpuID
+
+	if b.accessCounterHandler != "" {
+		spec.AccessCounterHandler = b.accessCounterHandler
+		spec.AccessCounterThreshold = b.accessCounterThreshold
+		spec.AccessCounterLog2Unit = b.accessCounterLog2Unit
+	}
 
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithSimulation(b.simulation).
@@ -700,6 +724,7 @@ func (b *Builder) buildRDMAEngine() {
 	b.buildPort(b.rdmaEngine, "RDMADataInside", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "RDMADataOutside", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "Ctrl", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "AccessCounter", rdmaPortBufSize)
 }
 
 func (b *Builder) buildDMAEngine() {
