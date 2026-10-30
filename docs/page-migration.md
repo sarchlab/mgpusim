@@ -21,6 +21,7 @@ Only pages allocated with `AllocateUnifiedMemory` migrate.
 |---|---|---|
 | `-page-migration` | `none` | `none`, `fault`, or `counter` |
 | `-pm-unit-kb` | 4 | migration unit, a power of two from 4 to 2048 KB |
+| `-pm-prefetch-threshold` | 51 | a fault also migrates the rest of the largest aligned sub-region of its 2 MB block in which more than this percent of the units are on the faulting GPU; 0 turns prefetching off (`uvm_perf_prefetch_threshold`) |
 | `-pm-access-counter-threshold` | 256 | remote L1 misses of a GPU to a unit that request its migration with `counter`; 0 turns the counters off (`uvm_perf_access_counter_threshold`) |
 | `-pm-sw-latency-ns` | 5000 | time the driver collects a batch of faults or notifications |
 | `-pm-batch` | 256 | most faults or notifications in a batch (`uvm_perf_fault_batch_count`) |
@@ -29,7 +30,8 @@ Only pages allocated with `AllocateUnifiedMemory` migrate.
 | `-pm-pin-ns` | 150000000 | how long a pinned unit stays pinned (`uvm_perf_thrashing_pin`) |
 
 With `-report-all`, the driver reports `pm_faults`, `pm_notifications`,
-`pm_migrations`, `pm_pages_migrated`, `pm_bytes_migrated`, `pm_releases`,
+`pm_migrations`, `pm_pages_migrated`, `pm_pages_prefetched`,
+`pm_bytes_migrated`, `pm_releases`,
 `pm_pins`, and the summed migration, copy, and shootdown times.
 
 ## Components
@@ -74,6 +76,29 @@ driver tells *g*'s command processor to release the unit; on the replay, the
 MMU returns the local or the pinned remote translation. A memory copy never runs on a
 migrating unit, and a unit never migrates under a running memory copy.
 
+## Prefetching
+
+As in UVM, a migration on a fault also prefetches
+([sarchlab/akita#591](https://github.com/sarchlab/akita/issues/591)). The
+migration units of each 2 MB block form a binary tree. Going up from the
+faulting unit, the driver selects the largest aligned sub-region in which more
+than `-pm-prefetch-threshold` percent of the allocated units are on the
+faulting GPU or migrate to it, counting the faulting unit and the units of
+earlier migrations still in flight. The other units of that sub-region move
+with the faulting unit, in the same hold, copy, remap, shootdown, and release.
+
+A sequential sweep therefore faults on the first units of each sub-region
+and prefetches the rest: with 4 KB units, after faults on units 0 and 1, a
+fault on unit 2 also moves unit 3; the region grows as the sweep goes on, up
+to the whole block.
+
+Units that are pinned, thrash (have a thrashing event since their last
+migration), migrate, or are used by a memory copy are not prefetched. With a
+2 MB unit, a unit is a whole block and nothing is prefetched. Access-counter
+notifications do not prefetch. UVM also maps fully resident 64 KB and 2 MB
+regions with big pages after a migration; MGPUSim does not, because its TLBs
+use one page size.
+
 ## Access-counter migration
 
 With `-page-migration=counter`, the MMU raises no faults: a GPU accesses a
@@ -115,7 +140,6 @@ faulting processor is not throttled before the pin.
 
 ## Limitations
 
-- No prefetching ([sarchlab/akita#591](https://github.com/sarchlab/akita/issues/591)):
-  a sequential sweep faults once per unit.
+- No big-page mapping after prefetching.
 - Freed physical memory is never reused, so long runs that allocate and free
   often can run out of physical memory.

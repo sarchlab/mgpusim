@@ -367,3 +367,89 @@ func TestThrashingNotificationsPinTheUnit(t *testing.T) {
 		t.Fatalf("stats %+v", s)
 	}
 }
+
+// sweepGroup allocates 16 unified pages on GPU 1 and returns the pages of an
+// aligned group of four inside an aligned, fully allocated group of eight.
+func sweepGroup(t *testing.T, f *fixture) []vm.Page {
+	t.Helper()
+
+	ptr := uint64(f.r.AllocateUnifiedMemory(f.ctx, 16*4096))
+	g := (ptr/4096 + 7) &^ 7
+
+	var pages []vm.Page
+
+	for i := uint64(0); i < 4; i++ {
+		p, ok := f.p.Find(f.r.QueuePID(f.q), (g+i)*4096)
+		if !ok || p.DeviceID != 1 {
+			t.Fatalf("unexpected page %+v", p)
+		}
+
+		pages = append(pages, p)
+	}
+
+	return pages
+}
+
+func holdOf(t *testing.T, f *fixture, page vm.Page) []uint64 {
+	t.Helper()
+
+	f.fault(page, 2)
+	f.migrationTick()
+
+	holds := f.commands(t, protocol.PageHoldReq{})
+	vAddrs := holds[0].Payload.(protocol.PageHoldReq).VAddrs
+
+	f.answer(holds)
+	f.answer(f.commands(t, protocol.PageCopyReq{}))
+	f.answer(f.commands(t, protocol.PageShootdownReq{}))
+	f.answer(f.commands(t, protocol.PageReleaseReq{}))
+
+	return vAddrs
+}
+
+func TestASweepPrefetchesTheRestOfTheSubRegion(t *testing.T) {
+	f, _ := newMigrationFixture(t, func(*PageMigrationSpec) {})
+	pages := sweepGroup(t, f)
+
+	// One of two units is not more than 51%: nothing is prefetched until
+	// three of the four units of the group are on GPU 2 or migrate to it.
+	for i := 0; i < 2; i++ {
+		if got := holdOf(t, f, pages[i]); len(got) != 1 {
+			t.Fatalf("fault %d held %v", i, got)
+		}
+	}
+
+	got := holdOf(t, f, pages[2])
+	if !reflect.DeepEqual(got, []uint64{pages[2].VAddr, pages[3].VAddr}) {
+		t.Fatalf("held %v", got)
+	}
+
+	if p, _ := f.p.Find(pages[3].PID, pages[3].VAddr); p.DeviceID != 2 {
+		t.Fatalf("page not prefetched: %+v", p)
+	}
+
+	s := f.c.State.PageMigration
+	if s.Stats.UnitsPrefetched != 1 || s.Stats.PagesPrefetched != 1 ||
+		s.Stats.Migrations != 3 {
+		t.Fatalf("stats %+v", s.Stats)
+	}
+
+	for _, u := range s.Units {
+		if u.Phase != unitIdle {
+			t.Fatalf("unit %+v not idle", u)
+		}
+	}
+}
+
+func TestPrefetchThresholdZeroTurnsPrefetchingOff(t *testing.T) {
+	f, _ := newMigrationFixture(t, func(s *PageMigrationSpec) {
+		s.PrefetchThreshold = 0
+	})
+	pages := sweepGroup(t, f)
+
+	for i := 0; i < 3; i++ {
+		if got := holdOf(t, f, pages[i]); len(got) != 1 {
+			t.Fatalf("fault %d held %v", i, got)
+		}
+	}
+}

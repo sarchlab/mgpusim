@@ -8,7 +8,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
-// Page-migration flags (sarchlab/akita#589, #590). The defaults follow the
+// Page-migration flags (sarchlab/akita#589, #590, #591). The defaults follow the
 // NVIDIA UVM driver.
 var (
 	pageMigrationFlag = flag.String("page-migration", "none",
@@ -23,6 +23,11 @@ var (
 		"Page migration: remote L1 misses of a GPU to a unit that request "+
 			"its migration with -page-migration=counter "+
 			"(uvm_perf_access_counter_threshold); 0 turns the counters off.")
+	pmPrefetchThresholdFlag = flag.Uint64("pm-prefetch-threshold", 51,
+		"Page migration: a fault also migrates the rest of the largest "+
+			"aligned sub-region of its 2 MB block in which more than this "+
+			"percent of the units are on the faulting GPU "+
+			"(uvm_perf_prefetch_threshold); 0 turns prefetching off.")
 	pmSoftwareLatencyFlag = flag.Uint64("pm-sw-latency-ns", 5000,
 		"Page migration: time the driver collects a batch of faults.")
 	pmBatchFlag = flag.Int("pm-batch", 256,
@@ -49,6 +54,7 @@ func pageMigrationSpecFromFlags() driver.PageMigrationSpec {
 	s.Policy = *pageMigrationFlag
 	s.Log2Unit = uint64(bits.TrailingZeros(uint(kb))) + 10
 	s.AccessCounterThreshold = *pmAccessCounterThresholdFlag
+	s.PrefetchThreshold = *pmPrefetchThresholdFlag
 	s.SoftwareLatencyNS = *pmSoftwareLatencyFlag
 	s.BatchSize = *pmBatchFlag
 	s.ThrashingLapseNS = *pmThrashingLapseFlag

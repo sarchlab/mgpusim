@@ -415,6 +415,8 @@ func (r *reporter) reportPageMigration() {
 			{"pm_batches", float64(s.Batches), "count"},
 			{"pm_migrations", float64(s.Migrations), "count"},
 			{"pm_pages_migrated", float64(s.PagesMigrated), "count"},
+			{"pm_units_prefetched", float64(s.UnitsPrefetched), "count"},
+			{"pm_pages_prefetched", float64(s.PagesPrefetched), "count"},
 			{"pm_bytes_migrated", float64(s.BytesMigrated), "byte"},
 			{"pm_releases", float64(s.Releases), "count"},
 			{"pm_ignored_faults", float64(s.IgnoredFaults), "count"},

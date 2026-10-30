@@ -41,6 +41,13 @@ type PageMigrationSpec struct {
 	// platform sets it in the RDMA engines.
 	AccessCounterThreshold uint64 `json:"access_counter_threshold"`
 
+	// A migration on a fault also moves, or prefetches, the units of the
+	// largest aligned sub-region of its 2 MB block in which more than
+	// PrefetchThreshold percent of the units are on the faulting GPU or
+	// migrate to it (uvm_perf_prefetch_threshold, sarchlab/akita#591); 0
+	// turns prefetching off.
+	PrefetchThreshold uint64 `json:"prefetch_threshold"`
+
 	// The first fault of a batch starts a timer of SoftwareLatencyNS; the
 	// faults that arrive before it expires join the batch, up to BatchSize
 	// (uvm_perf_fault_batch_count).
@@ -63,6 +70,7 @@ func DefaultPageMigrationSpec() PageMigrationSpec {
 		Policy:                 PageMigrationNone,
 		Log2Unit:               12,
 		AccessCounterThreshold: 256,
+		PrefetchThreshold:      51,
 		SoftwareLatencyNS:      5000,
 		BatchSize:              256,
 		ThrashingLapseNS:       500000,
@@ -90,6 +98,11 @@ func (s PageMigrationSpec) validate(numGPUs, numAgents int) error {
 			s.Log2Unit)
 	}
 
+	if s.PrefetchThreshold > 100 {
+		return fmt.Errorf("driver: prefetch threshold %d%% is above 100%%",
+			s.PrefetchThreshold)
+	}
+
 	if s.BatchSize <= 0 || s.ThrashingThreshold <= 0 {
 		return fmt.Errorf("driver: batch size and thrashing threshold must be positive")
 	}
@@ -114,7 +127,12 @@ const (
 	unitShootdown        // the targets drop the old translations
 	unitRelease          // waiting for the targets to release the pages
 	unitUnpin            // a pin expired; the GPUs drop the remote translations
+	unitPrefetch         // moves with the migration of another unit
 )
+
+// prefetchLog2Block is the size of the blocks in which units are prefetched,
+// the 2 MB VA blocks of UVM (UVM_VA_BLOCK_BITS).
+const prefetchLog2Block = 21
 
 // migrationUnit is a migration unit and where it is in its service.
 type migrationUnit struct {
@@ -127,6 +145,7 @@ type migrationUnit struct {
 	// the faulting accesses go. Targets are the GPUs that hold and release
 	// VAddrs. OldPages are the pages that move and NewPAddrs their frames.
 	Migrate     bool      `json:"migrate"`
+	Members     []int     `json:"members"` // the units it prefetches
 	Targets     []int     `json:"targets"`
 	VAddrs      []uint64  `json:"vaddrs"`
 	OldPages    []vm.Page `json:"old_pages"`
@@ -158,6 +177,11 @@ type PageMigrationStats struct {
 	DroppedFaults  uint64 `json:"dropped_faults"`
 	IgnoredFaults  uint64 `json:"ignored_faults"`
 	DeferredFaults uint64 `json:"deferred_faults"`
+
+	// UnitsPrefetched and PagesPrefetched count the units and pages that
+	// migrations moved besides the faulting units.
+	UnitsPrefetched uint64 `json:"units_prefetched"`
+	PagesPrefetched uint64 `json:"pages_prefetched"`
 
 	// Notifications are the access-counter notifications. A notification is
 	// dropped when the queue is full, and ignored when its unit does not
@@ -437,7 +461,7 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 		return true
 	}
 
-	m.startMigration(ui, moving)
+	m.startMigration(ui, moving, m.prefetch(ui, f.GPU))
 
 	return true
 }
@@ -475,14 +499,30 @@ func (m *migrationMW) serviceNotification(f pageFault) {
 	u.VAddrs = u.VAddrs[:0]
 	u.OldPages = u.OldPages[:0]
 
-	m.startMigration(ui, moving)
+	m.startMigration(ui, moving, nil)
 }
 
-// startMigration starts moving pages of a unit to u.Dst: every GPU holds
-// them first.
-func (m *migrationMW) startMigration(ui int, moving []vm.Page) {
-	u := &m.state().Units[ui]
+// startMigration starts moving pages of a unit, and the pages of the units
+// it prefetches, to u.Dst: every GPU holds them first. The prefetched units
+// move with it, in one hold, copy, shootdown, and release.
+func (m *migrationMW) startMigration(ui int, moving []vm.Page, members []int) {
+	s := m.state()
+	u := &s.Units[ui]
 	u.Migrate = true
+	u.Members = append(u.Members[:0], members...)
+
+	for _, mi := range members {
+		mu := &s.Units[mi]
+		mu.Phase = unitPrefetch
+		mu.Dst = u.Dst
+		mu.ServiceStart = u.ServiceStart
+
+		pages := m.movingPages(m.unitPages(mu), u.Dst)
+		moving = append(moving, pages...)
+		s.Stats.UnitsPrefetched++
+		s.Stats.PagesPrefetched += uint64(len(pages))
+	}
+
 	u.OldPages = append(u.OldPages, moving...)
 
 	for _, p := range moving {
@@ -494,6 +534,106 @@ func (m *migrationMW) startMigration(ui int, moving []vm.Page) {
 	}
 
 	m.startHold(ui)
+}
+
+// prefetch returns the units that a migration of unit ui to GPU dst also
+// moves. The units of the unit's 2 MB block form a binary tree; going up
+// from the unit, it selects the largest aligned sub-region in which more
+// than PrefetchThreshold percent of the allocated units are on dst or
+// migrate to it, counting the unit itself, as UVM does. The units of that
+// sub-region that can move are prefetched; units that are pinned, thrash,
+// migrate, or are used by a memory copy are not.
+func (m *migrationMW) prefetch(ui, dst int) []int {
+	spec := m.spec()
+	if spec.PrefetchThreshold == 0 || spec.Log2Unit >= prefetchLog2Block {
+		return nil
+	}
+
+	pid := m.state().Units[ui].PID
+	index := m.state().Units[ui].Index
+	n := uint64(1) << (prefetchLog2Block - spec.Log2Unit)
+	first := index &^ (n - 1)
+
+	leaves := make([]prefetchLeaf, n)
+	for i := range leaves {
+		leaves[i] = m.prefetchLeaf(pid, first+uint64(i), dst)
+	}
+
+	leaves[index-first] = prefetchLeaf{Allocated: true, Counted: true}
+
+	var start, end uint64
+
+	for size := uint64(2); size <= n; size *= 2 {
+		lo := (index - first) &^ (size - 1)
+		allocated, counted := uint64(0), uint64(0)
+
+		for _, l := range leaves[lo : lo+size] {
+			if l.Allocated {
+				allocated++
+			}
+
+			if l.Counted {
+				counted++
+			}
+		}
+
+		if counted*100 > spec.PrefetchThreshold*allocated {
+			start, end = lo, lo+size
+		}
+	}
+
+	var members []int
+
+	for i := start; i < end; i++ {
+		if leaves[i].Prefetchable {
+			members = append(members, m.getUnit(pid, (first+i)<<spec.Log2Unit))
+		}
+	}
+
+	return members
+}
+
+// prefetchLeaf is a unit of a block, as prefetching sees it: Allocated if
+// it has pages, Counted if it is on the destination or migrates to it, and
+// Prefetchable if it can move with the migration.
+type prefetchLeaf struct {
+	Allocated, Counted, Prefetchable bool
+}
+
+func (m *migrationMW) prefetchLeaf(pid vm.PID, index uint64, dst int) prefetchLeaf {
+	pages := m.pagesOfUnit(pid, index)
+	if len(pages) == 0 {
+		return prefetchLeaf{}
+	}
+
+	leaf := prefetchLeaf{Allocated: true}
+
+	var u migrationUnit
+	if i, ok := m.state().UnitIndex[m.unitKey(pid, index<<m.spec().Log2Unit)]; ok {
+		u = m.state().Units[i]
+	}
+
+	switch {
+	case u.Phase != unitIdle:
+		leaf.Counted = u.Dst == dst && (u.Migrate || u.Phase == unitPrefetch)
+	case len(m.movingPages(pages, dst)) == 0:
+		leaf.Counted = allOn(pages, dst)
+	default:
+		leaf.Prefetchable = !u.Pinned && u.ThrashEvents == 0 &&
+			!m.copyUses(pid, index)
+	}
+
+	return leaf
+}
+
+func allOn(pages []vm.Page, dev int) bool {
+	for _, p := range pages {
+		if int(p.DeviceID) != dev {
+			return false
+		}
+	}
+
+	return true
 }
 
 // movingPages returns the pages that a migration to GPU dst moves: the
@@ -607,14 +747,20 @@ func (m *migrationMW) getUnit(pid vm.PID, vAddr uint64) int {
 
 // unitPages returns the pages of a unit that are in the page table.
 func (m *migrationMW) unitPages(u *migrationUnit) []vm.Page {
+	return m.pagesOfUnit(u.PID, u.Index)
+}
+
+// pagesOfUnit returns the pages of the unit with the given index that are in
+// the page table.
+func (m *migrationMW) pagesOfUnit(pid vm.PID, index uint64) []vm.Page {
 	var pages []vm.Page
 
 	pageSize := uint64(1) << m.log2PageSize()
-	start := u.Index << m.spec().Log2Unit
+	start := index << m.spec().Log2Unit
 	end := start + (uint64(1) << m.spec().Log2Unit)
 
 	for va := start; va < end; va += pageSize {
-		if p, ok := m.comp.Resources.PageTable.Find(u.PID, va); ok {
+		if p, ok := m.comp.Resources.PageTable.Find(pid, va); ok {
 			pages = append(pages, p)
 		}
 	}
@@ -808,8 +954,17 @@ func (m *migrationMW) finish(ui int) {
 		s.Stats.Releases++
 	}
 
+	// The prefetched units have migrated too.
+	for _, mi := range u.Members {
+		mu := &s.Units[mi]
+		mu.Migrations++
+		mu.LastMigration = mu.ServiceStart
+		mu.Phase = unitIdle
+	}
+
 	u.Phase = unitIdle
 	u.Migrate = false
+	u.Members = u.Members[:0]
 	u.OldPages = u.OldPages[:0]
 	u.NewPAddrs = u.NewPAddrs[:0]
 }
