@@ -1,0 +1,65 @@
+package sample
+
+import (
+	"flag"
+	"fmt"
+	"math/bits"
+
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
+)
+
+// Page-migration flags (sarchlab/akita#589, #590, #591). The defaults follow the
+// NVIDIA UVM driver.
+var (
+	pageMigrationFlag = flag.String("page-migration", "none",
+		"Page migration between GPUs: none; fault (the first access of a "+
+			"GPU to a unified page resident on another GPU faults, waits, and "+
+			"the page moves to the faulting GPU); or counter (the page is "+
+			"accessed remotely, and moves to a GPU whose remote L1 misses to "+
+			"its unit reach -pm-access-counter-threshold).")
+	pmUnitKBFlag = flag.Int("pm-unit-kb", 4,
+		"Page migration: unit in KB, a power of two from 4 to 2048.")
+	pmAccessCounterThresholdFlag = flag.Uint64("pm-access-counter-threshold", 256,
+		"Page migration: remote L1 misses of a GPU to a unit that request "+
+			"its migration with -page-migration=counter "+
+			"(uvm_perf_access_counter_threshold); 0 turns the counters off.")
+	pmPrefetchThresholdFlag = flag.Uint64("pm-prefetch-threshold", 51,
+		"Page migration: a fault also migrates the rest of the largest "+
+			"aligned sub-region of its 2 MB block in which more than this "+
+			"percent of the units are on the faulting GPU "+
+			"(uvm_perf_prefetch_threshold); 0 turns prefetching off.")
+	pmSoftwareLatencyFlag = flag.Uint64("pm-sw-latency-ns", 5000,
+		"Page migration: time the driver collects a batch of faults.")
+	pmBatchFlag = flag.Int("pm-batch", 256,
+		"Page migration: most faults in a batch (uvm_perf_fault_batch_count).")
+	pmThrashingLapseFlag = flag.Uint64("pm-thrashing-lapse-ns", 500000,
+		"Page migration: a migration within this time of the previous one "+
+			"is a thrashing event (uvm_perf_thrashing_lapse_usec).")
+	pmThrashingThresholdFlag = flag.Int("pm-thrashing-threshold", 3,
+		"Page migration: consecutive thrashing events that pin a unit "+
+			"(uvm_perf_thrashing_threshold).")
+	pmPinFlag = flag.Uint64("pm-pin-ns", 150000000,
+		"Page migration: how long a thrashing unit stays pinned "+
+			"(uvm_perf_thrashing_pin).")
+)
+
+// pageMigrationSpecFromFlags converts the page-migration flags.
+func pageMigrationSpecFromFlags() driver.PageMigrationSpec {
+	kb := *pmUnitKBFlag
+	if kb < 4 || kb > 2048 || kb&(kb-1) != 0 {
+		panic(fmt.Sprintf("-pm-unit-kb must be a power of two from 4 to 2048, got %d", kb))
+	}
+
+	s := driver.DefaultPageMigrationSpec()
+	s.Policy = *pageMigrationFlag
+	s.Log2Unit = uint64(bits.TrailingZeros(uint(kb))) + 10
+	s.AccessCounterThreshold = *pmAccessCounterThresholdFlag
+	s.PrefetchThreshold = *pmPrefetchThresholdFlag
+	s.SoftwareLatencyNS = *pmSoftwareLatencyFlag
+	s.BatchSize = *pmBatchFlag
+	s.ThrashingLapseNS = *pmThrashingLapseFlag
+	s.ThrashingThreshold = *pmThrashingThresholdFlag
+	s.PinNS = *pmPinFlag
+
+	return s
+}

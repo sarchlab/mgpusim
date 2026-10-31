@@ -106,7 +106,8 @@ func initializeRoutingComponent(t *testing.T, s *sim.Simulation, c *Comp) {
 	if len(c.Spec.LocalModules.Destinations) == 0 || len(c.Spec.RemoteRDMAAddressTable.Destinations) == 0 {
 		t.Fatal("test mapper missing")
 	}
-	for _, name := range []string{"RDMARequestInside", "RDMARequestOutside", "RDMADataInside", "RDMADataOutside", "Ctrl"} {
+	for _, name := range []string{"RDMARequestInside", "RDMARequestOutside",
+		"RDMADataInside", "RDMADataOutside", "Ctrl", "AccessCounter"} {
 		c.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(s).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}

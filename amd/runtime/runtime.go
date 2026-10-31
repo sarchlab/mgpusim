@@ -70,7 +70,7 @@ func NewRuntime(
 func (r *Runtime) addDevice(kind internal.DeviceType, properties DeviceProperties) {
 	d := &internal.Device{ID: len(r.devices), Type: kind,
 		Properties: internal.DeviceProperties(properties),
-		MemState:   internal.NewDeviceMemoryState(r.config.Log2PageSize, internal.AllocatorType(r.config.Allocator))}
+		MemState:   internal.NewDeviceMemoryState(r.config.Log2PageSize)}
 	d.SetTotalMemSize(properties.DRAMSize)
 	r.allocator.RegisterDevice(d)
 	r.devices = append(r.devices, d)
@@ -134,7 +134,7 @@ func (r *Runtime) CreateUnifiedGPU(_ Context, gpuIDs []int) int {
 		panic("must unify at least 1 GPU")
 	}
 	dev := &internal.Device{ID: len(r.devices), Type: internal.DeviceTypeUnifiedGPU, UnifiedGPUIDs: slices.Clone(gpuIDs),
-		MemState: internal.NewDeviceMemoryState(r.config.Log2PageSize, internal.AllocatorType(r.config.Allocator))}
+		MemState: internal.NewDeviceMemoryState(r.config.Log2PageSize)}
 	for _, id := range gpuIDs {
 		if id < 1 || id >= len(r.devices) || r.devices[id].Type != internal.DeviceTypeGPU {
 			panic("can only unify GPUs")

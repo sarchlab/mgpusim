@@ -69,3 +69,47 @@ type GeneralRsp struct {
 // MemCopyD2HRsp returns copied bytes to the host driver. The request's destination
 // offset is host bookkeeping; the GPU never mutates a caller-owned buffer.
 type MemCopyD2HRsp struct{ Data []byte }
+
+// PageHoldReq asks a command processor to hold the pages at VAddrs of
+// process PID in every address translator of its GPU
+// (memcontrolprotocol.CmdHold). The command processor answers with a
+// GeneralRsp once every translator has acknowledged: no access of the GPU to
+// the pages is outstanding and no translation of them is in flight.
+type PageHoldReq struct {
+	PID    vm.PID
+	VAddrs []uint64
+}
+
+// PageShootdownReq asks a command processor to drop the translations of the
+// pages at VAddrs of process PID from every TLB of its GPU: Pause, then
+// Invalidate, then Enable. It answers with a GeneralRsp.
+type PageShootdownReq struct {
+	PID    vm.PID
+	VAddrs []uint64
+}
+
+// PageReleaseReq asks a command processor to release the pages at VAddrs of
+// process PID in every address translator of its GPU
+// (memcontrolprotocol.CmdRelease). It answers with a GeneralRsp.
+type PageReleaseReq struct {
+	PID    vm.PID
+	VAddrs []uint64
+}
+
+// PageCopyReq asks the command processor of the destination GPU to copy
+// ByteSize bytes from SrcAddress, in another GPU's memory, to DstAddress in
+// its own memory with its data mover. It answers with a GeneralRsp.
+type PageCopyReq struct {
+	SrcAddress uint64
+	DstAddress uint64
+	ByteSize   uint64
+}
+
+// AccessCounterNotification tells the driver that the RDMA engine of GPU
+// DeviceID has forwarded a threshold of remote L1 misses to one region of
+// physical memory (sarchlab/akita#590). PAddr is the address of the miss
+// that reached the threshold. The driver does not answer.
+type AccessCounterNotification struct {
+	PAddr    uint64
+	DeviceID uint64
+}

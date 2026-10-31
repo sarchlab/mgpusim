@@ -43,12 +43,12 @@ MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set arch
    - `cp/` - Command Processor for kernel dispatch
    - `rob/` - Reorder Buffer
    - `rdma/` - Remote DMA for multi-GPU communication
-   - `pagemigrationcontroller/` - Unified memory page migration
 
 ### Key Components
 
 - **`amd/runtime/`**: Host API and shared resource owning contexts, queues, allocations, commands, and events
 - **`amd/driver/`**: Simulated command execution and GPU protocol state; consumes Runtime through Resources
+  and runs fault-driven page migration (see [Page migration](docs/page-migration.md))
 - **`amd/insts/`**: GCN3 instruction definitions, decoder, disassembler, HSACO parsing
 - **`amd/kernels/`**: Kernel loading from HSACO (ELF) files
 - **`amd/benchmarks/`**: Benchmark implementations with embedded HSACO binaries

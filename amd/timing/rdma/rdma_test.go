@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 func TestRDMA(t *testing.T) {
@@ -44,6 +45,7 @@ var _ = Describe("RDMA Engine", func() {
 		dataInside     messaging.Port
 		dataOutside    messaging.Port
 		ctrlPort       messaging.Port
+		accessCounter  messaging.Port
 
 		localCache messaging.RemotePort
 		remoteGPU  messaging.RemotePort
@@ -86,6 +88,7 @@ var _ = Describe("RDMA Engine", func() {
 		dataInside = makePort("RDMADataInside", 4)
 		dataOutside = makePort("RDMADataOutside", 4)
 		ctrlPort = makePort("Ctrl", 4)
+		accessCounter = makePort("AccessCounter", 4)
 		Expect(simulation.Initialize()).To(Succeed())
 	})
 
@@ -159,6 +162,43 @@ var _ = Describe("RDMA Engine", func() {
 
 			Expect(rdmaEngine.State.TransactionsFromInside).To(HaveLen(0))
 			Expect(hasIncoming(requestInside)).To(BeTrue())
+		})
+	})
+
+	Context("access counters", func() {
+		readsFromInside := func(n int) {
+			for i := 0; i < n; i++ {
+				requestInside.Deliver(makeReadReq(localCache, requestInside.AsRemote()))
+				tickRDMA(rdmaEngine)
+				requestOutside.RetrieveOutgoing()
+			}
+			tickRDMA(rdmaEngine)
+		}
+
+		It("should count nothing without a handler", func() {
+			readsFromInside(300)
+
+			Expect(rdmaEngine.State.AccessCounts).To(BeEmpty())
+			Expect(hasOutgoing(accessCounter)).To(BeFalse())
+		})
+
+		It("should notify the handler at the threshold and clear the counter", func() {
+			rdmaEngine.Spec.AccessCounterHandler = "Driver.PageMigration"
+			rdmaEngine.Spec.AccessCounterThreshold = 2
+			rdmaEngine.Spec.DeviceID = 3
+
+			readsFromInside(1)
+			Expect(hasOutgoing(accessCounter)).To(BeFalse())
+
+			readsFromInside(1)
+			msg, ok := accessCounter.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(msg.Dst).To(Equal(messaging.RemotePort("Driver.PageMigration")))
+			Expect(msg.Payload).To(Equal(protocol.AccessCounterNotification{
+				PAddr: 0x100, DeviceID: 3,
+			}))
+			Expect(rdmaEngine.State.AccessCounts).To(BeEmpty())
+			Expect(hasOutgoing(accessCounter)).To(BeFalse())
 		})
 	})
 
