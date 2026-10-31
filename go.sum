@@ -72,6 +72,8 @@ github.com/sarchlab/akita/v5 v5.0.1-0.20261029151628-f7249d5698fc h1:Q5lhmPE6d9I
 github.com/sarchlab/akita/v5 v5.0.1-0.20261029151628-f7249d5698fc/go.mod h1:Ouj8E1q/q1dhNDRX5z6N/iBQXjj5gJy2dIugXsbe2QU=
 github.com/sarchlab/akita/v5 v5.0.1-0.20261029162831-5aa6a89f347b h1:NiSdW+0ke2Fr+w+Hq5zbZwaMXGYRlfUt91/FuiwZiXo=
 github.com/sarchlab/akita/v5 v5.0.1-0.20261029162831-5aa6a89f347b/go.mod h1:Ouj8E1q/q1dhNDRX5z6N/iBQXjj5gJy2dIugXsbe2QU=
+github.com/sarchlab/akita/v5 v5.0.1-0.20261031153628-9109b36b6c76 h1:FK5c8IWYFeY/FR8mRj86pMns8HByt3alkWVoKDYz0Yw=
+github.com/sarchlab/akita/v5 v5.0.1-0.20261031153628-9109b36b6c76/go.mod h1:Ouj8E1q/q1dhNDRX5z6N/iBQXjj5gJy2dIugXsbe2QU=
 github.com/shirou/gopsutil/v4 v4.26.7 h1:IXzpHz/dkMRYAhKkOXr1HB6SuzWU3eoyyeWe7g3bNZc=
 github.com/shirou/gopsutil/v4 v4.26.7/go.mod h1:5O9FjBiXoTDFatIWjZZosqj4pV0DRtLx598xGbBehzM=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

@@ -127,7 +127,9 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	gpuBuilder := b.createGPUBuilder(mmuComp)
 	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
 	interDeviceConn.BindPort(mmuComp.Ports.Top)
-	interDeviceConn.BindPort(mmuComp.Ports.Notification)
+	for _, p := range mmuComp.Ports.Notification {
+		interDeviceConn.BindPort(p)
+	}
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
@@ -203,8 +205,10 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 	spec.Log2PageSize = b.log2PageSize
 
 	// With page migration on fault, a walk of a unified page on another GPU
-	// faults and is reported to the driver.
-	if b.pageMigration.Policy == driver.PageMigrationFault {
+	// faults and is reported to the driver from the MMU's Notification[0]
+	// port.
+	faults := b.pageMigration.Policy == driver.PageMigrationFault
+	if faults {
 		spec.FaultHandler = messaging.RemotePort("Driver.PageMigration")
 	}
 
@@ -214,7 +218,10 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 
 	b.buildPort(mmuComponent, "Top", mmuTopPortBufSize)
 	b.buildPort(mmuComponent, "Control", ctrlPortBufSize)
-	b.buildPort(mmuComponent, "Notification", mmuTopPortBufSize)
+
+	if faults {
+		b.buildPort(mmuComponent, "Notification[0]", mmuTopPortBufSize)
+	}
 
 	return mmuComponent, pageTable
 }
