@@ -447,8 +447,11 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 	u.OldPages = u.OldPages[:0]
 
 	if u.Pinned || len(moving) == 0 {
-		// Nothing moves: the faulting GPU releases the unit. On the replay,
-		// the walk finds the page local or pinned and does not fault.
+		// Nothing moves: the faulting GPU holds and then releases the unit.
+		// The Hold acks only after the fault responses still on their way
+		// through the TLBs have arrived, so the Release cannot overtake
+		// them. On the replay, the walk finds the page local or pinned and
+		// does not fault.
 		u.Migrate = false
 		u.Targets = append(u.Targets, f.GPU)
 
@@ -456,7 +459,7 @@ func (m *migrationMW) serviceFault(f pageFault) bool {
 			u.VAddrs = append(u.VAddrs, p.VAddr)
 		}
 
-		m.startRelease(ui)
+		m.startHold(ui)
 
 		return true
 	}

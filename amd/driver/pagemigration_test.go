@@ -159,6 +159,14 @@ func TestFaultOnALocalPageOnlyReleasesTheFaultingGPU(t *testing.T) {
 	f.fault(page, 1)
 	f.migrationTick()
 
+	// The faulting GPU holds the unit first, so the Release cannot overtake
+	// a fault response still on its way.
+	holds := f.commands(t, protocol.PageHoldReq{})
+	if !reflect.DeepEqual(destinations(holds), migrationAgents[:1]) {
+		t.Fatalf("holds went to %v", destinations(holds))
+	}
+
+	f.answer(holds)
 	releases := f.commands(t, protocol.PageReleaseReq{})
 	if !reflect.DeepEqual(destinations(releases), migrationAgents[:1]) {
 		t.Fatalf("releases went to %v", destinations(releases))
@@ -224,11 +232,13 @@ func TestThrashingPinsAUnitAndThePinExpires(t *testing.T) {
 	migrate(t, f, page, 2)
 
 	// The time does not advance, so the next migration is within the lapse:
-	// the unit is pinned instead, and only the faulting GPU is released.
+	// the unit is pinned instead, and only the faulting GPU is held and
+	// released.
 	page, _ = f.p.Find(page.PID, page.VAddr)
 	f.fault(page, 1)
 	f.migrationTick()
 
+	f.answer(f.commands(t, protocol.PageHoldReq{}))
 	releases := f.commands(t, protocol.PageReleaseReq{})
 	if !reflect.DeepEqual(destinations(releases), migrationAgents[:1]) {
 		t.Fatalf("releases went to %v", destinations(releases))

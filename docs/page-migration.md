@@ -72,8 +72,12 @@ table changes when no TLB can be refilled with the old mapping, and the single
 shootdown that follows drops every stale entry.
 
 When nothing moves (the page is already on *g*, or the unit is pinned), the
-driver tells *g*'s command processor to release the unit; on the replay, the
-MMU returns the local or the pinned remote translation. A memory copy never runs on a
+driver tells *g*'s command processor to hold and then release the unit; on
+the replay, the MMU returns the local or the pinned remote translation. The
+Hold is needed because the fault notification reaches the driver directly
+while the fault response still travels through *g*'s TLBs: a Release that
+overtook it would not clear the fault, and the access would wait for another
+Release. The Hold acks only after the response has arrived. A memory copy never runs on a
 migrating unit, and a unit never migrates under a running memory copy.
 
 ## Prefetching
