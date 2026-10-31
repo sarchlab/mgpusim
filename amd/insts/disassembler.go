@@ -379,10 +379,13 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
+	if d.IsCDNA3 {
+		inst.Segment = extractBits(bytesLo, 14, 15)
+	}
 	// CDNA3 SEG=0 is FLAT, SEG=1 is SCRATCH, and SEG=2 is GLOBAL.
 	// AMD MI300 ISA section 10.1: FLAT has a 12-bit unsigned offset and
 	// ignores SADDR. GLOBAL/SCRATCH have a 13-bit signed offset.
-	flatSegment := d.IsCDNA3 && extractBits(bytesLo, 14, 15) == 0
+	flatSegment := d.IsCDNA3 && inst.Segment == 0
 	rawOffset := extractBits(bytesLo, 0, 12)
 	if flatSegment {
 		inst.Offset0 = rawOffset & 0xfff
@@ -417,9 +420,10 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	inst.SAddr = NewIntOperand(0, int64(saddrBits))
 
 	// SAddr handling is architecture-dependent:
-	// - CDNA3 GLOBAL/SCRATCH: SAddr=0x7F means OFF mode, any other value (including 0
+	// - CDNA3 GLOBAL: SAddr=0x7F means OFF mode, any other value (including 0
 	//   for s[0:1]) is a valid scalar base register.
 	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
+	// SCRATCH still follows the legacy path; its addressing is not implemented.
 	if saddrBits != 0x7f && (d.IsCDNA3 || saddrBits != 0) {
 		inst.Addr = NewVRegOperand(bits, bits, 1)
 	} else {
