@@ -813,6 +813,20 @@ var benchmarks = []benchmark{
 	// CDNA3/MI300X (gfx942) architecture tests
 	// Multi-GPU support via unified GPU mode (automatic workgroup distribution)
 	{
+		benchmarkPath:  "../../benchmarks/dnn/layer_benchmarks/conv2d",
+		executablePath: "../../samples/conv2d",
+		executable:     "conv2d",
+		// Reshape copies use the runtime's legacy FLAT kernel. This small case
+		// faults on MI300X if FLAT SADDR=0 is decoded as a scalar base.
+		sizeArgs: []string{"-N=1", "-C=16", "-H=8", "-W=8", "-output-channel=32"},
+		cases: []benchmarkCase{
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				arch: "cdna3", gpuType: "mi300x",
+			},
+		},
+	},
+	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/vectoradd",
 		executablePath: "../../samples/vectoradd",
 		executable:     "vectoradd",
