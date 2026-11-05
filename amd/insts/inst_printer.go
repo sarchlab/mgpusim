@@ -69,21 +69,23 @@ func (p *InstPrinter) flatString(i *Inst) string {
 	var s string
 	instName := i.InstName
 
-	// Check if SADDR is 0x7F (OFF) - indicates global addressing
-	isGlobal := i.SAddr != nil && i.SAddr.IntValue == 0x7F
+	// SADDR is normalized for execution, so SEG determines the mnemonic.
+	isGlobal := i.Segment == 2
 	if isGlobal {
 		instName = strings.Replace(instName, "flat_", "global_", 1)
 	}
 
 	if i.Opcode >= 16 && i.Opcode <= 23 {
 		s = instName + " " + i.Dst.String() + ", " + i.Addr.String()
-		if isGlobal {
-			s += ", off"
-		}
 	} else if i.Opcode >= 24 && i.Opcode <= 31 {
 		s = instName + " " + i.Addr.String() + ", " + i.Data.String()
-		if isGlobal {
+	}
+	if isGlobal && s != "" {
+		if i.SAddr.IntValue == 0x7f {
 			s += ", off"
+		} else {
+			index := int(i.SAddr.IntValue)
+			s += ", " + NewSRegOperand(index, index, 2).String()
 		}
 	}
 	return s

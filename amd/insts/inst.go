@@ -49,6 +49,9 @@ type Inst struct {
 	Offset *Operand
 	SImm16 *Operand
 	SAddr  *Operand // FLAT scalar address (0x7F = OFF for global addressing)
+	// Segment is the CDNA3 FLAT encoding's SEG field: 0=FLAT, 1=SCRATCH,
+	// 2=GLOBAL. GCN3 leaves it zero.
+	Segment uint32
 
 	Abs                 int
 	Omod                int

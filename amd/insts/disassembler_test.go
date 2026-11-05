@@ -333,6 +333,7 @@ var _ = Describe("CDNA3 Disassembler", func() {
 	})
 
 	It("should decode DC508000 067F0004 as global_load_dword", func() {
+		disassembler.IsCDNA3 = true
 		// global_load_dword v6, v[4:5], off
 		buf := []byte{0x00, 0x80, 0x50, 0xDC, 0x04, 0x00, 0x7F, 0x06}
 
@@ -343,6 +344,7 @@ var _ = Describe("CDNA3 Disassembler", func() {
 	})
 
 	It("should decode DC708000 007F0200 as global_store_dword", func() {
+		disassembler.IsCDNA3 = true
 		// global_store_dword v[0:1], v2, off
 		buf := []byte{0x00, 0x80, 0x70, 0xDC, 0x00, 0x02, 0x7F, 0x00}
 

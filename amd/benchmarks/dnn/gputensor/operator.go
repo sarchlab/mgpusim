@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
@@ -895,7 +896,7 @@ func (o *GPUOperator) Im2Col(
 		Batch:    uint32(inputSize[0]),
 	}
 
-	fmt.Printf("Im2Col input %v, kernel %v, stride %v, padding %v, "+
+	fmt.Fprintf(os.Stderr, "Im2Col input %v, kernel %v, stride %v, padding %v, "+
 		"dilation %v, output %v\n",
 		inputSize, kernelSize, stride, padding, dilation, output.Size())
 

@@ -3,6 +3,7 @@ package gputensor
 import (
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"slices"
 
@@ -256,7 +257,7 @@ func (o *GPUOperator) CompleteStep() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf(
+		fmt.Fprintf(os.Stderr,
 			"Kernel %s, Start %.10f, Virtual Time: %v\n",
 			timer.Name,
 			float64(start)*1e-12,
