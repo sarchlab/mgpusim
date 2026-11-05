@@ -32,6 +32,10 @@ var onlyTiming = flag.Bool("only-timing", false,
 	`Only run the timing benchmark cases.`)
 var noTiming = flag.Bool("no-timing", false,
 	`Skip the timing benchmark cases.`)
+var onlyPageMigration = flag.Bool("only-page-migration", false,
+	`Only run the page migration benchmark cases.`)
+var noPageMigration = flag.Bool("no-page-migration", false,
+	`Skip the page migration benchmark cases.`)
 var archFilter = flag.String("arch", "",
 	`Only run benchmarks for specified architecture (gcn3 or cdna3). Empty means all.`)
 
@@ -51,6 +55,11 @@ type benchmarkCase struct {
 	parallel      bool
 	arch          string // GPU architecture: "gcn3" (default) or "cdna3"
 	gpuType       string // GPU model: "r9nano" (default) or "mi300x"
+
+	// pageMigration is the -page-migration policy: "" (none), "fault", or
+	// "counter". pmArgs are extra -pm-* flags for the case.
+	pageMigration string
+	pmArgs        []string
 }
 
 func (b benchmark) compile() error {
@@ -162,6 +171,11 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 		args = append(args, "-gpu="+c.gpuType)
 	}
 
+	if c.pageMigration != "" {
+		args = append(args, "-page-migration="+c.pageMigration)
+		args = append(args, c.pmArgs...)
+	}
+
 	return args
 }
 
@@ -228,6 +242,14 @@ func shouldRunBenchmarkCase(b benchmark, c benchmarkCase) bool {
 	}
 
 	if *noTiming && c.timing {
+		return false
+	}
+
+	if *onlyPageMigration && c.pageMigration == "" {
+		return false
+	}
+
+	if *noPageMigration && c.pageMigration != "" {
 		return false
 	}
 
