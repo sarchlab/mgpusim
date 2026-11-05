@@ -23,6 +23,11 @@ func (r *Runtime) DeviceCUCount(gpu int) int { return r.config.Devices[gpu-1].CU
 // DeviceIDByPAddr resolves the physical owner for Driver's copy requests.
 func (r *Runtime) DeviceIDByPAddr(addr uint64) int { return r.allocator.GetDeviceIDByPAddr(addr) }
 
+// AllocateFrame takes a new physical page on GPU gpu for a page that
+// migrates there. The frame has never been used, so no cache holds a line of
+// it. The caller maps it in the page table.
+func (r *Runtime) AllocateFrame(gpu int) uint64 { return r.allocator.AllocateFrame(gpu) }
+
 // MarkBuffersDirty records the effects of a submitted kernel in its context.
 func (r *Runtime) MarkBuffersDirty(ctx Context) {
 	buffers := r.context(ctx).Buffers

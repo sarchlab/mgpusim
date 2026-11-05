@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
 // forwardMiddleware forwards memory requests and responses between the
@@ -33,7 +34,7 @@ func (m *forwardMiddleware) port(name string) messaging.Port {
 
 // Tick forwards as many messages as the per-cycle limits allow.
 func (m *forwardMiddleware) Tick() bool {
-	madeProgress := false
+	madeProgress := m.sendNotifications()
 	spec := m.comp.Spec
 
 	for i := 0; i < spec.OutgoingReqPerCycle; i++ {
@@ -85,8 +86,58 @@ func (m *forwardMiddleware) processFromL1() bool {
 	m.comp.State.TransactionsFromInside = append(
 		m.comp.State.TransactionsFromInside,
 		trans)
+	m.countAccess(requestAddress(req))
 
 	return true
+}
+
+// countAccess counts a remote L1 miss to addr. When its region reaches the
+// threshold, the counter is cleared and a notification is queued.
+func (m *forwardMiddleware) countAccess(addr uint64) {
+	spec := m.comp.Spec
+	if spec.AccessCounterHandler == "" || spec.AccessCounterThreshold == 0 {
+		return
+	}
+
+	state := &m.comp.State
+	if state.AccessCounts == nil {
+		state.AccessCounts = make(map[uint64]uint64)
+	}
+
+	region := addr >> spec.AccessCounterLog2Unit
+	state.AccessCounts[region]++
+
+	if state.AccessCounts[region] < spec.AccessCounterThreshold {
+		return
+	}
+
+	delete(state.AccessCounts, region)
+	state.PendingNotifications = append(state.PendingNotifications,
+		messaging.Msg{
+			ID:  m.comp.NewID(),
+			Src: m.comp.Ports.AccessCounter.AsRemote(),
+			Dst: spec.AccessCounterHandler,
+			Payload: protocol.AccessCounterNotification{
+				PAddr:    addr,
+				DeviceID: spec.DeviceID,
+			},
+		})
+}
+
+// sendNotifications sends the queued access-counter notifications. Requests
+// never wait for them.
+func (m *forwardMiddleware) sendNotifications() bool {
+	state := &m.comp.State
+	port := m.comp.Ports.AccessCounter
+	madeProgress := false
+
+	for len(state.PendingNotifications) > 0 && port.CanSend() {
+		port.Send(state.PendingNotifications[0])
+		state.PendingNotifications = state.PendingNotifications[1:]
+		madeProgress = true
+	}
+
+	return madeProgress
 }
 
 // processIncomingRsp forwards a response from a remote GPU back to the local

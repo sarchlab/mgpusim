@@ -28,6 +28,7 @@ func (m *executionMW) Tick() bool {
 		progress = true
 	}
 	progress = m.receive() || progress
+	progress = m.startWaitingCopies() || progress
 	r := c.Resources.Runtime
 	for i := range r.QueueCount() {
 		q := gpuruntime.CommandQueue(i + 1)
@@ -46,7 +47,7 @@ func (m *executionMW) Tick() bool {
 		case gpuruntime.LaunchKernel:
 			m.launch(e)
 		case gpuruntime.CopyH2D, gpuruntime.CopyD2H:
-			m.copy(e)
+			m.copyUnlessMigrating(len(c.State.Executing) - 1)
 		case gpuruntime.Noop:
 			m.finish(len(c.State.Executing) - 1)
 		default:

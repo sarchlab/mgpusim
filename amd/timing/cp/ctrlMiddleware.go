@@ -36,10 +36,15 @@ func (m *ctrlMiddleware) Tick() bool {
 	madeProgress := false
 
 	madeProgress = m.sendPendingReqs() || madeProgress
+	madeProgress = m.sendMigrationMsgs() || madeProgress
 	madeProgress = m.sendPendingDriverRsps() || madeProgress
 	madeProgress = m.processReqFromDriver() || madeProgress
+	madeProgress = m.acceptMigrationReqs() || madeProgress
 	madeProgress = m.processRspFromRDMA() || madeProgress
 	madeProgress = m.processRspFromCaches() || madeProgress
+	madeProgress = m.processCtrlRsp(m.comp.Ports.ToTranslation) || madeProgress
+	madeProgress = m.processRspFromDataMover() || madeProgress
+	madeProgress = m.startMigration() || madeProgress
 
 	return madeProgress
 }
@@ -263,6 +268,8 @@ func (m *ctrlMiddleware) execStep() int {
 		return m.execFlushStep(state.CtrlStep)
 	case ctrlSeqKernelStart:
 		return m.execKernelStartStep(state.CtrlStep)
+	case ctrlSeqMigration:
+		return m.execMigrationStep(state.CtrlStep)
 	default:
 		panic("unknown control sequence " + state.CtrlSeq)
 	}

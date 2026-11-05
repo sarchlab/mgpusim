@@ -20,6 +20,14 @@ type Spec struct {
 	L1ICaches []messaging.RemotePort `json:"l1i_caches"`
 	L2Caches  []messaging.RemotePort `json:"l2_caches"`
 
+	// Page migration: the Control ports of every address translator
+	// (vector, scalar, and instruction) and every TLB of the GPU, and the Top
+	// port of the GPU's data mover. The Command Processor is the only sender
+	// on these Control ports.
+	AddressTranslators []messaging.RemotePort `json:"address_translators"`
+	TLBs               []messaging.RemotePort `json:"tlbs"`
+	DataMover          messaging.RemotePort   `json:"data_mover"`
+
 	CUs []resource.CUConfig `json:"cus"`
 
 	Freq           timing.Freq `json:"freq"`
@@ -62,6 +70,7 @@ const (
 	ctrlSeqNone        = ""
 	ctrlSeqFlush       = "flush"
 	ctrlSeqKernelStart = "kernelStart"
+	ctrlSeqMigration   = "migration"
 )
 
 // Driver-response kinds queued in State.PendingDriverRsps.
@@ -105,6 +114,16 @@ type State struct {
 	// corresponding ports become available.
 	PendingCacheReqs  []messaging.Msg `json:"pending_cache_reqs"`
 	PendingDriverRsps []string        `json:"pending_driver_rsps"`
+
+	// Page migration. MigrationReqs are the requests of the driver that
+	// wait for their control sequence, in arrival order; CurrMigration is
+	// the one being served. The other queues hold the messages to send to
+	// the translators and TLBs, to the data mover, and to the driver.
+	MigrationReqs          []messaging.Msg `json:"migration_reqs"`
+	CurrMigration          messaging.Msg   `json:"curr_migration"`
+	PendingTranslationReqs []messaging.Msg `json:"pending_translation_reqs"`
+	PendingMoveReqs        []messaging.Msg `json:"pending_move_reqs"`
+	PendingMigrationRsps   []messaging.Msg `json:"pending_migration_rsps"`
 }
 
 // Comp is the Command Processor, an Akita component that is responsible for
@@ -117,6 +136,10 @@ type State struct {
 //   - "ToCUs": connects to the Compute Units (dispatching).
 //   - "ToCaches": connects to the Control ports of the L1/L2 caches.
 //   - "ToRDMA": connects to the Ctrl port of the RDMA engine.
+//   - "ToTranslation": connects to the Control ports of the address
+//     translators and the TLBs.
+//   - "ToDataMover": connects to the Top port of the data mover.
+//   - "PageMigration": receives the page-migration commands of the driver.
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 
 type Resources struct {
@@ -129,6 +152,10 @@ type Ports struct {
 	ToCUs    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
 	ToCaches messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
 	ToRDMA   messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/timing/rdma.requester"`
+
+	ToTranslation messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memcontrolprotocol.requester"`
+	ToDataMover   messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/datamoverprotocol.requester"`
+	PageMigration messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cp"`
 }
 type Middlewares struct {
 	Data    *cpMiddleware
