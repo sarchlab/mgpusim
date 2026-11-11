@@ -58,10 +58,11 @@ func pageMigrationValid(c config) bool {
 		return false
 	}
 
-	// fir on two or more CDNA3 GPUs leaves the second GPU's output at 0 even
-	// without page migration (the second GPU seems to ignore the global
-	// offset), so it cannot verify.
-	if c.value(d, "gpu") == "mi300x" && c.value(d, "workload") == "fir" {
+	// On MI300X, only atax: fir on two or more CDNA3 GPUs leaves the second
+	// GPU's output at 0 even without page migration (the second GPU seems to
+	// ignore the global offset), and matrixmultiplication 512^3 on two MI300X
+	// GPUs does not finish within 40 minutes.
+	if c.value(d, "gpu") == "mi300x" && c.value(d, "workload") != "atax" {
 		return false
 	}
 
