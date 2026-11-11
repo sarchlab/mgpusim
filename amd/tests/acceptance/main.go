@@ -38,6 +38,8 @@ var noPageMigration = flag.Bool("no-page-migration", false,
 	`Skip the page migration benchmark cases.`)
 var archFilter = flag.String("arch", "",
 	`Only run benchmarks for specified architecture (gcn3 or cdna3). Empty means all.`)
+var dryRun = flag.Bool("dry-run", false,
+	`Print the command of every selected case without building or running it.`)
 
 type benchmark struct {
 	benchmarkPath  string
@@ -275,6 +277,11 @@ func run() {
 			continue
 		}
 
+		if *dryRun {
+			printCases(b)
+			continue
+		}
+
 		err := b.compile()
 		if err != nil {
 			fmt.Println(err)
@@ -297,6 +304,15 @@ func run() {
 
 	if failed {
 		os.Exit(2)
+	}
+}
+
+// printCases prints the command of every selected case of a benchmark.
+func printCases(b benchmark) {
+	for _, c := range b.cases {
+		if shouldRunBenchmarkCase(b, c) {
+			fmt.Println(b.populateArgs(c))
+		}
 	}
 }
 
