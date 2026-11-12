@@ -22,11 +22,20 @@ const MigrationNotificationPortName = "MigrationNotification"
 
 // Spec is the immutable simulated protocol and timing configuration.
 type Spec struct {
-	Freq               timing.Freq            `json:"freq"`
-	UseMagicMemoryCopy bool                   `json:"use_magic_memory_copy"`
-	D2HCycles          int                    `json:"d2h_cycles"`
-	H2DCycles          int                    `json:"h2d_cycles"`
-	GPUs               []messaging.RemotePort `json:"gpus"`
+	Freq timing.Freq `json:"freq"`
+
+	// UseMagicMemoryCopy copies between the host and the global storage
+	// directly, in no time, instead of asking the GPUs. UncachedDeviceMemory
+	// says that the GPUs read and write the global storage themselves, as in
+	// emulation, so every such copy is coherent. Without it the GPUs keep
+	// device memory in caches, and a copy that needs them flushed, such as
+	// one into a page that was used before, takes the timed path instead.
+	UseMagicMemoryCopy   bool `json:"use_magic_memory_copy"`
+	UncachedDeviceMemory bool `json:"uncached_device_memory"`
+
+	D2HCycles int                    `json:"d2h_cycles"`
+	H2DCycles int                    `json:"h2d_cycles"`
+	GPUs      []messaging.RemotePort `json:"gpus"`
 
 	// PageMigration holds the policy and the tuning parameters of page
 	// migration. MigrationAgents are the "PageMigration" ports of the GPUs'

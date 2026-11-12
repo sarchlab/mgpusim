@@ -5,10 +5,11 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// copyUnlessMigrating starts a memory copy, unless a unit that it uses is
-// migrating: a copy uses physical addresses, so it waits until the unit is
-// idle.
-func (m *executionMW) copyUnlessMigrating(i int) {
+// copyUnlessMigrating starts a memory copy and reports that it did, unless a
+// page that it uses is migrating: a copy uses physical addresses, so it
+// waits until the page is idle. A copy that finishes at once has left the
+// execution list when this returns.
+func (m *executionMW) copyUnlessMigrating(i int) bool {
 	c := m.comp
 	e := &c.State.Executing[i]
 	start, size, _ := copyRange(e.Command)
@@ -16,26 +17,51 @@ func (m *executionMW) copyUnlessMigrating(i int) {
 	if m.comp.Middlewares.Migration.migrating(
 		c.Resources.Runtime.QueuePID(e.Queue), start, size) {
 		e.WaitsForMigration = true
-		return
+		return false
 	}
 
 	e.WaitsForMigration = false
 	m.copy(i)
+
+	return true
 }
 
 // startWaitingCopies starts the first memory copy that waited for a
-// migration, if it may start now. A copy that finishes at once leaves the
-// execution list, so one copy is started per tick.
+// migration and may start now. A copy whose pages still migrate keeps
+// waiting and does not hold back the copies of the other queues behind it.
+// One copy is started per tick, because a copy that finishes at once leaves
+// the execution list; the progress that is reported ticks the driver again
+// for the copies that are left.
 func (m *executionMW) startWaitingCopies() bool {
 	for i := range m.comp.State.Executing {
-		if !m.comp.State.Executing[i].WaitsForMigration {
-			continue
+		if m.comp.State.Executing[i].WaitsForMigration && m.copyUnlessMigrating(i) {
+			return true
 		}
+	}
 
-		m.copyUnlessMigrating(i)
+	return false
+}
 
-		return i >= len(m.comp.State.Executing) ||
-			!m.comp.State.Executing[i].WaitsForMigration
+// prepareCopy reports whether a memory copy reads or writes the global
+// storage itself, in no time, instead of asking the GPUs. With uncached
+// device memory every magic copy does. Otherwise the GPUs keep device memory
+// in caches that such a copy goes around: it is used only where no cache can
+// hold a line. A copy that needs the caches flushed takes the timed path
+// through the GPUs, which reads and writes the memory below the caches; the
+// flushes that it needs are requested here.
+func (m *executionMW) prepareCopy(e *Execution, addr, size uint64) (direct bool) {
+	c := m.comp
+	r := c.Resources.Runtime
+	needsFlush := r.NeedsFlush(r.QueueContext(e.Queue), gpuruntime.Ptr(addr), size)
+
+	if c.Spec.UseMagicMemoryCopy && (c.Spec.UncachedDeviceMemory || !needsFlush) {
+		return true
+	}
+
+	if needsFlush {
+		for gpu := range c.Spec.GPUs {
+			m.request(e, gpu+1, protocol.FlushReq{}, false)
+		}
 	}
 
 	return false
@@ -52,11 +78,7 @@ func (m *executionMW) copy(i int) {
 	if cmd.Kind == gpuruntime.CopyD2H {
 		addr = uint64(cmd.Src)
 	}
-	if !c.Spec.UseMagicMemoryCopy && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
-		for gpu := range c.Spec.GPUs {
-			m.request(e, gpu+1, protocol.FlushReq{}, false)
-		}
-	}
+	direct := m.prepareCopy(e, addr, uint64(size))
 	offset := uint64(0)
 	for offset < uint64(size) {
 		page, ok := c.Resources.PageTable.Find(r.QueuePID(e.Queue), addr)
@@ -66,7 +88,7 @@ func (m *executionMW) copy(i int) {
 		pageOffset := addr - page.VAddr
 		n := min(page.PageSize-pageOffset, uint64(size)-offset)
 		paddr := page.PAddr + pageOffset
-		if c.Spec.UseMagicMemoryCopy {
+		if direct {
 			if cmd.Kind == gpuruntime.CopyH2D {
 				c.Resources.GlobalStorage.Write(paddr, readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n))
 			} else {

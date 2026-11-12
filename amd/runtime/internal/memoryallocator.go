@@ -31,11 +31,10 @@ func NewMemoryAllocator(
 	log2PageSize uint64,
 ) MemoryAllocator {
 	a := &memoryAllocatorImpl{
-		pageTable:            pageTable,
-		totalStorageByteSize: 1 << log2PageSize, // Starting with a page to avoid 0 address.
-		log2PageSize:         log2PageSize,
-		processMemoryStates:  make(map[vm.PID]*processMemoryState),
-		devices:              make(map[int]*Device),
+		pageTable:           pageTable,
+		log2PageSize:        log2PageSize,
+		processMemoryStates: make(map[vm.PID]*processMemoryState),
+		devices:             make(map[int]*Device),
 	}
 	return a
 }
@@ -56,6 +55,12 @@ type memoryAllocatorImpl struct {
 	totalStorageByteSize uint64
 }
 
+// RegisterDevice gives a device the physical addresses that follow the ones
+// of the devices registered before it, starting at 0. This is the layout of
+// the platforms: with devices of one size, device i owns
+// [i*size, (i+1)*size), which is where the hardware of device i finds its
+// memory and where the other devices route to it. The page at address 0, in
+// the first device, is never allocated, so that no page has the address 0.
 func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	a.Lock()
 	defer a.Unlock()
@@ -63,9 +68,20 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	state := device.MemState
 	state.setInitialAddress(a.totalStorageByteSize)
 
+	if a.totalStorageByteSize == 0 && state.getStorageSize() > 0 {
+		reserveZeroPage(state)
+	}
+
 	a.totalStorageByteSize += state.getStorageSize()
 
 	a.devices[device.ID] = device
+}
+
+// reserveZeroPage takes the page at address 0 out of a device for good.
+func reserveZeroPage(state DeviceMemoryState) {
+	if pAddr := state.popNextAvailablePAddrs(); pAddr != 0 {
+		panic("allocator: the first page of the first device is not at address 0")
+	}
 }
 
 func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {

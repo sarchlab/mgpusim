@@ -1,6 +1,7 @@
 package pagemigration
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/sim"
@@ -24,11 +25,19 @@ type workload struct {
 	policy  string
 	slow    bool
 
-	// parallel runs the simulation with the parallel engine.
-	parallel bool
+	// platformGPUs is the number of GPUs of the platform, if it has more
+	// than the benchmark uses.
+	platformGPUs int
+
+	// parallel runs the simulation with the parallel engine, and magicCopy
+	// with magic memory copies.
+	parallel  bool
+	magicCopy bool
 
 	build func(rt *gpuruntime.Runtime, a arch.Type) benchmarks.Benchmark
 }
+
+func (w workload) numGPUs() int { return max(w.platformGPUs, len(w.gpus)) }
 
 func firWorkload(length int) func(*gpuruntime.Runtime, arch.Type) benchmarks.Benchmark {
 	return func(rt *gpuruntime.Runtime, a arch.Type) benchmarks.Benchmark {
@@ -62,12 +71,13 @@ func matrixWorkload(n uint32) func(*gpuruntime.Runtime, arch.Type) benchmarks.Be
 
 // The multi-GPU unified-memory workloads of the samples, with both policies
 // on both platforms. FIR gives each GPU a part of the same buffers; ATAX
-// runs on the last GPU over memory that starts on the first. (FIR does not
-// split its work between MI300X GPUs, with or without page migration, so
-// ATAX is the MI300X workload.) The two slow ones start a kernel on hundreds
-// of cold pages of another GPU at once, and let four GPUs fault on pages
-// that are migrating; faults that were dropped or ignored there left their
-// kernels waiting forever. They run only with -slow.
+// runs on the last GPU over memory that starts on the first. On MI300X, FIR
+// runs on the second GPU alone, over memory that starts on the first: the
+// CDNA3 FIR does not split its work between GPUs correctly, with or without
+// page migration. The two slow workloads start a kernel on hundreds of cold
+// pages of another GPU at once, and let four GPUs fault on pages that are
+// migrating; faults that were dropped or ignored there left their kernels
+// waiting forever. They run only with -slow.
 var workloads = []workload{
 	{name: "fir", gpuType: "r9nano", gpus: []int{1, 2}, build: firWorkload(8192)},
 	{name: "fir", gpuType: "r9nano", gpus: []int{1, 2, 3, 4}, build: firWorkload(8192)},
@@ -75,10 +85,16 @@ var workloads = []workload{
 		policy: driver.PageMigrationCounter, build: firWorkload(8192)},
 	{name: "fir-parallel-engine", gpuType: "r9nano", gpus: []int{1, 2},
 		parallel: true, build: firWorkload(8192)},
+	{name: "fir-magic-memory-copy", gpuType: "r9nano", gpus: []int{1, 2},
+		magicCopy: true, build: firWorkload(8192)},
 	{name: "atax", gpuType: "r9nano", gpus: []int{1, 2}, build: ataxWorkload(256)},
 	{name: "atax", gpuType: "mi300x", gpus: []int{1, 2}, build: ataxWorkload(256)},
 	{name: "atax", gpuType: "mi300x", gpus: []int{1, 2},
 		policy: driver.PageMigrationCounter, build: ataxWorkload(256)},
+	{name: "fir-on-the-second-gpu", gpuType: "mi300x", gpus: []int{2}, platformGPUs: 2,
+		build: firWorkload(4096)},
+	{name: "fir-on-the-second-gpu-magic-memory-copy", gpuType: "mi300x", gpus: []int{2}, platformGPUs: 2,
+		magicCopy: true, build: firWorkload(4096)},
 	{name: "atax-1024", gpuType: "r9nano", gpus: []int{1, 2}, slow: true, build: ataxWorkload(1024)},
 	{name: "matrixmultiplication-512", gpuType: "r9nano", gpus: []int{1, 2, 3, 4},
 		slow: true, build: matrixWorkload(512)},
@@ -95,7 +111,7 @@ func TestSampleWorkloadsOnSeveralGPUs(t *testing.T) {
 			policy = driver.PageMigrationFault
 		}
 
-		name := w.gpuType + "/" + w.name + "/" + policy + "/" + gpuCount(w.gpus)
+		name := fmt.Sprintf("%s/%s/%s/%d-gpus", w.gpuType, w.name, policy, w.numGPUs())
 		t.Run(name, func(t *testing.T) {
 			if w.slow && !*slowWorkloads {
 				t.Skip("pass -slow to run the slow workloads")
@@ -111,9 +127,13 @@ func TestSampleWorkloadsOnSeveralGPUs(t *testing.T) {
 	}
 }
 
-// runWorkload runs a workload to its end. The benchmark verifies its own
-// output, and the runner reports a queue that stalls.
-func runWorkload(t *testing.T, w workload, policy string) driver.PageMigrationStats {
+// newWorkloadPlatform builds the simulation and the timing platform that a
+// workload runs on, with a page-migration policy.
+func newWorkloadPlatform(
+	t *testing.T,
+	w workload,
+	policy string,
+) (*sim.Simulation, *gpuruntime.Runtime) {
 	t.Helper()
 
 	spec := driver.DefaultPageMigrationSpec()
@@ -136,12 +156,24 @@ func runWorkload(t *testing.T, w workload, policy string) driver.PageMigrationSt
 		}
 	})
 
-	rt := timingconfig.MakeBuilder().
+	builder := timingconfig.MakeBuilder().
 		WithSimulation(s).
-		WithNumGPUs(len(w.gpus)).
+		WithNumGPUs(w.numGPUs()).
 		WithGPUType(w.gpuType).
-		WithPageMigration(spec).
-		Build()
+		WithPageMigration(spec)
+	if w.magicCopy {
+		builder = builder.WithMagicMemoryCopy()
+	}
+
+	return s, builder.Build()
+}
+
+// runWorkload runs a workload to its end. The benchmark verifies its own
+// output, and the runner reports a queue that stalls.
+func runWorkload(t *testing.T, w workload, policy string) driver.PageMigrationStats {
+	t.Helper()
+
+	s, rt := newWorkloadPlatform(t, w, policy)
 
 	a := arch.GCN3
 	if w.gpuType == "mi300x" {

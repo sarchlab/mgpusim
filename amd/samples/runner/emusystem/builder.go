@@ -80,9 +80,11 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
+	// The emulated GPUs have no address translation and no caches: they read
+	// and write the storage that the driver copies to and from, there are no
+	// page faults, and nothing migrates.
 	spec.UseMagicMemoryCopy = true
-	// The emulated GPUs have no address translation and no caches: no page
-	// faults, and nothing migrates.
+	spec.UncachedDeviceMemory = true
 	spec.PageMigration.Policy = driver.PageMigrationNone
 	externalConn := directconnection.NewConnection("ExternalConn", b.simulation, timing.GHz)
 	gpuBuilder := b.createGPUBuilder(pageTable, storage)

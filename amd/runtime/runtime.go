@@ -217,6 +217,23 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 func (r *Runtime) Remap(h Context, addr, size uint64, device int) {
 	c := r.context(h)
 	r.allocator.Remap(c.PID, addr, size, device)
+	r.remapped(c, addr, size)
+}
+func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uint64 {
+	if len(gpus) == 1 {
+		return []uint64{size}
+	}
+	c := r.context(h)
+	d := distributorImpl{memAllocator: r.allocator, pageSizeAsPowerOf2: r.config.Log2PageSize}
+	sizes := d.Distribute(c, uint64(addr), size, gpus)
+	r.remapped(c, uint64(addr), size)
+	return sizes
+}
+
+// remapped records the physical pages that a range got when it moved to
+// other devices. If one of them was allocated before, the buffers of the
+// range are dirty from now on, like a new allocation that recycles a page.
+func (r *Runtime) remapped(c *contextData, addr, size uint64) {
 	if !r.recycles(c.PID, Ptr(addr), size) {
 		return
 	}
@@ -226,13 +243,6 @@ func (r *Runtime) Remap(h Context, addr, size uint64, device int) {
 			b.Dirty = true
 		}
 	}
-}
-func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uint64 {
-	if len(gpus) == 1 {
-		return []uint64{size}
-	}
-	d := distributorImpl{memAllocator: r.allocator, pageSizeAsPowerOf2: r.config.Log2PageSize}
-	return d.Distribute(r.context(h), uint64(addr), size, gpus)
 }
 func (r *Runtime) enqueue(q CommandQueue, c Command) CommandID {
 	r.state.NextCommand++

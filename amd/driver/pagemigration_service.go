@@ -24,8 +24,6 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 
 	if m.copyUses(p.PID, p.VAddr) {
 		p.Queued = true
-		s.Stats.DeferredFaults++
-
 		return false
 	}
 
@@ -315,6 +313,8 @@ func (m *migrationMW) submitCopy(pi int) {
 // while it is held, so no TLB can be filled with the old mapping after this
 // point. The old frame is retired: it is not returned to the allocator, so
 // nothing that still names it, such as an L1 line, can meet another page.
+// The page is now in the memory below the L2 of its new GPU, so a host copy
+// of it must go through that GPU.
 func (m *migrationMW) remap(pi int) {
 	s := m.state()
 	p := &s.Pages[pi]
@@ -323,6 +323,7 @@ func (m *migrationMW) remap(pi int) {
 	page.PAddr = p.NewPAddr
 	page.DeviceID = uint64(p.Dst)
 	m.comp.Resources.PageTable.Update(page)
+	m.comp.Resources.Runtime.MarkPageMigrated(page.PID, page.VAddr, page.PageSize)
 
 	s.Stats.PagesMigrated++
 	s.Stats.BytesMigrated += page.PageSize

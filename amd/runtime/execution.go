@@ -42,7 +42,28 @@ func (r *Runtime) MarkBuffersDirty(ctx Context) {
 	}
 }
 
-// NeedsFlush reports whether a Driver copy overlaps a kernel-dirtied allocation.
+// MarkPageMigrated records that a page of a process has migrated to another
+// GPU. The page is in the memory below the caches of that GPU now, which a
+// host copy that goes around the GPUs does not see, so the allocations that
+// have the page are dirty from now on.
+func (r *Runtime) MarkPageMigrated(pid vm.PID, addr, size uint64) {
+	for i := range r.state.Contexts {
+		c := &r.state.Contexts[i]
+		if c.PID != pid {
+			continue
+		}
+		for j := range c.Buffers {
+			b := &c.Buffers[j]
+			if uint64(b.Address) < addr+size && addr < uint64(b.Address)+b.Size {
+				b.Dirty = true
+			}
+		}
+	}
+}
+
+// NeedsFlush reports whether a Driver copy overlaps a dirty allocation: one
+// that a kernel may have written, that got a page that was used before, or
+// that has a page that migrated.
 func (r *Runtime) NeedsFlush(ctx Context, addr Ptr, size uint64) bool {
 	for _, b := range r.context(ctx).Buffers {
 		if b.Dirty && uint64(b.Address) < uint64(addr)+size && uint64(addr) < uint64(b.Address)+b.Size {

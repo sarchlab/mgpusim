@@ -149,8 +149,8 @@ func (f *migrationFixture) collect() {
 	}
 }
 
-// pageOf returns the virtual address of the page that a command belongs to.
-func (f *migrationFixture) pageOf(msg messaging.Msg) uint64 {
+// isOf reports whether a command belongs to a page of a process.
+func (f *migrationFixture) isOf(msg messaging.Msg, page vm.Page) bool {
 	s := f.c.State.PageMigration
 
 	pi, ok := s.Pending[msg.ID]
@@ -158,7 +158,7 @@ func (f *migrationFixture) pageOf(msg messaging.Msg) uint64 {
 		f.t.Fatalf("command %d is not pending", msg.ID)
 	}
 
-	return s.Pages[pi].VAddr
+	return s.Pages[pi].PID == page.PID && s.Pages[pi].VAddr == page.VAddr
 }
 
 // of returns the commands of a page that are not answered yet, in the order
@@ -169,12 +169,24 @@ func (f *migrationFixture) of(page vm.Page) []messaging.Msg {
 	var msgs []messaging.Msg
 
 	for _, msg := range f.unsolved {
-		if f.pageOf(msg) == page.VAddr {
+		if f.isOf(msg, page) {
 			msgs = append(msgs, msg)
 		}
 	}
 
 	return msgs
+}
+
+// run lets the driver tick for as long as it makes progress. Nothing else
+// wakes it: the fixture answers no command by itself.
+func (f *migrationFixture) run() {
+	f.t.Helper()
+
+	f.c.TickLater()
+
+	if err := f.s.Engine().(*timing.SerialEngine).Run(); err != nil {
+		f.t.Fatal(err)
+	}
 }
 
 // outstanding returns every command that is not answered yet.

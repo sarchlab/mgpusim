@@ -37,8 +37,6 @@ var platforms = []string{"r9nano", "mi300x"}
 var slowWorkloads = flag.Bool("slow", false,
 	"also run the page-migration workloads that take tens of minutes")
 
-func gpuCount(gpus []int) string { return fmt.Sprintf("%d-gpus", len(gpus)) }
-
 // option changes how a system is built.
 type option func(*config)
 
@@ -46,6 +44,7 @@ type config struct {
 	numGPUs   int
 	spec      driver.PageMigrationSpec
 	allocator gpuruntime.AllocatorType
+	magicCopy bool
 	resources []naming.Named
 }
 
@@ -62,6 +61,10 @@ func migration(change func(*driver.PageMigrationSpec)) option {
 }
 
 func buddyAllocator(c *config) { c.allocator = gpuruntime.AllocatorBuddy }
+
+// magicCopies lets the driver copy between the host and the global storage
+// directly where no cache of a GPU is in the way.
+func magicCopies(c *config) { c.magicCopy = true }
 
 // system is a complete timing platform with one command queue per GPU and a
 // copy kernel: FIR with one tap of 1.0, which reads its input and writes its
@@ -105,13 +108,17 @@ func newSystem(t *testing.T, gpuType string, opts ...option) *system {
 		}
 	})
 
-	s.rt = timingconfig.MakeBuilder().
+	builder := timingconfig.MakeBuilder().
 		WithSimulation(s.sim).
 		WithNumGPUs(cfg.numGPUs).
 		WithGPUType(gpuType).
 		WithPageMigration(cfg.spec).
-		WithAllocator(cfg.allocator).
-		Build()
+		WithAllocator(cfg.allocator)
+	if cfg.magicCopy {
+		builder = builder.WithMagicMemoryCopy()
+	}
+
+	s.rt = builder.Build()
 
 	for _, r := range cfg.resources {
 		s.sim.RegisterResource(r)

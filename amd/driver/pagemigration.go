@@ -193,12 +193,14 @@ type migrationPage struct {
 
 // migrationRequest is a request that waits in the queue: the demand faults
 // of a page (its Waiters), or, if Counter is set, the access-counter
-// notification of GPU for the physical page frame at PAddr.
+// notification of GPU for the physical page frame at PAddr. Deferred is set
+// on faults that a batch passed over because a memory copy uses their page.
 type migrationRequest struct {
-	Counter bool   `json:"counter"`
-	Page    int    `json:"page"`
-	PAddr   uint64 `json:"paddr"`
-	GPU     int    `json:"gpu"`
+	Counter  bool   `json:"counter"`
+	Page     int    `json:"page"`
+	PAddr    uint64 `json:"paddr"`
+	GPU      int    `json:"gpu"`
+	Deferred bool   `json:"deferred"`
 }
 
 // copyWindow is the pages that one fault or notification moves to GPU Dst, in
@@ -261,9 +263,9 @@ type PageMigrationStats struct {
 // PageMigrationState is the state of the page-migration middleware.
 type PageMigrationState struct {
 	// Pages are the pages that were ever faulted on, notified, or moved;
-	// PageIndex finds a page by pageKey.
-	Pages     []migrationPage `json:"pages"`
-	PageIndex map[uint64]int  `json:"page_index"`
+	// PageIndex finds a page by its process and its virtual page number.
+	Pages     []migrationPage           `json:"pages"`
+	PageIndex map[vm.PID]map[uint64]int `json:"page_index"`
 
 	// Queue holds the requests that wait for a batch, in arrival order.
 	Queue []migrationRequest `json:"queue"`
@@ -287,7 +289,7 @@ type PageMigrationState struct {
 
 func newPageMigrationState() PageMigrationState {
 	return PageMigrationState{
-		PageIndex: make(map[uint64]int),
+		PageIndex: make(map[vm.PID]map[uint64]int),
 		Pending:   make(map[uint64]int),
 	}
 }
@@ -502,63 +504,75 @@ func (m *migrationMW) enqueuePage(pi int) {
 	s.Queue = append(s.Queue, migrationRequest{Page: pi})
 }
 
-func (m *migrationMW) pageKey(pid vm.PID, vAddr uint64) uint64 {
-	return uint64(pid)<<44 | vAddr>>m.log2PageSize()
-}
-
-// pageIndex returns the index of the page of vAddr, creating it. The pages
-// may move in memory when one is created.
+// pageIndex returns the index of the page of vAddr in a process, creating
+// it. The pages may move in memory when one is created.
 func (m *migrationMW) pageIndex(pid vm.PID, vAddr uint64) int {
 	s := m.state()
-	key := m.pageKey(pid, vAddr)
 
-	if i, ok := s.PageIndex[key]; ok {
+	if i, ok := m.findPage(pid, vAddr); ok {
 		return i
+	}
+
+	if s.PageIndex[pid] == nil {
+		s.PageIndex[pid] = make(map[uint64]int)
 	}
 
 	s.Pages = append(s.Pages, migrationPage{
 		PID: pid, VAddr: vAddr &^ (m.pageSize() - 1),
 	})
-	s.PageIndex[key] = len(s.Pages) - 1
+	s.PageIndex[pid][vAddr>>m.log2PageSize()] = len(s.Pages) - 1
 
 	return len(s.Pages) - 1
 }
 
-// findPage returns the page of vAddr, if it was ever created.
+// findPage returns the page of vAddr in a process, if it was ever created.
 func (m *migrationMW) findPage(pid vm.PID, vAddr uint64) (int, bool) {
-	i, ok := m.state().PageIndex[m.pageKey(pid, vAddr)]
+	i, ok := m.state().PageIndex[pid][vAddr>>m.log2PageSize()]
 	return i, ok
 }
 
-// serviceBatch services the requests that wait, at most a batch of them. It
-// starts as soon as a request waits and takes what is there. A request that
-// waits for a memory copy keeps its place at the head of the queue.
+// serviceBatch services the requests that wait, in arrival order, at most a
+// batch of them. It starts as soon as a request waits and takes what is
+// there. The faults of a page that a memory copy uses are not serviced: they
+// keep their place in the queue until the copy ends, and neither hold back
+// the requests behind them nor take a place in the batch. It reports no
+// progress when every request that is left waits for a memory copy, whose
+// end ticks the driver again.
 func (m *migrationMW) serviceBatch() bool {
 	s := m.state()
-	if len(s.Queue) == 0 {
-		return false
-	}
+	requests := s.Queue
+	s.Queue = nil
+	serviced := 0
 
-	n := min(len(s.Queue), m.spec().BatchSize)
-	batch := slices.Clone(s.Queue[:n])
-	s.Queue = slices.Delete(s.Queue, 0, n)
+	var left []migrationRequest
 
-	var deferred []migrationRequest
+	for i, r := range requests {
+		if serviced == m.spec().BatchSize {
+			left = append(left, requests[i:]...)
+			break
+		}
 
-	for _, r := range batch {
 		switch {
 		case r.Counter:
 			m.serviceNotification(r)
-		case !m.serviceFaults(r.Page):
-			deferred = append(deferred, r)
+			serviced++
+		case m.serviceFaults(r.Page):
+			serviced++
+		default:
+			if !r.Deferred {
+				r.Deferred = true
+				s.Stats.DeferredFaults++
+			}
+
+			left = append(left, r)
 		}
 	}
 
-	if len(deferred) > 0 {
-		s.Queue = slices.Insert(s.Queue, 0, deferred...)
-	}
+	// A service may have queued requests; they are behind the ones that were
+	// there before.
+	s.Queue = append(left, s.Queue...)
 
-	if len(deferred) == len(batch) {
+	if serviced == 0 {
 		return false
 	}
 
