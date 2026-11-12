@@ -63,6 +63,43 @@ func mustHandOutItsRange(t *testing.T, a *memoryAllocatorImpl, id int, pageSize 
 	}
 }
 
+// A unified GPU has no memory of its own: it takes frames from its members.
+// A page that is mapped through it is on the member that has its frame,
+// however the page is mapped.
+func TestAPageOfAUnifiedGPUIsOnTheGPUThatHasItsFrame(t *testing.T) {
+	const pageSize = 4096
+
+	for _, k := range allocatorKinds {
+		t.Run(k.name, func(t *testing.T) {
+			a, table := newReuseAllocator(t, k.kind, 12)
+			a.RegisterDevice(&Device{
+				ID:            3,
+				Type:          DeviceTypeUnifiedGPU,
+				UnifiedGPUIDs: []int{1, 2},
+				ActualGPUs:    []*Device{a.devices[1], a.devices[2]},
+				MemState:      NewDeviceMemoryState(12, k.kind),
+			})
+
+			// Four pages of GPU 1: the first stays, the second is mapped
+			// again alone, the last two together, all through the unified
+			// GPU.
+			first := a.Allocate(1, 4*pageSize, 1)
+			a.AllocatePageWithGivenVAddr(1, 3, first+pageSize, false)
+			a.Remap(1, first+2*pageSize, 2*pageSize, 3)
+
+			for i := range uint64(4) {
+				page, _ := table.Find(1, first+i*pageSize)
+				owner := a.deviceIDByPAddr(page.PAddr)
+
+				if owner != 1 && owner != 2 || page.DeviceID != uint64(owner) {
+					t.Fatalf("page %d in frame %#x of device %d is recorded on device %d",
+						i, page.PAddr, owner, page.DeviceID)
+				}
+			}
+		})
+	}
+}
+
 // The page at address 0 stays out of use after a checkpoint is restored.
 func TestTheZeroPageStaysReservedAfterRestore(t *testing.T) {
 	for _, k := range allocatorKinds {

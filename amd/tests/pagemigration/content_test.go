@@ -216,44 +216,58 @@ var copyModes = []struct {
 	{"magic-copies", []option{magicCopies}},
 }
 
+// remapDestinations are the devices that a page is remapped to in order to
+// get a frame of GPU 2: GPU 2 itself, and a unified GPU, which has no memory
+// of its own and takes its first frames from GPU 2.
+var remapDestinations = []struct {
+	name   string
+	device func(s *system) int
+}{
+	{"to-the-gpu", func(*system) int { return 2 }},
+	{"to-a-unified-gpu", func(s *system) int { return s.rt.CreateUnifiedGPU(s.ctx, []int{2, 1}) }},
+}
+
 // Contexts made with InitWithExistingPID address the same memory, so what the
 // caches hold of a buffer concerns the copies of all of them. Here a page of
 // a buffer of the first context is remapped into a frame with dirty L2
 // lines, and a second context uploads into the page: the upload must flush
-// the lines, although the second context has no buffer there.
+// the lines, although the second context has no buffer there. The page is on
+// GPU 2 also when it is remapped to a unified GPU.
 func TestAnotherContextUploadsIntoARemappedFrameThatWasUsedBefore(t *testing.T) {
 	for _, gpuType := range platforms {
 		for _, mode := range copyModes {
-			t.Run(gpuType+"/"+mode.name, func(t *testing.T) {
-				s := newSystem(t, gpuType, append([]option{buddyAllocator}, mode.opts...)...)
-				other := s.sibling()
+			for _, destination := range remapDestinations {
+				t.Run(gpuType+"/"+mode.name+"/"+destination.name, func(t *testing.T) {
+					s := newSystem(t, gpuType, append([]option{buddyAllocator}, mode.opts...)...)
+					other := s.sibling()
 
-				const floats = 1024
+					const floats = 1024
 
-				junk, freed := s.writeJunk(2, floats)
-				result := s.local(2, floats*floatBytes)
-				buffer := s.local(1, 2*s.pageSize)
-				second := s.at(buffer, 1, 0)
+					junk, freed := s.writeJunk(2, floats)
+					result := s.local(2, floats*floatBytes)
+					buffer := s.local(1, 2*s.pageSize)
+					second := s.at(buffer, 1, 0)
 
-				s.padBuddy(2, 2)
-				s.free(junk)
-				s.rt.Remap(s.ctx, uint64(second), s.pageSize, 2)
+					s.padBuddy(2, 2)
+					s.free(junk)
+					s.rt.Remap(s.ctx, uint64(second), s.pageSize, destination.device(s))
 
-				if page := s.page(second); page.DeviceID != 2 || page.PAddr != freed {
-					t.Fatalf("the page is in frame %#x of GPU %d, want the freed frame %#x of GPU 2",
-						page.PAddr, page.DeviceID, freed)
-				}
+					if page := s.page(second); page.DeviceID != 2 || page.PAddr != freed {
+						t.Fatalf("the page is in frame %#x of device %d, want the freed frame %#x of GPU 2",
+							page.PAddr, page.DeviceID, freed)
+					}
 
-				// The other context uploads. A kernel of the first context
-				// reads the page on GPU 2.
-				data := ramp(1, floats)
-				other.upload(second, data)
-				s.touch(2, result, second, floats)
-				s.run()
+					// The other context uploads. A kernel of the first
+					// context reads the page on GPU 2.
+					data := ramp(1, floats)
+					other.upload(second, data)
+					s.touch(2, result, second, floats)
+					s.run()
 
-				mustEqualFloats(t, "what GPU 2 read", s.download(result, floats), data)
-				mustEqualFloats(t, "the remapped page", other.download(second, floats), data)
-			})
+					mustEqualFloats(t, "what GPU 2 read", s.download(result, floats), data)
+					mustEqualFloats(t, "the remapped page", other.download(second, floats), data)
+				})
+			}
 		}
 	}
 }

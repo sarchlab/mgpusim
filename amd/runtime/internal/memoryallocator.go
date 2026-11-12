@@ -260,13 +260,15 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 	device := a.devices[deviceID]
 	pAddr := device.allocatePage()
 
+	// The page is on the device that has its frame. That is not deviceID
+	// when deviceID names a unified GPU, which takes frames from its members.
 	page := vm.Page{
 		PID:      pid,
 		VAddr:    vAddr,
 		PAddr:    pAddr,
 		PageSize: pageSize,
 		Valid:    true,
-		DeviceID: uint64(deviceID),
+		DeviceID: uint64(a.deviceIDByPAddr(pAddr)),
 		Unified:  isUnified,
 	}
 	a.pageTable.Update(page)
@@ -285,6 +287,8 @@ func (a *memoryAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
 	device := a.devices[deviceID]
 	pAddrs := device.allocateMultiplePages(len(vAddrs))
 
+	// As in allocatePageWithGivenVAddr, each page is on the device that has
+	// its frame.
 	for i, vAddr := range vAddrs {
 		page := vm.Page{
 			PID:      pid,
@@ -292,7 +296,7 @@ func (a *memoryAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
 			PAddr:    pAddrs[i],
 			PageSize: pageSize,
 			Valid:    true,
-			DeviceID: uint64(deviceID),
+			DeviceID: uint64(a.deviceIDByPAddr(pAddrs[i])),
 			Unified:  isUnified,
 		}
 		a.pageTable.Update(page)

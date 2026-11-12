@@ -286,9 +286,11 @@ func (m *migrationMW) prefetch(pi, dst int) []int {
 
 // prefetchLeaf looks at the page position at vAddr. A position without a
 // unified page counts for nothing but is a position of its region. A page
-// moves with a window if it is unified, on another GPU, not pinned, not
-// thrashing, not serviced, not waited for by a fault of its own, and not
-// used by a memory copy.
+// counts if it is on the destination or migrates to it; a page whose service
+// moves nothing, a release or an unpin, counts where it is. A page moves with
+// a window if it is unified, on another GPU, not pinned, not thrashing, not
+// serviced, not waited for by a fault of its own, and not used by a memory
+// copy.
 func (m *migrationMW) prefetchLeaf(pid vm.PID, vAddr uint64, dst int) prefetchLeaf {
 	page, ok := m.comp.Resources.PageTable.Find(pid, vAddr)
 	if !ok || !page.Unified {
@@ -300,13 +302,24 @@ func (m *migrationMW) prefetchLeaf(pid vm.PID, vAddr uint64, dst int) prefetchLe
 		p = m.state().Pages[pi]
 	}
 
-	if p.Phase != pageIdle {
-		return prefetchLeaf{Counted: p.Service == serviceMigrate && p.Dst == dst}
+	// The GPU that has the page when its service, if any, has ended.
+	owner := int(page.DeviceID)
+	if p.Service == serviceMigrate {
+		owner = p.Dst
 	}
 
-	if int(page.DeviceID) == dst {
+	if owner == dst {
 		return prefetchLeaf{Counted: true}
 	}
+
+	if p.Phase != pageIdle {
+		return prefetchLeaf{}
+	}
+
+	// As for a page that is asked for itself, thrashing that nothing has
+	// added to for an epoch is over. Only this view of the page forgets it
+	// here: the page itself does when it migrates.
+	m.forgetThrashing(&p)
 
 	return prefetchLeaf{
 		Candidate: !page.IsPinned && m.isGPU(int(page.DeviceID)) &&

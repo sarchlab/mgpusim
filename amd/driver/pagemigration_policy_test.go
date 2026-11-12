@@ -199,6 +199,58 @@ func TestPrefetchCountsEveryPagePositionOfARegion(t *testing.T) {
 	mustEqual(t, "owner of the page that could move", f.page(pages[7].VAddr).DeviceID, uint64(1))
 }
 
+// A page on the destination counts for its region also while it is serviced
+// without moving. In an aligned group of four, two pages are on GPU 2: with
+// the page that faults, three of four positions, so the fourth page moves
+// along, whatever the service of one of the two is waiting for.
+func TestAPageServicedWhereItIsStillCountsForItsRegion(t *testing.T) {
+	inPlace := map[string]func(f *migrationFixture, resident vm.Page){
+		// GPU 2 faulted on a page that it has: the page is held and released
+		// there, and the answer to its last Release is outstanding.
+		"release": func(f *migrationFixture, resident vm.Page) {
+			f.fault(resident, 2)
+			mustEqual(f.t, "hold", f.step(resident), []string{"Hold>2"})
+			mustEqual(f.t, "release", describe(f.of(resident)), []string{"Release>2"})
+		},
+		// The pin of the page has timed out: every GPU holds the page for
+		// the unpin.
+		"unpin": func(f *migrationFixture, resident vm.Page) {
+			m := f.c.Middlewares.Migration
+			m.pin(m.pageIndex(resident.PID, resident.VAddr), resident)
+			f.advanceTo(f.c.Spec.PageMigration.PinNS)
+			mustEqual(f.t, "unpin", describe(f.of(resident)), []string{"Hold>1", "Hold>2"})
+		},
+	}
+
+	for name, service := range inPlace {
+		t.Run(name, func(t *testing.T) {
+			f := newMigrationFixture(t, func(s *PageMigrationSpec) { s.PinNS = 1_000_000 })
+			group := f.block()[4:8]
+
+			f.place(group[0], 2)
+			f.place(group[1], 2)
+			service(f, f.page(group[0].VAddr))
+
+			f.fault(group[2], 2)
+
+			s := f.c.State.PageMigration
+			window := s.Windows[len(s.Windows)-1].Pages
+			mustEqual(t, "pages of the window", len(window), 2)
+			mustEqual(t, "trigger", s.Pages[window[0]].VAddr, group[2].VAddr)
+			mustEqual(t, "prefetched", s.Pages[window[1]].VAddr, group[3].VAddr)
+
+			// The page that is serviced where it is does not move.
+			f.finishAll()
+
+			for _, p := range group {
+				mustEqual(t, "owner", f.page(p.VAddr).DeviceID, uint64(2))
+			}
+
+			mustEqual(t, "pages migrated", f.stats().PagesMigrated, uint64(2))
+		})
+	}
+}
+
 // fullGroup puts five pages of an aligned group of eight on GPU 2 and
 // returns the group. A fault of GPU 2 on its sixth page makes six of eight,
 // so the seventh and the eighth are prefetched if they may move.
@@ -236,6 +288,52 @@ func TestPrefetchMovesOnlyThePagesThatExistAndMayMove(t *testing.T) {
 	s := f.c.State.PageMigration
 	mustEqual(t, "window", len(s.Windows[0].Pages), 2)
 	mustEqual(t, "prefetched", s.Pages[s.Windows[0].Pages[1]].VAddr, group[7].VAddr)
+}
+
+// A page that was detected as thrashing is left out of the windows of its
+// neighbors. Once nothing has happened to it for an epoch it thrashes no
+// longer, also when only a neighbor is asked for: it moves with the window.
+func TestAThrashingPageMovesWithAWindowAgainAfterItsEpoch(t *testing.T) {
+	const epochNS = 1_000_000
+
+	for name, afterEpoch := range map[string]bool{"within the epoch": false, "after the epoch": true} {
+		t.Run(name, func(t *testing.T) {
+			f := newMigrationFixture(t, func(s *PageMigrationSpec) { s.ThrashingEpochNS = epochNS })
+			group := f.fullGroup()
+			threshold := f.c.Spec.PageMigration.ThrashingThreshold
+
+			// The seventh page was detected as thrashing at time 0, and
+			// nothing has happened to it since.
+			pi := f.c.Middlewares.Migration.pageIndex(group[6].PID, group[6].VAddr)
+			f.c.State.PageMigration.Pages[pi].HasEvent = true
+			f.c.State.PageMigration.Pages[pi].Events = threshold
+
+			// GPU 2 faults on the sixth page: the seventh and the eighth
+			// are in its window if they may move.
+			now, events, owner := uint64(epochNS), threshold, uint64(1)
+			want := []uint64{group[5].VAddr, group[7].VAddr}
+
+			if afterEpoch {
+				now, events, owner = epochNS+1, 0, 2
+				want = []uint64{group[5].VAddr, group[6].VAddr, group[7].VAddr}
+			}
+
+			f.advanceTo(now)
+			f.fault(group[5], 2)
+
+			s := f.c.State.PageMigration
+			window := make([]uint64, len(s.Windows[0].Pages))
+			for i, member := range s.Windows[0].Pages {
+				window[i] = s.Pages[member].VAddr
+			}
+
+			mustEqual(t, "window", window, want)
+			mustEqual(t, "thrashing events of the seventh page", s.Pages[pi].Events, events)
+
+			f.finishAll()
+			mustEqual(t, "owner of the seventh page", f.page(group[6].VAddr).DeviceID, owner)
+		})
+	}
 }
 
 func TestAThrashingPageDoesNotWidenItsWindow(t *testing.T) {

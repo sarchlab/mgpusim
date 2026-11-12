@@ -97,14 +97,26 @@ func TestARecycledAllocationNeedsAFlushThroughEveryContext(t *testing.T) {
 
 // Remap and Distribute through one context dirty the allocation that another
 // context of the address space made, when a page of it moves into a page
-// that was used before.
+// that was used before. The destination is GPU 2, or a unified GPU that
+// takes its first frames from GPU 2: the page is on GPU 2 either way, and it
+// is the history of the frames of GPU 2 that tells that the page was used.
 func TestRemapAndDistributeThroughASiblingDirtyTheAllocationOfTheOwner(t *testing.T) {
+	unified := func(f *addressSpaceFixture) int {
+		return f.r.CreateUnifiedGPU(f.owner, []int{2, 1})
+	}
+
 	moves := map[string]func(f *addressSpaceFixture, buffer Ptr){
 		"remap": func(f *addressSpaceFixture, buffer Ptr) {
 			f.r.Remap(f.sibling, uint64(buffer)+recyclePageSize, recyclePageSize, 2)
 		},
 		"distribute": func(f *addressSpaceFixture, buffer Ptr) {
 			f.r.Distribute(f.sibling, buffer, 2*recyclePageSize, []int{1, 2})
+		},
+		"remap to a unified GPU": func(f *addressSpaceFixture, buffer Ptr) {
+			f.r.Remap(f.sibling, uint64(buffer)+recyclePageSize, recyclePageSize, unified(f))
+		},
+		"distribute over a unified GPU": func(f *addressSpaceFixture, buffer Ptr) {
+			f.r.Distribute(f.sibling, buffer, 2*recyclePageSize, []int{1, unified(f)})
 		},
 	}
 

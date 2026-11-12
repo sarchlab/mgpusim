@@ -191,12 +191,15 @@ faults and for access-counter notifications alike. The page positions of each
 selects the largest aligned region in which more than `PrefetchThreshold`
 percent of **all the page positions** are on the destination or migrate to it,
 counting the triggering page. A position without a unified page counts for
-nothing, but it is a position.
+nothing, but it is a position. A page that is serviced without moving, held
+and released where it is or unpinned, counts where it is.
 
 The pages of that region move with the trigger if they exist and are eligible:
 unified, on another GPU, not pinned, not thrashing, not serviced, not waited
-for by a fault of their own, and not used by a memory copy. A triggering page
-that thrashes does not widen its window.
+for by a fault of their own, and not used by a memory copy. A page thrashes
+no longer once nothing has happened to it for `ThrashingEpochNS`, whether it
+is asked for itself or only a neighbor is. A triggering page that thrashes
+does not widen its window.
 
 A sequential sweep therefore faults on the first pages of each region and
 prefetches the rest: after faults on pages 0 and 1, a fault on page 2 also
@@ -262,7 +265,9 @@ hold lines of such a frame:
 - A host copy writes memory around the caches. A buffer that gets a recycled
   frame, when it is allocated or when `Remap` or `Distribute` moves its pages
   to other GPUs, is therefore treated like a buffer that a kernel has
-  written: the driver flushes the caches before a host copy into it.
+  written: the driver flushes the caches before a host copy into it. Frames
+  are tracked by the GPU that has them: a page that is mapped through a
+  unified GPU (`CreateUnifiedGPU`) is on the member GPU that gave the frame.
 
 What the caches hold of a buffer belongs to its address space. The contexts
 made with `InitWithExistingPID` share one: a kernel of any of them dirties the
