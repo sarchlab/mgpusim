@@ -107,7 +107,7 @@ func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 	cpu := &Device{
 		ID:       0,
 		Type:     DeviceTypeCPU,
-		MemState: NewDeviceMemoryState(12),
+		MemState: NewDeviceMemoryState(12, AllocatorTypeDefault),
 	}
 	cpu.SetTotalMemSize(0x1_0000_0000)
 	allocator.RegisterDevice(cpu)
@@ -116,7 +116,7 @@ func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 		gpu := &Device{
 			ID:       i + 1,
 			Type:     DeviceTypeGPU,
-			MemState: NewDeviceMemoryState(12),
+			MemState: NewDeviceMemoryState(12, AllocatorTypeDefault),
 		}
 		gpu.SetTotalMemSize(0x1_0000_0000)
 		allocator.RegisterDevice(gpu)

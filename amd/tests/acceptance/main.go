@@ -56,10 +56,11 @@ type benchmarkCase struct {
 	arch          string // GPU architecture: "gcn3" (default) or "cdna3"
 	gpuType       string // GPU model: "r9nano" (default) or "mi300x"
 
-	// pageMigration is the -page-migration policy: "" (none), "fault", or
-	// "counter". pmArgs are extra -pm-* flags for the case.
-	pageMigration string
-	pmArgs        []string
+	// pageMigration marks the cases that are selected to exercise page
+	// migration between GPUs. Every timing case with unified memory on
+	// several GPUs migrates pages, on faults, by default; these are the ones
+	// that -only-page-migration runs.
+	pageMigration bool
 }
 
 func (b benchmark) compile() error {
@@ -171,11 +172,6 @@ func (b benchmark) populateArgs(c benchmarkCase) []string {
 		args = append(args, "-gpu="+c.gpuType)
 	}
 
-	if c.pageMigration != "" {
-		args = append(args, "-page-migration="+c.pageMigration)
-		args = append(args, c.pmArgs...)
-	}
-
 	return args
 }
 
@@ -245,11 +241,11 @@ func shouldRunBenchmarkCase(b benchmark, c benchmarkCase) bool {
 		return false
 	}
 
-	if *onlyPageMigration && c.pageMigration == "" {
+	if *onlyPageMigration && !c.pageMigration {
 		return false
 	}
 
-	if *noPageMigration && c.pageMigration != "" {
+	if *noPageMigration && c.pageMigration {
 		return false
 	}
 

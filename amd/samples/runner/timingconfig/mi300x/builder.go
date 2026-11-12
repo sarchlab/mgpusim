@@ -99,15 +99,13 @@ type Builder struct {
 	mmu                            *mmu.Comp
 	rdmaAddressMapper              mem.AddressMapper
 	driverPort                     messaging.RemotePort
-	accessCounterHandler           messaging.RemotePort
-	accessCounterThreshold         uint64
-	accessCounterLog2Unit          uint64
+	pageMigration                  gpubuilder.PageMigrationConfig
 
 	gpu                  *gpubuilder.GPU
 	cp                   *cp.Comp
 	rdmaEngine           *rdma.Comp
 	dmaEngine            *dma.Comp
-	dataMover            *datamover.Comp
+	dataMovers           gpubuilder.DataMovers
 	sas                  []*shaderarray.ShaderArray
 	l2Caches             []*writeback.Comp
 	malls                []*writethroughcache.Comp
@@ -287,16 +285,12 @@ func (b Builder) WithDriverPort(
 	return b
 }
 
-// WithAccessCounter turns on the access counters of the RDMA engine: every
-// threshold remote L1 misses to a region of 2^log2Unit bytes notify handler.
-func (b Builder) WithAccessCounter(
-	handler messaging.RemotePort,
-	threshold, log2Unit uint64,
+// WithPageMigration sets how the GPU takes part in page migration: the
+// access counters of its RDMA engine and its data movers.
+func (b Builder) WithPageMigration(
+	cfg gpubuilder.PageMigrationConfig,
 ) gpubuilder.GPUBuilder {
-	b.accessCounterHandler = handler
-	b.accessCounterThreshold = threshold
-	b.accessCounterLog2Unit = log2Unit
-
+	b.pageMigration = cfg
 	return b
 }
 
@@ -317,7 +311,7 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildMALL()
 	b.buildL2Caches()
 	b.buildDMAEngine()
-	b.buildDataMover()
+	b.buildDataMovers()
 	b.buildRDMAEngine()
 	b.buildL2TLB()
 	b.buildSAs()
@@ -358,8 +352,11 @@ func (b *Builder) populateGPU() {
 		RDMARequestPort:      b.rdmaEngine.Ports.RDMARequestOutside,
 		RDMADataPort:         b.rdmaEngine.Ports.RDMADataOutside,
 		PageMigrationPort:    b.cp.Ports.PageMigration,
-		DataMoverPort:        b.dataMover.Ports.Outside,
 		AccessCounterPort:    b.rdmaEngine.Ports.AccessCounter,
+		MigrationDataPort:    b.rdmaEngine.Ports.MigrationOutside,
+
+		InboundDataMoverPort:  b.dataMovers.Inbound.Ports.Outside,
+		OutboundDataMoverPort: b.dataMovers.Outbound.Ports.Outside,
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -377,8 +374,11 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
 	b.internalConn.BindPort(b.cp.Ports.ToTranslation)
 	b.internalConn.BindPort(b.cp.Ports.ToDataMover)
-	b.internalConn.BindPort(b.dataMover.Ports.Top)
-	b.internalConn.BindPort(b.dataMover.Ports.Control)
+
+	for _, mover := range []*datamover.Comp{b.dataMovers.Inbound, b.dataMovers.Outbound} {
+		b.internalConn.BindPort(mover.Ports.Top)
+		b.internalConn.BindPort(mover.Ports.Control)
+	}
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
 	b.internalConn.BindPort(rdmaCtrlPort)
@@ -471,6 +471,14 @@ func (b *Builder) connectL2AndMALL() {
 	}
 
 	b.l2ToMALLConnection.BindPort(b.dmaEngine.Ports.ToMem)
+
+	// Page copies go around the L2 on both ends but, like every other
+	// memory access, through the MALL: the data movers of this GPU, and
+	// those of the other GPUs through the RDMA engine, read and write the
+	// MALL, which stays coherent with DRAM (write-through).
+	b.l2ToMALLConnection.BindPort(b.dataMovers.Inbound.Ports.Inside)
+	b.l2ToMALLConnection.BindPort(b.dataMovers.Outbound.Ports.Inside)
+	b.l2ToMALLConnection.BindPort(b.rdmaEngine.Ports.MigrationInside)
 }
 
 func (b *Builder) connectMALLAndDRAM() {
@@ -487,11 +495,6 @@ func (b *Builder) connectMALLAndDRAM() {
 	for _, dramComp := range b.drams {
 		b.mallToDramConnection.BindPort(dramComp.Ports.Top)
 	}
-
-	// The page-migration data mover writes new frames to DRAM directly,
-	// around the L2 and the MALL: a new frame was never used, so no cache
-	// holds a line of it.
-	b.mallToDramConnection.BindPort(b.dataMover.Ports.Inside)
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -707,11 +710,12 @@ func (b *Builder) buildRDMAEngine() {
 	spec.LocalModules = *b.l1AddressMapper
 	spec.RemoteRDMAAddressTable = b.rdmaAddressMapper
 	spec.DeviceID = b.gpuID
+	spec.Log2PageSize = b.log2PageSize
+	spec.MigrationModules = *b.dmaLocalDataSource
 
-	if b.accessCounterHandler != "" {
-		spec.AccessCounterHandler = b.accessCounterHandler
-		spec.AccessCounterThreshold = b.accessCounterThreshold
-		spec.AccessCounterLog2Unit = b.accessCounterLog2Unit
+	if b.pageMigration.AccessCounterHandler != "" {
+		spec.AccessCounterHandler = b.pageMigration.AccessCounterHandler
+		spec.AccessCounterThreshold = b.pageMigration.AccessCounterThreshold
 	}
 
 	b.rdmaEngine = rdma.MakeBuilder().
@@ -725,6 +729,8 @@ func (b *Builder) buildRDMAEngine() {
 	b.buildPort(b.rdmaEngine, "RDMADataOutside", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "Ctrl", rdmaPortBufSize)
 	b.buildPort(b.rdmaEngine, "AccessCounter", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "MigrationOutside", rdmaPortBufSize)
+	b.buildPort(b.rdmaEngine, "MigrationInside", rdmaPortBufSize)
 }
 
 func (b *Builder) buildDMAEngine() {
@@ -781,7 +787,8 @@ func (b *Builder) buildCP() {
 	ats, tlbs := gpubuilder.MigrationPeers(b.sas, b.l2TLBs)
 	spec.AddressTranslators = gpubuilder.RemotePorts(ats)
 	spec.TLBs = gpubuilder.RemotePorts(tlbs)
-	spec.DataMover = b.dataMover.Ports.Top.AsRemote()
+	spec.InboundDataMover = b.dataMovers.Inbound.Ports.Top.AsRemote()
+	spec.OutboundDataMover = b.dataMovers.Outbound.Ports.Top.AsRemote()
 
 	b.cp = cp.MakeBuilder().WithSampler(b.sampler).
 		WithSimulation(b.simulation).
@@ -799,21 +806,12 @@ func (b *Builder) buildCP() {
 	b.buildPort(b.cp, "PageMigration", cpPortBufSize)
 }
 
-// buildDataMover builds the data mover that copies the pages that migrate
-// to this GPU.
-func (b *Builder) buildDataMover() {
-	drams := mem.AddressMapper{
-		InterleavingSize: b.dmaLocalDataSource.InterleavingSize,
-		RangeLow:         b.dmaLocalDataSource.RangeLow,
-		RangeHigh:        b.dmaLocalDataSource.RangeHigh,
-	}
-	for _, d := range b.drams {
-		drams.Destinations = append(drams.Destinations, d.Ports.Top.AsRemote())
-	}
-
-	b.dataMover = gpubuilder.BuildDataMover(b.simulation,
-		b.name+".DataMover", b.freq, 1<<b.log2CacheLineSize,
-		drams, b.rdmaAddressMapper)
+// buildDataMovers builds the inbound and the outbound data mover, which copy
+// the pages that migrate to and from this GPU between the MALLs.
+func (b *Builder) buildDataMovers() {
+	b.dataMovers = gpubuilder.BuildDataMovers(b.simulation,
+		b.name, b.freq, 1<<b.log2CacheLineSize,
+		*b.dmaLocalDataSource, b.pageMigration)
 }
 
 // connectCPWithMigrationPeers connects the Control ports of the address

@@ -9,7 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 go build ./...
 
 # Run unit tests (~17s) - uses Ginkgo framework
-ginkgo -r --skip-package=mccl
+ginkgo -r --skip-package=mccl,amd/tests/pagemigration
+
+# Run the page-migration acceptance scenarios (full multi-GPU simulations;
+# ~1 min for R9 Nano, ~10 min for MI300X)
+go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m
+go test ./amd/tests/pagemigration/ -run '/mi300x' -count=1 -timeout 110m
 
 # Check every AMD/NVIDIA component (inspector, Comp naming, modelingtest coverage)
 GOTOOLCHAIN=local go test ./internal/architecture -count=1 -v
@@ -48,7 +53,7 @@ MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set arch
 
 - **`amd/runtime/`**: Host API and shared resource owning contexts, queues, allocations, commands, and events
 - **`amd/driver/`**: Simulated command execution and GPU protocol state; consumes Runtime through Resources
-  and runs fault-driven page migration (see [Page migration](docs/page-migration.md))
+  and runs page migration between GPUs, on faults by default (see [Page migration](docs/page-migration.md))
 - **`amd/insts/`**: GCN3 instruction definitions, decoder, disassembler, HSACO parsing
 - **`amd/kernels/`**: Kernel loading from HSACO (ELF) files
 - **`amd/benchmarks/`**: Benchmark implementations with embedded HSACO binaries

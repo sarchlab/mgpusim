@@ -7,7 +7,28 @@ import (
 	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
-func DefaultSpec() Spec { return Spec{Freq: timing.GHz} }
+// DefaultSpec returns the default configuration. Pages migrate between GPUs
+// on faults, with the parameters of the NVIDIA UVM driver; a platform whose
+// GPUs cannot migrate pages sets the policy to PageMigrationNone.
+func DefaultSpec() Spec {
+	return Spec{
+		Freq: timing.GHz,
+		PageMigration: PageMigrationSpec{
+			Policy:                 PageMigrationFault,
+			BatchSize:              256,
+			QueueSize:              1024,
+			AccessCounterThreshold: 256,
+			PrefetchThreshold:      51,
+			ThrashingThreshold:     3,
+			ThrashingLapseNS:       500000,
+			ThrashingNapNS:         500000,
+			ThrashingEpochNS:       2000000000,
+			PinThreshold:           10,
+			PinNS:                  150000000,
+			DataMoverPages:         64,
+		},
+	}
+}
 
 type Builder struct {
 	spec      Spec

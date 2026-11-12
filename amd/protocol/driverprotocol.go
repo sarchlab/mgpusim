@@ -70,45 +70,74 @@ type GeneralRsp struct {
 // offset is host bookkeeping; the GPU never mutates a caller-owned buffer.
 type MemCopyD2HRsp struct{ Data []byte }
 
-// PageHoldReq asks a command processor to hold the pages at VAddrs of
-// process PID in every address translator of its GPU
-// (memcontrolprotocol.CmdHold). The command processor answers with a
-// GeneralRsp once every translator has acknowledged: no access of the GPU to
-// the pages is outstanding and no translation of them is in flight.
+// The page-migration commands of the driver. Every command names one page of
+// the system page size and has a fixed size. A command processor works on
+// the commands of different pages at the same time and answers each one with
+// a GeneralRsp when its own work is done.
+
+// PageHoldReq asks a command processor to hold the page at VAddr of process
+// PID in every address translator of its GPU (memcontrolprotocol.CmdHold).
+// The answer follows the last acknowledgement: no access of the GPU to the
+// page is outstanding and no translation of it is in flight.
 type PageHoldReq struct {
-	PID    vm.PID
-	VAddrs []uint64
+	PID      vm.PID
+	VAddr    uint64
+	PageSize uint64
 }
 
-// PageShootdownReq asks a command processor to drop the translations of the
-// pages at VAddrs of process PID from every TLB of its GPU: Pause, then
-// Invalidate, then Enable. It answers with a GeneralRsp.
-type PageShootdownReq struct {
-	PID    vm.PID
-	VAddrs []uint64
-}
-
-// PageReleaseReq asks a command processor to release the pages at VAddrs of
+// PageReleaseReq asks a command processor to release the page at VAddr of
 // process PID in every address translator of its GPU
-// (memcontrolprotocol.CmdRelease). It answers with a GeneralRsp.
+// (memcontrolprotocol.CmdRelease). The answer follows the last
+// acknowledgement.
 type PageReleaseReq struct {
-	PID    vm.PID
-	VAddrs []uint64
+	PID      vm.PID
+	VAddr    uint64
+	PageSize uint64
 }
 
-// PageCopyReq asks the command processor of the destination GPU to copy
-// ByteSize bytes from SrcAddress, in another GPU's memory, to DstAddress in
-// its own memory with its data mover. It answers with a GeneralRsp.
+// PageShootdownReq asks a command processor to drop the translation of the
+// page at VAddr of process PID from every TLB of its GPU.
+type PageShootdownReq struct {
+	PID      vm.PID
+	VAddr    uint64
+	PageSize uint64
+}
+
+// PageFlushReq asks the command processor of the GPU that a page leaves to
+// write the dirty L2 lines of the frame at PAddr back and then drop the
+// lines of the frame: on every L2 bank, a Flush of the frame, and, after its
+// acknowledgement, an Invalidate. The answer follows the last
+// acknowledgement, so the memory below the L2 holds the page.
+type PageFlushReq struct {
+	PAddr    uint64
+	PageSize uint64
+}
+
+// PageInvalidateReq asks a command processor to drop the L2 lines of the
+// frame at PAddr without writing them back. The driver sends it for the
+// frame that a page moves to, which may have been used before.
+type PageInvalidateReq struct {
+	PAddr    uint64
+	PageSize uint64
+}
+
+// PageCopyReq asks a command processor to copy one page between the memory
+// below its L2 and the memory below the L2 of another GPU. Without Push, the
+// GPU is the destination and pulls the page with its inbound data mover:
+// SrcAddress is in the other GPU. With Push, the GPU is the source and its
+// outbound data mover writes the page to the other GPU. A command processor
+// passes the requests of each direction to the data mover in the order they
+// arrive.
 type PageCopyReq struct {
 	SrcAddress uint64
 	DstAddress uint64
-	ByteSize   uint64
+	PageSize   uint64
+	Push       bool
 }
 
-// AccessCounterNotification tells the driver that the RDMA engine of GPU
-// DeviceID has forwarded a threshold of remote L1 misses to one region of
-// physical memory (sarchlab/akita#590). PAddr is the address of the miss
-// that reached the threshold. The driver does not answer.
+// AccessCounterNotification tells the driver that the remote accesses of GPU
+// DeviceID to the physical page frame at PAddr reached the threshold of its
+// RDMA engine (sarchlab/akita#590). The driver does not answer.
 type AccessCounterNotification struct {
 	PAddr    uint64
 	DeviceID uint64

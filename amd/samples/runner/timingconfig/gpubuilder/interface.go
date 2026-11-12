@@ -42,9 +42,17 @@ type GPU struct {
 	// which receives the driver's migration commands.
 	PageMigrationPort messaging.Port
 
-	// DataMoverPort is the data mover's Outside port, which reads the pages
-	// that migrate to this GPU from the other GPUs.
-	DataMoverPort messaging.Port
+	// InboundDataMoverPort and OutboundDataMoverPort are the Outside ports
+	// of the two data movers. The inbound one reads the pages that migrate
+	// to this GPU from the other GPUs; the outbound one writes pages of this
+	// GPU to the other GPUs.
+	InboundDataMoverPort  messaging.Port
+	OutboundDataMoverPort messaging.Port
+
+	// MigrationDataPort is the RDMA engine's "MigrationOutside" port, where
+	// the data movers of the other GPUs reach the memory below the L2 caches
+	// of this GPU.
+	MigrationDataPort messaging.Port
 
 	// AccessCounterPort is the RDMA engine's "AccessCounter" port, which
 	// sends the access-counter notifications to the driver.
@@ -59,7 +67,9 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 		g.RDMARequestPort,
 		g.RDMADataPort,
 		g.PageMigrationPort,
-		g.DataMoverPort,
+		g.InboundDataMoverPort,
+		g.OutboundDataMoverPort,
+		g.MigrationDataPort,
 		g.AccessCounterPort,
 	}
 	ports = append(ports, g.TranslationPorts...)
@@ -73,6 +83,6 @@ type GPUBuilder interface {
 	WithMemAddrOffset(offset uint64) GPUBuilder
 	WithRDMAAddressMapper(mapper mem.AddressMapper) GPUBuilder
 	WithDriverPort(port messaging.RemotePort) GPUBuilder
-	WithAccessCounter(handler messaging.RemotePort, threshold, log2Unit uint64) GPUBuilder
+	WithPageMigration(cfg PageMigrationConfig) GPUBuilder
 	Build(name string) *GPU
 }

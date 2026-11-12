@@ -396,45 +396,57 @@ func (r *reporter) report() {
 }
 
 // reportPageMigration reports the page-migration statistics of the driver
-// when page migration is on.
+// when pages can migrate: the policy migrates and the platform has more than
+// one GPU.
 func (r *reporter) reportPageMigration() {
 	for _, c := range r.simulation.Components() {
 		d, ok := c.(*driver.Comp)
-		if !ok || !d.Spec.PageMigration.Enabled() {
+		if !ok || !d.Spec.PageMigration.Enabled() || len(d.Spec.MigrationAgents) < 2 {
 			continue
 		}
 
-		s := d.State.PageMigration.Stats
-		for _, m := range []struct {
-			what  string
-			value float64
-			unit  string
-		}{
-			{"pm_faults", float64(s.Faults), "count"},
-			{"pm_dropped_faults", float64(s.DroppedFaults), "count"},
-			{"pm_batches", float64(s.Batches), "count"},
-			{"pm_migrations", float64(s.Migrations), "count"},
-			{"pm_pages_migrated", float64(s.PagesMigrated), "count"},
-			{"pm_units_prefetched", float64(s.UnitsPrefetched), "count"},
-			{"pm_pages_prefetched", float64(s.PagesPrefetched), "count"},
-			{"pm_bytes_migrated", float64(s.BytesMigrated), "byte"},
-			{"pm_releases", float64(s.Releases), "count"},
-			{"pm_ignored_faults", float64(s.IgnoredFaults), "count"},
-			{"pm_deferred_faults", float64(s.DeferredFaults), "count"},
-			{"pm_notifications", float64(s.Notifications), "count"},
-			{"pm_dropped_notifications", float64(s.DroppedNotifications), "count"},
-			{"pm_ignored_notifications", float64(s.IgnoredNotifications), "count"},
-			{"pm_thrashing_events", float64(s.ThrashingEvents), "count"},
-			{"pm_pins", float64(s.Pins), "count"},
-			{"pm_unpins", float64(s.Unpins), "count"},
-			{"pm_migration_time_sum", secondsOf(timing.VTimeInPicoSec(s.MigrationTimeSum)), "second"},
-			{"pm_copy_time_sum", secondsOf(timing.VTimeInPicoSec(s.CopyTimeSum)), "second"},
-			{"pm_shootdown_time_sum", secondsOf(timing.VTimeInPicoSec(s.ShootdownTimeSum)), "second"},
-		} {
-			r.dataRecorder.InsertData(tableName, metric{
-				Location: d.Name(), What: m.what, Value: m.value, Unit: m.unit,
-			})
+		for _, m := range pageMigrationMetrics(d.State.PageMigration.Stats) {
+			m.Location = d.Name()
+			r.dataRecorder.InsertData(tableName, m)
 		}
+	}
+}
+
+func pageMigrationMetrics(s driver.PageMigrationStats) []metric {
+	count := func(what string, value uint64) metric {
+		return metric{What: what, Value: float64(value), Unit: "count"}
+	}
+	seconds := func(what string, ps uint64) metric {
+		return metric{What: what, Value: secondsOf(timing.VTimeInPicoSec(ps)), Unit: "second"}
+	}
+
+	return []metric{
+		count("pm_faults", s.Faults),
+		count("pm_coalesced_faults", s.CoalescedFaults),
+		count("pm_retained_faults", s.RetainedFaults),
+		count("pm_deferred_faults", s.DeferredFaults),
+		count("pm_notifications", s.Notifications),
+		count("pm_coalesced_notifications", s.CoalescedNotifications),
+		count("pm_ignored_notifications", s.IgnoredNotifications),
+		count("pm_free_frame_notifications", s.FreeFrameNotifications),
+		count("pm_throttled_notifications", s.ThrottledNotifications),
+		count("pm_queue_full_waits", s.QueueFullWaits),
+		count("pm_batches", s.Batches),
+		count("pm_windows", s.Windows),
+		count("pm_migrations", s.Migrations),
+		count("pm_pages_prefetched", s.PagesPrefetched),
+		count("pm_pages_migrated", s.PagesMigrated),
+		{What: "pm_bytes_migrated", Value: float64(s.BytesMigrated), Unit: "byte"},
+		count("pm_frames_retired", s.FramesRetired),
+		count("pm_releases", s.Releases),
+		count("pm_thrashing_events", s.ThrashingEvents),
+		count("pm_thrashing_pages", s.ThrashingPages),
+		count("pm_throttles", s.Throttles),
+		count("pm_pins", s.Pins),
+		count("pm_unpins", s.Unpins),
+		seconds("pm_migration_time_sum", s.MigrationTimeSum),
+		seconds("pm_copy_time_sum", s.CopyTimeSum),
+		seconds("pm_shootdown_time_sum", s.ShootdownTimeSum),
 	}
 }
 

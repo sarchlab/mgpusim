@@ -21,17 +21,27 @@ type Spec struct {
 	OutgoingReqPerCycle int               `json:"outgoing_req_per_cycle"`
 	OutgoingRspPerCycle int               `json:"outgoing_rsp_per_cycle"`
 
-	// The access counters count the requests from inside, the remote L1
-	// misses of this GPU, per region of 2^AccessCounterLog2Unit bytes of
-	// physical memory (sarchlab/akita#590). When a region reaches
-	// AccessCounterThreshold, its counter is cleared and a
-	// protocol.AccessCounterNotification with DeviceID is sent from the
-	// AccessCounter port to AccessCounterHandler. Nothing is counted when the
+	// The access counters count the requests from inside, the remote demand
+	// accesses of this GPU, per physical page frame of 2^Log2PageSize bytes
+	// (sarchlab/akita#590). When a frame reaches AccessCounterThreshold, its
+	// counter is cleared and a protocol.AccessCounterNotification with
+	// DeviceID is sent from the AccessCounter port to AccessCounterHandler.
+	// The engine does not know which page a frame holds: a frame that is
+	// freed and allocated again keeps its count. Nothing is counted when the
 	// handler is empty or the threshold is 0.
 	AccessCounterHandler   messaging.RemotePort `json:"access_counter_handler"`
 	AccessCounterThreshold uint64               `json:"access_counter_threshold"`
-	AccessCounterLog2Unit  uint64               `json:"access_counter_log2_unit"`
+	Log2PageSize           uint64               `json:"log2_page_size"`
 	DeviceID               uint64               `json:"device_id"`
+
+	// MigrationModules selects the local memory below the L2 caches for the
+	// page copies of other GPUs' data movers, which arrive on
+	// MigrationOutside and leave on MigrationInside. It may be empty when no
+	// page migrates. MigrationReqPerCycle and MigrationRspPerCycle bound the
+	// requests and responses forwarded per cycle.
+	MigrationModules     mem.AddressMapper `json:"migration_modules"`
+	MigrationReqPerCycle int               `json:"migration_req_per_cycle"`
+	MigrationRspPerCycle int               `json:"migration_rsp_per_cycle"`
 }
 
 // transaction records one memory request that the RDMA engine has forwarded
@@ -69,8 +79,13 @@ type State struct {
 	TransactionsFromInside  []transaction `json:"transactions_from_inside"`
 	TransactionsFromOutside []transaction `json:"transactions_from_outside"`
 
-	// AccessCounts maps a region to its access count. PendingNotifications
-	// are the notifications waiting for the AccessCounter port.
+	// TransactionsFromMigration are the page-copy requests of other GPUs'
+	// data movers that wait for the memory below the L2.
+	TransactionsFromMigration []transaction `json:"transactions_from_migration"`
+
+	// AccessCounts maps a physical page frame number to its access count.
+	// PendingNotifications are the notifications waiting for the
+	// AccessCounter port.
 	AccessCounts         map[uint64]uint64 `json:"access_counts"`
 	PendingNotifications []messaging.Msg   `json:"pending_notifications"`
 }
@@ -93,6 +108,14 @@ type Ports struct {
 	// AccessCounter sends the access-counter notifications. It must be bound;
 	// it needs no connection when nothing is counted.
 	AccessCounter messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.accesscounter"`
+
+	// MigrationOutside receives the reads and writes of other GPUs' data
+	// movers and MigrationInside passes them to the memory below the L2
+	// caches (Spec.MigrationModules), so a page copy goes around the L2 of
+	// this GPU. Both must be bound; they need no connection when no page
+	// migrates.
+	MigrationOutside messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.responder"`
+	MigrationInside  messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 }
 type Middlewares struct {
 	Ctrl    *ctrlMiddleware
@@ -105,6 +128,11 @@ func (m *Middlewares) Initialize(c *Comp) {
 	}
 	if err := c.Spec.RemoteRDMAAddressTable.Validate(); err != nil {
 		panic("rdma: RemoteRDMAAddressTable: " + err.Error())
+	}
+	if len(c.Spec.MigrationModules.Destinations) > 0 {
+		if err := c.Spec.MigrationModules.Validate(); err != nil {
+			panic("rdma: MigrationModules: " + err.Error())
+		}
 	}
 
 	m.Ctrl = &ctrlMiddleware{comp: c}

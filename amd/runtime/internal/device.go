@@ -11,6 +11,15 @@ const (
 	DeviceTypeUnifiedGPU
 )
 
+// AllocatorType marks the type of memory allocator
+type AllocatorType int
+
+// Defines supported allocation algorithms
+const (
+	AllocatorTypeDefault AllocatorType = iota
+	AllocatorTypeBuddy
+)
+
 // DeviceProperties defines the properties of a device
 type DeviceProperties struct {
 	CUCount  int

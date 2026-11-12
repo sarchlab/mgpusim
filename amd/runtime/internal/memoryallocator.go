@@ -205,13 +205,15 @@ func (a *memoryAllocatorImpl) removePage(pid vm.PID, vAddr uint64) {
 
 	deviceID := a.deviceIDByPAddr(page.PAddr)
 	dState := a.devices[deviceID].MemState
-	dState.retirePAddr(page.PAddr)
+	dState.addSinglePAddr(page.PAddr)
 
 	a.pageTable.Remove(page.PID, page.VAddr)
 }
 
-// AllocateFrame takes a new physical page of a device without mapping it.
-// Physical addresses only increase, so the frame has never been used.
+// AllocateFrame takes a physical page of a device without mapping it. It
+// comes from the device's ordinary free pages, so it may have been used and
+// freed before. The caller maps it in the page table; Free returns the frame
+// that a page maps when it is freed.
 func (a *memoryAllocatorImpl) AllocateFrame(deviceID int) uint64 {
 	a.Lock()
 	defer a.Unlock()

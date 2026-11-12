@@ -47,9 +47,13 @@ var _ = Describe("RDMA Engine", func() {
 		ctrlPort       messaging.Port
 		accessCounter  messaging.Port
 
-		localCache messaging.RemotePort
-		remoteGPU  messaging.RemotePort
-		cpCtrl     messaging.RemotePort
+		migrationOutside messaging.Port
+		migrationInside  messaging.Port
+
+		localCache  messaging.RemotePort
+		localMemory messaging.RemotePort
+		remoteGPU   messaging.RemotePort
+		cpCtrl      messaging.RemotePort
 	)
 
 	makePort := func(name string, bufSize int) messaging.Port {
@@ -70,6 +74,7 @@ var _ = Describe("RDMA Engine", func() {
 		DeferCleanup(func() { Expect(simulation.Terminate()).To(Succeed()) })
 
 		localCache = messaging.RemotePort("LocalCache")
+		localMemory = messaging.RemotePort("LocalMemory")
 		remoteGPU = messaging.RemotePort("RemoteGPU")
 		cpCtrl = messaging.RemotePort("CP.Ctrl")
 
@@ -79,6 +84,7 @@ var _ = Describe("RDMA Engine", func() {
 				spec := DefaultSpec()
 				spec.LocalModules = mem.AddressMapper{Destinations: []messaging.RemotePort{localCache}}
 				spec.RemoteRDMAAddressTable = mem.AddressMapper{Destinations: []messaging.RemotePort{remoteGPU}}
+				spec.MigrationModules = mem.AddressMapper{Destinations: []messaging.RemotePort{localMemory}}
 				return spec
 			}()).
 			Build("RDMAEngine")
@@ -89,6 +95,8 @@ var _ = Describe("RDMA Engine", func() {
 		dataOutside = makePort("RDMADataOutside", 4)
 		ctrlPort = makePort("Ctrl", 4)
 		accessCounter = makePort("AccessCounter", 4)
+		migrationOutside = makePort("MigrationOutside", 4)
+		migrationInside = makePort("MigrationInside", 4)
 		Expect(simulation.Initialize()).To(Succeed())
 	})
 
@@ -166,14 +174,18 @@ var _ = Describe("RDMA Engine", func() {
 	})
 
 	Context("access counters", func() {
-		readsFromInside := func(n int) {
+		readsFromInsideAt := func(addr uint64, n int) {
 			for i := 0; i < n; i++ {
-				requestInside.Deliver(makeReadReq(localCache, requestInside.AsRemote()))
+				read := makeReadReq(localCache, requestInside.AsRemote())
+				read.Payload = memprotocol.ReadReq{Address: addr, AccessByteSize: 64}
+				requestInside.Deliver(read)
 				tickRDMA(rdmaEngine)
 				requestOutside.RetrieveOutgoing()
 			}
 			tickRDMA(rdmaEngine)
 		}
+
+		readsFromInside := func(n int) { readsFromInsideAt(0x100, n) }
 
 		It("should count nothing without a handler", func() {
 			readsFromInside(300)
@@ -183,7 +195,7 @@ var _ = Describe("RDMA Engine", func() {
 		})
 
 		It("should notify the handler at the threshold and clear the counter", func() {
-			rdmaEngine.Spec.AccessCounterHandler = "Driver.PageMigration"
+			rdmaEngine.Spec.AccessCounterHandler = "Driver.MigrationNotification"
 			rdmaEngine.Spec.AccessCounterThreshold = 2
 			rdmaEngine.Spec.DeviceID = 3
 
@@ -193,12 +205,97 @@ var _ = Describe("RDMA Engine", func() {
 			readsFromInside(1)
 			msg, ok := accessCounter.RetrieveOutgoing()
 			Expect(ok).To(BeTrue())
-			Expect(msg.Dst).To(Equal(messaging.RemotePort("Driver.PageMigration")))
+			Expect(msg.Dst).To(Equal(messaging.RemotePort("Driver.MigrationNotification")))
 			Expect(msg.Payload).To(Equal(protocol.AccessCounterNotification{
-				PAddr: 0x100, DeviceID: 3,
+				PAddr: 0, DeviceID: 3,
 			}))
 			Expect(rdmaEngine.State.AccessCounts).To(BeEmpty())
 			Expect(hasOutgoing(accessCounter)).To(BeFalse())
+		})
+
+		It("should count per physical page frame of the system page size", func() {
+			rdmaEngine.Spec.AccessCounterHandler = "Driver.MigrationNotification"
+			rdmaEngine.Spec.AccessCounterThreshold = 3
+			rdmaEngine.Spec.Log2PageSize = 21
+
+			// Two accesses to each of two 2 MiB frames reach no threshold,
+			// although four accesses hit the same 4 KiB-aligned offsets.
+			readsFromInsideAt(0x200040, 2)
+			readsFromInsideAt(0x400040, 2)
+			Expect(hasOutgoing(accessCounter)).To(BeFalse())
+
+			// A third access anywhere in the first frame does.
+			readsFromInsideAt(0x3ff000, 1)
+			msg, ok := accessCounter.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(msg.Payload).To(Equal(protocol.AccessCounterNotification{
+				PAddr: 0x200000,
+			}))
+			Expect(rdmaEngine.State.AccessCounts).To(Equal(map[uint64]uint64{2: 2}))
+		})
+
+		It("should keep the count of a frame that is freed and used again", func() {
+			rdmaEngine.Spec.AccessCounterHandler = "Driver.MigrationNotification"
+			rdmaEngine.Spec.AccessCounterThreshold = 3
+
+			// The engine counts frames and knows nothing of pages: whatever
+			// page gets the frame next inherits the two accesses, and its
+			// first access notifies.
+			readsFromInsideAt(0x5000, 2)
+			Expect(rdmaEngine.State.AccessCounts).To(Equal(map[uint64]uint64{5: 2}))
+
+			readsFromInsideAt(0x5fc0, 1)
+			Expect(hasOutgoing(accessCounter)).To(BeTrue())
+		})
+	})
+
+	Context("page copies of other GPUs", func() {
+		It("should forward a read to the memory below the L2", func() {
+			read := makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote())
+			migrationOutside.Deliver(read)
+
+			Expect(tickRDMA(rdmaEngine)).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(HaveLen(1))
+			Expect(rdmaEngine.State.TransactionsFromOutside).To(BeEmpty())
+			Expect(hasOutgoing(dataInside)).To(BeFalse())
+
+			forwarded, _ := migrationInside.RetrieveOutgoing()
+			Expect(forwarded.Payload).To(BeAssignableToTypeOf(memprotocol.ReadReq{}))
+			Expect(forwarded.Dst).To(Equal(localMemory))
+
+			rsp := makeDataReadyRsp(localMemory, migrationInside.AsRemote(), forwarded.ID)
+			migrationInside.Deliver(rsp)
+
+			Expect(tickRDMA(rdmaEngine)).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(BeEmpty())
+
+			returned, _ := migrationOutside.RetrieveOutgoing()
+			Expect(returned.Dst).To(Equal(
+				messaging.RemotePort("GPU[2].InboundDataMover.Outside")))
+			Expect(returned.RspTo).To(Equal(read.ID))
+		})
+
+		It("should not count a page copy as a remote access", func() {
+			rdmaEngine.Spec.AccessCounterHandler = "Driver.MigrationNotification"
+			rdmaEngine.Spec.AccessCounterThreshold = 1
+
+			migrationOutside.Deliver(
+				makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote()))
+			tickRDMA(rdmaEngine)
+
+			Expect(rdmaEngine.State.AccessCounts).To(BeEmpty())
+			Expect(hasOutgoing(accessCounter)).To(BeFalse())
+		})
+
+		It("should wait if the port to the memory is busy", func() {
+			fillOutgoing(migrationInside)
+
+			migrationOutside.Deliver(
+				makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote()))
+			tickRDMA(rdmaEngine)
+
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(BeEmpty())
+			Expect(hasIncoming(migrationOutside)).To(BeTrue())
 		})
 	})
 

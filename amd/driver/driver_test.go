@@ -35,6 +35,7 @@ type fixture struct {
 	p    *vm.PageTable
 	port messaging.Port
 	pm   messaging.Port
+	pn   messaging.Port
 }
 
 func newFixture(t *testing.T, mixed bool) *fixture {
@@ -62,6 +63,8 @@ func newRuntimeConfiguredFixture(
 	spec.D2HCycles = 1
 	for i := 0; i < 2; i++ {
 		spec.GPUs = append(spec.GPUs, messaging.RemotePort(fmt.Sprintf("GPU[%d].CommandProcessor", i+1)))
+		spec.MigrationAgents = append(spec.MigrationAgents,
+			messaging.RemotePort(fmt.Sprintf("GPU[%d].CommandProcessor.PageMigration", i+1)))
 		runtimeSpec.Devices = append(runtimeSpec.Devices, gpuruntime.DeviceProperties{CUCount: 4, DRAMSize: 4 * mem.GB})
 	}
 	configure(&spec)
@@ -80,11 +83,17 @@ func newRuntimeConfiguredFixture(
 	f.c.BindPort(GPUPortName, f.port)
 	(&noopConn{}).BindPort(f.port)
 	f.pm = twowaybuffered.MakeBuilder().WithSimulation(f.s).WithSpec(twowaybuffered.Spec{
-		IncomingCapacity: 64,
-		OutgoingCapacity: 64,
+		IncomingCapacity: 1024,
+		OutgoingCapacity: 1024,
 	}).Build()
 	f.c.BindPort(PageMigrationPortName, f.pm)
 	(&noopConn{}).BindPort(f.pm)
+	f.pn = twowaybuffered.MakeBuilder().WithSimulation(f.s).WithSpec(twowaybuffered.Spec{
+		IncomingCapacity: 64,
+		OutgoingCapacity: 1,
+	}).Build()
+	f.c.BindPort(MigrationNotificationPortName, f.pn)
+	(&noopConn{}).BindPort(f.pn)
 	if err := f.s.Initialize(); err != nil {
 		t.Fatal(err)
 	}

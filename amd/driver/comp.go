@@ -11,9 +11,14 @@ import (
 
 const GPUPortName = "GPU"
 
-// PageMigrationPortName names the port that receives the fault notifications
-// and the command processors' migration answers.
+// PageMigrationPortName names the port that sends the page-migration
+// commands to the command processors and receives their answers.
 const PageMigrationPortName = "PageMigration"
+
+// MigrationNotificationPortName names the port that receives the fault
+// notifications of the MMU and the access-counter notifications of the RDMA
+// engines.
+const MigrationNotificationPortName = "MigrationNotification"
 
 // Spec is the immutable simulated protocol and timing configuration.
 type Spec struct {
@@ -23,8 +28,10 @@ type Spec struct {
 	H2DCycles          int                    `json:"h2d_cycles"`
 	GPUs               []messaging.RemotePort `json:"gpus"`
 
-	// PageMigration holds the migration parameters. MigrationAgents are the
-	// "PageMigration" ports of the GPUs' command processors, by GPU.
+	// PageMigration holds the policy and the tuning parameters of page
+	// migration. MigrationAgents are the "PageMigration" ports of the GPUs'
+	// command processors, by GPU; a platform that migrates pages has one per
+	// GPU.
 	PageMigration   PageMigrationSpec      `json:"page_migration"`
 	MigrationAgents []messaging.RemotePort `json:"migration_agents"`
 }
@@ -36,7 +43,7 @@ type Execution struct {
 	Requests []messaging.Msg
 
 	// WaitsForMigration is set on a memory copy that has not started
-	// because a unit it uses is migrating.
+	// because a page it uses is migrating.
 	WaitsForMigration bool
 }
 
@@ -69,9 +76,15 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
 	GPU messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
 
-	// PageMigration receives the MMU's fault notifications and the command
-	// processors' answers, and sends the migration commands.
+	// PageMigration sends the migration commands to the command processors
+	// and receives their answers.
 	PageMigration messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
+
+	// MigrationNotification receives the MMU's fault notifications and the
+	// RDMA engines' access-counter notifications. The driver sends nothing
+	// on it. It is separate from PageMigration so that notifications that
+	// wait for a place in the queue never delay an answer.
+	MigrationNotification messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
 }
 type Middlewares struct {
 	Execute   *executionMW

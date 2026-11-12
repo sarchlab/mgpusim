@@ -49,6 +49,7 @@ type Builder struct {
 	d2hCycles          int
 	h2dCycles          int
 	pageMigration      driver.PageMigrationSpec
+	allocator          gpuruntime.AllocatorType
 
 	globalStorage     *mem.Storage
 	rdmaAddressMapper mem.AddressMapper
@@ -93,14 +94,25 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 	return b
 }
 
-// WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
-// WithPageMigration configures page migration between the GPUs
-// (sarchlab/akita#589). The default policy is none.
+// WithPageMigration sets the policy and the tuning parameters of page
+// migration between the GPUs. The default is
+// driver.DefaultPageMigrationSpec: pages migrate on faults
+// (sarchlab/akita#589). Access-counter migration (sarchlab/akita#590) and no
+// migration are other policies of the same specification.
 func (b Builder) WithPageMigration(spec driver.PageMigrationSpec) Builder {
 	b.pageMigration = spec
 	return b
 }
 
+// WithAllocator selects the physical-memory allocator of the devices. The
+// default is the free list; gpuruntime.AllocatorBuddy reuses freed frames
+// first.
+func (b Builder) WithAllocator(allocator gpuruntime.AllocatorType) Builder {
+	b.allocator = allocator
+	return b
+}
+
+// WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
 	return b
@@ -133,6 +145,7 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
+	runtimeSpec.Allocator = b.allocator
 	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
 	spec.D2HCycles = b.d2hCycles
 	spec.H2DCycles = b.h2dCycles
@@ -158,8 +171,15 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	interDeviceConn.BindPort(port)
 	interDeviceConn.BindPort(
 		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
+	interDeviceConn.BindPort(
+		b.buildPort(comp, driver.MigrationNotificationPortName, driverGPUPortBufSize))
 	return runtime
 }
+
+// migrationNotificationPort is where the MMU reports the faults and the RDMA
+// engines the access counters.
+const migrationNotificationPort = messaging.RemotePort(
+	"Driver." + driver.MigrationNotificationPortName)
 
 func (b *Builder) cpuGPUMemSizeMustEqual() {
 	if b.cpuMemSize != b.gpuMemSize {
@@ -209,7 +229,7 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 	// port.
 	faults := b.pageMigration.Policy == driver.PageMigrationFault
 	if faults {
-		spec.FaultHandler = messaging.RemotePort("Driver.PageMigration")
+		spec.FaultHandler = migrationNotificationPort
 	}
 
 	mmuComponent := modeling.MakeBuilder[*mmu.Comp](spec).WithSimulation(b.simulation).
@@ -268,16 +288,40 @@ func (b *Builder) createGPUBuilder(
 			WithDriverPort(driverPort)
 	}
 
-	// With access-counter migration, the RDMA engines count the remote L1
-	// misses per migration unit and notify the driver.
-	if b.pageMigration.Policy == driver.PageMigrationCounter {
-		gpuBuilder = gpuBuilder.WithAccessCounter(
-			messaging.RemotePort("Driver."+driver.PageMigrationPortName),
-			b.pageMigration.AccessCounterThreshold,
-			b.pageMigration.Log2Unit)
+	return gpuBuilder.WithPageMigration(b.gpuPageMigrationConfig())
+}
+
+// gpuPageMigrationConfig derives what each GPU needs from the
+// page-migration specification of the system.
+func (b *Builder) gpuPageMigrationConfig() gpubuilder.PageMigrationConfig {
+	cfg := gpubuilder.PageMigrationConfig{
+		DataMoverPages: b.pageMigration.DataMoverPages,
+		PeerMemory:     b.createPeerMemoryMapper(),
 	}
 
-	return gpuBuilder
+	// With access-counter migration, the RDMA engines count the remote
+	// accesses per physical page frame and notify the driver.
+	if b.pageMigration.Policy == driver.PageMigrationCounter {
+		cfg.AccessCounterHandler = migrationNotificationPort
+		cfg.AccessCounterThreshold = b.pageMigration.AccessCounterThreshold
+	}
+
+	return cfg
+}
+
+// createPeerMemoryMapper maps a physical address to the port where the data
+// movers of the other GPUs reach the memory below the L2 caches of the GPU
+// that owns the address.
+func (b *Builder) createPeerMemoryMapper() mem.AddressMapper {
+	mapper := mem.AddressMapper{InterleavingSize: b.gpuMemSize}
+	mapper.Destinations = append(mapper.Destinations, messaging.RemotePort("CPU"))
+
+	for i := 1; i <= b.numGPUs; i++ {
+		mapper.Destinations = append(mapper.Destinations,
+			messaging.RemotePort(fmt.Sprintf("GPU[%d].RDMA.MigrationOutside", i)))
+	}
+
+	return mapper
 }
 
 func (b *Builder) createRDMAAddressMapper() {

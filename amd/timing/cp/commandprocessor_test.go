@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/mem/datamoverprotocol"
 	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
@@ -128,7 +129,8 @@ var _ = Describe("CommandProcessor", func() {
 		spec.L2Caches = remoteList("L2", 2)
 		spec.AddressTranslators = remoteList("AT", 3)
 		spec.TLBs = remoteList("TLB", 2)
-		spec.DataMover = "DataMover.Top"
+		spec.InboundDataMover = "InboundDataMover.Top"
+		spec.OutboundDataMover = "OutboundDataMover.Top"
 	})
 
 	JustBeforeEach(func() {
@@ -462,86 +464,295 @@ var _ = Describe("CommandProcessor", func() {
 			Expect(rsp.Dst).To(Equal(messaging.RemotePort("Driver.PageMigration")))
 		}
 
-		It("holds the pages in every address translator", func() {
+		expectNotDone := func() {
+			_, ok := pmPort.PeekOutgoing()
+			Expect(ok).To(BeFalse())
+		}
+
+		pageOf := func(addr uint64) memcontrolprotocol.AddressRange {
+			return memcontrolprotocol.AddressRange{Start: addr, End: addr + 4096}
+		}
+
+		// expectPageCtrl asserts that reqs are one request per destination for
+		// the page at addr of process pid, addressed by range only.
+		expectPageCtrl := func(
+			reqs []messaging.Msg,
+			cmd memcontrolprotocol.Command,
+			dsts []messaging.RemotePort,
+			pid int,
+			addr uint64,
+		) {
+			Expect(reqs).To(HaveLen(len(dsts)))
+			for i, r := range reqs {
+				Expect(r.Dst).To(Equal(dsts[i]))
+				Expect(r.Payload).To(Equal(memcontrolprotocol.Req{
+					Command:  cmd,
+					PID:      vm.PID(pid),
+					HasRange: true,
+					Range:    pageOf(addr),
+				}))
+			}
+		}
+
+		It("holds the page in every address translator", func() {
 			useMockDispatcher()
-			req := migrationReq(protocol.PageHoldReq{PID: 1, VAddrs: []uint64{0x1000}})
+			req := migrationReq(protocol.PageHoldReq{PID: 1, VAddr: 0x1000, PageSize: 4096})
 
 			reqs := collectCtrlReqs(toTranslation)
-			Expect(reqs).To(HaveLen(3))
-			for _, r := range reqs {
-				c := r.Payload.(memcontrolprotocol.Req)
-				Expect(c.Command).To(Equal(memcontrolprotocol.CmdHold))
-				Expect(c.Addresses).To(Equal([]uint64{0x1000}))
-				Expect(c.PID).To(BeEquivalentTo(1))
-			}
+			expectPageCtrl(reqs, memcontrolprotocol.CmdHold,
+				cp.Spec.AddressTranslators, 1, 0x1000)
 
-			_, ok := pmPort.RetrieveOutgoing()
-			Expect(ok).To(BeFalse())
+			// The answer waits for the last translator.
+			ackCtrlReqs(toTranslation, reqs[:2])
+			expectNotDone()
+
+			ackCtrlReqs(toTranslation, reqs[2:])
+			expectDone(req)
+			Expect(cp.State.PageJobs).To(BeEmpty())
+			Expect(cp.State.CtrlWaits).To(BeEmpty())
+		})
+
+		It("releases the page in every address translator", func() {
+			useMockDispatcher()
+			req := migrationReq(protocol.PageReleaseReq{PID: 1, VAddr: 0x1000, PageSize: 4096})
+
+			reqs := collectCtrlReqs(toTranslation)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdRelease,
+				cp.Spec.AddressTranslators, 1, 0x1000)
 
 			ackCtrlReqs(toTranslation, reqs)
 			expectDone(req)
 		})
 
-		It("releases the pages in every address translator", func() {
+		It("works on the pages of several commands at the same time", func() {
 			useMockDispatcher()
-			req := migrationReq(protocol.PageReleaseReq{PID: 1, VAddrs: []uint64{0x1000}})
+			first := migrationReq(protocol.PageHoldReq{PID: 1, VAddr: 0x1000, PageSize: 4096})
+			second := migrationReq(protocol.PageHoldReq{PID: 1, VAddr: 0x2000, PageSize: 4096})
 
-			expectCtrlStep(toTranslation, memcontrolprotocol.CmdRelease,
-				cp.Spec.AddressTranslators)
+			// Both holds are out before either is acknowledged.
+			reqs := collectCtrlReqs(toTranslation)
+			expectPageCtrl(reqs[:3], memcontrolprotocol.CmdHold,
+				cp.Spec.AddressTranslators, 1, 0x1000)
+			expectPageCtrl(reqs[3:], memcontrolprotocol.CmdHold,
+				cp.Spec.AddressTranslators, 1, 0x2000)
+
+			// Each page is answered with its own last acknowledgement: the
+			// second page does not wait for the first.
+			ackCtrlReqs(toTranslation, reqs[3:])
+			expectDone(second)
+
+			ackCtrlReqs(toTranslation, reqs[:3])
+			expectDone(first)
+		})
+
+		It("does not wait for a control sequence", func() {
+			useMockDispatcher()
+			cp.State.CtrlSeq = ctrlSeqKernelStart
+			cp.State.PendingAcks = 1
+
+			migrationReq(protocol.PageHoldReq{PID: 1, VAddr: 0x1000, PageSize: 4096})
+
+			Expect(collectCtrlReqs(toTranslation)).To(HaveLen(3))
+		})
+
+		It("flushes and then invalidates the frame on every L2 bank", func() {
+			useMockDispatcher()
+			req := migrationReq(protocol.PageFlushReq{PAddr: 0x8000, PageSize: 4096})
+
+			flushes := collectCtrlReqs(toCaches)
+			expectPageCtrl(flushes, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+
+			// A bank invalidates only after its own Flush is acknowledged.
+			ackCtrlReqs(toCaches, flushes[:1])
+			invalidates := collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[:1], 0, 0x8000)
+
+			ackCtrlReqs(toCaches, invalidates)
+			expectNotDone()
+
+			ackCtrlReqs(toCaches, flushes[1:])
+			invalidates = collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[1:], 0, 0x8000)
+
+			ackCtrlReqs(toCaches, invalidates)
 			expectDone(req)
 		})
 
-		It("shoots down: pauses, invalidates, and enables every TLB", func() {
+		It("invalidates the frame on every L2 bank without a flush", func() {
 			useMockDispatcher()
-			req := migrationReq(protocol.PageShootdownReq{PID: 1, VAddrs: []uint64{0x1000}})
+			req := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
+
+			reqs := collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x8000)
+
+			ackCtrlReqs(toCaches, reqs)
+			expectDone(req)
+		})
+
+		It("runs one maintenance operation per L2 bank at a time", func() {
+			useMockDispatcher()
+			first := migrationReq(protocol.PageFlushReq{PAddr: 0x8000, PageSize: 4096})
+			second := migrationReq(protocol.PageFlushReq{PAddr: 0x9000, PageSize: 4096})
+
+			// Only the Flush of the first frame is out: the second pair waits
+			// on each bank for the first pair of that bank.
+			flushes := collectCtrlReqs(toCaches)
+			expectPageCtrl(flushes, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+
+			ackCtrlReqs(toCaches, flushes)
+			invalidates := collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches, 0, 0x8000)
+
+			// Bank 0 finishes the first pair and starts the second, while
+			// bank 1 still invalidates the first frame.
+			ackCtrlReqs(toCaches, invalidates[:1])
+			next := collectCtrlReqs(toCaches)
+			expectPageCtrl(next, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches[:1], 0, 0x9000)
+			expectNotDone()
+
+			ackCtrlReqs(toCaches, invalidates[1:])
+			expectDone(first)
+
+			next = append(next, collectCtrlReqs(toCaches)...)
+			ackCtrlReqs(toCaches, next)
+			ackCtrlReqs(toCaches, collectCtrlReqs(toCaches))
+			expectDone(second)
+		})
+
+		It("keeps the flush of the driver and the L2 maintenance of pages apart", func() {
+			useMockDispatcher()
+			page := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
+			invalidates := collectCtrlReqs(toCaches)
+			Expect(invalidates).To(HaveLen(2))
+
+			// The flush waits for the banks, and a page that arrives now
+			// waits for the flush.
+			toDriver.Deliver(messaging.Msg{ID: cp.NewID(), Src: driverPort,
+				Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}})
+			later := migrationReq(protocol.PageInvalidateReq{PAddr: 0x9000, PageSize: 4096})
+
+			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
+			Expect(cp.State.FlushWaiting).To(BeTrue())
+			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
+
+			ackCtrlReqs(toCaches, invalidates)
+			expectDone(page)
+			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqFlush))
+
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, cp.Spec.L2Caches)
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches)
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches)
+			expectNotDone()
+			expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
+
+			// The flush is over: the page that waited runs.
+			reqs := collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x9000)
+			ackCtrlReqs(toCaches, reqs)
+			expectDone(later)
+		})
+
+		It("shoots the pages that wait down in one round of the TLBs", func() {
+			useMockDispatcher()
+			first := migrationReq(protocol.PageShootdownReq{PID: 1, VAddr: 0x1000, PageSize: 4096})
+
+			pauses := collectCtrlReqs(toTranslation)
+			Expect(pauses).To(HaveLen(2))
+			Expect(pauses[0].Payload).To(Equal(
+				memcontrolprotocol.Req{Command: memcontrolprotocol.CmdPause}))
+
+			// Two more pages arrive during the round: they form the next one.
+			second := migrationReq(protocol.PageShootdownReq{PID: 1, VAddr: 0x2000, PageSize: 4096})
+			third := migrationReq(protocol.PageShootdownReq{PID: 2, VAddr: 0x3000, PageSize: 4096})
+			Expect(collectCtrlReqs(toTranslation)).To(BeEmpty())
+
+			ackCtrlReqs(toTranslation, pauses)
+			invalidates := collectCtrlReqs(toTranslation)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate, cp.Spec.TLBs, 1, 0x1000)
+
+			ackCtrlReqs(toTranslation, invalidates)
+			expectCtrlStep(toTranslation, memcontrolprotocol.CmdEnable, cp.Spec.TLBs)
+			expectDone(first)
 
 			expectCtrlStep(toTranslation, memcontrolprotocol.CmdPause, cp.Spec.TLBs)
-			expectCtrlStep(toTranslation, memcontrolprotocol.CmdInvalidate, cp.Spec.TLBs)
+			invalidates = collectCtrlReqs(toTranslation)
+			expectPageCtrl(invalidates[:2], memcontrolprotocol.CmdInvalidate,
+				cp.Spec.TLBs, 1, 0x2000)
+			expectPageCtrl(invalidates[2:], memcontrolprotocol.CmdInvalidate,
+				cp.Spec.TLBs, 2, 0x3000)
+
+			ackCtrlReqs(toTranslation, invalidates)
 			expectCtrlStep(toTranslation, memcontrolprotocol.CmdEnable, cp.Spec.TLBs)
-			expectDone(req)
+			expectDone(second)
+			expectDone(third)
+			Expect(cp.State.Shootdown.Step).To(Equal(shootdownIdle))
 		})
 
-		It("copies with the data mover from outside to inside", func() {
+		It("pulls a page with the inbound data mover", func() {
 			useMockDispatcher()
 			req := migrationReq(protocol.PageCopyReq{
-				SrcAddress: 0x1000, DstAddress: 0x9000, ByteSize: 4096})
+				SrcAddress: 0x1000, DstAddress: 0x9000, PageSize: 4096})
 
 			move, ok := toDataMover.RetrieveOutgoing()
 			Expect(ok).To(BeTrue())
-			Expect(move.Dst).To(Equal(messaging.RemotePort("DataMover.Top")))
-			m := move.Payload.(datamoverprotocol.Req)
-			Expect(m.SrcSide).To(Equal(datamoverprotocol.SideOutside))
-			Expect(m.DstSide).To(Equal(datamoverprotocol.SideInside))
-			Expect(m.ByteSize).To(Equal(uint64(4096)))
+			Expect(move.Dst).To(Equal(messaging.RemotePort("InboundDataMover.Top")))
+			Expect(move.Payload).To(Equal(datamoverprotocol.Req{
+				SrcAddress: 0x1000,
+				DstAddress: 0x9000,
+				ByteSize:   4096,
+				SrcSide:    datamoverprotocol.SideOutside,
+				DstSide:    datamoverprotocol.SideInside,
+			}))
 
 			toDataMover.Deliver(messaging.Msg{
 				ID: cp.NewID(), RspTo: move.ID, Payload: datamoverprotocol.Rsp{}})
 			tickUntilQuiet()
 
 			expectDone(req)
+			Expect(cp.State.MoveJobs).To(BeEmpty())
 		})
 
-		It("serializes migration requests with each other", func() {
+		It("pushes a page with the outbound data mover", func() {
 			useMockDispatcher()
-			first := migrationReq(protocol.PageHoldReq{PID: 1, VAddrs: []uint64{0x1000}})
-			migrationReq(protocol.PageHoldReq{PID: 1, VAddrs: []uint64{0x2000}})
+			migrationReq(protocol.PageCopyReq{
+				SrcAddress: 0x1000, DstAddress: 0x9000, PageSize: 4096, Push: true})
 
-			reqs := collectCtrlReqs(toTranslation)
-			Expect(reqs).To(HaveLen(3)) // only the first hold runs
-			ackCtrlReqs(toTranslation, reqs)
-			expectDone(first)
-
-			Expect(collectCtrlReqs(toTranslation)).To(HaveLen(3))
+			move, ok := toDataMover.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(move.Dst).To(Equal(messaging.RemotePort("OutboundDataMover.Top")))
+			m := move.Payload.(datamoverprotocol.Req)
+			Expect(m.SrcSide).To(Equal(datamoverprotocol.SideInside))
+			Expect(m.DstSide).To(Equal(datamoverprotocol.SideOutside))
 		})
 
-		It("waits for a running control sequence", func() {
+		It("submits the copies in arrival order and answers each on its own", func() {
 			useMockDispatcher()
-			cp.State.CtrlSeq = ctrlSeqFlush
+			var reqs []messaging.Msg
+			for i := range uint64(3) {
+				reqs = append(reqs, migrationReq(protocol.PageCopyReq{
+					SrcAddress: 0x1000 * (i + 1), DstAddress: 0x9000, PageSize: 4096}))
+			}
 
-			migrationReq(protocol.PageHoldReq{PID: 1, VAddrs: []uint64{0x1000}})
+			// All three are with the data mover before any completes.
+			moves := collectCtrlReqs(toDataMover)
+			Expect(moves).To(HaveLen(3))
+			for i, move := range moves {
+				Expect(move.Payload.(datamoverprotocol.Req).SrcAddress).
+					To(Equal(0x1000 * uint64(i+1)))
+			}
 
-			Expect(collectCtrlReqs(toTranslation)).To(BeEmpty())
-			Expect(cp.State.MigrationReqs).To(HaveLen(1))
+			toDataMover.Deliver(messaging.Msg{
+				ID: cp.NewID(), RspTo: moves[1].ID, Payload: datamoverprotocol.Rsp{}})
+			tickUntilQuiet()
+
+			expectDone(reqs[1])
+			expectNotDone()
 		})
 	})
 })

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks"
@@ -53,6 +54,14 @@ func (m *forwardMiddleware) Tick() bool {
 		madeProgress = m.processIncomingRsp() || madeProgress
 	}
 
+	for i := 0; i < spec.MigrationRspPerCycle; i++ {
+		madeProgress = m.processMigrationRsp() || madeProgress
+	}
+
+	for i := 0; i < spec.MigrationReqPerCycle; i++ {
+		madeProgress = m.processMigrationReq() || madeProgress
+	}
+
 	return madeProgress
 }
 
@@ -91,8 +100,12 @@ func (m *forwardMiddleware) processFromL1() bool {
 	return true
 }
 
-// countAccess counts a remote L1 miss to addr. When its region reaches the
-// threshold, the counter is cleared and a notification is queued.
+// countAccess counts a remote demand access of this GPU to the physical page
+// frame of addr. When the frame reaches the threshold, its counter is cleared
+// and a notification with the address of the frame is queued. A count
+// belongs to the frame, not to the page that it holds: it survives the frame
+// being freed and allocated again, and the driver resolves the frame when it
+// services the notification.
 func (m *forwardMiddleware) countAccess(addr uint64) {
 	spec := m.comp.Spec
 	if spec.AccessCounterHandler == "" || spec.AccessCounterThreshold == 0 {
@@ -104,21 +117,21 @@ func (m *forwardMiddleware) countAccess(addr uint64) {
 		state.AccessCounts = make(map[uint64]uint64)
 	}
 
-	region := addr >> spec.AccessCounterLog2Unit
-	state.AccessCounts[region]++
+	frame := addr >> spec.Log2PageSize
+	state.AccessCounts[frame]++
 
-	if state.AccessCounts[region] < spec.AccessCounterThreshold {
+	if state.AccessCounts[frame] < spec.AccessCounterThreshold {
 		return
 	}
 
-	delete(state.AccessCounts, region)
+	delete(state.AccessCounts, frame)
 	state.PendingNotifications = append(state.PendingNotifications,
 		messaging.Msg{
 			ID:  m.comp.NewID(),
 			Src: m.comp.Ports.AccessCounter.AsRemote(),
 			Dst: spec.AccessCounterHandler,
 			Payload: protocol.AccessCounterNotification{
-				PAddr:    addr,
+				PAddr:    frame << spec.Log2PageSize,
 				DeviceID: spec.DeviceID,
 			},
 		})
@@ -185,48 +198,77 @@ func (m *forwardMiddleware) processIncomingRsp() bool {
 // processIncomingReq forwards a request from a remote GPU to the local module
 // that owns the address.
 func (m *forwardMiddleware) processIncomingReq() bool {
-	outPort := m.port("RDMADataOutside")
-	item, ok := outPort.PeekIncoming()
+	return m.forwardReqInward(
+		m.port("RDMADataOutside"), m.port("RDMADataInside"),
+		m.comp.Spec.LocalModules, &m.comp.State.TransactionsFromOutside)
+}
+
+// processFromL2 forwards a response from the local memory modules back to the
+// remote GPU that initiated the transaction.
+func (m *forwardMiddleware) processFromL2() bool {
+	return m.forwardRspOutward(
+		m.port("RDMADataInside"), m.port("RDMADataOutside"),
+		&m.comp.State.TransactionsFromOutside)
+}
+
+// processMigrationReq forwards a read or a write of another GPU's data mover
+// to the local memory below the L2 caches.
+func (m *forwardMiddleware) processMigrationReq() bool {
+	return m.forwardReqInward(
+		m.comp.Ports.MigrationOutside, m.comp.Ports.MigrationInside,
+		m.comp.Spec.MigrationModules, &m.comp.State.TransactionsFromMigration)
+}
+
+// processMigrationRsp forwards a response of the memory below the L2 caches
+// back to the data mover.
+func (m *forwardMiddleware) processMigrationRsp() bool {
+	return m.forwardRspOutward(
+		m.comp.Ports.MigrationInside, m.comp.Ports.MigrationOutside,
+		&m.comp.State.TransactionsFromMigration)
+}
+
+// forwardReqInward forwards a request that arrived on outPort to the local
+// module that modules selects, through inPort, and records it in
+// transactions.
+func (m *forwardMiddleware) forwardReqInward(
+	outPort, inPort messaging.Port,
+	modules mem.AddressMapper,
+	transactions *[]transaction,
+) bool {
+	req, ok := outPort.PeekIncoming()
 	if !ok {
 		return false
 	}
 
-	req := item
-
-	inPort := m.port("RDMADataInside")
 	if !inPort.CanSend() {
 		return false
 	}
 
-	dst := m.comp.Spec.LocalModules.Find(requestAddress(req))
+	dst := modules.Find(requestAddress(req))
 	cloned := cloneReq(m.comp.NewID(), req, inPort.AsRemote(), dst)
 
 	trans := m.startTransaction(req, cloned)
 	inPort.Send(cloned)
 	outPort.RetrieveIncoming()
 
-	m.comp.State.TransactionsFromOutside = append(
-		m.comp.State.TransactionsFromOutside,
-		trans)
+	*transactions = append(*transactions, trans)
 
 	return true
 }
 
-// processFromL2 forwards a response from the local memory modules back to the
-// remote GPU that initiated the transaction.
-func (m *forwardMiddleware) processFromL2() bool {
-	inPort := m.port("RDMADataInside")
-	item, ok := inPort.PeekIncoming()
+// forwardRspOutward forwards a response that arrived on inPort back to the
+// requester of its transaction, through outPort.
+func (m *forwardMiddleware) forwardRspOutward(
+	inPort, outPort messaging.Port,
+	transactions *[]transaction,
+) bool {
+	rsp, ok := inPort.PeekIncoming()
 	if !ok {
 		return false
 	}
 
-	rsp := item
-
-	state := &m.comp.State
-	index := findTransactionByRspTo(
-		rsp.RspTo, state.TransactionsFromOutside)
-	trans := state.TransactionsFromOutside[index]
+	index := findTransactionByRspTo(rsp.RspTo, *transactions)
+	trans := (*transactions)[index]
 
 	// The remote response has arrived: end the remote round-trip wait now,
 	// before the egress-port backpressure below, so the wait to forward the
@@ -234,10 +276,9 @@ func (m *forwardMiddleware) processFromL2() bool {
 	// retry does not re-emit.
 	if !trans.RemoteMilestoneEmitted {
 		m.markRemoteRoundTripDone(trans)
-		state.TransactionsFromOutside[index].RemoteMilestoneEmitted = true
+		(*transactions)[index].RemoteMilestoneEmitted = true
 	}
 
-	outPort := m.port("RDMADataOutside")
 	if !outPort.CanSend() {
 		return false
 	}
@@ -247,9 +288,7 @@ func (m *forwardMiddleware) processFromL2() bool {
 	inPort.RetrieveIncoming()
 
 	m.endTransaction(trans)
-	state.TransactionsFromOutside = append(
-		state.TransactionsFromOutside[:index],
-		state.TransactionsFromOutside[index+1:]...)
+	*transactions = append((*transactions)[:index], (*transactions)[index+1:]...)
 
 	return true
 }

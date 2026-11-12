@@ -19,14 +19,18 @@ func DefaultSpec() Spec {
 		// uvm_perf_access_counter_threshold; the counters stay off until
 		// AccessCounterHandler is set.
 		AccessCounterThreshold: 256,
-		AccessCounterLog2Unit:  12,
+		Log2PageSize:           12,
+
+		MigrationReqPerCycle: 4,
+		MigrationRspPerCycle: 4,
 	}
 }
 
 // Builder builds RDMA engines. Configuration is supplied as a whole through
 // WithSpec; wiring is supplied through WithSimulation and WithResources. The
 // component declares its "RDMARequestInside", "RDMARequestOutside",
-// "RDMADataInside", "RDMADataOutside", "Ctrl", and "AccessCounter" ports; the port instances
+// "RDMADataInside", "RDMADataOutside", "Ctrl", "AccessCounter",
+// "MigrationOutside", and "MigrationInside" ports; the port instances
 // are supplied externally after Build with AssignPort.
 type Builder struct {
 	spec      Spec

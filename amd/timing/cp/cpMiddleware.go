@@ -199,6 +199,14 @@ func (m *cpMiddleware) processFlushReq(req messaging.Msg) bool {
 		return false
 	}
 
+	// The flush drains and flushes every L2 bank, so it waits for the L2
+	// maintenance that page migration has in progress; no new one starts
+	// until the flush is done.
+	state.FlushWaiting = m.ctrlMW().banksBusy()
+	if state.FlushWaiting {
+		return false
+	}
+
 	state.CurrFlushReq = req
 	m.ctrlMW().startSeq(ctrlSeqFlush)
 

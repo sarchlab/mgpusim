@@ -42,6 +42,11 @@ type runtimeState struct {
 	Queues                   []queueData
 	Events                   map[Event]eventState
 	Codes                    []codeAddress
+
+	// HighestFrame is, per device, the highest physical page that was ever
+	// allocated. A device hands its unused pages out in increasing address
+	// order, so a page at or below the mark has been allocated before.
+	HighestFrame []uint64
 }
 type runtimeCheckpoint struct {
 	State     runtimeState
@@ -70,7 +75,7 @@ func NewRuntime(
 func (r *Runtime) addDevice(kind internal.DeviceType, properties DeviceProperties) {
 	d := &internal.Device{ID: len(r.devices), Type: kind,
 		Properties: internal.DeviceProperties(properties),
-		MemState:   internal.NewDeviceMemoryState(r.config.Log2PageSize)}
+		MemState:   internal.NewDeviceMemoryState(r.config.Log2PageSize, internal.AllocatorType(r.config.Allocator))}
 	d.SetTotalMemSize(properties.DRAMSize)
 	r.allocator.RegisterDevice(d)
 	r.devices = append(r.devices, d)
@@ -134,7 +139,7 @@ func (r *Runtime) CreateUnifiedGPU(_ Context, gpuIDs []int) int {
 		panic("must unify at least 1 GPU")
 	}
 	dev := &internal.Device{ID: len(r.devices), Type: internal.DeviceTypeUnifiedGPU, UnifiedGPUIDs: slices.Clone(gpuIDs),
-		MemState: internal.NewDeviceMemoryState(r.config.Log2PageSize)}
+		MemState: internal.NewDeviceMemoryState(r.config.Log2PageSize, internal.AllocatorType(r.config.Allocator))}
 	for _, id := range gpuIDs {
 		if id < 1 || id >= len(r.devices) || r.devices[id].Type != internal.DeviceTypeGPU {
 			panic("can only unify GPUs")
@@ -153,14 +158,45 @@ func (r *Runtime) CreateCommandQueue(h Context) CommandQueue {
 func (r *Runtime) AllocateMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.Allocate(c.PID, size, c.GPU))
-	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size})
+	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
 }
 func (r *Runtime) AllocateUnifiedMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.AllocateUnified(c.PID, size))
-	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size})
+	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
+}
+
+// recycles reports whether a new allocation got a physical page that was
+// allocated before, and records the pages it got. The caches of a GPU can
+// still hold lines of a recycled page, as dirty as its last user left them,
+// and a host copy writes memory around the caches. The allocation is
+// therefore born dirty, so Driver flushes the caches before a copy into it,
+// exactly as it does for a buffer that a kernel has written.
+func (r *Runtime) recycles(pid vm.PID, ptr Ptr, size uint64) bool {
+	recycled := false
+	pageSize := uint64(1) << r.config.Log2PageSize
+	for offset := uint64(0); offset < size; offset += pageSize {
+		page, ok := r.pageTable.Find(pid, uint64(ptr)+offset)
+		if ok && r.recycledFrame(int(page.DeviceID), page.PAddr) {
+			recycled = true
+		}
+	}
+	return recycled
+}
+
+// recycledFrame reports whether a physical page that a device has just
+// handed out was allocated before, and records it.
+func (r *Runtime) recycledFrame(device int, pAddr uint64) bool {
+	for len(r.state.HighestFrame) <= device {
+		r.state.HighestFrame = append(r.state.HighestFrame, 0)
+	}
+	if pAddr <= r.state.HighestFrame[device] {
+		return true
+	}
+	r.state.HighestFrame[device] = pAddr
+	return false
 }
 
 // FreeMemory releases storage immediately. Call only after the batch using it
@@ -179,7 +215,17 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 	return fmt.Errorf("runtime: unknown allocation %d", ptr)
 }
 func (r *Runtime) Remap(h Context, addr, size uint64, device int) {
-	r.allocator.Remap(r.context(h).PID, addr, size, device)
+	c := r.context(h)
+	r.allocator.Remap(c.PID, addr, size, device)
+	if !r.recycles(c.PID, Ptr(addr), size) {
+		return
+	}
+	for i := range c.Buffers {
+		b := &c.Buffers[i]
+		if uint64(b.Address) < addr+size && addr < uint64(b.Address)+b.Size {
+			b.Dirty = true
+		}
+	}
 }
 func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uint64 {
 	if len(gpus) == 1 {
