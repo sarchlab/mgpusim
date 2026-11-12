@@ -204,3 +204,95 @@ func TestAnUploadIntoADistributedFrameThatWasUsedBefore(t *testing.T) {
 		})
 	}
 }
+
+// copyModes are the ways the host copies memory on the timing platform: with
+// timed copies through the GPUs, and with magic copies where they can be
+// used.
+var copyModes = []struct {
+	name string
+	opts []option
+}{
+	{"timed-copies", nil},
+	{"magic-copies", []option{magicCopies}},
+}
+
+// Contexts made with InitWithExistingPID address the same memory, so what the
+// caches hold of a buffer concerns the copies of all of them. Here a page of
+// a buffer of the first context is remapped into a frame with dirty L2
+// lines, and a second context uploads into the page: the upload must flush
+// the lines, although the second context has no buffer there.
+func TestAnotherContextUploadsIntoARemappedFrameThatWasUsedBefore(t *testing.T) {
+	for _, gpuType := range platforms {
+		for _, mode := range copyModes {
+			t.Run(gpuType+"/"+mode.name, func(t *testing.T) {
+				s := newSystem(t, gpuType, append([]option{buddyAllocator}, mode.opts...)...)
+				other := s.sibling()
+
+				const floats = 1024
+
+				junk, freed := s.writeJunk(2, floats)
+				result := s.local(2, floats*floatBytes)
+				buffer := s.local(1, 2*s.pageSize)
+				second := s.at(buffer, 1, 0)
+
+				s.padBuddy(2, 2)
+				s.free(junk)
+				s.rt.Remap(s.ctx, uint64(second), s.pageSize, 2)
+
+				if page := s.page(second); page.DeviceID != 2 || page.PAddr != freed {
+					t.Fatalf("the page is in frame %#x of GPU %d, want the freed frame %#x of GPU 2",
+						page.PAddr, page.DeviceID, freed)
+				}
+
+				// The other context uploads. A kernel of the first context
+				// reads the page on GPU 2.
+				data := ramp(1, floats)
+				other.upload(second, data)
+				s.touch(2, result, second, floats)
+				s.run()
+
+				mustEqualFloats(t, "what GPU 2 read", s.download(result, floats), data)
+				mustEqualFloats(t, "the remapped page", other.download(second, floats), data)
+			})
+		}
+	}
+}
+
+// A kernel can write the buffers of every context of its address space. What
+// a kernel of a second context wrote into a buffer of the first is still in
+// the caches: a download must flush them first, whether it comes through the
+// context that ran the kernel or through the one that has the buffer.
+func TestADownloadOfWhatTheKernelOfAnotherContextWrote(t *testing.T) {
+	for _, gpuType := range platforms {
+		for _, mode := range copyModes {
+			for _, through := range []string{"kernel-context", "buffer-context"} {
+				t.Run(gpuType+"/"+mode.name+"/"+through, func(t *testing.T) {
+					s := newSystem(t, gpuType, mode.opts...)
+					other := s.sibling()
+
+					const floats = 1024
+
+					// No kernel has run yet, so the buffers are clean.
+					data := ramp(1, floats)
+					source := s.local(1, floats*floatBytes)
+					output := s.local(1, floats*floatBytes)
+					s.upload(source, data)
+
+					other.touch(1, output, source, floats)
+					other.run()
+
+					if !s.dirtyInL2(s.page(output).PAddr, floats*floatBytes) {
+						t.Fatal("the kernel output is in memory already; the test needs dirty L2 lines")
+					}
+
+					reader := s
+					if through == "kernel-context" {
+						reader = other
+					}
+
+					mustEqualFloats(t, "the download", reader.download(output, floats), data)
+				})
+			}
+		}
+	}
+}

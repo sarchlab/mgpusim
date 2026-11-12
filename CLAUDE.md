@@ -12,7 +12,7 @@ go build ./...
 ginkgo -r --skip-package=mccl,amd/tests/pagemigration
 
 # Run the page-migration acceptance scenarios (full multi-GPU simulations;
-# ~1 min for R9 Nano, ~10 min for MI300X)
+# ~1 min for R9 Nano, ~12 min for MI300X)
 go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m
 go test ./amd/tests/pagemigration/ -run '/mi300x' -count=1 -timeout 110m
 

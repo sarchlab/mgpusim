@@ -264,6 +264,40 @@ func TestAMagicCopyIntoAPageThatWasUsedBeforeTakesTheTimedPath(t *testing.T) {
 	mustEqual(t, "page in the global storage", f.stored(frame), uint32(0))
 }
 
+// Contexts made with InitWithExistingPID share an address space. A copy that
+// one of them submits into an allocation of another, in a page that was used
+// before, flushes the caches and goes through the GPU of the page, with
+// timed copies and with magic copies alike.
+func TestACopyThroughAnotherContextOfTheAddressSpaceIsFlushed(t *testing.T) {
+	for name, magic := range map[string]bool{"timed": false, "magic": true} {
+		t.Run(name, func(t *testing.T) {
+			f := newMagicCopyFixture(t, func(s *Spec) { s.UseMagicMemoryCopy = magic }, buddyRuntime)
+
+			used := f.r.AllocateMemory(f.ctx, testPageSize)
+			frame := f.page(uint64(used)).PAddr
+
+			if err := f.r.FreeMemory(f.ctx, used); err != nil {
+				t.Fatal(err)
+			}
+
+			page := f.unified(1)[0]
+			mustEqual(t, "frame of the page", page.PAddr, frame)
+
+			sibling := f.r.InitWithExistingPID(f.ctx)
+			f.h2d(f.r.CreateCommandQueue(sibling), page, 0x12345678)
+			f.run()
+
+			e := f.c.State.Executing
+			if len(e) != 1 {
+				t.Fatalf("the copy is not in flight: %+v", e)
+			}
+
+			mustEqual(t, "requests", f.requests(e[0]), []string{"Flush>1", "Flush>2", "MemCopyH2D>1"})
+			mustEqual(t, "page in the global storage", f.stored(frame), uint32(0))
+		})
+	}
+}
+
 // With uncached device memory, as in emulation, the GPUs read and write the
 // global storage themselves: every magic copy is direct.
 func TestAMagicCopyIsAlwaysDirectWithUncachedDeviceMemory(t *testing.T) {

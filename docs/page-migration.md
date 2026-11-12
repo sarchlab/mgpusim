@@ -264,6 +264,12 @@ hold lines of such a frame:
   to other GPUs, is therefore treated like a buffer that a kernel has
   written: the driver flushes the caches before a host copy into it.
 
+What the caches hold of a buffer belongs to its address space. The contexts
+made with `InitWithExistingPID` share one: a kernel of any of them dirties the
+buffers of all, and a host copy through any of them is flushed for a dirty
+buffer of any other. Only the context that allocated a buffer frees it.
+Address spaces with different process IDs do not affect each other.
+
 The frame that a page leaves is **retired**: it is not returned to the
 allocator, so nothing that still names it, such as an L1 line of another GPU
 that read the page remotely, can meet another page. `FreeMemory` returns the
@@ -304,7 +310,8 @@ there.
 - `amd/tests/pagemigration`: acceptance on complete R9 Nano and MI300X
   platforms with real kernels: page contents with dirty source lines, reused
   destination frames, and host uploads into reused frames (with magic memory
-  copies, and after `Distribute`); faults under backpressure and during the
+  copies, after `Distribute`, and through a second context of the address
+  space after `Remap`); faults under backpressure and during the
   Release, two windows on a data mover, a sparse window, counter-triggered
   prefetching, throttling, pinning and timed unpinning, a checkpoint in the
   middle of a copy, several GPUs fighting for the same pages, and the

@@ -187,6 +187,23 @@ func (s *system) prepareWorkload(numGPUs int) {
 	s.run()
 }
 
+// sibling returns the same system seen through a second context of its
+// address space, made with InitWithExistingPID. What is queued through it
+// goes to command queues of that context, one per GPU, and addresses the
+// memory that the first context allocated.
+func (s *system) sibling() *system {
+	other := *s
+	other.ctx = s.rt.InitWithExistingPID(s.ctx)
+	other.queues = nil
+
+	for gpu := 1; gpu <= len(s.queues); gpu++ {
+		s.rt.SelectGPU(other.ctx, gpu)
+		other.queues = append(other.queues, s.rt.CreateCommandQueue(other.ctx))
+	}
+
+	return &other
+}
+
 // local allocates memory of a GPU; it does not migrate.
 func (s *system) local(gpu int, bytes uint64) gpuruntime.Ptr {
 	s.rt.SelectGPU(s.ctx, gpu)

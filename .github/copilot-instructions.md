@@ -26,7 +26,7 @@ Always reference these instructions first and fallback to search or bash command
 - Acceptance tests: `cd amd/tests/acceptance && go build && ./acceptance -num-gpu=1` -- takes ~3.5 minutes. NEVER CANCEL. Set timeout to 10+ minutes.
 - Deterministic tests: `cd amd/tests/deterministic && python3 test.py` -- tests simulation reproducibility
 - Multi-GPU tests: Use `-num-gpu=2` or `-num-gpu=4` flags (these take longer, 30+ minutes each)
-- Page-migration scenarios: `go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m` -- takes ~1 minute; `-run '/mi300x'` takes ~10 minutes. NEVER CANCEL.
+- Page-migration scenarios: `go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m` -- takes ~1 minute; `-run '/mi300x'` takes ~12 minutes. NEVER CANCEL.
 
 ## Validation
 
