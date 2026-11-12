@@ -175,6 +175,59 @@ func TestFaultsBehindAFaultThatWaitsForAMemoryCopyAreServiced(t *testing.T) {
 	mustEqual(t, "requests that wait", len(f.c.State.PageMigration.Queue), 0)
 }
 
+// The queue is finite, and a fault that waits for a memory copy keeps its
+// entry. With a queue of one entry, the fault of another page is not taken
+// in while that entry is not free: it stays in the port, where it is not
+// lost, and is serviced once the copy has ended.
+func TestAFaultStaysInThePortWhileAFaultThatWaitsForACopyFillsTheQueue(t *testing.T) {
+	f := newMigrationFixture(t, func(s *PageMigrationSpec) {
+		noPrefetch(s)
+		s.QueueSize = 1
+	})
+	pages := f.unified(2)
+	a, b := pages[0], pages[1]
+
+	// A copy from page A is in flight.
+	f.running(gpuruntime.Command{
+		Kind: gpuruntime.CopyD2H, Src: gpuruntime.Ptr(a.VAddr), ByteSize: 64,
+	}, []messaging.Msg{f.request(protocol.MemCopyD2HReq{})})
+
+	f.deliverFault(a, 2)
+	f.deliverFault(b, 2)
+
+	// The driver comes to rest: the fault on A has the entry and waits for
+	// the copy, and the fault on B is still in the port.
+	f.ticks()
+
+	s := f.c.State.PageMigration
+	if len(s.Queue) != 1 || !s.Queue[0].Deferred || s.Pages[s.Queue[0].Page].VAddr != a.VAddr ||
+		s.Stats.Faults != 1 || s.Stats.DeferredFaults != 1 || s.Stats.QueueFullWaits == 0 {
+		t.Fatalf("queue %+v, stats %+v", s.Queue, s.Stats)
+	}
+
+	mustEqual(t, "faults in the port", f.pn.IncomingBuf().Size(), 1)
+	mustEqual(t, "commands", describe(f.outstanding()), []string(nil))
+
+	// The copy ends: the fault on A is serviced, which frees the entry for
+	// the fault on B.
+	f.c.State.Executing = nil
+	f.ticks()
+
+	mustEqual(t, "faults in the port", f.pn.IncomingBuf().Size(), 0)
+	mustEqual(t, "page A", describe(f.of(a)), []string{"Hold>1", "Hold>2"})
+	mustEqual(t, "page B", describe(f.of(b)), []string{"Hold>1", "Hold>2"})
+
+	// Both pages arrive on GPU 2.
+	f.finishAll()
+
+	mustEqual(t, "owner of A", f.page(a.VAddr).DeviceID, uint64(2))
+	mustEqual(t, "owner of B", f.page(b.VAddr).DeviceID, uint64(2))
+
+	if st := f.stats(); st.Faults != 2 || st.Migrations != 2 || st.DeferredFaults != 1 {
+		t.Fatalf("stats %+v", st)
+	}
+}
+
 // Two processes can have a page at the same virtual address. A process ID
 // has 32 bits: the two processes here differ only in bit 20.
 func TestPagesOfTwoProcessesAtTheSameAddressAreServicedOnTheirOwn(t *testing.T) {

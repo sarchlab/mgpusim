@@ -33,11 +33,20 @@ type PageMigrationSpec struct {
 	// PageMigrationNone.
 	Policy string `json:"policy"`
 
-	// The driver starts a batch as soon as requests wait: it takes the
+	// The driver starts a batch as soon as requests wait: it services the
 	// requests that wait at that moment, at most BatchSize
-	// (uvm_perf_fault_batch_count), and never waits to fill a batch. At most
-	// QueueSize requests wait; while the queue is full, new faults and
-	// notifications stay in the port, and so at their senders.
+	// (uvm_perf_fault_batch_count), and never waits to fill a batch.
+	//
+	// QueueSize bounds what the driver takes in. A fault or a notification
+	// that needs an entry of the queue is taken from the port only while the
+	// queue has fewer than QueueSize entries. Otherwise it stays in the
+	// port, with everything that arrived behind it, and so at the senders:
+	// nothing is dropped. A fault that waits for a memory copy keeps its
+	// entry, so it counts; it takes no place in a batch, so the requests
+	// that are in the queue behind it are serviced. The only entries beyond
+	// QueueSize are faults that the driver took in while their page was
+	// serviced, which are queued when that service ends: at most one entry
+	// per such page.
 	BatchSize int `json:"batch_size"`
 	QueueSize int `json:"queue_size"`
 
@@ -390,9 +399,11 @@ func (m *migrationMW) receiveAnswers() bool {
 	}
 }
 
-// receiveNotifications takes in the fault and access-counter notifications.
-// None is ever dropped: a notification that needs a place in a full queue
-// stays in the port, so its sender keeps the ones behind it.
+// receiveNotifications takes in the fault and access-counter notifications,
+// in the order of the port. None is ever dropped: a notification that needs
+// an entry of a full queue stays at the head of the port, the ones behind it
+// stay behind it, whatever page they are for, and their senders keep the
+// rest. The queue is full also when its entries wait for a memory copy.
 func (m *migrationMW) receiveNotifications() bool {
 	s := m.state()
 	port := m.comp.Ports.MigrationNotification
@@ -497,7 +508,9 @@ func (m *migrationMW) acceptNotification(
 }
 
 // enqueuePage queues the demand faults of a page. A page whose service has
-// ended is queued also when the queue is full: its faults are never lost.
+// ended is queued also when the queue is full: its faults were taken in
+// while it was serviced and are never lost. QueueSize bounds what is taken
+// in from the port, and a page has at most one entry.
 func (m *migrationMW) enqueuePage(pi int) {
 	s := m.state()
 	s.Pages[pi].Queued = true
@@ -534,10 +547,11 @@ func (m *migrationMW) findPage(pid vm.PID, vAddr uint64) (int, bool) {
 // serviceBatch services the requests that wait, in arrival order, at most a
 // batch of them. It starts as soon as a request waits and takes what is
 // there. The faults of a page that a memory copy uses are not serviced: they
-// keep their place in the queue until the copy ends, and neither hold back
-// the requests behind them nor take a place in the batch. It reports no
-// progress when every request that is left waits for a memory copy, whose
-// end ticks the driver again.
+// keep their entry of the queue until the copy ends, and neither hold back
+// the requests that are in the queue behind them nor take a place in the
+// batch. Their entries still count toward QueueSize, so they can keep new
+// notifications in the port. It reports no progress when every request that
+// is left waits for a memory copy, whose end ticks the driver again.
 func (m *migrationMW) serviceBatch() bool {
 	s := m.state()
 	requests := s.Queue

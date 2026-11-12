@@ -36,8 +36,8 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 | Field | Default | Meaning |
 |---|---|---|
 | `Policy` | `fault` | `fault`, `counter`, or `none` |
-| `BatchSize` | 256 | most requests the driver takes in one batch (`uvm_perf_fault_batch_count`) |
-| `QueueSize` | 1024 | most requests that wait for a batch; beyond it, notifications stay with their senders |
+| `BatchSize` | 256 | most requests the driver services in one batch (`uvm_perf_fault_batch_count`) |
+| `QueueSize` | 1024 | entries of the request queue: a notification that needs one is taken in only while the queue has fewer, and waits in the port, and at its sender, otherwise (see [The queue is finite](#the-queue-is-finite)) |
 | `AccessCounterThreshold` | 256 | remote accesses of a GPU to a frame that notify the driver with `counter`; 0 turns the counters off (`uvm_perf_access_counter_threshold`) |
 | `PrefetchThreshold` | 51 | a migration takes the rest of the largest aligned region of its 2 MiB block along in which more than this percent of the page positions are on the destination; 0 turns prefetching off (`uvm_perf_prefetch_threshold`) |
 | `ThrashingThreshold` | 3 | thrashing events that make a page thrashing (`uvm_perf_thrashing_threshold`) |
@@ -123,10 +123,11 @@ would not clear the fault, and the access would wait for another Release. The
 Hold acknowledges only after the response has arrived.
 
 A memory copy never runs on a migrating page, and a page never migrates under
-a running memory copy: its faults wait for the copy. Only that copy and those
-faults wait. A copy of another command queue whose pages are idle starts, and
-the faults of other pages are serviced in the next batch; the faults that wait
-for a copy keep their place in the queue and take no place in a batch.
+a running memory copy: its faults wait for the copy. A copy of another command
+queue whose pages are idle starts. The faults that wait for a copy keep their
+entries of the request queue and take no place in a batch, so the requests
+that are in the queue behind them are serviced in the next batch. Their
+entries still count: see [The queue is finite](#the-queue-is-finite).
 
 ## No fault is lost
 
@@ -145,6 +146,31 @@ driver therefore never drops or ignores a fault.
   the queue is full, the driver leaves them in the port, and the MMU keeps
   the ones behind them. The answers of the command processors use another
   port and are never behind a notification.
+
+### The queue is finite
+
+The request queue has `QueueSize` entries, and there is no overflow queue
+behind it. What is bounded is what the driver takes in:
+
+- The driver takes the notifications from the port in the order they
+  arrived. A notification needs an entry if it is a fault on a page that is
+  neither queued nor serviced, or an access-counter notification that is not
+  queued yet. It is taken in only while the queue has fewer than `QueueSize`
+  entries.
+- While the queue is full, that notification stays at the head of the port,
+  and everything behind it stays behind it, whatever page it is for. The port
+  fills, and the MMU and the RDMA engines keep what they cannot send. Nothing
+  is dropped: the faults are serviced when entries are free again.
+- An entry is free when a batch has serviced its request. A fault that waits
+  for a memory copy is not serviced, so it keeps its entry until the copy
+  ends. It takes no place in a batch: requests that are already in the queue
+  behind it, for other pages, are serviced. But its entry counts: when such
+  faults fill the queue, new notifications wait in the port, also those for
+  other pages, until a copy ends.
+- A fault that arrives while its page is serviced takes no entry: it waits on
+  the page. When the service ends, the page is queued for its faults even if
+  the queue is full, because they were taken in before. These are the only
+  entries beyond `QueueSize`, at most one for each such page.
 
 ## Windows and the data movers
 
@@ -165,8 +191,12 @@ The pages are independent in what they wait for: a page never waits for the
 service of another page to end. The platform still does some steps of
 different pages in an order:
 
-- **Queue and batch.** At most `QueueSize` requests wait, and a batch takes at
-  most `BatchSize` of them, in arrival order.
+- **Queue and batch.** Notifications are taken in from the port in arrival
+  order, while the queue has fewer than `QueueSize` entries, and a batch
+  services at most `BatchSize` requests of the queue, in arrival order. A
+  fault that waits for a memory copy does not hold back the requests behind
+  it in the queue, but while such faults fill the queue, a new notification
+  for any page waits in the port for the end of a copy.
 - **Address translators.** An address translator acknowledges its Holds in the
   order they arrived. The Hold of a page whose accesses have all finished is
   acknowledged after the Holds that arrived before it at that translator,
