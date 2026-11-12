@@ -69,7 +69,9 @@ func newRuntimeConfiguredFixture(
 	}
 	configure(&spec)
 	configureRuntime(&runtimeSpec)
-	storage := mem.MakeStorageBuilder().WithSimulation(f.s).WithCapacity(12 * mem.GB).Build("GlobalStorage")
+	// The CPU and every GPU have 4 GB.
+	capacity := uint64(len(runtimeSpec.Devices)+1) * 4 * mem.GB
+	storage := mem.MakeStorageBuilder().WithSimulation(f.s).WithCapacity(capacity).Build("GlobalStorage")
 	f.r = gpuruntime.NewRuntime(f.s, "Runtime", runtimeSpec, f.p, storage)
 	f.c = MakeBuilder().WithSimulation(f.s).WithSpec(spec).WithResources(Resources{
 		Runtime:       f.r,

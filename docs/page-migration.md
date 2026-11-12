@@ -167,10 +167,14 @@ behind it. What is bounded is what the driver takes in:
   behind it, for other pages, are serviced. But its entry counts: when such
   faults fill the queue, new notifications wait in the port, also those for
   other pages, until a copy ends.
-- A fault that arrives while its page is serviced takes no entry: it waits on
-  the page. When the service ends, the page is queued for its faults even if
-  the queue is full, because they were taken in before. These are the only
-  entries beyond `QueueSize`, at most one for each such page.
+- The driver queues a page again by itself for faults that it has taken in
+  before, even if the queue is full, because those faults must not be lost.
+  There are two cases. A fault that arrives while its page is serviced takes
+  no entry and waits on the page; the page is queued when the service ends.
+  The faults of throttled GPUs leave the queue when the GPUs are throttled
+  and wait on the page; the page is queued when the nap of one of them ends.
+  These are the only entries beyond `QueueSize`, at most one for each such
+  page.
 
 ## Windows and the data movers
 
@@ -214,7 +218,13 @@ different pages in an order:
 - **TLBs.** The shootdowns of a GPU run in rounds, each for all the pages that
   wait.
 - **Memory copies.** A copy and the migration of a page that it uses exclude
-  each other, as described above.
+  each other, as described above. The Flush and the copy requests of a host
+  copy share a port of each command processor with the kernel launches and
+  wait behind a launch that waits for a dispatcher (see
+  [Limitations](#limitations)).
+- **Naps.** On a thrashing page, a throttled GPU takes the page when its own
+  nap is over, and of several such GPUs the one whose nap ended first (see
+  [Thrashing](#thrashing)).
 
 ## Prefetching
 
@@ -273,11 +283,25 @@ The policy follows the stages of UVM (`uvm_perf_thrashing.c`).
    `ThrashingNapNS`, unless it is the GPU selected to make progress. With
    faults, its access keeps waiting and its fault is kept; with counters, its
    notifications are skipped during the nap and its remote accesses go on.
-   The GPU whose nap ends becomes the selected one and may migrate the page,
-   so the page stays for at least a nap where it is used.
+   The GPU whose nap ends becomes the selected one and may migrate the page.
+
+   Every GPU has a nap of its own on a page. It starts when that GPU is
+   throttled, and a GPU that is throttled on the page earlier or later
+   neither shortens nor extends it: if GPU 2 is throttled at time 0 and GPU 3
+   half a nap later, GPU 2 may take the page after one nap and GPU 3 after
+   one and a half. With faults, the driver wakes at the end of each nap by
+   itself. When several GPUs wait and their naps are over, the GPU whose nap
+   ended first takes the page, whichever of their faults arrived first; a GPU
+   whose nap has not ended keeps waiting, even if its fault is the oldest.
+
+   Between two GPUs, the page so stays for at least a nap where it is used.
+   With more GPUs it goes on to the next GPU whose nap ends, so it can leave
+   a GPU sooner than a nap after it arrived there. Every throttling operation
+   of every GPU counts for the pin, which ends such a rotation.
 3. **Pinning.** After `PinThreshold` throttling operations in a row, the page
    is pinned **where it is**: the page table marks it `IsPinned`, the GPUs
-   that wait are released, and they access the page remotely.
+   that wait are released, also those whose nap has not ended, and they
+   access the page remotely.
 4. **Unpinning.** After `PinNS` the pin is cleared under a hold of every GPU,
    and the translations of the page are shot down, so the next access faults
    or is counted again. The timeout is background simulation work
@@ -339,7 +363,10 @@ there.
 
 - `amd/driver`: the policy and the phases of a page, against a fixture that
   plays the MMU, the RDMA engines, and the command processors; memory copies
-  and faults that wait for each other; pages of two processes at one address.
+  and faults that wait for each other; pages of two processes at one address;
+  three GPUs that are throttled on one page at different times, with faults
+  and with notifications, through a pin, and through a checkpoint of the
+  whole simulation.
 - `amd/timing/cp`, `amd/timing/rdma`, `amd/runtime`, `amd/runtime/internal`:
   the per-page commands, the frame counters and the path below the L2, the
   allocators, the physical range of each device, and recycled frames.
@@ -352,8 +379,10 @@ there.
   copies, after `Distribute`, and through a second context of the address
   space after `Remap`); faults under backpressure and during the
   Release, two windows on a data mover, a sparse window, counter-triggered
-  prefetching, throttling, pinning and timed unpinning, a checkpoint in the
-  middle of a copy, several GPUs fighting for the same pages, and the
+  prefetching, throttling, pinning and timed unpinning, the kernels of two
+  GPUs that are throttled at different times on a platform of three, a
+  checkpoint in the middle of a copy, several GPUs fighting for the same
+  pages, and the
   multi-GPU sample workloads with both policies. The tests run full
   simulations and skip with `-short`; `-run '/r9nano'` and `-run '/mi300x'`
   select a platform, and `-slow` adds the two largest workloads.
@@ -371,3 +400,21 @@ there.
 - The L1 caches of the GPUs are not coherent with each other: a GPU that reads
   a page remotely, while it is pinned or with the counter policy, can keep a
   line that the owner has written since. This is not new with page migration.
+- A timed host copy and faults can wait for each other through a saturated
+  command processor. A command processor takes the kernel launches, the cache
+  flushes, and the host copies of the driver from one port, in order. A launch
+  that finds every dispatcher busy (8 per GPU by default) stays at the head of
+  that port, and the requests behind it wait. The driver, for its part, keeps
+  the faults on the pages of a host copy that has started until the copy ends.
+  So when every kernel that occupies a dispatcher of a GPU waits for such a
+  fault, and a further launch is queued on that GPU in front of the Flush or
+  the copy request of that host copy, the kernels wait for the copy, the copy
+  waits for the launch, and the launch waits for a kernel. Nothing breaks the
+  cycle: the simulation runs out of events, and the runner reports the queues
+  that stalled. It needs more kernels at once on a GPU than it has
+  dispatchers, with all the running ones stalled on pages of a running copy.
+  It follows from the two rules above and has not been reproduced in a run.
+  This is accepted for now. Its remedy belongs with the stream and executor
+  queues that are to live in GPU memory, where a launch that waits for a
+  dispatcher no longer stands in front of the requests of other streams; the
+  command processor is not redesigned for it here.

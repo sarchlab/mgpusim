@@ -276,6 +276,17 @@ func (f *migrationFixture) advanceTo(ns uint64) {
 	f.ticks()
 }
 
+// runTo lets simulated time pass until the given time. Unlike advanceTo, it
+// does not tick the driver there: the driver ticks only where it has asked
+// for a tick itself.
+func (f *migrationFixture) runTo(ns uint64) {
+	f.t.Helper()
+
+	if err := f.s.Engine().(*timing.SerialEngine).RunUntil(nsToPS(ns)); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
 // describe prints commands as "<what>><GPU>", for example "Hold>2" for a
 // PageHoldReq to the command processor of GPU 2.
 func describe(msgs []messaging.Msg) []string {

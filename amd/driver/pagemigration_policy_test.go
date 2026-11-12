@@ -476,7 +476,7 @@ func TestThrashingIsDetectedThrottledAndPinned(t *testing.T) {
 	// nap. Its fault is kept; nothing is sent.
 	f.fault(page, 2)
 	mustEqual(t, "commands of a throttled GPU", len(f.outstanding()), 0)
-	mustEqual(t, "throttled", state().Throttled, []int{2})
+	mustEqual(t, "throttled", state().Throttled, []throttledGPU{{GPU: 2, Until: nsToPS(1000)}})
 	mustEqual(t, "waiters", state().Waiters, []int{2})
 
 	// The nap ends: GPU 2 is the one that makes progress, and migrates.

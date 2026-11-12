@@ -36,11 +36,7 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 		return true
 	}
 
-	for _, gpu := range slices.Clone(p.Waiters) {
-		if gpu == owner {
-			continue
-		}
-
+	for _, gpu := range m.requesters(p, owner) {
 		switch m.hint(pi, gpu, true) {
 		case hintMigrate:
 			m.startWindow(pi, gpu)
@@ -60,8 +56,10 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 
 // serviceThrottled ends the consideration of a page that does not move
 // now: the GPU that has the page is released if it waits (its fault was
-// answered before the page arrived), and the throttled GPUs keep waiting
-// for the end of their throttling.
+// answered before the page arrived), and the throttled GPUs keep waiting,
+// each for the end of its own nap. The request of the page has left the
+// queue; wakeThrottled queues the page again when the first of those naps
+// ends.
 func (m *migrationMW) serviceThrottled(pi, owner int) {
 	s := m.state()
 	p := &s.Pages[pi]

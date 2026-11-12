@@ -44,9 +44,11 @@ type PageMigrationSpec struct {
 	// nothing is dropped. A fault that waits for a memory copy keeps its
 	// entry, so it counts; it takes no place in a batch, so the requests
 	// that are in the queue behind it are serviced. The only entries beyond
-	// QueueSize are faults that the driver took in while their page was
-	// serviced, which are queued when that service ends: at most one entry
-	// per such page.
+	// QueueSize are faults that the driver has taken in before and that it
+	// queues again by itself: the faults that arrived while their page was
+	// serviced, when that service ends, and the faults of throttled GPUs,
+	// which left the queue when the GPUs were throttled, when the nap of one
+	// of them ends. That is at most one entry per page.
 	BatchSize int `json:"batch_size"`
 	QueueSize int `json:"queue_size"`
 
@@ -68,7 +70,8 @@ type PageMigrationSpec struct {
 	// with ThrashingThreshold events is thrashing
 	// (uvm_perf_thrashing_threshold). A GPU that asks for a thrashing page
 	// is throttled for ThrashingNapNS (uvm_perf_thrashing_nap) unless it is
-	// the GPU that may make progress. After PinThreshold throttling
+	// the GPU that may make progress; the nap of each GPU starts when that
+	// GPU is throttled. After PinThreshold throttling
 	// operations in a row (uvm_perf_thrashing_pin_threshold), the page is
 	// pinned where it is for PinNS (uvm_perf_thrashing_pin). A page forgets
 	// its thrashing when nothing happens to it for ThrashingEpochNS
@@ -181,15 +184,15 @@ type migrationPage struct {
 	Queued  bool  `json:"queued"`
 
 	// Thrashing. Events counts the thrashing events, up to the threshold.
-	// Throttled are the GPUs that wait for ThrottleEnd, ThrottleCount the
-	// throttling operations in a row, and Selected the GPU that may make
+	// Throttled are the GPUs that are throttled, each with the end of its
+	// own nap, in the order they were throttled. ThrottleCount counts the
+	// throttling operations in a row, and Selected is the GPU that may make
 	// progress while the others are throttled (0: none).
 	HasEvent      bool                  `json:"has_event"`
 	LastEvent     timing.VTimeInPicoSec `json:"last_event"`
 	LastActive    timing.VTimeInPicoSec `json:"last_active"`
 	Events        int                   `json:"events"`
-	Throttled     []int                 `json:"throttled"`
-	ThrottleEnd   timing.VTimeInPicoSec `json:"throttle_end"`
+	Throttled     []throttledGPU        `json:"throttled"`
 	ThrottleCount int                   `json:"throttle_count"`
 	Selected      int                   `json:"selected"`
 	Pinned        bool                  `json:"pinned"`
@@ -198,6 +201,26 @@ type migrationPage struct {
 	ServiceStart   timing.VTimeInPicoSec `json:"service_start"`
 	CopyStart      timing.VTimeInPicoSec `json:"copy_start"`
 	ShootdownStart timing.VTimeInPicoSec `json:"shootdown_start"`
+}
+
+// throttledGPU is a GPU that asked for a thrashing page and must wait until
+// Until, the end of its nap, before it may take the page. The nap is its
+// own: it starts when the GPU is throttled, and a GPU that is throttled on
+// the page earlier or later neither shortens nor extends it.
+type throttledGPU struct {
+	GPU   int                   `json:"gpu"`
+	Until timing.VTimeInPicoSec `json:"until"`
+}
+
+// napEnd returns the end of the nap of a GPU that is throttled on the page.
+func (p *migrationPage) napEnd(gpu int) (until timing.VTimeInPicoSec, throttled bool) {
+	for _, t := range p.Throttled {
+		if t.GPU == gpu {
+			return t.Until, true
+		}
+	}
+
+	return 0, false
 }
 
 // migrationRequest is a request that waits in the queue: the demand faults
@@ -507,10 +530,12 @@ func (m *migrationMW) acceptNotification(
 	return true
 }
 
-// enqueuePage queues the demand faults of a page. A page whose service has
-// ended is queued also when the queue is full: its faults were taken in
-// while it was serviced and are never lost. QueueSize bounds what is taken
-// in from the port, and a page has at most one entry.
+// enqueuePage queues the demand faults of a page. QueueSize bounds what is
+// taken in from the port, and acceptFault checks it. The driver queues a
+// page again by itself also when the queue is full, because its faults were
+// taken in before and are never lost: a page whose service has ended with
+// faults that arrived meanwhile, and a page on which the nap of a throttled
+// GPU has ended. A page has at most one entry.
 func (m *migrationMW) enqueuePage(pi int) {
 	s := m.state()
 	s.Pages[pi].Queued = true

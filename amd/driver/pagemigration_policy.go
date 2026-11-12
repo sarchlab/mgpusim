@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
@@ -14,9 +15,12 @@ import (
 //     of its previous migration is a thrashing event. A page with a
 //     threshold of events is thrashing.
 //  2. Throttling. A GPU that asks for a thrashing page waits for a nap,
-//     unless it is the GPU selected to make progress. The GPU whose nap ends
-//     becomes the selected one and may migrate the page, so the page stays
-//     for at least a nap where it is used.
+//     unless it is the GPU selected to make progress. Every GPU has a nap of
+//     its own, from the moment it is throttled: a GPU that is throttled
+//     later does not postpone a GPU that waits already. The GPU whose nap
+//     ends becomes the selected one and may migrate the page. Between two
+//     GPUs the page so stays for at least a nap where it is used; with more
+//     GPUs it goes to each of them when its nap ends.
 //  3. Pinning. After a threshold of throttling operations in a row, the page
 //     is pinned where it is and the other GPUs access it remotely, until the
 //     pin times out.
@@ -76,9 +80,9 @@ func (m *migrationMW) recordMigration(pi int) {
 }
 
 // hint tells what to do with a page that GPU gpu, which does not have it,
-// asks for. A GPU that is throttled keeps waiting until the nap ends; with
-// wake set, an access of the GPU waits for the page, so the driver must tick
-// then.
+// asks for. A GPU that is throttled keeps waiting until its own nap ends;
+// with wake set, an access of the GPU waits for the page, so the driver must
+// tick then.
 func (m *migrationMW) hint(pi, gpu int, wake bool) int {
 	s := m.state()
 	p := &s.Pages[pi]
@@ -90,14 +94,20 @@ func (m *migrationMW) hint(pi, gpu int, wake bool) int {
 		return hintMigrate
 	}
 
-	if slices.Contains(p.Throttled, gpu) {
-		if now < p.ThrottleEnd {
+	if until, throttled := p.napEnd(gpu); throttled {
+		if now < until {
+			// An access waits now: the driver must tick when the nap ends,
+			// also if a notification, for which nothing waits, started it.
+			if wake {
+				m.comp.TickAt(until)
+			}
+
 			return hintThrottle
 		}
 
 		// The nap is over: the GPU is the one that makes progress now.
-		p.Throttled = slices.DeleteFunc(p.Throttled, func(g int) bool {
-			return g == gpu
+		p.Throttled = slices.DeleteFunc(p.Throttled, func(t throttledGPU) bool {
+			return t.GPU == gpu
 		})
 		p.Selected = gpu
 
@@ -112,23 +122,71 @@ func (m *migrationMW) hint(pi, gpu int, wake bool) int {
 		return hintPin
 	}
 
-	p.Throttled = append(p.Throttled, gpu)
-	p.ThrottleEnd = now + nsToPS(m.spec().ThrashingNapNS)
+	// The nap of the GPU starts now. The GPUs that are throttled already
+	// keep the end of theirs.
+	until := now + nsToPS(m.spec().ThrashingNapNS)
+	p.Throttled = append(p.Throttled, throttledGPU{GPU: gpu, Until: until})
 	p.ThrottleCount++
 	p.LastActive = now
 	s.Stats.Throttles++
 
 	if wake {
-		m.comp.TickAt(p.ThrottleEnd)
+		m.comp.TickAt(until)
 	}
 
 	return hintThrottle
 }
 
-// wakeThrottled queues the faults of the pages whose throttling has ended.
+// requesters returns the GPUs that wait for a page and do not have it, in
+// the order in which they are considered for it. The GPUs whose nap is over
+// come first, the one whose nap ended first at the head: each has waited for
+// the page, and no GPU that asked later gets ahead of it. The others follow
+// in the order their faults arrived.
+func (m *migrationMW) requesters(p *migrationPage, owner int) []int {
+	now := m.now()
+
+	gpus := slices.DeleteFunc(slices.Clone(p.Waiters), func(gpu int) bool {
+		return gpu == owner
+	})
+
+	slices.SortStableFunc(gpus, func(a, b int) int {
+		aEnd, aThrottled := p.napEnd(a)
+		bEnd, bThrottled := p.napEnd(b)
+		aOver := aThrottled && aEnd <= now
+		bOver := bThrottled && bEnd <= now
+
+		switch {
+		case aOver && bOver:
+			return cmp.Compare(aEnd, bEnd)
+		case aOver:
+			return -1
+		case bOver:
+			return 1
+		default:
+			return 0
+		}
+	})
+
+	return gpus
+}
+
+// napOver reports whether a GPU that waits for the page can be considered
+// for it again: its own nap has ended, or it is not throttled.
+func (m *migrationMW) napOver(p *migrationPage) bool {
+	now := m.now()
+
+	return slices.ContainsFunc(p.Waiters, func(gpu int) bool {
+		until, throttled := p.napEnd(gpu)
+		return !throttled || until <= now
+	})
+}
+
+// wakeThrottled queues the faults of the pages on which the nap of a GPU
+// that waits has ended. That is the earliest end among the GPUs that wait
+// for the page, whichever of them was throttled or faulted first. The faults
+// were taken in before, so the page is queued also when the queue is full.
 func (m *migrationMW) wakeThrottled() bool {
 	s := m.state()
-	now := m.now()
 	madeProgress := false
 
 	s.Throttling = slices.DeleteFunc(s.Throttling, func(pi int) bool {
@@ -139,7 +197,7 @@ func (m *migrationMW) wakeThrottled() bool {
 			return true
 		}
 
-		if now < p.ThrottleEnd {
+		if !m.napOver(p) {
 			return false
 		}
 
