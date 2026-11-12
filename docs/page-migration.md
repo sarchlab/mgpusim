@@ -62,7 +62,7 @@ of the driver: `pm_faults`, `pm_coalesced_faults`, `pm_retained_faults`,
 |---|---|
 | MMU (Akita) | A walk of a unified page that is on another GPU and not pinned faults: the MMU answers at once with a fault response and notifies `Driver.MigrationNotification` from its `Notification` port. It never holds a walk, and keeps the notifications that the driver does not take yet. |
 | TLBs (Akita) | Forward a fault response without caching it. |
-| Address translators (Akita) | Hold faulted accesses and accesses to held pages in a list that uses no transaction slot; a Hold acknowledges once no access to the page is outstanding and no translation of it is in flight; a Release translates the held accesses again. |
+| Address translators (Akita) | Hold faulted accesses and accesses to held pages in a list that uses no transaction slot; a Hold acknowledges once no access to the page is outstanding and no translation of it is in flight, without waiting for the Holds of other pages; the page stays held until a Release, which translates the held accesses again. |
 | RDMA engines | With `counter`, count the requests on `RDMARequestInside` (the remote demand accesses of their GPU) per physical page frame. They also pass the page copies of other GPUs' data movers from `MigrationOutside` to the memory below the L2 (`MigrationInside`). |
 | Driver (`amd/driver/pagemigration*.go`) | Takes the notifications, decides in batches what each page does (target, prefetching, thrashing), allocates frames from the Runtime, updates the page table, and runs every page through its phases. |
 | Command processor (`amd/timing/cp/migration.go`) | Turns each one-page command of the driver into control requests for its address translators, TLBs, L2 banks, or data movers. It works on the commands of different pages at the same time. |
@@ -197,10 +197,14 @@ different pages in an order:
   fault that waits for a memory copy does not hold back the requests behind
   it in the queue, but while such faults fill the queue, a new notification
   for any page waits in the port for the end of a copy.
-- **Address translators.** An address translator acknowledges its Holds in the
-  order they arrived. The Hold of a page whose accesses have all finished is
-  acknowledged after the Holds that arrived before it at that translator,
-  which may still wait for an access to their page.
+- **Address translators.** An address translator acknowledges the Hold of a
+  page once no access to the page is outstanding and no translation of it is
+  in flight. It does not wait for the Holds of other pages: a Hold whose page
+  is quiet is acknowledged before a Hold that arrived earlier and still waits
+  for an access. Only the Holds of one process that have a page in common are
+  acknowledged in the order they arrived. A page stays held after the
+  acknowledgement, until its Release, and the driver waits for the Release
+  acknowledgements of every GPU before it services the page again.
 - **L2 banks.** A bank does one maintenance operation at a time: the Flush and
   Invalidate of a page run alone on each bank, and the cache flush of the
   driver waits for the banks.
