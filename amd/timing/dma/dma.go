@@ -266,15 +266,21 @@ func (m *dmaMiddleware) removeReqFromPendingReqList(
 	id uint64,
 ) messaging.Msg {
 	var reqToRet messaging.Msg
-	newList := make([]messaging.Msg, 0, len(m.comp.State.PendingReqs)-1)
-	for _, r := range m.comp.State.PendingReqs {
+	pending := m.comp.State.PendingReqs
+	kept := 0
+	for i := range pending {
+		r := &pending[i]
 		if r.ID == id {
-			reqToRet = r
+			reqToRet = *r
 		} else {
-			newList = append(newList, r)
+			if kept != i {
+				pending[kept] = *r
+			}
+			kept++
 		}
 	}
-	m.comp.State.PendingReqs = newList
+	clear(pending[kept:])
+	m.comp.State.PendingReqs = pending[:kept]
 
 	if reqToRet.ID == 0 {
 		panic("not found")
