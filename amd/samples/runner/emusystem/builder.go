@@ -84,7 +84,6 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	// and write the storage that the driver copies to and from, there are no
 	// page faults, and nothing migrates.
 	spec.UseMagicMemoryCopy = true
-	spec.UncachedDeviceMemory = true
 	spec.PageMigration.Policy = driver.PageMigrationNone
 	externalConn := directconnection.NewConnection("ExternalConn", b.simulation, timing.GHz)
 	gpuBuilder := b.createGPUBuilder(pageTable, storage)

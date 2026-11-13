@@ -140,19 +140,6 @@ func TestRemapAndDistributeThroughASiblingDirtyTheAllocationOfTheOwner(t *testin
 	}
 }
 
-// A page that migrates dirties the allocation that has it for every context
-// of its address space, and for no other.
-func TestAMigratedPageNeedsAFlushThroughEveryContext(t *testing.T) {
-	f := newAddressSpaceFixture(t)
-	buffer := f.allocate(1, 2)
-	other := f.allocate(1, 1)
-
-	f.r.MarkPageMigrated(f.r.context(f.sibling).PID, uint64(buffer)+recyclePageSize, recyclePageSize)
-
-	f.mustNeedFlush(buffer, 2, true)
-	f.mustNeedFlush(other, 1, false)
-}
-
 // The contexts share what the caches hold of an allocation, not the
 // allocation: only the context that made it frees it, and with it goes its
 // dirty record.

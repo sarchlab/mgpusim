@@ -251,7 +251,7 @@ var _ = Describe("RDMA Engine", func() {
 
 	Context("page copies of other GPUs", func() {
 		It("should forward a read to the memory below the L2", func() {
-			read := makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote())
+			read := makeReadReq("GPU[2].DataMover.Outside", migrationOutside.AsRemote())
 			migrationOutside.Deliver(read)
 
 			Expect(tickRDMA(rdmaEngine)).To(BeTrue())
@@ -271,7 +271,7 @@ var _ = Describe("RDMA Engine", func() {
 
 			returned, _ := migrationOutside.RetrieveOutgoing()
 			Expect(returned.Dst).To(Equal(
-				messaging.RemotePort("GPU[2].InboundDataMover.Outside")))
+				messaging.RemotePort("GPU[2].DataMover.Outside")))
 			Expect(returned.RspTo).To(Equal(read.ID))
 		})
 
@@ -280,7 +280,7 @@ var _ = Describe("RDMA Engine", func() {
 			rdmaEngine.Spec.AccessCounterThreshold = 1
 
 			migrationOutside.Deliver(
-				makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote()))
+				makeReadReq("GPU[2].DataMover.Outside", migrationOutside.AsRemote()))
 			tickRDMA(rdmaEngine)
 
 			Expect(rdmaEngine.State.AccessCounts).To(BeEmpty())
@@ -291,7 +291,7 @@ var _ = Describe("RDMA Engine", func() {
 			fillOutgoing(migrationInside)
 
 			migrationOutside.Deliver(
-				makeReadReq("GPU[2].InboundDataMover.Outside", migrationOutside.AsRemote()))
+				makeReadReq("GPU[2].DataMover.Outside", migrationOutside.AsRemote()))
 			tickRDMA(rdmaEngine)
 
 			Expect(rdmaEngine.State.TransactionsFromMigration).To(BeEmpty())

@@ -25,13 +25,13 @@ type Spec struct {
 	Freq timing.Freq `json:"freq"`
 
 	// UseMagicMemoryCopy copies between the host and the global storage
-	// directly, in no time, instead of asking the GPUs. UncachedDeviceMemory
-	// says that the GPUs read and write the global storage themselves, as in
-	// emulation, so every such copy is coherent. Without it the GPUs keep
-	// device memory in caches, and a copy that needs them flushed, such as
-	// one into a page that was used before, takes the timed path instead.
-	UseMagicMemoryCopy   bool `json:"use_magic_memory_copy"`
-	UncachedDeviceMemory bool `json:"uncached_device_memory"`
+	// directly, in no time, instead of asking the GPUs. Every copy does,
+	// and no cache is flushed for it. That is coherent where the GPUs read
+	// and write the global storage themselves, as in emulation. On a timing
+	// platform the GPUs keep device memory in caches that such a copy goes
+	// around: it misses what is only in a cache, and a cache keeps the
+	// lines that it has (see docs/page-migration.md).
+	UseMagicMemoryCopy bool `json:"use_magic_memory_copy"`
 
 	D2HCycles int                    `json:"d2h_cycles"`
 	H2DCycles int                    `json:"h2d_cycles"`

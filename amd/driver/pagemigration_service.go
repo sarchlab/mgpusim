@@ -210,12 +210,10 @@ func (m *migrationMW) ack(reqID uint64) {
 	case pagePrepare:
 		p.Phase = pageCopyWait
 	case pageCopy:
+		// The page is in the new frame. No GPU has used the frame since the
+		// destination dropped its L2 lines: the frame is not mapped yet, and
+		// the copy went around the L2.
 		s.Stats.CopyTimeSum += uint64(m.now() - p.CopyStart)
-		p.Phase = pageInvalidate
-		m.sendTo(pi, p.Dst, protocol.PageInvalidateReq{
-			PAddr: p.NewPAddr, PageSize: p.OldPage.PageSize,
-		})
-	case pageInvalidate:
 		m.remap(pi)
 		m.startShootdown(pi)
 	case pageShootdown:
@@ -248,7 +246,11 @@ func (m *migrationMW) held(pi int) {
 // the dirty L2 lines of the old frame back and drops its lines, so the
 // memory below its L2 holds the page. The destination drops the L2 lines of
 // the new frame: the frame may have been used before, and a dirty line left
-// from then must not be written back over the copy.
+// from then must not be written back over the copy. Its answer also waits
+// for the lines of the frame that the L2 is writing back already, so no
+// writeback of the frame is on its way when the copy starts. Nothing fills
+// the L2 with lines of the new frame after that: the frame is mapped only
+// after the copy, which goes around the L2.
 func (m *migrationMW) startPrepare(pi int) {
 	p := &m.state().Pages[pi]
 	p.Phase = pagePrepare
@@ -262,11 +264,11 @@ func (m *migrationMW) startPrepare(pi int) {
 }
 
 // submitCopies sends the copies of the pages that are ready to the command
-// processors of their destinations, one request per page. On the data mover
-// of a GPU, the pages of a window are submitted in the order of the window,
-// and a window is submitted completely before the next one starts; a page
-// then completes on its own, so pages of several windows are in flight
-// together.
+// processors of their destinations, one request per page: a page is always
+// pulled by the data mover of the GPU that it moves to. On the data mover of
+// a GPU, the pages of a window are submitted in the order of the window, and
+// a window is submitted completely before the next one starts; a page then
+// completes on its own, so pages of several windows are in flight together.
 func (m *migrationMW) submitCopies() bool {
 	s := m.state()
 	madeProgress := false
@@ -307,12 +309,11 @@ func (m *migrationMW) submitCopy(pi int) {
 	})
 }
 
-// remap points the page table to the new frame. No GPU translates the page
-// while it is held, so no TLB can be filled with the old mapping after this
-// point. The old frame is retired: it is not returned to the allocator, so
-// nothing that still names it, such as an L1 line, can meet another page.
-// The page is now in the memory below the L2 of its new GPU, so a host copy
-// of it must go through that GPU.
+// remap points the page table to the new frame once the copy is done. No GPU
+// translates the page while it is held, so no TLB can be filled with the old
+// mapping after this point. The old frame is retired: it is not returned to
+// the allocator, so nothing that still names it, such as an L1 line, can
+// meet another page.
 func (m *migrationMW) remap(pi int) {
 	s := m.state()
 	p := &s.Pages[pi]
@@ -321,7 +322,6 @@ func (m *migrationMW) remap(pi int) {
 	page.PAddr = p.NewPAddr
 	page.DeviceID = uint64(p.Dst)
 	m.comp.Resources.PageTable.Update(page)
-	m.comp.Resources.Runtime.MarkPageMigrated(page.PID, page.VAddr, page.PageSize)
 
 	s.Stats.PagesMigrated++
 	s.Stats.BytesMigrated += page.PageSize

@@ -15,11 +15,11 @@ type span struct {
 }
 
 // watcher samples a running system every nanosecond: the windows of the
-// driver, the page copies in the inbound data mover of a GPU, and the Hold
-// and Release commands that the command processors work on.
+// driver, the page copies in the data mover of a GPU, and the Hold and
+// Release commands that the command processors work on.
 type watcher struct {
 	s   *system
-	gpu int // the GPU whose inbound data mover is watched
+	gpu int // the GPU whose data mover is watched
 
 	windows  [][]uint64      // the old frames of the pages of each window, in order
 	admitted []uint64        // the source frames of the copies, in the order the mover took them
@@ -83,7 +83,7 @@ func (w *watcher) sample() {
 		w.windows = append(w.windows, frames)
 	}
 
-	for _, t := range w.s.inbound[w.gpu-1].State.Transactions {
+	for _, t := range w.s.movers[w.gpu-1].State.Transactions {
 		if _, ok := w.inMover[t.SrcAddress]; !ok {
 			w.admitted = append(w.admitted, t.SrcAddress)
 		}
@@ -166,8 +166,8 @@ func TestASparseWindowTakesThePagesThatExist(t *testing.T) {
 	mustEqualFloats(t, "the prefetched page", s.download(last, groupFloats), data)
 }
 
-// The scheduling of two windows on the inbound data mover of GPU 2, with
-// real kernels on R9 Nano. Five pages of an aligned group of eight are on
+// The scheduling of two windows on the data mover of GPU 2, with real
+// kernels on R9 Nano. Five pages of an aligned group of eight are on
 // GPU 2, so the fault on the sixth takes the two that are left along: a
 // window of three pages, A, B, and C. A fault on a page of the next group,
 // X, is a window of its own. A is submitted first, then B and C by address,
@@ -176,7 +176,7 @@ func TestASparseWindowTakesThePagesThatExist(t *testing.T) {
 // wait for the last Release answer of their page.
 //
 //nolint:funlen // Keep the placement of the pages and the scheduling checks together.
-func TestTwoWindowsOnTheInboundDataMover(t *testing.T) {
+func TestTwoWindowsOnTheDataMover(t *testing.T) {
 	s := newSystem(t, "r9nano")
 
 	const group = 8

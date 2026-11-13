@@ -10,19 +10,18 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// newMagicCopyFixture builds the driver of a timing platform with magic
-// memory copies: the GPUs keep device memory in caches.
-func newMagicCopyFixture(
+// newCopyFixture builds the driver of a timing platform, where the GPUs keep
+// device memory in caches, with magic or with timed memory copies.
+func newCopyFixture(
 	t *testing.T,
-	configure func(*Spec),
+	magic bool,
 	configureRuntime func(*gpuruntime.RuntimeSpec),
 ) *migrationFixture {
 	t.Helper()
 
 	f := newRuntimeConfiguredFixture(t, false, func(s *Spec) {
-		s.UseMagicMemoryCopy = true
+		s.UseMagicMemoryCopy = magic
 		noPrefetch(&s.PageMigration)
-		configure(s)
 	}, configureRuntime)
 
 	return &migrationFixture{fixture: f, t: t}
@@ -44,6 +43,15 @@ func (f *migrationFixture) h2d(q gpuruntime.CommandQueue, page vm.Page, value ui
 	f.r.EnqueueMemCopyH2D(q, gpuruntime.Ptr(page.VAddr), host.Address, 4)
 }
 
+// d2h queues a copy of the value at the start of a page to the host and
+// returns where it arrives.
+func (f *migrationFixture) d2h(q gpuruntime.CommandQueue, page vm.Page) gpuruntime.HostBuffer {
+	host := f.r.AllocateHostBuffer(q, 4)
+	f.r.EnqueueMemCopyD2H(q, host.Address, gpuruntime.Ptr(page.VAddr), 4)
+
+	return host
+}
+
 // stored returns the value at the start of a page frame in the global
 // storage.
 func (f *migrationFixture) stored(pAddr uint64) uint32 {
@@ -60,7 +68,7 @@ func (f *migrationFixture) requests(e Execution) []string {
 // execution list. The copies that waited behind it still get their tick:
 // nothing else wakes the driver once the pages are idle.
 func TestWaitingMagicCopiesAllCompleteOnceTheirPagesAreIdle(t *testing.T) {
-	f := newMagicCopyFixture(t, func(*Spec) {}, defaultRuntime)
+	f := newCopyFixture(t, true, defaultRuntime)
 	pages := f.unified(2)
 	second := f.r.CreateCommandQueue(f.ctx)
 
@@ -104,9 +112,9 @@ func TestAWaitingCopyDoesNotHoldBackTheCopyOfAnotherQueue(t *testing.T) {
 		t.Fatalf("the copies do not wait for their pages: %+v", e)
 	}
 
-	// The second page arrives on GPU 2: its copy starts there, while the
-	// copy of the first queue, which is ahead of it in the driver, keeps
-	// waiting.
+	// The second page arrives on GPU 2: its copy starts there, through the
+	// GPU that has the page now, while the copy of the first queue, which is
+	// ahead of it in the driver, keeps waiting.
 	f.finish(pages[1])
 	f.run()
 
@@ -118,8 +126,7 @@ func TestAWaitingCopyDoesNotHoldBackTheCopyOfAnotherQueue(t *testing.T) {
 		t.Fatalf("after the second page: %+v", e)
 	}
 
-	mustEqual(t, "requests of the second copy", f.requests(e[1]),
-		[]string{"Flush>1", "Flush>2", "MemCopyH2D>2"})
+	mustEqual(t, "requests of the second copy", f.requests(e[1]), []string{"MemCopyH2D>2"})
 
 	// The first copy starts when its page is idle.
 	f.finish(pages[0])
@@ -130,8 +137,7 @@ func TestAWaitingCopyDoesNotHoldBackTheCopyOfAnotherQueue(t *testing.T) {
 		t.Fatalf("after the first page: %+v", e)
 	}
 
-	mustEqual(t, "requests of the first copy", f.requests(e[0]),
-		[]string{"Flush>1", "Flush>2", "MemCopyH2D>2"})
+	mustEqual(t, "requests of the first copy", f.requests(e[0]), []string{"MemCopyH2D>2"})
 }
 
 // The faults of a page that a memory copy uses wait for the copy. They do
@@ -272,72 +278,43 @@ func TestPagesOfTwoProcessesAtTheSameAddressAreServicedOnTheirOwn(t *testing.T) 
 	}
 }
 
-// On a timing platform, a magic copy goes around the caches of the GPUs, so
-// it is used only for memory that no cache can hold a line of.
-func TestAMagicCopyIntoCleanMemoryIsDirect(t *testing.T) {
-	f := newMagicCopyFixture(t, func(*Spec) {}, defaultRuntime)
-	page := f.unified(1)[0]
+// dirtyPages are the ways a page comes to need a flush of the caches before a
+// host copy that goes through the GPUs.
+var dirtyPages = []struct {
+	name string
+	make func(f *migrationFixture) vm.Page
+}{
+	{"memory that a kernel may have written", func(f *migrationFixture) vm.Page {
+		page := f.unified(1)[0]
+		f.r.MarkBuffersDirty(f.ctx)
 
-	f.h2d(f.q, page, 0x12345678)
-	f.run()
+		return page
+	}},
+	{"a page that was used before", func(f *migrationFixture) vm.Page {
+		used := f.r.AllocateMemory(f.ctx, testPageSize)
+		frame := f.page(uint64(used)).PAddr
 
-	mustEqual(t, "unfinished commands", f.r.Unfinished(), []uint64{0})
-	mustEqual(t, "page", f.stored(page.PAddr), uint32(0x12345678))
+		if err := f.r.FreeMemory(f.ctx, used); err != nil {
+			f.t.Fatal(err)
+		}
 
-	if _, sent := f.port.RetrieveOutgoing(); sent {
-		t.Fatal("a direct copy asked a GPU")
-	}
+		page := f.unified(1)[0]
+		mustEqual(f.t, "frame of the page", page.PAddr, frame)
+
+		return page
+	}},
 }
 
-// A page that was used before can still have lines in the caches of its GPU.
-// A magic copy into it takes the timed path: the caches are flushed, and the
-// GPU of the page writes the memory below them.
-func TestAMagicCopyIntoAPageThatWasUsedBeforeTakesTheTimedPath(t *testing.T) {
-	f := newMagicCopyFixture(t, func(*Spec) {}, buddyRuntime)
+// A timed copy goes through the GPUs. When the caches may hold lines of the
+// memory, they are flushed first, and the GPU of the page then writes the
+// memory below them.
+func TestATimedCopyOfDirtyMemoryFlushesTheCaches(t *testing.T) {
+	for _, dirty := range dirtyPages {
+		t.Run(dirty.name, func(t *testing.T) {
+			f := newCopyFixture(t, false, buddyRuntime)
+			page := dirty.make(f)
 
-	used := f.r.AllocateMemory(f.ctx, testPageSize)
-	frame := f.page(uint64(used)).PAddr
-
-	if err := f.r.FreeMemory(f.ctx, used); err != nil {
-		t.Fatal(err)
-	}
-
-	page := f.unified(1)[0]
-	mustEqual(t, "frame of the page", page.PAddr, frame)
-
-	f.h2d(f.q, page, 0x12345678)
-	f.run()
-
-	e := f.c.State.Executing
-	if len(e) != 1 {
-		t.Fatalf("the copy is not in flight: %+v", e)
-	}
-
-	mustEqual(t, "requests", f.requests(e[0]), []string{"Flush>1", "Flush>2", "MemCopyH2D>1"})
-	mustEqual(t, "page in the global storage", f.stored(frame), uint32(0))
-}
-
-// Contexts made with InitWithExistingPID share an address space. A copy that
-// one of them submits into an allocation of another, in a page that was used
-// before, flushes the caches and goes through the GPU of the page, with
-// timed copies and with magic copies alike.
-func TestACopyThroughAnotherContextOfTheAddressSpaceIsFlushed(t *testing.T) {
-	for name, magic := range map[string]bool{"timed": false, "magic": true} {
-		t.Run(name, func(t *testing.T) {
-			f := newMagicCopyFixture(t, func(s *Spec) { s.UseMagicMemoryCopy = magic }, buddyRuntime)
-
-			used := f.r.AllocateMemory(f.ctx, testPageSize)
-			frame := f.page(uint64(used)).PAddr
-
-			if err := f.r.FreeMemory(f.ctx, used); err != nil {
-				t.Fatal(err)
-			}
-
-			page := f.unified(1)[0]
-			mustEqual(t, "frame of the page", page.PAddr, frame)
-
-			sibling := f.r.InitWithExistingPID(f.ctx)
-			f.h2d(f.r.CreateCommandQueue(sibling), page, 0x12345678)
+			f.h2d(f.q, page, 0x12345678)
 			f.run()
 
 			e := f.c.State.Executing
@@ -346,50 +323,59 @@ func TestACopyThroughAnotherContextOfTheAddressSpaceIsFlushed(t *testing.T) {
 			}
 
 			mustEqual(t, "requests", f.requests(e[0]), []string{"Flush>1", "Flush>2", "MemCopyH2D>1"})
-			mustEqual(t, "page in the global storage", f.stored(frame), uint32(0))
+			mustEqual(t, "page in the global storage", f.stored(page.PAddr), uint32(0))
 		})
 	}
 }
 
-// With uncached device memory, as in emulation, the GPUs read and write the
-// global storage themselves: every magic copy is direct.
-func TestAMagicCopyIsAlwaysDirectWithUncachedDeviceMemory(t *testing.T) {
-	f := newMagicCopyFixture(t, func(s *Spec) { s.UncachedDeviceMemory = true }, defaultRuntime)
-	page := f.unified(1)[0]
+// A magic copy reads and writes the global storage itself, in no time and
+// around the GPUs, on a timing platform as in emulation. It does so also for
+// the memory that a timed copy flushes the caches for: it asks no GPU and
+// flushes nothing, and what it copies is what the global storage has,
+// whatever a cache holds.
+func TestAMagicCopyOfDirtyMemoryIsDirect(t *testing.T) {
+	for _, dirty := range dirtyPages {
+		t.Run(dirty.name, func(t *testing.T) {
+			f := newCopyFixture(t, true, buddyRuntime)
+			page := dirty.make(f)
 
-	// A kernel has run: the buffers of the context are dirty.
-	f.r.MarkBuffersDirty(f.ctx)
-	f.h2d(f.q, page, 0x12345678)
-	f.run()
+			if !f.r.NeedsFlush(f.ctx, gpuruntime.Ptr(page.VAddr), testPageSize) {
+				t.Fatal("the memory is not dirty")
+			}
 
-	mustEqual(t, "unfinished commands", f.r.Unfinished(), []uint64{0})
-	mustEqual(t, "page", f.stored(page.PAddr), uint32(0x12345678))
+			f.h2d(f.q, page, 0x12345678)
+			f.run()
+
+			mustEqual(t, "unfinished commands after the upload", f.r.Unfinished(), []uint64{0})
+			mustEqual(t, "page in the global storage", f.stored(page.PAddr), uint32(0x12345678))
+
+			host := f.d2h(f.q, page)
+			f.run()
+
+			var got uint32
+			if err := f.r.ReadHost(host, &got); err != nil {
+				t.Fatal(err)
+			}
+
+			mustEqual(t, "unfinished commands after the download", f.r.Unfinished(), []uint64{0})
+			mustEqual(t, "download", got, uint32(0x12345678))
+
+			if _, sent := f.port.RetrieveOutgoing(); sent || len(f.c.State.RequestsToSend) != 0 {
+				t.Fatal("a magic copy asked a GPU")
+			}
+		})
+	}
 }
 
-// A page that has migrated is in the memory below the L2 of its new GPU,
-// which is not always the global storage. A host copy of it goes through the
-// GPU from then on.
-func TestAMigratedPageNeedsAFlushBeforeAHostCopy(t *testing.T) {
-	f := newMagicCopyFixture(t, func(*Spec) {}, defaultRuntime)
-	migrates := f.unified(1)[0]
-	stays := f.unified(1)[0]
+// Contexts made with InitWithExistingPID share an address space. A timed copy
+// that one of them submits into an allocation of another, in a page that was
+// used before, flushes the caches and goes through the GPU of the page.
+func TestACopyThroughAnotherContextOfTheAddressSpaceIsFlushed(t *testing.T) {
+	f := newCopyFixture(t, false, buddyRuntime)
+	page := dirtyPages[1].make(f)
 
-	needsFlush := func(page vm.Page) bool {
-		return f.r.NeedsFlush(f.ctx, gpuruntime.Ptr(page.VAddr), testPageSize)
-	}
-
-	if needsFlush(migrates) || needsFlush(stays) {
-		t.Fatal("new buffers need a flush")
-	}
-
-	f.migrate(migrates, 2)
-
-	if !needsFlush(migrates) || needsFlush(stays) {
-		t.Fatalf("needs a flush: the migrated page %v, the other page %v",
-			needsFlush(migrates), needsFlush(stays))
-	}
-
-	f.h2d(f.q, migrates, 0x12345678)
+	sibling := f.r.InitWithExistingPID(f.ctx)
+	f.h2d(f.r.CreateCommandQueue(sibling), page, 0x12345678)
 	f.run()
 
 	e := f.c.State.Executing
@@ -397,5 +383,6 @@ func TestAMigratedPageNeedsAFlushBeforeAHostCopy(t *testing.T) {
 		t.Fatalf("the copy is not in flight: %+v", e)
 	}
 
-	mustEqual(t, "requests", f.requests(e[0]), []string{"Flush>1", "Flush>2", "MemCopyH2D>2"})
+	mustEqual(t, "requests", f.requests(e[0]), []string{"Flush>1", "Flush>2", "MemCopyH2D>1"})
+	mustEqual(t, "page in the global storage", f.stored(page.PAddr), uint32(0))
 }

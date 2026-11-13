@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/datamoverprotocol"
 	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
@@ -23,22 +24,26 @@ import (
 //
 //	Hold:       Hold of the page in every address translator.
 //	Release:    Release of the page in every address translator.
-//	Flush:      on every L2 bank, Flush of the frame and, after its
-//	            acknowledgement, Invalidate.
+//	Flush:      on every L2 bank, Flush of the frame and, after the
+//	            acknowledgement of that bank, Invalidate.
 //	Invalidate: on every L2 bank, Invalidate of the frame.
-//	Copy:       one data-move request to the inbound data mover (pull) or
-//	            to the outbound data mover (push).
+//	Copy:       one data-move request to the data mover, which pulls the
+//	            page from another GPU.
 //	Shootdown:  Pause of every TLB, Invalidate of the page, Enable.
 //
 // A job answers the driver with a GeneralRsp after its last acknowledgement.
 //
-// An L2 bank runs one maintenance operation at a time: the Flush and the
-// Invalidate of a frame are a pair that no other operation of the bank
-// interrupts, and the flush sequence of the driver, which drains and flushes
-// the whole bank, runs only while no bank has an operation in progress. The
+// The L2 maintenance of frames that have no byte in common runs at the same
+// time: the requests of several jobs are with a bank together, and a bank
+// gets the Invalidate of a job once it has acknowledged the Flush of that
+// job, whatever the other jobs do. Frames that have a byte in common are
+// maintained in the order their commands arrived. The flush sequence of the
+// driver, which drains and flushes the whole of every bank, goes first: once
+// it waits, no L2 maintenance starts, the maintenance that has started runs
+// to its end, and the maintenance that waits starts after the sequence. The
 // TLBs are shot down in rounds: a round pauses the TLBs once, invalidates the
 // pages of every Shootdown that waits, and enables the TLBs; the Shootdowns
-// that arrive during a round form the next one. The data movers take the
+// that arrive during a round form the next one. The data mover takes the
 // Copy requests in the order they arrive, so the driver decides the order in
 // which the pages of its windows are submitted.
 
@@ -51,30 +56,24 @@ type pageJob struct {
 }
 
 // ctrlWait tells what waits for the acknowledgement of a control request:
-// the current operation of L2 bank Bank-1, the TLB shootdown round (Job is
-// zero), or page job Job.
+// page job Job, or the TLB shootdown round if Job is zero. A request of the
+// L2 maintenance of a job went to L2 bank Bank-1; Flush is set if it is the
+// Flush, which the Invalidate of that bank follows.
 type ctrlWait struct {
-	Job  uint64 `json:"job"`
-	Bank int    `json:"bank"`
-}
-
-// bankOp is a maintenance operation of one L2 bank on the frame from Start
-// to End: an Invalidate, after a Flush if Flush is set.
-type bankOp struct {
 	Job   uint64 `json:"job"`
+	Bank  int    `json:"bank"`
 	Flush bool   `json:"flush"`
-	Start uint64 `json:"start"`
-	End   uint64 `json:"end"`
 }
 
-// bankState is the maintenance of one L2 bank: the operation in progress, if
-// Busy, and the operations that wait, in arrival order. Invalidating is set
-// once the Invalidate of the operation in progress is sent.
-type bankState struct {
-	Queue        []bankOp `json:"queue"`
-	Busy         bool     `json:"busy"`
-	Curr         bankOp   `json:"curr"`
-	Invalidating bool     `json:"invalidating"`
+// l2Op is the L2 maintenance of a page job on the frame from Start to End:
+// on every bank an Invalidate, after a Flush if Flush is set. Started is set
+// once its first requests are on their way to the banks.
+type l2Op struct {
+	Job     uint64 `json:"job"`
+	Flush   bool   `json:"flush"`
+	Start   uint64 `json:"start"`
+	End     uint64 `json:"end"`
+	Started bool   `json:"started"`
 }
 
 // Steps of a TLB shootdown round.
@@ -127,9 +126,9 @@ func (m *ctrlMiddleware) startPageJob(msg messaging.Msg) {
 		state.Shootdown.Waiting = append(state.Shootdown.Waiting, msg.ID)
 		job.PendingAcks = 1
 	case protocol.PageFlushReq:
-		job.PendingAcks = m.enqueueBankOps(msg.ID, true, req.PAddr, req.PageSize)
+		job.PendingAcks = m.enqueueL2Op(msg.ID, true, req.PAddr, req.PageSize)
 	case protocol.PageInvalidateReq:
-		job.PendingAcks = m.enqueueBankOps(msg.ID, false, req.PAddr, req.PageSize)
+		job.PendingAcks = m.enqueueL2Op(msg.ID, false, req.PAddr, req.PageSize)
 	case protocol.PageCopyReq:
 		m.enqueueMove(msg.ID, req)
 		job.PendingAcks = 1
@@ -182,39 +181,38 @@ func (m *ctrlMiddleware) enqueuePageCtrl(
 	return len(dsts)
 }
 
-// enqueueBankOps queues the maintenance of a frame on every L2 bank. With
-// the interleaving of the banks, a page has lines in each of them.
-func (m *ctrlMiddleware) enqueueBankOps(
+// enqueueL2Op queues the L2 maintenance of a frame behind the maintenance
+// that arrived before it. Every L2 bank takes part: with the interleaving of
+// the banks, a page has lines in each of them. It returns the number of
+// acknowledgements that end the job, the Invalidate of every bank.
+func (m *ctrlMiddleware) enqueueL2Op(
 	job uint64,
 	flush bool,
 	pAddr, size uint64,
 ) int {
 	state := &m.comp.State
-	op := bankOp{Job: job, Flush: flush, Start: pAddr, End: pAddr + size}
+	banks := len(m.comp.Spec.L2Caches)
 
-	for i := range state.Banks {
-		state.Banks[i].Queue = append(state.Banks[i].Queue, op)
+	if banks > 0 {
+		state.L2Ops = append(state.L2Ops,
+			l2Op{Job: job, Flush: flush, Start: pAddr, End: pAddr + size})
 	}
 
-	return len(state.Banks)
+	return banks
 }
 
-// banksBusy reports whether an L2 bank has a maintenance operation in
-// progress.
-func (m *ctrlMiddleware) banksBusy() bool {
-	for _, b := range m.comp.State.Banks {
-		if b.Busy {
-			return true
-		}
-	}
-
-	return false
+// l2OpsStarted reports whether L2 maintenance of a page is in progress.
+func (m *ctrlMiddleware) l2OpsStarted() bool {
+	return slices.ContainsFunc(m.comp.State.L2Ops,
+		func(op l2Op) bool { return op.Started })
 }
 
-// advanceBanks starts the next operation of every idle L2 bank. No
+// startL2Ops starts the L2 maintenance that waits. An operation waits while
+// an operation that arrived before it, started or not, has a byte of its
+// frame in common, so such frames are maintained in arrival order. No
 // operation starts while the flush sequence of the driver runs or waits for
-// the banks.
-func (m *ctrlMiddleware) advanceBanks() bool {
+// the operations that have started.
+func (m *ctrlMiddleware) startL2Ops() bool {
 	state := &m.comp.State
 	if state.CtrlSeq == ctrlSeqFlush || state.FlushWaiting {
 		return false
@@ -222,23 +220,22 @@ func (m *ctrlMiddleware) advanceBanks() bool {
 
 	madeProgress := false
 
-	for i := range state.Banks {
-		b := &state.Banks[i]
-		if b.Busy || len(b.Queue) == 0 {
+	for i := range state.L2Ops {
+		op := &state.L2Ops[i]
+		if op.Started || slices.ContainsFunc(state.L2Ops[:i], op.intersects) {
 			continue
 		}
 
-		b.Curr = b.Queue[0]
-		b.Queue = b.Queue[1:]
-		b.Busy = true
-		b.Invalidating = !b.Curr.Flush
+		op.Started = true
 
-		cmd := memcontrolprotocol.CmdFlush
-		if b.Invalidating {
-			cmd = memcontrolprotocol.CmdInvalidate
+		cmd := memcontrolprotocol.CmdInvalidate
+		if op.Flush {
+			cmd = memcontrolprotocol.CmdFlush
 		}
 
-		m.enqueueBankCtrl(i, cmd)
+		for bank := range m.comp.Spec.L2Caches {
+			m.enqueueL2Ctrl(*op, bank, cmd)
+		}
 
 		madeProgress = true
 	}
@@ -246,12 +243,18 @@ func (m *ctrlMiddleware) advanceBanks() bool {
 	return madeProgress
 }
 
-func (m *ctrlMiddleware) enqueueBankCtrl(
+// intersects reports whether the frames of two operations have a byte in
+// common.
+func (op l2Op) intersects(other l2Op) bool {
+	return op.Start < other.End && other.Start < op.End
+}
+
+func (m *ctrlMiddleware) enqueueL2Ctrl(
+	op l2Op,
 	bank int,
 	cmd memcontrolprotocol.Command,
 ) {
 	state := &m.comp.State
-	op := state.Banks[bank].Curr
 	req := messaging.Msg{
 		ID:  m.comp.NewID(),
 		Src: m.toCaches().AsRemote(),
@@ -264,26 +267,28 @@ func (m *ctrlMiddleware) enqueueBankCtrl(
 	}
 
 	state.PendingCacheReqs = append(state.PendingCacheReqs, req)
-	state.CtrlWaits[req.ID] = ctrlWait{Job: op.Job, Bank: bank + 1}
+	state.CtrlWaits[req.ID] = ctrlWait{
+		Job: op.Job, Bank: bank + 1, Flush: cmd == memcontrolprotocol.CmdFlush,
+	}
 }
 
-// bankAcked takes in the acknowledgement of the current operation of an L2
-// bank. The Invalidate of a frame is sent only after the acknowledgement of
-// its Flush: the lower level has then acknowledged the writebacks.
-func (m *ctrlMiddleware) bankAcked(bank int) {
-	b := &m.comp.State.Banks[bank]
+// l2Acked takes in the acknowledgement of an L2 bank for a page job. A bank
+// gets the Invalidate of a frame only after it has acknowledged the Flush of
+// the job: the lower level has then acknowledged the writebacks. The
+// operation ends with the Invalidate acknowledgement of the last bank.
+func (m *ctrlMiddleware) l2Acked(wait ctrlWait) {
+	state := &m.comp.State
+	i := slices.IndexFunc(state.L2Ops,
+		func(op l2Op) bool { return op.Job == wait.Job })
 
-	if !b.Invalidating {
-		b.Invalidating = true
-		m.enqueueBankCtrl(bank, memcontrolprotocol.CmdInvalidate)
-
+	if wait.Flush {
+		m.enqueueL2Ctrl(state.L2Ops[i], wait.Bank-1, memcontrolprotocol.CmdInvalidate)
 		return
 	}
 
-	job := b.Curr.Job
-	*b = bankState{Queue: b.Queue}
-
-	m.pageJobAcked(job)
+	if m.pageJobAcked(wait.Job) {
+		state.L2Ops = slices.Delete(state.L2Ops, i, i+1)
+	}
 }
 
 // advanceShootdown starts a round for the Shootdown jobs that wait when no
@@ -374,15 +379,14 @@ func (m *ctrlMiddleware) finishShootdown() {
 	}
 }
 
-// enqueueMove queues the data-move request of a Copy. A pull reads the page
-// from outside and writes it inside with the inbound data mover; a push
-// reads it inside and writes it outside with the outbound data mover.
+// enqueueMove queues the data-move request of a Copy: the data mover of this
+// GPU, the destination, reads the page from outside and writes it inside.
 func (m *ctrlMiddleware) enqueueMove(job uint64, req protocol.PageCopyReq) {
 	state := &m.comp.State
 	move := messaging.Msg{
 		ID:  m.comp.NewID(),
 		Src: m.comp.Ports.ToDataMover.AsRemote(),
-		Dst: m.comp.Spec.InboundDataMover,
+		Dst: m.comp.Spec.DataMover,
 		Payload: datamoverprotocol.Req{
 			SrcAddress: req.SrcAddress,
 			DstAddress: req.DstAddress,
@@ -392,24 +396,13 @@ func (m *ctrlMiddleware) enqueueMove(job uint64, req protocol.PageCopyReq) {
 		},
 	}
 
-	if req.Push {
-		move.Dst = m.comp.Spec.OutboundDataMover
-		move.Payload = datamoverprotocol.Req{
-			SrcAddress: req.SrcAddress,
-			DstAddress: req.DstAddress,
-			ByteSize:   req.PageSize,
-			SrcSide:    datamoverprotocol.SideInside,
-			DstSide:    datamoverprotocol.SideOutside,
-		}
-	}
-
 	state.PendingMoveReqs = append(state.PendingMoveReqs, move)
 	state.MoveJobs[move.ID] = job
 }
 
-// pageJobAcked counts an acknowledgement of a page job and ends the job with
-// the last one.
-func (m *ctrlMiddleware) pageJobAcked(id uint64) {
+// pageJobAcked counts an acknowledgement of a page job, ends the job with
+// the last one, and reports whether it did.
+func (m *ctrlMiddleware) pageJobAcked(id uint64) (finished bool) {
 	state := &m.comp.State
 
 	job, ok := state.PageJobs[id]
@@ -420,9 +413,13 @@ func (m *ctrlMiddleware) pageJobAcked(id uint64) {
 	job.PendingAcks--
 	state.PageJobs[id] = job
 
-	if job.PendingAcks == 0 {
-		m.finishPageJob(id)
+	if job.PendingAcks > 0 {
+		return false
 	}
+
+	m.finishPageJob(id)
+
+	return true
 }
 
 // finishPageJob ends a page job and queues its answer to the driver.
@@ -470,7 +467,7 @@ func (m *ctrlMiddleware) migrationAcked(reqID uint64) {
 
 	switch {
 	case wait.Bank > 0:
-		m.bankAcked(wait.Bank - 1)
+		m.l2Acked(wait)
 	case wait.Job == 0:
 		m.shootdownAcked()
 	default:
@@ -510,7 +507,7 @@ func (m *ctrlMiddleware) processRspFromDataMover() bool {
 		}
 
 		if _, ok := msg.Payload.(datamoverprotocol.Rsp); !ok {
-			log.Panicf("cp: cannot handle %s from a data mover",
+			log.Panicf("cp: cannot handle %s from the data mover",
 				reflect.TypeOf(msg.Payload))
 		}
 

@@ -29,10 +29,8 @@ type workload struct {
 	// than the benchmark uses.
 	platformGPUs int
 
-	// parallel runs the simulation with the parallel engine, and magicCopy
-	// with magic memory copies.
-	parallel  bool
-	magicCopy bool
+	// parallel runs the simulation with the parallel engine.
+	parallel bool
 
 	build func(rt *gpuruntime.Runtime, a arch.Type) benchmarks.Benchmark
 }
@@ -85,16 +83,12 @@ var workloads = []workload{
 		policy: driver.PageMigrationCounter, build: firWorkload(8192)},
 	{name: "fir-parallel-engine", gpuType: "r9nano", gpus: []int{1, 2},
 		parallel: true, build: firWorkload(8192)},
-	{name: "fir-magic-memory-copy", gpuType: "r9nano", gpus: []int{1, 2},
-		magicCopy: true, build: firWorkload(8192)},
 	{name: "atax", gpuType: "r9nano", gpus: []int{1, 2}, build: ataxWorkload(256)},
 	{name: "atax", gpuType: "mi300x", gpus: []int{1, 2}, build: ataxWorkload(256)},
 	{name: "atax", gpuType: "mi300x", gpus: []int{1, 2},
 		policy: driver.PageMigrationCounter, build: ataxWorkload(256)},
 	{name: "fir-on-the-second-gpu", gpuType: "mi300x", gpus: []int{2}, platformGPUs: 2,
 		build: firWorkload(4096)},
-	{name: "fir-on-the-second-gpu-magic-memory-copy", gpuType: "mi300x", gpus: []int{2}, platformGPUs: 2,
-		magicCopy: true, build: firWorkload(4096)},
 	{name: "atax-1024", gpuType: "r9nano", gpus: []int{1, 2}, slow: true, build: ataxWorkload(1024)},
 	{name: "matrixmultiplication-512", gpuType: "r9nano", gpus: []int{1, 2, 3, 4},
 		slow: true, build: matrixWorkload(512)},
@@ -156,16 +150,12 @@ func newWorkloadPlatform(
 		}
 	})
 
-	builder := timingconfig.MakeBuilder().
+	return s, timingconfig.MakeBuilder().
 		WithSimulation(s).
 		WithNumGPUs(w.numGPUs()).
 		WithGPUType(w.gpuType).
-		WithPageMigration(spec)
-	if w.magicCopy {
-		builder = builder.WithMagicMemoryCopy()
-	}
-
-	return s, builder.Build()
+		WithPageMigration(spec).
+		Build()
 }
 
 // runWorkload runs a workload to its end. The benchmark verifies its own

@@ -42,31 +42,11 @@ func (m *executionMW) startWaitingCopies() bool {
 	return false
 }
 
-// prepareCopy reports whether a memory copy reads or writes the global
-// storage itself, in no time, instead of asking the GPUs. With uncached
-// device memory every magic copy does. Otherwise the GPUs keep device memory
-// in caches that such a copy goes around: it is used only where no cache can
-// hold a line. A copy that needs the caches flushed takes the timed path
-// through the GPUs, which reads and writes the memory below the caches; the
-// flushes that it needs are requested here.
-func (m *executionMW) prepareCopy(e *Execution, addr, size uint64) (direct bool) {
-	c := m.comp
-	r := c.Resources.Runtime
-	needsFlush := r.NeedsFlush(r.QueueContext(e.Queue), gpuruntime.Ptr(addr), size)
-
-	if c.Spec.UseMagicMemoryCopy && (c.Spec.UncachedDeviceMemory || !needsFlush) {
-		return true
-	}
-
-	if needsFlush {
-		for gpu := range c.Spec.GPUs {
-			m.request(e, gpu+1, protocol.FlushReq{}, false)
-		}
-	}
-
-	return false
-}
-
+// copy starts a memory copy. A magic copy reads or writes the global storage
+// itself, in no time and around the GPUs, whatever their caches hold: it
+// never flushes them. Any other copy goes through the GPUs, which read and
+// write the memory below their caches, after a flush of the caches if they
+// may hold lines of the memory.
 func (m *executionMW) copy(i int) {
 	c := m.comp
 	e := &c.State.Executing[i]
@@ -78,7 +58,12 @@ func (m *executionMW) copy(i int) {
 	if cmd.Kind == gpuruntime.CopyD2H {
 		addr = uint64(cmd.Src)
 	}
-	direct := m.prepareCopy(e, addr, uint64(size))
+	direct := c.Spec.UseMagicMemoryCopy
+	if !direct && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
+		for gpu := range c.Spec.GPUs {
+			m.request(e, gpu+1, protocol.FlushReq{}, false)
+		}
+	}
 	offset := uint64(0)
 	for offset < uint64(size) {
 		page, ok := c.Resources.PageTable.Find(r.QueuePID(e.Queue), addr)

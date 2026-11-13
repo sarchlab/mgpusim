@@ -111,7 +111,7 @@ func checkpointMidMigration(t *testing.T, gpuType, path string) {
 	pending.Buffer = benchmarks.Download(s.rt, s.queues[1], result, checkpointFloats*floatBytes)
 	s.start()
 
-	for len(s.inbound[1].State.Transactions) == 0 {
+	for len(s.movers[1].State.Transactions) == 0 {
 		if s.done() {
 			t.Fatal("the page was never in the data mover")
 		}

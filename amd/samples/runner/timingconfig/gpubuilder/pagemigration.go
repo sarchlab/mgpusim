@@ -11,8 +11,8 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/shaderarray"
 )
 
-// Page-migration copy configuration of a data mover of a GPU: it keeps up to
-// dataMoverBufferBytes of the page copies in flight.
+// Page-migration copy configuration of the data mover of a GPU: it keeps up
+// to dataMoverBufferBytes of the page copies in flight.
 const (
 	dataMoverBufferBytes = 64 << 10
 	dataMoverCtrlBufSize = 4
@@ -21,7 +21,7 @@ const (
 
 // PageMigrationConfig is what a GPU builder needs to know about page
 // migration: where the access counters of the RDMA engine report to, if
-// anywhere, and how its data movers copy.
+// anywhere, and how its data mover copies.
 type PageMigrationConfig struct {
 	// AccessCounterHandler receives the access-counter notifications of the
 	// RDMA engine; empty turns the counters off. AccessCounterThreshold is
@@ -30,8 +30,8 @@ type PageMigrationConfig struct {
 	AccessCounterHandler   messaging.RemotePort
 	AccessCounterThreshold uint64
 
-	// DataMoverPages is the number of page copies that each data mover of
-	// the GPU keeps in flight.
+	// DataMoverPages is the number of page copies that the data mover of the
+	// GPU keeps in flight.
 	DataMoverPages int
 
 	// PeerMemory selects, for a physical address of another GPU, the port of
@@ -40,28 +40,21 @@ type PageMigrationConfig struct {
 	PeerMemory mem.AddressMapper
 }
 
-// DataMovers are the two data movers of a GPU. Inbound only copies pages
-// from other GPUs to this one, and Outbound only copies pages from this GPU
-// to others, so neither ever waits for the other direction to drain.
-type DataMovers struct {
-	Inbound  *datamover.Comp
-	Outbound *datamover.Comp
-}
-
-// BuildDataMovers builds the two data movers of a GPU. Both copy around the
-// L2 caches on both ends: Inside reaches the local memory below the L2
-// (localMemory), and Outside the memory below the L2 of the other GPUs
-// (cfg.PeerMemory). The caller connects Top and Control to the command
-// processor, Inside to the connection of the local memory, and Outside to
-// the inter-device connection.
-func BuildDataMovers(
+// BuildDataMover builds the data mover of a GPU, which pulls the pages that
+// migrate to the GPU. It copies around the L2 caches on both ends: Outside
+// reaches the memory below the L2 of the other GPUs (cfg.PeerMemory), where
+// it reads, and Inside the local memory below the L2 (localMemory), where it
+// writes. The caller connects Top and Control to the command processor,
+// Inside to the connection of the local memory, and Outside to the
+// inter-device connection.
+func BuildDataMover(
 	sim modeling.Simulation,
 	gpuName string,
 	freq timing.Freq,
 	lineBytes uint64,
 	localMemory mem.AddressMapper,
 	cfg PageMigrationConfig,
-) DataMovers {
+) *datamover.Comp {
 	spec := datamover.DefaultSpec()
 	spec.Freq = freq
 	spec.MaxTransactions = max(1, cfg.DataMoverPages)
@@ -71,36 +64,29 @@ func BuildDataMovers(
 	spec.Inside = localMemory
 	spec.Outside = cfg.PeerMemory
 
-	build := func(name string) *datamover.Comp {
-		mover := modeling.MakeBuilder[*datamover.Comp](spec).
+	mover := modeling.MakeBuilder[*datamover.Comp](spec).
+		WithSimulation(sim).
+		Build(gpuName + ".DataMover")
+
+	for _, p := range []struct {
+		name    string
+		bufSize int
+	}{
+		{"Top", max(dataMoverCtrlBufSize, cfg.DataMoverPages)},
+		{"Control", dataMoverCtrlBufSize},
+		{"Inside", dataMoverMemBufSize},
+		{"Outside", dataMoverMemBufSize},
+	} {
+		port := twowaybuffered.MakeBuilder().
 			WithSimulation(sim).
-			Build(gpuName + "." + name)
-
-		for _, p := range []struct {
-			name    string
-			bufSize int
-		}{
-			{"Top", max(dataMoverCtrlBufSize, cfg.DataMoverPages)},
-			{"Control", dataMoverCtrlBufSize},
-			{"Inside", dataMoverMemBufSize},
-			{"Outside", dataMoverMemBufSize},
-		} {
-			port := twowaybuffered.MakeBuilder().
-				WithSimulation(sim).
-				WithSpec(twowaybuffered.Spec{
-					IncomingCapacity: p.bufSize, OutgoingCapacity: p.bufSize,
-				}).
-				Build()
-			mover.BindPort(p.name, port)
-		}
-
-		return mover
+			WithSpec(twowaybuffered.Spec{
+				IncomingCapacity: p.bufSize, OutgoingCapacity: p.bufSize,
+			}).
+			Build()
+		mover.BindPort(p.name, port)
 	}
 
-	return DataMovers{
-		Inbound:  build("InboundDataMover"),
-		Outbound: build("OutboundDataMover"),
-	}
+	return mover
 }
 
 // MigrationPeers returns the Control ports of every address translator

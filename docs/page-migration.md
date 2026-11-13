@@ -38,7 +38,7 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 | `Policy` | `fault` | `fault`, `counter`, or `none` |
 | `BatchSize` | 256 | most requests the driver services in one batch (`uvm_perf_fault_batch_count`) |
 | `QueueSize` | 1024 | entries of the request queue: a notification that needs one is taken in only while the queue has fewer, and waits in the port, and at its sender, otherwise (see [The queue is finite](#the-queue-is-finite)) |
-| `AccessCounterThreshold` | 256 | remote accesses of a GPU to a frame that notify the driver with `counter`; 0 turns the counters off (`uvm_perf_access_counter_threshold`) |
+| `AccessCounterThreshold` | 256 | remote demand accesses of one GPU to one physical page frame that notify the driver with `counter`, whatever the system page size; 0 turns the counters off (`uvm_perf_access_counter_threshold`, see [Access-counter migration](#access-counter-migration)) |
 | `PrefetchThreshold` | 51 | a migration takes the rest of the largest aligned region of its 2 MiB block along in which more than this percent of the page positions are on the destination; 0 turns prefetching off (`uvm_perf_prefetch_threshold`) |
 | `ThrashingThreshold` | 3 | thrashing events that make a page thrashing (`uvm_perf_thrashing_threshold`) |
 | `ThrashingLapseNS` | 500 000 | a migration this soon after the previous one of the page is a thrashing event (`uvm_perf_thrashing_lapse_usec`) |
@@ -46,15 +46,47 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 | `ThrashingEpochNS` | 2 000 000 000 | a page forgets its thrashing when nothing happens to it for this long (`uvm_perf_thrashing_epoch`) |
 | `PinThreshold` | 10 | throttling operations in a row that pin a page (`uvm_perf_thrashing_pin_threshold`) |
 | `PinNS` | 150 000 000 | how long a page stays pinned (`uvm_perf_thrashing_pin`) |
-| `DataMoverPages` | 64 | page copies of one direction that a data mover keeps in flight |
+| `DataMoverPages` | 64 | page copies that the data mover of a GPU keeps in flight |
+
+### Statistics
 
 With `-report-all`, a platform with more than one GPU reports the statistics
-of the driver: `pm_faults`, `pm_coalesced_faults`, `pm_retained_faults`,
-`pm_notifications`, `pm_queue_full_waits`, `pm_batches`, `pm_windows`,
-`pm_migrations`, `pm_pages_prefetched`, `pm_pages_migrated`,
-`pm_bytes_migrated`, `pm_frames_retired`, `pm_releases`,
-`pm_thrashing_events`, `pm_thrashing_pages`, `pm_throttles`, `pm_pins`,
-`pm_unpins`, and the summed migration, copy, and shootdown times.
+of the driver:
+
+| Statistic | Meaning |
+|---|---|
+| `pm_faults` | fault notifications that the driver took in |
+| `pm_coalesced_faults` | of those, faults of a GPU that already waited on the page |
+| `pm_retained_faults` | faults that arrived while their page was serviced and waited on the page |
+| `pm_deferred_faults` | pages whose faults a batch passed over because a memory copy used the page, counted once for each time they waited for a copy |
+| `pm_notifications` | access-counter notifications that the driver took in |
+| `pm_coalesced_notifications` | of those, notifications of a GPU for a frame that were already queued |
+| `pm_ignored_notifications` | notifications whose page did not move: it was on the notifier, serviced, pinned, not unified, or used by a memory copy |
+| `pm_free_frame_notifications` | notifications for a frame that no page mapped when they were serviced |
+| `pm_throttled_notifications` | notifications of a GPU that was throttled on the page |
+| `pm_queue_full_waits` | times a fault or a notification stayed in the port because the queue was full |
+| `pm_batches` | batches that serviced a request |
+| `pm_windows` | windows: migrations of a triggering page with the pages prefetched with it |
+| `pm_migrations` | pages moved for a fault or a notification |
+| `pm_pages_prefetched` | pages moved with the window of another page |
+| `pm_pages_migrated` | pages moved: `pm_migrations` plus `pm_pages_prefetched` |
+| `pm_bytes_migrated` | bytes of the pages moved |
+| `pm_frames_retired` | frames that pages left |
+| `pm_releases` | services that moved nothing: hold and release |
+| `pm_thrashing_events` | migrations of a page within `ThrashingLapseNS` of its previous one, counted until the page is thrashing |
+| `pm_thrashing_pages` | times a page became thrashing |
+| `pm_throttles` | throttling operations |
+| `pm_pins` | times a page was pinned |
+| `pm_unpins` | pins that timed out |
+| `pm_migration_time_sum` | summed time of the migrations, each from its Hold to its last Release answer, in seconds |
+| `pm_copy_time_sum` | summed time of the page copies, each from its submission to the answer of the data mover, in seconds |
+| `pm_shootdown_time_sum` | summed time of the shootdowns, in seconds |
+
+An access-counter notification that the driver took in either repeats one
+that is queued (`pm_coalesced_notifications`) or is serviced. When it is
+serviced, it names a free frame, is ignored, or comes from a throttled GPU
+(`pm_free_frame_notifications`, `pm_ignored_notifications`,
+`pm_throttled_notifications`); otherwise it starts a window or pins its page.
 
 ## Components
 
@@ -63,10 +95,10 @@ of the driver: `pm_faults`, `pm_coalesced_faults`, `pm_retained_faults`,
 | MMU (Akita) | A walk of a unified page that is on another GPU and not pinned faults: the MMU answers at once with a fault response and notifies `Driver.MigrationNotification` from its `Notification` port. It never holds a walk, and keeps the notifications that the driver does not take yet. |
 | TLBs (Akita) | Forward a fault response without caching it. |
 | Address translators (Akita) | Hold faulted accesses and accesses to held pages in a list that uses no transaction slot; a Hold acknowledges once no access to the page is outstanding and no translation of it is in flight, without waiting for the Holds of other pages; the page stays held until a Release, which translates the held accesses again. |
-| RDMA engines | With `counter`, count the requests on `RDMARequestInside` (the remote demand accesses of their GPU) per physical page frame. They also pass the page copies of other GPUs' data movers from `MigrationOutside` to the memory below the L2 (`MigrationInside`). |
+| RDMA engines | With `counter`, count the requests on `RDMARequestInside` (the remote demand accesses of their GPU) per physical page frame. They also pass the reads of other GPUs' data movers from `MigrationOutside` to the memory below the L2 (`MigrationInside`). |
 | Driver (`amd/driver/pagemigration*.go`) | Takes the notifications, decides in batches what each page does (target, prefetching, thrashing), allocates frames from the Runtime, updates the page table, and runs every page through its phases. |
-| Command processor (`amd/timing/cp/migration.go`) | Turns each one-page command of the driver into control requests for its address translators, TLBs, L2 banks, or data movers. It works on the commands of different pages at the same time. |
-| Data movers (Akita, two per GPU) | The inbound data mover copies pages from other GPUs to this one; the outbound one copies pages of this GPU to others. Each only ever copies in its direction, so neither waits to change direction, and each keeps `DataMoverPages` copies in flight. |
+| Command processor (`amd/timing/cp/migration.go`) | Turns each one-page command of the driver into control requests for its address translators, TLBs, or L2 banks, or into a request for its data mover. It works on the commands of different pages at the same time. |
+| Data mover (Akita, one per GPU) | Pulls the pages that migrate to its GPU: it reads a page from the memory below the L2 of the GPU that has it, through that GPU's RDMA engine, and writes it to the memory below the L2 of its own GPU. It keeps `DataMoverPages` copies in flight. A GPU that a page leaves uses no data mover of its own for it. |
 | Runtime allocator | Hands out the frames, from the free list or the buddy allocator. |
 
 ## A migration
@@ -86,23 +118,29 @@ under [What is ordered](#what-is-ordered).
    translators. After the last acknowledgement, no access to *P* is
    outstanding anywhere: every earlier access has finished, with its writes
    acknowledged by the L2.
-4. **Prepare.** *s* writes the dirty L2 lines of the old frame back and,
-   after the acknowledgement of the Flush, which follows the acknowledgement
-   of the writebacks by the lower level, drops the lines of the frame
-   (Invalidate). On each L2 bank the pair runs alone: a bank does one
-   maintenance operation at a time, and the cache flush of the driver waits
-   for the banks. *g* drops the L2 lines of the new frame, which may be dirty
-   leftovers of an earlier user.
-5. **Copy.** *g*'s inbound data mover pulls the page, around the L2 on both
-   ends: it reads the old frame below *s*'s L2 and writes the new frame below
-   *g*'s. That is the DRAM on R9 Nano and the MALL, which fronts DRAM for
-   every access, on MI300X.
-6. **Invalidate.** *g* drops the L2 lines of the new frame again.
-7. **Remap.** The driver updates the page table.
-8. **Shootdown.** Every command processor drops the translation of *P* from
+4. **Prepare.** *s* writes the dirty L2 lines of the old frame back (Flush).
+   Each L2 bank drops the lines of the frame (Invalidate) once it has
+   acknowledged the Flush, which follows the acknowledgement of the
+   writebacks by the lower level. At the same time *g* drops the L2 lines of
+   the new frame, which may be dirty leftovers of an earlier user of the
+   frame. A bank acknowledges that Invalidate only when no writeback of a
+   line of the frame is on its way anymore: a line that the L2 was already
+   evicting has reached the memory below it, and has been acknowledged.
+5. **Copy.** With both answers, *g*'s data mover pulls the page, around the
+   L2 on both ends: it reads the old frame below *s*'s L2 and writes the new
+   frame below *g*'s. That is the DRAM on R9 Nano and the MALL, which fronts
+   DRAM for every access, on MI300X.
+6. **Remap.** With the answer of the data mover, the driver updates the page
+   table.
+7. **Shootdown.** Every command processor drops the translation of *P* from
    its TLBs.
-9. **Release.** Every command processor releases *P*; the held accesses
+8. **Release.** Every command processor releases *P*; the held accesses
    translate again, to the new local frame.
+
+The L2 of *g* is not invalidated again after the copy. Between the Invalidate
+of step 4 and the Remap, no access can bring a line of the new frame into the
+L2: no page maps the frame, *P* is held, and the copy does not go through the
+L2.
 
 Every step names one page by a half-open byte range
 (`memcontrolprotocol.Req.HasRange`, `Range`), and the driver counts the
@@ -176,18 +214,25 @@ behind it. What is bounded is what the driver takes in:
   These are the only entries beyond `QueueSize`, at most one for each such
   page.
 
-## Windows and the data movers
+## Windows and the data mover
 
 The pages that one fault or notification moves are a window: the triggering
 page first, then the prefetched pages by address. Every page of a window is
 its own request, with its own hold, flush, copy, and release.
 
-On the inbound data mover of a GPU, a window is submitted completely before
-the next window starts, and its pages are submitted in its order. Submitting
-is all that is ordered: once submitted, a page completes on its own, so pages
-of several windows are in the data mover together, and a later window enters
-it while an earlier one is still being copied. A window to another GPU uses
-that GPU's inbound data mover and waits for nothing here.
+Each GPU has one data mover, and a page is always pulled by the data mover of
+the GPU that it moves to: for a migration from *s* to *g*, *g*'s command
+processor gives the copy to *g*'s data mover, and *s*'s RDMA engine passes
+its reads on to the memory below *s*'s L2. The copy takes one of the
+`DataMoverPages` places of *g*'s data mover and none on *s*, so all the pages
+that move to a GPU share its data mover, wherever they come from.
+
+On the data mover of a GPU, a window is submitted completely before the next
+window starts, and its pages are submitted in its order. Submitting is all
+that is ordered: once submitted, a page completes on its own, so pages of
+several windows are in the data mover together, and a later window enters it
+while an earlier one is still being copied. A window to another GPU uses
+that GPU's data mover and waits for nothing here.
 
 ## What is ordered
 
@@ -209,9 +254,28 @@ different pages in an order:
   acknowledged in the order they arrived. A page stays held after the
   acknowledgement, until its Release, and the driver waits for the Release
   acknowledgements of every GPU before it services the page again.
-- **L2 banks.** A bank does one maintenance operation at a time: the Flush and
-  Invalidate of a page run alone on each bank, and the cache flush of the
-  driver waits for the banks.
+- **L2 banks.** The frames of different pages are maintained at the same
+  time: a command processor sends the Flush or the Invalidate of a frame to
+  every bank as soon as the command arrives, whatever the banks still do for
+  other frames, and a bank gets the Invalidate that follows a Flush once that
+  bank has acknowledged the Flush of that frame. What is ordered:
+  - Frames that have a byte in common are maintained in the order their
+    commands arrived, also behind a command that itself still waits.
+    Migrations that are in flight together do not share a frame: a new frame
+    comes from the allocator, and the frame that a page leaves is retired.
+  - The cache flush of the driver, which drains and flushes the whole of
+    every bank for a host copy, goes first. When it arrives, no maintenance
+    of a frame starts anymore. The maintenance that has started runs to its
+    end, each bank still gets the Invalidate that follows its Flush, and
+    then the caches are drained, flushed, invalidated, and enabled. The
+    maintenance that waited starts after that, in arrival order, also when
+    another flush of the driver is next: that flush waits for it in turn, so
+    neither keeps the other waiting for good.
+  - A bank itself takes one request after the other, so the requests of
+    several frames queue at a bank. A command processor sends all its cache
+    control requests from one port: while a bank has more requests than its
+    Control port holds, the requests behind them wait in that port, also the
+    L1 invalidation of a kernel that starts.
 - **Data movers.** A window is submitted completely before the next window to
   the same GPU starts (see above). A data mover keeps `DataMoverPages` copies
   in flight and completes them oldest first.
@@ -259,6 +323,16 @@ page on another GPU remotely, through its RDMA engine. Each RDMA engine counts
 the remote demand accesses of its GPU per physical page frame. At the
 threshold it clears the count and sends a one-way notification with the frame
 and the GPU. No access waits for a notification.
+
+`AccessCounterThreshold` is a number of accesses of one GPU to one frame, 256
+by default, and does not depend on the system page size: a 4 KiB frame of
+R9 Nano and a 2 MiB frame of MI300X both notify with the 256th access of a
+GPU. The first 255 accesses of a GPU to a frame send nothing, the 256th sends
+one notification, and the count starts over, so the next notification is the
+512th access. An access is a request that reaches the RDMA engine from the
+caches of its GPU, so accesses that repeat a line count, and a frame can
+reach the threshold with fewer lines than accesses. Every GPU counts its own
+accesses: two GPUs that access a frame 255 times each send nothing.
 
 The engine counts frames, not pages. A frame that is freed and allocated again
 keeps the count it had. The driver resolves the frame when it services the
@@ -314,24 +388,30 @@ A page gets its new frame from the ordinary allocator of the destination, so
 the frame may have been used and freed before. The caches of the GPU can still
 hold lines of such a frame:
 
-- The L2 lines are dropped by the migration itself, before and after the
-  copy.
+- The L2 lines are dropped by the migration itself, before the copy, and the
+  copy waits for the lines of the frame that the L2 was already writing
+  back.
 - For the L1 lines, MGPUSim assumes that every kernel that used a freed
   allocation has finished, and that the first kernel to use a recycled frame
   launches after the free. The L1 data caches are invalidated when a kernel
   starts.
-- A host copy writes memory around the caches. A buffer that gets a recycled
-  frame, when it is allocated or when `Remap` or `Distribute` moves its pages
-  to other GPUs, is therefore treated like a buffer that a kernel has
-  written: the driver flushes the caches before a host copy into it. Frames
-  are tracked by the GPU that has them: a page that is mapped through a
-  unified GPU (`CreateUnifiedGPU`) is on the member GPU that gave the frame.
+- A host copy reads and writes the memory below the caches. A buffer that
+  gets a recycled frame, when it is allocated or when `Remap` or `Distribute`
+  moves its pages to other GPUs, is therefore treated like a buffer that a
+  kernel has written: the driver flushes the caches before a timed host copy
+  into it. Frames are tracked by the GPU that has them: a page that is mapped
+  through a unified GPU (`CreateUnifiedGPU`) is on the member GPU that gave
+  the frame.
 
 What the caches hold of a buffer belongs to its address space. The contexts
 made with `InitWithExistingPID` share one: a kernel of any of them dirties the
-buffers of all, and a host copy through any of them is flushed for a dirty
-buffer of any other. Only the context that allocated a buffer frees it.
+buffers of all, and a timed host copy through any of them is flushed for a
+dirty buffer of any other. Only the context that allocated a buffer frees it.
 Address spaces with different process IDs do not affect each other.
+
+A timed host copy of a page that has migrated goes through the GPU that has
+the page now, which reads or writes the memory below its L2, where the data
+mover put the page. The migration itself does not make the buffer dirty.
 
 The frame that a page leaves is **retired**: it is not returned to the
 allocator, so nothing that still names it, such as an L1 line of another GPU
@@ -349,41 +429,78 @@ little memory in use.
 ### Magic memory copies
 
 With `-magic-memory-copy`, the driver copies between the host and the global
-storage itself, in no time, around the GPUs. On the timing platform that is
-coherent only for memory that no cache holds a line of. A copy that needs the
-caches flushed takes the timed path instead: the L2 caches are flushed and the
-GPU of each page reads or writes the memory below its L2, the MALL on MI300X.
-That is the case for a buffer that a kernel may have written, that got a
-recycled frame, or that has a page that migrated: a migrated page is below the
-L2 of its GPU, which on MI300X is not the global storage. Emulation has no
-caches (`UncachedDeviceMemory` in the driver's Spec), so every copy is direct
-there.
+storage itself, in no time and around the GPUs. Every host copy does, in
+emulation and on the timing platforms alike, whatever the buffer has been
+used for: a magic copy never flushes a cache and never goes through a GPU.
+
+In emulation that is exact: the GPUs have no caches and read and write the
+global storage themselves. On a timing platform it is **not coherent with
+the caches**, and MGPUSim does not make it so. The global storage is the
+DRAM. What a GPU has of a buffer can differ from it:
+
+- **A download does not see dirty lines.** What a kernel wrote is in the L2
+  of its GPU until the lines are written back. A magic download returns what
+  the DRAM has: the contents from before the kernel, zeros for new memory.
+  The output of a kernel therefore cannot be read back with magic copies,
+  with or without page migration: a benchmark that verifies its results
+  fails.
+- **An upload does not reach cached lines.** A cache that has a line of the
+  buffer keeps it, so the GPU goes on using the old contents, and a dirty L2
+  line is written back over the upload later, for example when the page
+  migrates. A page that got a recycled frame can have such lines from the
+  last user of the frame.
+- **On MI300X the MALL is one more cache.** The memory below the L2 is the
+  MALL, a write-through cache in front of the DRAM. Writes that reach the
+  MALL also reach the DRAM, so a magic download sees them. But a magic upload
+  changes the DRAM below the MALL: a line that the MALL has keeps its old
+  contents, for the L2, for timed copies, and for page copies, which all read
+  the MALL. A page that migrates after such an upload takes the old lines
+  along. On R9 Nano the memory below the L2 is the DRAM itself, and a page
+  copy takes the upload.
+
+Use magic copies where the host only loads memory that no GPU has touched
+and results are not read back, for example to skip the time of an initial
+upload. A simulation that reads results back, or that copies into memory in
+use, needs timed copies, which is the default: they flush the caches when a
+buffer may have lines in them and go through the GPU of each page.
 
 ## Tests
 
 - `amd/driver`: the policy and the phases of a page, against a fixture that
   plays the MMU, the RDMA engines, and the command processors; memory copies
-  and faults that wait for each other; pages of two processes at one address;
-  three GPUs that are throttled on one page at different times, with faults
-  and with notifications, through a pin, and through a checkpoint of the
-  whole simulation.
-- `amd/timing/cp`, `amd/timing/rdma`, `amd/runtime`, `amd/runtime/internal`:
-  the per-page commands, the frame counters and the path below the L2, the
-  allocators, the physical range of each device, and recycled frames.
-- `amd/samples/runner/timingconfig`: the wiring of both platforms, and that
-  the allocator, the caches, the RDMA engines, the data movers, and the
-  storage agree on the first and the last page of every GPU.
+  and faults that wait for each other; timed copies that flush the caches
+  and magic copies that are direct for the same dirty memory; pages of two
+  processes at one address; three GPUs that are throttled on one page at
+  different times, with faults and with notifications, through a pin, and
+  through a checkpoint of the whole simulation.
+- `amd/timing/cp`: the per-page commands; the L2 maintenance of frames that
+  have no byte in common at the same time, with acknowledgements that arrive
+  staggered, and of frames that have a byte in common in arrival order; a
+  flush of the driver that arrives with maintenance in progress and
+  waiting, also across a checkpoint; and two flushes with maintenance
+  between them.
+- `amd/timing/rdma`, `amd/runtime`, `amd/runtime/internal`: the frame
+  counters and the path below the L2, the allocators, the physical range of
+  each device, and recycled frames.
+- `amd/samples/runner/timingconfig`: the wiring of both platforms; that the
+  allocator, the caches, the RDMA engines, the data movers, and the storage
+  agree on the first and the last page of every GPU; and that the RDMA
+  engines of a platform with the default specification notify with the
+  256th, and again with the 512th, access of a GPU to a frame.
 - `amd/tests/pagemigration`: acceptance on complete R9 Nano and MI300X
   platforms with real kernels: page contents with dirty source lines, reused
-  destination frames, and host uploads into reused frames (with magic memory
-  copies, after `Distribute`, and through a second context of the address
-  space after `Remap`); faults under backpressure and during the
-  Release, two windows on a data mover, a sparse window, counter-triggered
-  prefetching, throttling, pinning and timed unpinning, the kernels of two
-  GPUs that are throttled at different times on a platform of three, a
-  checkpoint in the middle of a copy, several GPUs fighting for the same
-  pages, and the
-  multi-GPU sample workloads with both policies. The tests run full
+  destination frames, and host uploads into reused frames (directly, after
+  `Distribute`, and through a second context of the address space after
+  `Remap`); what magic memory copies do around the L2 and the MALL; faults
+  under backpressure and during the Release, two windows on a data mover, a
+  sparse window, counter-triggered prefetching, throttling, pinning and
+  timed unpinning, the kernels of two GPUs that are throttled at different
+  times on a platform of three, a checkpoint in the middle of a copy,
+  several GPUs fighting for the same pages, and the multi-GPU sample
+  workloads with both policies. One test builds only the path of a page from
+  the components of the platforms, with the DRAM and with the MALL below the
+  L2, and holds back the writeback of an old line of the new frame: the copy
+  does not start before the writeback is acknowledged. The tests run
   simulations and skip with `-short`; `-run '/r9nano'` and `-run '/mi300x'`
   select a platform, and `-slow` adds the two largest workloads.
 - `amd/tests/acceptance -only-page-migration`: the sample binaries on several
@@ -397,9 +514,14 @@ there.
   pages that was made as one block stays allocated as long as one of its
   frames is retired.
 - A migration needs a free frame on the destination; there is no eviction.
+- A page copy takes a place in the data mover of the destination only. The
+  GPU that the page leaves serves the reads through its RDMA engine and has
+  no limit of its own on the pages that leave it at one time.
 - The L1 caches of the GPUs are not coherent with each other: a GPU that reads
   a page remotely, while it is pinned or with the counter policy, can keep a
   line that the owner has written since. This is not new with page migration.
+- Magic memory copies are not coherent with the caches of a timing platform
+  (see [Magic memory copies](#magic-memory-copies)).
 - A timed host copy and faults can wait for each other through a saturated
   command processor. A command processor takes the kernel launches, the cache
   flushes, and the host copies of the driver from one port, in order. A launch

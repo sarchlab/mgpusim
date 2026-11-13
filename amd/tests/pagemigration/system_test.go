@@ -63,7 +63,7 @@ func migration(change func(*driver.PageMigrationSpec)) option {
 func buddyAllocator(c *config) { c.allocator = gpuruntime.AllocatorBuddy }
 
 // magicCopies lets the driver copy between the host and the global storage
-// directly where no cache of a GPU is in the way.
+// directly, around the GPUs and their caches.
 func magicCopies(c *config) { c.magicCopy = true }
 
 // system is a complete timing platform with one command queue per GPU and a
@@ -77,7 +77,7 @@ type system struct {
 	rt      *gpuruntime.Runtime
 	driver  *driver.Comp
 	storage *mem.Storage
-	inbound []*datamover.Comp // by GPU-1
+	movers  []*datamover.Comp // by GPU-1
 
 	ctx      gpuruntime.Context
 	queues   []gpuruntime.CommandQueue // by GPU-1
@@ -129,7 +129,7 @@ func newSystem(t *testing.T, gpuType string, opts ...option) *system {
 	}
 
 	s.engine = s.sim.Engine().(*timing.SerialEngine)
-	s.inbound = make([]*datamover.Comp, cfg.numGPUs)
+	s.movers = make([]*datamover.Comp, cfg.numGPUs)
 
 	for _, c := range s.sim.Components() {
 		switch c := c.(type) {
@@ -137,8 +137,8 @@ func newSystem(t *testing.T, gpuType string, opts ...option) *system {
 			s.driver = c
 		case *datamover.Comp:
 			var gpu int
-			if _, err := fmt.Sscanf(c.Name(), "GPU[%d].InboundDataMover", &gpu); err == nil {
-				s.inbound[gpu-1] = c
+			if _, err := fmt.Sscanf(c.Name(), "GPU[%d].DataMover", &gpu); err == nil {
+				s.movers[gpu-1] = c
 			}
 		}
 	}

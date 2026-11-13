@@ -71,7 +71,7 @@ type Builder struct {
 	cp                 *cp.Comp
 	rdmaEngine         *rdma.Comp
 	dmaEngine          *dma.Comp
-	dataMovers         gpubuilder.DataMovers
+	dataMover          *datamover.Comp
 	sas                []*shaderarray.ShaderArray
 	l2Caches           []*writeback.Comp
 	l2TLBs             []*tlb.Comp
@@ -211,7 +211,7 @@ func (b Builder) WithDriverPort(
 }
 
 // WithPageMigration sets how the GPU takes part in page migration: the
-// access counters of its RDMA engine and its data movers.
+// access counters of its RDMA engine and its data mover.
 func (b Builder) WithPageMigration(
 	cfg gpubuilder.PageMigrationConfig,
 ) gpubuilder.GPUBuilder {
@@ -235,7 +235,7 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildDRAMControllers()
 	b.buildL2Caches()
 	b.buildDMAEngine()
-	b.buildDataMovers()
+	b.buildDataMover()
 	b.buildRDMAEngine()
 	b.buildL2TLB()
 	b.buildSAs()
@@ -277,9 +277,7 @@ func (b *Builder) populateGPU() {
 		PageMigrationPort:    b.cp.Ports.PageMigration,
 		AccessCounterPort:    b.rdmaEngine.Ports.AccessCounter,
 		MigrationDataPort:    b.rdmaEngine.Ports.MigrationOutside,
-
-		InboundDataMoverPort:  b.dataMovers.Inbound.Ports.Outside,
-		OutboundDataMoverPort: b.dataMovers.Outbound.Ports.Outside,
+		DataMoverPort:        b.dataMover.Ports.Outside,
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -297,11 +295,8 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
 	b.internalConn.BindPort(b.cp.Ports.ToTranslation)
 	b.internalConn.BindPort(b.cp.Ports.ToDataMover)
-
-	for _, mover := range []*datamover.Comp{b.dataMovers.Inbound, b.dataMovers.Outbound} {
-		b.internalConn.BindPort(mover.Ports.Top)
-		b.internalConn.BindPort(mover.Ports.Control)
-	}
+	b.internalConn.BindPort(b.dataMover.Ports.Top)
+	b.internalConn.BindPort(b.dataMover.Ports.Control)
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
 	b.internalConn.BindPort(rdmaCtrlPort)
@@ -387,11 +382,10 @@ func (b *Builder) connectL2AndDRAM() {
 
 	b.l2ToDramConnection.BindPort(b.dmaEngine.Ports.ToMem)
 
-	// Page copies go around the L2 on both ends: the data movers of this
-	// GPU, and those of the other GPUs through the RDMA engine, read and
-	// write the DRAM directly.
-	b.l2ToDramConnection.BindPort(b.dataMovers.Inbound.Ports.Inside)
-	b.l2ToDramConnection.BindPort(b.dataMovers.Outbound.Ports.Inside)
+	// Page copies go around the L2 on both ends: the data mover of this GPU
+	// writes the DRAM directly, and those of the other GPUs read it through
+	// the RDMA engine.
+	b.l2ToDramConnection.BindPort(b.dataMover.Ports.Inside)
 	b.l2ToDramConnection.BindPort(b.rdmaEngine.Ports.MigrationInside)
 }
 
@@ -628,8 +622,7 @@ func (b *Builder) buildCP() {
 	ats, tlbs := gpubuilder.MigrationPeers(b.sas, b.l2TLBs)
 	spec.AddressTranslators = gpubuilder.RemotePorts(ats)
 	spec.TLBs = gpubuilder.RemotePorts(tlbs)
-	spec.InboundDataMover = b.dataMovers.Inbound.Ports.Top.AsRemote()
-	spec.OutboundDataMover = b.dataMovers.Outbound.Ports.Top.AsRemote()
+	spec.DataMover = b.dataMover.Ports.Top.AsRemote()
 
 	b.cp = cp.MakeBuilder().WithSampler(b.sampler).
 		WithSimulation(b.simulation).
@@ -647,10 +640,10 @@ func (b *Builder) buildCP() {
 	b.buildPort(b.cp, "PageMigration", cpPortBufSize)
 }
 
-// buildDataMovers builds the inbound and the outbound data mover, which copy
-// the pages that migrate to and from this GPU between the DRAMs.
-func (b *Builder) buildDataMovers() {
-	b.dataMovers = gpubuilder.BuildDataMovers(b.simulation,
+// buildDataMover builds the data mover, which pulls the pages that migrate
+// to this GPU from the DRAM of the other GPUs into its DRAM.
+func (b *Builder) buildDataMover() {
+	b.dataMover = gpubuilder.BuildDataMover(b.simulation,
 		b.name, b.freq, 1<<b.log2CacheLineSize,
 		*b.dmaLocalDataSource, b.pageMigration)
 }

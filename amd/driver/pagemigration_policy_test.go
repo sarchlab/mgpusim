@@ -112,7 +112,6 @@ func TestTheNextWindowIsSubmittedAfterTheEarlierOneAndBeforeItCompletes(t *testi
 	// A second fault for C waits until the last Release answer of C.
 	f.fault(c, 2)
 	mustEqual(t, "copy", f.step(c), []string{"Copy>2"})
-	mustEqual(t, "invalidate", f.step(c), []string{"Invalidate>2"})
 	mustEqual(t, "shootdown", f.step(c), []string{"Shootdown>1", "Shootdown>2"})
 
 	releases := f.of(c)
@@ -135,7 +134,8 @@ func TestWindowsOfDifferentDataMoversDoNotWaitForEachOther(t *testing.T) {
 	pages := f.unified(2)
 	f.place(pages[1], 2)
 
-	// Page 0 moves to GPU 2 and page 1 to GPU 1: two inbound data movers.
+	// Page 0 moves to GPU 2 and page 1 to GPU 1: each is pulled by the data
+	// mover of its destination.
 	f.fault(pages[0], 2)
 	f.fault(f.page(pages[1].VAddr), 1)
 

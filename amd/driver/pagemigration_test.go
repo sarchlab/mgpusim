@@ -70,7 +70,8 @@ func TestFaultMigratesOnePageThroughEveryPhase(t *testing.T) {
 		protocol.PageFlushReq{PAddr: page.PAddr, PageSize: testPageSize})
 	mustEqual(t, "owner of the new frame", f.r.DeviceIDByPAddr(newFrame), 2)
 
-	// The copy waits for both.
+	// The copy waits for both: the destination pulls the page only after it
+	// has answered that the L2 lines of the new frame are gone.
 	f.answer(prepare[0])
 	mustEqual(t, "before the invalidate answer", describe(f.of(page)),
 		[]string{"Invalidate>2"})
@@ -80,14 +81,12 @@ func TestFaultMigratesOnePageThroughEveryPhase(t *testing.T) {
 	mustEqual(t, "copy", describe(copies), []string{"Copy>2"})
 	mustEqual(t, "copy request", copies[0].Payload.(protocol.PageCopyReq),
 		protocol.PageCopyReq{SrcAddress: page.PAddr, DstAddress: newFrame, PageSize: testPageSize})
+	mustEqual(t, "owner before the copy answer", f.page(page.VAddr).DeviceID, uint64(1))
 
-	// The destination drops the L2 lines of the new frame again, and only
-	// then does the page table change.
+	// With the answer of the copy the page table changes, and the old
+	// translation is shot down: the destination is not asked to invalidate
+	// the new frame again.
 	f.answer(copies...)
-	mustEqual(t, "after the copy", describe(f.of(page)), []string{"Invalidate>2"})
-	mustEqual(t, "owner before the remap", f.page(page.VAddr).DeviceID, uint64(1))
-
-	mustEqual(t, "invalidate", f.step(page), []string{"Invalidate>2"})
 
 	moved := f.page(page.VAddr)
 	if moved.DeviceID != 2 || moved.PAddr != newFrame {
@@ -192,7 +191,6 @@ func TestAFaultDuringAnyPhaseWaitsForTheLastReleaseAnswer(t *testing.T) {
 	mustEqual(t, "prepare", f.step(page), []string{"Flush>1", "Invalidate>2"})
 	f.fault(page, 2)
 	mustEqual(t, "copy", f.step(page), []string{"Copy>2"})
-	mustEqual(t, "invalidate", f.step(page), []string{"Invalidate>2"})
 	mustEqual(t, "shootdown", f.step(page), []string{"Shootdown>1", "Shootdown>2"})
 
 	releases := f.of(page)

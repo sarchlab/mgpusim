@@ -2,6 +2,8 @@ package cp
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +14,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
@@ -129,8 +132,7 @@ var _ = Describe("CommandProcessor", func() {
 		spec.L2Caches = remoteList("L2", 2)
 		spec.AddressTranslators = remoteList("AT", 3)
 		spec.TLBs = remoteList("TLB", 2)
-		spec.InboundDataMover = "InboundDataMover.Top"
-		spec.OutboundDataMover = "OutboundDataMover.Top"
+		spec.DataMover = "DataMover.Top"
 	})
 
 	JustBeforeEach(func() {
@@ -591,71 +593,296 @@ var _ = Describe("CommandProcessor", func() {
 			expectDone(req)
 		})
 
-		It("runs one maintenance operation per L2 bank at a time", func() {
+		It("maintains frames that have no byte in common at the same time", func() {
 			useMockDispatcher()
 			first := migrationReq(protocol.PageFlushReq{PAddr: 0x8000, PageSize: 4096})
 			second := migrationReq(protocol.PageFlushReq{PAddr: 0x9000, PageSize: 4096})
+			third := migrationReq(protocol.PageInvalidateReq{PAddr: 0xa000, PageSize: 4096})
 
-			// Only the Flush of the first frame is out: the second pair waits
-			// on each bank for the first pair of that bank.
-			flushes := collectCtrlReqs(toCaches)
-			expectPageCtrl(flushes, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+			// The requests of all three frames are with both banks before any
+			// is acknowledged.
+			reqs := collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs[:2], memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+			expectPageCtrl(reqs[2:4], memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x9000)
+			expectPageCtrl(reqs[4:], memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0xa000)
 
-			ackCtrlReqs(toCaches, flushes)
+			// The acknowledgements arrive staggered. Bank 1 acknowledges the
+			// Flush of the second frame: it alone gets the Invalidate of that
+			// frame, while no bank has acknowledged the Flush of the first.
+			ackCtrlReqs(toCaches, reqs[3:4])
+			invalidates := collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[1:], 0, 0x9000)
+
+			// A job is answered with its own last acknowledgement.
+			ackCtrlReqs(toCaches, reqs[4:])
+			expectDone(third)
+
+			ackCtrlReqs(toCaches, invalidates)
+			expectNotDone()
+
+			ackCtrlReqs(toCaches, reqs[2:3])
+			invalidates = collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[:1], 0, 0x9000)
+			ackCtrlReqs(toCaches, invalidates)
+			expectDone(second)
+
+			// The first frame, whose Flush took the longest, ends last.
+			ackCtrlReqs(toCaches, reqs[1:2])
+			ackCtrlReqs(toCaches, reqs[:1])
+			invalidates = collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates[:1], memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[1:], 0, 0x8000)
+			expectPageCtrl(invalidates[1:], memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[:1], 0, 0x8000)
+			ackCtrlReqs(toCaches, invalidates)
+			expectDone(first)
+
+			expectNotDone()
+			Expect(cp.State.L2Ops).To(BeEmpty())
+			Expect(cp.State.CtrlWaits).To(BeEmpty())
+			Expect(cp.State.PageJobs).To(BeEmpty())
+		})
+
+		It("maintains frames that have a byte in common in the order they arrived", func() {
+			useMockDispatcher()
+			first := migrationReq(protocol.PageFlushReq{PAddr: 0x8000, PageSize: 4096})
+
+			// The second frame has bytes of the first. The third has bytes of
+			// the second only, and the fourth has none of any of them.
+			second := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8800, PageSize: 4096})
+			third := migrationReq(protocol.PageFlushReq{PAddr: 0x9000, PageSize: 4096})
+			apart := migrationReq(protocol.PageInvalidateReq{PAddr: 0x20000, PageSize: 4096})
+
+			// The first and the fourth start. The third waits for the second,
+			// although the second has not started itself.
+			reqs := collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs[:2], memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+			expectPageCtrl(reqs[2:], memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x20000)
+
+			ackCtrlReqs(toCaches, reqs[2:])
+			expectDone(apart)
+			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
+
+			// The second starts when the last bank has invalidated the first.
+			ackCtrlReqs(toCaches, reqs[:2])
 			invalidates := collectCtrlReqs(toCaches)
 			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
 				cp.Spec.L2Caches, 0, 0x8000)
-
-			// Bank 0 finishes the first pair and starts the second, while
-			// bank 1 still invalidates the first frame.
 			ackCtrlReqs(toCaches, invalidates[:1])
-			next := collectCtrlReqs(toCaches)
-			expectPageCtrl(next, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches[:1], 0, 0x9000)
-			expectNotDone()
-
+			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
 			ackCtrlReqs(toCaches, invalidates[1:])
 			expectDone(first)
 
-			next = append(next, collectCtrlReqs(toCaches)...)
-			ackCtrlReqs(toCaches, next)
-			ackCtrlReqs(toCaches, collectCtrlReqs(toCaches))
+			reqs = collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x8800)
+			ackCtrlReqs(toCaches, reqs)
 			expectDone(second)
+
+			// Then the third.
+			reqs = collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x9000)
+			ackCtrlReqs(toCaches, reqs)
+			reqs = collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x9000)
+			ackCtrlReqs(toCaches, reqs)
+			expectDone(third)
+
+			expectNotDone()
+			Expect(cp.State.L2Ops).To(BeEmpty())
 		})
 
-		It("keeps the flush of the driver and the L2 maintenance of pages apart", func() {
-			useMockDispatcher()
-			page := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
-			invalidates := collectCtrlReqs(toCaches)
-			Expect(invalidates).To(HaveLen(2))
+		// flushScenario is a flush of the driver that arrives while the L2
+		// maintenance of one frame is in progress, that of a second frame
+		// waits for the first, and that of a third arrives after the flush.
+		type flushScenario struct {
+			active, blocked, later, flush messaging.Msg
+			flushes                       []messaging.Msg
+		}
 
-			// The flush waits for the banks, and a page that arrives now
-			// waits for the flush.
-			toDriver.Deliver(messaging.Msg{ID: cp.NewID(), Src: driverPort,
-				Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}})
-			later := migrationReq(protocol.PageInvalidateReq{PAddr: 0x9000, PageSize: 4096})
+		startFlushScenario := func() flushScenario {
+			var s flushScenario
 
+			s.active = migrationReq(protocol.PageFlushReq{PAddr: 0x8000, PageSize: 4096})
+			s.blocked = migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
+			s.flushes = collectCtrlReqs(toCaches)
+			expectPageCtrl(s.flushes, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches, 0, 0x8000)
+
+			s.flush = messaging.Msg{ID: cp.NewID(), Src: driverPort,
+				Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+			toDriver.Deliver(s.flush)
+			s.later = migrationReq(protocol.PageInvalidateReq{PAddr: 0x9000, PageSize: 4096})
+
+			// The flush waits for the frame in progress. The frame that
+			// arrived after the flush does not start, although it has no
+			// byte in common with any other.
 			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
 			Expect(cp.State.FlushWaiting).To(BeTrue())
 			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
 
-			ackCtrlReqs(toCaches, invalidates)
-			expectDone(page)
+			return s
+		}
+
+		// finishFlushScenario runs the scenario to its end and returns what
+		// the Command Processor sent, in order.
+		finishFlushScenario := func(s flushScenario) []string {
+			var sent []string
+
+			step := func(reqs []messaging.Msg) {
+				for _, req := range reqs {
+					payload := req.Payload.(memcontrolprotocol.Req)
+					sent = append(sent, fmt.Sprintf("%v>%s[%#x,%#x)",
+						payload.Command, req.Dst, payload.Range.Start, payload.Range.End))
+				}
+
+				ackCtrlReqs(toCaches, reqs)
+			}
+
+			answers := func() {
+				for {
+					rsp, ok := pmPort.RetrieveOutgoing()
+					if !ok {
+						return
+					}
+
+					sent = append(sent, fmt.Sprintf("answer to %d", rsp.RspTo))
+				}
+			}
+
+			// The frame in progress runs to its end: each bank still gets
+			// the Invalidate that follows its Flush, and the flush of the
+			// driver waits for the last of them.
+			ackCtrlReqs(toCaches, s.flushes[1:])
+			invalidates := collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[1:], 0, 0x8000)
+			step(invalidates)
+
+			ackCtrlReqs(toCaches, s.flushes[:1])
+			invalidates = collectCtrlReqs(toCaches)
+			expectPageCtrl(invalidates, memcontrolprotocol.CmdInvalidate,
+				cp.Spec.L2Caches[:1], 0, 0x8000)
+			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
+			step(invalidates)
+			answers()
+
+			// The flush runs before the frames that wait.
 			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqFlush))
+			Expect(cp.State.FlushWaiting).To(BeFalse())
 
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, cp.Spec.L2Caches)
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches)
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches)
-			expectNotDone()
-			expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
+			for _, dsts := range [][]messaging.RemotePort{
+				l1Dsts(), l1Dsts(), l1Dsts(),
+				cp.Spec.L2Caches, cp.Spec.L2Caches, cp.Spec.L2Caches, allCacheDsts(),
+			} {
+				reqs := collectCtrlReqs(toCaches)
+				Expect(reqs).To(HaveLen(len(dsts)))
+				step(reqs)
+			}
 
-			// The flush is over: the page that waited runs.
+			rsp, ok := toDriver.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(rsp.RspTo).To(Equal(s.flush.ID))
+			answers()
+
+			// The flush is over: the frames that waited are maintained.
 			reqs := collectCtrlReqs(toCaches)
-			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x9000)
+			expectPageCtrl(reqs[:2], memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x8000)
+			expectPageCtrl(reqs[2:], memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x9000)
+			step(reqs)
+			answers()
+
+			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
+			Expect(cp.State.L2Ops).To(BeEmpty())
+			Expect(cp.State.CtrlWaits).To(BeEmpty())
+			Expect(cp.State.PageJobs).To(BeEmpty())
+
+			return sent
+		}
+
+		It("lets the flush of the driver go before the L2 maintenance that has not started", func() {
+			useMockDispatcher()
+			s := startFlushScenario()
+			sent := finishFlushScenario(s)
+
+			// Every command is answered once: the frame that was in progress
+			// before the flush, the other two after it.
+			var answers []string
+			for _, what := range sent {
+				if strings.HasPrefix(what, "answer") {
+					answers = append(answers, what)
+				}
+			}
+
+			Expect(answers).To(Equal([]string{
+				fmt.Sprintf("answer to %d", s.active.ID),
+				fmt.Sprintf("answer to %d", s.blocked.ID),
+				fmt.Sprintf("answer to %d", s.later.ID),
+			}))
+			Expect(sent[2]).To(Equal(answers[0]))
+		})
+
+		It("maintains the frames that waited between two flushes of the driver", func() {
+			useMockDispatcher()
+
+			var flushes []messaging.Msg
+			for range 2 {
+				flush := messaging.Msg{ID: cp.NewID(), Src: driverPort,
+					Dst: toDriver.AsRemote(), Payload: protocol.FlushReq{}}
+				toDriver.Deliver(flush)
+				flushes = append(flushes, flush)
+			}
+
+			runFlush := func(flush messaging.Msg) {
+				Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqFlush))
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, l1Dsts())
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, cp.Spec.L2Caches)
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches)
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches)
+				expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
+
+				rsp, ok := toDriver.RetrieveOutgoing()
+				Expect(ok).To(BeTrue())
+				Expect(rsp.RspTo).To(Equal(flush.ID))
+			}
+
+			// A frame arrives while the first flush runs, with the second
+			// flush already behind the first. The frame does not wait for
+			// both: it is maintained when the first flush is over, and the
+			// second flush waits for it.
+			tickUntilQuiet()
+			page := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
+			runFlush(flushes[0])
+
+			reqs := collectCtrlReqs(toCaches)
+			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x8000)
+			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
+			Expect(cp.State.FlushWaiting).To(BeTrue())
+
 			ackCtrlReqs(toCaches, reqs)
-			expectDone(later)
+			expectDone(page)
+			runFlush(flushes[1])
+		})
+
+		It("continues a waiting flush and the L2 maintenance around it from a checkpoint", func() {
+			useMockDispatcher()
+			s := startFlushScenario()
+
+			engine := reg.Engine().(*timing.SerialEngine)
+			path := filepath.Join(GinkgoT().TempDir(), "flush-waiting.tar.gz")
+			Expect(engine.Run()).To(Succeed())
+			Expect(reg.SaveCheckpoint(path)).To(Succeed())
+
+			uninterrupted := finishFlushScenario(s)
+
+			Expect(engine.Run()).To(Succeed())
+			Expect(reg.LoadCheckpoint(path)).To(Succeed())
+			Expect(cp.State.FlushWaiting).To(BeTrue())
+			Expect(cp.State.L2Ops).To(HaveLen(3))
+
+			Expect(finishFlushScenario(s)).To(Equal(uninterrupted))
 		})
 
 		It("shoots the pages that wait down in one round of the TLBs", func() {
@@ -694,14 +921,14 @@ var _ = Describe("CommandProcessor", func() {
 			Expect(cp.State.Shootdown.Step).To(Equal(shootdownIdle))
 		})
 
-		It("pulls a page with the inbound data mover", func() {
+		It("pulls a page with the data mover", func() {
 			useMockDispatcher()
 			req := migrationReq(protocol.PageCopyReq{
 				SrcAddress: 0x1000, DstAddress: 0x9000, PageSize: 4096})
 
 			move, ok := toDataMover.RetrieveOutgoing()
 			Expect(ok).To(BeTrue())
-			Expect(move.Dst).To(Equal(messaging.RemotePort("InboundDataMover.Top")))
+			Expect(move.Dst).To(Equal(messaging.RemotePort("DataMover.Top")))
 			Expect(move.Payload).To(Equal(datamoverprotocol.Req{
 				SrcAddress: 0x1000,
 				DstAddress: 0x9000,
@@ -716,19 +943,6 @@ var _ = Describe("CommandProcessor", func() {
 
 			expectDone(req)
 			Expect(cp.State.MoveJobs).To(BeEmpty())
-		})
-
-		It("pushes a page with the outbound data mover", func() {
-			useMockDispatcher()
-			migrationReq(protocol.PageCopyReq{
-				SrcAddress: 0x1000, DstAddress: 0x9000, PageSize: 4096, Push: true})
-
-			move, ok := toDataMover.RetrieveOutgoing()
-			Expect(ok).To(BeTrue())
-			Expect(move.Dst).To(Equal(messaging.RemotePort("OutboundDataMover.Top")))
-			m := move.Payload.(datamoverprotocol.Req)
-			Expect(m.SrcSide).To(Equal(datamoverprotocol.SideInside))
-			Expect(m.DstSide).To(Equal(datamoverprotocol.SideOutside))
 		})
 
 		It("submits the copies in arrival order and answers each on its own", func() {

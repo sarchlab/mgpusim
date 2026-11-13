@@ -52,10 +52,11 @@ type PageMigrationSpec struct {
 	BatchSize int `json:"batch_size"`
 	QueueSize int `json:"queue_size"`
 
-	// AccessCounterThreshold is the number of remote accesses of a GPU to a
-	// physical page frame that make its RDMA engine notify the driver
-	// (uvm_perf_access_counter_threshold); 0 turns the counters off. The
-	// platform sets it in the RDMA engines.
+	// AccessCounterThreshold is the number of remote demand accesses of one
+	// GPU to one physical page frame that make its RDMA engine notify the
+	// driver (uvm_perf_access_counter_threshold); 0 turns the counters off.
+	// It counts the requests that reach the engine and does not depend on
+	// the system page size. The platform sets it in the RDMA engines.
 	AccessCounterThreshold uint64 `json:"access_counter_threshold"`
 
 	// A migration also moves, or prefetches, the eligible pages of the
@@ -83,9 +84,9 @@ type PageMigrationSpec struct {
 	PinThreshold       int    `json:"pin_threshold"`
 	PinNS              uint64 `json:"pin_ns"`
 
-	// DataMoverPages is the number of page copies of one direction that a
-	// data mover of a GPU keeps in flight. The platform sets it in the data
-	// movers.
+	// DataMoverPages is the number of page copies that the data mover of a
+	// GPU, which pulls the pages that migrate to the GPU, keeps in flight.
+	// The platform sets it in the data movers.
 	DataMoverPages int `json:"data_mover_pages"`
 }
 
@@ -137,20 +138,19 @@ func nsToPS(ns uint64) timing.VTimeInPicoSec {
 
 // Phases of the service of a page.
 const (
-	pageIdle       = iota // nothing to do
-	pageHold              // the GPUs hold the page
-	pagePrepare           // the source flushes the old frame, the destination drops the new one
-	pageCopyWait          // waits for its turn at the destination's data mover
-	pageCopy              // the destination's data mover copies
-	pageInvalidate        // the destination drops the L2 lines of the new frame
-	pageShootdown         // the GPUs drop the old translation
-	pageRelease           // the GPUs release the page
+	pageIdle      = iota // nothing to do
+	pageHold             // the GPUs hold the page
+	pagePrepare          // the source flushes the old frame, the destination drops the new one
+	pageCopyWait         // waits for its turn at the destination's data mover
+	pageCopy             // the destination's data mover copies
+	pageShootdown        // the GPUs drop the old translation
+	pageRelease          // the GPUs release the page
 )
 
 // Services of a page.
 const (
 	serviceNone    = iota
-	serviceMigrate // hold, flush, copy, invalidate, remap, shoot down, release
+	serviceMigrate // hold, flush and invalidate, copy, remap, shoot down, release
 	serviceRelease // hold and release: nothing moves
 	serviceUnpin   // hold, clear the pin, shoot down, release
 )
@@ -236,9 +236,9 @@ type migrationRequest struct {
 }
 
 // copyWindow is the pages that one fault or notification moves to GPU Dst, in
-// the order they are submitted to its inbound data mover: the triggering
-// page, then the prefetched pages by address. Next is the number of pages
-// submitted so far.
+// the order they are submitted to its data mover: the triggering page, then
+// the prefetched pages by address. Next is the number of pages submitted so
+// far.
 type copyWindow struct {
 	Dst   int   `json:"dst"`
 	Pages []int `json:"pages"`
@@ -331,10 +331,9 @@ func newPageMigrationState() PageMigrationState {
 // notifications, decides in batches what each page does, and then runs every
 // page on its own with commands to the GPUs' command processors: hold the
 // page on every GPU; flush the old frame out of the source's L2 and drop the
-// new frame from the destination's; copy with the destination's inbound data
-// mover, around both L2s; drop the new frame from the destination's L2
-// again; update the page table; shoot down the old translation; and release
-// the page.
+// new frame from the destination's; copy with the destination's data mover,
+// around both L2s; update the page table; shoot down the old translation;
+// and release the page.
 type migrationMW struct{ comp *Comp }
 
 func (m *migrationMW) Handle(timing.Event) bool { return m.Tick() }

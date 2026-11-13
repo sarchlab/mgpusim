@@ -115,24 +115,23 @@ type PageFlushReq struct {
 
 // PageInvalidateReq asks a command processor to drop the L2 lines of the
 // frame at PAddr without writing them back. The driver sends it for the
-// frame that a page moves to, which may have been used before.
+// frame that a page moves to, which may have been used before, and waits
+// for the answer before the page is copied: a line of the frame that the
+// L2 was already writing back has then reached the memory below it.
 type PageInvalidateReq struct {
 	PAddr    uint64
 	PageSize uint64
 }
 
-// PageCopyReq asks a command processor to copy one page between the memory
-// below its L2 and the memory below the L2 of another GPU. Without Push, the
-// GPU is the destination and pulls the page with its inbound data mover:
-// SrcAddress is in the other GPU. With Push, the GPU is the source and its
-// outbound data mover writes the page to the other GPU. A command processor
-// passes the requests of each direction to the data mover in the order they
+// PageCopyReq asks the command processor of the GPU that a page moves to to
+// pull the page with its data mover: from SrcAddress, in the memory below
+// the L2 of another GPU, to DstAddress, in the memory below its own L2. A
+// command processor passes the requests to the data mover in the order they
 // arrive.
 type PageCopyReq struct {
 	SrcAddress uint64
 	DstAddress uint64
 	PageSize   uint64
-	Push       bool
 }
 
 // AccessCounterNotification tells the driver that the remote accesses of GPU

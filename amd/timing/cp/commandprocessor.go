@@ -22,14 +22,12 @@ type Spec struct {
 
 	// Page migration: the Control ports of every address translator
 	// (vector, scalar, and instruction) and every TLB of the GPU, and the Top
-	// ports of the GPU's two data movers. The inbound data mover only copies
-	// pages from other GPUs to this one, and the outbound data mover only
-	// copies pages from this GPU to others, so neither ever waits to change
-	// direction. The Command Processor is the only sender on these ports.
+	// port of the GPU's data mover, which pulls the pages that migrate to
+	// this GPU from the other GPUs. The Command Processor is the only sender
+	// on these ports.
 	AddressTranslators []messaging.RemotePort `json:"address_translators"`
 	TLBs               []messaging.RemotePort `json:"tlbs"`
-	InboundDataMover   messaging.RemotePort   `json:"inbound_data_mover"`
-	OutboundDataMover  messaging.RemotePort   `json:"outbound_data_mover"`
+	DataMover          messaging.RemotePort   `json:"data_mover"`
 
 	CUs []resource.CUConfig `json:"cus"`
 
@@ -122,15 +120,16 @@ type State struct {
 	// Page migration (see migration.go). PageJobs are the commands of the
 	// driver in service, by the ID of the command. CtrlWaits maps the ID of
 	// each control request in flight to what waits for its acknowledgement,
-	// and MoveJobs the ID of each data-move request to its command. Banks
-	// holds the cache maintenance of each L2 bank and Shootdown the TLB
-	// shootdowns. FlushWaiting is set while a flush of the driver waits for
-	// the L2 banks. The other queues hold the messages to send to the
-	// translators and TLBs, to the data movers, and to the driver.
+	// and MoveJobs the ID of each data-move request to its command. L2Ops
+	// are the L2 maintenance of the jobs that are not done, in arrival order,
+	// and Shootdown the TLB shootdowns. FlushWaiting is set while a flush of
+	// the driver waits for the L2 maintenance that has started. The other
+	// queues hold the messages to send to the translators and TLBs, to the
+	// data mover, and to the driver.
 	PageJobs               map[uint64]pageJob  `json:"page_jobs"`
 	CtrlWaits              map[uint64]ctrlWait `json:"ctrl_waits"`
 	MoveJobs               map[uint64]uint64   `json:"move_jobs"`
-	Banks                  []bankState         `json:"banks"`
+	L2Ops                  []l2Op              `json:"l2_ops"`
 	Shootdown              shootdownState      `json:"shootdown"`
 	FlushWaiting           bool                `json:"flush_waiting"`
 	PendingTranslationReqs []messaging.Msg     `json:"pending_translation_reqs"`
@@ -150,8 +149,7 @@ type State struct {
 //   - "ToRDMA": connects to the Ctrl port of the RDMA engine.
 //   - "ToTranslation": connects to the Control ports of the address
 //     translators and the TLBs.
-//   - "ToDataMover": connects to the Top ports of the inbound and the
-//     outbound data mover.
+//   - "ToDataMover": connects to the Top port of the data mover.
 //   - "PageMigration": receives the page-migration commands of the driver.
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 
@@ -221,7 +219,6 @@ func (s *State) Initialize(c *Comp) {
 	s.PageJobs = make(map[uint64]pageJob)
 	s.CtrlWaits = make(map[uint64]ctrlWait)
 	s.MoveJobs = make(map[uint64]uint64)
-	s.Banks = make([]bankState, len(c.Spec.L2Caches))
 	s.CUResources = resource.InitialState(c.Spec.CUs)
 	for i := 0; i < c.Spec.NumDispatchers; i++ {
 		s.Dispatchers = append(s.Dispatchers, dispatching.NewState(c.Spec.Alg, c.Spec.NumDies))

@@ -125,15 +125,14 @@ func (s *system) writeJunk(gpu, floats int) (junk gpuruntime.Ptr, frame uint64) 
 	return junk, frame
 }
 
-// With magic memory copies, the host writes the global storage itself where
-// it can, around the caches of the GPUs. A page that was used before can
-// still have dirty lines in the L2 of its GPU. An upload into such a page
-// must not be hidden by them, and the migration of the page must not write
-// them back over the upload: the upload goes through the GPU instead.
-func TestAMagicUploadIntoAFrameThatWasUsedBefore(t *testing.T) {
+// An upload into a page that was used before, whose frame can still have
+// dirty lines in the L2 of its GPU, must not be hidden by them, and the
+// migration of the page must not write them back over the upload: the caches
+// are flushed before the upload.
+func TestAnUploadIntoAFrameThatWasUsedBefore(t *testing.T) {
 	for _, gpuType := range platforms {
 		t.Run(gpuType, func(t *testing.T) {
-			s := newSystem(t, gpuType, buddyAllocator, magicCopies)
+			s := newSystem(t, gpuType, buddyAllocator)
 
 			const floats = 1024
 
@@ -205,17 +204,6 @@ func TestAnUploadIntoADistributedFrameThatWasUsedBefore(t *testing.T) {
 	}
 }
 
-// copyModes are the ways the host copies memory on the timing platform: with
-// timed copies through the GPUs, and with magic copies where they can be
-// used.
-var copyModes = []struct {
-	name string
-	opts []option
-}{
-	{"timed-copies", nil},
-	{"magic-copies", []option{magicCopies}},
-}
-
 // remapDestinations are the devices that a page is remapped to in order to
 // get a frame of GPU 2: GPU 2 itself, and a unified GPU, which has no memory
 // of its own and takes its first frames from GPU 2.
@@ -235,39 +223,37 @@ var remapDestinations = []struct {
 // GPU 2 also when it is remapped to a unified GPU.
 func TestAnotherContextUploadsIntoARemappedFrameThatWasUsedBefore(t *testing.T) {
 	for _, gpuType := range platforms {
-		for _, mode := range copyModes {
-			for _, destination := range remapDestinations {
-				t.Run(gpuType+"/"+mode.name+"/"+destination.name, func(t *testing.T) {
-					s := newSystem(t, gpuType, append([]option{buddyAllocator}, mode.opts...)...)
-					other := s.sibling()
+		for _, destination := range remapDestinations {
+			t.Run(gpuType+"/"+destination.name, func(t *testing.T) {
+				s := newSystem(t, gpuType, buddyAllocator)
+				other := s.sibling()
 
-					const floats = 1024
+				const floats = 1024
 
-					junk, freed := s.writeJunk(2, floats)
-					result := s.local(2, floats*floatBytes)
-					buffer := s.local(1, 2*s.pageSize)
-					second := s.at(buffer, 1, 0)
+				junk, freed := s.writeJunk(2, floats)
+				result := s.local(2, floats*floatBytes)
+				buffer := s.local(1, 2*s.pageSize)
+				second := s.at(buffer, 1, 0)
 
-					s.padBuddy(2, 2)
-					s.free(junk)
-					s.rt.Remap(s.ctx, uint64(second), s.pageSize, destination.device(s))
+				s.padBuddy(2, 2)
+				s.free(junk)
+				s.rt.Remap(s.ctx, uint64(second), s.pageSize, destination.device(s))
 
-					if page := s.page(second); page.DeviceID != 2 || page.PAddr != freed {
-						t.Fatalf("the page is in frame %#x of device %d, want the freed frame %#x of GPU 2",
-							page.PAddr, page.DeviceID, freed)
-					}
+				if page := s.page(second); page.DeviceID != 2 || page.PAddr != freed {
+					t.Fatalf("the page is in frame %#x of device %d, want the freed frame %#x of GPU 2",
+						page.PAddr, page.DeviceID, freed)
+				}
 
-					// The other context uploads. A kernel of the first
-					// context reads the page on GPU 2.
-					data := ramp(1, floats)
-					other.upload(second, data)
-					s.touch(2, result, second, floats)
-					s.run()
+				// The other context uploads. A kernel of the first context
+				// reads the page on GPU 2.
+				data := ramp(1, floats)
+				other.upload(second, data)
+				s.touch(2, result, second, floats)
+				s.run()
 
-					mustEqualFloats(t, "what GPU 2 read", s.download(result, floats), data)
-					mustEqualFloats(t, "the remapped page", other.download(second, floats), data)
-				})
-			}
+				mustEqualFloats(t, "what GPU 2 read", s.download(result, floats), data)
+				mustEqualFloats(t, "the remapped page", other.download(second, floats), data)
+			})
 		}
 	}
 }
@@ -278,35 +264,33 @@ func TestAnotherContextUploadsIntoARemappedFrameThatWasUsedBefore(t *testing.T) 
 // context that ran the kernel or through the one that has the buffer.
 func TestADownloadOfWhatTheKernelOfAnotherContextWrote(t *testing.T) {
 	for _, gpuType := range platforms {
-		for _, mode := range copyModes {
-			for _, through := range []string{"kernel-context", "buffer-context"} {
-				t.Run(gpuType+"/"+mode.name+"/"+through, func(t *testing.T) {
-					s := newSystem(t, gpuType, mode.opts...)
-					other := s.sibling()
+		for _, through := range []string{"kernel-context", "buffer-context"} {
+			t.Run(gpuType+"/"+through, func(t *testing.T) {
+				s := newSystem(t, gpuType)
+				other := s.sibling()
 
-					const floats = 1024
+				const floats = 1024
 
-					// No kernel has run yet, so the buffers are clean.
-					data := ramp(1, floats)
-					source := s.local(1, floats*floatBytes)
-					output := s.local(1, floats*floatBytes)
-					s.upload(source, data)
+				// No kernel has run yet, so the buffers are clean.
+				data := ramp(1, floats)
+				source := s.local(1, floats*floatBytes)
+				output := s.local(1, floats*floatBytes)
+				s.upload(source, data)
 
-					other.touch(1, output, source, floats)
-					other.run()
+				other.touch(1, output, source, floats)
+				other.run()
 
-					if !s.dirtyInL2(s.page(output).PAddr, floats*floatBytes) {
-						t.Fatal("the kernel output is in memory already; the test needs dirty L2 lines")
-					}
+				if !s.dirtyInL2(s.page(output).PAddr, floats*floatBytes) {
+					t.Fatal("the kernel output is in memory already; the test needs dirty L2 lines")
+				}
 
-					reader := s
-					if through == "kernel-context" {
-						reader = other
-					}
+				reader := s
+				if through == "kernel-context" {
+					reader = other
+				}
 
-					mustEqualFloats(t, "the download", reader.download(output, floats), data)
-				})
-			}
+				mustEqualFloats(t, "the download", reader.download(output, floats), data)
+			})
 		}
 	}
 }

@@ -45,7 +45,7 @@ func (m *ctrlMiddleware) Tick() bool {
 	madeProgress = m.processRspFromCaches() || madeProgress
 	madeProgress = m.processRspFromTranslation() || madeProgress
 	madeProgress = m.processRspFromDataMover() || madeProgress
-	madeProgress = m.advanceBanks() || madeProgress
+	madeProgress = m.startL2Ops() || madeProgress
 	madeProgress = m.advanceShootdown() || madeProgress
 
 	return madeProgress

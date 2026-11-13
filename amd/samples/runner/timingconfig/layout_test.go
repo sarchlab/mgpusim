@@ -125,11 +125,9 @@ func (l physicalLayout) mustRoute(gpu int, pAddr uint64) {
 		l.t.Fatalf("%s copies pages at %#x from and to %s", name, pAddr, got)
 	}
 
-	for _, direction := range []string{"Inbound", "Outbound"} {
-		mover := l.p.movers[name+"."+direction+"DataMover"]
-		if got := string(mover.Spec.Inside.Find(pAddr)); !strings.HasPrefix(got, below) {
-			l.t.Fatalf("%s finds its address %#x at %s", mover.Name(), pAddr, got)
-		}
+	mover := l.p.movers[name+".DataMover"]
+	if got := string(mover.Spec.Inside.Find(pAddr)); !strings.HasPrefix(got, below) {
+		l.t.Fatalf("%s finds its address %#x at %s", mover.Name(), pAddr, got)
 	}
 
 	for peer := 1; peer <= l.numGPUs; peer++ {
@@ -153,11 +151,9 @@ func (l physicalLayout) mustRouteFromPeer(peer, owner string, pAddr uint64) {
 		l.t.Fatalf("%s sends accesses to %#x of %s to %s", peer, pAddr, owner, got)
 	}
 
-	for _, direction := range []string{"Inbound", "Outbound"} {
-		mover := l.p.movers[peer+"."+direction+"DataMover"]
-		if got := mover.Spec.Outside.Find(pAddr); got != messaging.RemotePort(
-			owner+".RDMA.MigrationOutside") {
-			l.t.Fatalf("%s copies pages at %#x of %s through %s", mover.Name(), pAddr, owner, got)
-		}
+	mover := l.p.movers[peer+".DataMover"]
+	if got := mover.Spec.Outside.Find(pAddr); got != messaging.RemotePort(
+		owner+".RDMA.MigrationOutside") {
+		l.t.Fatalf("%s copies pages at %#x of %s through %s", mover.Name(), pAddr, owner, got)
 	}
 }
