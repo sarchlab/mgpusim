@@ -12,7 +12,7 @@ Always reference these instructions first and fallback to search or bash command
 - Install Ginkgo test framework: `go install github.com/onsi/ginkgo/v2/ginkgo@v2.32.1`
 - Add `$(go env GOPATH)/bin` to PATH: `export PATH=$PATH:$(go env GOPATH)/bin`
 - Install golangci-lint: `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2`
-- Run unit tests: `ginkgo -r --skip-package=mccl` -- takes ~17 seconds. NEVER CANCEL. Set timeout to 60+ seconds.
+- Run unit tests: `ginkgo -r --skip-package=mccl,amd/tests/pagemigration` -- takes ~17 seconds. NEVER CANCEL. Set timeout to 60+ seconds.
 - Run linting: `golangci-lint run ./... --timeout=10m` -- takes ~3 seconds.
 
 ### Run Sample Applications
@@ -22,16 +22,17 @@ Always reference these instructions first and fallback to search or bash command
 - Available samples in `amd/samples/`: fir, aes, atax, bicg, bfs, fft, kmeans, matrixmultiplication, and many more
 
 ### Run Comprehensive Tests
-- Unit tests: `ginkgo -r --skip-package=mccl` -- 17 seconds, covers all non-MCCL components
+- Unit tests: `ginkgo -r --skip-package=mccl,amd/tests/pagemigration` -- 17 seconds, covers all non-MCCL components
 - Acceptance tests: `cd amd/tests/acceptance && go build && ./acceptance -num-gpu=1` -- takes ~3.5 minutes. NEVER CANCEL. Set timeout to 10+ minutes.
 - Deterministic tests: `cd amd/tests/deterministic && python3 test.py` -- tests simulation reproducibility
 - Multi-GPU tests: Use `-num-gpu=2` or `-num-gpu=4` flags (these take longer, 30+ minutes each)
+- Page-migration scenarios: `go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m` -- takes ~1 minute; `-run '/mi300x'` takes ~12 minutes. NEVER CANCEL.
 
 ## Validation
 
 ### Always Test Your Changes
 - ALWAYS run `go build ./...` after making changes to ensure compilation
-- ALWAYS run unit tests: `ginkgo -r --skip-package=mccl`
+- ALWAYS run unit tests: `ginkgo -r --skip-package=mccl,amd/tests/pagemigration`
 - ALWAYS run linting: `golangci-lint run ./... --timeout=10m`
 - Run specific benchmark to validate functionality: `cd amd/samples/fir && go build && ./fir -timing --report-all -length=64 -verify`
 
@@ -77,7 +78,7 @@ cd amd/tests/deterministic/empty_kernel && go build
 Before committing changes, run the same checks as CI:
 1. `go build ./...` -- ensures compilation
 2. `golangci-lint run ./... --timeout=10m` -- style checks
-3. `ginkgo -r --skip-package=mccl` -- unit tests (~17 seconds)
+3. `ginkgo -r --skip-package=mccl,amd/tests/pagemigration` -- unit tests (~17 seconds)
 4. `cd amd/tests/acceptance && ./acceptance -num-gpu=1` -- acceptance tests (~3.5 minutes)
 5. `cd amd/tests/deterministic && python3 test.py` -- deterministic tests
 

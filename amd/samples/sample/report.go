@@ -13,6 +13,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/tasks/tracing"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -82,6 +83,7 @@ type cuCPIStackTracer struct {
 
 type reporter struct {
 	dataRecorder datarecording.DataRecorder
+	simulation   *simulation.Simulation
 
 	kernelTimeTracer        *kernelTimeTracer
 	perGPUKernelTimeTracers []*kernelTimeTracer
@@ -107,6 +109,7 @@ type reporter struct {
 func newReporter(s *simulation.Simulation) *reporter {
 	r := &reporter{
 		dataRecorder: s.DataRecorder(),
+		simulation:   s,
 	}
 
 	r.injectTracers(s)
@@ -389,6 +392,62 @@ func (r *reporter) report() {
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
+	r.reportPageMigration()
+}
+
+// reportPageMigration reports the page-migration statistics of the driver
+// when pages can migrate: the policy migrates and the platform has more than
+// one GPU.
+func (r *reporter) reportPageMigration() {
+	for _, c := range r.simulation.Components() {
+		d, ok := c.(*driver.Comp)
+		if !ok || !d.Spec.PageMigration.Enabled() || len(d.Spec.MigrationAgents) < 2 {
+			continue
+		}
+
+		for _, m := range pageMigrationMetrics(d.State.PageMigration.Stats) {
+			m.Location = d.Name()
+			r.dataRecorder.InsertData(tableName, m)
+		}
+	}
+}
+
+func pageMigrationMetrics(s driver.PageMigrationStats) []metric {
+	count := func(what string, value uint64) metric {
+		return metric{What: what, Value: float64(value), Unit: "count"}
+	}
+	seconds := func(what string, ps uint64) metric {
+		return metric{What: what, Value: secondsOf(timing.VTimeInPicoSec(ps)), Unit: "second"}
+	}
+
+	return []metric{
+		count("pm_faults", s.Faults),
+		count("pm_coalesced_faults", s.CoalescedFaults),
+		count("pm_retained_faults", s.RetainedFaults),
+		count("pm_deferred_faults", s.DeferredFaults),
+		count("pm_notifications", s.Notifications),
+		count("pm_coalesced_notifications", s.CoalescedNotifications),
+		count("pm_ignored_notifications", s.IgnoredNotifications),
+		count("pm_free_frame_notifications", s.FreeFrameNotifications),
+		count("pm_throttled_notifications", s.ThrottledNotifications),
+		count("pm_queue_full_waits", s.QueueFullWaits),
+		count("pm_batches", s.Batches),
+		count("pm_windows", s.Windows),
+		count("pm_migrations", s.Migrations),
+		count("pm_pages_prefetched", s.PagesPrefetched),
+		count("pm_pages_migrated", s.PagesMigrated),
+		{What: "pm_bytes_migrated", Value: float64(s.BytesMigrated), Unit: "byte"},
+		count("pm_frames_retired", s.FramesRetired),
+		count("pm_releases", s.Releases),
+		count("pm_thrashing_events", s.ThrashingEvents),
+		count("pm_thrashing_pages", s.ThrashingPages),
+		count("pm_throttles", s.Throttles),
+		count("pm_pins", s.Pins),
+		count("pm_unpins", s.Unpins),
+		seconds("pm_migration_time_sum", s.MigrationTimeSum),
+		seconds("pm_copy_time_sum", s.CopyTimeSum),
+		seconds("pm_shootdown_time_sum", s.ShootdownTimeSum),
+	}
 }
 
 func (r *reporter) reportKernelTime() {

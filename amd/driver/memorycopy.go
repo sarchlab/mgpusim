@@ -5,8 +5,57 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-func (m *executionMW) copy(e *Execution) {
+// copyUnlessMigrating starts a memory copy and reports that it did, unless a
+// page that it uses is migrating: a copy uses physical addresses, so it
+// waits until the page is idle. A copy that finishes at once has left the
+// execution list when this returns. A copy of no bytes uses no page: it is
+// done, whatever happens to the page of its address.
+func (m *executionMW) copyUnlessMigrating(i int) bool {
 	c := m.comp
+	e := &c.State.Executing[i]
+
+	start, size, ok := copyRange(e.Command)
+	if !ok {
+		m.finish(i)
+		return true
+	}
+
+	if m.comp.Middlewares.Migration.migrating(
+		c.Resources.Runtime.QueuePID(e.Queue), start, size) {
+		e.WaitsForMigration = true
+		return false
+	}
+
+	e.WaitsForMigration = false
+	m.copy(i)
+
+	return true
+}
+
+// startWaitingCopies starts the first memory copy that waited for a
+// migration and may start now. A copy whose pages still migrate keeps
+// waiting and does not hold back the copies of the other queues behind it.
+// One copy is started per tick, because a copy that finishes at once leaves
+// the execution list; the progress that is reported ticks the driver again
+// for the copies that are left.
+func (m *executionMW) startWaitingCopies() bool {
+	for i := range m.comp.State.Executing {
+		if m.comp.State.Executing[i].WaitsForMigration && m.copyUnlessMigrating(i) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// copy starts a memory copy. A magic copy reads or writes the global storage
+// itself, in no time and around the GPUs, whatever their caches hold: it
+// never flushes them. Any other copy goes through the GPUs, which read and
+// write the memory below their caches, after a flush of the caches if they
+// may hold lines of the memory.
+func (m *executionMW) copy(i int) {
+	c := m.comp
+	e := &c.State.Executing[i]
 	r := c.Resources.Runtime
 	cmd := &e.Command
 	ctx := r.QueueContext(e.Queue)
@@ -15,7 +64,8 @@ func (m *executionMW) copy(e *Execution) {
 	if cmd.Kind == gpuruntime.CopyD2H {
 		addr = uint64(cmd.Src)
 	}
-	if !c.Spec.UseMagicMemoryCopy && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
+	direct := c.Spec.UseMagicMemoryCopy
+	if !direct && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
 		for gpu := range c.Spec.GPUs {
 			m.request(e, gpu+1, protocol.FlushReq{}, false)
 		}
@@ -29,7 +79,7 @@ func (m *executionMW) copy(e *Execution) {
 		pageOffset := addr - page.VAddr
 		n := min(page.PageSize-pageOffset, uint64(size)-offset)
 		paddr := page.PAddr + pageOffset
-		if c.Spec.UseMagicMemoryCopy {
+		if direct {
 			if cmd.Kind == gpuruntime.CopyH2D {
 				c.Resources.GlobalStorage.Write(paddr, readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n))
 			} else {
@@ -48,7 +98,7 @@ func (m *executionMW) copy(e *Execution) {
 		offset += n
 	}
 	if len(e.Requests) == 0 {
-		m.finish(len(c.State.Executing) - 1)
+		m.finish(i)
 		return
 	}
 	if cmd.Kind == gpuruntime.CopyH2D {

@@ -37,7 +37,10 @@ func tracedRDMA(t *testing.T) (*sim.Simulation, *Comp, *milestoneRecorder) {
 		"RDMARequestOutside",
 		"RDMADataInside",
 		"RDMADataOutside",
-		"Ctrl"} {
+		"Ctrl",
+		"AccessCounter",
+		"MigrationOutside",
+		"MigrationInside"} {
 		p := twowaybuffered.MakeBuilder().
 			WithSimulation(s).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).

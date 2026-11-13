@@ -73,7 +73,9 @@ run env "${go_env[@]}" PATH="${bin_dir}:${PATH}" go generate -mod=readonly ./...
 run env "${go_env[@]}" go build -mod=readonly ./...
 run env "${go_env[@]}" GOLANGCI_LINT_CACHE="${lint_cache_dir}" \
   "${bin_dir}/golangci-lint" run --timeout=10m --modules-download-mode=readonly ./...
-run env "${go_env[@]}" "${bin_dir}/ginkgo" -r --skip-package=mccl --mod=readonly
+# amd/tests/pagemigration runs full multi-GPU simulations for minutes; run it
+# on its own: go test ./amd/tests/pagemigration/ -count=1 -timeout 60m
+run env "${go_env[@]}" "${bin_dir}/ginkgo" -r --skip-package=mccl,amd/tests/pagemigration --mod=readonly
 
 verify_clean_tree "validation"
 

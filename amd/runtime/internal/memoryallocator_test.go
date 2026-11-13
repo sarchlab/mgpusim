@@ -35,7 +35,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		checkPage(
 			vm.Page{
 				PID:      1,
-				PAddr:    0x1_0000_1000,
+				PAddr:    0x1_0000_0000,
 				VAddr:    4096,
 				PageSize: 4096,
 				DeviceID: 1,
@@ -50,7 +50,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		checkPage(
 			vm.Page{
 				PID:      1,
-				PAddr:    0x1_0000_1000,
+				PAddr:    0x1_0000_0000,
 				VAddr:    4096,
 				PageSize: 4096,
 				DeviceID: 1,
@@ -67,7 +67,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			checkPage(
 				vm.Page{
 					PID:      1,
-					PAddr:    0x1_0000_1000 + 0x1000*i,
+					PAddr:    0x1_0000_0000 + 0x1000*i,
 					VAddr:    4096 + 0x1000*i,
 					DeviceID: 1,
 					PageSize: 4096,
@@ -82,7 +82,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	It("should remap page to another device", func() {
 		page := vm.Page{
 			PID:      1,
-			PAddr:    0x1_0000_1000,
+			PAddr:    0x1_0000_0000,
 			VAddr:    4096,
 			PageSize: 4096,
 			DeviceID: 1,
@@ -94,7 +94,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		Expect(got).To(Equal(page))
 
 		updatedPage := page
-		updatedPage.PAddr = 0x2_0000_1000
+		updatedPage.PAddr = 0x2_0000_0000
 		updatedPage.DeviceID = 2
 		allocator.Remap(1, ptr, 4000, 2)
 		got, found = pageTable.Find(1, ptr)

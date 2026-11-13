@@ -90,10 +90,12 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 ) (pAddrs []uint64) {
 	freeListLen := len(bms.freeList) - 1
 
+	pageBits := int(bms.log2PageSize)
+
 	var order int
-	for order = 12; (1 << order) < (numPages * 4096); order++ {
+	for order = pageBits; (1 << order) < (numPages << pageBits); order++ {
 	}
-	level := freeListLen - (order - 12)
+	level := freeListLen - (order - pageBits)
 
 	i := level
 
@@ -109,7 +111,11 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 	e := bms.freeList[i].Front()
 	block := bms.freeList[i].Remove(e).(uint64)
 
-	if i == level && i > 0 {
+	// The block leaves its free list, whether it is handed out whole or
+	// split first: its parent now has one more child in use. Without this
+	// for a block that is split, freeing the pages of the block later would
+	// merge it with a buddy that is still allocated.
+	if i > 0 {
 		bms.updateMergeListBitField(bms.indexOfBlock(block, i-1))
 	}
 
@@ -129,7 +135,7 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 	for j := 0; j < numPages; j++ {
 		pAddrs = append(pAddrs, block)
 		bms.blockTracking[block] = bTracker
-		block += 4096
+		block += 1 << bms.log2PageSize
 	}
 
 	return pAddrs

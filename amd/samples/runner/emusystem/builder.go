@@ -80,7 +80,11 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = b.log2PageSize
+	// The emulated GPUs have no address translation and no caches: they read
+	// and write the storage that the driver copies to and from, there are no
+	// page faults, and nothing migrates.
 	spec.UseMagicMemoryCopy = true
+	spec.PageMigration.Policy = driver.PageMigrationNone
 	externalConn := directconnection.NewConnection("ExternalConn", b.simulation, timing.GHz)
 	gpuBuilder := b.createGPUBuilder(pageTable, storage)
 	var ports []messaging.Port
@@ -100,6 +104,14 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		}).Build()
 	comp.BindPort(driver.GPUPortName, port)
 	externalConn.BindPort(port)
+	for _, name := range []string{
+		driver.PageMigrationPortName, driver.MigrationNotificationPortName,
+	} {
+		migrationPort := twowaybuffered.MakeBuilder().WithSimulation(b.simulation).
+			WithSpec(twowaybuffered.DefaultSpec()).Build()
+		comp.BindPort(name, migrationPort)
+		externalConn.BindPort(migrationPort)
+	}
 	for _, p := range ports {
 		externalConn.BindPort(p)
 	}
