@@ -328,6 +328,41 @@ func TestATimedCopyOfDirtyMemoryFlushesTheCaches(t *testing.T) {
 	}
 }
 
+// A page was used before only if it was freed. The buddy allocator can hand a
+// page out for the first time below pages that are in use: GPU 2 gives its
+// first page, then an aligned block of two pages for a buffer that is
+// remapped to it, and only then the page between them. Nothing was freed, so
+// a timed copy into that page flushes no cache.
+func TestATimedCopyIntoAPageThatIsUsedForTheFirstTimeFlushesNothing(t *testing.T) {
+	f := newCopyFixture(t, false, buddyRuntime)
+
+	allocate := func(gpu int, pages uint64) vm.Page {
+		f.r.SelectGPU(f.ctx, gpu)
+		return f.page(uint64(f.r.AllocateMemory(f.ctx, pages*testPageSize)))
+	}
+
+	first := allocate(2, 1)
+	buffer := allocate(1, 2)
+	f.r.Remap(f.ctx, buffer.VAddr, 2*testPageSize, 2)
+
+	mustEqual(t, "frames of the remapped buffer",
+		[]uint64{f.page(buffer.VAddr).PAddr, f.page(buffer.VAddr + testPageSize).PAddr},
+		[]uint64{first.PAddr + 2*testPageSize, first.PAddr + 3*testPageSize})
+
+	gap := allocate(2, 1)
+	mustEqual(t, "frame of the page between them", gap.PAddr, first.PAddr+testPageSize)
+
+	f.h2d(f.q, gap, 0x12345678)
+	f.run()
+
+	e := f.c.State.Executing
+	if len(e) != 1 {
+		t.Fatalf("the copy is not in flight: %+v", e)
+	}
+
+	mustEqual(t, "requests", f.requests(e[0]), []string{"MemCopyH2D>2"})
+}
+
 // A magic copy reads and writes the global storage itself, in no time and
 // around the GPUs, on a timing platform as in emulation. It does so also for
 // the memory that a timed copy flushes the caches for: it asks no GPU and

@@ -26,11 +26,12 @@ func (r *Runtime) DeviceIDByPAddr(addr uint64) int { return r.allocator.GetDevic
 // AllocateFrame takes a physical page on GPU gpu for a page that migrates
 // there; the caller maps it in the page table. The frame comes from the
 // ordinary allocator, so it may be one that FreeMemory returned: the caches
-// of the GPU can still hold lines of it. The frame that the page leaves is
-// retired: nothing returns it to the allocator.
+// of the GPU can still hold lines of it, which the migration drops itself.
+// Either way the frame is in use from now on. The frame that the page leaves
+// is retired: nothing returns it to the allocator.
 func (r *Runtime) AllocateFrame(gpu int) uint64 {
 	frame := r.allocator.AllocateFrame(gpu)
-	r.recycledFrame(gpu, frame)
+	r.takeFrame(frame)
 	return frame
 }
 
@@ -69,7 +70,7 @@ func (r *Runtime) MarkBuffersDirty(ctx Context) {
 }
 
 // NeedsFlush reports whether a Driver copy overlaps a dirty allocation: one
-// that a kernel may have written, or that got a page that was used before.
+// that a kernel may have written, or that got a page that was freed before.
 // The copy may come through any context of the address space that has the
 // allocation.
 func (r *Runtime) NeedsFlush(ctx Context, addr Ptr, size uint64) bool {

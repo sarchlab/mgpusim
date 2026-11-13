@@ -43,10 +43,12 @@ type runtimeState struct {
 	Events                   map[Event]eventState
 	Codes                    []codeAddress
 
-	// HighestFrame is, per device, the highest physical page that was ever
-	// allocated. A device hands its unused pages out in increasing address
-	// order, so a page at or below the mark has been allocated before.
-	HighestFrame []uint64
+	// FreedFrames are the physical pages that FreeMemory has returned to a
+	// GPU and that no page has taken since, at most one entry per page of
+	// the GPUs. A page that takes one of them recycles it. A page that a GPU
+	// hands out without it being here is used for the first time, wherever
+	// it is among the pages in use.
+	FreedFrames map[uint64]bool
 }
 type runtimeCheckpoint struct {
 	State     runtimeState
@@ -168,35 +170,49 @@ func (r *Runtime) AllocateUnifiedMemory(h Context, size uint64) Ptr {
 	return ptr
 }
 
-// recycles reports whether a new allocation got a physical page that was
-// allocated before, and records the pages it got. The caches of a GPU can
-// still hold lines of a recycled page, as dirty as its last user left them,
-// and a host copy writes memory around the caches. The allocation is
-// therefore born dirty, so Driver flushes the caches before a copy into it,
-// exactly as it does for a buffer that a kernel has written.
+// recycles reports whether a range of an address space, whose pages the
+// allocator has just given their physical pages, got a page that was freed
+// before. The caches of a GPU can still hold lines of a recycled page, as
+// dirty as its last user left them, and a host copy writes memory around the
+// caches. A new allocation in such a page is therefore born dirty, so Driver
+// flushes the caches before a copy into it, exactly as it does for a buffer
+// that a kernel has written.
 func (r *Runtime) recycles(pid vm.PID, ptr Ptr, size uint64) bool {
 	recycled := false
 	pageSize := uint64(1) << r.config.Log2PageSize
 	for offset := uint64(0); offset < size; offset += pageSize {
 		page, ok := r.pageTable.Find(pid, uint64(ptr)+offset)
-		if ok && r.recycledFrame(int(page.DeviceID), page.PAddr) {
+		if ok && r.takeFrame(page.PAddr) {
 			recycled = true
 		}
 	}
 	return recycled
 }
 
-// recycledFrame reports whether a physical page that a device has just
-// handed out was allocated before, and records it.
-func (r *Runtime) recycledFrame(device int, pAddr uint64) bool {
-	for len(r.state.HighestFrame) <= device {
-		r.state.HighestFrame = append(r.state.HighestFrame, 0)
+// takeFrame reports whether a physical page that a device has just handed
+// out is one that FreeMemory returned, and forgets that it was freed: it is
+// in use again.
+func (r *Runtime) takeFrame(pAddr uint64) bool {
+	recycled := r.state.FreedFrames[pAddr]
+	delete(r.state.FreedFrames, pAddr)
+	return recycled
+}
+
+// recordFreedFrames records the physical pages that a range of an address
+// space returns to the GPUs when it is freed: the pages that it maps now.
+// The pages that it had before a migration or a remap are not returned.
+func (r *Runtime) recordFreedFrames(pid vm.PID, ptr Ptr, size uint64) {
+	pageSize := uint64(1) << r.config.Log2PageSize
+	for offset := uint64(0); offset < size; offset += pageSize {
+		page, ok := r.pageTable.Find(pid, uint64(ptr)+offset)
+		if !ok || r.devices[r.DeviceIDByPAddr(page.PAddr)].Type != internal.DeviceTypeGPU {
+			continue
+		}
+		if r.state.FreedFrames == nil {
+			r.state.FreedFrames = make(map[uint64]bool)
+		}
+		r.state.FreedFrames[page.PAddr] = true
 	}
-	if pAddr <= r.state.HighestFrame[device] {
-		return true
-	}
-	r.state.HighestFrame[device] = pAddr
-	return false
 }
 
 // FreeMemory releases storage immediately. Call only after the batch using it
@@ -208,6 +224,7 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 		if b.Address != ptr {
 			continue
 		}
+		r.recordFreedFrames(c.PID, ptr, b.Size)
 		r.allocator.Free(c.PID, uint64(ptr), b.Size)
 		c.Buffers = append(c.Buffers[:i], c.Buffers[i+1:]...)
 		return nil
@@ -230,10 +247,12 @@ func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uin
 	return sizes
 }
 
-// remapped records the physical pages that a range of an address space got
-// when it moved to other devices. If one of them was allocated before, the
-// buffers of the range are dirty from now on, like a new allocation that
-// recycles a page, whichever context of the address space made them.
+// remapped takes in that a range of an address space has moved to other
+// devices: the allocator has given every page of the range a new physical
+// page, and the pages that the range had are not returned. If one of the new
+// pages was freed before, the buffers of the range are dirty from now on,
+// like a new allocation that recycles a page, whichever context of the
+// address space made them.
 func (r *Runtime) remapped(pid vm.PID, addr, size uint64) {
 	if r.recycles(pid, Ptr(addr), size) {
 		r.markRangeDirty(pid, addr, size)

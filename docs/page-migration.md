@@ -403,6 +403,17 @@ hold lines of such a frame:
   through a unified GPU (`CreateUnifiedGPU`) is on the member GPU that gave
   the frame.
 
+A frame is recycled only if it was freed. The runtime records the frames that
+`FreeMemory` returns to a GPU, which are the frames that the pages of the
+buffer have at that time, and takes a frame off the record when an
+allocation, `Remap`, `Distribute`, or a migration gets it from the allocator.
+A frame that is not on the record is used for the first time, wherever it
+lies: the buddy allocator hands out aligned blocks, so it can give a page
+below pages that are already in use, and a buffer in such a page is clean.
+`Remap` and `Distribute` give every page of their range a new frame and do
+not return the frames that the pages had, so those are never recycled. The
+record is part of the state of the runtime and of its checkpoints.
+
 What the caches hold of a buffer belongs to its address space. The contexts
 made with `InitWithExistingPID` share one: a kernel of any of them dirties the
 buffers of all, and a timed host copy through any of them is flushed for a
@@ -481,7 +492,9 @@ buffer may have lines in them and go through the GPU of each page.
   between them.
 - `amd/timing/rdma`, `amd/runtime`, `amd/runtime/internal`: the frame
   counters and the path below the L2, the allocators, the physical range of
-  each device, and recycled frames.
+  each device, recycled frames, a frame that the buddy allocator hands out
+  for the first time below frames in use, and the record of the freed frames
+  across a checkpoint.
 - `amd/samples/runner/timingconfig`: the wiring of both platforms; that the
   allocator, the caches, the RDMA engines, the data movers, and the storage
   agree on the first and the last page of every GPU; and that the RDMA
