@@ -36,7 +36,8 @@ type PageMigrationConfig struct {
 
 	// PeerMemory selects, for a physical address of another GPU, the port of
 	// that GPU that reaches its memory below the L2 caches (the
-	// MigrationOutside port of its RDMA engine).
+	// MigrationOutside port of its RDMA engine). A GPU that is built without
+	// it, on its own, has nothing to copy pages from and gets no data mover.
 	PeerMemory mem.AddressMapper
 }
 
@@ -46,7 +47,8 @@ type PageMigrationConfig struct {
 // it reads, and Inside the local memory below the L2 (localMemory), where it
 // writes. The caller connects Top and Control to the command processor,
 // Inside to the connection of the local memory, and Outside to the
-// inter-device connection.
+// inter-device connection. Without cfg.PeerMemory there is no data mover to
+// build, and the result is nil.
 func BuildDataMover(
 	sim modeling.Simulation,
 	gpuName string,
@@ -55,6 +57,10 @@ func BuildDataMover(
 	localMemory mem.AddressMapper,
 	cfg PageMigrationConfig,
 ) *datamover.Comp {
+	if len(cfg.PeerMemory.Destinations) == 0 {
+		return nil
+	}
+
 	spec := datamover.DefaultSpec()
 	spec.Freq = freq
 	spec.MaxTransactions = max(1, cfg.DataMoverPages)

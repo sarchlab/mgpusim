@@ -122,16 +122,14 @@ type State struct {
 	// each control request in flight to what waits for its acknowledgement,
 	// and MoveJobs the ID of each data-move request to its command. L2Ops
 	// are the L2 maintenance of the jobs that are not done, in arrival order,
-	// and Shootdown the TLB shootdowns. FlushWaiting is set while a flush of
-	// the driver waits for the L2 maintenance that has started. The other
-	// queues hold the messages to send to the translators and TLBs, to the
-	// data mover, and to the driver.
+	// and Shootdown the TLB shootdowns. The other queues hold the messages
+	// to send to the translators and TLBs, to the data mover, and to the
+	// driver.
 	PageJobs               map[uint64]pageJob  `json:"page_jobs"`
 	CtrlWaits              map[uint64]ctrlWait `json:"ctrl_waits"`
 	MoveJobs               map[uint64]uint64   `json:"move_jobs"`
 	L2Ops                  []l2Op              `json:"l2_ops"`
 	Shootdown              shootdownState      `json:"shootdown"`
-	FlushWaiting           bool                `json:"flush_waiting"`
 	PendingTranslationReqs []messaging.Msg     `json:"pending_translation_reqs"`
 	PendingMoveReqs        []messaging.Msg     `json:"pending_move_reqs"`
 	PendingMigrationRsps   []messaging.Msg     `json:"pending_migration_rsps"`

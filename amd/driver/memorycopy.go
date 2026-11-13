@@ -8,11 +8,17 @@ import (
 // copyUnlessMigrating starts a memory copy and reports that it did, unless a
 // page that it uses is migrating: a copy uses physical addresses, so it
 // waits until the page is idle. A copy that finishes at once has left the
-// execution list when this returns.
+// execution list when this returns. A copy of no bytes uses no page: it is
+// done, whatever happens to the page of its address.
 func (m *executionMW) copyUnlessMigrating(i int) bool {
 	c := m.comp
 	e := &c.State.Executing[i]
-	start, size, _ := copyRange(e.Command)
+
+	start, size, ok := copyRange(e.Command)
+	if !ok {
+		m.finish(i)
+		return true
+	}
 
 	if m.comp.Middlewares.Migration.migrating(
 		c.Resources.Runtime.QueuePID(e.Queue), start, size) {

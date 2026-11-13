@@ -101,6 +101,15 @@ serviced, it names a free frame, is ignored, or comes from a throttled GPU
 | Data mover (Akita, one per GPU) | Pulls the pages that migrate to its GPU: it reads a page from the memory below the L2 of the GPU that has it, through that GPU's RDMA engine, and writes it to the memory below the L2 of its own GPU. It keeps `DataMoverPages` copies in flight. A GPU that a page leaves uses no data mover of its own for it. |
 | Runtime allocator | Hands out the frames, from the free list or the buddy allocator. |
 
+The platform builder (`timingconfig.Builder`) configures page migration for
+every GPU that it builds, so every GPU of a platform has its data mover, also
+the GPU of a platform of one GPU. The GPU builders (`r9nano.Builder`,
+`mi300x.Builder`) still build a GPU on their own with what they needed before
+page migration: `WithPageMigration` is optional. A GPU that is built without
+the memory of other GPUs (`PageMigrationConfig.PeerMemory`) has nothing to
+copy pages from: it has no data mover, its `DataMoverPort` is nil, and
+`ExternalPorts` leaves that port out.
+
 ## A migration
 
 GPU *g* accesses unified page *P*, resident on GPU *s*. Each page is serviced
@@ -162,7 +171,9 @@ Hold acknowledges only after the response has arrived.
 
 A memory copy never runs on a migrating page, and a page never migrates under
 a running memory copy: its faults wait for the copy. A copy of another command
-queue whose pages are idle starts. The faults that wait for a copy keep their
+queue whose pages are idle starts. A copy of no bytes uses no page: it is
+done when the driver takes it, wherever its address points, without waiting
+for a page and without a flush. The faults that wait for a copy keep their
 entries of the request queue and take no place in a batch, so the requests
 that are in the queue behind them are serviced in the next batch. Their
 entries still count: see [The queue is finite](#the-queue-is-finite).
@@ -264,13 +275,16 @@ different pages in an order:
     Migrations that are in flight together do not share a frame: a new frame
     comes from the allocator, and the frame that a page leaves is retired.
   - The cache flush of the driver, which drains and flushes the whole of
-    every bank for a host copy, goes first. When it arrives, no maintenance
-    of a frame starts anymore. The maintenance that has started runs to its
-    end, each bank still gets the Invalidate that follows its Flush, and
-    then the caches are drained, flushed, invalidated, and enabled. The
-    maintenance that waited starts after that, in arrival order, also when
-    another flush of the driver is next: that flush waits for it in turn, so
-    neither keeps the other waiting for good.
+    every bank for a host copy, goes first. While a flush is the next
+    request at the command processor's driver port, or runs, no maintenance
+    of a frame starts. The maintenance that has started runs to its end,
+    each bank still gets the Invalidate that follows its Flush, and then the
+    caches are drained, flushed, invalidated, and enabled. This holds for
+    every flush: when a second flush is already next as the first one ends,
+    also while the answer to the first has not left yet, it runs before any
+    frame that waits. The maintenance that waited starts, in arrival order,
+    once no flush is next. Flushes that keep following each other therefore
+    keep page maintenance waiting; that priority is intended.
   - A bank itself takes one request after the other, so the requests of
     several frames queue at a bank. A command processor sends all its cache
     control requests from one port: while a bank has more requests than its
@@ -479,7 +493,8 @@ buffer may have lines in them and go through the GPU of each page.
 
 - `amd/driver`: the policy and the phases of a page, against a fixture that
   plays the MMU, the RDMA engines, and the command processors; memory copies
-  and faults that wait for each other; timed copies that flush the caches
+  and faults that wait for each other; copies of no bytes, which wait for
+  nothing; timed copies that flush the caches
   and magic copies that are direct for the same dirty memory; pages of two
   processes at one address; three GPUs that are throttled on one page at
   different times, with faults and with notifications, through a pin, and
@@ -488,8 +503,8 @@ buffer may have lines in them and go through the GPU of each page.
   have no byte in common at the same time, with acknowledgements that arrive
   staggered, and of frames that have a byte in common in arrival order; a
   flush of the driver that arrives with maintenance in progress and
-  waiting, also across a checkpoint; and two flushes with maintenance
-  between them.
+  waiting, also across a checkpoint; and two flushes in a row, which both
+  go before a frame that waits.
 - `amd/timing/rdma`, `amd/runtime`, `amd/runtime/internal`: the frame
   counters and the path below the L2, the allocators, the physical range of
   each device, recycled frames, a frame that the buddy allocator hands out
@@ -497,9 +512,12 @@ buffer may have lines in them and go through the GPU of each page.
   across a checkpoint.
 - `amd/samples/runner/timingconfig`: the wiring of both platforms; that the
   allocator, the caches, the RDMA engines, the data movers, and the storage
-  agree on the first and the last page of every GPU; and that the RDMA
+  agree on the first and the last page of every GPU; that the RDMA
   engines of a platform with the default specification notify with the
-  256th, and again with the 512th, access of a GPU to a frame.
+  256th, and again with the 512th, access of a GPU to a frame; that the data
+  mover of a platform of one GPU copies a page; and that a GPU that a caller
+  builds on its own with either GPU builder, without page-migration
+  configuration, runs a kernel.
 - `amd/tests/pagemigration`: acceptance on complete R9 Nano and MI300X
   platforms with real kernels: page contents with dirty source lines, reused
   destination frames, and host uploads into reused frames (directly, after

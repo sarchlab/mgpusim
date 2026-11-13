@@ -211,7 +211,8 @@ func (b Builder) WithDriverPort(
 }
 
 // WithPageMigration sets how the GPU takes part in page migration: the
-// access counters of its RDMA engine and its data mover.
+// access counters of its RDMA engine and its data mover. It is optional: a
+// GPU that is built without it counts nothing and has no data mover.
 func (b Builder) WithPageMigration(
 	cfg gpubuilder.PageMigrationConfig,
 ) gpubuilder.GPUBuilder {
@@ -277,7 +278,10 @@ func (b *Builder) populateGPU() {
 		PageMigrationPort:    b.cp.Ports.PageMigration,
 		AccessCounterPort:    b.rdmaEngine.Ports.AccessCounter,
 		MigrationDataPort:    b.rdmaEngine.Ports.MigrationOutside,
-		DataMoverPort:        b.dataMover.Ports.Outside,
+	}
+
+	if b.dataMover != nil {
+		b.gpu.DataMoverPort = b.dataMover.Ports.Outside
 	}
 
 	for _, l2TLB := range b.l2TLBs {
@@ -295,8 +299,11 @@ func (b *Builder) connectCP() {
 	b.internalConn.BindPort(b.cp.Ports.ToRDMA)
 	b.internalConn.BindPort(b.cp.Ports.ToTranslation)
 	b.internalConn.BindPort(b.cp.Ports.ToDataMover)
-	b.internalConn.BindPort(b.dataMover.Ports.Top)
-	b.internalConn.BindPort(b.dataMover.Ports.Control)
+
+	if b.dataMover != nil {
+		b.internalConn.BindPort(b.dataMover.Ports.Top)
+		b.internalConn.BindPort(b.dataMover.Ports.Control)
+	}
 
 	rdmaCtrlPort := b.rdmaEngine.Ports.Ctrl
 	b.internalConn.BindPort(rdmaCtrlPort)
@@ -385,7 +392,10 @@ func (b *Builder) connectL2AndDRAM() {
 	// Page copies go around the L2 on both ends: the data mover of this GPU
 	// writes the DRAM directly, and those of the other GPUs read it through
 	// the RDMA engine.
-	b.l2ToDramConnection.BindPort(b.dataMover.Ports.Inside)
+	if b.dataMover != nil {
+		b.l2ToDramConnection.BindPort(b.dataMover.Ports.Inside)
+	}
+
 	b.l2ToDramConnection.BindPort(b.rdmaEngine.Ports.MigrationInside)
 }
 
@@ -622,7 +632,9 @@ func (b *Builder) buildCP() {
 	ats, tlbs := gpubuilder.MigrationPeers(b.sas, b.l2TLBs)
 	spec.AddressTranslators = gpubuilder.RemotePorts(ats)
 	spec.TLBs = gpubuilder.RemotePorts(tlbs)
-	spec.DataMover = b.dataMover.Ports.Top.AsRemote()
+	if b.dataMover != nil {
+		spec.DataMover = b.dataMover.Ports.Top.AsRemote()
+	}
 
 	b.cp = cp.MakeBuilder().WithSampler(b.sampler).
 		WithSimulation(b.simulation).
@@ -641,7 +653,9 @@ func (b *Builder) buildCP() {
 }
 
 // buildDataMover builds the data mover, which pulls the pages that migrate
-// to this GPU from the DRAM of the other GPUs into its DRAM.
+// to this GPU from the DRAM of the other GPUs into its DRAM. A GPU that is
+// built on its own, without WithPageMigration and so without the memory of
+// other GPUs, has none.
 func (b *Builder) buildDataMover() {
 	b.dataMover = gpubuilder.BuildDataMover(b.simulation,
 		b.name, b.freq, 1<<b.log2CacheLineSize,

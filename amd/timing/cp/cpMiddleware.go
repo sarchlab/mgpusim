@@ -202,9 +202,9 @@ func (m *cpMiddleware) processFlushReq(req messaging.Msg) bool {
 	// The flush drains and flushes the whole of every L2 bank, so it waits
 	// for the L2 maintenance of pages that has started, including the
 	// Invalidate that follows each Flush. It goes before the maintenance
-	// that has not started: none starts until the flush is done.
-	state.FlushWaiting = m.ctrlMW().l2OpsStarted()
-	if state.FlushWaiting {
+	// that has not started: none starts while the flush is next at this
+	// port or runs (see startL2Ops).
+	if m.ctrlMW().l2OpsStarted() {
 		return false
 	}
 

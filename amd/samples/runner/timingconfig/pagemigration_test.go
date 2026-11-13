@@ -21,6 +21,7 @@ const notificationPort = messaging.RemotePort("Driver.MigrationNotification")
 
 // migrationPlatform is the page-migration wiring of a built platform.
 type migrationPlatform struct {
+	sim    *simulation.Simulation
 	driver *driver.Comp
 	mmu    *mmu.Comp
 	rdmas  map[string]*rdma.Comp
@@ -51,6 +52,7 @@ func buildMigrationPlatform(
 	}
 
 	p := migrationPlatform{
+		sim:    s,
 		rdmas:  map[string]*rdma.Comp{},
 		cps:    map[string]*cp.Comp{},
 		movers: map[string]*datamover.Comp{},

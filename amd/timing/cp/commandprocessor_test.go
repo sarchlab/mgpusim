@@ -718,7 +718,7 @@ var _ = Describe("CommandProcessor", func() {
 			// arrived after the flush does not start, although it has no
 			// byte in common with any other.
 			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
-			Expect(cp.State.FlushWaiting).To(BeTrue())
+			Expect(toDriver.IncomingBuf().Size()).To(Equal(1))
 			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
 
 			return s
@@ -769,7 +769,7 @@ var _ = Describe("CommandProcessor", func() {
 
 			// The flush runs before the frames that wait.
 			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqFlush))
-			Expect(cp.State.FlushWaiting).To(BeFalse())
+			Expect(toDriver.IncomingBuf().Size()).To(BeZero())
 
 			for _, dsts := range [][]messaging.RemotePort{
 				l1Dsts(), l1Dsts(), l1Dsts(),
@@ -822,7 +822,7 @@ var _ = Describe("CommandProcessor", func() {
 			Expect(sent[2]).To(Equal(answers[0]))
 		})
 
-		It("maintains the frames that waited between two flushes of the driver", func() {
+		It("lets flushes of the driver that follow each other all go before the frames that wait", func() {
 			useMockDispatcher()
 
 			var flushes []messaging.Msg
@@ -833,7 +833,10 @@ var _ = Describe("CommandProcessor", func() {
 				flushes = append(flushes, flush)
 			}
 
-			runFlush := func(flush messaging.Msg) {
+			// runFlush acknowledges the steps of the flush that runs. Each
+			// step has the requests of the flush only: no frame is
+			// maintained between them.
+			runFlush := func() {
 				Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqFlush))
 				expectCtrlStep(toCaches, memcontrolprotocol.CmdDrain, l1Dsts())
 				expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, l1Dsts())
@@ -842,28 +845,52 @@ var _ = Describe("CommandProcessor", func() {
 				expectCtrlStep(toCaches, memcontrolprotocol.CmdFlush, cp.Spec.L2Caches)
 				expectCtrlStep(toCaches, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches)
 				expectCtrlStep(toCaches, memcontrolprotocol.CmdEnable, allCacheDsts())
+			}
 
+			expectAnswered := func(flush messaging.Msg) {
 				rsp, ok := toDriver.RetrieveOutgoing()
 				Expect(ok).To(BeTrue())
 				Expect(rsp.RspTo).To(Equal(flush.ID))
 			}
 
 			// A frame arrives while the first flush runs, with the second
-			// flush already behind the first. The frame does not wait for
-			// both: it is maintained when the first flush is over, and the
-			// second flush waits for it.
+			// flush behind the first at the driver port.
 			tickUntilQuiet()
 			page := migrationReq(protocol.PageInvalidateReq{PAddr: 0x8000, PageSize: 4096})
-			runFlush(flushes[0])
 
+			// The port to the driver is full, so the answer to the first
+			// flush cannot leave when the flush is over, and the second
+			// flush cannot start yet. The frame still does not start: a
+			// flush is next.
+			held := 0
+			for toDriver.CanSend() {
+				toDriver.Send(messaging.Msg{ID: cp.NewID(), Src: toDriver.AsRemote(),
+					Dst: driverPort, Payload: protocol.GeneralRsp{}})
+				held++
+			}
+
+			runFlush()
+			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
+			Expect(cp.State.CurrFlushReq.ID).To(Equal(flushes[0].ID))
+			Expect(collectCtrlReqs(toCaches)).To(BeEmpty())
+
+			// The port is free again. The answer leaves, and the second
+			// flush runs before the frame.
+			for range held {
+				toDriver.RetrieveOutgoing()
+			}
+
+			tickUntilQuiet()
+			expectAnswered(flushes[0])
+			runFlush()
+			expectAnswered(flushes[1])
+			expectNotDone()
+
+			// Only now is the frame maintained.
 			reqs := collectCtrlReqs(toCaches)
 			expectPageCtrl(reqs, memcontrolprotocol.CmdInvalidate, cp.Spec.L2Caches, 0, 0x8000)
-			Expect(cp.State.CtrlSeq).To(Equal(ctrlSeqNone))
-			Expect(cp.State.FlushWaiting).To(BeTrue())
-
 			ackCtrlReqs(toCaches, reqs)
 			expectDone(page)
-			runFlush(flushes[1])
 		})
 
 		It("continues a waiting flush and the L2 maintenance around it from a checkpoint", func() {
@@ -879,7 +906,7 @@ var _ = Describe("CommandProcessor", func() {
 
 			Expect(engine.Run()).To(Succeed())
 			Expect(reg.LoadCheckpoint(path)).To(Succeed())
-			Expect(cp.State.FlushWaiting).To(BeTrue())
+			Expect(toDriver.IncomingBuf().Size()).To(Equal(1))
 			Expect(cp.State.L2Ops).To(HaveLen(3))
 
 			Expect(finishFlushScenario(s)).To(Equal(uninterrupted))
@@ -943,6 +970,16 @@ var _ = Describe("CommandProcessor", func() {
 
 			expectDone(req)
 			Expect(cp.State.MoveJobs).To(BeEmpty())
+		})
+
+		It("refuses to copy a page without a data mover", func() {
+			useMockDispatcher()
+			cp.Spec.DataMover = ""
+
+			pmPort.Deliver(messaging.Msg{ID: cp.NewID(), Src: "Driver.PageMigration",
+				Dst: pmPort.AsRemote(), Payload: protocol.PageCopyReq{PageSize: 4096}})
+
+			Expect(func() { tickCP(cp) }).To(PanicWith("cp: CP has no data mover to copy a page with"))
 		})
 
 		It("submits the copies in arrival order and answers each on its own", func() {

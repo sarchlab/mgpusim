@@ -38,14 +38,17 @@ import (
 // gets the Invalidate of a job once it has acknowledged the Flush of that
 // job, whatever the other jobs do. Frames that have a byte in common are
 // maintained in the order their commands arrived. The flush sequence of the
-// driver, which drains and flushes the whole of every bank, goes first: once
-// it waits, no L2 maintenance starts, the maintenance that has started runs
-// to its end, and the maintenance that waits starts after the sequence. The
-// TLBs are shot down in rounds: a round pauses the TLBs once, invalidates the
-// pages of every Shootdown that waits, and enables the TLBs; the Shootdowns
-// that arrive during a round form the next one. The data mover takes the
-// Copy requests in the order they arrive, so the driver decides the order in
-// which the pages of its windows are submitted.
+// driver, which drains and flushes the whole of every bank, goes first: while
+// a flush is next at the driver port or runs, no L2 maintenance starts. The
+// maintenance that has started runs to its end, and the maintenance that
+// waits starts when no flush is next anymore, so after the last of several
+// flushes that follow each other.
+//
+// The TLBs are shot down in rounds: a round pauses the TLBs once, invalidates
+// the pages of every Shootdown that waits, and enables the TLBs; the
+// Shootdowns that arrive during a round form the next one. The data mover
+// takes the Copy requests in the order they arrive, so the driver decides the
+// order in which the pages of its windows are submitted.
 
 // pageJob is a command of the driver in service. PendingAcks counts the
 // acknowledgements that must arrive before the Command Processor answers.
@@ -207,14 +210,30 @@ func (m *ctrlMiddleware) l2OpsStarted() bool {
 		func(op l2Op) bool { return op.Started })
 }
 
+// flushIsNext reports whether a flush of the driver is the next request at
+// the driver port: it has not started, because L2 maintenance that has
+// started, another control sequence, or the answer to the previous flush is
+// in its way.
+func (m *ctrlMiddleware) flushIsNext() bool {
+	msg, ok := m.toDriver().PeekIncoming()
+	if !ok {
+		return false
+	}
+
+	_, isFlush := msg.Payload.(protocol.FlushReq)
+
+	return isFlush
+}
+
 // startL2Ops starts the L2 maintenance that waits. An operation waits while
 // an operation that arrived before it, started or not, has a byte of its
 // frame in common, so such frames are maintained in arrival order. No
-// operation starts while the flush sequence of the driver runs or waits for
-// the operations that have started.
+// operation starts while the flush sequence of the driver runs or is next
+// at the driver port, so flushes that follow each other all go before the
+// operations that have not started.
 func (m *ctrlMiddleware) startL2Ops() bool {
 	state := &m.comp.State
-	if state.CtrlSeq == ctrlSeqFlush || state.FlushWaiting {
+	if state.CtrlSeq == ctrlSeqFlush || m.flushIsNext() {
 		return false
 	}
 
@@ -380,8 +399,14 @@ func (m *ctrlMiddleware) finishShootdown() {
 }
 
 // enqueueMove queues the data-move request of a Copy: the data mover of this
-// GPU, the destination, reads the page from outside and writes it inside.
+// GPU, the destination, reads the page from outside and writes it inside. A
+// GPU that was built without the memory of other GPUs has no data mover, and
+// no page can migrate to it.
 func (m *ctrlMiddleware) enqueueMove(job uint64, req protocol.PageCopyReq) {
+	if m.comp.Spec.DataMover == "" {
+		panic("cp: " + m.comp.Name() + " has no data mover to copy a page with")
+	}
+
 	state := &m.comp.State
 	move := messaging.Msg{
 		ID:  m.comp.NewID(),

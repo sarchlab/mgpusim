@@ -93,6 +93,70 @@ func TestWaitingMagicCopiesAllCompleteOnceTheirPagesAreIdle(t *testing.T) {
 	mustEqual(t, "second page", f.stored(pages[1].PAddr), uint32(0x22222222))
 }
 
+// A copy of no bytes uses no page. It is done when the driver takes it,
+// whatever its device address is: one byte inside a page that is being
+// serviced, inside a buffer that a kernel may have written, or where no page
+// is mapped. It does not wait for the page, flushes no cache, asks no GPU,
+// and looks no page up, and the event behind it in the queue completes while
+// the page is still held.
+func TestACopyOfNoBytesIsDoneAtOnce(t *testing.T) {
+	places := []string{"in-a-page-in-service", "in-an-idle-page", "where-no-page-is"}
+
+	for _, mode := range []string{"timed", "magic"} {
+		for _, direction := range []string{"to-the-device", "to-the-host"} {
+			for page, place := range places {
+				t.Run(mode+"/"+direction+"/"+place, func(t *testing.T) {
+					copyOfNoBytesMustBeDoneAtOnce(t, mode == "magic", direction == "to-the-host", page)
+				})
+			}
+		}
+	}
+}
+
+// copyOfNoBytesMustBeDoneAtOnce queues a copy of no bytes and an event behind
+// it while the first of the two pages of a dirty buffer is being serviced.
+// The device address of the copy is one byte into page number page of the
+// buffer; page 2 is behind the buffer, where no page is.
+func copyOfNoBytesMustBeDoneAtOnce(t *testing.T, magic, toHost bool, page int) {
+	t.Helper()
+
+	f := newCopyFixture(t, magic, defaultRuntime)
+	serviced := f.unified(2)[0]
+	f.r.MarkBuffersDirty(f.ctx)
+
+	// GPU 2 faults on the first page: every GPU is asked to hold it.
+	f.fault(serviced, 2)
+	mustEqual(t, "commands of the page", describe(f.of(serviced)), []string{"Hold>1", "Hold>2"})
+
+	device := gpuruntime.Ptr(serviced.VAddr + uint64(page)*testPageSize + 1)
+
+	if toHost {
+		f.r.EnqueueMemCopyD2H(f.q, 0, device, 0)
+	} else {
+		f.r.EnqueueMemCopyH2D(f.q, device, 0, 0)
+	}
+
+	marker := f.r.EnqueueRecordEvent(f.q)
+	f.run()
+
+	mustEqual(t, "unfinished commands", f.r.Unfinished(), []uint64{0})
+
+	if _, err := f.r.EventTime(marker); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, sent := f.port.RetrieveOutgoing(); sent || len(f.c.State.Executing) != 0 ||
+		len(f.c.State.RequestsToSend) != 0 || len(f.c.State.CopyAwaiting) != 0 {
+		t.Fatalf("the copy of no bytes is not done, or asked a GPU: %+v", f.c.State.Executing)
+	}
+
+	// The page is still held: none of its commands is answered.
+	mustEqual(t, "commands of the page", describe(f.of(serviced)), []string{"Hold>1", "Hold>2"})
+
+	f.finishAll()
+	mustEqual(t, "owner", f.page(serviced.VAddr).DeviceID, uint64(2))
+}
+
 // A copy that still waits for its page does not hold back the copy of
 // another queue whose page has become idle.
 func TestAWaitingCopyDoesNotHoldBackTheCopyOfAnotherQueue(t *testing.T) {

@@ -43,7 +43,9 @@ type GPU struct {
 	PageMigrationPort messaging.Port
 
 	// DataMoverPort is the Outside port of the data mover, which reads the
-	// pages that migrate to this GPU from the other GPUs.
+	// pages that migrate to this GPU from the other GPUs. It is nil when the
+	// GPU has no data mover: its builder was not told where the memory of
+	// other GPUs is (PageMigrationConfig.PeerMemory).
 	DataMoverPort messaging.Port
 
 	// MigrationDataPort is the RDMA engine's "MigrationOutside" port, where
@@ -64,10 +66,13 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 		g.RDMARequestPort,
 		g.RDMADataPort,
 		g.PageMigrationPort,
-		g.DataMoverPort,
-		g.MigrationDataPort,
-		g.AccessCounterPort,
 	}
+
+	if g.DataMoverPort != nil {
+		ports = append(ports, g.DataMoverPort)
+	}
+
+	ports = append(ports, g.MigrationDataPort, g.AccessCounterPort)
 	ports = append(ports, g.TranslationPorts...)
 
 	return ports
