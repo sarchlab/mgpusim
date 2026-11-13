@@ -15,7 +15,6 @@ type ISADebugger struct {
 	Logger *log.Logger
 
 	isFirstEntry bool
-	// prevWf *Wavefront
 }
 
 // NewISADebugger returns a new ISADebugger that keeps instruction log in logger
@@ -37,22 +36,7 @@ func (h *ISADebugger) Func(ctx hooking.HookCtx) {
 		return
 	}
 
-	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
-		h.logWholeWf(wf)
-	}
-
-	// For debugging
-	// if wf.FirstWiFlatID != 0 {
-	// 	return
-	// }
-
-	// if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {
-	// 	h.logWholeWf(wf)
-	// } else {
-	// 	h.logDiffWf(wf)
-	// }
-
-	// h.stubWf(wf)
+	h.logWholeWf(wf)
 }
 
 func (h *ISADebugger) logWholeWf(wf *Wavefront) {

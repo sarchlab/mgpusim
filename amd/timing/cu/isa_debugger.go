@@ -43,13 +43,6 @@ func (h *ISADebugger) TaskStarted(task tasks.Task) {
 		return
 	}
 
-	// For debugging
-	detail := task.Detail.(map[string]interface{})
-	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
-	if wf.raw().FirstWiFlatID != 0 {
-		return
-	}
-
 	h.executingInst[task.ID] = task
 }
 
@@ -75,9 +68,7 @@ func (h *ISADebugger) TaskEnded(task tasks.Task) {
 	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
 	inst := h.cu.instruction(detail["inst"].(uint64))
 
-	if wf.group().raw().IDX == 75 && wf.group().raw().IDY == 1 {
-		h.logWholeWf(inst, wf)
-	}
+	h.logWholeWf(inst, wf)
 
 	delete(h.executingInst, task.ID)
 }

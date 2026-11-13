@@ -250,10 +250,7 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	c.Decoder = insts.NewDisassembler()
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	group := c.comp.State.Groups[g.slot]
-	group.Raw.IDX = 75
-	group.Raw.IDY = 1
-	c.comp.State.Groups[g.slot] = group
+	w.raw().FirstWiFlatID = 64
 	i := checkpointInstruction(t, c)
 	w.setTestInst(i)
 	var output bytes.Buffer
