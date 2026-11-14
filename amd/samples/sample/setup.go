@@ -2,9 +2,11 @@
 package sample
 
 import (
+	"errors"
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"sync"
 
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v5/monitoring"
@@ -13,6 +15,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem/emugpu"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 )
 
@@ -35,7 +38,9 @@ type assembly struct {
 }
 
 // Build registers the chosen platform. The returned finish function flushes
-// reports and terminates the simulation after the caller's Runner completes.
+// reports, completes ISA logs, and terminates the simulation after execution
+// stops. Arrange to call finish with defer so error returns also release outputs.
+// Repeated calls return the original result.
 func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() error) {
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 	a := assembly{Config: *c}
@@ -48,7 +53,7 @@ func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() er
 	a.createUnifiedGPUs()
 	c.GPUIDs = a.GPUIDs
 	s, r, report := a.simulation, a.gpuDriver, a.reporter
-	return s, r, func() error { return finishSimulation(s, report) }
+	return s, r, sync.OnceValue(func() error { return finishSimulation(s, report) })
 }
 
 // Configure applies software workload choices without constructing hardware.
@@ -155,5 +160,5 @@ func finishSimulation(s *simulation.Simulation, report *reporter) error {
 		report.report()
 		report.dataRecorder.Flush()
 	}
-	return s.Terminate()
+	return errors.Join(s.Terminate(), emugpu.CloseISADebuggers(s))
 }

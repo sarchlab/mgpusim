@@ -84,7 +84,8 @@ func (b Builder) WithStorage(s *mem.Storage) Builder {
 }
 
 // WithISADebugging enables the simulation to dump instruction execution
-// information.
+// information. After execution, call CloseISADebuggers to complete the logs
+// and close their files. The sample package does this in its finish function.
 func (b Builder) WithISADebugging() Builder {
 	b.enableISADebug = true
 	return b
@@ -170,7 +171,7 @@ func (b Builder) buildComputeUnit(
 		}
 
 		isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
-		cu.AcceptHook(isaDebugger)
+		cu.AcceptHook(&isaDebugOutput{ISADebugger: isaDebugger, file: isaDebug})
 	}
 
 	return cu
