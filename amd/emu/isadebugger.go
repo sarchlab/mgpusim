@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/tebeka/atexit"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction
@@ -15,44 +14,33 @@ type ISADebugger struct {
 	Logger *log.Logger
 
 	isFirstEntry bool
-	// prevWf *Wavefront
+	closed       bool
+	writeErr     error
 }
 
-// NewISADebugger returns a new ISADebugger that keeps instruction log in logger
+// NewISADebugger returns a new ISADebugger that keeps instruction log in logger.
+// Close the debugger after execution, before closing the logger output.
 func NewISADebugger(logger *log.Logger) *ISADebugger {
 	h := new(ISADebugger)
 	h.Logger = logger
 	h.isFirstEntry = true
 
-	h.Logger.Print("[")
-	atexit.Register(func() { h.Logger.Print("\n]") })
+	h.write("[")
 
 	return h
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
 func (h *ISADebugger) Func(ctx hooking.HookCtx) {
+	if h.closed {
+		return
+	}
 	wf, ok := ctx.Item.(*Wavefront)
 	if !ok {
 		return
 	}
 
-	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
-		h.logWholeWf(wf)
-	}
-
-	// For debugging
-	// if wf.FirstWiFlatID != 0 {
-	// 	return
-	// }
-
-	// if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {
-	// 	h.logWholeWf(wf)
-	// } else {
-	// 	h.logDiffWf(wf)
-	// }
-
-	// h.stubWf(wf)
+	h.logWholeWf(wf)
 }
 
 func (h *ISADebugger) logWholeWf(wf *Wavefront) {
@@ -111,5 +99,22 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 
 	output += fmt.Sprintf("}")
 
-	h.Logger.Print(output)
+	h.write(output)
+}
+
+// Close completes the JSON array. Call it after instruction callbacks have
+// stopped. Repeated calls return the original write error. The caller owns
+// the logger's output and closes it after closing the debugger.
+func (h *ISADebugger) Close() error {
+	if !h.closed {
+		h.closed = true
+		h.write("\n]")
+	}
+	return h.writeErr
+}
+
+func (h *ISADebugger) write(text string) {
+	if h.writeErr == nil {
+		h.writeErr = h.Logger.Output(2, text)
+	}
 }

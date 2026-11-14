@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/tebeka/atexit"
 )
 
 // ISADebugger is a tracer that logs the wavefront state after each
@@ -18,12 +17,14 @@ type ISADebugger struct {
 	Logger *log.Logger
 
 	isFirstEntry  bool
+	closed        bool
+	writeErr      error
 	cu            *ComputeUnit
 	executingInst map[uint64]tasks.Task
 }
 
 // NewISADebugger returns a new ISADebugger that keeps instruction log in
-// logger
+// logger. Close the debugger after execution, before closing the logger output.
 func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h := new(ISADebugger)
 	h.Logger = logger
@@ -31,22 +32,14 @@ func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h.cu = cu
 	h.executingInst = make(map[uint64]tasks.Task)
 
-	h.Logger.Print("[")
-	atexit.Register(func() { h.Logger.Print("\n]") })
+	h.write("[")
 
 	return h
 }
 
 // StartTask marks the start of an instruction.
 func (h *ISADebugger) TaskStarted(task tasks.Task) {
-	if task.Kind != "inst" {
-		return
-	}
-
-	// For debugging
-	detail := task.Detail.(map[string]interface{})
-	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
-	if wf.raw().FirstWiFlatID != 0 {
+	if h.closed || task.Kind != "inst" {
 		return
 	}
 
@@ -75,9 +68,7 @@ func (h *ISADebugger) TaskEnded(task tasks.Task) {
 	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
 	inst := h.cu.instruction(detail["inst"].(uint64))
 
-	if wf.group().raw().IDX == 75 && wf.group().raw().IDY == 1 {
-		h.logWholeWf(inst, wf)
-	}
+	h.logWholeWf(inst, wf)
 
 	delete(h.executingInst, task.ID)
 }
@@ -141,7 +132,7 @@ func (h *ISADebugger) logWholeWf(
 
 	output += "}"
 
-	h.Logger.Print(output)
+	h.write(output)
 }
 
 func (h *ISADebugger) getVRegValue(
@@ -175,4 +166,21 @@ func (h *ISADebugger) getSRegValue(
 
 	regValue := binary.LittleEndian.Uint32(regRead.Data)
 	return regValue
+}
+
+// Close completes the JSON array. Call it after instruction callbacks have
+// stopped. Repeated calls return the original write error. The caller owns
+// the logger's output and closes it after closing the debugger.
+func (h *ISADebugger) Close() error {
+	if !h.closed {
+		h.closed = true
+		h.write("\n]")
+	}
+	return h.writeErr
+}
+
+func (h *ISADebugger) write(text string) {
+	if h.writeErr == nil {
+		h.writeErr = h.Logger.Output(2, text)
+	}
 }

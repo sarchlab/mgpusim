@@ -58,7 +58,8 @@ func (b Builder) WithLog2PageSize(n uint64) Builder {
 }
 
 // WithDebugISA enables the ISA debugging feature, which dumps the wavefront
-// states after each instruction.
+// states after each instruction. Call emugpu.CloseISADebuggers after execution
+// to complete and close the logs; the sample finish function does this.
 func (b Builder) WithDebugISA() Builder {
 	b.debugISA = true
 	return b
