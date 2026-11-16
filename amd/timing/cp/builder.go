@@ -3,61 +3,56 @@ package cp
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/mem/memcontrolprotocol"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/monitoring2"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
-// defaultSpec provides the default configuration for the Command Processor.
-var defaultSpec = Spec{
-	Freq:           1 * timing.GHz,
-	NumDispatchers: 8,
-	Alg:            "round-robin",
-	NumDies:        1,
-	// Per-kernel constant overhead (cycles after all WGs complete). Kept
-	// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
-	// events coincide, which exposes a latent tie-break ordering in the
-	// instruction-cache latency accounting and makes the deterministic test
-	// see run-to-run differences. Platforms that want a different value set
-	// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
-	// value falls through to the dispatcher default, since cp/builder only
-	// applies ConstantKernelOverhead when it is > 0).
-	ConstantKernelOverhead: 3600,
-}
-
 // DefaultSpec returns a copy of the default configuration. Callers typically
 // obtain it, tweak the fields they care about, and pass it to WithSpec.
 func DefaultSpec() Spec {
-	return defaultSpec
+	return Spec{
+		Freq:           1 * timing.GHz,
+		NumDispatchers: 8,
+		Alg:            "round-robin",
+		NumDies:        1,
+		// Per-kernel constant overhead (cycles after all WGs complete). Kept
+		// non-zero on purpose: a value of 0 lets otherwise-separated per-kernel
+		// events coincide, which exposes a latent tie-break ordering in the
+		// instruction-cache latency accounting and makes the deterministic test
+		// see run-to-run differences. Platforms that want a different value set
+		// spec.ConstantKernelOverhead; setting it explicitly to 0 opts out (the
+		// value falls through to the dispatcher default, since cp/builder only
+		// applies ConstantKernelOverhead when it is > 0).
+		ConstantKernelOverhead: 3600,
+	}
 }
 
 // Builder can build Command Processors. Configuration is supplied as a whole
-// through WithSpec; wiring is supplied through WithRegistrar. The component
+// through WithSpec; wiring is supplied through WithSimulation. The component
 // declares its ports; the port instances are supplied externally after Build
-// with AssignPort.
+// with BindPort.
 type Builder struct {
+	sampler   *sampling.SampledEngine
 	spec      Spec
-	registrar modeling.Registrar
-	visTracer tracing.Tracer
+	registrar modeling.Simulation
 	monitor   *monitoring2.Monitor
-	driver    messaging.RemotePort
-	cus       []CUInterfaceForCP
 }
+
+// WithSampler shares the simulation's recoverable wavefront sampling state.
+func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s; return b }
 
 // MakeBuilder creates a new builder with default configuration values.
 func MakeBuilder() Builder {
-	return Builder{spec: defaultSpec}
+	return Builder{spec: DefaultSpec()}
 }
 
-// WithRegistrar wires the builder to a registrar (a *simulation.Simulation in
-// assembly, or modeling.NewStandaloneRegistrar(engine) in isolated tests).
-func (b Builder) WithRegistrar(reg modeling.Registrar) Builder {
+// WithSimulation supplies the simulation that owns the component.
+func (b Builder) WithSimulation(reg modeling.Simulation) Builder {
 	b.registrar = reg
 	return b
 }
@@ -68,108 +63,60 @@ func (b Builder) WithSpec(spec Spec) Builder {
 	return b
 }
 
-// WithVisTracer enables tracing for visualization on the command processor's
-// dispatchers.
-func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
-	b.visTracer = tracer
-	return b
-}
-
 // WithMonitor sets the monitor used to show kernel-dispatching progress bars.
 func (b Builder) WithMonitor(monitor *monitoring2.Monitor) Builder {
 	b.monitor = monitor
 	return b
 }
 
-// WithDriver sets the driver port that the command processor responds to.
-func (b Builder) WithDriver(driver messaging.RemotePort) Builder {
-	b.driver = driver
-	return b
-}
-
-// WithCU adds a compute unit to the command processor.
-func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
-	b.cus = append(b.cus, cu)
-	return b
-}
-
 // Build builds a new Command Processor. It declares the component's ports
-// ("ToDriver", "ToDMA", "ToCUs", "ToTLBs", "ToAddressTranslators",
-// "ToCaches", "ToRDMA"); assign the port instances after Build with
-// AssignPort.
+// ("ToDriver", "ToDMA", "ToCUs",
+// "ToCaches", "ToRDMA", "ToTranslation", "ToDataMover", "PageMigration");
+// assign the port instances after Build with
+// BindPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {
-		panic("cp: WithRegistrar is required")
+		panic("cp: WithSimulation is required")
 	}
 
-	comp := modeling.NewBuilder[Spec, State, modeling.None]().
-		WithEngine(b.registrar.GetEngine()).
-		WithFreq(b.spec.Freq).
-		WithSpec(b.spec).
-		Build(name)
-	comp.State = State{
-		Driver:                b.driver,
-		BottomMemCopyH2DToTop: make(map[uint64]protocol.MemCopyH2DReq),
-		BottomMemCopyD2HToTop: make(map[uint64]protocol.MemCopyD2HReq),
-	}
-
-	cpMW := &cpMiddleware{comp: comp}
-	ctrlMW := &ctrlMiddleware{comp: comp}
-	comp.AddMiddleware(cpMW)
-	comp.AddMiddleware(ctrlMW)
-
-	b.buildDispatchers(comp, cpMW)
-
-	for _, cu := range b.cus {
-		RegisterCU(comp, cu)
-	}
-
-	comp.DeclarePort("ToDriver")
-	comp.DeclarePort("ToDMA")
-	comp.DeclarePort("ToCUs")
-	comp.DeclarePort("ToTLBs", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToAddressTranslators", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToCaches", memcontrolprotocol.Requester)
-	comp.DeclarePort("ToRDMA")
-
-	b.registrar.RegisterComponent(comp)
-
-	return comp
+	return modeling.MakeBuilder[*Comp](b.spec).WithSimulation(b.registrar).
+		WithResources(Resources{Sampler: b.sampler, Monitor: b.monitor}).Build(name)
 }
 
-func (b Builder) buildDispatchers(comp *Comp, cpMW *cpMiddleware) {
-	cuResourcePool := resource.NewCUResourcePool()
-	alg := b.spec.Alg
+func buildDispatchers(comp *Comp) []dispatching.Dispatcher {
+	var dispatchers []dispatching.Dispatcher
+	cuResourcePool := resource.Bind(comp.Spec.CUs, func() *[]resource.CUState { return &comp.State.CUResources })
+	alg := comp.Spec.Alg
 	if alg == "" {
 		alg = "round-robin"
 	}
-	builder := dispatching.MakeBuilder().
+	builder := dispatching.MakeBuilder().WithSampler(comp.Resources.Sampler).
 		WithCP(comp).
 		WithAlg(alg).
-		WithNumDies(b.spec.NumDies).
-		WithWavefrontDispatchCycles(b.spec.WavefrontDispatchCycles).
+		WithNumDies(comp.Spec.NumDies).
+		WithWavefrontDispatchCycles(comp.Spec.WavefrontDispatchCycles).
 		WithCUResourcePool(cuResourcePool).
-		WithPortSource(comp).
+		WithPortSource(dispatcherPorts{comp}).
 		WithDispatchingPortName("ToCUs").
 		WithRespondingPortName("ToDriver").
-		WithMonitor(b.monitor).
-		WithConstantKernelLaunchOverhead(b.spec.ConstantKernelLaunchOverhead).
+		WithMonitor(comp.Resources.Monitor).
+		WithConstantKernelLaunchOverhead(comp.Spec.ConstantKernelLaunchOverhead).
 		WithSubsequentKernelLaunchOverhead(
-			b.spec.SubsequentKernelLaunchOverhead).
-		WithWGScalingThreshold(b.spec.WGScalingThreshold)
+			comp.Spec.SubsequentKernelLaunchOverhead).
+		WithWGScalingThreshold(comp.Spec.WGScalingThreshold)
 
-	if b.spec.ConstantKernelOverhead > 0 {
+	if comp.Spec.ConstantKernelOverhead > 0 {
 		builder = builder.WithConstantKernelOverhead(
-			b.spec.ConstantKernelOverhead)
+			comp.Spec.ConstantKernelOverhead)
 	}
 
-	for i := 0; i < b.spec.NumDispatchers; i++ {
-		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", comp.Name(), i))
+	for i := 0; i < comp.Spec.NumDispatchers; i++ {
+		index := i
+		disp := builder.
+			WithState(func() *dispatching.State { return &comp.State.Dispatchers[index] }).
+			Build(fmt.Sprintf("%s.Dispatcher%d", comp.Name(), i))
 
-		if b.visTracer != nil {
-			tracing.CollectTrace(disp, b.visTracer)
-		}
-
-		cpMW.dispatchers = append(cpMW.dispatchers, disp)
+		dispatchers = append(dispatchers, disp)
 	}
+	return dispatchers
 }

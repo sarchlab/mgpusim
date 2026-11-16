@@ -220,7 +220,7 @@ func (r *kernelFileReader) readThreadblocks(kernel *KernelTrace) {
 			}
 
 			if strings.HasPrefix(text, "warp") {
-				tb.Warps = append(tb.Warps, r.readWarp(tb.ID))
+				tb.Warps = append(tb.Warps, *r.readWarp(tb.ID))
 			}
 		}
 
@@ -229,7 +229,7 @@ func (r *kernelFileReader) readThreadblocks(kernel *KernelTrace) {
 				tb.ID, kernel.ID))
 		}
 
-		kernel.Threadblocks = append(kernel.Threadblocks, tb)
+		kernel.Threadblocks = append(kernel.Threadblocks, *tb)
 	}
 }
 
@@ -251,9 +251,9 @@ func (r *kernelFileReader) readWarp(tbID Dim3) *WarpTrace {
 		}
 
 		inst := extractInst(r.scanner.Text(), uint64(j))
-		inst.threadblockID = tbID
-		inst.warpID = wp.ID
-		wp.Instructions = append(wp.Instructions, inst)
+		inst.ThreadblockID = tbID
+		inst.WarpID = wp.ID
+		wp.Instructions = append(wp.Instructions, *inst)
 	}
 
 	return wp
@@ -269,8 +269,8 @@ func mustSscanf(text, format string, args ...any) {
 //
 //	PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width
 //	[address_compress] [mem_addresses] immediate
-func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
-	inst := &InstructionTrace{instIndexInWarp: instIndexInWarp}
+func extractInst(text string, InstIndexInWarp uint64) *InstructionTrace {
+	inst := &InstructionTrace{InstIndexInWarp: InstIndexInWarp}
 	elems := strings.Fields(text)
 
 	inst.PC = mustParseHex(elems[0])

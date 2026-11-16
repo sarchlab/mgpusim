@@ -9,11 +9,12 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/mem/vm"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
@@ -40,7 +41,7 @@ type Builder struct {
 	freq           timing.Freq
 	log2PageSize   uint64
 	enableISADebug bool
-	pageTable      vm.PageTable
+	pageTable      *vm.PageTable
 	storage        *mem.Storage
 	archType       arch.Type
 }
@@ -64,7 +65,7 @@ func (b Builder) WithSimulation(s *simulation.Simulation) Builder {
 }
 
 // WithPageTable sets the page table that provides the address translation.
-func (b Builder) WithPageTable(pageTable vm.PageTable) Builder {
+func (b Builder) WithPageTable(pageTable *vm.PageTable) Builder {
 	b.pageTable = pageTable
 	return b
 }
@@ -83,7 +84,8 @@ func (b Builder) WithStorage(s *mem.Storage) Builder {
 }
 
 // WithISADebugging enables the simulation to dump instruction execution
-// information.
+// information. After execution, call CloseISADebuggers to complete the logs
+// and close their files. The sample package does this in its finish function.
 func (b Builder) WithISADebugging() Builder {
 	b.enableISADebug = true
 	return b
@@ -114,9 +116,8 @@ func (b Builder) buildMemory(name string) *idealmemcontroller.Comp {
 	spec.Freq = b.freq
 	spec.Latency = 1
 
-	gpuMem := idealmemcontroller.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(spec).
+	gpuMem := modeling.MakeBuilder[*idealmemcontroller.Comp](spec).
+		WithSimulation(b.simulation).
 		WithResources(idealmemcontroller.Resources{Storage: b.storage}).
 		Build(name + ".GlobalMem")
 
@@ -152,7 +153,7 @@ func (b Builder) buildComputeUnit(
 	spec.Freq = b.freq
 
 	cu := emu.MakeBuilder().
-		WithRegistrar(b.simulation).
+		WithSimulation(b.simulation).
 		WithSpec(spec).
 		WithResources(emu.Resources{
 			Decoder:         disassembler,
@@ -170,7 +171,7 @@ func (b Builder) buildComputeUnit(
 		}
 
 		isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
-		cu.AcceptHook(isaDebugger)
+		cu.AcceptHook(&isaDebugOutput{ISADebugger: isaDebugger, file: isaDebug})
 	}
 
 	return cu
@@ -179,46 +180,36 @@ func (b Builder) buildComputeUnit(
 func (b Builder) buildCommandProcessor(
 	name string,
 	cu *emu.Comp,
-) (*commandProcessor, messaging.Port) {
-	cp, mw := buildCommandProcessor(
-		b.simulation, b.freq, name+".CommandProcessor")
+) (*Comp, messaging.Port) {
+	cp := buildCommandProcessor(
+		b.simulation, b.freq, cu.Ports.ToDispatcher.AsRemote(), name+".CommandProcessor")
 
 	driverPort := b.assignPort(cp, cpDriverPortName)
 	b.assignPort(cp, cpCUPortName)
-
-	mw.cuDst = cu.GetPortByName(emu.DispatchPortName).AsRemote()
 
 	return cp, driverPort
 }
 
 func (b Builder) connectInternalComponents(
 	name string,
-	cp *commandProcessor,
+	cp *Comp,
 	cu *emu.Comp,
 	gpuMem *idealmemcontroller.Comp,
 ) {
-	conn := directconnection.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(directconnection.Spec{Freq: b.freq}).
-		Build(name + ".IntraGPUConn")
+	conn := directconnection.NewConnection(name+".IntraGPUConn", b.simulation, b.freq)
 
-	conn.PlugIn(cp.GetPortByName(cpCUPortName))
-	conn.PlugIn(cu.GetPortByName(emu.DispatchPortName))
-	conn.PlugIn(gpuMem.GetPortByName("Top"))
+	conn.BindPort(cp.Ports.ToCU)
+	conn.BindPort(cu.Ports.ToDispatcher)
+	conn.BindPort(gpuMem.Ports.Top)
 }
 
 // assignPort builds a port for the given declared port name, assigns it to the
 // component, and returns it.
-func (b Builder) assignPort(
-	comp messaging.Component,
-	portName string,
-) messaging.Port {
-	port := modeling.MakePortBuilder().
-		WithRegistrar(b.simulation).
-		WithComponent(comp).
-		WithSpec(modeling.PortSpec{BufSize: portBufSize}).
-		Build(portName)
-	comp.AssignPort(portName, port)
-
+func (b Builder) assignPort(comp interface{ BindPort(string, messaging.Port) }, portName string) messaging.Port {
+	port := twowaybuffered.MakeBuilder().
+		WithSimulation(b.simulation).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: portBufSize, OutgoingCapacity: portBufSize}).
+		Build()
+	comp.BindPort(portName, port)
 	return port
 }

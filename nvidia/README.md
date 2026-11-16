@@ -322,3 +322,43 @@ golangci-lint run ./nvidia/...
 
 The tests use a two-thread-block excerpt of a vectorAdd trace in
 `trace/testdata/vectoradd`, so they need no GPU.
+
+## Topology configuration and checkpoints
+
+GPU, SM, SMSP, and driver destinations are immutable Spec fields. Builders
+supply peer names and addresses before component construction; the hierarchy
+uses its deterministic component/port names for forward references, preserving
+construction order. `RegisterGPU` only connects ports and checks that the GPU
+matches the driver's configured peer and return address. It does not change
+routing configuration. Child component lists on builder-returned wrappers are
+for assembly and observation; the ticking middleware routes exclusively from
+Spec.
+
+Custom platforms pass `driver.Builder.WithDevices`,
+`gpu.Builder.WithDriverRemotePort`, `sm.SMBuilder.WithGPURemotePort`, and
+`smsp.MakeBuilder().WithSMRemotePort(...).WithVectorMemRemote(...)` during setup.
+The previous `Set*RemotePort`/`SetVectorMemRemote` methods and redundant controller
+`ID` fields are removed; use `Name()` for component identity. SMSP builders now
+have value semantics like the other builders.
+
+A checkpoint must restore exactly with the same executable on the same platform.
+Across executables or configuration changes, restoration is best effort: a
+loadable checkpoint is used; otherwise loading reports an error. Checkpoints
+have no version or configuration-hash gates.
+
+Scheduler lookups binary-search the canonical State slices: IDs increase on
+insertion and retirement preserves order. No derived map or pointer cache is
+retained across checkpoint restoration.
+
+Traces now have one checkpointed owner, `trace.Store`. `platform.Build` creates
+and injects it throughout the hierarchy. Custom platforms create one store with
+`trace.NewStore(simulation, name)` and pass it to every participating builder
+through `WithTraceStore`; components require it during initialization. Submitted
+kernels are copied once to isolate caller mutation. Messages, block queues,
+resident warps and in-flight instructions carry launch/block/warp/instruction
+identities rather than duplicate traces. The driver releases each launch after
+its GPU completion acknowledgment, so completed trace history does not grow.
+Registry access supports parallel engines; borrowed immutable values must not
+be retained across a restore. Checkpoints include all active trace data and can
+restore without the original trace files. Loading checkpoints from before this
+trace-ownership migration is best effort.

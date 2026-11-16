@@ -11,18 +11,12 @@ type greedyAlgorithm struct {
 	gridBuilder kernels.GridBuilder
 	cuPool      resource.CUResourcePool
 
-	currWG           *kernels.WorkGroup
-	numDispatchedWGs int
-}
-
-// RegisterCU allows the greedyAlgorithm to dispatch work-group to the CU.
-func (a *greedyAlgorithm) RegisterCU(cu resource.DispatchableCU) {
-	a.cuPool.RegisterCU(cu)
+	state func() *AlgorithmState
 }
 
 // StartNewKernel lets the algorithms to start dispatching a new kernel.
 func (a *greedyAlgorithm) StartNewKernel(info kernels.KernelLaunchInfo) {
-	a.numDispatchedWGs = 0
+	a.state().Dispatched = 0
 	a.gridBuilder.SetKernel(info)
 }
 
@@ -34,26 +28,28 @@ func (a *greedyAlgorithm) NumWG() int {
 
 // HasNext check if there are more work-groups to dispatch.
 func (a *greedyAlgorithm) HasNext() bool {
-	return a.numDispatchedWGs < a.gridBuilder.NumWG()
+	return a.state().Dispatched < a.gridBuilder.NumWG()
 }
 
 // Next finds the location to dispatch the next work-group.
 func (a *greedyAlgorithm) Next() (location dispatchLocation) {
-	if a.currWG == nil {
-		a.currWG = a.gridBuilder.NextWG()
+	wg := currentWG(a.state().Current)
+	if wg == nil {
+		wg = a.gridBuilder.NextWG()
+		a.state().Current = retainWG(wg)
 	}
 
 	for i := 0; i < a.cuPool.NumCU(); i++ {
 		cuID := i
 		cu := a.cuPool.GetCU(cuID)
 
-		locations, ok := cu.ReserveResourceForWG(a.currWG)
+		locations, ok := cu.ReserveResourceForWG(wg)
 		if ok {
 			dispatch := dispatchLocation{
 				valid: true,
 				cu:    cu.DispatchingPort(),
 				cuID:  cuID,
-				wg:    a.currWG,
+				wg:    wg,
 			}
 			dispatch.locations =
 				make([]protocol.WfDispatchLocation, len(locations))
@@ -61,8 +57,8 @@ func (a *greedyAlgorithm) Next() (location dispatchLocation) {
 				dispatch.locations[i] = protocol.WfDispatchLocation(localtion)
 			}
 
-			a.currWG = nil
-			a.numDispatchedWGs++
+			a.state().Current = Location{}
+			a.state().Dispatched++
 
 			return dispatch
 		}

@@ -1,16 +1,18 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v5/monitoring2"
-	"github.com/sarchlab/akita/v5/tracing"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp/internal/resource"
 )
 
 // A Builder can build dispatchers
 type Builder struct {
-	cp                             tracing.NamedHookable
+	state                          func() *State
+	sampler                        *sampling.SampledEngine
+	cp                             Parent
 	cuResourcePool                 resource.CUResourcePool
 	alg                            string
 	portSource                     PortSource
@@ -24,6 +26,9 @@ type Builder struct {
 	numDies                        int
 	wavefrontDispatchCycles        int
 }
+
+// WithSampler shares the simulation's recoverable wavefront sampling state.
+func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s; return b }
 
 // MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
@@ -42,7 +47,7 @@ func MakeBuilder() Builder {
 }
 
 // WithCP sets the Command Processor that the Dispatcher belongs to.
-func (b Builder) WithCP(cp tracing.NamedHookable) Builder {
+func (b Builder) WithCP(cp Parent) Builder {
 	b.cp = cp
 	return b
 }
@@ -140,16 +145,23 @@ func (b Builder) WithWGScalingThreshold(n int) Builder {
 	return b
 }
 
+// WithState supplies the parent-owned canonical state accessor.
+func (b Builder) WithState(state func() *State) Builder { b.state = state; return b }
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
+	if b.state == nil {
+		s := NewState(b.alg, b.numDies)
+		b.state = func() *State { return &s }
+	}
 	d := &DispatcherImpl{
+		state:               b.state,
+		sampler:             b.sampler,
 		name:                name,
 		cp:                  b.cp,
 		portSource:          b.portSource,
 		respondingPortName:  b.respondingPortName,
 		dispatchingPortName: b.dispatchingPortName,
-		inflightWGs:         make(map[uint64]dispatchLocation),
-		originalReqs:        make(map[uint64]protocol.MapWGReq),
 		latencyTable: []int{
 			0,          // 0 WFs
 			0, 0, 0, 0, // 1-4 WFs
@@ -167,20 +179,26 @@ func (b Builder) Build(name string) Dispatcher {
 	switch b.alg {
 	case "round-robin":
 		d.alg = &roundRobinAlgorithm{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: &stateGrid{ids: b.cp, state: func() *kernels.GridBuilderState { return &b.state().Algorithm.Grid }},
+			state:       func() *AlgorithmState { return &b.state().Algorithm },
 			cuPool:      b.cuResourcePool,
 		}
 	case "greedy":
 		d.alg = &greedyAlgorithm{
-			gridBuilder: kernels.NewGridBuilder(),
+			gridBuilder: &stateGrid{ids: b.cp, state: func() *kernels.GridBuilderState { return &b.state().Algorithm.Grid }},
+			state:       func() *AlgorithmState { return &b.state().Algorithm },
 			cuPool:      b.cuResourcePool,
 		}
 	case "partition":
 		d.alg = &partitionAlgorithm{
+			ids:    b.cp,
+			state:  func() *AlgorithmState { return &b.state().Algorithm },
 			cuPool: b.cuResourcePool,
 		}
 	case "per-die":
 		d.alg = &perDieAlgorithm{
+			ids:     b.cp,
+			state:   func() *AlgorithmState { return &b.state().Algorithm },
 			cuPool:  b.cuResourcePool,
 			numDies: b.numDies,
 		}
@@ -190,9 +208,17 @@ func (b Builder) Build(name string) Dispatcher {
 
 	if da, ok := d.alg.(dieAwareAlgorithm); ok {
 		d.dieAware = da
-		d.dieCyclesLeft = make([]int, da.NumDies())
 		d.wavefrontDispatchCycles = b.wavefrontDispatchCycles
 	}
 
 	return d
+}
+
+// NewState initializes a dispatcher before any runtime work is admitted.
+func NewState(alg string, dies int) State {
+	s := State{Inflight: make(map[uint64]Location), WgTaskIDs: make(map[uint64]uint64)}
+	if alg == "per-die" {
+		s.DieCyclesLeft = make([]int, dies)
+	}
+	return s
 }

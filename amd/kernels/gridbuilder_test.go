@@ -3,17 +3,17 @@ package kernels
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 var _ = Describe("GridBuilder", func() {
-
 	var (
 		builder *gridBuilderImpl
 	)
 
 	BeforeEach(func() {
-		builder = &gridBuilderImpl{}
+		builder = &gridBuilderImpl{ids: sim.MakeBuilder().Build()}
 	})
 
 	It("should build partial wavefront", func() {

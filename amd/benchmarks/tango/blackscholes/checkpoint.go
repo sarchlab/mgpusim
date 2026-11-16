@@ -1,0 +1,33 @@
+package blackscholes
+
+import (
+	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
+)
+
+type State struct {
+	benchmarks.Progress
+	Readbacks        []gpuruntime.HostBuffer
+	Context          gpuruntime.Context
+	Queue            gpuruntime.CommandQueue
+	Gpus             []int
+	Arch             arch.Type
+	N                int
+	HS               []float32
+	HK               []float32
+	HT               []float32
+	HSigma           []float32
+	GS               gpuruntime.Ptr
+	GK               gpuruntime.Ptr
+	GT               gpuruntime.Ptr
+	GSigma           gpuruntime.Ptr
+	GCall            gpuruntime.Ptr
+	GPut             gpuruntime.Ptr
+	UseUnifiedMemory bool
+}
+
+func (b *Benchmark) bind() error {
+	b.loadProgram()
+	return nil
+}

@@ -6,7 +6,6 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	
 )
 
 var lastUsedGroupID = 0

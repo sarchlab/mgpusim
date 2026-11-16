@@ -28,10 +28,10 @@ func TestIsV2V3Header_ValidHeader(t *testing.T) {
 func TestIsV2V3Header_GCN3Header(t *testing.T) {
 	// GCN3 (MachineVersionMajor = 8)
 	data := make([]byte, 256)
-	binary.LittleEndian.PutUint32(data[0:4], 1)   // major
-	binary.LittleEndian.PutUint32(data[4:8], 0)    // minor
-	binary.LittleEndian.PutUint16(data[8:10], 1)   // machineKind
-	binary.LittleEndian.PutUint16(data[10:12], 8)  // machineVersionMajor
+	binary.LittleEndian.PutUint32(data[0:4], 1)     // major
+	binary.LittleEndian.PutUint32(data[4:8], 0)     // minor
+	binary.LittleEndian.PutUint16(data[8:10], 1)    // machineKind
+	binary.LittleEndian.PutUint16(data[10:12], 8)   // machineVersionMajor
 	binary.LittleEndian.PutUint64(data[16:24], 256) // entryOffset
 
 	if !isV2V3Header(data) {
@@ -48,7 +48,7 @@ func TestIsV2V3Header_TooShort(t *testing.T) {
 
 func TestIsV2V3Header_WrongMajor(t *testing.T) {
 	data := make([]byte, 256)
-	binary.LittleEndian.PutUint32(data[0:4], 2)   // wrong major
+	binary.LittleEndian.PutUint32(data[0:4], 2) // wrong major
 	binary.LittleEndian.PutUint32(data[4:8], 0)
 	binary.LittleEndian.PutUint16(data[8:10], 1)
 	binary.LittleEndian.PutUint16(data[10:12], 8)
@@ -99,7 +99,7 @@ func TestIsV2V3Header_FalsePositivePrevention(t *testing.T) {
 	binary.LittleEndian.PutUint16(data[8:10], 1)
 	// These fields won't match valid V2/V3 for random instruction bytes
 	binary.LittleEndian.PutUint16(data[10:12], 0) // not a valid GPU gen
-	binary.LittleEndian.PutUint64(data[16:24], 0)  // not 256
+	binary.LittleEndian.PutUint64(data[16:24], 0) // not 256
 
 	if isV2V3Header(data) {
 		t.Error("expected V5 instruction bytes to NOT be falsely detected as V2/V3")
@@ -108,10 +108,10 @@ func TestIsV2V3Header_FalsePositivePrevention(t *testing.T) {
 
 func TestNewKernelCodeObjectFromEntireTextSection_V2V3(t *testing.T) {
 	data := make([]byte, 512)
-	binary.LittleEndian.PutUint32(data[0:4], 1)   // CodeVersionMajor
-	binary.LittleEndian.PutUint32(data[4:8], 1)    // CodeVersionMinor
-	binary.LittleEndian.PutUint16(data[8:10], 1)   // MachineKind
-	binary.LittleEndian.PutUint16(data[10:12], 8)  // MachineVersionMajor
+	binary.LittleEndian.PutUint32(data[0:4], 1)     // CodeVersionMajor
+	binary.LittleEndian.PutUint32(data[4:8], 1)     // CodeVersionMinor
+	binary.LittleEndian.PutUint16(data[8:10], 1)    // MachineKind
+	binary.LittleEndian.PutUint16(data[10:12], 8)   // MachineVersionMajor
 	binary.LittleEndian.PutUint64(data[16:24], 256) // EntryOffset
 
 	// Put a pattern after the 256-byte header to verify we extract it

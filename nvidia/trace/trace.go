@@ -44,7 +44,7 @@ func (op Opcode) String() string {
 type KernelTrace struct {
 	ID           string
 	FileHeader   KernelFileHeader
-	Threadblocks []*ThreadblockTrace
+	Threadblocks []ThreadblockTrace
 }
 
 // KernelFileHeader holds the "-key = value" lines at the top of a .traceg
@@ -69,21 +69,21 @@ type KernelFileHeader struct {
 type ThreadblockTrace struct {
 	ID             Dim3
 	FatherKernelID string
-	Warps          []*WarpTrace
+	Warps          []WarpTrace
 }
 
 // WarpTrace is the dynamic instruction stream of one warp.
 type WarpTrace struct {
 	ID                  int
 	FatherThreadblockID Dim3
-	Instructions        []*InstructionTrace
+	Instructions        []InstructionTrace
 }
 
 // InstructionTrace is one dynamic instruction of a warp.
 type InstructionTrace struct {
-	threadblockID     Dim3
-	warpID            int
-	instIndexInWarp   uint64
+	ThreadblockID     Dim3
+	WarpID            int
+	InstIndexInWarp   uint64
 	PC                uint64
 	Mask              uint64
 	DestNum           int
@@ -149,7 +149,7 @@ func (t *KernelTrace) ThreadblocksCount() uint64 {
 
 // Threadblock returns the thread block at the given index.
 func (t *KernelTrace) Threadblock(index uint64) *ThreadblockTrace {
-	return t.Threadblocks[index]
+	return &t.Threadblocks[index]
 }
 
 // WarpsCount returns the number of warps in the thread block.
@@ -159,7 +159,7 @@ func (tb *ThreadblockTrace) WarpsCount() uint64 {
 
 // Warp returns the warp at the given index.
 func (tb *ThreadblockTrace) Warp(index uint64) *WarpTrace {
-	return tb.Warps[index]
+	return &tb.Warps[index]
 }
 
 // ThreadblockFullID returns a human-readable ID of the thread block.
@@ -175,6 +175,6 @@ func (w *WarpTrace) InstructionsCount() uint64 {
 // InstructionsFullID returns a human-readable ID of the instruction.
 func (i *InstructionTrace) InstructionsFullID() string {
 	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]",
-		i.threadblockID[0], i.threadblockID[1], i.threadblockID[2],
-		i.warpID, i.instIndexInWarp)
+		i.ThreadblockID[0], i.ThreadblockID[1], i.ThreadblockID[2],
+		i.WarpID, i.InstIndexInWarp)
 }

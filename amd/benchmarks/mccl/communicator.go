@@ -1,13 +1,12 @@
 package mccl
 
 import (
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // Communicator is a struct that helps gpu to communicate.
 type Communicator struct {
-	Driver    *driver.Driver
-	Ctx       *driver.Context
+	Ctx       gpuruntime.Context
 	GPUID     int
 	Rank      uint32
 	GroupID   int
@@ -17,15 +16,14 @@ type Communicator struct {
 // NewCommunicator creates a new communicator
 // rank is the id of this gpu
 func NewCommunicator(
-	driver *driver.Driver,
-	ctx *driver.Context,
+	rt *gpuruntime.Runtime,
+	ctx gpuruntime.Context,
 	gpuID int,
 	rank uint32,
 	groupID int,
 	groupSize uint32,
 ) *Communicator {
 	comm := &Communicator{
-		driver,
 		ctx,
 		gpuID,
 		rank,
@@ -38,19 +36,18 @@ func NewCommunicator(
 // CommInitAll initiates a list of communicators.
 func CommInitAll(
 	nDev int,
-	driver *driver.Driver,
-	ctx *driver.Context,
+	rt *gpuruntime.Runtime,
+	ctx gpuruntime.Context,
 	gpuIDs []int,
 ) []*Communicator {
-	lastUsedGroupID++
 	var comms []*Communicator
 	for i := 0; i < nDev; i++ {
 		newComm := NewCommunicator(
-			driver,
+			rt,
 			ctx,
 			gpuIDs[i],
 			uint32(i),
-			lastUsedGroupID,
+			0,
 			uint32(nDev),
 		)
 		comms = append(comms, newComm)
@@ -63,19 +60,18 @@ func CommInitAll(
 // context per communicator.
 func CommInitAllMultipleContexts(
 	nDev int,
-	driver *driver.Driver,
-	ctxs []*driver.Context,
+	rt *gpuruntime.Runtime,
+	ctxs []gpuruntime.Context,
 	gpuIDs []int,
 ) []*Communicator {
-	lastUsedGroupID++
 	var comms []*Communicator
 	for i := 0; i < nDev; i++ {
 		newComm := NewCommunicator(
-			driver,
+			rt,
 			ctxs[i],
 			gpuIDs[i],
 			uint32(i),
-			lastUsedGroupID,
+			0,
 			uint32(nDev),
 		)
 		comms = append(comms, newComm)

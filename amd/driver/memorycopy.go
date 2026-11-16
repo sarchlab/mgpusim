@@ -1,319 +1,121 @@
 package driver
 
 import (
-	"bytes"
-	"encoding/binary"
-
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// defaultMemoryCopyMiddleware handles memory copy commands and related
-// communication.
-type defaultMemoryCopyMiddleware struct {
-	driver *Driver
+// copyUnlessMigrating starts a memory copy and reports that it did, unless a
+// page that it uses is migrating: a copy uses physical addresses, so it
+// waits until the page is idle. A copy that finishes at once has left the
+// execution list when this returns. A copy of no bytes uses no page: it is
+// done, whatever happens to the page of its address.
+func (m *executionMW) copyUnlessMigrating(i int) bool {
+	c := m.comp
+	e := &c.State.Executing[i]
 
-	cyclesPerH2D int
-	cyclesPerD2H int
-	cyclesLeft   int
+	start, size, ok := copyRange(e.Command)
+	if !ok {
+		m.finish(i)
+		return true
+	}
 
-	awaitingReqs []messaging.Msg
+	if m.comp.Middlewares.Migration.migrating(
+		c.Resources.Runtime.QueuePID(e.Queue), start, size) {
+		e.WaitsForMigration = true
+		return false
+	}
+
+	e.WaitsForMigration = false
+	m.copy(i)
+
+	return true
 }
 
-func (m *defaultMemoryCopyMiddleware) ProcessCommand(
-	cmd Command,
-	queue *CommandQueue,
-) (processed bool) {
-	switch cmd := cmd.(type) {
-	case *MemCopyH2DCommand:
-		return m.processMemCopyH2DCommand(cmd, queue)
-	case *MemCopyD2HCommand:
-		return m.processMemCopyD2HCommand(cmd, queue)
+// startWaitingCopies starts the first memory copy that waited for a
+// migration and may start now. A copy whose pages still migrate keeps
+// waiting and does not hold back the copies of the other queues behind it.
+// One copy is started per tick, because a copy that finishes at once leaves
+// the execution list; the progress that is reported ticks the driver again
+// for the copies that are left.
+func (m *executionMW) startWaitingCopies() bool {
+	for i := range m.comp.State.Executing {
+		if m.comp.State.Executing[i].WaitsForMigration && m.copyUnlessMigrating(i) {
+			return true
+		}
 	}
 
 	return false
 }
 
-func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
-	cmd *MemCopyH2DCommand,
-	queue *CommandQueue,
-) bool {
-	if m.needFlushing(queue.Context, cmd.Dst, uint64(binary.Size(cmd.Src))) {
-		m.sendFlushRequest(cmd)
-	}
-
-	buffer := bytes.NewBuffer(nil)
-	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
-	if err != nil {
-		panic(err)
-	}
-	rawBytes := buffer.Bytes()
-
-	offset := uint64(0)
+// copy starts a memory copy. A magic copy reads or writes the global storage
+// itself, in no time and around the GPUs, whatever their caches hold: it
+// never flushes them. Any other copy goes through the GPUs, which read and
+// write the memory below their caches, after a flush of the caches if they
+// may hold lines of the memory.
+func (m *executionMW) copy(i int) {
+	c := m.comp
+	e := &c.State.Executing[i]
+	r := c.Resources.Runtime
+	cmd := &e.Command
+	ctx := r.QueueContext(e.Queue)
 	addr := uint64(cmd.Dst)
-	sizeLeft := uint64(len(rawBytes))
-	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
-			Find(queue.Context.pid, addr)
-		if !found {
-			panic("page not found")
-		}
-
-		pAddr := page.PAddr + (addr - page.VAddr)
-		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
-		sizeToCopy := sizeLeftInPage
-		if sizeLeft < sizeLeftInPage {
-			sizeToCopy = sizeLeft
-		}
-
-		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.MemCopyH2DReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: m.driver.GPUs[gpuID-1],
-			},
-			SrcBuffer:  rawBytes[offset : offset+sizeToCopy],
-			DstAddress: pAddr,
-		}
-		cmd.Reqs = append(cmd.Reqs, req)
-		m.awaitingReqs = append(m.awaitingReqs, req)
-
-		sizeLeft -= sizeToCopy
-		addr += sizeToCopy
-		offset += sizeToCopy
-
-		m.driver.logTaskToGPUInitiate(cmd, req)
+	size := cmd.ByteSize
+	if cmd.Kind == gpuruntime.CopyD2H {
+		addr = uint64(cmd.Src)
 	}
-
-	m.cyclesLeft = m.cyclesPerH2D
-
-	queue.IsRunning = true
-
-	return true
-}
-
-func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
-	cmd *MemCopyD2HCommand,
-	queue *CommandQueue,
-) bool {
-	if m.needFlushing(queue.Context, cmd.Src, uint64(binary.Size(cmd.Dst))) {
-		m.sendFlushRequest(cmd)
-		queue.Context.removeFreedBuffers()
+	direct := c.Spec.UseMagicMemoryCopy
+	if !direct && r.NeedsFlush(ctx, gpuruntime.Ptr(addr), uint64(size)) {
+		for gpu := range c.Spec.GPUs {
+			m.request(e, gpu+1, protocol.FlushReq{}, false)
+		}
 	}
-
-	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
-
 	offset := uint64(0)
-	addr := uint64(cmd.Src)
-	sizeLeft := uint64(len(cmd.RawData))
-	for sizeLeft > 0 {
-		page, found := m.driver.Resources().PageTable.
-			Find(queue.Context.pid, addr)
-		if !found {
-			panic("page not found")
+	for offset < uint64(size) {
+		page, ok := c.Resources.PageTable.Find(r.QueuePID(e.Queue), addr)
+		if !ok {
+			panic("driver: page not found")
 		}
-
-		pAddr := page.PAddr + (addr - page.VAddr)
-		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
-		sizeToCopy := sizeLeftInPage
-		if sizeLeft < sizeLeftInPage {
-			sizeToCopy = sizeLeft
-		}
-
-		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.MemCopyD2HReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: m.driver.GPUs[gpuID-1],
-			},
-			SrcAddress: pAddr,
-			DstBuffer:  cmd.RawData[offset : offset+sizeToCopy],
-		}
-		cmd.Reqs = append(cmd.Reqs, req)
-		m.awaitingReqs = append(m.awaitingReqs, req)
-
-		sizeLeft -= sizeToCopy
-		addr += sizeToCopy
-		offset += sizeToCopy
-
-		m.driver.logTaskToGPUInitiate(cmd, req)
-	}
-
-	m.cyclesLeft = m.cyclesPerD2H
-
-	queue.IsRunning = true
-	return true
-}
-
-func (m *defaultMemoryCopyMiddleware) needFlushing(
-	ctx *Context,
-	vAddr Ptr,
-	size uint64,
-) bool {
-	startAddr := uint64(vAddr)
-	endAddr := uint64(vAddr) + size
-	for _, buf := range ctx.buffers {
-		bufStartAddr := uint64(buf.vAddr)
-		bufEndAddr := uint64(buf.vAddr) + buf.size
-		if memRangeOverlap(bufStartAddr, bufEndAddr, startAddr, endAddr) {
-			if buf.l2Dirty {
-				return true
+		pageOffset := addr - page.VAddr
+		n := min(page.PageSize-pageOffset, uint64(size)-offset)
+		paddr := page.PAddr + pageOffset
+		if direct {
+			if cmd.Kind == gpuruntime.CopyH2D {
+				c.Resources.GlobalStorage.Write(paddr, readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n))
+			} else {
+				writeHostBytes(r, ctx, cmd.Dst+gpuruntime.Ptr(offset), c.Resources.GlobalStorage.Read(paddr, n))
+			}
+		} else {
+			gpu := r.DeviceIDByPAddr(paddr)
+			if cmd.Kind == gpuruntime.CopyH2D {
+				data := readHostBytes(r, ctx, cmd.Src+gpuruntime.Ptr(offset), n)
+				m.request(e, gpu, protocol.MemCopyH2DReq{SrcBuffer: data, DstAddress: paddr}, true)
+			} else {
+				m.request(e, gpu, protocol.MemCopyD2HReq{SrcAddress: paddr, ByteSize: n, DstOffset: offset}, true)
 			}
 		}
+		addr += n
+		offset += n
 	}
-
-	return false
-}
-
-func memRangeOverlap(
-	start1, end1, start2, end2 uint64,
-) bool {
-	if start1 <= start2 && end1 > start2 {
-		return true
-	}
-
-	if start1 < end2 && end1 >= end2 {
-		return true
-	}
-
-	return false
-}
-
-func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
-	cmd Command,
-) {
-	for _, gpu := range m.driver.GPUs {
-		req := protocol.FlushReq{
-			MsgMeta: messaging.MsgMeta{
-				ID:  timing.GetIDGenerator().Generate(),
-				Src: m.driver.gpuPort().AsRemote(),
-				Dst: gpu,
-			},
-		}
-		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
-		cmd.AddReq(req)
-
-		m.driver.logTaskToGPUInitiate(cmd, req)
-	}
-}
-
-func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
-	madeProgress = false
-
-	if m.cyclesLeft > 0 {
-		m.cyclesLeft--
-		madeProgress = true
-	} else if m.cyclesLeft == 0 {
-		m.driver.requestsToSend = append(
-			m.driver.requestsToSend, m.awaitingReqs...)
-		m.awaitingReqs = nil
-		m.cyclesLeft = -1
-		madeProgress = true
-	}
-
-	req := m.driver.gpuPort().PeekIncoming()
-	if req == nil {
-		return madeProgress
-	}
-
-	switch req := req.(type) {
-	case protocol.GeneralRsp:
-		madeProgress = m.processGeneralRsp(req) || madeProgress
-	}
-
-	return madeProgress
-}
-
-// processGeneralRsp recovers the original request acknowledged by the
-// response (the v5 GeneralRsp only carries the request ID in RspTo, while
-// the v4 sim.GeneralRsp embedded the original request) and dispatches on the
-// request type.
-func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
-	rsp protocol.GeneralRsp,
-) bool {
-	madeProgress := false
-	originalReq, _, _ := m.driver.findCommandByReqID(rsp.RspTo)
-
-	switch originalReq := originalReq.(type) {
-	case protocol.FlushReq:
-		madeProgress = m.processFlushReturn(originalReq)
-	case protocol.MemCopyH2DReq:
-		madeProgress = m.processMemCopyH2DReturn(originalReq)
-	case protocol.MemCopyD2HReq:
-		madeProgress = m.processMemCopyD2HReturn(originalReq)
-	}
-
-	return madeProgress
-}
-
-func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
-	req protocol.MemCopyH2DReq,
-) bool {
-	m.driver.gpuPort().RetrieveIncoming()
-
-	m.driver.logTaskToGPUClear(req)
-
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
-
-	cmd.RemoveReq(req)
-	m.completeCopyIfReady(cmd, cmdQueue)
-
-	return true
-}
-
-func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
-	req protocol.MemCopyD2HReq,
-) bool {
-	m.driver.gpuPort().RetrieveIncoming()
-
-	m.driver.logTaskToGPUClear(req)
-
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
-
-	cmd.RemoveReq(req)
-	m.completeCopyIfReady(cmd, cmdQueue)
-
-	return true
-}
-
-func (m *defaultMemoryCopyMiddleware) processFlushReturn(
-	req protocol.FlushReq,
-) bool {
-	m.driver.gpuPort().RetrieveIncoming()
-
-	m.driver.logTaskToGPUClear(req)
-
-	_, cmd, cmdQueue := m.driver.findCommandByReqID(req.Meta().ID)
-
-	cmd.RemoveReq(req)
-	m.completeCopyIfReady(cmd, cmdQueue)
-
-	return true
-}
-
-// completeCopyIfReady handles both data-copy and cache-flush replies. A copy
-// spans multiple GPUs, so a flush reply may be the last outstanding request.
-// Completing only on a data-copy reply leaves the queue permanently running
-// when a remote GPU finishes flushing after the data transfer.
-func (m *defaultMemoryCopyMiddleware) completeCopyIfReady(
-	cmd Command,
-	queue *CommandQueue,
-) {
-	if len(cmd.GetReqs()) != 0 {
+	if len(e.Requests) == 0 {
+		m.finish(i)
 		return
 	}
-
-	if copyCmd, ok := cmd.(*MemCopyD2HCommand); ok {
-		buf := bytes.NewReader(copyCmd.RawData)
-		if err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst); err != nil {
-			panic(err)
-		}
+	if cmd.Kind == gpuruntime.CopyH2D {
+		c.State.CopyCyclesLeft = c.Spec.H2DCycles
+	} else {
+		c.State.CopyCyclesLeft = c.Spec.D2HCycles
 	}
-
-	queue.IsRunning = false
-	queue.Dequeue()
-	m.driver.logCmdComplete(cmd)
+}
+func readHostBytes(r *gpuruntime.Runtime, ctx gpuruntime.Context, addr gpuruntime.Ptr, n uint64) []byte {
+	data := make([]byte, n)
+	if err := r.ReadHost(gpuruntime.HostBuffer{Context: ctx, Address: addr, ByteSize: int(n)}, data); err != nil {
+		panic(err)
+	}
+	return data
+}
+func writeHostBytes(r *gpuruntime.Runtime, ctx gpuruntime.Context, addr gpuruntime.Ptr, data []byte) {
+	if err := r.WriteHost(gpuruntime.HostBuffer{Context: ctx, Address: addr, ByteSize: len(data)}, data); err != nil {
+		panic(err)
+	}
 }

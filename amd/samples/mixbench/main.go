@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/mixbench"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var numElements = flag.Int("size", 4096,
@@ -15,14 +16,25 @@ var numFmas = flag.Int("fmas", 16,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := mixbench.NewBenchmark(runner.Driver())
+	benchmark := mixbench.NewBenchmark(runtime)
 	benchmark.NumElements = *numElements
 	benchmark.NumFmas = *numFmas
-	benchmark.Arch = runner.ArchType
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

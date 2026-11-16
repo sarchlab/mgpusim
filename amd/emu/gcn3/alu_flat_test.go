@@ -7,14 +7,11 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("ALU", func() {
-
 	var (
-		mockCtrl  *gomock.Controller
-		pageTable *MockPageTable
+		pageTable *vm.PageTable
 
 		alu           *ALU
 		state         *mockInstState
@@ -24,8 +21,8 @@ var _ = Describe("ALU", func() {
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		pageTable = NewMockPageTable(mockCtrl)
+		pageTable = vm.NewPageTable(12)
+		pageTable.Insert(vm.Page{PID: 1, VAddr: 0, PAddr: 0, PageSize: 4096, Valid: true})
 
 		storage = mem.NewStorage(1 * mem.GB)
 		addrConverter = &mem.InterleavingConverter{
@@ -40,17 +37,7 @@ var _ = Describe("ALU", func() {
 		state = newMockInstState()
 	})
 
-	AfterEach(func() {
-		mockCtrl.Finish()
-	})
-
 	It("should run FLAT_LOAD_UBYTE", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().Find(vm.PID(1), uint64(i*4)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 16
@@ -74,12 +61,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_SBYTE", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().Find(vm.PID(1), uint64(i*4)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 17
@@ -103,13 +84,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_USHORT", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*4)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 18
@@ -131,13 +105,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_DWORD", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*4)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 20
@@ -159,13 +126,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_DWORDX2", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*8)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 21
@@ -189,13 +149,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_DWORDX4", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*16)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 23
@@ -223,13 +176,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_STORE_DWORD", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*4)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 28
@@ -245,20 +191,12 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			buf, err := storage.Read(uint64(i*4), uint64(4))
-			Expect(err).To(BeNil())
+			buf := storage.Read(uint64(i*4), uint64(4))
 			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
 		}
 	})
 
 	It("should run FLAT_STORE_DWORDX2", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*16)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 29
@@ -277,20 +215,12 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			buf, err := storage.Read(uint64(i*16), uint64(16))
-			Expect(err).To(BeNil())
+			buf := storage.Read(uint64(i*16), uint64(16))
 			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
 		}
 	})
 
 	It("should run FLAT_STORE_DWORDX3", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*16)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 30
@@ -310,8 +240,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			buf, err := storage.Read(uint64(i*16), uint64(16))
-			Expect(err).To(BeNil())
+			buf := storage.Read(uint64(i*16), uint64(16))
 			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
 			Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(i)))
 			Expect(insts.BytesToUint32(buf[8:12])).To(Equal(uint32(i)))
@@ -319,13 +248,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_STORE_DWORDX4", func() {
-		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().
-				Find(vm.PID(1), uint64(i*16)).
-				Return(vm.Page{
-					PAddr: uint64(0),
-				}, true)
-		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 31
@@ -346,8 +268,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			buf, err := storage.Read(uint64(i*16), uint64(16))
-			Expect(err).To(BeNil())
+			buf := storage.Read(uint64(i*16), uint64(16))
 			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
 			Expect(insts.BytesToUint32(buf[4:8])).To(Equal(uint32(i)))
 			Expect(insts.BytesToUint32(buf[8:12])).To(Equal(uint32(i)))

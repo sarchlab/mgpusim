@@ -5,8 +5,8 @@ import (
 	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/training_benchmarks/lenet"
-
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")
@@ -17,24 +17,34 @@ var batchSizeFlag = flag.Int("batch-size", 32,
 var enableTestingFlag = flag.Bool("enable-testing", false,
 	"If enable testing is set, the trainer will evaluate the trained model after each epoch")
 var enableVerification = flag.Bool("enable-verification", false,
-	`If set, all tenser operations will be verified against CPU results. Do not 
-turn on if you care about the final results. This flag will introduce extra
-GPU-to-CPU memory copies.`)
+	"Verify tensor operations against CPU results (also enabled by -verify). Adds verification copies.")
 
 func main() {
 	rand.Seed(1)
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := lenet.NewBenchmark(runner.Driver())
+	benchmark := lenet.NewBenchmark(runtime)
 	benchmark.Epoch = *epochFlag
 	benchmark.MaxBatchPerEpoch = *maxBatchPerEpochFlag
 	benchmark.BatchSize = *batchSizeFlag
 	benchmark.EnableTesting = *enableTestingFlag
-	benchmark.EnableVerification = *enableVerification
+	config.Verify = config.Verify || *enableVerification
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

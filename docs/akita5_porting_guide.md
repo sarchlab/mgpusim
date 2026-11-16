@@ -1,9 +1,9 @@
 # MGPUSim → Akita v5.0.0-beta.2 Porting Guide
 
-This document defines the conventions for porting MGPUSim from Akita v4 to v5.
-It is the single source of truth during the port; follow it exactly so all
-packages come out consistent. The local Akita v5 checkout is at
-`/Users/yifan/dev/src/github.com/sarchlab/akita` (tag `v5.0.0-beta.2`).
+> Historical notes for the earlier Akita v5 beta port. For current component and
+> host APIs, use [the RC2 migration guide](akita-v5-rc2.md) and
+> [Runtime and benchmark steps](runtime-and-benchmark-steps.md). The AMD HTTP
+> server mentioned below has been removed.
 
 ## Scope decisions (already made)
 
@@ -199,24 +199,20 @@ req := memprotocol.ReadReq{
   `Period()`, `ThisTick(t)`, `NextTick(t)`, `NCyclesLater(n, t)`.
 - `Tick(now sim.VTimeInSec) bool` → `Tick() bool`. Current time:
   `comp.CurrentTime()`.
-- `TickNow()` / `TickLater()` take no arguments.
+- `TickLater()` requests the next cycle; `TickAt(t)` guarantees the first clock
+  edge at or after `t`, deduplicating requests for the same edge.
 - Cycle-counting countdowns are preferred over scheduling ad-hoc events.
 
-## Custom events (only where truly needed)
+## Deferred work
 
-Events carry `HandlerID() string`; engines dispatch via a registry. The
-component's own ticking handler is registered under the component name. For a
-custom event (e.g. WfCompletionEvent):
-
-- Keep a custom event type embedding `timing.EventBase`; create with
-  `timing.MakeEventBase(time, handlerID)`.
-- Register the handler:
-  `engine.(timing.HandlerRegistrar).RegisterHandler("Comp.Name.EventKind", h)`
-  during Build (cast is safe for both serial/parallel engines).
-- Where the v4 code scheduled an event merely to delay work, prefer
-  converting to a countdown inside Tick, or to
-  `modeling.EventDrivenComponent` + `ScheduleWakeAt` for reactive components
-  (see `akita/examples/ping`).
+A ticking component stores deferred work in State and calls `TickAt(due)` once
+when adding each item. Its tick processes the due items; remaining entries do
+not need re-requesting. Keep timed work on the normal ticking path so it runs
+under the component lock and survives checkpoints. The CU's sampled completion
+list follows this pattern. It also handles zero-duration work added during the
+tick before returning, since another tick on the current edge is deduplicated.
+Do not retain an engine or register additional event handlers for delayed work.
+Wakeup components use `WakeAt(t)` with the same State-owned work pattern.
 
 ## Control protocol (CP ↔ caches/TLBs/AT/memory)
 
@@ -228,10 +224,10 @@ Success, Error}` sent to each component's `"Control"` port. v4
 "flush + discard" maps to Pause/Drain + Invalidate (+ Flush for writeback);
 "restart" maps to CmdReset or CmdEnable depending on intent (read
 `akita/mem/CONTROL_PROTOCOL.md`). MGPUSim's own components that accept
-control commands (ROB, AT, custom caches' wrappers, CU pipeline
-flush/restart stays mgpusim-internal via cuprotocol) should implement a
+control commands (ROB, AT, custom caches' wrappers) should implement a
 `"Control"` port speaking memcontrolprotocol when they replace a v4
-flush/restart flow.
+flush/restart flow. The old CU pipeline flush/restart and CP GPU
+shootdown/restart chain have been removed; page migration must not replay CU work.
 
 ## Tracing
 

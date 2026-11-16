@@ -4,27 +4,34 @@ import (
 	"fmt"
 
 	"github.com/sarchlab/akita/v5/mem"
-	"github.com/sarchlab/akita/v5/mem/cache/writethroughcache"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/timing"
-
+	writethroughcache "github.com/sarchlab/akita/v5/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/smsp"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
 )
 
 const portBufSize = 4096
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
+}
+
 // SMBuilder builds SMs. Each SM contains its SMSPs and one L1 vector cache
 // per SMSP.
 type SMBuilder struct {
-	registrar modeling.Registrar
+	traces    *trace.Store
+	toGPU     messaging.RemotePort
+	registrar modeling.Simulation
 	freq      timing.Freq
 
 	smspsCount        uint64
 	log2CacheLineSize uint64
-	l1AddressMapper   mem.AddressToPortMapper
+	l1AddressMapper   mem.AddressMapper
 
 	SM2SMSPWarpIssueLatency uint64
 	SMReceiveGPULatency     uint64
@@ -35,14 +42,14 @@ type SMBuilder struct {
 // MakeBuilder creates an SMBuilder with default parameters.
 func MakeBuilder() SMBuilder {
 	return SMBuilder{
-		freq:              1 * timing.GHz,
+		freq:              DefaultSpec().Freq,
 		smspsCount:        4,
 		log2CacheLineSize: 7,
 	}
 }
 
-// WithRegistrar sets the simulation that components register to.
-func (b SMBuilder) WithRegistrar(r modeling.Registrar) SMBuilder {
+// WithSimulation sets the simulation that components register to.
+func (b SMBuilder) WithSimulation(r modeling.Simulation) SMBuilder {
 	b.registrar = r
 	return b
 }
@@ -60,7 +67,7 @@ func (b SMBuilder) WithSMSPsCount(count uint64) SMBuilder {
 }
 
 // WithL1AddressMapper sets how the L1 caches find the L2 cache banks.
-func (b SMBuilder) WithL1AddressMapper(m mem.AddressToPortMapper) SMBuilder {
+func (b SMBuilder) WithL1AddressMapper(m mem.AddressMapper) SMBuilder {
 	b.l1AddressMapper = m
 	return b
 }
@@ -97,27 +104,30 @@ func (b SMBuilder) WithMemResponseHandleWidth(w uint64) SMBuilder {
 	return b
 }
 
+// WithGPURemotePort sets the immutable parent destination.
+func (b SMBuilder) WithGPURemotePort(remote messaging.RemotePort) SMBuilder {
+	b.toGPU = remote
+	return b
+}
+
 // Build creates an SM with the given name. The SM exposes a "ToGPU" port and
 // the L1 caches expose their "Bottom" ports for the connection to L2.
 func (b SMBuilder) Build(name string) *SMController {
-	s := &SMController{
-		ID:                               name,
-		threadblockWarpCount:             make(map[trace.Dim3]uint64),
-		threadblockWarpCountOrigin:       make(map[trace.Dim3]uint64),
-		SM2SMSPWarpIssueLatency:          b.SM2SMSPWarpIssueLatency,
-		SM2SMSPWarpIssueLatencyRemaining: b.SM2SMSPWarpIssueLatency,
-		SMReceiveGPULatency:              b.SMReceiveGPULatency,
-		SMReceiveGPULatencyRemaining:     b.SMReceiveGPULatency,
-		SMSPResponseHandleWidth:          b.SMSPResponseHandleWidth,
+	spec := Spec{
+		ToGPU:                   b.toGPU,
+		Freq:                    b.freq,
+		SM2SMSPWarpIssueLatency: b.SM2SMSPWarpIssueLatency,
+		SMReceiveGPULatency:     b.SMReceiveGPULatency,
+		SMSPResponseHandleWidth: b.SMSPResponseHandleWidth,
 	}
-	s.TickingComponent = modeling.NewTickingComponent(
-		name, b.registrar.GetEngine(), b.freq, s)
-	b.registrar.RegisterComponent(s)
-
-	s.DeclarePort("ToGPU")
-	s.DeclarePort("ToSMSPs")
-	s.toGPU = b.buildPort(s, "ToGPU", portBufSize)
-	s.toSMSPs = b.buildPort(s, "ToSMSPs", portBufSize)
+	for i := range b.smspsCount {
+		spec.SMSPs = append(spec.SMSPs, messaging.RemotePort(fmt.Sprintf("%s.SMSP[%d].ToSM", name, i)))
+	}
+	c := modeling.MakeBuilder[*Comp](spec).WithResources(Resources{Traces: b.traces}).
+		WithSimulation(b.registrar).Build(name)
+	s := &SMController{Comp: c}
+	b.buildPort(s, "ToGPU", portBufSize)
+	b.buildPort(s, "ToSMSPs", portBufSize)
 
 	b.buildSMSPs(s)
 	b.buildL1VCaches(s)
@@ -127,30 +137,29 @@ func (b SMBuilder) Build(name string) *SMController {
 }
 
 func (b SMBuilder) buildPort(
-	comp messaging.Component,
+	comp interface{ BindPort(string, messaging.Port) },
 	name string,
 	bufSize int,
 ) messaging.Port {
-	port := modeling.MakePortBuilder().
-		WithRegistrar(b.registrar).
-		WithComponent(comp).
-		WithSpec(modeling.PortSpec{BufSize: bufSize}).
-		Build(name)
-	comp.AssignPort(name, port)
-
+	port := twowaybuffered.MakeBuilder().
+		WithSimulation(b.registrar).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: bufSize, OutgoingCapacity: bufSize}).
+		Build()
+	comp.BindPort(name, port)
 	return port
 }
 
 func (b SMBuilder) buildSMSPs(s *SMController) {
-	smspBuilder := new(smsp.SMSPBuilder).
-		WithRegistrar(b.registrar).
+	smspBuilder := smsp.MakeBuilder().WithTraceStore(b.traces).
+		WithSimulation(b.registrar).
 		WithFreq(b.freq).
+		WithSMRemotePort(s.Ports.ToSMSPs.AsRemote()).
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithMemResponseHandleWidth(b.MemResponseHandleWidth)
 
 	for i := range b.smspsCount {
-		sp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", s.Name(), i))
-		sp.SetSMRemotePort(s.toSMSPs.AsRemote())
+		memory := messaging.RemotePort(fmt.Sprintf("%s.L1VCache[%d].Top", s.Name(), i))
+		sp := smspBuilder.WithVectorMemRemote(memory).Build(fmt.Sprintf("%s.SMSP[%d]", s.Name(), i))
 		s.SMSPs = append(s.SMSPs, sp)
 	}
 }
@@ -158,23 +167,26 @@ func (b SMBuilder) buildSMSPs(s *SMController) {
 func (b SMBuilder) buildL1VCaches(s *SMController) {
 	spec := writethroughcache.DefaultSpec()
 	spec.Freq = b.freq
-	spec.WritePolicyType = "write-around"
+	spec.WritePolicy = "write-around"
 	spec.BankLatency = 27
 	spec.NumBanks = 1
 	spec.Log2BlockSize = b.log2CacheLineSize
-	spec.WayAssociativity = 4
-	spec.NumMSHREntry = 16
+	spec.NumWays = 4
+	spec.NumMSHREntries = 16
 	spec.NumReqPerCycle = 4
-	spec.MaxNumConcurrentTrans = 64
-	spec.TotalByteSize = 64 * mem.KB
+	spec.MaxInFlightRequests = 64
+	spec.NumSets = int(64 * mem.KB / (uint64(spec.NumWays) << spec.Log2BlockSize))
+	spec.Bottom = b.l1AddressMapper
 
 	for i := range b.smspsCount {
-		cache := writethroughcache.MakeBuilder().
-			WithRegistrar(b.registrar).
-			WithSpec(spec).
-			WithResources(writethroughcache.Resources{
-				AddressMapper: b.l1AddressMapper,
-			}).
+		storage := mem.MakeStorageBuilder().
+			WithSimulation(b.registrar).
+			WithCapacity(spec.ByteSize()).
+			Build(fmt.Sprintf("%s.L1VCache[%d].Storage", s.Name(), i))
+		cache := modeling.MakeBuilder[*writethroughcache.Comp](
+			spec,
+		).WithResources(writethroughcache.Resources{Storage: storage}).
+			WithSimulation(b.registrar).
 			Build(fmt.Sprintf("%s.L1VCache[%d]", s.Name(), i))
 
 		b.buildPort(cache, "Top", spec.NumReqPerCycle)
@@ -186,23 +198,22 @@ func (b SMBuilder) buildL1VCaches(s *SMController) {
 }
 
 func (b SMBuilder) connectSMSPs(s *SMController) {
-	smToSMSPs := directconnection.MakeBuilder().
-		WithRegistrar(b.registrar).
-		WithSpec(directconnection.Spec{Freq: b.freq}).
-		Build(s.Name() + ".SMToSMSPs")
-	smToSMSPs.PlugIn(s.toSMSPs)
+	smToSMSPs := directconnection.NewConnection(s.Name()+".SMToSMSPs", b.registrar, b.freq)
+	smToSMSPs.BindPort(s.Ports.ToSMSPs)
 
 	for i, sp := range s.SMSPs {
-		smToSMSPs.PlugIn(sp.GetPortByName("ToSM"))
+		l1Top := s.L1VCaches[i].Ports.Top
+		if s.Spec.SMSPs[i] != sp.Ports.ToSM.AsRemote() ||
+			sp.Spec.ToSM != s.Ports.ToSMSPs.AsRemote() || sp.Spec.ToVectorMem != l1Top.AsRemote() {
+			panic("built SMSP does not match SM and memory peer configuration")
+		}
+		smToSMSPs.BindPort(sp.Ports.ToSM)
 
-		l1Top := s.L1VCaches[i].GetPortByName("Top")
-		sp.SetVectorMemRemote(l1Top.AsRemote())
-
-		conn := directconnection.MakeBuilder().
-			WithRegistrar(b.registrar).
-			WithSpec(directconnection.Spec{Freq: b.freq}).
-			Build(fmt.Sprintf("%s.SMSPToL1V[%d]", s.Name(), i))
-		conn.PlugIn(sp.GetPortByName("ToVectorMem"))
-		conn.PlugIn(l1Top)
+		conn := directconnection.NewConnection(fmt.Sprintf("%s.SMSPToL1V[%d]", s.Name(), i), b.registrar, b.freq)
+		conn.BindPort(sp.Ports.ToVectorMem)
+		conn.BindPort(l1Top)
 	}
 }
+
+// WithTraceStore supplies the shared checkpointed trace owner.
+func (b SMBuilder) WithTraceStore(store *trace.Store) SMBuilder { b.traces = store; return b }

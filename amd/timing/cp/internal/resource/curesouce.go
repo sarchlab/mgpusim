@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"github.com/sarchlab/akita/v5/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 )
 

@@ -8,23 +8,38 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/bitonicsort"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	firBenchmark := fir.NewBenchmark(runner.Driver())
+	firBenchmark := fir.NewBenchmark(runtime)
+	firBenchmark.Arch = config.ArchType
 	firBenchmark.Length = 10240
 	firBenchmark.SelectGPU([]int{1})
 
-	bsBenchmark := bitonicsort.NewBenchmark(runner.Driver())
+	bsBenchmark := bitonicsort.NewBenchmark(runtime)
+	bsBenchmark.Arch = config.ArchType
 	bsBenchmark.Length = 64
 	bsBenchmark.SelectGPU([]int{1})
 
-	runner.AddBenchmarkWithoutSettingGPUsToUse(firBenchmark)
-	runner.AddBenchmarkWithoutSettingGPUsToUse(bsBenchmark)
+	config.ConfigureWithoutGPUs(firBenchmark)
+	runner.AddBenchmark(firBenchmark)
+	config.ConfigureWithoutGPUs(bsBenchmark)
+	runner.AddBenchmark(bsBenchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

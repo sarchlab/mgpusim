@@ -1,3 +1,2 @@
-// Package driver implements a GPU driver that interfaces the benchmarks with
-// the simulator.
+// Package driver executes AMD Runtime commands through simulated GPU protocols.
 package driver

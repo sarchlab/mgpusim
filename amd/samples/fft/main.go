@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/fft"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var mb = flag.Int("MB", 8, "data size (in megabytes)")
@@ -14,10 +15,12 @@ var passes = flag.Int("passes", 1, "number of passes")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := fft.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
+	benchmark := fft.NewBenchmark(runtime)
+	benchmark.Arch = config.ArchType
 
 	if *bytesFlag > 0 {
 		benchmark.Bytes = int64(*bytesFlag)
@@ -28,7 +31,16 @@ func main() {
 
 	benchmark.Passes = int32(*passes)
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

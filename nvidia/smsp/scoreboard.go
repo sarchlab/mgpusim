@@ -1,70 +1,70 @@
 package smsp
 
 type Scoreboard struct {
-	regWriteBusy map[string]int
-	regReadBusy  map[string]int
+	RegWriteBusy map[string]int
+	RegReadBusy  map[string]int
 }
 
 func NewScoreboard() *Scoreboard {
 	return &Scoreboard{
-		regWriteBusy: make(map[string]int),
-		regReadBusy:  make(map[string]int),
+		RegWriteBusy: make(map[string]int),
+		RegReadBusy:  make(map[string]int),
 	}
 }
 
 func (s *Scoreboard) Reset() {
-	s.regWriteBusy = make(map[string]int)
-	s.regReadBusy = make(map[string]int)
+	s.RegWriteBusy = make(map[string]int)
+	s.RegReadBusy = make(map[string]int)
 }
 
 func (s *Scoreboard) GetWriteBusy(reg string) bool {
-	return s.regWriteBusy[reg] > 0
+	return s.RegWriteBusy[reg] > 0
 }
 
 func (s *Scoreboard) SetWriteBusy(reg string, busy bool) {
 	if busy {
-		if s.regWriteBusy[reg] == 0 {
-			s.regWriteBusy[reg] = 1
+		if s.RegWriteBusy[reg] == 0 {
+			s.RegWriteBusy[reg] = 1
 		}
 	} else {
-		delete(s.regWriteBusy, reg)
+		delete(s.RegWriteBusy, reg)
 	}
 }
 
 func (s *Scoreboard) GetReadBusy(reg string) bool {
-	return s.regReadBusy[reg] > 0
+	return s.RegReadBusy[reg] > 0
 }
 
 func (s *Scoreboard) SetReadBusy(reg string, busy bool) {
 	if busy {
-		if s.regReadBusy[reg] == 0 {
-			s.regReadBusy[reg] = 1
+		if s.RegReadBusy[reg] == 0 {
+			s.RegReadBusy[reg] = 1
 		}
 	} else {
-		delete(s.regReadBusy, reg)
+		delete(s.RegReadBusy, reg)
 	}
 }
 
 func (s *Scoreboard) ClearReg(reg string) {
-	delete(s.regWriteBusy, reg)
-	delete(s.regReadBusy, reg)
+	delete(s.RegWriteBusy, reg)
+	delete(s.RegReadBusy, reg)
 }
 
 func (s *Scoreboard) HasConflict(srcRegs []string, dstRegs []string) bool {
 	for _, r := range srcRegs {
-		if s.regWriteBusy[r] > 0 {
+		if s.RegWriteBusy[r] > 0 {
 			return true
 		}
 	}
 
 	for _, r := range dstRegs {
-		if s.regWriteBusy[r] > 0 {
+		if s.RegWriteBusy[r] > 0 {
 			return true
 		}
 	}
 
 	for _, r := range dstRegs {
-		if s.regReadBusy[r] > 0 {
+		if s.RegReadBusy[r] > 0 {
 			return true
 		}
 	}
@@ -82,29 +82,29 @@ func (s *Scoreboard) HasReadConflict(srcRegs []string, dstRegs []string) bool {
 
 func (s *Scoreboard) MarkIssued(srcRegs []string, dstRegs []string) {
 	for _, r := range srcRegs {
-		s.regReadBusy[r]++
+		s.RegReadBusy[r]++
 	}
 	for _, r := range dstRegs {
-		s.regWriteBusy[r]++
+		s.RegWriteBusy[r]++
 	}
 }
 
 func (s *Scoreboard) MarkSrcRegsConsumed(srcRegs []string) {
 	for _, r := range srcRegs {
-		if s.regReadBusy[r] <= 1 {
-			delete(s.regReadBusy, r)
+		if s.RegReadBusy[r] <= 1 {
+			delete(s.RegReadBusy, r)
 		} else {
-			s.regReadBusy[r]--
+			s.RegReadBusy[r]--
 		}
 	}
 }
 
 func (s *Scoreboard) MarkDstRegsCompleted(dstRegs []string) {
 	for _, r := range dstRegs {
-		if s.regWriteBusy[r] <= 1 {
-			delete(s.regWriteBusy, r)
+		if s.RegWriteBusy[r] <= 1 {
+			delete(s.RegWriteBusy, r)
 		} else {
-			s.regWriteBusy[r]--
+			s.RegWriteBusy[r]--
 		}
 	}
 }
@@ -115,12 +115,12 @@ func (s *Scoreboard) MarkCompleted(srcRegs []string, dstRegs []string) {
 }
 
 func (s *Scoreboard) HasAnyBusy() bool {
-	for _, v := range s.regWriteBusy {
+	for _, v := range s.RegWriteBusy {
 		if v > 0 {
 			return true
 		}
 	}
-	for _, v := range s.regReadBusy {
+	for _, v := range s.RegReadBusy {
 		if v > 0 {
 			return true
 		}

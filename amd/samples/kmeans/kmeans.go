@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/heteromark/kmeans"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var points = flag.Int("points", 1024, "The number of points.")
@@ -17,16 +18,27 @@ var maxIter = flag.Int("max-iter", 5,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := kmeans.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
+	benchmark := kmeans.NewBenchmark(runtime)
+	benchmark.Arch = config.ArchType
 	benchmark.NumPoints = *points
 	benchmark.NumClusters = *clusters
 	benchmark.NumFeatures = *features
 	benchmark.MaxIter = *maxIter
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

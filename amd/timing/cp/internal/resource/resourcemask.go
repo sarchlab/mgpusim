@@ -11,83 +11,36 @@ const (
 	allocStatusUsed                  // Currently in use
 )
 
-// A resourceMask marks which part of the resource is use.
-type resourceMask interface {
-	// nextRegion finds a region that is masked by the resourceMask in the state
-	// defined by desiredStatus. This function returns the offset of the
-	// starting point of the region. It also returns a boolean value that tells
-	// if such a region is found.
-	nextRegion(length int, desiredStatus allocStatus) (int, bool)
-
-	// setStatus sets a range of bits to status
-	setStatus(offset, length int, status allocStatus)
-
-	// convertStatus converts status of one type to another.
-	convertStatus(from, to allocStatus)
-
-	// statusCount returns the number of bits of a given status.
-	statusCount(status allocStatus) int
+// Mask is checkpointed allocation data, including the cursor for unlimited resources.
+type Mask struct {
+	Unlimited bool
+	Next      int
+	Bits      []allocStatus
 }
 
-// An unlimitedResourceMask is a mask for unlimited resources.
-type unlimitedResourceMask struct {
-	next int
-}
-
-func (m *unlimitedResourceMask) nextRegion(
-	length int,
-	statusReq allocStatus,
-) (int, bool) {
-	point := m.next
-
-	m.next += length
-
-	return point, true
-}
-
-func (m *unlimitedResourceMask) setStatus(
-	offset, length int,
-	status allocStatus,
-) {
-	// Do nothing
-}
-
-func (m *unlimitedResourceMask) convertStatus(from, to allocStatus) {
-	// Do nothing
-}
-
-func (m *unlimitedResourceMask) statusCount(status allocStatus) int {
-	return 0
-}
-
-// A resourceMaskImpl is data structure to mask the status of some resources
-type resourceMaskImpl struct {
-	mask []allocStatus
-}
-
-// newResourceMask returns a newly created ResourceMask with a given size.
-func newResourceMask(size int) *resourceMaskImpl {
-	m := new(resourceMaskImpl)
-	m.mask = make([]allocStatus, size)
-	return m
-}
+func newResourceMask(size int) Mask { return Mask{Bits: make([]allocStatus, size)} }
 
 // nextRegion finds a region that is masked by the resourceMask in
 // the state define by statusReq. This function returns the offset of the
 // starting point of the region. It also returns a boolean value that
 // tells if a region is found
-func (m *resourceMaskImpl) nextRegion(
+func (m *Mask) nextRegion(
 	length int,
 	statusReq allocStatus,
 ) (int, bool) {
+	if m.Unlimited {
+		point := m.Next
+		m.Next += length
+		return point, true
+	}
 	if length == 0 {
 		return 0, true
 	}
 
 	offset := 0
 	currLength := 0
-	for offset < len(m.mask) {
-		if m.mask[offset] == statusReq {
+	for offset < len(m.Bits) {
+		if m.Bits[offset] == statusReq {
 			currLength++
 			if currLength == length {
 				return offset - currLength + 1, true
@@ -101,26 +54,32 @@ func (m *resourceMaskImpl) nextRegion(
 }
 
 // setStatus alters the status from the position of offset to offset + length
-func (m *resourceMaskImpl) setStatus(offset, length int, status allocStatus) {
+func (m *Mask) setStatus(offset, length int, status allocStatus) {
+	if m.Unlimited {
+		return
+	}
 	for i := 0; i < length; i++ {
-		m.mask[offset+i] = status
+		m.Bits[offset+i] = status
 	}
 }
 
 // convertStatus change all the element of one status to another
-func (m *resourceMaskImpl) convertStatus(from, to allocStatus) {
-	for i := 0; i < len(m.mask); i++ {
-		if m.mask[i] == from {
-			m.mask[i] = to
+func (m *Mask) convertStatus(from, to allocStatus) {
+	if m.Unlimited {
+		return
+	}
+	for i := 0; i < len(m.Bits); i++ {
+		if m.Bits[i] == from {
+			m.Bits[i] = to
 		}
 	}
 }
 
 // statusCount returns the number of element that is in the target status
-func (m *resourceMaskImpl) statusCount(status allocStatus) int {
+func (m *Mask) statusCount(status allocStatus) int {
 	count := 0
-	for i := 0; i < len(m.mask); i++ {
-		if m.mask[i] == status {
+	for i := 0; i < len(m.Bits); i++ {
+		if m.Bits[i] == status {
 			count++
 		}
 	}

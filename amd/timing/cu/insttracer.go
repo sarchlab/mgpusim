@@ -1,8 +1,9 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/tasks/tracing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // secondsOf converts a simulated time in picoseconds to seconds, for the
@@ -20,7 +21,7 @@ type InstTracer struct {
 	TimeManager           InstTimeManagement
 	CountManager          InstCountManagement
 	ScalarInstTracer      *tracing.BusyTimeTracer
-	inflightInsts         map[uint64]tracing.TaskStart
+	inflightInsts         map[uint64]tasks.Task
 }
 
 // SIMDCPIStack holds the cpi stack values of each type of instruction when
@@ -75,7 +76,7 @@ func NewInstTracer(timeTeller timing.TimeTeller) *InstTracer {
 		TimeManager:           *newInstTimeManager(),
 		CountManager:          *newInstCountManager(),
 		ScalarInstTracer:      tracing.NewBusyTimeTracer(nil),
-		inflightInsts:         make(map[uint64]tracing.TaskStart),
+		inflightInsts:         make(map[uint64]tasks.Task),
 	}
 }
 
@@ -102,43 +103,43 @@ func newInstCountManager() *InstCountManagement {
 }
 
 // StartTask begins the tracing for the InstTracer
-func (t *InstTracer) StartTask(task tracing.TaskStart) {
+func (t *InstTracer) TaskStarted(task tasks.Task) {
 	if task.Kind != "inst" {
 		return
 	}
 
 	if task.What == "Scalar" {
-		t.ScalarInstTracer.StartTask(task)
+		t.ScalarInstTracer.TaskStarted(task)
 	}
 
 	if t.CountManager.TotalInstCount == 0 {
-		t.TimeManager.firstInstStart = secondsOf(task.Time)
+		t.TimeManager.firstInstStart = secondsOf(task.StartTime)
 	}
 
 	t.inflightInsts[task.ID] = task
 }
 
 // AddTaskTag does nothing for now
-func (t *InstTracer) AddTaskTag(tag tracing.TaskTag) {
+func (t *InstTracer) TagAdded(tag tasks.Tag) {
 	// Do nothing
 }
 
 // AddMilestone does nothing for now
-func (t *InstTracer) AddMilestone(milestone tracing.Milestone) {
+func (t *InstTracer) MilestoneAdded(milestone tasks.Milestone) {
 	// Do nothing
 }
 
 // EndTask filters time into correct attribute and deletes the instruction
 // from the tracer
-func (t *InstTracer) EndTask(task tracing.TaskEnd) {
+func (t *InstTracer) TaskEnded(task tasks.Task) {
 	orgTask, ok := t.inflightInsts[task.ID]
 
 	if !ok {
 		return
 	}
 
-	endTime := secondsOf(task.Time)
-	timeDiff := endTime - secondsOf(orgTask.Time)
+	endTime := secondsOf(task.EndTime)
+	timeDiff := endTime - secondsOf(orgTask.StartTime)
 
 	t.calcTotalTime(endTime)
 
@@ -155,7 +156,7 @@ func (t *InstTracer) EndTask(task tracing.TaskEnd) {
 		} else if orgTask.What == "Branch" {
 			t.TimeManager.TotalBranchTime += timeDiff
 		} else if orgTask.What == "Scalar" {
-			t.ScalarInstTracer.EndTask(task)
+			t.ScalarInstTracer.TaskEnded(task)
 		} else if orgTask.What == "LDS" {
 			t.TimeManager.TotalLDSTime += timeDiff
 		}

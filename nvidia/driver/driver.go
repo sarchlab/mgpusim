@@ -3,11 +3,12 @@ package driver
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/timing"
-
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
@@ -15,41 +16,67 @@ import (
 
 const portBufSize = 4096
 
+// DefaultSpec returns the default component configuration.
+func DefaultSpec() Spec {
+	return Spec{Freq: 1 * timing.GHz}
+}
+
 // Driver models the CUDA driver. It launches the traced kernels, in order,
 // on the free GPUs, and records when the last kernel finishes.
 type Driver struct {
-	*modeling.TickingComponent
-
-	toDevices             messaging.Port
-	connectionWithDevices *directconnection.Comp
-
-	devices     map[string]*gpu.GPUController
-	freeDevices []*gpu.GPUController
-
-	undispatchedKernels    []*trace.KernelTrace
-	unfinishedKernelsCount uint64
-
-	// Cycles the driver waits between two kernel launches.
-	launchOverheadLatency          uint64
-	launchOverheadLatencyRemaining uint64
-
-	finishTime timing.VTimeInPicoSec
+	*Comp
+	connectionWithDevices *directconnection.Connection
 }
+
+type Spec struct {
+	Freq                  timing.Freq  `json:"freq"`
+	LaunchOverheadLatency uint64       `json:"launch_overhead_latency"`
+	Devices               []DevicePeer `json:"devices"`
+}
+
+// DevicePeer identifies a device and its kernel dispatch port.
+type DevicePeer struct {
+	Name string               `json:"name"`
+	Port messaging.RemotePort `json:"port"`
+}
+
+type State struct {
+	FreeDevices                    []string
+	UndispatchedKernels            []uint64
+	DeviceKernels                  map[string]uint64
+	UnfinishedKernelsCount         uint64
+	LaunchOverheadLatencyRemaining uint64
+	FinishTime                     timing.VTimeInPicoSec
+}
+
+type Resources struct{ Traces *trace.Store }
+type Ports struct {
+	ToDevices messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.driver"`
+}
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Middlewares struct{ Controller *Driver }
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Controller = &Driver{Comp: c}
+}
+func (c *Driver) Handle(timing.Event) bool { return c.Tick() }
 
 // Builder builds a Driver.
 type Builder struct {
-	registrar             modeling.Registrar
+	traces                *trace.Store
+	devices               []DevicePeer
+	registrar             modeling.Simulation
 	freq                  timing.Freq
 	launchOverheadLatency uint64
 }
 
 // MakeBuilder creates a driver builder.
 func MakeBuilder() Builder {
-	return Builder{freq: 1 * timing.GHz}
+	return Builder{freq: DefaultSpec().Freq}
 }
 
-// WithRegistrar sets the simulation that the driver registers to.
-func (b Builder) WithRegistrar(r modeling.Registrar) Builder {
+// WithSimulation sets the simulation that the driver registers to.
+func (b Builder) WithSimulation(r modeling.Simulation) Builder {
 	b.registrar = r
 	return b
 }
@@ -67,52 +94,52 @@ func (b Builder) WithLaunchOverheadLatency(latency uint64) Builder {
 	return b
 }
 
+// WithDevices sets ordered device identities and destinations.
+func (b Builder) WithDevices(devices []DevicePeer) Builder {
+	b.devices = append([]DevicePeer(nil), devices...)
+	return b
+}
+
 // Build creates a driver with the given name.
 func (b Builder) Build(name string) *Driver {
-	d := &Driver{
-		devices:                        make(map[string]*gpu.GPUController),
-		launchOverheadLatency:          b.launchOverheadLatency,
-		launchOverheadLatencyRemaining: b.launchOverheadLatency,
-	}
-	d.TickingComponent = modeling.NewTickingComponent(
-		name, b.registrar.GetEngine(), b.freq, d)
-	b.registrar.RegisterComponent(d)
-
-	d.DeclarePort("ToDevices")
-	d.toDevices = modeling.MakePortBuilder().
-		WithRegistrar(b.registrar).
-		WithComponent(d).
-		WithSpec(modeling.PortSpec{BufSize: portBufSize}).
-		Build("ToDevices")
-	d.AssignPort("ToDevices", d.toDevices)
-
-	d.connectionWithDevices = directconnection.MakeBuilder().
-		WithRegistrar(b.registrar).
-		WithSpec(directconnection.Spec{Freq: b.freq}).
-		Build(name + ".ConnWithDevices")
-	d.connectionWithDevices.PlugIn(d.toDevices)
+	spec := Spec{Devices: b.devices, Freq: b.freq, LaunchOverheadLatency: b.launchOverheadLatency}
+	c := modeling.MakeBuilder[*Comp](spec).WithResources(Resources{Traces: b.traces}).
+		WithSimulation(b.registrar).Build(name)
+	d := &Driver{Comp: c}
+	port := twowaybuffered.MakeBuilder().WithSimulation(b.registrar).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: portBufSize, OutgoingCapacity: portBufSize}).Build()
+	d.BindPort("ToDevices", port)
+	d.connectionWithDevices = directconnection.NewConnection(name+".ConnWithDevices", b.registrar, b.freq)
+	d.connectionWithDevices.BindPort(port)
 
 	return d
 }
 
 // RegisterGPU connects a GPU to the driver.
 func (d *Driver) RegisterGPU(g *gpu.GPUController) {
-	g.SetDriverRemotePort(d.toDevices.AsRemote())
-	d.connectionWithDevices.PlugIn(g.GetPortByName("ToDriver"))
-
-	d.devices[g.ID] = g
-	d.freeDevices = append(d.freeDevices, g)
+	if d.Resources.Traces == nil || g.Resources.Traces != d.Resources.Traces {
+		panic("GPU and driver require the same trace store")
+	}
+	for _, peer := range d.Spec.Devices {
+		if peer.Name == g.Name() && peer.Port == g.Ports.ToDriver.AsRemote() &&
+			g.Spec.ToDriver == d.Ports.ToDevices.AsRemote() {
+			d.connectionWithDevices.BindPort(g.Ports.ToDriver)
+			return
+		}
+	}
+	panic(fmt.Sprintf("GPU %q does not match driver Spec: port=%q return=%q, want return=%q",
+		g.Name(), g.Ports.ToDriver.AsRemote(), g.Spec.ToDriver, d.Ports.ToDevices.AsRemote()))
 }
 
 // RunKernel queues a kernel for execution.
 func (d *Driver) RunKernel(kernel *trace.KernelTrace) {
-	d.undispatchedKernels = append(d.undispatchedKernels, kernel)
-	d.unfinishedKernelsCount++
+	d.State.UndispatchedKernels = append(d.State.UndispatchedKernels, d.Resources.Traces.Add(kernel))
+	d.State.UnfinishedKernelsCount++
 }
 
 // FinishTime returns the time when the last kernel finished.
 func (d *Driver) FinishTime() timing.VTimeInPicoSec {
-	return d.finishTime
+	return d.State.FinishTime
 }
 
 // Tick advances the driver by one cycle.
@@ -125,12 +152,12 @@ func (d *Driver) Tick() bool {
 }
 
 func (d *Driver) processDevicesInput() bool {
-	msg := d.toDevices.PeekIncoming()
-	if msg == nil {
+	msg, ok := d.Ports.ToDevices.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch msg := msg.(type) {
+	switch msg := msg.Payload.(type) {
 	case message.DeviceToDriverMsg:
 		d.processDeviceMsg(msg)
 	default:
@@ -138,7 +165,7 @@ func (d *Driver) processDevicesInput() bool {
 			d.Name(), msg))
 	}
 
-	d.toDevices.RetrieveIncoming()
+	d.Ports.ToDevices.RetrieveIncoming()
 
 	return true
 }
@@ -148,43 +175,83 @@ func (d *Driver) processDeviceMsg(msg message.DeviceToDriverMsg) {
 		return
 	}
 
-	d.freeDevices = append(d.freeDevices, d.devices[msg.DeviceID])
+	id, ok := d.State.DeviceKernels[msg.DeviceID]
+	if !ok {
+		panic("device completed without an active kernel")
+	}
+	d.Resources.Traces.Release(id)
+	delete(d.State.DeviceKernels, msg.DeviceID)
+	d.State.FreeDevices = append(d.State.FreeDevices, msg.DeviceID)
 
-	d.unfinishedKernelsCount--
-	if d.unfinishedKernelsCount == 0 {
-		d.finishTime = d.CurrentTime()
+	d.State.UnfinishedKernelsCount--
+	if d.State.UnfinishedKernelsCount == 0 {
+		d.State.FinishTime = d.CurrentTime()
 	}
 }
 
 func (d *Driver) dispatchKernelsToDevices() bool {
-	if len(d.undispatchedKernels) == 0 || len(d.freeDevices) == 0 {
+	if len(d.State.UndispatchedKernels) == 0 || len(d.State.FreeDevices) == 0 {
 		return false
 	}
 
-	if d.launchOverheadLatencyRemaining > 0 {
-		d.launchOverheadLatencyRemaining--
+	if d.State.LaunchOverheadLatencyRemaining > 0 {
+		d.State.LaunchOverheadLatencyRemaining--
 		return true
 	}
 
-	if !d.toDevices.CanSend() {
+	if !d.Ports.ToDevices.CanSend() {
 		return false
 	}
 
-	device := d.freeDevices[0]
-	dst := device.GetPortByName("ToDriver").AsRemote()
-	d.toDevices.Send(message.DriverToDeviceMsg{
-		MsgMeta: message.NewMeta(d.toDevices.AsRemote(), dst),
-		Kernel:  d.undispatchedKernels[0],
-	})
+	var dst messaging.RemotePort
+	for _, device := range d.Spec.Devices {
+		if device.Name == d.State.FreeDevices[0] {
+			dst = device.Port
+			break
+		}
+	}
+	if dst == "" {
+		panic("free device is not configured in driver Spec")
+	}
+	d.Ports.ToDevices.Send(
+		messaging.Msg{ID: d.NewID(), Src: d.Ports.ToDevices.AsRemote(), Dst: dst, Payload: message.DriverToDeviceMsg{
+			Kernel: d.State.UndispatchedKernels[0],
+		}},
+	)
 
-	d.undispatchedKernels = d.undispatchedKernels[1:]
-	d.freeDevices = d.freeDevices[1:]
-	d.launchOverheadLatencyRemaining = d.launchOverheadLatency
+	d.State.DeviceKernels[d.State.FreeDevices[0]] = d.State.UndispatchedKernels[0]
+	d.State.UndispatchedKernels = d.State.UndispatchedKernels[1:]
+	d.State.FreeDevices = d.State.FreeDevices[1:]
+	d.State.LaunchOverheadLatencyRemaining = d.Spec.LaunchOverheadLatency
 
 	return true
 }
 
 // UnfinishedKernels returns the number of kernels that have not finished.
 func (d *Driver) UnfinishedKernels() uint64 {
-	return d.unfinishedKernelsCount
+	return d.State.UnfinishedKernelsCount
 }
+
+func (s *State) Initialize(c *Comp) {
+	if c.Resources.Traces == nil {
+		panic("NVIDIA component requires a shared trace store")
+	}
+	names := make(map[string]bool)
+	ports := make(map[messaging.RemotePort]bool)
+	for _, peer := range c.Spec.Devices {
+		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
+			panic(fmt.Sprintf("invalid or duplicate driver peer: name=%q port=%q", peer.Name, peer.Port))
+		}
+		names[peer.Name] = true
+		ports[peer.Port] = true
+	}
+
+	s.DeviceKernels = make(map[string]uint64)
+	s.LaunchOverheadLatencyRemaining = c.Spec.LaunchOverheadLatency
+	for _, peer := range c.Spec.Devices {
+		s.FreeDevices = append(s.FreeDevices, peer.Name)
+	}
+}
+
+// WithTraceStore supplies the shared checkpointed trace owner.
+func (b Builder) WithTraceStore(store *trace.Store) Builder { b.traces = store; return b }

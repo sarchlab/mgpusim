@@ -3,9 +3,9 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/nvidia/message"
 	"github.com/sarchlab/mgpusim/v5/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v5/nvidia/trace"
@@ -17,43 +17,53 @@ const warpSize = 32
 // kernels from the driver, dispatches their thread blocks to SMs, and reports
 // finished kernels back to the driver.
 type GPUController struct {
-	*modeling.TickingComponent
+	*Comp
+	SMList []*sm.SMController
+}
 
-	ID string
+type Spec struct {
+	ToDriver                           messaging.RemotePort `json:"to_driver"`
+	SMs                                []SMPeer             `json:"sms"`
+	Freq                               timing.Freq          `json:"freq"`
+	SMThreadCapacity                   uint64               `json:"sm_thread_capacity"`
+	GPU2SMThreadBlockAllocationLatency uint64               `json:"gpu2sm_thread_block_allocation_latency"`
+	GPUReceiveCTALatencyUnit           float64              `json:"gpu_receive_cta_latency_unit"`
+	GPUReceiveSMLatency                uint64               `json:"gpu_receive_sm_latency"`
+	CWDIssueWidth                      uint64               `json:"cwd_issue_width"`
+	SMResponseHandleWidth              uint64               `json:"sm_response_handle_width"`
+	MaxCTAPerSM                        uint64               `json:"max_cta_per_sm"`
+}
 
-	toDriver       messaging.Port
-	toDriverRemote messaging.RemotePort
-	toSMs          messaging.Port
+// SMPeer is an SM identity and its dispatch port.
+type SMPeer struct {
+	Name string               `json:"name"`
+	Port messaging.RemotePort `json:"port"`
+}
 
-	SMList                  []*sm.SMController
-	SMAssignedThreadTable   map[string]uint64
-	SMAssignedCTACountTable map[string]uint64
-	SMIssueIndex            int
-	SMThreadCapacity        uint64
-
-	undispatchedThreadblocks    []*trace.ThreadblockTrace
-	unfinishedThreadblocksCount uint64
-	finishedKernelsCount        uint64
-
-	GPU2SMThreadBlockAllocationLatency          uint64
+type State struct {
+	SMAssignedThreadTable                       map[string]uint64
+	SMAssignedCTACountTable                     map[string]uint64
+	SMIssueIndex                                int
+	UndispatchedThreadblocks                    []trace.BlockRef
+	UnfinishedThreadblocksCount                 uint64
+	FinishedKernelsCount                        uint64
 	GPU2SMThreadBlockAllocationLatencyRemaining uint64
-
-	GPUReceiveCTALatencyUnit      float64
-	GPUReceiveCTALatencyRemaining uint64
-
-	GPUReceiveSMLatency          uint64
-	GPUReceiveSMLatencyRemaining uint64
-
-	CWDIssueWidth         uint64
-	SMResponseHandleWidth uint64
-	MaxCTAPerSM           uint64
+	GPUReceiveCTALatencyRemaining               uint64
+	GPUReceiveSMLatencyRemaining                uint64
 }
 
-// SetDriverRemotePort sets the driver port that finished kernels are
-// reported to.
-func (g *GPUController) SetDriverRemotePort(remote messaging.RemotePort) {
-	g.toDriverRemote = remote
+type Resources struct{ Traces *trace.Store }
+type Ports struct {
+	ToDriver messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
+	ToSMs    messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/nvidia/message.device"`
 }
+type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
+type Middlewares struct{ Controller *GPUController }
+
+func (m *Middlewares) Initialize(c *Comp) {
+	m.Controller = &GPUController{Comp: c}
+}
+func (c *GPUController) Handle(timing.Event) bool { return c.Tick() }
 
 // Tick advances the GPU controller by one cycle.
 func (g *GPUController) Tick() bool {
@@ -67,12 +77,12 @@ func (g *GPUController) Tick() bool {
 }
 
 func (g *GPUController) processDriverInput() bool {
-	msg := g.toDriver.PeekIncoming()
-	if msg == nil {
+	msg, ok := g.Ports.ToDriver.PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch msg := msg.(type) {
+	switch msg := msg.Payload.(type) {
 	case message.DriverToDeviceMsg:
 		g.processKernel(msg.Kernel)
 	default:
@@ -85,52 +95,54 @@ func (g *GPUController) processDriverInput() bool {
 
 // processKernel accepts a kernel after a delay proportional to its number of
 // thread blocks.
-func (g *GPUController) processKernel(kernel *trace.KernelTrace) {
+func (g *GPUController) processKernel(id uint64) {
+	kernel := g.Resources.Traces.Kernel(id)
 	switch {
-	case g.GPUReceiveCTALatencyRemaining == 1:
-		g.GPUReceiveCTALatencyRemaining = 0
-	case g.GPUReceiveCTALatencyRemaining > 0:
-		g.GPUReceiveCTALatencyRemaining--
+	case g.State.GPUReceiveCTALatencyRemaining == 1:
+		g.State.GPUReceiveCTALatencyRemaining = 0
+	case g.State.GPUReceiveCTALatencyRemaining > 0:
+		g.State.GPUReceiveCTALatencyRemaining--
 		return
 	default:
-		latency := uint64(g.GPUReceiveCTALatencyUnit *
+		latency := uint64(g.Spec.GPUReceiveCTALatencyUnit *
 			float64(len(kernel.Threadblocks)))
 		if latency > 1 {
-			g.GPUReceiveCTALatencyRemaining = latency - 1
+			g.State.GPUReceiveCTALatencyRemaining = latency - 1
 			return
 		}
 	}
 
-	g.undispatchedThreadblocks = append(
-		g.undispatchedThreadblocks, kernel.Threadblocks...)
-	g.unfinishedThreadblocksCount += kernel.ThreadblocksCount()
+	for i := range kernel.Threadblocks {
+		g.State.UndispatchedThreadblocks = append(g.State.UndispatchedThreadblocks, trace.BlockRef{Kernel: id, Block: i})
+	}
+	g.State.UnfinishedThreadblocksCount += kernel.ThreadblocksCount()
 
 	if len(kernel.Threadblocks) == 0 {
-		g.finishedKernelsCount++
+		g.State.FinishedKernelsCount++
 	}
 
-	g.toDriver.RetrieveIncoming()
+	g.Ports.ToDriver.RetrieveIncoming()
 }
 
 func (g *GPUController) processSMsInput() bool {
-	if g.toSMs.PeekIncoming() == nil {
+	if _, ok := g.Ports.ToSMs.PeekIncoming(); !ok {
 		return false
 	}
 
-	if g.GPUReceiveSMLatencyRemaining > 0 {
-		g.GPUReceiveSMLatencyRemaining--
+	if g.State.GPUReceiveSMLatencyRemaining > 0 {
+		g.State.GPUReceiveSMLatencyRemaining--
 		return true
 	}
 
-	g.GPUReceiveSMLatencyRemaining = g.GPUReceiveSMLatency
+	g.State.GPUReceiveSMLatencyRemaining = g.Spec.GPUReceiveSMLatency
 
-	for range max(g.SMResponseHandleWidth, 1) {
-		msg := g.toSMs.PeekIncoming()
-		if msg == nil {
+	for range max(g.Spec.SMResponseHandleWidth, 1) {
+		msg, ok := g.Ports.ToSMs.PeekIncoming()
+		if !ok {
 			break
 		}
 
-		switch msg := msg.(type) {
+		switch msg := msg.Payload.(type) {
 		case message.SMToDeviceMsg:
 			g.processThreadblockFinished(msg)
 		default:
@@ -138,7 +150,7 @@ func (g *GPUController) processSMsInput() bool {
 				g.Name(), msg))
 		}
 
-		g.toSMs.RetrieveIncoming()
+		g.Ports.ToSMs.RetrieveIncoming()
 	}
 
 	return true
@@ -149,33 +161,37 @@ func (g *GPUController) processThreadblockFinished(msg message.SMToDeviceMsg) {
 		return
 	}
 
-	if g.SMAssignedCTACountTable[msg.SMID] == 0 ||
-		g.SMAssignedThreadTable[msg.SMID] < msg.NumThreadFinished {
+	if g.State.SMAssignedCTACountTable[msg.SMID] == 0 ||
+		g.State.SMAssignedThreadTable[msg.SMID] < msg.NumThreadFinished {
 		panic(fmt.Sprintf("%s: SM %s finished more work than assigned",
 			g.Name(), msg.SMID))
 	}
 
-	g.SMAssignedThreadTable[msg.SMID] -= msg.NumThreadFinished
-	g.SMAssignedCTACountTable[msg.SMID]--
+	g.State.SMAssignedThreadTable[msg.SMID] -= msg.NumThreadFinished
+	g.State.SMAssignedCTACountTable[msg.SMID]--
 
-	g.unfinishedThreadblocksCount--
-	if g.unfinishedThreadblocksCount == 0 {
-		g.finishedKernelsCount++
+	g.State.UnfinishedThreadblocksCount--
+	if g.State.UnfinishedThreadblocksCount == 0 {
+		g.State.FinishedKernelsCount++
 	}
 }
 
 func (g *GPUController) reportFinishedKernels() bool {
-	if g.finishedKernelsCount == 0 || !g.toDriver.CanSend() {
+	if g.State.FinishedKernelsCount == 0 || !g.Ports.ToDriver.CanSend() {
 		return false
 	}
 
-	msg := message.DeviceToDriverMsg{
-		MsgMeta:        message.NewMeta(g.toDriver.AsRemote(), g.toDriverRemote),
-		KernelFinished: true,
-		DeviceID:       g.ID,
+	msg := messaging.Msg{
+		ID:  g.NewID(),
+		Src: g.Ports.ToDriver.AsRemote(),
+		Dst: g.Spec.ToDriver,
+		Payload: message.DeviceToDriverMsg{
+			KernelFinished: true,
+			DeviceID:       g.Name(),
+		},
 	}
-	g.toDriver.Send(msg)
-	g.finishedKernelsCount--
+	g.Ports.ToDriver.Send(msg)
+	g.State.FinishedKernelsCount--
 
 	return true
 }
@@ -188,13 +204,13 @@ func (g *GPUController) pickSM(nThreads uint64) int {
 	bestCTAs := ^uint64(0)
 	bestThreads := ^uint64(0)
 
-	for i := range g.SMList {
-		index := (g.SMIssueIndex + i) % len(g.SMList)
-		smID := g.SMList[index].ID
-		threads := g.SMAssignedThreadTable[smID]
-		ctas := g.SMAssignedCTACountTable[smID]
+	for i := range g.Spec.SMs {
+		index := (g.State.SMIssueIndex + i) % len(g.Spec.SMs)
+		smID := g.Spec.SMs[index].Name
+		threads := g.State.SMAssignedThreadTable[smID]
+		ctas := g.State.SMAssignedCTACountTable[smID]
 
-		if threads+nThreads > g.SMThreadCapacity || ctas >= g.MaxCTAPerSM {
+		if threads+nThreads > g.Spec.SMThreadCapacity || ctas >= g.Spec.MaxCTAPerSM {
 			continue
 		}
 
@@ -209,42 +225,43 @@ func (g *GPUController) pickSM(nThreads uint64) int {
 }
 
 func (g *GPUController) dispatchThreadblocksToSMs() bool {
-	if len(g.SMList) == 0 || len(g.undispatchedThreadblocks) == 0 {
+	if len(g.Spec.SMs) == 0 || len(g.State.UndispatchedThreadblocks) == 0 {
 		return false
 	}
 
-	if g.GPU2SMThreadBlockAllocationLatencyRemaining > 0 {
-		g.GPU2SMThreadBlockAllocationLatencyRemaining--
+	if g.State.GPU2SMThreadBlockAllocationLatencyRemaining > 0 {
+		g.State.GPU2SMThreadBlockAllocationLatencyRemaining--
 		return true
 	}
 
 	dispatched := uint64(0)
 
-	for dispatched < max(g.CWDIssueWidth, 1) {
-		if len(g.undispatchedThreadblocks) == 0 || !g.toSMs.CanSend() {
+	for dispatched < max(g.Spec.CWDIssueWidth, 1) {
+		if len(g.State.UndispatchedThreadblocks) == 0 || !g.Ports.ToSMs.CanSend() {
 			break
 		}
 
-		tb := g.undispatchedThreadblocks[0]
-		nThreads := tb.WarpsCount() * warpSize
+		tb := g.State.UndispatchedThreadblocks[0]
+		nThreads := g.Resources.Traces.Block(tb).WarpsCount() * warpSize
 
 		smIndex := g.pickSM(nThreads)
 		if smIndex < 0 {
 			break
 		}
 
-		target := g.SMList[smIndex]
-		g.SMAssignedThreadTable[target.ID] += nThreads
-		g.SMAssignedCTACountTable[target.ID]++
-		g.SMIssueIndex = smIndex
+		target := g.Spec.SMs[smIndex]
+		g.State.SMAssignedThreadTable[target.Name] += nThreads
+		g.State.SMAssignedCTACountTable[target.Name]++
+		g.State.SMIssueIndex = smIndex
 
-		dst := target.GetPortByName("ToGPU").AsRemote()
-		g.toSMs.Send(message.DeviceToSMMsg{
-			MsgMeta:     message.NewMeta(g.toSMs.AsRemote(), dst),
-			Threadblock: tb,
-		})
+		dst := target.Port
+		g.Ports.ToSMs.Send(
+			messaging.Msg{ID: g.NewID(), Src: g.Ports.ToSMs.AsRemote(), Dst: dst, Payload: message.DeviceToSMMsg{
+				Threadblock: tb,
+			}},
+		)
 
-		g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+		g.State.UndispatchedThreadblocks = g.State.UndispatchedThreadblocks[1:]
 		dispatched++
 	}
 
@@ -253,8 +270,8 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 		return false
 	}
 
-	g.GPU2SMThreadBlockAllocationLatencyRemaining =
-		g.GPU2SMThreadBlockAllocationLatency
+	g.State.GPU2SMThreadBlockAllocationLatencyRemaining =
+		g.Spec.GPU2SMThreadBlockAllocationLatency
 
 	return true
 }
@@ -262,5 +279,29 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 // Status reports the thread blocks that wait for an SM and the thread blocks
 // that have not finished yet.
 func (g *GPUController) Status() (undispatched, unfinished uint64) {
-	return uint64(len(g.undispatchedThreadblocks)), g.unfinishedThreadblocksCount
+	return uint64(len(g.State.UndispatchedThreadblocks)), g.State.UnfinishedThreadblocksCount
+}
+
+func (s *State) Initialize(c *Comp) {
+	if c.Resources.Traces == nil {
+		panic("NVIDIA component requires a shared trace store")
+	}
+	if c.Spec.ToDriver == "" {
+		panic(fmt.Sprintf("GPU requires a driver destination: to_driver=%q", c.Spec.ToDriver))
+	}
+
+	names := make(map[string]bool)
+	ports := make(map[messaging.RemotePort]bool)
+	for _, peer := range c.Spec.SMs {
+		if peer.Name == "" || peer.Port == "" || names[peer.Name] || ports[peer.Port] {
+			panic(fmt.Sprintf("invalid or duplicate GPU peer: name=%q port=%q", peer.Name, peer.Port))
+		}
+		names[peer.Name] = true
+		ports[peer.Port] = true
+	}
+
+	s.SMAssignedThreadTable = make(map[string]uint64)
+	s.SMAssignedCTACountTable = make(map[string]uint64)
+	s.GPU2SMThreadBlockAllocationLatencyRemaining = c.Spec.GPU2SMThreadBlockAllocationLatency
+	s.GPUReceiveSMLatencyRemaining = c.Spec.GPUReceiveSMLatency
 }

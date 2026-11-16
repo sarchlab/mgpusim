@@ -29,14 +29,14 @@ var _ = Describe("Relu Layer", func() {
 
 		Expect(output.Size()).To(Equal([]int{2, 2}))
 		Expect(output.Vector()).To(Equal([]float64{1, 0, 2, 3}))
-		Expect(reluLayer.forwardInput).To(Equal(input))
+		Expect(reluLayer.refs.Resolve(reluLayer.ForwardInputID)).To(Equal(input))
 	})
 
 	It("should backward", func() {
 		input = to.CreateWithData([]float64{10, 20, 3, 4}, []int{2, 2}, "")
-		reluLayer.forwardInput = to.CreateWithData(
+		reluLayer.ForwardInputID = reluLayer.refs.Replace(reluLayer.ForwardInputID, to.CreateWithData(
 			[]float64{1, -1, 2, 3}, []int{2, 2}, "",
-		)
+		))
 
 		output := reluLayer.Backward(input)
 

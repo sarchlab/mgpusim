@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -38,9 +38,9 @@ type WorkGroup struct {
 }
 
 // NewWorkGroup creates a workgroup object.
-func NewWorkGroup() *WorkGroup {
+func NewWorkGroup(id uint64) *WorkGroup {
 	wg := new(WorkGroup)
-	wg.UID = timing.GetIDGenerator().Generate()
+	wg.UID = id
 	wg.Wavefronts = make([]*Wavefront, 0)
 	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
@@ -63,9 +63,9 @@ type Wavefront struct {
 }
 
 // NewWavefront returns a new Wavefront.
-func NewWavefront() *Wavefront {
+func NewWavefront(id uint64) *Wavefront {
 	wf := new(Wavefront)
-	wf.UID = timing.GetIDGenerator().Generate()
+	wf.UID = id
 	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }

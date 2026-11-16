@@ -5,15 +5,9 @@ import "github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
 // MaxPoolingLayer can perform maxpooling forward and backward propagation
 // operations.
 type MaxPoolingLayer struct {
-	to tensor.Operator
-
-	kernelSize []int
-	padding    []int
-	stride     []int
-
-	forwardIn         tensor.Tensor
-	forwardMask       tensor.Tensor
-	forwardOutputSize []int
+	*MaxPoolingLayerState
+	to   tensor.Operator
+	refs tensor.References
 }
 
 // NewMaxPoolingLayer returns a newly created maxpooling layer.
@@ -21,35 +15,34 @@ func NewMaxPoolingLayer(
 	to tensor.Operator,
 	kernelSize, padding, stride []int,
 ) *MaxPoolingLayer {
+	refs := tensor.NewReferences(to)
 	return &MaxPoolingLayer{
-		to:         to,
-		kernelSize: kernelSize,
-		padding:    padding,
-		stride:     stride,
+		MaxPoolingLayerState: &MaxPoolingLayerState{KernelSize: kernelSize, Padding: padding, Stride: stride},
+		to:                   to, refs: refs,
 	}
 }
 
 // Forward can perform forward propagation operation.
 func (l *MaxPoolingLayer) Forward(in tensor.Tensor) tensor.Tensor {
-	l.forwardIn = l.to.Clone(in)
+	l.ForwardInID = l.refs.Replace(l.ForwardInID, l.to.Clone(in))
 
-	out, mask := l.to.MaxPoolingForward(in, l.kernelSize, l.padding, l.stride)
+	out, mask := l.to.MaxPoolingForward(in, l.KernelSize, l.Padding, l.Stride)
 
-	l.forwardMask = mask
-	l.forwardOutputSize = out.Size()
+	l.ForwardMaskID = l.refs.Replace(l.ForwardMaskID, mask)
+	l.ForwardOutputSize = out.Size()
 
 	return out
 }
 
 // Backward can perform backward propgation operation.
 func (l *MaxPoolingLayer) Backward(in tensor.Tensor) tensor.Tensor {
-	in.SetSize(l.forwardOutputSize)
+	in.SetSize(l.ForwardOutputSize)
 
-	out := l.to.MaxPoolingBackward(l.forwardIn, in, l.forwardMask,
-		l.kernelSize, l.padding, l.stride)
+	out := l.to.MaxPoolingBackward(l.refs.Resolve(l.ForwardInID), in, l.refs.Resolve(l.ForwardMaskID),
+		l.KernelSize, l.Padding, l.Stride)
 
-	l.to.Free(l.forwardIn)
-	l.to.Free(l.forwardMask)
+	l.to.Free(l.refs.Resolve(l.ForwardInID))
+	l.to.Free(l.refs.Resolve(l.ForwardMaskID))
 
 	return out
 }

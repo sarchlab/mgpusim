@@ -11,8 +11,8 @@ type Stage struct {
 
 // One PipelineInstance represents one issued instruction.
 type PipelineInstance struct {
-	Warp                  *SMSPWarpUnit
-	Inst                  *trace.InstructionTrace
+	WarpID                uint64
+	InstIndex             uint64
 	Stages                []Stage
 	InstructionOpcode     string
 	SrcRegs               []string
@@ -34,8 +34,8 @@ func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *Pipe
 
 	srcRegs, dstRegs := regsToNames(inst)
 	p := &PipelineInstance{
-		Warp:              warp,
-		Inst:              inst,
+		WarpID:            warp.ID,
+		InstIndex:         warp.NextIssueInstIndex,
 		Stages:            stages,
 		InstructionOpcode: tpl.Opcode,
 		SrcRegs:           srcRegs,
@@ -144,3 +144,12 @@ func (p *PipelineInstance) Tick() bool {
 
 	return true
 }
+
+// PipelineRef identifies an issued instruction independently of slice storage.
+// Request queues retain this value when resident warps or pipelines move.
+type PipelineRef struct {
+	WarpID    uint64
+	InstIndex uint64
+}
+
+func (p *PipelineInstance) Ref() PipelineRef { return PipelineRef{p.WarpID, p.InstIndex} }

@@ -20,13 +20,13 @@ var _ = Describe("Fully Connected Layer", func() {
 	})
 
 	It("should forward", func() {
-		to.Init(fcLayer.weights, []float64{
+		to.Init(fcLayer.refs.Resolve(fcLayer.WeightsID), []float64{
 			1, 2,
 			3, 4,
 			5, 6,
 			7, 8,
 		})
-		to.Init(fcLayer.bias, []float64{10, 11})
+		to.Init(fcLayer.refs.Resolve(fcLayer.BiasID), []float64{10, 11})
 
 		input = to.CreateWithData([]float64{
 			1, 2, 3, 4,
@@ -37,23 +37,23 @@ var _ = Describe("Fully Connected Layer", func() {
 
 		Expect(output.Size()).To(Equal([]int{2, 2}))
 		Expect(output.Vector()).To(Equal([]float64{60, 71, 124, 151}))
-		Expect(fcLayer.forwardInput).To(Equal(input))
+		Expect(fcLayer.refs.Resolve(fcLayer.ForwardInputID)).To(Equal(input))
 	})
 
 	It("should backward", func() {
-		to.Init(fcLayer.weights, []float64{
+		to.Init(fcLayer.refs.Resolve(fcLayer.WeightsID), []float64{
 			1, 2,
 			3, 4,
 			5, 6,
 			7, 8,
 		})
-		to.Init(fcLayer.bias, []float64{10, 11})
-		fcLayer.forwardInput = to.CreateWithData(
+		to.Init(fcLayer.refs.Resolve(fcLayer.BiasID), []float64{10, 11})
+		fcLayer.ForwardInputID = fcLayer.refs.Replace(fcLayer.ForwardInputID, to.CreateWithData(
 			[]float64{
 				1, 2, 3, 4,
 				5, 6, 7, 8,
 			}, []int{2, 4}, "",
-		)
+		))
 		input = to.CreateWithData([]float64{
 			5, 6,
 			7, 8,
@@ -66,13 +66,13 @@ var _ = Describe("Fully Connected Layer", func() {
 			17, 39, 61, 83,
 			23, 53, 83, 113,
 		}))
-		Expect(fcLayer.weightGradients.Vector()).To(Equal([]float64{
+		Expect(fcLayer.refs.Resolve(fcLayer.WeightGradientsID).Vector()).To(Equal([]float64{
 			40, 46,
 			52, 60,
 			64, 74,
 			76, 88,
 		}))
-		Expect(fcLayer.biasGradients.Vector()).To(Equal([]float64{
+		Expect(fcLayer.refs.Resolve(fcLayer.BiasGradientsID).Vector()).To(Equal([]float64{
 			12, 14,
 		}))
 	})

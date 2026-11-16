@@ -1,12 +1,68 @@
 package runner_test
 
 import (
+	"database/sql"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/sarchlab/mgpusim/v5/nvidia/platform"
 	"github.com/sarchlab/mgpusim/v5/nvidia/runner"
 )
+
+func TestExplicitOutputReplacesPreviousRun(t *testing.T) {
+	for _, name := range []string{"recording", "recording.sqlite3"} {
+		t.Run(name, func(t *testing.T) { testOutputRerun(t, name) })
+	}
+}
+
+func testOutputRerun(t *testing.T, name string) {
+	t.Helper()
+	base := filepath.Join(t.TempDir(), name)
+	opts := runner.Options{
+		TraceDir: "../trace/testdata/vectoradd", Device: platform.H100(),
+		VisTracing: true, OutputFile: base,
+	}
+	first, err := runner.Run(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := base + ".sqlite3" // Preserve beta.10's base-name convention.
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(t.Context(), "CREATE TABLE previous_run (value INTEGER)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	second, err := runner.Run(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("rerun changed results: %+v != %+v", first, second)
+	}
+	db, err = sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var count int
+	err = db.QueryRowContext(t.Context(),
+		"SELECT count(*) FROM sqlite_master WHERE name = 'previous_run'").Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("rerun retained the previous recording")
+	}
+}
 
 func TestRunVectorAddTrace(t *testing.T) {
 	for _, device := range []platform.Device{platform.H100(), platform.A100()} {

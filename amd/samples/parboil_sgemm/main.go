@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/parboil/sgemm"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var n = flag.Int("size", 128, "The matrix dimension N (N×N matrices).")
@@ -12,13 +13,24 @@ var n = flag.Int("size", 128, "The matrix dimension N (N×N matrices).")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := sgemm.NewBenchmark(runner.Driver())
+	benchmark := sgemm.NewBenchmark(runtime)
 	benchmark.N = *n
-	benchmark.Arch = runner.ArchType
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

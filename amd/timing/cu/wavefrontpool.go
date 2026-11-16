@@ -1,43 +1,36 @@
 package cu
 
-import (
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
-)
-
-// A WavefrontPool holds the wavefronts that will be scheduled in one SIMD
-// unit
+// WavefrontPool is a view of one canonical pool membership list.
 type WavefrontPool struct {
 	Capacity int
-	wfs      []*wavefront.Wavefront
+	cu       *ComputeUnit
+	index    int
 }
 
-// NewWavefrontPool creates and returns a new WavefrontPool
-func NewWavefrontPool(capacity int) *WavefrontPool {
-	p := new(WavefrontPool)
-
-	p.Capacity = capacity
-	p.wfs = make([]*wavefront.Wavefront, 0)
-
-	return p
+func NewWavefrontPool(cu *ComputeUnit, index, capacity int) *WavefrontPool {
+	return &WavefrontPool{Capacity: capacity, cu: cu, index: index}
 }
-
-// AddWf will add an wavefront to the wavefront pool
-func (wfp *WavefrontPool) AddWf(wf *wavefront.Wavefront) {
-	wfp.wfs = append(wfp.wfs, wf)
+func (p *WavefrontPool) waves() []*Wavefront {
+	ids := p.cu.comp.State.Pools[p.index]
+	out := make([]*Wavefront, len(ids))
+	for i, id := range ids {
+		out[i] = p.cu.wave(id)
+	}
+	return out
 }
-
-// Availability returns the number of extra Wavefront that the wavefront pool
-// can hold
-func (wfp *WavefrontPool) Availability() int {
-	return wfp.Capacity - len(wfp.wfs)
+func (p *WavefrontPool) AddWf(w *Wavefront) {
+	p.cu.comp.State.Pools[p.index] = append(p.cu.comp.State.Pools[p.index], p.cu.useWave(w))
 }
-
-// RemoveWf removes a wavefront from a wavefront pool
-func (wfp *WavefrontPool) RemoveWf(wf *wavefront.Wavefront) {
-	for i, wfToRemove := range wfp.wfs {
-		if wfToRemove == wf {
-			wfp.wfs = append(wfp.wfs[:i], wfp.wfs[i+1:]...)
+func (p *WavefrontPool) Availability() int { return p.Capacity - len(p.cu.comp.State.Pools[p.index]) }
+func (p *WavefrontPool) RemoveWf(w *Wavefront) {
+	ids := p.cu.comp.State.Pools[p.index]
+	for i, id := range ids {
+		if id == w.handle {
+			p.cu.comp.State.Pools[p.index] = append(ids[:i], ids[i+1:]...)
 			return
 		}
 	}
 }
+
+// ids returns membership for an immediate operation, never for retention.
+func (p *WavefrontPool) ids() []waveHandle { return p.cu.comp.State.Pools[p.index] }

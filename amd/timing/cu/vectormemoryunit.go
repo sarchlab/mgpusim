@@ -3,16 +3,14 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/queueing"
-	"github.com/sarchlab/akita/v5/timing"
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 type vectorMemInst struct {
-	wavefront *wavefront.Wavefront
+	Handle waveHandle
 }
 
 // A VectorMemoryUnit is the block in a compute unit that can performs vector
@@ -22,25 +20,7 @@ type VectorMemoryUnit struct {
 
 	coalescer coalescer
 
-	numInstInFlight         uint64
-	numTransactionInFlight  uint64
-	maxInstructionsInFlight uint64
-
-	maxCoalescingPenalty     int
-	coalescingStallRemaining int
-
-	instructionPipeline           queueing.Pipeline[vectorMemInst]
-	postInstructionPipelineBuffer queueing.Buffer[vectorMemInst]
-	transactionsWaiting           []VectorMemAccessInfo
-	transactionPipeline           queueing.Pipeline[VectorMemAccessInfo]
-	postTransactionPipelineBuffer queueing.Buffer[VectorMemAccessInfo]
-
-	// issueTaskIDs maps an instruction's task ID to the "pipeline" subtask
-	// that records its coalescing / transaction-issue work — opened when its
-	// transactions are admitted and closed when the first one is sent.
-	issueTaskIDs map[uint64]uint64
-
-	isIdle bool
+	maxCoalescingPenalty int
 }
 
 // NewVectorMemoryUnit creates a new Vector Memory Unit.
@@ -51,7 +31,6 @@ func NewVectorMemoryUnit(
 	u := new(VectorMemoryUnit)
 	u.cu = cu
 	u.coalescer = coalescer
-	u.issueTaskIDs = make(map[uint64]uint64)
 
 	return u
 }
@@ -60,15 +39,13 @@ func NewVectorMemoryUnit(
 // coalescing / transaction-issue work (from the in-flight admission to the
 // first transaction send), parented to the instruction's task. It is the child
 // subtask that backs the "work" milestone emitted at first send.
-func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
-	taskID := timing.GetIDGenerator().Generate()
-	tracing.StartTask(u.cu.comp, tracing.TaskStart{
-		ID:       taskID,
-		ParentID: inst.ID,
+func (u *VectorMemoryUnit) startIssueSubtask(inst uint64) {
+	taskID := u.cu.comp.TaskTracker().StartTask(u.cu.comp, tasks.StartInfo{
+		ParentID: u.cu.comp.State.InstTasks[inst],
 		Kind:     "pipeline",
 		What:     u.cu.comp.Name() + ".coalesce",
 	})
-	u.issueTaskIDs[inst.ID] = taskID
+	u.state().IssueTasks[inst] = taskID
 }
 
 // endIssueSubtask closes an instruction's issue subtask (if still open) when
@@ -77,38 +54,38 @@ func (u *VectorMemoryUnit) startIssueSubtask(inst *wavefront.Inst) {
 // of the same instruction — and port-full retries on the same one — find no
 // open subtask and are no-ops, so the milestone lands once, at the moment the
 // transaction is ready to send rather than when it actually leaves.
-func (u *VectorMemoryUnit) endIssueSubtask(inst *wavefront.Inst) {
-	taskID, ok := u.issueTaskIDs[inst.ID]
+func (u *VectorMemoryUnit) endIssueSubtask(inst uint64) {
+	taskID, ok := u.state().IssueTasks[inst]
 	if !ok {
 		return
 	}
 
-	tracing.EndTask(u.cu.comp, tracing.TaskEnd{ID: taskID})
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: inst.ID,
-		Kind:   tracing.MilestoneKindWork,
+	u.cu.comp.TaskTracker().EndTask(taskID)
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[inst],
+		Kind:   tasks.MilestoneKindWork,
 		What:   u.cu.comp.Name() + ".coalesce",
 	})
-	delete(u.issueTaskIDs, inst.ID)
+	delete(u.state().IssueTasks, inst)
 }
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *VectorMemoryUnit) CanAcceptWave() bool {
-	return u.instructionPipeline.CanAccept()
+	return u.state().InstructionsPipeline.CanAccept()
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) {
-	u.instructionPipeline.Accept(vectorMemInst{wavefront: wave})
-	u.numInstInFlight++
+	u.state().InstructionsPipeline.Accept(vectorMemInst{Handle: handleOf(wave)})
+	u.state().Instructions++
 }
 
 // IsIdle moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) IsIdle() bool {
-	u.isIdle = (u.numInstInFlight == 0) && (u.numTransactionInFlight == 0)
-	return u.isIdle
+	u.state().Idle = (u.state().Instructions == 0) && (u.state().Transactions == 0)
+	return u.state().Idle
 }
 
 // Run executes three pipeline stages that are controlled by the
@@ -116,11 +93,11 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 func (u *VectorMemoryUnit) Run() bool {
 	madeProgress := false
 	madeProgress = u.sendRequest() || madeProgress
-	madeProgress = u.transactionPipeline.Tick(
-		&u.postTransactionPipelineBuffer) || madeProgress
+	madeProgress = u.state().TransactionsPipeline.Tick(
+		&u.state().TransactionsOutput) || madeProgress
 	madeProgress = u.instToTransaction() || madeProgress
-	madeProgress = u.instructionPipeline.Tick(
-		&u.postInstructionPipelineBuffer) || madeProgress
+	madeProgress = u.state().InstructionsPipeline.Tick(
+		&u.state().InstructionsOutput) || madeProgress
 	return madeProgress
 }
 
@@ -145,24 +122,24 @@ func (u *VectorMemoryUnit) instToTransaction() bool {
 func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 	madeProgress := false
 
-	if u.coalescingStallRemaining > 0 {
-		u.coalescingStallRemaining--
+	if u.state().Stall > 0 {
+		u.state().Stall--
 		return false
 	}
 
-	for len(u.transactionsWaiting) > 0 {
-		if !u.transactionPipeline.CanAccept() {
+	for len(u.state().Waiting) > 0 {
+		if !u.state().TransactionsPipeline.CanAccept() {
 			break
 		}
 
-		txn := u.transactionsWaiting[0]
-		u.transactionPipeline.Accept(txn)
-		u.transactionsWaiting = u.transactionsWaiting[1:]
+		txn := u.state().Waiting[0]
+		u.state().TransactionsPipeline.Accept(txn.requestID())
+		u.state().Waiting = u.state().Waiting[1:]
 		madeProgress = true
 
 		penalty := u.computeCoalescingPenalty(txn)
 		if penalty > 0 {
-			u.coalescingStallRemaining = penalty
+			u.state().Stall = penalty
 			break
 		}
 	}
@@ -171,14 +148,14 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 }
 
 func (u *VectorMemoryUnit) computeCoalescingPenalty(
-	txn VectorMemAccessInfo,
+	txn VectorAccessState,
 ) int {
-	if txn.Read == nil {
+	if txn.Read.ID == 0 {
 		return 0
 	}
 
 	maxLanes := 64 / 4 // 64B cacheline / 4B elements = 16
-	usedLanes := len(txn.laneInfo)
+	usedLanes := len(txn.Lanes)
 
 	if usedLanes >= maxLanes {
 		return 0
@@ -191,13 +168,13 @@ func (u *VectorMemoryUnit) computeCoalescingPenalty(
 }
 
 func (u *VectorMemoryUnit) execute() (madeProgress bool) {
-	if u.postInstructionPipelineBuffer.Size() == 0 {
+	if u.state().InstructionsOutput.Size() == 0 {
 		return false
 	}
 
-	item := u.postInstructionPipelineBuffer.Peek()
+	item, _ := u.state().InstructionsOutput.Peek()
 
-	wave := item.wavefront
+	wave := u.cu.wave(item.Handle)
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:
@@ -210,17 +187,17 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 			insts.NewInstPrinter(nil).Print(inst))
 	}
 
-	u.postInstructionPipelineBuffer.Pop()
+	u.state().InstructionsOutput.Pop()
 	u.cu.UpdatePCAndSetReady(wave)
-	u.numInstInFlight--
+	u.state().Instructions--
 
 	return true
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(
-	wavefront *wavefront.Wavefront,
+	wavefront *Wavefront,
 ) bool {
-	inst := wavefront.DynamicInst()
+	inst := wavefront.Inst()
 	switch inst.Opcode {
 	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE
 		return u.executeFlatLoad(wavefront)
@@ -234,20 +211,17 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 }
 
 func (u *VectorMemoryUnit) executeFlatLoad(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) bool {
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
-		u.cu.logInstTask(
-			wave,
-			wave.DynamicInst(),
-			true,
-		)
+		u.cu.completeInstruction(wave,
+			wave.InstID())
 		return true
 	}
 
-	if len(transactions)+len(u.cu.InFlightVectorMemAccess) >
+	if len(transactions)+len(u.cu.comp.State.Vector) >
 		u.cu.InFlightVectorMemAccessLimit {
 		return false
 	}
@@ -256,48 +230,47 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	// transactions: mark the resolution of any wait for a free slot, then open
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: wave.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindHardwareResource,
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[wave.InstID()],
+		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
-	u.startIssueSubtask(wave.DynamicInst())
+	u.startIssueSubtask(wave.InstID())
 
-	wave.OutstandingVectorMemAccess++
-	wave.OutstandingScalarMemAccess++
+	wave.execution().OutstandingVectorMemAccess++
+	wave.execution().OutstandingScalarMemAccess++
 
-	for i, t := range transactions {
-		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i != len(transactions)-1 {
-			t.Read.CanWaitForCoalesce = true
-		}
+	for _, t := range transactions {
+		payload := t.Read.Payload.(memprotocol.ReadReq)
 
-		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
-			t.Read.Address)
+		lowModule := u.cu.comp.Spec.VectorMemModules.Find(
+			t.Read.Payload.(memprotocol.ReadReq).Address)
 		t.Read.Dst = lowModule
 		t.Read.Src = u.cu.vectorMemPort().AsRemote()
-		t.Read.PID = wave.PID()
-		u.transactionsWaiting = append(u.transactionsWaiting, t)
+		payload.PID = wave.PID()
+		t.Read.Payload = payload
+		// The coalescer allocates IDs in slice order. If the capacity check
+		// above rejects a batch, a retry allocates newer IDs; admitted IDs
+		// therefore increase monotonically.
+		u.cu.admitVector(u.cu.vectorState(t))
+		u.state().Waiting = append(u.state().Waiting, u.cu.vectorState(t))
 	}
 
 	return true
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(
-	wave *wavefront.Wavefront,
+	wave *Wavefront,
 ) bool {
 	transactions := u.coalescer.generateMemTransactions(wave)
 
 	if len(transactions) == 0 {
-		u.cu.logInstTask(
-			wave,
-			wave.DynamicInst(),
-			true,
-		)
+		u.cu.completeInstruction(wave,
+			wave.InstID())
 		return true
 	}
 
-	if len(transactions)+len(u.cu.InFlightVectorMemAccess) >
+	if len(transactions)+len(u.cu.comp.State.Vector) >
 		u.cu.InFlightVectorMemAccessLimit {
 		return false
 	}
@@ -306,27 +279,29 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	// transactions: mark the resolution of any wait for a free slot, then open
 	// the subtask that records the coalescing / transaction-issue work until
 	// the first transaction is sent.
-	tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-		TaskID: wave.DynamicInst().ID,
-		Kind:   tracing.MilestoneKindHardwareResource,
+	u.cu.comp.TaskTracker().AddMilestone(tasks.Milestone{
+		TaskID: u.cu.comp.State.InstTasks[wave.InstID()],
+		Kind:   tasks.MilestoneKindHardwareResource,
 		What:   u.cu.comp.Name() + ".vmem-inflight-reg",
 	})
-	u.startIssueSubtask(wave.DynamicInst())
+	u.startIssueSubtask(wave.InstID())
 
-	wave.OutstandingVectorMemAccess++
-	wave.OutstandingScalarMemAccess++
+	wave.execution().OutstandingVectorMemAccess++
+	wave.execution().OutstandingScalarMemAccess++
 
-	for i, t := range transactions {
-		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i != len(transactions)-1 {
-			t.Write.CanWaitForCoalesce = true
-		}
-		lowModule := u.cu.comp.Resources().VectorMemModules.Find(
-			t.Write.Address)
+	for _, t := range transactions {
+		payload := t.Write.Payload.(memprotocol.WriteReq)
+		lowModule := u.cu.comp.Spec.VectorMemModules.Find(
+			t.Write.Payload.(memprotocol.WriteReq).Address)
 		t.Write.Dst = lowModule
 		t.Write.Src = u.cu.vectorMemPort().AsRemote()
-		t.Write.PID = wave.PID()
-		u.transactionsWaiting = append(u.transactionsWaiting, t)
+		payload.PID = wave.PID()
+		t.Write.Payload = payload
+		// The coalescer allocates IDs in slice order. If the capacity check
+		// above rejects a batch, a retry allocates newer IDs; admitted IDs
+		// therefore increase monotonically.
+		u.cu.admitVector(u.cu.vectorState(t))
+		u.state().Waiting = append(u.state().Waiting, u.cu.vectorState(t))
 	}
 
 	return true
@@ -335,11 +310,12 @@ func (u *VectorMemoryUnit) executeFlatStore(
 func (u *VectorMemoryUnit) sendRequest() bool {
 	madeProgress := false
 	for i := 0; i < 16; i++ {
-		if u.postTransactionPipelineBuffer.Size() == 0 {
+		if u.state().TransactionsOutput.Size() == 0 {
 			break
 		}
 
-		info := u.postTransactionPipelineBuffer.Peek()
+		id, _ := u.state().TransactionsOutput.Peek()
+		info := u.cu.vectorTransactionByID(id)
 
 		// The transaction has reached the head of the send buffer: the
 		// coalescing / transaction-issue work is done. Close the issue subtask
@@ -351,50 +327,24 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.endIssueSubtask(info.Inst)
 
 		var req messaging.Msg
-		if info.Read != nil {
-			req = *info.Read
+		if info.Read.ID != 0 {
+			req = info.Read
 		} else {
-			req = *info.Write
+			req = info.Write
 		}
 
 		if !u.cu.vectorMemPort().CanSend() {
 			break
 		}
 
+		u.cu.startRequest(req, u.cu.comp.State.InstTasks[info.Inst])
 		u.cu.vectorMemPort().Send(req)
-		u.postTransactionPipelineBuffer.Pop()
-		u.numTransactionInFlight--
+		u.state().TransactionsOutput.Pop()
+		u.state().Transactions--
 
-		tracing.TraceReqInitiate(u.cu.comp, req, info.Inst.ID)
 		madeProgress = true
 	}
 	return madeProgress
 }
 
-// Flush flushes
-func (u *VectorMemoryUnit) Flush() {
-	// An instruction flushed between admission and its first send keeps its
-	// parent inst task — it is WfReady, so endInflightTracingTasks leaves it
-	// open for the shadow response — but the shadow resend bypasses this unit
-	// and never calls endIssueSubtask. Emit the coalesce work milestone and end
-	// its subtask here, so the issue work is still attributed (and the subtask
-	// does not leak) rather than folding into the post-flush data wait.
-	for instID, id := range u.issueTaskIDs {
-		tracing.AddMilestone(u.cu.comp, tracing.Milestone{
-			TaskID: instID,
-			Kind:   tracing.MilestoneKindWork,
-			What:   u.cu.comp.Name() + ".coalesce",
-		})
-		tracing.EndTaskOnReset(u.cu.comp, id)
-	}
-	u.issueTaskIDs = make(map[uint64]uint64)
-
-	u.instructionPipeline.Clear()
-	u.transactionPipeline.Clear()
-	u.postInstructionPipelineBuffer.Clear()
-	u.postTransactionPipelineBuffer.Clear()
-	u.transactionsWaiting = nil
-	u.numInstInFlight = 0
-	u.numTransactionInFlight = 0
-	u.coalescingStallRemaining = 0
-}
+func (u *VectorMemoryUnit) state() *VectorUnitState { return &u.cu.comp.State.VectorUnit }

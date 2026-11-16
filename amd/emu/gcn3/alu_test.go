@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"go.uber.org/mock/gomock"
 )
 
 type mockInstState struct {
@@ -161,10 +160,8 @@ func (s *mockInstState) PC() uint64       { return s.pc }
 func (s *mockInstState) SetPC(v uint64)   { s.pc = v }
 
 var _ = Describe("ALU", func() {
-
 	var (
-		mockCtrl  *gomock.Controller
-		pageTable *MockPageTable
+		pageTable *vm.PageTable
 
 		alu           *ALU
 		state         *mockInstState
@@ -174,8 +171,8 @@ var _ = Describe("ALU", func() {
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		pageTable = NewMockPageTable(mockCtrl)
+		pageTable = vm.NewPageTable(12)
+		pageTable.Insert(vm.Page{PID: 1, VAddr: 0, PAddr: 0, PageSize: 4096, Valid: true})
 
 		storage = mem.NewStorage(1 * mem.GB)
 		addrConverter = &mem.InterleavingConverter{
@@ -190,16 +187,7 @@ var _ = Describe("ALU", func() {
 		state = newMockInstState()
 	})
 
-	AfterEach(func() {
-		mockCtrl.Finish()
-	})
-
 	It("should run S_LOAD_DWORD", func() {
-		pageTable.EXPECT().
-			Find(vm.PID(1), uint64(1040)).
-			Return(vm.Page{
-				PAddr: uint64(0),
-			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 0
@@ -218,11 +206,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX2", func() {
-		pageTable.EXPECT().
-			Find(vm.PID(1), uint64(1040)).
-			Return(vm.Page{
-				PAddr: uint64(0),
-			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 1
@@ -244,11 +227,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX4", func() {
-		pageTable.EXPECT().
-			Find(vm.PID(1), uint64(1040)).
-			Return(vm.Page{
-				PAddr: uint64(0),
-			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 2
@@ -273,11 +251,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX8", func() {
-		pageTable.EXPECT().
-			Find(vm.PID(1), uint64(1040)).
-			Return(vm.Page{
-				PAddr: uint64(0),
-			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 3
@@ -300,11 +273,6 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX16", func() {
-		pageTable.EXPECT().
-			Find(vm.PID(1), uint64(1040)).
-			Return(vm.Page{
-				PAddr: uint64(0),
-			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 4
@@ -491,5 +459,4 @@ var _ = Describe("ALU", func() {
 
 		Expect(state.PC()).To(Equal(uint64(160 + 16*4)))
 	})
-
 })

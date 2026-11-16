@@ -379,14 +379,17 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
-	// Extract 13-bit signed offset from bits [12:0] of the first dword.
-	// In CDNA3 (GFX9+), FLAT/GLOBAL instructions support a signed 13-bit
-	// immediate offset added to the address. For example:
-	//   global_load_dword v11, v[64:65], off offset:4
-	// encodes offset=4 in bits [12:0].
+	if d.IsCDNA3 {
+		inst.Segment = extractBits(bytesLo, 14, 15)
+	}
+	// CDNA3 SEG=0 is FLAT, SEG=1 is SCRATCH, and SEG=2 is GLOBAL.
+	// AMD MI300 ISA section 10.1: FLAT has a 12-bit unsigned offset and
+	// ignores SADDR. GLOBAL/SCRATCH have a 13-bit signed offset.
+	flatSegment := d.IsCDNA3 && inst.Segment == 0
 	rawOffset := extractBits(bytesLo, 0, 12)
-	// Sign-extend the 13-bit value
-	if rawOffset&(1<<12) != 0 {
+	if flatSegment {
+		inst.Offset0 = rawOffset & 0xfff
+	} else if rawOffset&(1<<12) != 0 {
 		inst.Offset0 = rawOffset | 0xFFFFE000 // sign extend to 32-bit
 	} else {
 		inst.Offset0 = rawOffset
@@ -408,24 +411,23 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	// Decode SADDR (bits 16:22 of second dword)
 	// 0x7F = OFF (flat/global addressing with VGPR pair), otherwise scalar GPR pair
 	saddrBits := int(extractBits(bytesHi, 16, 22))
+	if flatSegment {
+		// Normalize the unused field to OFF for both the timing coalescer
+		// and the functional ALU. In particular, legacy FLAT encodes zero
+		// here; interpreting that as s[0:1] corrupts device-copy addresses.
+		saddrBits = 0x7f
+	}
 	inst.SAddr = NewIntOperand(0, int64(saddrBits))
 
 	// SAddr handling is architecture-dependent:
-	// - CDNA3 (GFX9+): SAddr=0x7F means OFF mode, any other value (including 0
+	// - CDNA3 GLOBAL: SAddr=0x7F means OFF mode, any other value (including 0
 	//   for s[0:1]) is a valid scalar base register.
 	// - GCN3: SAddr=0x7F or SAddr=0 means OFF mode (VGPR pair as 64-bit address).
-	if d.IsCDNA3 {
-		if saddrBits != 0x7F {
-			inst.Addr = NewVRegOperand(bits, bits, 1)
-		} else {
-			inst.Addr = NewVRegOperand(bits, bits, 2)
-		}
+	// SCRATCH still follows the legacy path; its addressing is not implemented.
+	if saddrBits != 0x7f && (d.IsCDNA3 || saddrBits != 0) {
+		inst.Addr = NewVRegOperand(bits, bits, 1)
 	} else {
-		if saddrBits != 0x7F && saddrBits != 0 {
-			inst.Addr = NewVRegOperand(bits, bits, 1)
-		} else {
-			inst.Addr = NewVRegOperand(bits, bits, 2)
-		}
+		inst.Addr = NewVRegOperand(bits, bits, 2)
 	}
 
 	bits = int(extractBits(bytesHi, 24, 31))

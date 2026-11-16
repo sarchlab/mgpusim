@@ -7,15 +7,19 @@ import (
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/modeling"
-	"github.com/sarchlab/akita/v5/noc/directconnection"
-	"github.com/sarchlab/akita/v5/simulation"
-	"github.com/sarchlab/akita/v5/timing"
+	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
+	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
 // Port buffer sizes. The driver port mirrors the emulation platform's
@@ -29,7 +33,9 @@ const (
 
 // Builder builds a hardware platform for timing simulation.
 type Builder struct {
+	sampler    *sampling.SampledEngine
 	simulation *simulation.Simulation
+	monitor    *monitoring2.Monitor
 
 	numGPUs            int
 	numCUPerSA         int
@@ -42,9 +48,11 @@ type Builder struct {
 	switchLatency      int // PCIe/interconnect switch latency in cycles
 	d2hCycles          int
 	h2dCycles          int
+	pageMigration      driver.PageMigrationSpec
+	allocator          gpuruntime.AllocatorType
 
 	globalStorage     *mem.Storage
-	rdmaAddressMapper *mem.BankedAddressPortMapper
+	rdmaAddressMapper mem.AddressMapper
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -61,8 +69,12 @@ func MakeBuilder() Builder {
 		switchLatency:      140, // default PCIe Gen4
 		d2hCycles:          300,
 		h2dCycles:          500,
+		pageMigration:      driver.DefaultPageMigrationSpec(),
 	}
 }
+
+// WithMonitor sets the optional dispatch progress monitor.
+func (b Builder) WithMonitor(m *monitoring2.Monitor) Builder { b.monitor = m; return b }
 
 // WithSimulation sets the simulation to use.
 func (b Builder) WithSimulation(sim *simulation.Simulation) Builder {
@@ -82,31 +94,92 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 	return b
 }
 
+// WithPageMigration sets the policy and the tuning parameters of page
+// migration between the GPUs. The default is
+// driver.DefaultPageMigrationSpec: pages migrate on faults
+// (sarchlab/akita#589). Access-counter migration (sarchlab/akita#590) and no
+// migration are other policies of the same specification.
+func (b Builder) WithPageMigration(spec driver.PageMigrationSpec) Builder {
+	b.pageMigration = spec
+	return b
+}
+
+// WithAllocator selects the physical-memory allocator of the devices. The
+// default is the free list; gpuruntime.AllocatorBuddy reuses freed frames
+// first.
+func (b Builder) WithAllocator(allocator gpuruntime.AllocatorType) Builder {
+	b.allocator = allocator
+	return b
+}
+
 // WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
 	return b
 }
 
-// Build builds the hardware platform and returns the driver. The driver, the
+// Build registers the hardware platform and returns its Runtime. The Driver,
 // GPUs, and all the connections register themselves with the simulation.
-func (b Builder) Build() *driver.Driver {
+func (b Builder) Build() *gpuruntime.Runtime {
 	b.adjustConfigForGPUType()
+	b.sampler = sampling.NewSimulationEngine(
+		b.simulation,
+		*sampling.SampledRunnerGranularyFlag,
+		*sampling.SampledRunnerThresholdFlag,
+		*sampling.SampledRunnerFlag,
+	)
 	b.cpuGPUMemSizeMustEqual()
 
-	b.globalStorage = mem.NewStorage(
-		uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize)
+	b.globalStorage = mem.MakeStorageBuilder().
+		WithSimulation(b.simulation).
+		WithCapacity(uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize).
+		Build("GlobalStorage")
 
 	mmuComp, pageTable := b.createMMU()
-	gpuDriver := b.buildGPUDriver(pageTable)
-
-	gpuBuilder := b.createGPUBuilder(mmuComp, gpuDriver)
-	interDeviceConn := b.createConnection(gpuDriver, mmuComp)
-
-	b.createGPUs(interDeviceConn, gpuBuilder, gpuDriver)
-
-	return gpuDriver
+	gpuBuilder := b.createGPUBuilder(mmuComp)
+	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
+	interDeviceConn.BindPort(mmuComp.Ports.Top)
+	for _, p := range mmuComp.Ports.Notification {
+		interDeviceConn.BindPort(p)
+	}
+	spec := driver.DefaultSpec()
+	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
+	runtimeSpec.Log2PageSize = b.log2PageSize
+	runtimeSpec.Allocator = b.allocator
+	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
+	spec.D2HCycles = b.d2hCycles
+	spec.H2DCycles = b.h2dCycles
+	spec.PageMigration = b.pageMigration
+	for i := 1; i <= b.numGPUs; i++ {
+		gpu := b.createGPU(i, gpuBuilder, interDeviceConn)
+		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
+		spec.MigrationAgents = append(spec.MigrationAgents,
+			gpu.PageMigrationPort.AsRemote())
+		runtimeSpec.Devices = append(
+			runtimeSpec.Devices,
+			gpuruntime.DeviceProperties{CUCount: b.numCUPerSA * b.numSAPerGPU, DRAMSize: b.gpuMemSize},
+		)
+	}
+	runtime := gpuruntime.NewRuntime(b.simulation, "Runtime", runtimeSpec, pageTable, b.globalStorage)
+	comp := driver.MakeBuilder().WithSimulation(b.simulation).WithSpec(spec).
+		WithResources(driver.Resources{
+			Runtime:       runtime,
+			PageTable:     pageTable,
+			GlobalStorage: b.globalStorage,
+		}).Build("Driver")
+	port := b.buildPort(comp, driver.GPUPortName, driverGPUPortBufSize)
+	interDeviceConn.BindPort(port)
+	interDeviceConn.BindPort(
+		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
+	interDeviceConn.BindPort(
+		b.buildPort(comp, driver.MigrationNotificationPortName, driverGPUPortBufSize))
+	return runtime
 }
+
+// migrationNotificationPort is where the MMU reports the faults and the RDMA
+// engines the access counters.
+const migrationNotificationPort = messaging.RemotePort(
+	"Driver." + driver.MigrationNotificationPortName)
 
 func (b *Builder) cpuGPUMemSizeMustEqual() {
 	if b.cpuMemSize != b.gpuMemSize {
@@ -140,143 +213,132 @@ func (b *Builder) adjustConfigForGPUType() {
 	}
 }
 
-func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
-	pageTable := vm.NewPageTable(b.log2PageSize)
+func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
+	pageTable := vm.MakePageTableBuilder().
+		WithSimulation(b.simulation).
+		WithLog2PageSize(b.log2PageSize).
+		Build("PageTable")
 
 	spec := mmu.DefaultSpec()
 	spec.Freq = 1 * timing.GHz
 	spec.Latency = 100 // v4: page walking latency
 	spec.Log2PageSize = b.log2PageSize
 
-	mmuComponent := mmu.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(spec).
+	// With page migration on fault, a walk of a unified page on another GPU
+	// faults and is reported to the driver from the MMU's Notification[0]
+	// port.
+	faults := b.pageMigration.Policy == driver.PageMigrationFault
+	if faults {
+		spec.FaultHandler = migrationNotificationPort
+	}
+
+	mmuComponent := modeling.MakeBuilder[*mmu.Comp](spec).WithSimulation(b.simulation).
 		WithResources(mmu.Resources{PageTable: pageTable}).
 		Build("MMU")
 
 	b.buildPort(mmuComponent, "Top", mmuTopPortBufSize)
 	b.buildPort(mmuComponent, "Control", ctrlPortBufSize)
 
+	if faults {
+		b.buildPort(mmuComponent, "Notification[0]", mmuTopPortBufSize)
+	}
+
 	return mmuComponent, pageTable
-}
-
-func (b *Builder) buildGPUDriver(
-	pageTable vm.PageTable,
-) *driver.Driver {
-	spec := driver.DefaultSpec()
-	spec.Log2PageSize = b.log2PageSize
-	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
-	spec.D2HCycles = b.d2hCycles
-	spec.H2DCycles = b.h2dCycles
-
-	gpuDriver := driver.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(spec).
-		WithResources(driver.Resources{
-			PageTable:     pageTable,
-			GlobalStorage: b.globalStorage,
-		}).
-		Build("Driver")
-
-	gpuPort := modeling.MakePortBuilder().
-		WithRegistrar(b.simulation).
-		WithComponent(gpuDriver.Comp).
-		WithSpec(modeling.PortSpec{BufSize: driverGPUPortBufSize}).
-		Build(driver.GPUPortName)
-	gpuDriver.AssignPort(driver.GPUPortName, gpuPort)
-
-	return gpuDriver
 }
 
 // buildPort creates a port instance for a declared port and assigns it to
 // the component.
 func (b *Builder) buildPort(
-	comp messaging.Component,
+	comp interface{ BindPort(string, messaging.Port) },
 	name string,
 	bufSize int,
 ) messaging.Port {
-	port := modeling.MakePortBuilder().
-		WithRegistrar(b.simulation).
-		WithComponent(comp).
-		WithSpec(modeling.PortSpec{BufSize: bufSize}).
-		Build(name)
-	comp.AssignPort(name, port)
+	port := twowaybuffered.MakeBuilder().
+		WithSimulation(b.simulation).
+		WithSpec(twowaybuffered.Spec{IncomingCapacity: bufSize, OutgoingCapacity: bufSize}).
+		Build()
+	comp.BindPort(name, port)
 
 	return port
 }
 
 func (b *Builder) createGPUBuilder(
 	mmuComponent *mmu.Comp,
-	gpuDriver *driver.Driver,
 ) gpubuilder.GPUBuilder {
 	b.createRDMAAddressMapper()
 
-	driverPort := gpuDriver.GetPortByName(driver.GPUPortName).AsRemote()
+	driverPort := messaging.RemotePort("Driver.GPU")
+
+	var gpuBuilder gpubuilder.GPUBuilder
 
 	switch b.gpuType {
 	case "mi300x":
-		return mi300x.MakeBuilder().
+		gpuBuilder = mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort)
 	default:
-		return r9nano.MakeBuilder().
+		gpuBuilder = r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage).
 			WithDriverPort(driverPort)
 	}
+
+	return gpuBuilder.WithPageMigration(b.gpuPageMigrationConfig())
 }
 
-func (b *Builder) createGPUs(
-	interDeviceConn *directconnection.Comp,
-	gpuBuilder gpubuilder.GPUBuilder,
-	gpuDriver *driver.Driver,
-) {
-	for i := 1; i < b.numGPUs+1; i++ {
-		b.createGPU(i, gpuBuilder, gpuDriver, interDeviceConn)
+// gpuPageMigrationConfig derives what each GPU needs from the
+// page-migration specification of the system.
+func (b *Builder) gpuPageMigrationConfig() gpubuilder.PageMigrationConfig {
+	cfg := gpubuilder.PageMigrationConfig{
+		DataMoverPages: b.pageMigration.DataMoverPages,
+		PeerMemory:     b.createPeerMemoryMapper(),
 	}
+
+	// With access-counter migration, the RDMA engines count the remote
+	// accesses per physical page frame and notify the driver.
+	if b.pageMigration.Policy == driver.PageMigrationCounter {
+		cfg.AccessCounterHandler = migrationNotificationPort
+		cfg.AccessCounterThreshold = b.pageMigration.AccessCounterThreshold
+	}
+
+	return cfg
 }
 
-// createConnection creates the inter-device connection that links the
-// driver, the MMU, and the GPUs' external ports.
-//
-// NOTE(akita5): v4 used the PCIe network here. The Akita v5.0.0-beta.2
-// switching network (pcie included) is traffic-only — endpoints deliver
-// metadata-only packetization.AssembledMsg values instead of the original
-// messages — so it cannot carry MGPUSim's protocol messages. Until upstream
-// provides payload delivery, the platform uses a direct connection, which
-// delivers real messages but does not model PCIe/switch latency.
-func (b *Builder) createConnection(
-	gpuDriver *driver.Driver,
-	mmuComponent *mmu.Comp,
-) *directconnection.Comp {
-	conn := directconnection.MakeBuilder().
-		WithRegistrar(b.simulation).
-		WithSpec(directconnection.Spec{Freq: 1 * timing.GHz}).
-		Build("InterDeviceConn")
+// createPeerMemoryMapper maps a physical address to the port where the data
+// movers of the other GPUs reach the memory below the L2 caches of the GPU
+// that owns the address.
+func (b *Builder) createPeerMemoryMapper() mem.AddressMapper {
+	mapper := mem.AddressMapper{InterleavingSize: b.gpuMemSize}
+	mapper.Destinations = append(mapper.Destinations, messaging.RemotePort("CPU"))
 
-	conn.PlugIn(gpuDriver.GetPortByName(driver.GPUPortName))
-	conn.PlugIn(mmuComponent.GetPortByName("Top"))
+	for i := 1; i <= b.numGPUs; i++ {
+		mapper.Destinations = append(mapper.Destinations,
+			messaging.RemotePort(fmt.Sprintf("GPU[%d].RDMA.MigrationOutside", i)))
+	}
 
-	return conn
+	return mapper
 }
 
 func (b *Builder) createRDMAAddressMapper() {
-	b.rdmaAddressMapper = new(mem.BankedAddressPortMapper)
-	b.rdmaAddressMapper.BankSize = b.gpuMemSize
-	b.rdmaAddressMapper.LowModules = append(b.rdmaAddressMapper.LowModules,
+	b.rdmaAddressMapper = mem.AddressMapper{}
+	b.rdmaAddressMapper.InterleavingSize = b.gpuMemSize
+	b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
 		messaging.RemotePort("CPU"))
+	for i := 1; i <= b.numGPUs; i++ {
+		b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
+			messaging.RemotePort(fmt.Sprintf("GPU[%d].RDMA.RDMADataOutside", i)))
+	}
 }
 
 func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
-	gpuDriver *driver.Driver,
-	interDeviceConn *directconnection.Comp,
+	interDeviceConn *directconnection.Connection,
 ) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * b.gpuMemSize
@@ -286,27 +348,9 @@ func (b *Builder) createGPU(
 		WithRDMAAddressMapper(b.rdmaAddressMapper).
 		Build(name)
 
-	gpuDriver.RegisterGPU(
-		gpu.CommandProcessorPort.AsRemote(),
-		driver.DeviceProperties{
-			CUCount:  b.numCUPerSA * b.numSAPerGPU,
-			DRAMSize: b.gpuMemSize,
-		},
-	)
-
-	b.configRDMAEngine(gpu)
-
 	for _, port := range gpu.ExternalPorts() {
-		interDeviceConn.PlugIn(port)
+		interDeviceConn.BindPort(port)
 	}
 
 	return gpu
-}
-
-func (b *Builder) configRDMAEngine(
-	gpu *gpubuilder.GPU,
-) {
-	b.rdmaAddressMapper.LowModules = append(
-		b.rdmaAddressMapper.LowModules,
-		gpu.RDMADataPort.AsRemote())
 }

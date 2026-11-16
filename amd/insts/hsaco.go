@@ -58,14 +58,14 @@ type KernelCodeObjectMeta struct {
 	EnableSgprGridWorkgroupCountZ  bool
 
 	// V2/V3 specific fields (kept for compatibility)
-	CodeVersionMajor         uint32
-	CodeVersionMinor         uint32
-	MachineKind              uint16
-	MachineVersionMajor      uint16
-	MachineVersionMinor      uint16
-	MachineVersionStepping   uint16
-	WFSgprCount              uint16
-	WIVgprCount              uint16
+	CodeVersionMajor       uint32
+	CodeVersionMinor       uint32
+	MachineKind            uint16
+	MachineVersionMajor    uint16
+	MachineVersionMinor    uint16
+	MachineVersionStepping uint16
+	WFSgprCount            uint16
+	WIVgprCount            uint16
 }
 
 // newKernelCodeObjectFromEntireTextSection creates a KernelCodeObject from raw kernel data.

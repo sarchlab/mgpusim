@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/fp64throughput"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var numBlocks = flag.Int("num-blocks", 4,
@@ -17,15 +18,26 @@ var threadsPerBlock = flag.Int("threads-per-block", 256,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := fp64throughput.NewBenchmark(runner.Driver())
+	benchmark := fp64throughput.NewBenchmark(runtime)
 	benchmark.NumBlocks = *numBlocks
 	benchmark.FmasPerThread = *fmasPerThread
 	benchmark.ThreadsPerBlock = *threadsPerBlock
-	benchmark.Arch = runner.ArchType
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

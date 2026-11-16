@@ -35,7 +35,7 @@ fi
 
 # Run MGPUSim disassembler
 echo "Disassembling $HSACO..."
-"$DISASSEMBLER" "$HSACO" > "$MGPUSIM_DISASM"
+"$DISASSEMBLER" -arch=cdna3 "$HSACO" > "$MGPUSIM_DISASM"
 
 # Compare outputs
 echo ""

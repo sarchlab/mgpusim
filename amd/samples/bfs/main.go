@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/shoc/bfs"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var path = flag.String("load-graph", "", "Path to file from which graph to be loaded. "+
@@ -20,10 +21,12 @@ var maxDepth = flag.Int("depth", 0, "The max depth to search, 0 means unlimited"
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := bfs.NewBenchmark(runner.Driver())
-	benchmark.Arch = runner.ArchType
+	benchmark := bfs.NewBenchmark(runtime)
+	benchmark.Arch = config.ArchType
 	benchmark.Path = *path
 	benchmark.NumNode = *numNode
 	benchmark.Degree = *degree
@@ -36,9 +39,18 @@ func main() {
 		log.Panic("cannot specify number or degree of nodes for manually provided graph")
 	}
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }
 
 func isFlagPassed(name string) bool {

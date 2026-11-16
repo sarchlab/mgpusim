@@ -1,14 +1,13 @@
 package matrixmultiplication
 
 import (
-	"log"
-
 	// embed hsaco files
 	_ "embed"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
-	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // A MatrixMultiplier is a service type that can calculate the result of matrix
@@ -17,43 +16,13 @@ type MatrixMultiplier interface {
 	Multiply(mA, mB *Matrix) *Matrix
 }
 
-// A GPUMatrixMultiplier is a MatrixMultiplier that runs the
-// MatrixMultiplication on GCN3 simulator.
-type GPUMatrixMultiplier struct {
-	driver           *driver.Driver
-	context          *driver.Context
-	gpus             []int
-	kernel           *insts.KernelCodeObject
-	Arch             arch.Type
-	useUnifiedMemory bool
-	blockABuf        driver.Ptr
-}
-
-// NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
-// dependency of driver and the GPU context.
-func NewGPUMatrixMultiplier(
-	gpuDriver *driver.Driver,
-	context *driver.Context,
-) *GPUMatrixMultiplier {
-	m := &GPUMatrixMultiplier{
-		driver:  gpuDriver,
-		context: context,
-	}
-	return m
-}
-
-// SelectGPU selects GPU
-func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
-	m.gpus = gpus
-}
-
 // KernelArgs defines kernel arguments for GCN3
 type KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
-	BlockA              driver.LocalPtr
+	BlockA              gpuruntime.LocalPtr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -61,12 +30,12 @@ type KernelArgs struct {
 
 // CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (GFX942)
 type CDNA3KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
 	Padding1            uint32
-	BlockA              driver.Ptr
+	BlockA              gpuruntime.Ptr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -93,11 +62,11 @@ type CDNA3KernelArgs struct {
 // the compiled kernel expects (matrixA@0, widthA@24, blockA@28, block
 // counts@32, group sizes@44, remainders@50, global offsets@72, grid dims@96).
 type COV5KernelArgs struct {
-	MatrixA             driver.Ptr
-	MatrixB             driver.Ptr
-	MatrixC             driver.Ptr
+	MatrixA             gpuruntime.Ptr
+	MatrixB             gpuruntime.Ptr
+	MatrixC             gpuruntime.Ptr
 	WidthA              uint32
-	BlockA              driver.LocalPtr
+	BlockA              gpuruntime.LocalPtr
 	HiddenBlockCountX   uint32
 	HiddenBlockCountY   uint32
 	HiddenBlockCountZ   uint32
@@ -114,36 +83,21 @@ type COV5KernelArgs struct {
 	HiddenGridDims      uint16
 }
 
-// Multiply multiplies two matrice
-func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
-	mC := new(Matrix)
-	mC.Width = mB.Width
-	mC.Height = mA.Height
-	mC.Data = make([]float32, mC.Width*mC.Height)
-
-	m.loadKernel()
-	gA, gB, gC := m.initMemory(mA, mB, mC)
-	m.launchKernel(gA, gB, gC, mA, mC)
-	m.copyDataBackFromGPU(mC, gC)
-
-	return mC
-}
-
-func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
-	gA, gB, gC driver.Ptr,
+func (m *Benchmark) launchKernel( //nolint:funlen
+	gA, gB, gC gpuruntime.Ptr,
 	mA *Matrix,
 	mC *Matrix,
 ) {
-	queues := make([]*driver.CommandQueue, len(m.gpus))
+	queues := make([]gpuruntime.CommandQueue, len(m.Gpus))
 
-	for i, gpu := range m.gpus {
-		m.driver.SelectGPU(m.context, gpu)
-		q := m.driver.CreateCommandQueue(m.context)
+	for i, gpu := range m.Gpus {
+		m.rt.SelectGPU(m.Context, gpu)
+		q := m.rt.CreateCommandQueue(m.Context)
 
 		queues[i] = q
 
 		width := int(mC.Width) / 4
-		height := int(mC.Height) / 4 / len(m.gpus)
+		height := int(mC.Height) / 4 / len(m.Gpus)
 
 		globalSizeX := uint32(width)
 		globalSizeY := uint32(height)
@@ -151,8 +105,8 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 		localSizeY := uint16(8)
 
 		if m.Arch == arch.CDNA3 {
-			if m.blockABuf == 0 {
-				m.blockABuf = m.driver.AllocateMemory(m.context,
+			if m.BlockABuf == 0 {
+				m.BlockABuf = m.rt.AllocateMemory(m.Context,
 					uint64(32*32*4))
 			}
 			kernArgs := &CDNA3KernelArgs{
@@ -160,7 +114,7 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 				MatrixB:             gB,
 				MatrixC:             gC,
 				WidthA:              mA.Width,
-				BlockA:              m.blockABuf,
+				BlockA:              m.BlockABuf,
 				HiddenBlockCountX:   globalSizeX / uint32(localSizeX),
 				HiddenBlockCountY:   globalSizeY / uint32(localSizeY),
 				HiddenBlockCountZ:   1,
@@ -175,7 +129,7 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      2,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -203,7 +157,7 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 				HiddenGlobalOffsetZ: 0,
 				HiddenGridDims:      2,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -217,7 +171,7 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 				32 * 32 * 4,
 				0, int64(height * i), 0,
 			}
-			m.driver.EnqueueLaunchKernel(
+			m.rt.EnqueueLaunchKernel(
 				q,
 				m.kernel,
 				[3]uint32{globalSizeX, globalSizeY, 1},
@@ -226,43 +180,32 @@ func (m *GPUMatrixMultiplier) launchKernel( //nolint:funlen
 			)
 		}
 	}
-
-	for _, q := range queues {
-		m.driver.DrainCommandQueue(q)
-	}
 }
 
-func (m *GPUMatrixMultiplier) initMemory(
+func (m *Benchmark) initMemory(
 	mA, mB, mC *Matrix,
-) (driver.Ptr, driver.Ptr, driver.Ptr) {
-	if m.useUnifiedMemory {
-		gA := m.driver.AllocateUnifiedMemory(m.context, uint64(mA.Width*mA.Height*4))
-		gB := m.driver.AllocateUnifiedMemory(m.context, uint64(mB.Width*mB.Height*4))
-		gC := m.driver.AllocateUnifiedMemory(m.context, uint64(mC.Width*mC.Height*4))
-		m.driver.MemCopyH2D(m.context, gA, mA.Data)
-		m.driver.MemCopyH2D(m.context, gB, mB.Data)
+) (gpuruntime.Ptr, gpuruntime.Ptr, gpuruntime.Ptr) {
+	if m.UseUnifiedMemory {
+		gA := m.rt.AllocateUnifiedMemory(m.Context, uint64(mA.Width*mA.Height*4))
+		gB := m.rt.AllocateUnifiedMemory(m.Context, uint64(mB.Width*mB.Height*4))
+		gC := m.rt.AllocateUnifiedMemory(m.Context, uint64(mC.Width*mC.Height*4))
+		m.Upload(m.rt, m.Queue, gA, mA.Data)
+		m.Upload(m.rt, m.Queue, gB, mB.Data)
 
 		return gA, gB, gC
 	}
-	gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
-	m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
+	gA := m.rt.AllocateMemory(m.Context, uint64(mA.Width*mA.Height*4))
+	m.rt.Distribute(m.Context, gA, uint64(mA.Width*mA.Height*4), m.Gpus)
 
-	gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
-	m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
+	gB := m.rt.AllocateMemory(m.Context, uint64(mB.Width*mB.Height*4))
+	m.rt.Distribute(m.Context, gB, uint64(mB.Width*mB.Height*4), m.Gpus)
 
-	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
-	m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
-	m.driver.MemCopyH2D(m.context, gA, mA.Data)
-	m.driver.MemCopyH2D(m.context, gB, mB.Data)
+	gC := m.rt.AllocateMemory(m.Context, uint64(mC.Width*mC.Height*4))
+	m.rt.Distribute(m.Context, gC, uint64(mC.Width*mC.Height*4), m.Gpus)
+	m.Upload(m.rt, m.Queue, gA, mA.Data)
+	m.Upload(m.rt, m.Queue, gB, mB.Data)
 
 	return gA, gB, gC
-}
-
-func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
-	matrix *Matrix,
-	gm driver.Ptr,
-) {
-	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }
 
 //go:embed kernels.hsaco
@@ -271,7 +214,7 @@ var hsacoBytes []byte
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-func (m *GPUMatrixMultiplier) loadKernel() {
+func (m *Benchmark) loadKernel() {
 	var kernelBytes []byte
 	if m.Arch == arch.CDNA3 {
 		kernelBytes = cdna3HSACOBytes

@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/amdappsdk/floydwarshall"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
 var numNodes = flag.Int("node", 16, "The number of nodes in the graph")
@@ -15,14 +16,25 @@ var numIterations = flag.Int("iter", 0,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).Init()
+	config := sample.ParseConfig()
+	simulation, runtime, finish := config.Build()
+	runner := runner.New(simulation, runtime)
 
-	benchmark := floydwarshall.NewBenchmark(runner.Driver())
+	benchmark := floydwarshall.NewBenchmark(runtime)
 	benchmark.NumNodes = uint32(*numNodes)
 	benchmark.NumIterations = uint32(*numIterations)
-	benchmark.Arch = runner.ArchType
+	benchmark.Arch = config.ArchType
 
+	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)
 
-	runner.Run()
+	if err := simulation.Initialize(); err != nil {
+		panic(err)
+	}
+	if err := runner.Run(); err != nil {
+		panic(err)
+	}
+	if err := finish(); err != nil {
+		panic(err)
+	}
 }

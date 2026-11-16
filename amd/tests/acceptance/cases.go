@@ -385,54 +385,34 @@ var benchmarks = []benchmark{
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
 		},
 	},
-	// {
-	// 	benchmarkPath:  "../../benchmarks/amdappsdk/bitonicsort",
-	// 	executablePath: "../../samples/bitonicsort",
-	// 	executable:     "bitonicsort",
-	// 	sizeArgs:       []string{"-length=4096"},
-	// 	cases: []benchmarkCase{
-	// 		{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: false},
-	// 		{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: false, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: false, parallel: true, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: false, unifiedGPU: true, unifiedMemory: true},
-	// 		{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
-	// 	},
-	// },
+	{
+		benchmarkPath:  "../../benchmarks/amdappsdk/bitonicsort",
+		executablePath: "../../samples/bitonicsort",
+		executable:     "bitonicsort",
+		sizeArgs:       []string{"-length=4096"},
+		// Keep multi-GPU cases disabled until the Akita dependency includes the
+		// routing fix; see https://github.com/sarchlab/mgpusim/issues/150.
+		cases: []benchmarkCase{
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: true},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: true},
+			{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: true},
+			{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: true},
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+			{
+				gpus: []int{1}, timing: true, parallel: true,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+		},
+	},
 	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/simpleconvolution",
 		executablePath: "../../samples/simpleconvolution",
@@ -833,6 +813,20 @@ var benchmarks = []benchmark{
 	// CDNA3/MI300X (gfx942) architecture tests
 	// Multi-GPU support via unified GPU mode (automatic workgroup distribution)
 	{
+		benchmarkPath:  "../../benchmarks/dnn/layer_benchmarks/conv2d",
+		executablePath: "../../samples/conv2d",
+		executable:     "conv2d",
+		// Reshape copies use the runtime's legacy FLAT kernel. This small case
+		// faults on MI300X if FLAT SADDR=0 is decoded as a scalar base.
+		sizeArgs: []string{"-N=1", "-C=16", "-H=8", "-W=8", "-output-channel=32"},
+		cases: []benchmarkCase{
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				arch: "cdna3", gpuType: "mi300x",
+			},
+		},
+	},
+	{
 		benchmarkPath:  "../../benchmarks/amdappsdk/vectoradd",
 		executablePath: "../../samples/vectoradd",
 		executable:     "vectoradd",
@@ -906,11 +900,52 @@ var benchmarks = []benchmark{
 		benchmarkPath:  "../../benchmarks/rodinia/nw",
 		executablePath: "../../samples/nw",
 		executable:     "nw",
-		sizeArgs:       []string{"-length=64"},
+		// length=256 is the smallest size that exposes a wrong kernel2 launch
+		// order (#312); smaller sizes verify even when the order is wrong.
+		sizeArgs: []string{"-length=256"},
 		cases: []benchmarkCase{
+			// GCN3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
 			// CDNA3 Emulation tests
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/rodinia/nw",
+		executablePath: "../../samples/nw",
+		executable:     "nw",
+		// length=128 in CDNA3 timing mode crashes with an LDS out-of-bounds
+		// access if s_waitcnt is released before every coalesced response has
+		// returned (#311). length=64 does not trigger it.
+		sizeArgs: []string{"-length=128"},
+		cases: []benchmarkCase{
+			// MI300X timing tests
+			{
+				gpus: []int{1}, timing: true, parallel: false,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+			{
+				gpus: []int{1}, timing: true, parallel: true,
+				unifiedGPU: false, unifiedMemory: false, arch: "cdna3", gpuType: "mi300x",
+			},
+		},
+	},
+	{
+		benchmarkPath:  "../../benchmarks/amdappsdk/nbody",
+		executablePath: "../../samples/nbody",
+		executable:     "nbody",
+		// The default run (1024 particles, 8 iterations) stays within the
+		// verification tolerance even when the CPU reference is wrong (#312);
+		// 32 iterations exposes it. Emulation only: nbody timing is already the
+		// slowest GCN3 timing shard.
+		sizeArgs: []string{"-iter=32"},
+		cases: []benchmarkCase{
+			// GCN3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+			// CDNA3 Emulation tests
+			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false, arch: "cdna3"},
 		},
 	},
 }

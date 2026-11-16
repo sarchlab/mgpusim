@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/akita/v5/tracing"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
-	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
-	"github.com/tebeka/atexit"
 )
 
 // ISADebugger is a tracer that logs the wavefront state after each
@@ -19,35 +17,29 @@ type ISADebugger struct {
 	Logger *log.Logger
 
 	isFirstEntry  bool
+	closed        bool
+	writeErr      error
 	cu            *ComputeUnit
-	executingInst map[uint64]tracing.TaskStart
+	executingInst map[uint64]tasks.Task
 }
 
 // NewISADebugger returns a new ISADebugger that keeps instruction log in
-// logger
+// logger. Close the debugger after execution, before closing the logger output.
 func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
 	h := new(ISADebugger)
 	h.Logger = logger
 	h.isFirstEntry = true
 	h.cu = cu
-	h.executingInst = make(map[uint64]tracing.TaskStart)
+	h.executingInst = make(map[uint64]tasks.Task)
 
-	h.Logger.Print("[")
-	atexit.Register(func() { h.Logger.Print("\n]") })
+	h.write("[")
 
 	return h
 }
 
 // StartTask marks the start of an instruction.
-func (h *ISADebugger) StartTask(task tracing.TaskStart) {
-	if task.Kind != "inst" {
-		return
-	}
-
-	// For debugging
-	detail := task.Detail.(map[string]interface{})
-	wf := detail["wf"].(*wavefront.Wavefront)
-	if wf.FirstWiFlatID != 0 {
+func (h *ISADebugger) TaskStarted(task tasks.Task) {
+	if h.closed || task.Kind != "inst" {
 		return
 	}
 
@@ -55,17 +47,17 @@ func (h *ISADebugger) StartTask(task tracing.TaskStart) {
 }
 
 // AddTaskTag does nothing as of now.
-func (h *ISADebugger) AddTaskTag(tag tracing.TaskTag) {
+func (h *ISADebugger) TagAdded(tag tasks.Tag) {
 	// Do nothing.
 }
 
 // AddMilestone does nothing as of now.
-func (h *ISADebugger) AddMilestone(milestone tracing.Milestone) {
+func (h *ISADebugger) MilestoneAdded(milestone tasks.Milestone) {
 	// Do nothing.
 }
 
 // EndTask marks the end of an instruction.
-func (h *ISADebugger) EndTask(task tracing.TaskEnd) {
+func (h *ISADebugger) TaskEnded(task tasks.Task) {
 	originalTask, found := h.executingInst[task.ID]
 
 	if !found {
@@ -73,19 +65,17 @@ func (h *ISADebugger) EndTask(task tracing.TaskEnd) {
 	}
 
 	detail := originalTask.Detail.(map[string]interface{})
-	wf := detail["wf"].(*wavefront.Wavefront)
-	inst := detail["inst"].(*wavefront.Inst).Inst
+	wf := h.cu.wavefrontByID(detail["wf"].(uint64))
+	inst := h.cu.instruction(detail["inst"].(uint64))
 
-	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
-		h.logWholeWf(inst, wf)
-	}
+	h.logWholeWf(inst, wf)
 
 	delete(h.executingInst, task.ID)
 }
 
 func (h *ISADebugger) logWholeWf(
 	inst *insts.Inst,
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 ) {
 	output := ""
 	if h.isFirstEntry {
@@ -96,7 +86,7 @@ func (h *ISADebugger) logWholeWf(
 
 	output += "{"
 	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
-		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
+		wf.group().raw().IDX, wf.group().raw().IDY, wf.group().raw().IDZ, wf.raw().FirstWiFlatID)
 	output += fmt.Sprintf(`"Inst":"%s",`, insts.NewInstPrinter(nil).Print(inst))
 	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC()&0xffffffff)
 	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC()>>32)
@@ -107,7 +97,8 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC())
 
 	output += `"SGPRs":[`
-	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
+	co := &wf.codeObject().Meta
+	for i := 0; i < int(co.WFSgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}
@@ -118,7 +109,7 @@ func (h *ISADebugger) logWholeWf(
 	output += "]"
 
 	output += `,"VGPRs":[`
-	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
+	for i := 0; i < int(co.WIVgprCount); i++ {
 		if i > 0 {
 			output += ","
 		}
@@ -141,19 +132,19 @@ func (h *ISADebugger) logWholeWf(
 
 	output += "}"
 
-	h.Logger.Print(output)
+	h.write(output)
 }
 
 func (h *ISADebugger) getVRegValue(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	regIndex, laneID int,
 ) uint32 {
-	registerFile := h.cu.VRegFile[wf.SIMDID]
+	registerFile := h.cu.VRegFile[wf.execution().SIMDID]
 	regRead := RegisterAccess{}
 	regRead.Reg = insts.VReg(regIndex)
 	regRead.RegCount = 1
 	regRead.LaneID = laneID
-	regRead.WaveOffset = wf.VRegOffset
+	regRead.WaveOffset = wf.execution().VRegOffset
 	regRead.Data = make([]byte, 4)
 	registerFile.Read(regRead)
 
@@ -162,17 +153,34 @@ func (h *ISADebugger) getVRegValue(
 }
 
 func (h *ISADebugger) getSRegValue(
-	wf *wavefront.Wavefront,
+	wf *Wavefront,
 	regIndex int,
 ) uint32 {
 	registerFile := h.cu.SRegFile
 	regRead := RegisterAccess{}
 	regRead.Reg = insts.SReg(regIndex)
 	regRead.RegCount = 1
-	regRead.WaveOffset = wf.SRegOffset
+	regRead.WaveOffset = wf.execution().SRegOffset
 	regRead.Data = make([]byte, 4)
 	registerFile.Read(regRead)
 
 	regValue := binary.LittleEndian.Uint32(regRead.Data)
 	return regValue
+}
+
+// Close completes the JSON array. Call it after instruction callbacks have
+// stopped. Repeated calls return the original write error. The caller owns
+// the logger's output and closes it after closing the debugger.
+func (h *ISADebugger) Close() error {
+	if !h.closed {
+		h.closed = true
+		h.write("\n]")
+	}
+	return h.writeErr
+}
+
+func (h *ISADebugger) write(text string) {
+	if h.writeErr == nil {
+		h.writeErr = h.Logger.Output(2, text)
+	}
 }

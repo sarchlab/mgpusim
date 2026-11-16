@@ -1,29 +1,28 @@
 // Package gputensor provides GPU tensor and tensor operation implementations.
 package gputensor
 
-import "github.com/sarchlab/mgpusim/v5/amd/driver"
+import (
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/dnn/tensor"
+	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
+)
 
 // A Tensor is a multi-dementional array.
 type Tensor struct {
-	driver *driver.Driver
-	ctx    *driver.Context
-
-	size []int
-	ptr  driver.Ptr
-
-	descriptor string
+	*TensorState
+	owner *GPUOperator
+	id    tensor.ID
 }
 
 // Dim returns the number of dimensions that the tensor has.
 func (t Tensor) Dim() int {
-	return len(t.size)
+	return len(t.Shape)
 }
 
 // NumElement returns the number of elements in the tensor.
 func (t Tensor) NumElement() int {
 	n := 1
 
-	for _, d := range t.size {
+	for _, d := range t.Shape {
 		n *= d
 	}
 
@@ -32,40 +31,34 @@ func (t Tensor) NumElement() int {
 
 // Size returns the size of the tensor on each dimension.
 func (t Tensor) Size() []int {
-	return t.size
+	return t.Shape
 }
 
 // SetSize sets the size of the tensor.
 func (t *Tensor) SetSize(s []int) {
-	t.size = make([]int, len(s))
-	copy(t.size, s)
+	t.Shape = make([]int, len(s))
+	copy(t.Shape, s)
 }
 
 // Descriptor returns the descriptor of the tensor.
 func (t Tensor) Descriptor() string {
-	return t.descriptor
+	return t.Description
 }
 
 // SetDescriptor sets the descriptor of the tensor.
 func (t *Tensor) SetDescriptor(d string) {
-	t.descriptor = d
+	t.Description = d
 }
 
-// Vector copies the data from the GPU to the simulator.
+// Vector returns a completed explicit readback, invalidated by later mutations.
 func (t *Tensor) Vector() []float64 {
-	raw := make([]float32, t.NumElement())
-
-	t.driver.MemCopyD2H(t.ctx, raw, t.ptr)
-
-	out := make([]float64, t.NumElement())
-	for i := 0; i < t.NumElement(); i++ {
-		out[i] = float64(raw[i])
+	if !t.HostReady || t.owner != nil && t.HostEpoch != t.owner.MutationEpoch {
+		panic("gputensor: Vector requires a completed explicit readback")
 	}
-
-	return out
+	return append([]float64(nil), t.Host...)
 }
 
 // Ptr returns the GPU pointer of the tensor.
-func (t *Tensor) Ptr() driver.Ptr {
-	return t.ptr
+func (t *Tensor) Ptr() gpuruntime.Ptr {
+	return t.Address
 }

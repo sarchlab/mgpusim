@@ -9,7 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 go build ./...
 
 # Run unit tests (~17s) - uses Ginkgo framework
-ginkgo -r --skip-package=mccl
+ginkgo -r --skip-package=mccl,amd/tests/pagemigration
+
+# Run the page-migration acceptance scenarios (full multi-GPU simulations;
+# ~1 min for R9 Nano, ~12 min for MI300X)
+go test ./amd/tests/pagemigration/ -run '/r9nano' -count=1 -timeout 60m
+go test ./amd/tests/pagemigration/ -run '/mi300x' -count=1 -timeout 110m
+
+# Check every AMD/NVIDIA component (inspector, Comp naming, modelingtest coverage)
+GOTOOLCHAIN=local go test ./internal/architecture -count=1 -v
 
 # Run specific package tests
 go test ./amd/emu/... -v
@@ -40,11 +48,12 @@ MGPUSim is a cycle-accurate GPU simulator modeling AMD GCN3 instruction set arch
    - `cp/` - Command Processor for kernel dispatch
    - `rob/` - Reorder Buffer
    - `rdma/` - Remote DMA for multi-GPU communication
-   - `pagemigrationcontroller/` - Unified memory page migration
 
 ### Key Components
 
-- **`amd/driver/`**: GPU driver simulation - memory allocation, kernel launch, command queues
+- **`amd/runtime/`**: Host API and shared resource owning contexts, queues, allocations, commands, and events
+- **`amd/driver/`**: Simulated command execution and GPU protocol state; consumes Runtime through Resources
+  and runs page migration between GPUs, on faults by default (see [Page migration](docs/page-migration.md))
 - **`amd/insts/`**: GCN3 instruction definitions, decoder, disassembler, HSACO parsing
 - **`amd/kernels/`**: Kernel loading from HSACO (ELF) files
 - **`amd/benchmarks/`**: Benchmark implementations with embedded HSACO binaries
@@ -61,8 +70,8 @@ Multi-kernel ELFs: Each kernel is a symbol pointing to its code object. Loading 
 ### Simulation Flow
 
 1. Benchmark loads HSACO via `kernels.LoadProgramFromMemory(data, "kernelName")`
-2. Driver allocates GPU memory, copies kernel args
-3. Driver creates dispatch packet with kernel address
+2. Runtime allocates GPU/CPU storage and enqueues immutable kernel dispatch values
+3. Benchmark Step rounds submit work; Runner schedules Driver and globally drains Simulation
 4. Command Processor dispatches work-groups to Compute Units
 5. CU executes wavefronts (64 threads) through pipeline
 
@@ -72,6 +81,14 @@ Multi-kernel ELFs: Each kernel is a symbol pointing to its code object. Loading 
 - Benchmarks embed HSACO binaries using `//go:embed kernels.hsaco`
 - Platform configuration in `samples/*/platform.go`, `r9nano.go`, `shaderarray.go`
 - NVIDIA code (`nvidia/`) is under development and should be skipped
+
+## Checkpoints
+
+A checkpoint must restore exactly when it is loaded by the same executable on
+the same platform. Across executables, for example after a code or configuration
+change, loading is best effort: if it loads, it is used; otherwise loading
+reports an error. Breaking checkpoint compatibility is never a concern when
+changing code, and checkpoints carry no version or configuration-hash checks.
 
 ## Compiling HIP Kernels
 
@@ -104,3 +121,8 @@ Fix any linting issues before considering the task complete. Common issues inclu
 - Unnecessary type conversions (`unconvert`)
 - Function complexity (`gocognit`, `funlen`) - add `//nolint:gocognit,funlen` if justified
 - Line length (`lll`) - keep lines under 120 characters
+
+The AMD HTTP server and its sample have been removed. Compose simulations through
+`amd/samples/sample` and `amd/samples/runner`; see
+[Runtime and benchmark steps](docs/runtime-and-benchmark-steps.md). Benchmark
+continuation uses `benchmarks.Checkpoint[State]`.

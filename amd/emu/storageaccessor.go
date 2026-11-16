@@ -2,7 +2,6 @@ package emu
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/vm"
@@ -16,8 +15,8 @@ type StorageAccessor interface {
 
 type storageAccessorImpl struct {
 	storage       *mem.Storage
-	addrConverter mem.AddressConverter
-	pageTable     vm.PageTable
+	addrConverter AddressConverter
+	pageTable     *vm.PageTable
 	log2PageSize  uint64
 }
 
@@ -50,10 +49,7 @@ func (a *storageAccessorImpl) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 			storageAddr = a.addrConverter.ConvertExternalToInternal(pAddr)
 		}
 
-		d, err := a.storage.Read(storageAddr, sizeToRead)
-		if err != nil {
-			log.Panic(err)
-		}
+		d := a.storage.Read(storageAddr, sizeToRead)
 
 		copy(data[offset:], d)
 
@@ -88,10 +84,7 @@ func (a *storageAccessorImpl) Write(pid vm.PID, vAddr uint64, data []byte) {
 			storageAddr = a.addrConverter.ConvertExternalToInternal(pAddr)
 		}
 
-		err := a.storage.Write(storageAddr, data[offset:offset+sizeToWrite])
-		if err != nil {
-			log.Panic(err)
-		}
+		a.storage.Write(storageAddr, data[offset:offset+sizeToWrite])
 
 		offset += sizeToWrite
 		sizeLeft -= sizeToWrite
@@ -102,9 +95,9 @@ func (a *storageAccessorImpl) Write(pid vm.PID, vAddr uint64, data []byte) {
 // of the storage and mmu.
 func NewStorageAccessor(
 	storage *mem.Storage,
-	pageTable vm.PageTable,
+	pageTable *vm.PageTable,
 	log2PageSize uint64,
-	addrConverter mem.AddressConverter,
+	addrConverter AddressConverter,
 ) StorageAccessor {
 	a := new(storageAccessorImpl)
 	a.storage = storage
@@ -113,3 +106,6 @@ func NewStorageAccessor(
 	a.log2PageSize = log2PageSize
 	return a
 }
+
+// AddressConverter maps an emulated physical address to storage coordinates.
+type AddressConverter interface{ ConvertExternalToInternal(uint64) uint64 }

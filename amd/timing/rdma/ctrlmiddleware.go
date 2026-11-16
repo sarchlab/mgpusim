@@ -2,10 +2,9 @@ package rdma
 
 import (
 	"log"
-	"reflect"
 
-	"github.com/sarchlab/akita/v5/messaging"
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // ctrlMiddleware handles the drain/restart control flow on the "Ctrl" port.
@@ -16,7 +15,7 @@ type ctrlMiddleware struct {
 }
 
 func (m *ctrlMiddleware) ctrlPort() messaging.Port {
-	return m.comp.GetPortByName("Ctrl")
+	return m.comp.Ports.Ctrl
 }
 
 // Tick processes control messages and, while draining, checks whether the
@@ -32,23 +31,26 @@ func (m *ctrlMiddleware) Tick() bool {
 }
 
 func (m *ctrlMiddleware) processFromCtrlPort() bool {
-	msg := m.ctrlPort().PeekIncoming()
-	if msg == nil {
+	msg, ok := m.ctrlPort().PeekIncoming()
+	if !ok {
 		return false
 	}
 
-	switch msg := msg.(type) {
+	switch msg.Payload.(type) {
 	case DrainReq:
+
 		return m.processDrainReq(msg)
 	case RestartReq:
+
 		return m.processRestartReq(msg)
 	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(msg))
+
+		log.Panicf("cannot process request of type %T", msg.Payload)
 		return false
 	}
 }
 
-func (m *ctrlMiddleware) processDrainReq(req DrainReq) bool {
+func (m *ctrlMiddleware) processDrainReq(req messaging.Msg) bool {
 	state := &m.comp.State
 	state.CurrentDrainReqID = req.ID
 	state.CurrentDrainReqSrc = req.Src
@@ -60,20 +62,17 @@ func (m *ctrlMiddleware) processDrainReq(req DrainReq) bool {
 	return true
 }
 
-func (m *ctrlMiddleware) processRestartReq(req RestartReq) bool {
+func (m *ctrlMiddleware) processRestartReq(req messaging.Msg) bool {
 	port := m.ctrlPort()
 	if !port.CanSend() {
 		return false
 	}
 
-	rsp := RestartRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   port.AsRemote(),
-			Dst:   req.Src,
-			RspTo: req.ID,
-		},
-	}
+	rsp := messaging.Msg{ID: m.comp.NewID(),
+		Src:   port.AsRemote(),
+		Dst:   req.Src,
+		RspTo: req.ID, Payload: RestartRsp{}}
+
 	port.Send(rsp)
 	port.RetrieveIncoming()
 
@@ -96,14 +95,11 @@ func (m *ctrlMiddleware) drainRDMA() bool {
 	}
 
 	state := &m.comp.State
-	rsp := DrainRsp{
-		MsgMeta: messaging.MsgMeta{
-			ID:    timing.GetIDGenerator().Generate(),
-			Src:   port.AsRemote(),
-			Dst:   state.CurrentDrainReqSrc,
-			RspTo: state.CurrentDrainReqID,
-		},
-	}
+	rsp := messaging.Msg{ID: m.comp.NewID(),
+		Src:   port.AsRemote(),
+		Dst:   state.CurrentDrainReqSrc,
+		RspTo: state.CurrentDrainReqID, Payload: DrainRsp{}}
+
 	port.Send(rsp)
 
 	state.IsDraining = false
@@ -115,3 +111,5 @@ func (m *ctrlMiddleware) fullyDrained() bool {
 	return len(m.comp.State.TransactionsFromOutside) == 0 &&
 		len(m.comp.State.TransactionsFromInside) == 0
 }
+
+func (m *ctrlMiddleware) Handle(timing.Event) bool { return m.Tick() }

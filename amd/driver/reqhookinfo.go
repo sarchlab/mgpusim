@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v5/timing"
+	"github.com/sarchlab/akita/v5/sim/timing"
 )
 
 // ReqHookInfo is the information that the driver send to the request hooks
