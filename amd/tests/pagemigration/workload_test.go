@@ -32,6 +32,8 @@ type workload struct {
 	// parallel runs the simulation with the parallel engine.
 	parallel bool
 
+	configureTables func(*timingconfig.PageTableSpec)
+
 	build func(rt *gpuruntime.Runtime, a arch.Type) benchmarks.Benchmark
 }
 
@@ -78,6 +80,13 @@ func matrixWorkload(n uint32) func(*gpuruntime.Runtime, arch.Type) benchmarks.Be
 // waiting forever. They run only with -slow.
 var workloads = []workload{
 	{name: "fir", gpuType: "r9nano", gpus: []int{1, 2}, build: firWorkload(8192)},
+	{name: "fir-fixed-latency", gpuType: "r9nano", gpus: []int{1, 2}, build: firWorkload(1024),
+		configureTables: func(tables *timingconfig.PageTableSpec) { tables.FixedLatency = true }},
+	{name: "fir-global-filter", gpuType: "r9nano", gpus: []int{1, 2}, build: firWorkload(1024),
+		configureTables: func(tables *timingconfig.PageTableSpec) {
+			tables.GlobalGPU = true
+			tables.GPU.FilterBuckets = 8
+		}},
 	{name: "fir", gpuType: "r9nano", gpus: []int{1, 2, 3, 4}, build: firWorkload(8192)},
 	{name: "fir", gpuType: "r9nano", gpus: []int{1, 2},
 		policy: driver.PageMigrationCounter, build: firWorkload(8192)},
@@ -150,11 +159,17 @@ func newWorkloadPlatform(
 		}
 	})
 
+	tables := timingconfig.DefaultPageTableSpec()
+	if w.configureTables != nil {
+		w.configureTables(&tables)
+	}
+
 	return s, timingconfig.MakeBuilder().
 		WithSimulation(s).
 		WithNumGPUs(w.numGPUs()).
 		WithGPUType(w.gpuType).
 		WithPageMigration(spec).
+		WithPageTable(tables).
 		Build()
 }
 

@@ -8,7 +8,6 @@ import (
 	pt "github.com/sarchlab/akita/v5/mem/vm/pagetableprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/timing"
-	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	rt "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
@@ -43,9 +42,6 @@ type pageTableState struct {
 	Groups     map[uint64]mappingGroup
 	HostPages  map[vm.PID]map[uint64]int
 	Dispatched map[vm.PID]bool
-	Shootdowns map[uint64]uint64
-	// Faults still occupy their upstream IOMMU walk/waiter slots.
-	Faults []messaging.Msg
 }
 
 func (s *pageTableState) initialize(c *Comp) {
@@ -64,7 +60,6 @@ func (s *pageTableState) initialize(c *Comp) {
 		s.Streams = append(s.Streams, tableStream{Roots: make(map[vm.PID]bool)})
 	}
 	s.Groups = make(map[uint64]mappingGroup)
-	s.Shootdowns = make(map[uint64]uint64)
 	s.HostPages = make(map[vm.PID]map[uint64]int)
 	s.Dispatched = make(map[vm.PID]bool)
 }
@@ -207,13 +202,7 @@ func (m *pageTableMW) update(before, after vm.Page, migration int) {
 		}
 		s.HostPages[p.PID][p.VAddr]++
 		if before.Valid && s.Dispatched[p.PID] {
-			for _, dst := range c.Spec.MigrationAgents {
-				msg := messaging.Msg{ID: c.NewID(), Src: c.Ports.PageMigration.AsRemote(), Dst: dst,
-					Payload: protocol.PageShootdownReq{PID: p.PID, VAddr: p.VAddr, PageSize: p.PageSize}}
-				c.State.PageMigration.Out = append(c.State.PageMigration.Out, msg)
-				s.Shootdowns[msg.ID] = group
-				g.Pending++
-			}
+			g.Pending += c.Middlewares.Migration.shootDownHostMapping(p, group)
 		}
 	}
 	s.Groups[group] = g

@@ -37,18 +37,13 @@ type PageMigrationSpec struct {
 	// requests that wait at that moment, at most BatchSize
 	// (uvm_perf_fault_batch_count), and never waits to fill a batch.
 	//
-	// QueueSize bounds what the driver takes in. A fault or a notification
-	// that needs an entry of the queue is taken from the port only while the
-	// queue has fewer than QueueSize entries. Otherwise it stays in the
-	// port, with everything that arrived behind it, and so at the senders:
-	// nothing is dropped. A fault that waits for a memory copy keeps its
-	// entry, so it counts; it takes no place in a batch, so the requests
-	// that are in the queue behind it are serviced. The only entries beyond
-	// QueueSize are faults that the driver has taken in before and that it
-	// queues again by itself: the faults that arrived while their page was
-	// serviced, when that service ends, and the faults of throttled GPUs,
-	// which left the queue when the GPUs were throttled, when the nap of one
-	// of them ends. That is at most one entry per page.
+	// QueueSize limits new admissions to the service queue. A one-way
+	// notification that needs space stays on its input port. A detailed
+	// fault awaiting admission retains its IOMMU decision slot. Driver can
+	// answer later requests for active or remotely usable pages immediately.
+	// A fault deferred by a memory copy keeps its queue slot but does not
+	// consume a place in a batch. Previously admitted faults can re-enter
+	// the queue when service or a throttling nap ends, once per page.
 	BatchSize int `json:"batch_size"`
 	QueueSize int `json:"queue_size"`
 
@@ -267,13 +262,13 @@ type PageMigrationStats struct {
 	FreeFrameNotifications uint64 `json:"free_frame_notifications"`
 	ThrottledNotifications uint64 `json:"throttled_notifications"`
 
-	// QueueFullWaits counts the times a fault or a notification stayed in
-	// the port because the queue was full.
+	// QueueFullWaits counts Driver ticks when at least one migration request
+	// could not enter the service queue because it was full.
 	QueueFullWaits uint64 `json:"queue_full_waits"`
 
 	// Migrations are the pages moved for a fault or a notification and
 	// PagesPrefetched the pages moved with them; PagesMigrated is both.
-	// Releases are the services that moved nothing.
+	// Releases counts release-only services and completed detailed pin services.
 	Batches         uint64 `json:"batches"`
 	Windows         uint64 `json:"windows"`
 	Migrations      uint64 `json:"migrations"`
@@ -313,29 +308,32 @@ type PageMigrationState struct {
 	Throttling []int `json:"throttling"`
 	Pins       []int `json:"pins"`
 
-	// Pending maps the ID of each command in flight to its page. Out holds
-	// the commands waiting to be sent.
+	// Pending maps a CP command to the page service awaiting its ACK. Out
+	// holds commands for both page services and host mapping shootdowns.
 	Pending map[uint64]int  `json:"pending"`
 	Out     []messaging.Msg `json:"out"`
+
+	// HostShootdowns correlates CP replies to host mapping groups.
+	HostShootdowns map[uint64]uint64 `json:"host_shootdowns"`
+	// Faults holds unanswered decisions, each occupying an upstream IOMMU slot.
+	Faults []messaging.Msg `json:"faults"`
 
 	Stats PageMigrationStats `json:"stats"`
 }
 
 func newPageMigrationState() PageMigrationState {
 	return PageMigrationState{
-		PageIndex: make(map[vm.PID]map[uint64]int),
-		Pending:   make(map[uint64]int),
+		PageIndex:      make(map[vm.PID]map[uint64]int),
+		Pending:        make(map[uint64]int),
+		HostShootdowns: make(map[uint64]uint64),
 	}
 }
 
-// migrationMW is the page-migration service of the driver. It receives the
-// MMU's fault notifications and the RDMA engines' access-counter
-// notifications, decides in batches what each page does, and then runs every
-// page on its own with commands to the GPUs' command processors: hold the
-// page on every GPU; flush the old frame out of the source's L2 and drop the
-// new frame from the destination's; copy with the destination's data mover,
-// around both L2s; update the page table; shoot down the old translation;
-// and release the page.
+// migrationMW answers IOMMU placement requests, accepts legacy MMU and RDMA
+// notifications, and services the migration queue. A migration holds every
+// GPU, prepares and copies its frames, commits the affected mappings, shoots
+// down translations, and releases the page. The middleware also transports
+// and correlates host-requested shootdowns on the shared CP command port.
 type migrationMW struct{ comp *Comp }
 
 func (m *migrationMW) Handle(timing.Event) bool { return m.Tick() }
@@ -376,13 +374,10 @@ func (m *migrationMW) Tick() bool {
 		return false
 	}
 	madeProgress := m.receiveAnswers()
-	if detailed {
-		madeProgress = m.receivePageFaults() || madeProgress
-	}
+	madeProgress = m.receiveRequests() || madeProgress
 	if !m.spec().Enabled() {
 		return m.send() || madeProgress
 	}
-	madeProgress = m.receiveNotifications() || madeProgress
 	madeProgress = m.wakeThrottled() || madeProgress
 	madeProgress = m.expirePins() || madeProgress
 	madeProgress = m.serviceBatch() || madeProgress
@@ -390,6 +385,23 @@ func (m *migrationMW) Tick() bool {
 	madeProgress = m.send() || madeProgress
 
 	return madeProgress
+}
+
+// Count queue pressure once per tick across both admission paths.
+func (m *migrationMW) receiveRequests() bool {
+	var progress, wait bool
+	if len(m.comp.Spec.PageTables) != 0 {
+		progress, wait = m.receivePageFaults()
+	}
+	if m.spec().Enabled() {
+		did, blocked := m.receiveNotifications()
+		progress = progress || did
+		wait = wait || blocked
+	}
+	if wait {
+		m.state().Stats.QueueFullWaits++
+	}
+	return progress
 }
 
 func (m *migrationMW) send() bool {
@@ -423,8 +435,8 @@ func (m *migrationMW) receiveAnswers() bool {
 				reflect.TypeOf(msg.Payload))
 		}
 
-		if group, ok := m.comp.State.PageTables.Shootdowns[msg.RspTo]; ok {
-			delete(m.comp.State.PageTables.Shootdowns, msg.RspTo)
+		if group, ok := m.state().HostShootdowns[msg.RspTo]; ok {
+			delete(m.state().HostShootdowns, msg.RspTo)
 			m.comp.Middlewares.PageTable.ack(group)
 		} else {
 			m.ack(msg.RspTo)
@@ -439,15 +451,13 @@ func (m *migrationMW) receiveAnswers() bool {
 // an entry of a full queue stays at the head of the port, the ones behind it
 // stay behind it, whatever page they are for, and their senders keep the
 // rest. The queue is full also when its entries wait for a memory copy.
-func (m *migrationMW) receiveNotifications() bool {
-	s := m.state()
+func (m *migrationMW) receiveNotifications() (progress, queueWait bool) {
 	port := m.comp.Ports.MigrationNotification
-	madeProgress := false
 
 	for {
 		msg, ok := port.PeekIncoming()
 		if !ok {
-			return madeProgress
+			return progress, false
 		}
 
 		accepted := false
@@ -463,13 +473,12 @@ func (m *migrationMW) receiveNotifications() bool {
 		}
 
 		if !accepted {
-			s.Stats.QueueFullWaits++
-			return madeProgress
+			return progress, true
 		}
 
 		port.RetrieveIncoming()
 
-		madeProgress = true
+		progress = true
 	}
 }
 
@@ -679,19 +688,29 @@ func (m *migrationMW) migrating(pid vm.PID, start, size uint64) bool {
 	return false
 }
 
-// sendTo queues a command of a page for the command processor of a GPU.
+// queueCommand transfers a CP command to the shared transport and returns
+// its identity for the service or host mapping group awaiting the answer.
+func (m *migrationMW) queueCommand(dst messaging.RemotePort, payload any) uint64 {
+	msg := messaging.Msg{ID: m.comp.NewID(), Src: m.comp.Ports.PageMigration.AsRemote(), Dst: dst, Payload: payload}
+	s := m.state()
+	s.Out = append(s.Out, msg)
+	return msg.ID
+}
+
 func (m *migrationMW) sendTo(pi, gpu int, payload any) {
 	s := m.state()
-	msg := messaging.Msg{
-		ID:      m.comp.NewID(),
-		Src:     m.comp.Ports.PageMigration.AsRemote(),
-		Dst:     m.comp.Spec.MigrationAgents[gpu-1],
-		Payload: payload,
-	}
-
-	s.Out = append(s.Out, msg)
-	s.Pending[msg.ID] = pi
+	id := m.queueCommand(m.comp.Spec.MigrationAgents[gpu-1], payload)
+	s.Pending[id] = pi
 	s.Pages[pi].PendingAcks++
+}
+
+func (m *migrationMW) shootDownHostMapping(p vm.Page, group uint64) int {
+	req := protocol.PageShootdownReq{PID: p.PID, VAddr: p.VAddr, PageSize: p.PageSize}
+	for _, dst := range m.comp.Spec.MigrationAgents {
+		id := m.queueCommand(dst, req)
+		m.state().HostShootdowns[id] = group
+	}
+	return len(m.comp.Spec.MigrationAgents)
 }
 
 // sendToTargets queues one command of a page per target GPU.

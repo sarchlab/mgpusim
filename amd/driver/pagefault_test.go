@@ -32,24 +32,27 @@ func TestAnActiveFaultBypassesAFullServiceQueue(t *testing.T) {
 	m.state().Pages[idx].Phase = pageHold
 	m.state().Queue = append(m.state().Queue, migrationRequest{Counter: true})
 	port := f.c.Ports.PageFault[0]
-	for i, p := range []vm.Page{newPage, active, resolved} {
+	for i, p := range []vm.Page{newPage, active, resolved, newPage} {
 		port.Deliver(messaging.Msg{ID: uint64(i + 1), Src: "IOMMU.PageFault", Dst: port.AsRemote(),
 			Payload: fault.Req{PID: p.PID, VAddr: p.VAddr, HasMapping: true, Mapping: p, DeviceID: 2}})
 	}
-	m.receivePageFaults()
+	m.receiveRequests()
 	for i, want := range []fault.Result{fault.Blocked, fault.Resolved} {
 		msg, ok := port.RetrieveOutgoing()
 		if !ok || msg.RspTo != uint64(i+2) || msg.Payload.(fault.Rsp).Result != want {
 			t.Fatalf("wrong decision %d: %+v", i, msg)
 		}
 	}
-	if pending := f.c.State.PageTables.Faults; len(pending) != 1 || pending[0].ID != 1 || len(m.state().Queue) != 1 {
+	if pending := m.state().Faults; len(pending) != 2 || pending[0].ID != 1 || pending[1].ID != 4 ||
+		len(m.state().Queue) != 1 || m.state().Stats.QueueFullWaits != 1 {
 		t.Fatalf("unanswered requests %v, queue %+v", pending, m.state().Queue)
 	}
 	m.state().Queue = nil
-	m.receivePageFaults()
-	msg, ok := port.RetrieveOutgoing()
-	if !ok || msg.RspTo != 1 || msg.Payload.(fault.Rsp).Result != fault.Blocked || len(f.c.State.PageTables.Faults) != 0 {
-		t.Fatalf("previously deferred request did not receive its own decision: %+v", msg)
+	m.receiveRequests()
+	for _, id := range []uint64{1, 4} {
+		msg, ok := port.RetrieveOutgoing()
+		if !ok || msg.RspTo != id || msg.Payload.(fault.Rsp).Result != fault.Blocked || len(m.state().Faults) != 0 {
+			t.Fatalf("deferred request %d did not receive its own decision: %+v", id, msg)
+		}
 	}
 }

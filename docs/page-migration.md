@@ -37,7 +37,7 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 |---|---|---|
 | `Policy` | `fault` | `fault`, `counter`, or `none` |
 | `BatchSize` | 256 | most requests the driver services in one batch (`uvm_perf_fault_batch_count`) |
-| `QueueSize` | 1024 | entries of the request queue: a notification that needs one is taken in only while the queue has fewer, and waits in the port, and at its sender, otherwise (see [The queue is finite](#the-queue-is-finite)) |
+| `QueueSize` | 1024 | maximum new service admissions held in the queue. A waiting detailed fault retains its IOMMU slot. See [The queue is finite](#the-queue-is-finite). |
 | `AccessCounterThreshold` | 256 | remote demand accesses of one GPU to one physical page frame that notify the driver with `counter`, whatever the system page size; 0 turns the counters off (`uvm_perf_access_counter_threshold`, see [Access-counter migration](#access-counter-migration)) |
 | `PrefetchThreshold` | 51 | a migration takes the rest of the largest aligned region of its 2 MiB block along in which more than this percent of the page positions are on the destination; 0 turns prefetching off (`uvm_perf_prefetch_threshold`) |
 | `ThrashingThreshold` | 3 | thrashing events that make a page thrashing (`uvm_perf_thrashing_threshold`) |
@@ -113,7 +113,7 @@ of the driver:
 | `pm_ignored_notifications` | notifications whose page did not move: it was on the notifier, serviced, pinned, not unified, or used by a memory copy |
 | `pm_free_frame_notifications` | notifications for a frame that no page mapped when they were serviced |
 | `pm_throttled_notifications` | notifications of a GPU that was throttled on the page |
-| `pm_queue_full_waits` | times a fault or a notification stayed in the port because the queue was full |
+| `pm_queue_full_waits` | Driver ticks when a full service queue delayed at least one fault or notification |
 | `pm_batches` | batches that serviced a request |
 | `pm_windows` | windows: migrations of a triggering page with the pages prefetched with it |
 | `pm_migrations` | pages moved for a fault or a notification |
@@ -121,7 +121,7 @@ of the driver:
 | `pm_pages_migrated` | pages moved: `pm_migrations` plus `pm_pages_prefetched` |
 | `pm_bytes_migrated` | bytes of the pages moved |
 | `pm_frames_retired` | frames that pages left |
-| `pm_releases` | services that moved nothing: hold and release |
+| `pm_releases` | completed release-only services and detailed pin installations, both of which keep the current frame |
 | `pm_thrashing_events` | migrations of a page within `ThrashingLapseNS` of its previous one, counted until the page is thrashing |
 | `pm_thrashing_pages` | times a page became thrashing |
 | `pm_throttles` | throttling operations |
@@ -213,13 +213,11 @@ follows drops every stale entry. The TLBs are shot down in rounds: a round
 pauses the TLBs once, invalidates every page that waits, and enables them
 again.
 
-When nothing moves (the page is already on *g*, or it is pinned), the driver
-tells *g*'s command processor to hold and then release the page; on the
-replay, the MMU returns the local or the pinned remote translation. The Hold
-is needed because the fault notification reaches the driver directly while the
-fault response still travels through *g*'s TLBs: a Release that overtook it
-would not clear the fault, and the access would wait for another Release. The
-Hold acknowledges only after the response has arrived.
+Driver can resolve a translation to an already pinned remote page immediately.
+If a previously blocked requester still waits after placement has settled,
+Driver holds and releases the waiting GPUs so they translate again. Each
+Hold waits for in-flight translations to drain, including a NACK that is
+still traveling through the TLBs. This orders the Release after that NACK.
 
 A memory copy never runs on a migrating page, and a page never migrates under
 a running memory copy: its faults wait for the copy. A copy of another command
@@ -434,10 +432,13 @@ The policy follows the stages of UVM (`uvm_perf_thrashing.c`).
    With more GPUs it goes on to the next GPU whose nap ends, so it can leave
    a GPU sooner than a nap after it arrived there. Every throttling operation
    of every GPU counts for the pin, which ends such a rotation.
-3. **Pinning.** After `PinThreshold` throttling operations in a row, the page
-   is pinned **where it is**: the page table marks it `IsPinned`, the GPUs
-   that wait are released, also those whose nap has not ended, and they
-   access the page remotely.
+3. **Pinning.** After `PinThreshold` consecutive throttling operations,
+   the page stays on its current GPU. In the detailed platform Driver
+   obtains Hold acknowledgements from every GPU, sets `IsPinned`, and waits
+   for the updated PTEs to commit in every affected MMU. It then shoots down
+   translations and releases every GPU, including requesters whose naps have
+   yet to end. Further remote accesses use the pinned frame. In the
+   fixed-latency platform the MMU reads the pin from the shared page table.
 4. **Unpinning.** After `PinNS` the pin is cleared under a hold of every GPU,
    and the translations of the page are shot down, so the next access faults
    or is counted again. The timeout is background simulation work

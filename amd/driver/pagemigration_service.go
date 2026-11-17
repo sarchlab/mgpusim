@@ -346,6 +346,43 @@ func (m *migrationMW) remap(pi int) {
 	}
 }
 
+func (m *migrationMW) startPin(pi int, page vm.Page) {
+	p := &m.state().Pages[pi]
+	p.Service = servicePin
+	p.OldPage = page
+	p.Waiters = nil
+	p.ServiceStart = m.now()
+	p.Targets = m.allGPUs()
+	m.startHold(pi)
+}
+
+// commitMapping runs under the all-GPU Hold after copy or pin maintenance.
+// The new physical page can become visible only after every MMU responds.
+func (m *migrationMW) commitMapping(pi int, before vm.Page) {
+	if len(m.comp.Spec.PageTables) == 0 {
+		m.startShootdown(pi)
+		return
+	}
+	p := &m.state().Pages[pi]
+	after, found := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
+	if !found && p.Service == serviceUnpin {
+		m.startShootdown(pi)
+		return
+	}
+	if !found {
+		panic("driver: migration lost its allocation")
+	}
+	p.Phase = pageMapping
+	m.comp.Middlewares.PageTable.update(before, after, pi+1)
+}
+
+func (m *migrationMW) mappingsReady(pi int) {
+	if m.state().Pages[pi].Phase != pageMapping {
+		panic("driver: unexpected mapping completion")
+	}
+	m.startShootdown(pi)
+}
+
 func (m *migrationMW) startShootdown(pi int) {
 	p := &m.state().Pages[pi]
 	p.Phase = pageShootdown
