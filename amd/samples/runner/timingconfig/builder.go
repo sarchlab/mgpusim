@@ -49,6 +49,7 @@ type Builder struct {
 	d2hCycles          int
 	h2dCycles          int
 	pageMigration      driver.PageMigrationSpec
+	pageTable          PageTableSpec
 	allocator          gpuruntime.AllocatorType
 
 	globalStorage     *mem.Storage
@@ -70,6 +71,7 @@ func MakeBuilder() Builder {
 		d2hCycles:          300,
 		h2dCycles:          500,
 		pageMigration:      driver.DefaultPageMigrationSpec(),
+		pageTable:          DefaultPageTableSpec(),
 	}
 }
 
@@ -135,15 +137,13 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		WithCapacity(uint64(b.numGPUs)*b.gpuMemSize + b.cpuMemSize).
 		Build("GlobalStorage")
 
-	mmuComp, pageTable := b.createMMU()
-	gpuBuilder := b.createGPUBuilder(mmuComp)
+	pageTable := vm.MakePageTableBuilder().WithSimulation(b.simulation).WithLog2PageSize(b.log2PageSize).Build("PageTable")
 	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
-	interDeviceConn.BindPort(mmuComp.Ports.Top)
-	for _, p := range mmuComp.Ports.Notification {
-		interDeviceConn.BindPort(p)
-	}
+	b.buildCPUMemory(interDeviceConn)
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
+	legacy := b.configureTranslation(pageTable, interDeviceConn, &spec, &runtimeSpec)
+	b.createRDMAAddressMapper()
 	runtimeSpec.Log2PageSize = b.log2PageSize
 	runtimeSpec.Allocator = b.allocator
 	spec.UseMagicMemoryCopy = b.useMagicMemoryCopy
@@ -151,7 +151,10 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec.H2DCycles = b.h2dCycles
 	spec.PageMigration = b.pageMigration
 	for i := 1; i <= b.numGPUs; i++ {
-		gpu := b.createGPU(i, gpuBuilder, interDeviceConn)
+		gpu := b.createGPU(i, b.createGPUBuilder(legacy, i), interDeviceConn)
+		if c := gpu.PageTableMMU; c != nil {
+			spec.PageTables = append(spec.PageTables, pageTableTarget(c))
+		}
 		spec.GPUs = append(spec.GPUs, gpu.CommandProcessorPort.AsRemote())
 		spec.MigrationAgents = append(spec.MigrationAgents,
 			gpu.PageMigrationPort.AsRemote())
@@ -173,7 +176,31 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
 	interDeviceConn.BindPort(
 		b.buildPort(comp, driver.MigrationNotificationPortName, driverGPUPortBufSize))
+	if legacy == nil {
+		for _, name := range []string{"PageFault[0]", "PageTable[0]"} {
+			interDeviceConn.BindPort(b.buildPort(comp, name, driverGPUPortBufSize))
+		}
+	}
 	return runtime
+}
+
+func (b *Builder) configureTranslation(pageTable *vm.PageTable, conn *directconnection.Connection,
+	spec *driver.Spec, runtimeSpec *gpuruntime.RuntimeSpec) *mmu.Comp {
+	var legacy *mmu.Comp
+	if b.pageTable.FixedLatency {
+		legacy = b.createMMU(pageTable)
+		conn.BindPort(legacy.Ports.Top)
+		for _, p := range legacy.Ports.Notification {
+			conn.BindPort(p)
+		}
+	} else {
+		io := b.buildIOMMU(conn)
+		spec.PageTables = append(spec.PageTables, pageTableTarget(io))
+		spec.GlobalGPUPageTable = b.pageTable.GlobalGPU
+		runtimeSpec.CPUPageTableBytes = io.Spec.PoolNodes * 4096
+		runtimeSpec.GPUPageTableBytes = b.pageTable.GPU.PoolNodes * 4096
+	}
+	return legacy
 }
 
 // migrationNotificationPort is where the MMU reports the faults and the RDMA
@@ -211,14 +238,12 @@ func (b *Builder) adjustConfigForGPUType() {
 	default:
 		// Keep defaults for r9nano
 	}
+	if b.pageTable.Log2PageSize != 0 {
+		b.log2PageSize = b.pageTable.Log2PageSize
+	}
 }
 
-func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
-	pageTable := vm.MakePageTableBuilder().
-		WithSimulation(b.simulation).
-		WithLog2PageSize(b.log2PageSize).
-		Build("PageTable")
-
+func (b *Builder) createMMU(pageTable *vm.PageTable) *mmu.Comp {
 	spec := mmu.DefaultSpec()
 	spec.Freq = 1 * timing.GHz
 	spec.Latency = 100 // v4: page walking latency
@@ -243,7 +268,7 @@ func (b *Builder) createMMU() (*mmu.Comp, *vm.PageTable) {
 		b.buildPort(mmuComponent, "Notification[0]", mmuTopPortBufSize)
 	}
 
-	return mmuComponent, pageTable
+	return mmuComponent
 }
 
 // buildPort creates a port instance for a declared port and assigns it to
@@ -263,32 +288,42 @@ func (b *Builder) buildPort(
 }
 
 func (b *Builder) createGPUBuilder(
-	mmuComponent *mmu.Comp,
+	mmuComponent *mmu.Comp, index int,
 ) gpubuilder.GPUBuilder {
-	b.createRDMAAddressMapper()
-
+	local := b.pageTable.GPU
+	local.PoolBase = uint64(index) * b.gpuMemSize
+	local.FaultHandler = "IOMMU.FaultIn"
+	local.ConsultRemote = b.pageTable.GlobalGPU
 	driverPort := messaging.RemotePort("Driver.GPU")
 
 	var gpuBuilder gpubuilder.GPUBuilder
 
 	switch b.gpuType {
 	case "mi300x":
-		gpuBuilder = mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
+		gpu := mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
-			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
-			WithGlobalStorage(b.globalStorage).
-			WithDriverPort(driverPort)
+			WithGlobalStorage(b.globalStorage)
+		if mmuComponent != nil {
+			gpu = gpu.WithMMU(mmuComponent)
+		} else {
+			gpu = gpu.WithPageTableMMU(local)
+		}
+		gpuBuilder = gpu
 	default:
-		gpuBuilder = r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
+		gpu := r9nano.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
-			WithMMU(mmuComponent).
 			WithLog2PageSize(b.log2PageSize).
-			WithGlobalStorage(b.globalStorage).
-			WithDriverPort(driverPort)
+			WithGlobalStorage(b.globalStorage)
+		if mmuComponent != nil {
+			gpu = gpu.WithMMU(mmuComponent)
+		} else {
+			gpu = gpu.WithPageTableMMU(local)
+		}
+		gpuBuilder = gpu
 	}
 
-	return gpuBuilder.WithPageMigration(b.gpuPageMigrationConfig())
+	return gpuBuilder.WithDriverPort(driverPort).WithPageMigration(b.gpuPageMigrationConfig())
 }
 
 // gpuPageMigrationConfig derives what each GPU needs from the
@@ -314,7 +349,7 @@ func (b *Builder) gpuPageMigrationConfig() gpubuilder.PageMigrationConfig {
 // that owns the address.
 func (b *Builder) createPeerMemoryMapper() mem.AddressMapper {
 	mapper := mem.AddressMapper{InterleavingSize: b.gpuMemSize}
-	mapper.Destinations = append(mapper.Destinations, messaging.RemotePort("CPU"))
+	mapper.Destinations = append(mapper.Destinations, cpuMemoryTop)
 
 	for i := 1; i <= b.numGPUs; i++ {
 		mapper.Destinations = append(mapper.Destinations,
@@ -328,7 +363,7 @@ func (b *Builder) createRDMAAddressMapper() {
 	b.rdmaAddressMapper = mem.AddressMapper{}
 	b.rdmaAddressMapper.InterleavingSize = b.gpuMemSize
 	b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
-		messaging.RemotePort("CPU"))
+		cpuMemoryTop)
 	for i := 1; i <= b.numGPUs; i++ {
 		b.rdmaAddressMapper.Destinations = append(b.rdmaAddressMapper.Destinations,
 			messaging.RemotePort(fmt.Sprintf("GPU[%d].RDMA.RDMADataOutside", i)))

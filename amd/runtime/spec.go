@@ -15,9 +15,13 @@ type DeviceProperties struct {
 
 // RuntimeSpec owns allocation and device properties independently of Driver timing.
 type RuntimeSpec struct {
-	Log2PageSize uint64             `json:"log2_page_size"`
-	Allocator    AllocatorType      `json:"allocator"`
-	Devices      []DeviceProperties `json:"devices"`
+	Log2PageSize uint64 `json:"log2_page_size"`
+	// CPUPageTableBytes and GPUPageTableBytes reserve a prefix in each
+	// physical device for the timing walkers. Zero keeps ordinary allocation.
+	CPUPageTableBytes uint64             `json:"cpu_page_table_bytes"`
+	GPUPageTableBytes uint64             `json:"gpu_page_table_bytes"`
+	Allocator         AllocatorType      `json:"allocator"`
+	Devices           []DeviceProperties `json:"devices"`
 }
 
 func DefaultRuntimeSpec() RuntimeSpec { return RuntimeSpec{Log2PageSize: 12} }

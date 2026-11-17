@@ -303,8 +303,7 @@ func TestThePlatformOfOneGPUHasAWorkingDataMover(t *testing.T) {
 					t.Fatalf("the data mover reads the memory of GPU 1 through %s", got)
 				}
 
-				// Only a driver that does not migrate leaves the answer of the
-				// command processor alone, so that the test can play the driver.
+				// Exercise the command and its reply from a separate test client.
 				if policy == driver.PageMigrationNone {
 					p.mustCopyAPageOfGPU1(t)
 				}
@@ -336,7 +335,7 @@ func (p migrationPlatform) mustCopyAPageOfGPU1(t *testing.T) {
 	migration := p.cps["GPU[1].CommandProcessor"].Ports.PageMigration
 	migration.Deliver(messaging.Msg{
 		ID:      p.sim.NewID(),
-		Src:     p.driver.Ports.PageMigration.AsRemote(),
+		Src:     p.client.AsRemote(),
 		Dst:     migration.AsRemote(),
 		Payload: protocol.PageCopyReq{SrcAddress: src, DstAddress: dst, PageSize: bytes},
 	})
@@ -349,7 +348,7 @@ func (p migrationPlatform) mustCopyAPageOfGPU1(t *testing.T) {
 		t.Fatalf("the data mover did not copy the page: % x...", got[:8])
 	}
 
-	if answers := p.driver.Ports.PageMigration.IncomingBuf().Size(); answers != 1 {
+	if answers := p.client.IncomingBuf().Size(); answers != 1 {
 		t.Fatalf("the command processor sent %d answers", answers)
 	}
 }

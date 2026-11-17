@@ -30,7 +30,7 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 	page, found := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
 	owner := int(page.DeviceID)
 
-	if !found || !page.Unified || page.IsPinned || !m.isGPU(owner) {
+	if m.spec().Policy != PageMigrationFault || !found || !page.Unified || page.IsPinned || !m.isGPU(owner) {
 		// Nothing can move: on the replay, the walk does not fault.
 		m.startRelease(pi, slices.Clone(p.Waiters))
 		return true
@@ -42,8 +42,12 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 			m.startWindow(pi, gpu)
 			return true
 		case hintPin:
-			m.pin(pi, page)
-			m.startRelease(pi, slices.Clone(s.Pages[pi].Waiters))
+			if len(m.comp.Spec.PageTables) > 0 {
+				m.startPin(pi, page)
+			} else {
+				m.pin(pi, page)
+				m.startRelease(pi, slices.Clone(s.Pages[pi].Waiters))
+			}
 
 			return true
 		}
@@ -104,7 +108,11 @@ func (m *migrationMW) serviceNotification(r migrationRequest) {
 	case hintMigrate:
 		m.startWindow(pi, r.GPU)
 	case hintPin:
-		m.pin(pi, page)
+		if len(m.comp.Spec.PageTables) > 0 {
+			m.startPin(pi, page)
+		} else {
+			m.pin(pi, page)
+		}
 	default:
 		// The GPU is throttled: its remote accesses go on.
 		s.Stats.ThrottledNotifications++
@@ -215,7 +223,7 @@ func (m *migrationMW) ack(reqID uint64) {
 		// the copy went around the L2.
 		s.Stats.CopyTimeSum += uint64(m.now() - p.CopyStart)
 		m.remap(pi)
-		m.startShootdown(pi)
+		m.commitMapping(pi, p.OldPage)
 	case pageShootdown:
 		s.Stats.ShootdownTimeSum += uint64(m.now() - p.ShootdownStart)
 		m.startReleasePhase(pi)
@@ -234,9 +242,13 @@ func (m *migrationMW) held(pi int) {
 	switch p.Service {
 	case serviceMigrate:
 		m.startPrepare(pi)
+	case servicePin:
+		m.pin(pi, p.OldPage)
+		m.commitMapping(pi, p.OldPage)
 	case serviceUnpin:
+		page, _ := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
 		m.clearPin(pi)
-		m.startShootdown(pi)
+		m.commitMapping(pi, page)
 	default:
 		m.startReleasePhase(pi)
 	}

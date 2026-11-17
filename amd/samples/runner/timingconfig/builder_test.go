@@ -73,7 +73,7 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 	switch c := c.(type) {
 	case *rdma.Comp:
 		mapper := c.Spec.RemoteRDMAAddressTable
-		if len(mapper.Destinations) != numGPUs+1 || mapper.Find(0) != "CPU" {
+		if len(mapper.Destinations) != numGPUs+1 || mapper.Find(0) != cpuMemoryTop {
 			t.Fatal("missing CPU/GPU routing slots")
 		}
 		for i := 1; i <= numGPUs; i++ {

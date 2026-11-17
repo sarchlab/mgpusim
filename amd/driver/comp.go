@@ -43,6 +43,9 @@ type Spec struct {
 	// GPU.
 	PageMigration   PageMigrationSpec      `json:"page_migration"`
 	MigrationAgents []messaging.RemotePort `json:"migration_agents"`
+	// PageTables are in physical-device order: IOMMU, then one walker per GPU.
+	PageTables         []PageTableTarget `json:"page_tables"`
+	GlobalGPUPageTable bool              `json:"global_gpu_page_table"`
 }
 
 // Execution holds the sole mutable copy of a command already taken from gpuruntime.Runtime.
@@ -66,13 +69,15 @@ type State struct {
 
 	// PageMigration is the state of the page-migration middleware.
 	PageMigration PageMigrationState
+	PageTables    pageTableState
 }
 
-func (s *State) Initialize(*Comp) {
+func (s *State) Initialize(c *Comp) {
 	s.CopyCyclesLeft = -1
 	s.CommandTasks = make(map[uint64]uint64)
 	s.RequestTasks = make(map[uint64]uint64)
 	s.PageMigration = newPageMigrationState()
+	s.PageTables.initialize(c)
 }
 
 // Resources are live shared objects supplied before construction.
@@ -83,7 +88,10 @@ type Resources struct {
 }
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
-	GPU messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
+	// Optional groups preserve standalone and fixed-latency wiring.
+	PageTable []messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/vm/pagetableprotocol.requester"`
+	PageFault []messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/vm/pagefaultprotocol.responder"`
+	GPU       messaging.Port   `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
 
 	// PageMigration sends the migration commands to the command processors
 	// and receives their answers.
@@ -96,6 +104,7 @@ type Ports struct {
 	MigrationNotification messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.driver"`
 }
 type Middlewares struct {
+	PageTable *pageTableMW
 	Execute   *executionMW
 	Migration *migrationMW
 }
@@ -105,6 +114,7 @@ func (m *Middlewares) Initialize(c *Comp) {
 		panic(err)
 	}
 
+	m.PageTable = &pageTableMW{c}
 	m.Execute = &executionMW{comp: c}
 	m.Migration = &migrationMW{comp: c}
 }

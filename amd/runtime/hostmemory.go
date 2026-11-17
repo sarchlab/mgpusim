@@ -26,6 +26,7 @@ func (r *Runtime) AllocateHostBuffer(q CommandQueue, size int) HostBuffer {
 	}
 	ctx := r.context(h)
 	ptr := Ptr(r.allocator.Allocate(ctx.PID, uint64(size), 0))
+	r.recordMappingChanges(ctx.PID, uint64(ptr), uint64(size), nil, true)
 	ctx.Buffers = append(ctx.Buffers, buffer{Address: ptr, Size: uint64(size)})
 	return HostBuffer{Context: h, Address: ptr, ByteSize: size}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/dram"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/mem/vm/tlb"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
@@ -62,7 +63,9 @@ type Builder struct {
 	memAddrOffset                  uint64
 	dramSize                       uint64
 	globalStorage                  *mem.Storage
-	mmu                            *mmu.Comp
+	translation                    messaging.RemotePort
+	walkerSpec                     *pagetablemmu.Spec
+	walker                         *pagetablemmu.Comp
 	rdmaAddressMapper              mem.AddressMapper
 	driverPort                     messaging.RemotePort
 	pageMigration                  gpubuilder.PageMigrationConfig
@@ -180,7 +183,15 @@ func (b Builder) WithDramSize(size uint64) Builder {
 
 // WithMMU sets the MMU that can provide the ultimate address translation.
 func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
-	b.mmu = mmu
+	b.walkerSpec = nil
+	b.translation = mmu.Ports.Top.AsRemote()
+	return b
+}
+
+// WithPageTableMMU builds a local walker whose PTE requests use this GPU's
+// memory below L2. The platform configures its pool and fault handler.
+func (b Builder) WithPageTableMMU(spec pagetablemmu.Spec) Builder {
+	b.walkerSpec = &spec
 	return b
 }
 
@@ -238,6 +249,13 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildDMAEngine()
 	b.buildDataMover()
 	b.buildRDMAEngine()
+	if b.walkerSpec != nil {
+		spec := *b.walkerSpec
+		spec.Memory = *b.dmaLocalDataSource
+		spec.Log2PageSize = uint(b.log2PageSize)
+		b.walker = gpubuilder.BuildPageTableMMU(b.simulation, name+".GMMU", spec)
+		b.translation = b.walker.Ports.Top.AsRemote()
+	}
 	b.buildL2TLB()
 	b.buildSAs()
 	b.buildCP()
@@ -271,6 +289,7 @@ func (b *Builder) buildPort(
 func (b *Builder) populateGPU() {
 	b.gpu = &gpubuilder.GPU{
 		Name:                 b.name,
+		PageTableMMU:         b.walker,
 		CommandProcessor:     b.cp,
 		CommandProcessorPort: b.cp.Ports.ToDriver,
 		RDMARequestPort:      b.rdmaEngine.Ports.RDMARequestOutside,
@@ -397,6 +416,14 @@ func (b *Builder) connectL2AndDRAM() {
 	}
 
 	b.l2ToDramConnection.BindPort(b.rdmaEngine.Ports.MigrationInside)
+	if b.walker != nil {
+		b.l2ToDramConnection.BindPort(b.walker.Ports.Memory)
+		local := directconnection.NewConnection(b.name+".Translation", b.simulation, b.freq)
+		local.BindPort(b.walker.Ports.Top)
+		for _, t := range b.l2TLBs {
+			local.BindPort(t.Ports.Bottom)
+		}
+	}
 }
 
 func (b *Builder) connectL1TLBToL2TLB() {
@@ -683,7 +710,7 @@ func (b *Builder) buildL2TLB() {
 	spec.NumReqPerCycle = 1024
 	spec.Log2PageSize = b.log2PageSize
 
-	spec.Bottom = mem.AddressMapper{Destinations: []messaging.RemotePort{b.mmu.Ports.Top.AsRemote()}}
+	spec.Bottom = mem.AddressMapper{Destinations: []messaging.RemotePort{b.translation}}
 	l2TLB := modeling.MakeBuilder[*tlb.Comp](spec).WithSimulation(b.simulation).
 		Build(fmt.Sprintf("%s.L2TLB", b.name))
 

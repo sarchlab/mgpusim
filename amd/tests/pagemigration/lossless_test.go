@@ -6,9 +6,11 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/addrtransprotocol"
+	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
+	rt "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
 // tinyQueue makes the driver take one fault at a time, so that faults that
@@ -46,11 +48,12 @@ func TestEveryFaultIsServicedWhenTheQueueIsFull(t *testing.T) {
 			data := ramp(1, hostFloats)
 			s.upload(shared, data)
 
-			// The host copy takes the pages first; the kernel of GPU 2
-			// starts while it runs.
-			host := benchmarks.Download(s.rt, s.queues[0], shared, hostFloats*floatBytes)
+			// Start the prepared host read at GPU 2's first walk for the
+			// shared input. Timed uploads and mapping setup can otherwise
+			// let the copy finish before the kernel's first instruction.
+			host := s.rt.AllocateHostBuffer(s.queues[0], hostFloats*floatBytes)
 			s.touch(2, result, shared, floats)
-			s.run()
+			s.readDuringWalk(shared, floats*floatBytes, host)
 
 			fromHost := make([]float32, hostFloats)
 			if err := benchmarks.Read(s.rt, host, fromHost); err != nil {
@@ -73,6 +76,35 @@ func TestEveryFaultIsServicedWhenTheQueueIsFull(t *testing.T) {
 
 			t.Logf("%s: %+v", gpuType, st)
 		})
+	}
+}
+
+func (s *system) readDuringWalk(shared rt.Ptr, kernelBytes uint64, host rt.HostBuffer) {
+	s.t.Helper()
+	var gpu *pagetablemmu.Comp
+	for _, component := range s.sim.Components() {
+		if c, ok := component.(*pagetablemmu.Comp); ok && c.Name() == "GPU[2].GMMU" {
+			gpu = c
+			break
+		}
+	}
+	sent := false
+	s.runWatching(func() {
+		if sent {
+			return
+		}
+		for _, w := range gpu.State.Walks {
+			va := w.VPN * s.pageSize
+			if len(w.Waiters) > 0 && w.PID == s.pid() && va+s.pageSize > uint64(shared) && va < uint64(shared)+kernelBytes {
+				s.rt.EnqueueMemCopyD2H(s.queues[0], host.Address, shared, host.ByteSize)
+				s.start()
+				sent = true
+				return
+			}
+		}
+	})
+	if !sent {
+		s.t.Fatal("GPU 2 never walked the shared input")
 	}
 }
 

@@ -96,6 +96,7 @@ func newRuntimeConfiguredFixture(
 	}).Build()
 	f.c.BindPort(MigrationNotificationPortName, f.pn)
 	(&noopConn{}).BindPort(f.pn)
+	f.bindDetailedPorts(spec)
 	if err := f.s.Initialize(); err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +108,17 @@ func newRuntimeConfiguredFixture(
 	f.ctx = f.r.Init()
 	f.q = f.r.CreateCommandQueue(f.ctx)
 	return f
+}
+func (f *fixture) bindDetailedPorts(spec Spec) {
+	if len(spec.PageTables) > 0 {
+		for _, name := range []string{"PageFault[0]", "PageTable[0]"} {
+			port := twowaybuffered.MakeBuilder().WithSimulation(f.s).WithSpec(twowaybuffered.Spec{
+				IncomingCapacity: 16, OutgoingCapacity: 16,
+			}).Build()
+			f.c.BindPort(name, port)
+			(&noopConn{}).BindPort(port)
+		}
+	}
 }
 func tickDriver(c *Comp) bool { return c.Middlewares.Execute.Tick() }
 func (f *fixture) running(cmd gpuruntime.Command, reqs []messaging.Msg) gpuruntime.CommandID {

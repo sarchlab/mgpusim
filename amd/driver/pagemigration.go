@@ -145,6 +145,7 @@ const (
 	pageCopy             // the destination's data mover copies
 	pageShootdown        // the GPUs drop the old translation
 	pageRelease          // the GPUs release the page
+	pageMapping          // waits for the affected MMUs to commit the new mapping
 )
 
 // Services of a page.
@@ -153,6 +154,7 @@ const (
 	serviceMigrate // hold, flush and invalidate, copy, remap, shoot down, release
 	serviceRelease // hold and release: nothing moves
 	serviceUnpin   // hold, clear the pin, shoot down, release
+	servicePin     // hold, install pin in detailed MMUs, shoot down, release
 )
 
 // migrationPage is a page and where it is in its service. A page is serviced
@@ -369,11 +371,17 @@ func (m *migrationMW) isGPU(dev int) bool {
 // Tick takes in the answers and the notifications, wakes the pages whose
 // throttling or pin has ended, services a batch, and sends the commands.
 func (m *migrationMW) Tick() bool {
-	if !m.spec().Enabled() {
+	detailed := len(m.comp.Spec.PageTables) != 0
+	if !m.spec().Enabled() && !detailed {
 		return false
 	}
-
 	madeProgress := m.receiveAnswers()
+	if detailed {
+		madeProgress = m.receivePageFaults() || madeProgress
+	}
+	if !m.spec().Enabled() {
+		return m.send() || madeProgress
+	}
 	madeProgress = m.receiveNotifications() || madeProgress
 	madeProgress = m.wakeThrottled() || madeProgress
 	madeProgress = m.expirePins() || madeProgress
@@ -415,7 +423,12 @@ func (m *migrationMW) receiveAnswers() bool {
 				reflect.TypeOf(msg.Payload))
 		}
 
-		m.ack(msg.RspTo)
+		if group, ok := m.comp.State.PageTables.Shootdowns[msg.RspTo]; ok {
+			delete(m.comp.State.PageTables.Shootdowns, msg.RspTo)
+			m.comp.Middlewares.PageTable.ack(group)
+		} else {
+			m.ack(msg.RspTo)
+		}
 
 		madeProgress = true
 	}
