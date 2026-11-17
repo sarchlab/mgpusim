@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/addresstranslator"
@@ -38,8 +39,16 @@ func TestPageTablePlacementAndRemoteDecisions(t *testing.T) {
 				cfg := DefaultPageTableSpec()
 				cfg.GlobalGPU = global
 				cfg.GPU.FilterBuckets = 1
+				// Routes belong to the platform, including range/fallback fields.
+				cfg.IOMMU.Memory = mem.AddressMapper{
+					Destinations: []messaging.RemotePort{"OtherMemory.Top"},
+					RangeLow:     deviceBytes, RangeHigh: 2 * deviceBytes, Fallback: "OtherMemory.Fallback",
+				}
 				return b.WithPageTable(cfg)
 			})
+			if dst := p.mmu.Spec.Memory.Find(p.mmu.Spec.PoolBase); dst != cpuMemoryTop {
+				t.Fatalf("IOMMU pool routes to %s, want %s", dst, cpuMemoryTop)
+			}
 			r := p.driver.Resources.Runtime
 			ctx := r.Init()
 			q := r.CreateCommandQueue(ctx)

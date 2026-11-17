@@ -1,6 +1,7 @@
 package timingconfig
 
 import (
+	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/sim/messaging"
@@ -52,7 +53,7 @@ func (b *Builder) buildIOMMU(conn *direct.Connection) *pagetablemmu.Comp {
 	}
 	spec.PoolBase = 0
 	spec.Log2PageSize = uint(b.log2PageSize)
-	spec.Memory.Destinations = []messaging.RemotePort{cpuMemoryTop}
+	spec.Memory = mem.AddressMapper{Destinations: []messaging.RemotePort{cpuMemoryTop}}
 	spec.FaultHandler = "Driver.PageFault[0]"
 	spec.ConsultRemote = true
 	io := gpubuilder.BuildPageTableMMU(b.simulation, "IOMMU", spec)
