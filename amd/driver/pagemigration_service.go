@@ -80,6 +80,11 @@ func (m *migrationMW) serviceThrottled(pi, owner int, explicit []int) {
 		}
 	}
 	if len(replay) != 0 {
+		if len(replay) < len(p.Waiters) {
+			// The remaining faults keep their task while this subset replays.
+			p.RetainedTrace = p.Trace
+			p.Trace = m.traceStart(p.RetainedTrace.ID, "partial release")
+		}
 		m.startRelease(pi, replay)
 		return
 	}

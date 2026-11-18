@@ -165,15 +165,16 @@ type migrationPage struct {
 	// NewPAddr of GPU Dst; Prefetched is set when the page moves with the
 	// window of another page. PendingAcks counts the answers of the phase
 	// that have not arrived.
-	Trace, RetainedTrace pageTrace
-	Phase                int     `json:"phase"`
-	Service              int     `json:"service"`
-	Dst                  int     `json:"dst"`
-	Targets              []int   `json:"targets"`
-	OldPage              vm.Page `json:"old_page"`
-	NewPAddr             uint64  `json:"new_paddr"`
-	Prefetched           bool    `json:"prefetched"`
-	PendingAcks          int     `json:"pending_acks"`
+	Trace         pageTrace `json:"trace"`
+	RetainedTrace pageTrace `json:"retained_trace"`
+	Phase         int       `json:"phase"`
+	Service       int       `json:"service"`
+	Dst           int       `json:"dst"`
+	Targets       []int     `json:"targets"`
+	OldPage       vm.Page   `json:"old_page"`
+	NewPAddr      uint64    `json:"new_paddr"`
+	Prefetched    bool      `json:"prefetched"`
+	PendingAcks   int       `json:"pending_acks"`
 
 	// Waiters are the GPUs that have a demand fault on the page that is not
 	// serviced yet, each once, in arrival order. A fault that arrives while
@@ -732,7 +733,7 @@ func (m *migrationMW) sendTo(pi, gpu int, payload any) {
 func (m *migrationMW) shootDownHostMapping(p vm.Page, group uint64) int {
 	req := protocol.PageShootdownReq{PID: p.PID, VAddr: p.VAddr, PageSize: p.PageSize}
 	for _, dst := range m.comp.Spec.MigrationAgents {
-		id := m.queueCommand(dst, req, 0)
+		id := m.queueCommand(dst, req, m.comp.Resources.Runtime.SimulationTask())
 		m.state().HostShootdowns[id] = group
 	}
 	return len(m.comp.Spec.MigrationAgents)

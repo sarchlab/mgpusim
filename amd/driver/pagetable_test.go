@@ -193,7 +193,9 @@ func TestTemporaryRemoteMapRevokedBeforeRelease(t *testing.T) {
 }
 
 func TestRetainedAdvisedWaiterReplaysWhileAnotherGPUIsThrottled(t *testing.T) {
-	f := newTableFixtureWithGPUs(t, 3, sim.MakeBuilder())
+	f := newTableFixtureWithGPUs(t, 3, sim.MakeBuilder().WithTaskTracking())
+	o := &pageServiceObserver{}
+	f.s.TaskTracker().Subscribe(o, f.c)
 	m := f.c.Middlewares.Migration
 	addr := f.r.AllocateUnifiedMemory(f.ctx, testPageSize)
 	f.r.SetAccessedBy(f.ctx, addr, 1, 2)
@@ -204,6 +206,7 @@ func TestRetainedAdvisedWaiterReplaysWhileAnotherGPUIsThrottled(t *testing.T) {
 	m.startRelease(pi, []int{1})
 	f.requestDecision(t, page, 2)
 	f.requestDecision(t, page, 3)
+	queued := p.RetainedTrace.ID
 	p.Events = m.spec().ThrashingThreshold
 	mf := migrationFixture{fixture: f, t: t}
 	mf.step(page)
@@ -212,25 +215,48 @@ func TestRetainedAdvisedWaiterReplaysWhileAnotherGPUIsThrottled(t *testing.T) {
 		!slices.Equal(p.Waiters, []int{3}) || len(p.Throttled) != 1 || p.Throttled[0].GPU != 3 {
 		t.Fatalf("advised requester should replay; only GPU 3 should nap: %+v", p)
 	}
+	f.requestDecision(t, page, 1) // owner faults during the partial Release
+	mf.finish(page)               // replay the owner as well; GPU 3 still waits for its nap
+	if queued == 0 || p.Trace.ID != queued || p.Phase != pageIdle || len(o.ended) != 2 {
+		t.Fatalf("fault task %d lost during partial replay: state %+v, ended %+v", queued, p, o.ended)
+	}
+	for _, child := range o.ended {
+		if child.ParentID != queued || child.What != "partial release" {
+			t.Fatalf("partial replay has the wrong parent: %+v", child)
+		}
+	}
+	mf.advanceTo(m.spec().ThrashingNapNS)
+	mf.finish(page) // copy reaches the page-table publication barrier
+	f.answerTables(t)
+	mf.ticks()
+	mf.finish(page)
+	if len(o.ended) != 3 || o.ended[2].ID != queued || p.Trace.ID != 0 || p.RetainedTrace.ID != 0 {
+		t.Fatalf("final release did not finish the original fault task exactly once: %+v", o.ended)
+	}
 }
 
-type expiryObserver struct {
-	ended []tasks.Task
-	marks []tasks.Milestone
+type pageServiceObserver struct {
+	requests []tasks.Task
+	ended    []tasks.Task
+	marks    []tasks.Milestone
 }
 
-func (*expiryObserver) TaskStarted(tasks.Task) {}
-func (o *expiryObserver) TaskEnded(task tasks.Task) {
+func (o *pageServiceObserver) TaskStarted(task tasks.Task) {
+	if task.Kind == tasks.KindReqOut {
+		o.requests = append(o.requests, task)
+	}
+}
+func (o *pageServiceObserver) TaskEnded(task tasks.Task) {
 	if task.Kind == "Page service" {
 		o.ended = append(o.ended, task)
 	}
 }
-func (*expiryObserver) TagAdded(tasks.Tag)                    {}
-func (o *expiryObserver) MilestoneAdded(mark tasks.Milestone) { o.marks = append(o.marks, mark) }
+func (*pageServiceObserver) TagAdded(tasks.Tag)                    {}
+func (o *pageServiceObserver) MilestoneAdded(mark tasks.Milestone) { o.marks = append(o.marks, mark) }
 
 func TestPinExpiryRetainsFaultTraceThroughItsOwnRelease(t *testing.T) {
 	f := newTableFixtureWithGPUs(t, 2, sim.MakeBuilder().WithTaskTracking())
-	o := &expiryObserver{}
+	o := &pageServiceObserver{}
 	f.s.TaskTracker().Subscribe(o, f.c)
 	m := f.c.Middlewares.Migration
 	addr := f.r.AllocateUnifiedMemory(f.ctx, testPageSize)
@@ -267,5 +293,45 @@ func TestPinExpiryRetainsFaultTraceThroughItsOwnRelease(t *testing.T) {
 	})
 	if len(o.ended) != 2 || o.ended[0].ID != expiry || o.ended[1].ID != retained || !released {
 		t.Fatalf("ended page tasks %+v; expiry %d, retained %d", o.ended, expiry, retained)
+	}
+}
+
+func TestHostShootdownFollowsPTECommitAndGatesDispatch(t *testing.T) {
+	f := newTableFixtureWithGPUs(t, 2, sim.MakeBuilder().WithTaskTracking())
+	f.r.BeginSimulationTrace(f.s.TaskTracker(), f.c)
+	defer f.r.EndSimulationTrace(f.s.TaskTracker())
+	addr := f.r.AllocateMemory(f.ctx, testPageSize)
+	f.answerTables(t)
+	pid := f.r.QueuePID(f.q)
+	f.c.State.PageTables.Dispatched[pid] = true
+	f.enqueue(f.q, runtime.Command{Kind: runtime.LaunchKernel})
+	o := &pageServiceObserver{}
+	f.s.TaskTracker().Subscribe(o, f.c)
+	f.r.Remap(f.ctx, uint64(addr), testPageSize, 1)
+	table := f.c.Middlewares.PageTable
+	mf := migrationFixture{fixture: f, t: t}
+	table.Handle(nil)
+	mf.ticks()
+	if table.ready(f.q) || len(mf.outstanding()) != 0 {
+		t.Fatal("host remap bypassed its PTE ACKs")
+	}
+	f.answerTables(t)
+	mf.ticks()
+	reqs := mf.outstanding()
+	if len(reqs) != 2 || table.ready(f.q) {
+		t.Fatalf("expected both shootdowns after PTE ACKs: %+v", reqs)
+	}
+	mf.answer(reqs[0])
+	if table.ready(f.q) {
+		t.Fatal("host dispatch bypassed the second shootdown ACK")
+	}
+	mf.answer(reqs[1])
+	if !table.ready(f.q) || len(o.requests) != 4 {
+		t.Fatalf("host remap did not finish two MMU updates and two shootdowns: %+v", o.requests)
+	}
+	for _, req := range o.requests {
+		if req.ParentID == 0 || req.ParentID != f.r.SimulationTask() {
+			t.Fatalf("host publication has wrong simulation parent: %+v", req)
+		}
 	}
 }

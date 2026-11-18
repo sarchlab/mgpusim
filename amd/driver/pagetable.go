@@ -159,7 +159,7 @@ func (m *pageTableMW) hostChanges() bool {
 		if before.Page.Valid && before.Page != merged[k].Page && m.c.State.PageTables.Dispatched[k.pid] {
 			g.Shootdown = before.Page
 		}
-		m.publish(g, merged[k], 0)
+		m.publish(g, merged[k], m.c.Resources.Runtime.SimulationTask())
 		s := &m.c.State.PageTables
 		if s.PendingPages[k.pid][k.va] != 0 {
 			// Advice can promote a lazy Map that is already in flight.

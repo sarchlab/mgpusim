@@ -10,8 +10,8 @@ import (
 // A page service can outlive the fault response that admitted it. Its task
 // and last completed wait are checkpointed alongside the protocol phase.
 type pageTrace struct {
-	ID   uint64
-	Last timing.VTimeInPicoSec
+	ID   uint64                `json:"id"`
+	Last timing.VTimeInPicoSec `json:"last"`
 }
 
 func (m *migrationMW) traceStart(parent uint64, reason string) pageTrace {

@@ -98,10 +98,16 @@ and contexts sharing an address space. Driver publishes a root before sending
 that PID's first mapping to an MMU. Per-MMU command streams wait for the
 write acknowledgements. A copy waits for changes to its ranges, and a kernel
 waits for its address space because it may access any of that PID's buffers.
-Host changes to previously used mappings also invalidate external TLB entries.
-Host remap and free require completion of work using those addresses.
-The allocator's functional table supplies host bookkeeping and emulation.
-Timed walks read encoded PTEs through their physical memory ports.
+Host remap and free require completion of work using those addresses. For
+a previously used mapping, the Driver waits for all affected MMUs to
+acknowledge their PTE updates before requesting a TLB shootdown. Dependent
+dispatch resumes after every shootdown ACK arrives.
+
+The allocator maintains the functional page table for host bookkeeping and
+emulation. The Driver reads current residency from this table when deciding
+a fault. The IOMMU's request can describe an older mapping if the page
+changed during the walk. GPU and IOMMU walks read encoded PTEs through
+their physical memory ports.
 
 A host calls `runtime.SetAccessedBy(ctx, addr, size, gpu)` to preinstall
 direct access to each page intersecting the byte range. Advice belongs to
