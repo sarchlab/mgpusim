@@ -253,7 +253,7 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 		spec := *b.walkerSpec
 		spec.Memory = *b.l1AddressMapper
 		spec.Log2PageSize = uint(b.log2PageSize)
-		b.walker = gpubuilder.BuildPageTableMMU(b.simulation, name+".GMMU", spec)
+		b.walker = gpubuilder.BuildLocalPageTableMMU(b.simulation, name+".GMMU", spec, b.log2CacheLineSize)
 		b.translation = b.walker.Ports.Top.AsRemote()
 	}
 	b.buildL2TLB()

@@ -64,7 +64,9 @@ The Runtime excludes these prefixes from data and migration-frame allocation
 with either allocator. The GMMU checks its internal page-walk cache before issuing a walk read.
 PDE and PTE reads, writes, and node zeroing use the same physical-address
 interleave and L2 banks as ordinary GPU data on both R9 Nano and MI300X.
-An acknowledged write is visible to subsequent walks. The IOMMU and remote GPU
+An acknowledged write is visible to subsequent walks. The GPU builder limits
+node-zeroing transactions to one L2 line and honors any smaller
+`PageTableSpec.GPU.MaxZeroWriteSize`. The IOMMU and remote GPU
 accesses to CPU memory share a CPU memory controller backed by GlobalStorage.
 The page size follows the GPU preset throughout the platform. Set
 `PageTableSpec.Log2PageSize` to override it for every translation component
