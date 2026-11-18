@@ -4,6 +4,7 @@ package gpubuilder
 
 import (
 	"github.com/sarchlab/akita/v5/mem"
+	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
 )
@@ -13,6 +14,9 @@ import (
 // builders return the port instances that the platform needs to wire the GPU
 // to the driver, the MMU, and the other GPUs.
 type GPU struct {
+	// PageTableMMU is the optional GPU-local walker. Its Memory port is wired to the ordinary L2 banks.
+	PageTableMMU *pagetablemmu.Comp
+
 	// Name is the name the GPU was built with (e.g., "GPU[1]").
 	Name string
 
@@ -73,7 +77,11 @@ func (g *GPU) ExternalPorts() []messaging.Port {
 	}
 
 	ports = append(ports, g.MigrationDataPort, g.AccessCounterPort)
-	ports = append(ports, g.TranslationPorts...)
+	if c := g.PageTableMMU; c != nil {
+		ports = append(ports, c.Ports.Control, c.Ports.PageFault, c.Ports.FaultIn)
+	} else {
+		ports = append(ports, g.TranslationPorts...)
+	}
 
 	return ports
 }

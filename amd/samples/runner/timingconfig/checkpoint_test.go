@@ -107,7 +107,7 @@ func prepareTimingCheckpoint(t *testing.T, a arch.Type, path string) {
 	}
 	e := s.Engine().(*timing.SerialEngine)
 	reached := false
-	for cycle := 0; cycle < 20000; cycle++ {
+	for cycle := 0; cycle < 250000; cycle++ {
 		if err := e.RunUntil(timing.VTimeInPicoSec(cycle+1) * 1000); err != nil {
 			t.Fatal(err)
 		}

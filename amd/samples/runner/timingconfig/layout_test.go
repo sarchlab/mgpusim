@@ -77,14 +77,15 @@ func (l physicalLayout) mustHave(gpu int) {
 		l.t.Fatalf("the allocator has %#x, above the last GPU, on device %d", last+l.pageSize, device)
 	}
 
-	// The first page that the GPU hands out is the first of its range.
+	// The device span includes its MMU pool. Data starts after the pool.
 	ctx := l.rt.Init()
 	l.rt.SelectGPU(ctx, gpu)
 	ptr := l.rt.AllocateMemory(ctx, 1)
 
 	page, found := l.p.driver.Resources.PageTable.Find(l.rt.QueuePID(l.rt.CreateCommandQueue(ctx)), uint64(ptr))
-	if !found || page.PAddr != first {
-		l.t.Fatalf("the first page of GPU %d is at %#x, want %#x", gpu, page.PAddr, first)
+	firstData := first + l.p.walkers[fmt.Sprintf("GPU[%d].GMMU", gpu)].Spec.PoolNodes*4096
+	if !found || page.PAddr != firstData {
+		l.t.Fatalf("the first page of GPU %d is at %#x, want %#x", gpu, page.PAddr, firstData)
 	}
 
 	// The storage and the hardware, at both ends of the range.

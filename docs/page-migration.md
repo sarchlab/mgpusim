@@ -37,7 +37,7 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 |---|---|---|
 | `Policy` | `fault` | `fault`, `counter`, or `none` |
 | `BatchSize` | 256 | most requests the driver services in one batch (`uvm_perf_fault_batch_count`) |
-| `QueueSize` | 1024 | entries of the request queue: a notification that needs one is taken in only while the queue has fewer, and waits in the port, and at its sender, otherwise (see [The queue is finite](#the-queue-is-finite)) |
+| `QueueSize` | 1024 | maximum new service admissions held in the queue. A waiting detailed fault retains its IOMMU slot. See [The queue is finite](#the-queue-is-finite). |
 | `AccessCounterThreshold` | 256 | remote demand accesses of one GPU to one physical page frame that notify the driver with `counter`, whatever the system page size; 0 turns the counters off (`uvm_perf_access_counter_threshold`, see [Access-counter migration](#access-counter-migration)) |
 | `PrefetchThreshold` | 51 | a migration takes the rest of the largest aligned region of its 2 MiB block along in which more than this percent of the page positions are on the destination; 0 turns prefetching off (`uvm_perf_prefetch_threshold`) |
 | `ThrashingThreshold` | 3 | thrashing events that make a page thrashing (`uvm_perf_thrashing_threshold`) |
@@ -47,6 +47,92 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 | `PinThreshold` | 10 | throttling operations in a row that pin a page (`uvm_perf_thrashing_pin_threshold`) |
 | `PinNS` | 150 000 000 | how long a page stays pinned (`uvm_perf_thrashing_pin`) |
 | `DataMoverPages` | 64 | page copies that the data mover of a GPU keeps in flight |
+
+### Timing translation
+
+The default timing platform builds a memory-backed GMMU on each GPU and a
+complete CPU-side IOMMU. A local GMMU stores mappings owned by its GPU and direct remote mappings
+installed for that requester.
+A miss forwards the original PID, VA, and requesting GPU to the IOMMU.
+The IOMMU walks its own table and asks the Driver to decide remote placement.
+A valid page can be used remotely through cache-line RDMA. An unmapped
+terminal request stops the simulation with the PID, VA, and requesting GPU.
+
+Each GPU reserves the first 16 MiB of its physical span for page tables.
+The CPU reserves the first 64 MiB of its span, including the null data frame.
+The Runtime excludes these prefixes from data and migration-frame allocation
+with either allocator. The GMMU checks its internal page-walk cache before issuing a walk read.
+PDE and PTE reads, writes, and node zeroing use the same physical-address
+interleave and L2 banks as ordinary GPU data on both R9 Nano and MI300X.
+An acknowledged write is visible to subsequent walks. The GPU builder limits
+node-zeroing transactions to one L2 line and honors any smaller
+`PageTableSpec.GPU.MaxZeroWriteSize`. The IOMMU and remote GPU
+accesses to CPU memory share a CPU memory controller backed by GlobalStorage.
+The page size follows the GPU preset throughout the platform. Set
+`PageTableSpec.Log2PageSize` to override it for every translation component
+and allocator.
+
+Use `timingconfig.DefaultPageTableSpec()` with `WithPageTable` to configure
+the walker capacities, pool lengths (in 4 KiB nodes), and optional SRAM
+routing filter. Pool lengths must be whole data pages and fit in each device.
+For example:
+
+```go
+tables := timingconfig.DefaultPageTableSpec()
+tables.GPU.FilterBuckets = 256
+builder = builder.WithPageTable(tables)
+```
+
+The filter defaults off. A negative bypasses the local walk and the complete
+IOMMU supplies fallback, including after a filter eviction. `GlobalGPU`
+replicates mappings of every GPU’s VRAM on each GPU. CPU-resident pages
+can also be installed by advice or on demand. In the global preset remote
+hits still consult the IOMMU for policy. `FixedLatency` selects the previous shared MMU and fault-notification
+protocol. The exported standalone GPU builders continue to accept that MMU
+with `WithMMU`. A standalone memory-backed assembly uses `WithPageTableMMU`,
+connects the returned GPU's external ports, and supplies the fallback and
+control peers.
+
+Runtime records mapping changes for each PID, including CPU staging buffers
+and contexts sharing an address space. Driver publishes a root before sending
+that PID's first mapping to an MMU. Per-MMU command streams wait for the
+write acknowledgements. A copy waits for changes to its ranges, and a kernel
+waits for its address space because it may access any of that PID's buffers.
+Host remap and free require completion of work using those addresses. For
+a previously used mapping, the Driver waits for all affected MMUs to
+acknowledge their PTE updates before requesting a TLB shootdown. Dependent
+dispatch resumes after every shootdown ACK arrives.
+
+The allocator maintains the functional page table for host bookkeeping and
+emulation. The Driver reads current residency from this table when deciding
+a fault. The IOMMU's request can describe an older mapping if the page
+changed during the walk. GPU and IOMMU walks read encoded PTEs through
+their physical memory ports.
+
+A host calls `runtime.SetAccessedBy(ctx, addr, size, gpu)` to preinstall
+direct access to each page intersecting the byte range. Advice belongs to
+the context's PID and names a physical GPU. These timing platforms can reach
+both peer VRAM and CPU memory. Advice follows a live allocation when it moves
+and ends when it is freed. Fixed-latency and emulation models share a page
+table and require no extra publication.
+
+When the Driver permits direct access on a fault, it sends the current
+mapping in a `Resolved` response before waiting for a local Map ACK. The
+requesting GMMU can finish its active walk and use the installed PTE on
+later misses. For migration the Driver sends `Blocked` before awaiting the
+Hold ACKs. While GPUs hold the page, the Driver moves explicit mappings to
+the new residence and removes fault-installed mappings. Per-MMU command
+ordering ensures an outstanding lazy Map completes before its revocation.
+Pin expiry uses the same Hold, publication, shootdown, and Release sequence.
+It retains residency and explicit access and removes temporary direct access.
+
+With task tracking enabled, the Driver records a per-page service task for
+faults, counter notifications, prefetches, and timed unpins. Task links follow
+the actual messages through CP page jobs, cache and translator control, the
+data mover, and page-table updates. Milestones record completed waits for
+Hold, frame preparation, copy, committed mappings, TLB shootdown, and the
+last Release ACK. Outstanding request identities and the last wait boundary
+are checkpointed.
 
 ### Statistics
 
@@ -64,7 +150,7 @@ of the driver:
 | `pm_ignored_notifications` | notifications whose page did not move: it was on the notifier, serviced, pinned, not unified, or used by a memory copy |
 | `pm_free_frame_notifications` | notifications for a frame that no page mapped when they were serviced |
 | `pm_throttled_notifications` | notifications of a GPU that was throttled on the page |
-| `pm_queue_full_waits` | times a fault or a notification stayed in the port because the queue was full |
+| `pm_queue_full_waits` | Driver ticks when a full service queue delayed at least one fault or notification |
 | `pm_batches` | batches that serviced a request |
 | `pm_windows` | windows: migrations of a triggering page with the pages prefetched with it |
 | `pm_migrations` | pages moved for a fault or a notification |
@@ -72,7 +158,7 @@ of the driver:
 | `pm_pages_migrated` | pages moved: `pm_migrations` plus `pm_pages_prefetched` |
 | `pm_bytes_migrated` | bytes of the pages moved |
 | `pm_frames_retired` | frames that pages left |
-| `pm_releases` | services that moved nothing: hold and release |
+| `pm_releases` | completed release-only services and detailed pin installations, both of which keep the current frame |
 | `pm_thrashing_events` | migrations of a page within `ThrashingLapseNS` of its previous one, counted until the page is thrashing |
 | `pm_thrashing_pages` | times a page became thrashing |
 | `pm_throttles` | throttling operations |
@@ -92,7 +178,7 @@ serviced, it names a free frame, is ignored, or comes from a throttled GPU
 
 | Component | Role |
 |---|---|
-| MMU (Akita) | A walk of a unified page that is on another GPU and not pinned faults: the MMU answers at once with a fault response and notifies `Driver.MigrationNotification` from its `Notification` port. It never holds a walk, and keeps the notifications that the driver does not take yet. |
+| GMMU and IOMMU (Akita) | Walk memory-backed PTEs, forward misses, and return one response per original request. A Driver decision of `Resolved` returns the usable local or remote mapping. `Blocked` returns a translation NACK. |
 | TLBs (Akita) | Forward a fault response without caching it. |
 | Address translators (Akita) | Hold faulted accesses and accesses to held pages in a list that uses no transaction slot; a Hold acknowledges once no access to the page is outstanding and no translation of it is in flight, without waiting for the Holds of other pages; the page stays held until a Release, which translates the held accesses again. |
 | RDMA engines | With `counter`, count the requests on `RDMARequestInside` (the remote demand accesses of their GPU) per physical page frame. They also pass the reads of other GPUs' data movers from `MigrationOutside` to the memory below the L2 (`MigrationInside`). |
@@ -118,8 +204,10 @@ service of another page to end, for a kernel, or for ordinary memory traffic.
 The places where the platform orders the steps of different pages are listed
 under [What is ordered](#what-is-ordered).
 
-1. **Fault.** The MMU walk finds *P* on *s*, answers with a fault, and
-   notifies the driver. *g*'s address translator holds the access.
+1. **Fault.** The IOMMU finds *P* on *s* and asks Driver for a placement
+   decision. When Driver accepts the migration, it replies `Blocked` before
+   waiting for any Hold ACK. The MMUs propagate the NACK to *g*'s
+   address translator, which retains the access.
 2. **Batch.** The driver starts a batch as soon as requests wait: it takes
    what waits at that moment, at most `BatchSize`, and never waits to fill a
    batch.
@@ -139,8 +227,9 @@ under [What is ordered](#what-is-ordered).
    L2 on both ends: it reads the old frame below *s*'s L2 and writes the new
    frame below *g*'s. That is the DRAM on R9 Nano and the MALL, which fronts
    DRAM for every access, on MI300X.
-6. **Remap.** With the answer of the data mover, the driver updates the page
-   table.
+6. **Remap.** After the copy acknowledgement, Driver updates the host
+   metadata and commits the mapping to the IOMMU and every affected GMMU.
+   It waits for all PTE write and internal cache/filter maintenance ACKs.
 7. **Shootdown.** Every command processor drops the translation of *P* from
    its TLBs.
 8. **Release.** Every command processor releases *P*; the held accesses
@@ -161,13 +250,11 @@ follows drops every stale entry. The TLBs are shot down in rounds: a round
 pauses the TLBs once, invalidates every page that waits, and enables them
 again.
 
-When nothing moves (the page is already on *g*, or it is pinned), the driver
-tells *g*'s command processor to hold and then release the page; on the
-replay, the MMU returns the local or the pinned remote translation. The Hold
-is needed because the fault notification reaches the driver directly while the
-fault response still travels through *g*'s TLBs: a Release that overtook it
-would not clear the fault, and the access would wait for another Release. The
-Hold acknowledges only after the response has arrived.
+Driver can resolve a translation to an already pinned remote page immediately.
+If a previously blocked requester still waits after placement has settled,
+Driver holds and releases the waiting GPUs so they translate again. Each
+Hold waits for in-flight translations to drain, including a NACK that is
+still traveling through the TLBs. This orders the Release after that NACK.
 
 A memory copy never runs on a migrating page, and a page never migrates under
 a running memory copy: its faults wait for the copy. A copy of another command
@@ -191,31 +278,27 @@ driver therefore never drops or ignores a fault.
   Release, waits on the page. Only after the **last Release acknowledgement**
   of the page are the faults that wait considered again, against the mapping
   and the pin as they are then.
-- The notifications arrive on their own port (`MigrationNotification`). When
-  the queue is full, the driver leaves them in the port, and the MMU keeps
-  the ones behind them. The answers of the command processors use another
-  port and are never behind a notification.
+- IOMMU decisions, RDMA notifications, MMU update answers, and CP answers
+  use separate ports. A late same-page request receives `Blocked` while
+  its page is serviced. Driver retains its requester for replay after the
+  last Release ACK.
 
 ### The queue is finite
 
-The request queue has `QueueSize` entries, and there is no overflow queue
-behind it. What is bounded is what the driver takes in:
+`QueueSize` bounds new admissions to the migration service queue.
 
-- The driver takes the notifications from the port in the order they
-  arrived. A notification needs an entry if it is a fault on a page that is
-  neither queued nor serviced, or an access-counter notification that is not
-  queued yet. It is taken in only while the queue has fewer than `QueueSize`
-  entries.
-- While the queue is full, that notification stays at the head of the port,
-  and everything behind it stays behind it, whatever page it is for. The port
-  fills, and the MMU and the RDMA engines keep what they cannot send. Nothing
-  is dropped: the faults are serviced when entries are free again.
+- A new fault needs an entry if the page is neither queued nor serviced.
+  Driver retains unanswered requests while waiting for a free entry. Each
+  occupies an outstanding IOMMU walker decision, which bounds the number of
+  retained requests. Driver can answer later requests for active or usable
+  pages while an earlier request waits for admission.
+- Access-counter notifications and fixed-latency MMU notifications stay on
+  their FIFO port when a new entry is needed and the queue is full.
 - An entry is free when a batch has serviced its request. A fault that waits
   for a memory copy is not serviced, so it keeps its entry until the copy
   ends. It takes no place in a batch: requests that are already in the queue
   behind it, for other pages, are serviced. But its entry counts: when such
-  faults fill the queue, new notifications wait in the port, also those for
-  other pages, until a copy ends.
+  faults fill the queue, new service admissions wait until a copy ends.
 - The driver queues a page again by itself for faults that it has taken in
   before, even if the queue is full, because those faults must not be lost.
   There are two cases. A fault that arrives while its page is serviced takes
@@ -332,8 +415,8 @@ migration; MGPUSim does not, because its TLBs use one page size.
 
 ## Access-counter migration
 
-With `Policy: counter`, the MMU raises no faults: a GPU accesses a unified
-page on another GPU remotely, through its RDMA engine. Each RDMA engine counts
+With `Policy: counter`, Driver resolves remote translation requests so a GPU
+accesses a unified page on another GPU through its RDMA engine. Each RDMA engine counts
 the remote demand accesses of its GPU per physical page frame. At the
 threshold it clears the count and sends a one-way notification with the frame
 and the GPU. No access waits for a notification.
@@ -386,10 +469,13 @@ The policy follows the stages of UVM (`uvm_perf_thrashing.c`).
    With more GPUs it goes on to the next GPU whose nap ends, so it can leave
    a GPU sooner than a nap after it arrived there. Every throttling operation
    of every GPU counts for the pin, which ends such a rotation.
-3. **Pinning.** After `PinThreshold` throttling operations in a row, the page
-   is pinned **where it is**: the page table marks it `IsPinned`, the GPUs
-   that wait are released, also those whose nap has not ended, and they
-   access the page remotely.
+3. **Pinning.** After `PinThreshold` consecutive throttling operations,
+   the page stays on its current GPU. In the detailed platform Driver
+   obtains Hold acknowledgements from every GPU, sets `IsPinned`, and waits
+   for the updated PTEs to commit in every affected MMU. It then shoots down
+   translations and releases every GPU, including requesters whose naps have
+   yet to end. Further remote accesses use the pinned frame. In the
+   fixed-latency platform the MMU reads the pin from the shared page table.
 4. **Unpinning.** After `PinNS` the pin is cleared under a hold of every GPU,
    and the translations of the page are shot down, so the next access faults
    or is counted again. The timeout is background simulation work

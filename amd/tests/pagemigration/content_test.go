@@ -3,6 +3,7 @@ package pagemigration
 import (
 	"testing"
 
+	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
@@ -292,5 +293,34 @@ func TestADownloadOfWhatTheKernelOfAnotherContextWrote(t *testing.T) {
 				mustEqualFloats(t, "the download", reader.download(output, floats), data)
 			})
 		}
+	}
+}
+
+// Both a CPU host buffer and a unified page on GPU 1 are accessible by
+// cache-line reads from GPU 2 when migration is disabled.
+func TestRemoteReadsWithoutMigration(t *testing.T) {
+	for _, gpuType := range platforms {
+		t.Run(gpuType, func(t *testing.T) {
+			s := newSystem(t, gpuType, migration(func(spec *driver.PageMigrationSpec) {
+				spec.Policy = driver.PageMigrationNone
+			}))
+			const n = groupFloats
+			want := ramp(1, n)
+			shared := s.unified(n * floatBytes)
+			result := s.local(2, n*floatBytes)
+			s.upload(shared, want)
+			host := s.rt.AllocateHostBuffer(s.queues[0], n*floatBytes)
+			if err := s.rt.WriteHost(host, want); err != nil {
+				t.Fatal(err)
+			}
+			for _, src := range []gpuruntime.Ptr{shared, host.Address} {
+				s.touch(2, result, src, n)
+				s.run()
+				mustEqualFloats(t, "remote read", s.download(result, n), want)
+			}
+			if s.page(shared).DeviceID != 1 || s.stats().PagesMigrated != 0 || s.stats().Faults != 0 {
+				t.Fatalf("remote data moved or blocked: %+v", s.stats())
+			}
+		})
 	}
 }

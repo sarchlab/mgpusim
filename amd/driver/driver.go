@@ -36,6 +36,9 @@ func (m *executionMW) Tick() bool {
 			continue
 		}
 		m.markers(q)
+		if !c.Middlewares.PageTable.ready(q) {
+			continue
+		}
 		cmd, ok := r.TakeCommand(q)
 		if !ok {
 			continue
@@ -45,6 +48,9 @@ func (m *executionMW) Tick() bool {
 		m.startTask(e)
 		switch cmd.Kind {
 		case gpuruntime.LaunchKernel:
+			if len(c.Spec.PageTables) != 0 {
+				c.State.PageTables.Dispatched[r.QueuePID(q)] = true
+			}
 			m.launch(e)
 		case gpuruntime.CopyH2D, gpuruntime.CopyD2H:
 			m.copyUnlessMigrating(len(c.State.Executing) - 1)

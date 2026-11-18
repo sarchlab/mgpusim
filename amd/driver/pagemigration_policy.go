@@ -245,6 +245,9 @@ func (m *migrationMW) expirePins() bool {
 			return false
 		}
 
+		// Unpin leaves queued faults in Waiters for the next service.
+		p.RetainedTrace = p.Trace
+		p.Trace = m.traceStart(0, "pin expiry")
 		p.Service = serviceUnpin
 		p.Targets = m.allGPUs()
 		p.ServiceStart = now

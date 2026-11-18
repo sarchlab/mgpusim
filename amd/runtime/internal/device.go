@@ -37,6 +37,30 @@ type Device struct {
 	Properties         DeviceProperties
 }
 
+// PhysicalBase returns the start of the physical span assigned at registration.
+func (d *Device) PhysicalBase() uint64 { return d.MemState.getInitialAddress() }
+
+// ReservePrefix excludes a contiguous prefix from data allocations. It runs
+// once immediately after device registration, before any ordinary allocation.
+func (d *Device) ReservePrefix(size, pageSize uint64) {
+	if size == 0 {
+		return
+	}
+	if size%pageSize != 0 || size >= d.Properties.DRAMSize {
+		panic("runtime: page table reservation must be page aligned and fit the device")
+	}
+	// Registration already took the CPU's null frame.
+	offset := uint64(0)
+	if d.ID == 0 {
+		offset = pageSize
+	}
+	for ; offset < size; offset += pageSize {
+		if d.allocatePage() != d.PhysicalBase()+offset {
+			panic("runtime: page table reservation is not contiguous")
+		}
+	}
+}
+
 // SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
 	d.MemState.setStorageSize(size)

@@ -8,9 +8,10 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem/datamover"
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
-	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
@@ -21,12 +22,14 @@ const notificationPort = messaging.RemotePort("Driver.MigrationNotification")
 
 // migrationPlatform is the page-migration wiring of a built platform.
 type migrationPlatform struct {
-	sim    *simulation.Simulation
-	driver *driver.Comp
-	mmu    *mmu.Comp
-	rdmas  map[string]*rdma.Comp
-	cps    map[string]*cp.Comp
-	movers map[string]*datamover.Comp
+	client  messaging.Port
+	sim     *simulation.Simulation
+	driver  *driver.Comp
+	mmu     *pagetablemmu.Comp
+	walkers map[string]*pagetablemmu.Comp
+	rdmas   map[string]*rdma.Comp
+	cps     map[string]*cp.Comp
+	movers  map[string]*datamover.Comp
 }
 
 // buildMigrationPlatform assembles and initializes a two-GPU platform.
@@ -38,7 +41,14 @@ func buildMigrationPlatform(
 ) migrationPlatform {
 	t.Helper()
 
-	s := simulation.MakeBuilder().Build()
+	return buildMigrationPlatformWithSimulation(t, gpuType, configure, simulation.MakeBuilder())
+}
+
+func buildMigrationPlatformWithSimulation(t *testing.T, gpuType string, configure func(Builder) Builder,
+	simBuilder simulation.Builder,
+) migrationPlatform {
+	t.Helper()
+	s := simBuilder.Build()
 	t.Cleanup(func() {
 		if err := s.Terminate(); err != nil {
 			t.Error(err)
@@ -47,23 +57,24 @@ func buildMigrationPlatform(
 
 	configure(MakeBuilder().WithSimulation(s).WithNumGPUs(2).WithGPUType(gpuType)).Build()
 
-	if err := s.Initialize(); err != nil {
-		t.Fatal(err)
-	}
-
 	p := migrationPlatform{
-		sim:    s,
-		rdmas:  map[string]*rdma.Comp{},
-		cps:    map[string]*cp.Comp{},
-		movers: map[string]*datamover.Comp{},
+		sim:     s,
+		rdmas:   map[string]*rdma.Comp{},
+		walkers: map[string]*pagetablemmu.Comp{},
+		cps:     map[string]*cp.Comp{},
+		movers:  map[string]*datamover.Comp{},
 	}
 
 	for _, c := range s.Components() {
 		switch c := c.(type) {
 		case *driver.Comp:
 			p.driver = c
-		case *mmu.Comp:
-			p.mmu = c
+		case *pagetablemmu.Comp:
+			if c.Name() == "IOMMU" {
+				p.mmu = c
+			} else {
+				p.walkers[c.Name()] = c
+			}
 		case *rdma.Comp:
 			p.rdmas[c.Name()] = c
 		case *cp.Comp:
@@ -71,6 +82,13 @@ func buildMigrationPlatform(
 		case *datamover.Comp:
 			p.movers[c.Name()] = c
 		}
+	}
+
+	p.client = twowaybuffered.MakeBuilder().WithSimulation(s).Build()
+	pageTestClient{s}.BindPort("Requests", p.client)
+	p.driver.Ports.GPU.Connection().BindPort(p.client)
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
 	}
 
 	for _, c := range s.Components() {
@@ -103,7 +121,7 @@ func TestDefaultPlatformMigratesOnFaults(t *testing.T) {
 				t.Fatalf("driver policy: %+v", p.driver.Spec.PageMigration)
 			}
 
-			if p.mmu.Spec.FaultHandler != notificationPort {
+			if p.mmu.Spec.FaultHandler != "Driver.PageFault[0]" {
 				t.Fatalf("MMU fault handler is %q", p.mmu.Spec.FaultHandler)
 			}
 
@@ -130,7 +148,7 @@ func TestCounterPolicyCountsFramesOfTheSystemPageSize(t *testing.T) {
 				return b.WithPageMigration(spec)
 			})
 
-			if p.mmu.Spec.FaultHandler != "" || len(p.mmu.Ports.Notification) != 0 {
+			if p.mmu.Spec.FaultHandler != "Driver.PageFault[0]" || !p.mmu.Spec.ConsultRemote {
 				t.Fatalf("MMU faults with the counter policy: %q", p.mmu.Spec.FaultHandler)
 			}
 
@@ -267,7 +285,7 @@ func TestTheDefaultCounterThresholdIs256RemoteAccessesOfAGPUToAFrame(t *testing.
 	}
 }
 
-func TestNoMigrationPolicyReportsNothingToTheDriver(t *testing.T) {
+func TestNoMigrationPolicyKeepsFaultResolutionAndDisablesCounters(t *testing.T) {
 	spec := driver.DefaultPageMigrationSpec()
 	spec.Policy = driver.PageMigrationNone
 
@@ -275,7 +293,7 @@ func TestNoMigrationPolicyReportsNothingToTheDriver(t *testing.T) {
 		return b.WithPageMigration(spec)
 	})
 
-	if p.mmu.Spec.FaultHandler != "" {
+	if p.mmu.Spec.FaultHandler != "Driver.PageFault[0]" {
 		t.Fatalf("MMU fault handler is %q", p.mmu.Spec.FaultHandler)
 	}
 
@@ -363,3 +381,13 @@ func TestDataMoverPagesComeFromTheSystemSpecification(t *testing.T) {
 		}
 	}
 }
+
+type pageTestClient struct{ s *simulation.Simulation }
+
+func (p pageTestClient) Name() string { return "TestClient" }
+func (p pageTestClient) BindPort(slot string, port messaging.Port) {
+	port.BindOwner(p, p.Name()+"."+slot)
+	p.s.RegisterPort(port)
+}
+func (pageTestClient) NotifyRecv(messaging.Port)     {}
+func (pageTestClient) NotifyPortFree(messaging.Port) {}

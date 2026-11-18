@@ -37,18 +37,13 @@ type PageMigrationSpec struct {
 	// requests that wait at that moment, at most BatchSize
 	// (uvm_perf_fault_batch_count), and never waits to fill a batch.
 	//
-	// QueueSize bounds what the driver takes in. A fault or a notification
-	// that needs an entry of the queue is taken from the port only while the
-	// queue has fewer than QueueSize entries. Otherwise it stays in the
-	// port, with everything that arrived behind it, and so at the senders:
-	// nothing is dropped. A fault that waits for a memory copy keeps its
-	// entry, so it counts; it takes no place in a batch, so the requests
-	// that are in the queue behind it are serviced. The only entries beyond
-	// QueueSize are faults that the driver has taken in before and that it
-	// queues again by itself: the faults that arrived while their page was
-	// serviced, when that service ends, and the faults of throttled GPUs,
-	// which left the queue when the GPUs were throttled, when the nap of one
-	// of them ends. That is at most one entry per page.
+	// QueueSize limits new admissions to the service queue. A one-way
+	// notification that needs space stays on its input port. A detailed
+	// fault awaiting admission retains its IOMMU decision slot. Driver can
+	// answer later requests for active or remotely usable pages immediately.
+	// A fault deferred by a memory copy keeps its queue slot but does not
+	// consume a place in a batch. Previously admitted faults can re-enter
+	// the queue when service or a throttling nap ends, once per page.
 	BatchSize int `json:"batch_size"`
 	QueueSize int `json:"queue_size"`
 
@@ -138,13 +133,15 @@ func nsToPS(ns uint64) timing.VTimeInPicoSec {
 
 // Phases of the service of a page.
 const (
-	pageIdle      = iota // nothing to do
-	pageHold             // the GPUs hold the page
-	pagePrepare          // the source flushes the old frame, the destination drops the new one
-	pageCopyWait         // waits for its turn at the destination's data mover
-	pageCopy             // the destination's data mover copies
-	pageShootdown        // the GPUs drop the old translation
-	pageRelease          // the GPUs release the page
+	pageIdle                = iota // nothing to do
+	pageHold                       // the GPUs hold the page
+	pagePrepare                    // the source flushes the old frame, the destination drops the new one
+	pageCopyWait                   // waits for its turn at the destination's data mover
+	pageCopy                       // the destination's data mover copies
+	pageShootdown                  // the GPUs drop the old translation
+	pageRelease                    // the GPUs release the page
+	pageMapping                    // waits for the affected MMUs to commit the new mapping
+	pageWaitReleaseMappings        // mappings submitted during service must commit before Release
 )
 
 // Services of a page.
@@ -153,6 +150,7 @@ const (
 	serviceMigrate // hold, flush and invalidate, copy, remap, shoot down, release
 	serviceRelease // hold and release: nothing moves
 	serviceUnpin   // hold, clear the pin, shoot down, release
+	servicePin     // hold, install pin in detailed MMUs, shoot down, release
 )
 
 // migrationPage is a page and where it is in its service. A page is serviced
@@ -167,14 +165,16 @@ type migrationPage struct {
 	// NewPAddr of GPU Dst; Prefetched is set when the page moves with the
 	// window of another page. PendingAcks counts the answers of the phase
 	// that have not arrived.
-	Phase       int     `json:"phase"`
-	Service     int     `json:"service"`
-	Dst         int     `json:"dst"`
-	Targets     []int   `json:"targets"`
-	OldPage     vm.Page `json:"old_page"`
-	NewPAddr    uint64  `json:"new_paddr"`
-	Prefetched  bool    `json:"prefetched"`
-	PendingAcks int     `json:"pending_acks"`
+	Trace         pageTrace `json:"trace"`
+	RetainedTrace pageTrace `json:"retained_trace"`
+	Phase         int       `json:"phase"`
+	Service       int       `json:"service"`
+	Dst           int       `json:"dst"`
+	Targets       []int     `json:"targets"`
+	OldPage       vm.Page   `json:"old_page"`
+	NewPAddr      uint64    `json:"new_paddr"`
+	Prefetched    bool      `json:"prefetched"`
+	PendingAcks   int       `json:"pending_acks"`
 
 	// Waiters are the GPUs that have a demand fault on the page that is not
 	// serviced yet, each once, in arrival order. A fault that arrives while
@@ -228,11 +228,12 @@ func (p *migrationPage) napEnd(gpu int) (until timing.VTimeInPicoSec, throttled 
 // notification of GPU for the physical page frame at PAddr. Deferred is set
 // on faults that a batch passed over because a memory copy uses their page.
 type migrationRequest struct {
-	Counter  bool   `json:"counter"`
-	Page     int    `json:"page"`
-	PAddr    uint64 `json:"paddr"`
-	GPU      int    `json:"gpu"`
-	Deferred bool   `json:"deferred"`
+	Trace    pageTrace `json:"trace"`
+	Counter  bool      `json:"counter"`
+	Page     int       `json:"page"`
+	PAddr    uint64    `json:"paddr"`
+	GPU      int       `json:"gpu"`
+	Deferred bool      `json:"deferred"`
 }
 
 // copyWindow is the pages that one fault or notification moves to GPU Dst, in
@@ -265,13 +266,13 @@ type PageMigrationStats struct {
 	FreeFrameNotifications uint64 `json:"free_frame_notifications"`
 	ThrottledNotifications uint64 `json:"throttled_notifications"`
 
-	// QueueFullWaits counts the times a fault or a notification stayed in
-	// the port because the queue was full.
+	// QueueFullWaits counts Driver ticks when at least one migration request
+	// could not enter the service queue because it was full.
 	QueueFullWaits uint64 `json:"queue_full_waits"`
 
 	// Migrations are the pages moved for a fault or a notification and
 	// PagesPrefetched the pages moved with them; PagesMigrated is both.
-	// Releases are the services that moved nothing.
+	// Releases counts release-only services and completed detailed pin services.
 	Batches         uint64 `json:"batches"`
 	Windows         uint64 `json:"windows"`
 	Migrations      uint64 `json:"migrations"`
@@ -311,29 +312,32 @@ type PageMigrationState struct {
 	Throttling []int `json:"throttling"`
 	Pins       []int `json:"pins"`
 
-	// Pending maps the ID of each command in flight to its page. Out holds
-	// the commands waiting to be sent.
+	// Pending maps a CP command to the page service awaiting its ACK. Out
+	// holds commands for both page services and host mapping shootdowns.
 	Pending map[uint64]int  `json:"pending"`
 	Out     []messaging.Msg `json:"out"`
+
+	// HostShootdowns correlates CP replies to host mapping groups.
+	HostShootdowns map[uint64]uint64 `json:"host_shootdowns"`
+	// Faults holds unanswered decisions, each occupying an upstream IOMMU slot.
+	Faults []messaging.Msg `json:"faults"`
 
 	Stats PageMigrationStats `json:"stats"`
 }
 
 func newPageMigrationState() PageMigrationState {
 	return PageMigrationState{
-		PageIndex: make(map[vm.PID]map[uint64]int),
-		Pending:   make(map[uint64]int),
+		PageIndex:      make(map[vm.PID]map[uint64]int),
+		Pending:        make(map[uint64]int),
+		HostShootdowns: make(map[uint64]uint64),
 	}
 }
 
-// migrationMW is the page-migration service of the driver. It receives the
-// MMU's fault notifications and the RDMA engines' access-counter
-// notifications, decides in batches what each page does, and then runs every
-// page on its own with commands to the GPUs' command processors: hold the
-// page on every GPU; flush the old frame out of the source's L2 and drop the
-// new frame from the destination's; copy with the destination's data mover,
-// around both L2s; update the page table; shoot down the old translation;
-// and release the page.
+// migrationMW answers IOMMU placement requests, accepts legacy MMU and RDMA
+// notifications, and services the migration queue. A migration holds every
+// GPU, prepares and copies its frames, commits the affected mappings, shoots
+// down translations, and releases the page. The middleware also transports
+// and correlates host-requested shootdowns on the shared CP command port.
 type migrationMW struct{ comp *Comp }
 
 func (m *migrationMW) Handle(timing.Event) bool { return m.Tick() }
@@ -369,12 +373,15 @@ func (m *migrationMW) isGPU(dev int) bool {
 // Tick takes in the answers and the notifications, wakes the pages whose
 // throttling or pin has ended, services a batch, and sends the commands.
 func (m *migrationMW) Tick() bool {
-	if !m.spec().Enabled() {
+	detailed := len(m.comp.Spec.PageTables) != 0
+	if !m.spec().Enabled() && !detailed {
 		return false
 	}
-
 	madeProgress := m.receiveAnswers()
-	madeProgress = m.receiveNotifications() || madeProgress
+	madeProgress = m.receiveRequests() || madeProgress
+	if !m.spec().Enabled() {
+		return m.send() || madeProgress
+	}
 	madeProgress = m.wakeThrottled() || madeProgress
 	madeProgress = m.expirePins() || madeProgress
 	madeProgress = m.serviceBatch() || madeProgress
@@ -382,6 +389,23 @@ func (m *migrationMW) Tick() bool {
 	madeProgress = m.send() || madeProgress
 
 	return madeProgress
+}
+
+// Count queue pressure once per tick across both admission paths.
+func (m *migrationMW) receiveRequests() bool {
+	var progress, wait bool
+	if len(m.comp.Spec.PageTables) != 0 {
+		progress, wait = m.receivePageFaults()
+	}
+	if m.spec().Enabled() {
+		did, blocked := m.receiveNotifications()
+		progress = progress || did
+		wait = wait || blocked
+	}
+	if wait {
+		m.state().Stats.QueueFullWaits++
+	}
+	return progress
 }
 
 func (m *migrationMW) send() bool {
@@ -415,7 +439,14 @@ func (m *migrationMW) receiveAnswers() bool {
 				reflect.TypeOf(msg.Payload))
 		}
 
-		m.ack(msg.RspTo)
+		m.comp.TaskTracker().EndReqOut(m.comp.State.RequestTasks[msg.RspTo])
+		delete(m.comp.State.RequestTasks, msg.RspTo)
+		if group, ok := m.state().HostShootdowns[msg.RspTo]; ok {
+			delete(m.state().HostShootdowns, msg.RspTo)
+			m.comp.Middlewares.PageTable.ack(group)
+		} else {
+			m.ack(msg.RspTo)
+		}
 
 		madeProgress = true
 	}
@@ -426,37 +457,41 @@ func (m *migrationMW) receiveAnswers() bool {
 // an entry of a full queue stays at the head of the port, the ones behind it
 // stay behind it, whatever page they are for, and their senders keep the
 // rest. The queue is full also when its entries wait for a memory copy.
-func (m *migrationMW) receiveNotifications() bool {
-	s := m.state()
+func (m *migrationMW) receiveNotifications() (progress, queueWait bool) {
 	port := m.comp.Ports.MigrationNotification
-	madeProgress := false
 
 	for {
 		msg, ok := port.PeekIncoming()
 		if !ok {
-			return madeProgress
+			return progress, false
 		}
 
+		parent := m.comp.State.RequestTasks[msg.ID]
+		if t := m.comp.TaskTracker(); t != nil && parent == 0 {
+			parent = t.StartReqIn(m.comp, msg)
+			m.comp.State.RequestTasks[msg.ID] = parent
+		}
 		accepted := false
 
 		switch payload := msg.Payload.(type) {
 		case addrtransprotocol.PageFault:
-			accepted = m.acceptFault(payload)
+			accepted = m.acceptFault(payload, parent)
 		case protocol.AccessCounterNotification:
-			accepted = m.acceptNotification(payload)
+			accepted = m.acceptNotification(payload, parent)
 		default:
 			log.Panicf("driver: cannot handle %s on MigrationNotification",
 				reflect.TypeOf(msg.Payload))
 		}
 
 		if !accepted {
-			s.Stats.QueueFullWaits++
-			return madeProgress
+			return progress, true
 		}
 
 		port.RetrieveIncoming()
+		m.comp.TaskTracker().EndReqIn(parent)
+		delete(m.comp.State.RequestTasks, msg.ID)
 
-		madeProgress = true
+		progress = true
 	}
 }
 
@@ -468,7 +503,7 @@ func (m *migrationMW) queueFull() bool {
 // that already waits on the page is the same fault. While the page is
 // serviced, in any phase, the fault waits on the page for the last Release
 // answer. It returns false if the fault needs a place in a full queue.
-func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
+func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault, parent uint64) bool {
 	s := m.state()
 	gpu := int(f.DeviceID)
 	pi := m.pageIndex(f.PID, f.VAddr)
@@ -489,6 +524,13 @@ func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
 		m.enqueuePage(pi)
 	}
 
+	if p.Phase != pageIdle {
+		if p.RetainedTrace.ID == 0 {
+			p.RetainedTrace = m.traceStart(parent, "retained fault")
+		}
+	} else if p.Trace.ID == 0 {
+		p.Trace = m.traceStart(parent, "fault")
+	}
 	p.Waiters = append(p.Waiters, gpu)
 	s.Stats.Faults++
 
@@ -503,7 +545,7 @@ func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
 // resolved when the notification is serviced. It returns false if the
 // notification needs a place in a full queue.
 func (m *migrationMW) acceptNotification(
-	n protocol.AccessCounterNotification,
+	n protocol.AccessCounterNotification, parent uint64,
 ) bool {
 	s := m.state()
 	r := migrationRequest{
@@ -512,7 +554,9 @@ func (m *migrationMW) acceptNotification(
 		GPU:     int(n.DeviceID),
 	}
 
-	if slices.Contains(s.Queue, r) {
+	if slices.ContainsFunc(s.Queue, func(q migrationRequest) bool {
+		return q.Counter && q.GPU == r.GPU && q.PAddr == r.PAddr
+	}) {
 		s.Stats.Notifications++
 		s.Stats.CoalescedNotifications++
 
@@ -523,6 +567,7 @@ func (m *migrationMW) acceptNotification(
 		return false
 	}
 
+	r.Trace = m.traceStart(parent, "access counter")
 	s.Queue = append(s.Queue, r)
 	s.Stats.Notifications++
 
@@ -666,19 +711,32 @@ func (m *migrationMW) migrating(pid vm.PID, start, size uint64) bool {
 	return false
 }
 
-// sendTo queues a command of a page for the command processor of a GPU.
+// queueCommand transfers a CP command to the shared transport and returns
+// its identity for the service or host mapping group awaiting the answer.
+func (m *migrationMW) queueCommand(dst messaging.RemotePort, payload any, parent uint64) uint64 {
+	msg := messaging.Msg{ID: m.comp.NewID(), Src: m.comp.Ports.PageMigration.AsRemote(), Dst: dst, Payload: payload}
+	s := m.state()
+	if t := m.comp.TaskTracker(); t != nil {
+		m.comp.State.RequestTasks[msg.ID] = t.StartReqOut(m.comp, msg, parent)
+	}
+	s.Out = append(s.Out, msg)
+	return msg.ID
+}
+
 func (m *migrationMW) sendTo(pi, gpu int, payload any) {
 	s := m.state()
-	msg := messaging.Msg{
-		ID:      m.comp.NewID(),
-		Src:     m.comp.Ports.PageMigration.AsRemote(),
-		Dst:     m.comp.Spec.MigrationAgents[gpu-1],
-		Payload: payload,
-	}
-
-	s.Out = append(s.Out, msg)
-	s.Pending[msg.ID] = pi
+	id := m.queueCommand(m.comp.Spec.MigrationAgents[gpu-1], payload, s.Pages[pi].Trace.ID)
+	s.Pending[id] = pi
 	s.Pages[pi].PendingAcks++
+}
+
+func (m *migrationMW) shootDownHostMapping(p vm.Page, group uint64) int {
+	req := protocol.PageShootdownReq{PID: p.PID, VAddr: p.VAddr, PageSize: p.PageSize}
+	for _, dst := range m.comp.Spec.MigrationAgents {
+		id := m.queueCommand(dst, req, m.comp.Resources.Runtime.SimulationTask())
+		m.state().HostShootdowns[id] = group
+	}
+	return len(m.comp.Spec.MigrationAgents)
 }
 
 // sendToTargets queues one command of a page per target GPU.

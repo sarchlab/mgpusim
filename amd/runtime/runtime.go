@@ -48,7 +48,8 @@ type runtimeState struct {
 	// the GPUs. A page that takes one of them recycles it. A page that a GPU
 	// hands out without it being here is used for the first time, wherever
 	// it is among the pages in use.
-	FreedFrames map[uint64]bool
+	FreedFrames    map[uint64]bool
+	MappingChanges []MappingChange
 }
 type runtimeCheckpoint struct {
 	State     runtimeState
@@ -62,6 +63,9 @@ func NewRuntime(
 ) *Runtime {
 	if reg == nil || pageTable == nil || storage == nil {
 		panic("driver: runtime needs simulation, page table and storage")
+	}
+	if (spec.CPUPageTableBytes == 0) != (spec.GPUPageTableBytes == 0) {
+		panic("runtime: detailed translation requires CPU and GPU page table reservations")
 	}
 	r := &Runtime{name: name, config: spec, pageTable: pageTable, storage: storage,
 		allocator: internal.NewMemoryAllocator(pageTable, spec.Log2PageSize),
@@ -81,6 +85,8 @@ func (r *Runtime) addDevice(kind internal.DeviceType, properties DevicePropertie
 	d.SetTotalMemSize(properties.DRAMSize)
 	r.allocator.RegisterDevice(d)
 	r.devices = append(r.devices, d)
+	_, size := r.PageTablePool(d.ID)
+	d.ReservePrefix(size, uint64(1)<<r.config.Log2PageSize)
 }
 func (r *Runtime) Name() string { return r.name }
 func (r *Runtime) SaveCheckpoint(w io.Writer) error {
@@ -160,12 +166,14 @@ func (r *Runtime) CreateCommandQueue(h Context) CommandQueue {
 func (r *Runtime) AllocateMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.Allocate(c.PID, size, c.GPU))
+	r.recordMappingChanges(c.PID, uint64(ptr), size, nil, true)
 	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
 }
 func (r *Runtime) AllocateUnifiedMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.AllocateUnified(c.PID, size))
+	r.recordMappingChanges(c.PID, uint64(ptr), size, nil, true)
 	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
 }
@@ -225,6 +233,7 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 			continue
 		}
 		r.recordFreedFrames(c.PID, ptr, b.Size)
+		r.recordMappingChanges(c.PID, uint64(ptr), b.Size, r.mappingSnapshot(c.PID, uint64(ptr), b.Size), false)
 		r.allocator.Free(c.PID, uint64(ptr), b.Size)
 		c.Buffers = append(c.Buffers[:i], c.Buffers[i+1:]...)
 		return nil
@@ -233,7 +242,9 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 }
 func (r *Runtime) Remap(h Context, addr, size uint64, device int) {
 	c := r.context(h)
+	before := r.mappingSnapshot(c.PID, addr, size)
 	r.allocator.Remap(c.PID, addr, size, device)
+	r.recordMappingChanges(c.PID, addr, size, before, true)
 	r.remapped(c.PID, addr, size)
 }
 func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uint64 {
@@ -242,7 +253,9 @@ func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uin
 	}
 	c := r.context(h)
 	d := distributorImpl{memAllocator: r.allocator, pageSizeAsPowerOf2: r.config.Log2PageSize}
+	before := r.mappingSnapshot(c.PID, uint64(addr), size)
 	sizes := d.Distribute(c, uint64(addr), size, gpus)
+	r.recordMappingChanges(c.PID, uint64(addr), size, before, true)
 	r.remapped(c.PID, uint64(addr), size)
 	return sizes
 }
