@@ -127,7 +127,7 @@ type State struct {
 	// driver.
 	PageJobs               map[uint64]pageJob  `json:"page_jobs"`
 	CtrlWaits              map[uint64]ctrlWait `json:"ctrl_waits"`
-	MoveJobs               map[uint64]uint64   `json:"move_jobs"`
+	MoveJobs               map[uint64]ctrlWait `json:"move_jobs"`
 	L2Ops                  []l2Op              `json:"l2_ops"`
 	Shootdown              shootdownState      `json:"shootdown"`
 	PendingTranslationReqs []messaging.Msg     `json:"pending_translation_reqs"`
@@ -216,7 +216,7 @@ func (s *State) Initialize(c *Comp) {
 	s.CopySendTasks = make(map[uint64]uint64)
 	s.PageJobs = make(map[uint64]pageJob)
 	s.CtrlWaits = make(map[uint64]ctrlWait)
-	s.MoveJobs = make(map[uint64]uint64)
+	s.MoveJobs = make(map[uint64]ctrlWait)
 	s.CUResources = resource.InitialState(c.Spec.CUs)
 	for i := 0; i < c.Spec.NumDispatchers; i++ {
 		s.Dispatchers = append(s.Dispatchers, dispatching.NewState(c.Spec.Alg, c.Spec.NumDies))

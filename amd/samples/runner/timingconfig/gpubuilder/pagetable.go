@@ -16,3 +16,21 @@ func BuildPageTableMMU(s modeling.Simulation, name string, spec pagetablemmu.Spe
 	}
 	return c
 }
+
+// BuildLocalPageTableMMU connects the walker's write geometry to the GPU L2.
+// A smaller explicit transaction limit still applies. Invalid limits are
+// passed to the MMU's ordinary configuration validation.
+func BuildLocalPageTableMMU(s modeling.Simulation, name string, spec pagetablemmu.Spec,
+	log2CacheLineSize uint64,
+) *pagetablemmu.Comp {
+	if log2CacheLineSize < 6 {
+		lineBytes := uint64(1) << log2CacheLineSize
+		switch spec.MaxZeroWriteSize {
+		case 0:
+			spec.MaxZeroWriteSize = lineBytes
+		case 8, 16, 32, 64:
+			spec.MaxZeroWriteSize = min(spec.MaxZeroWriteSize, lineBytes)
+		}
+	}
+	return BuildPageTableMMU(s, name, spec)
+}

@@ -21,27 +21,58 @@ type PageTableTarget struct {
 type tableCommand struct {
 	Request pt.Req
 	Group   uint64
+	Parent  uint64
 }
 
 type tableStream struct {
 	Roots  map[vm.PID]bool
 	Queue  []tableCommand
 	Flight uint64
+	Task   uint64
 }
 
 type mappingGroup struct {
-	PID     vm.PID
-	VAddr   uint64
-	Pending int
-	// Migration is zero for host updates, or one plus the page's service index.
-	Migration int
+	PID       vm.PID
+	VAddr     uint64
+	Pending   int
+	Shootdown vm.Page
+}
+
+// pageView is the mapping after the commands already queued for this VA.
+// Explicit advice follows the allocation. Lazy permissions belong to its
+// current residence and are discarded on movement or pin expiry.
+type pageView struct {
+	Page           vm.Page
+	Explicit, Lazy []int
+}
+
+func addGPU(gpus []int, gpu int) []int {
+	if slices.Contains(gpus, gpu) {
+		return gpus
+	}
+	return append(slices.Clone(gpus), gpu)
+}
+
+func (v pageView) withPage(p vm.Page) pageView {
+	if !p.Valid {
+		return pageView{}
+	}
+	if p.PAddr != v.Page.PAddr || p.DeviceID != v.Page.DeviceID || (v.Page.IsPinned && !p.IsPinned) {
+		v.Lazy = nil
+	}
+	v.Page = p
+	return v
 }
 
 type pageTableState struct {
-	Streams    []tableStream
-	Groups     map[uint64]mappingGroup
-	HostPages  map[vm.PID]map[uint64]int
-	Dispatched map[vm.PID]bool
+	// HostPages gates dependent dispatch. PendingPages also includes
+	// fault-installed PTEs and migration updates that only Release awaits.
+	HostPages    map[vm.PID]map[uint64]bool
+	Views        map[vm.PID]map[uint64]pageView
+	Streams      []tableStream
+	Groups       map[uint64]mappingGroup
+	PendingPages map[vm.PID]map[uint64]int
+	Dispatched   map[vm.PID]bool
 }
 
 func (s *pageTableState) initialize(c *Comp) {
@@ -59,8 +90,10 @@ func (s *pageTableState) initialize(c *Comp) {
 		}
 		s.Streams = append(s.Streams, tableStream{Roots: make(map[vm.PID]bool)})
 	}
+	s.Views = make(map[vm.PID]map[uint64]pageView)
 	s.Groups = make(map[uint64]mappingGroup)
-	s.HostPages = make(map[vm.PID]map[uint64]int)
+	s.HostPages = make(map[vm.PID]map[uint64]bool)
+	s.PendingPages = make(map[vm.PID]map[uint64]int)
 	s.Dispatched = make(map[vm.PID]bool)
 }
 
@@ -80,8 +113,10 @@ func (m *pageTableMW) Handle(_ timing.Event) bool {
 			continue
 		}
 		stream.Flight = c.NewID()
-		port.Send(messaging.Msg{ID: stream.Flight, Src: port.AsRemote(), Dst: c.Spec.PageTables[i].Control,
-			Payload: stream.Queue[0].Request})
+		msg := messaging.Msg{ID: stream.Flight, Src: port.AsRemote(), Dst: c.Spec.PageTables[i].Control,
+			Payload: stream.Queue[0].Request}
+		stream.Task = c.TaskTracker().StartReqOut(c, msg, stream.Queue[0].Parent)
+		port.Send(msg)
 		progress = true
 	}
 	return progress
@@ -98,24 +133,40 @@ func (m *pageTableMW) hostChanges() bool {
 		pid vm.PID
 		va  uint64
 	}
-	index := make(map[key]int)
-	merged := changes[:0]
+	var order []key
+	merged := make(map[key]pageView)
 	for _, change := range changes {
 		page := change.After
 		if !page.Valid {
 			page = change.Before
 		}
 		k := key{page.PID, page.VAddr}
-		if i, ok := index[k]; ok {
-			merged[i].After = change.After
-		} else {
-			index[k] = len(merged)
-			merged = append(merged, change)
+		view, ok := merged[k]
+		if !ok {
+			order = append(order, k)
+			view = m.c.State.PageTables.Views[k.pid][k.va]
 		}
+		if change.AccessedBy != 0 {
+			view.Explicit = addGPU(view.Explicit, change.AccessedBy)
+		} else {
+			view = view.withPage(change.After)
+		}
+		merged[k] = view
 	}
-	for _, change := range merged {
-		if change.Before != change.After {
-			m.update(change.Before, change.After, 0)
+	for _, k := range order {
+		before := m.c.State.PageTables.Views[k.pid][k.va]
+		g := mappingGroup{PID: k.pid, VAddr: k.va}
+		if before.Page.Valid && before.Page != merged[k].Page && m.c.State.PageTables.Dispatched[k.pid] {
+			g.Shootdown = before.Page
+		}
+		m.publish(g, merged[k], m.c.Resources.Runtime.SimulationTask())
+		s := &m.c.State.PageTables
+		if s.PendingPages[k.pid][k.va] != 0 {
+			// Advice can promote a lazy Map that is already in flight.
+			if s.HostPages[k.pid] == nil {
+				s.HostPages[k.pid] = make(map[uint64]bool)
+			}
+			s.HostPages[k.pid][k.va] = true
 		}
 	}
 	return true
@@ -143,7 +194,7 @@ func (m *pageTableMW) ready(q rt.CommandQueue) bool {
 		size := uint64(1) << c.Resources.PageTable.Log2PageSize()
 		for _, addr := range []rt.Ptr{cmd.Src, cmd.Dst} {
 			for p := uint64(addr) &^ (size - 1); p < uint64(addr)+uint64(cmd.ByteSize); p += size {
-				if pending[p] > 0 {
+				if pending[p] {
 					return false
 				}
 			}
@@ -152,38 +203,38 @@ func (m *pageTableMW) ready(q rt.CommandQueue) bool {
 	return true
 }
 
-func (m *pageTableMW) contains(target int, p vm.Page) bool {
-	return p.Valid && (target == 0 || uint64(target) == p.DeviceID || m.c.Spec.GlobalGPUPageTable && p.DeviceID != 0)
+func (m *pageTableMW) contains(target int, v pageView) bool {
+	p := v.Page
+	return p.Valid && (target == 0 || uint64(target) == p.DeviceID ||
+		m.c.Spec.GlobalGPUPageTable && p.DeviceID != 0 ||
+		slices.Contains(v.Explicit, target) || slices.Contains(v.Lazy, target))
 }
 
-// update enqueues commands independently at every affected MMU. Each stream
-// waits for its previous ACK, including registration of the PID's root.
-func (m *pageTableMW) update(before, after vm.Page, migration int) {
+// publish compares the projected views, including commands still in flight.
+// The streams serialize a lazy Map and a later Unmap of the very same PTE.
+func (m *pageTableMW) publish(g mappingGroup, next pageView, parent uint64) {
 	c := m.c
 	s := &c.State.PageTables
-	p := after
-	if !p.Valid {
-		p = before
+	before := s.Views[g.PID][g.VAddr]
+	if next.Page.Valid {
+		if s.Views[g.PID] == nil {
+			s.Views[g.PID] = make(map[uint64]pageView)
+		}
+		s.Views[g.PID][g.VAddr] = next
+	} else {
+		delete(s.Views[g.PID], g.VAddr)
+		if len(s.Views[g.PID]) == 0 {
+			delete(s.Views, g.PID)
+		}
 	}
-	group := c.NewID()
-	g := mappingGroup{PID: p.PID, VAddr: p.VAddr, Migration: migration}
+	var group uint64
 	for i := range s.Streams {
-		had, has := m.contains(i, before), m.contains(i, after)
-		if !had && !has {
+		had, has := m.contains(i, before), m.contains(i, next)
+		if !had && !has || had && has && before.Page == next.Page {
 			continue
 		}
-		stream := &s.Streams[i]
-		if !stream.Roots[p.PID] {
-			target := c.Spec.PageTables[i]
-			n := uint64(len(stream.Roots))
-			if n >= target.PoolNodes {
-				panic("driver: MMU root pool exhausted")
-			}
-			// Roots descend; Akita allocates intermediate nodes upward. With
-			// no PID teardown the two fronts meet only when this pool is full.
-			root := target.PoolBase + (target.PoolNodes-1-n)*4096
-			stream.Queue = append(stream.Queue, tableCommand{Request: pt.Req{Command: pt.RegisterRoot, PID: p.PID, Root: root}})
-			stream.Roots[p.PID] = true
+		if group == 0 {
+			group = c.NewID()
 		}
 		command := pt.Map
 		if had {
@@ -192,20 +243,48 @@ func (m *pageTableMW) update(before, after vm.Page, migration int) {
 		if !has {
 			command = pt.Unmap
 		}
-		req := pt.Req{Command: command, PID: p.PID, VAddr: p.VAddr, Mapping: after}
-		stream.Queue = append(stream.Queue, tableCommand{Request: req, Group: group})
+		req := pt.Req{Command: command, PID: g.PID, VAddr: g.VAddr, Mapping: next.Page}
+		m.enqueue(i, tableCommand{Request: req, Group: group, Parent: parent})
 		g.Pending++
 	}
-	if migration == 0 {
-		if s.HostPages[p.PID] == nil {
-			s.HostPages[p.PID] = make(map[uint64]int)
-		}
-		s.HostPages[p.PID][p.VAddr]++
-		if before.Valid && s.Dispatched[p.PID] {
-			g.Pending += c.Middlewares.Migration.shootDownHostMapping(p, group)
-		}
+	if group == 0 {
+		return
 	}
+	if s.PendingPages[g.PID] == nil {
+		s.PendingPages[g.PID] = make(map[uint64]int)
+	}
+	s.PendingPages[g.PID][g.VAddr]++
 	s.Groups[group] = g
+}
+
+func (m *pageTableMW) enqueue(target int, cmd tableCommand) {
+	c := m.c
+	stream := &c.State.PageTables.Streams[target]
+	pid := cmd.Request.PID
+	if !stream.Roots[pid] {
+		pool := c.Spec.PageTables[target]
+		n := uint64(len(stream.Roots))
+		if n >= pool.PoolNodes {
+			panic("driver: MMU root pool exhausted")
+		}
+		// Roots descend while intermediate nodes are allocated upward.
+		root := pool.PoolBase + (pool.PoolNodes-1-n)*4096
+		req := pt.Req{Command: pt.RegisterRoot, PID: pid, Root: root}
+		stream.Queue = append(stream.Queue, tableCommand{Request: req, Parent: cmd.Parent})
+		stream.Roots[pid] = true
+	}
+	stream.Queue = append(stream.Queue, cmd)
+}
+
+// Remote translations in these platforms can reach every physical peer and
+// the CPU through RDMA. No local control ACK is on the fault response path.
+func (m *pageTableMW) fillRemote(page vm.Page, gpu int, parent uint64) {
+	v := m.c.State.PageTables.Views[page.PID][page.VAddr]
+	if !v.Page.Valid || m.contains(gpu, v) {
+		return
+	}
+	v.Lazy = addGPU(v.Lazy, gpu)
+	m.publish(mappingGroup{PID: page.PID, VAddr: page.VAddr}, v, parent)
 }
 
 func (m *pageTableMW) receive() bool {
@@ -225,6 +304,8 @@ func (m *pageTableMW) receive() bool {
 		panic(fmt.Sprintf("driver: %s command %d PID %d VA %#x: %s",
 			msg.Src, op.Request.Command, op.Request.PID, op.Request.VAddr, err))
 	}
+	c.TaskTracker().EndReqOut(stream.Task)
+	stream.Task = 0
 	stream.Flight = 0
 	stream.Queue = stream.Queue[1:]
 	if op.Group != 0 {
@@ -241,17 +322,27 @@ func (m *pageTableMW) ack(id uint64) {
 		s.Groups[id] = g
 		return
 	}
-	delete(s.Groups, id)
-	if g.Migration != 0 {
-		m.c.Middlewares.Migration.mappingsReady(g.Migration - 1)
+	if g.Shootdown.Valid {
+		g.Pending = m.c.Middlewares.Migration.shootDownHostMapping(g.Shootdown, id)
+		g.Shootdown = vm.Page{}
+		s.Groups[id] = g
 		return
 	}
-	pending := s.HostPages[g.PID]
+	delete(s.Groups, id)
+	pending := s.PendingPages[g.PID]
 	pending[g.VAddr]--
 	if pending[g.VAddr] == 0 {
 		delete(pending, g.VAddr)
+		delete(s.HostPages[g.PID], g.VAddr)
+		if len(s.HostPages[g.PID]) == 0 {
+			delete(s.HostPages, g.PID)
+		}
 	}
 	if len(pending) == 0 {
-		delete(s.HostPages, g.PID)
+		delete(s.PendingPages, g.PID)
+	}
+	migration := m.c.Middlewares.Migration
+	if pi, ok := migration.findPage(g.PID, g.VAddr); ok {
+		migration.mappingsReady(pi)
 	}
 }

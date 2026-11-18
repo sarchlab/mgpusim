@@ -50,7 +50,14 @@ func newRuntimeConfiguredFixture(
 	t *testing.T, mixed bool, configure func(*Spec), configureRuntime func(*gpuruntime.RuntimeSpec),
 ) *fixture {
 	t.Helper()
-	f := &fixture{s: sim.MakeBuilder().Build()}
+	return newFixtureWithSimulation(t, mixed, configure, configureRuntime, sim.MakeBuilder())
+}
+
+func newFixtureWithSimulation(t *testing.T, mixed bool, configure func(*Spec),
+	configureRuntime func(*gpuruntime.RuntimeSpec), builder sim.Builder,
+) *fixture {
+	t.Helper()
+	f := &fixture{s: builder.Build()}
 	pageBits := uint64(12)
 	if mixed {
 		pageBits = 11

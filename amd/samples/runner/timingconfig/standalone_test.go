@@ -10,6 +10,7 @@ import (
 	"github.com/sarchlab/akita/v5/mem/datamover"
 	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/mem/vm/mmu"
+	pt "github.com/sarchlab/akita/v5/mem/vm/pagetableprotocol"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
@@ -350,5 +351,67 @@ func (p migrationPlatform) mustCopyAPageOfGPU1(t *testing.T) {
 
 	if answers := p.client.IncomingBuf().Size(); answers != 1 {
 		t.Fatalf("the command processor sent %d answers", answers)
+	}
+}
+
+// Exercise each public builder with 32-byte L2 lines. The MI300X caller
+// explicitly asks for an even smaller transaction on the same physical path.
+func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
+	for _, g := range gpuTypes {
+		t.Run(g.name, func(t *testing.T) {
+			s := simulation.MakeBuilder().Build()
+			t.Cleanup(func() {
+				if err := s.Terminate(); err != nil {
+					t.Error(err)
+				}
+			})
+			b := MakeBuilder().WithSimulation(s).WithNumGPUs(1).WithGPUType(g.name)
+			b.adjustConfigForGPUType()
+			b.globalStorage = mem.MakeStorageBuilder().WithSimulation(s).WithCapacity(2 * deviceBytes).Build("Storage")
+			b.sampler = sampling.NewSimulationEngine(s, 1, 0, false)
+			b.createRDMAAddressMapper()
+			b.pageTable.GPU.MaxZeroWriteSize = 0
+			wantSize := uint64(32)
+			if g.name == "mi300x" {
+				b.pageTable.GPU.MaxZeroWriteSize = 16
+				wantSize = 16
+			}
+			builder := b.createGPUBuilder(nil, 1)
+			switch gpu := builder.(type) {
+			case r9nano.Builder:
+				builder = gpu.WithLog2CacheLineSize(5)
+			case mi300x.Builder:
+				builder = gpu.WithLog2CacheLineSize(5)
+			}
+			conn := directconnection.NewConnection("External", s, timing.GHz)
+			walker := b.createGPU(1, builder, conn).PageTableMMU
+			client := twowaybuffered.MakeBuilder().WithSimulation(s).Build()
+			pageTestClient{s}.BindPort("Requests", client)
+			conn.BindPort(client)
+			if err := s.Initialize(); err != nil {
+				t.Fatal(err)
+			}
+			if walker.Spec.MaxZeroWriteSize != wantSize {
+				t.Fatalf("zero write limit %d, want %d", walker.Spec.MaxZeroWriteSize, wantSize)
+			}
+			p := migrationPlatform{client: client, sim: s}
+			pageSize := uint64(1) << g.log2PageSize
+			page := vm.Page{PID: 1, VAddr: pageSize, PAddr: deviceBytes + 32<<20, PageSize: pageSize, DeviceID: 1, Valid: true}
+			for _, req := range []pt.Req{
+				{Command: pt.RegisterRoot, PID: 1, Root: walker.Spec.PoolBase},
+				{Command: pt.Map, PID: 1, VAddr: page.VAddr, Mapping: page},
+			} {
+				id := s.NewID()
+				walker.Ports.Control.Deliver(messaging.Msg{ID: id, Src: client.AsRemote(),
+					Dst: walker.Ports.Control.AsRemote(), Payload: req})
+				p.run(t)
+				if msg, ok := client.RetrieveIncoming(); !ok || msg.RspTo != id || msg.Payload.(pt.Rsp).Error != "" {
+					t.Fatalf("missing control ACK for %v: %+v", req.Command, msg)
+				}
+			}
+			if rsp := p.translate(t, walker.Ports.FaultIn, 1, page.VAddr, 1); rsp.Mapping != page {
+				t.Fatalf("unexpected small-line walk: %+v", rsp)
+			}
+		})
 	}
 }

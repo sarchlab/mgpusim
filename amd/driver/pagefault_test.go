@@ -28,6 +28,9 @@ func TestAnActiveFaultBypassesAFullServiceQueue(t *testing.T) {
 	resolved := newPage
 	resolved.VAddr += 4096
 	resolved.Unified = false
+	for _, page := range []vm.Page{active, newPage, resolved} {
+		f.p.Insert(page)
+	}
 	idx := m.pageIndex(active.PID, active.VAddr)
 	m.state().Pages[idx].Phase = pageHold
 	m.state().Queue = append(m.state().Queue, migrationRequest{Counter: true})

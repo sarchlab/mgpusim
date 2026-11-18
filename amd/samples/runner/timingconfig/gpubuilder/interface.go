@@ -14,7 +14,7 @@ import (
 // builders return the port instances that the platform needs to wire the GPU
 // to the driver, the MMU, and the other GPUs.
 type GPU struct {
-	// PageTableMMU is the optional GPU-local walker. Its Memory port is wired below L2.
+	// PageTableMMU is the optional GPU-local walker. Its Memory port is wired to the ordinary L2 banks.
 	PageTableMMU *pagetablemmu.Comp
 
 	// Name is the name the GPU was built with (e.g., "GPU[1]").

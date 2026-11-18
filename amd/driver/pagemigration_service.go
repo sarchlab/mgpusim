@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 )
 
@@ -36,7 +37,11 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 		return true
 	}
 
+	explicit := m.comp.State.PageTables.Views[p.PID][p.VAddr].Explicit
 	for _, gpu := range m.requesters(p, owner) {
+		if slices.Contains(explicit, gpu) {
+			continue
+		}
 		switch m.hint(pi, gpu, true) {
 		case hintMigrate:
 			m.startWindow(pi, gpu)
@@ -53,23 +58,34 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 		}
 	}
 
-	m.serviceThrottled(pi, owner)
+	m.serviceThrottled(pi, owner, explicit)
 
 	return true
 }
 
 // serviceThrottled ends the consideration of a page that does not move
-// now: the GPU that has the page is released if it waits (its fault was
-// answered before the page arrived), and the throttled GPUs keep waiting,
+// now: waiters that can use the resident or an advised remote mapping are
+// released to replay. The throttled GPUs keep waiting,
 // each for the end of its own nap. The request of the page has left the
 // queue; wakeThrottled queues the page again when the first of those naps
 // ends.
-func (m *migrationMW) serviceThrottled(pi, owner int) {
+func (m *migrationMW) serviceThrottled(pi, owner int, explicit []int) {
 	s := m.state()
 	p := &s.Pages[pi]
 
-	if slices.Contains(p.Waiters, owner) {
-		m.startRelease(pi, []int{owner})
+	var replay []int
+	for _, gpu := range p.Waiters {
+		if gpu == owner || slices.Contains(explicit, gpu) {
+			replay = append(replay, gpu)
+		}
+	}
+	if len(replay) != 0 {
+		if len(replay) < len(p.Waiters) {
+			// The remaining faults keep their task while this subset replays.
+			p.RetainedTrace = p.Trace
+			p.Trace = m.traceStart(p.RetainedTrace.ID, "partial release")
+		}
+		m.startRelease(pi, replay)
 		return
 	}
 
@@ -88,35 +104,50 @@ func (m *migrationMW) serviceNotification(r migrationRequest) {
 
 	page, ok := m.comp.Resources.PageTable.ReverseLookup(r.PAddr)
 	if !ok {
+		m.comp.TaskTracker().EndTask(r.Trace.ID)
 		s.Stats.FreeFrameNotifications++
 		return
 	}
 
 	if !page.Unified || page.IsPinned || int(page.DeviceID) == r.GPU ||
 		!m.isGPU(int(page.DeviceID)) || m.copyUses(page.PID, page.VAddr) {
+		m.comp.TaskTracker().EndTask(r.Trace.ID)
 		s.Stats.IgnoredNotifications++
 		return
 	}
 
 	pi := m.pageIndex(page.PID, page.VAddr)
 	if s.Pages[pi].Phase != pageIdle {
+		m.comp.TaskTracker().EndTask(r.Trace.ID)
 		s.Stats.IgnoredNotifications++
 		return
 	}
 
 	switch m.hint(pi, r.GPU, false) {
 	case hintMigrate:
+		m.useCounterTrace(pi, r.Trace)
 		m.startWindow(pi, r.GPU)
 	case hintPin:
 		if len(m.comp.Spec.PageTables) > 0 {
+			m.useCounterTrace(pi, r.Trace)
 			m.startPin(pi, page)
 		} else {
+			m.comp.TaskTracker().EndTask(r.Trace.ID)
 			m.pin(pi, page)
 		}
 	default:
 		// The GPU is throttled: its remote accesses go on.
+		m.comp.TaskTracker().EndTask(r.Trace.ID)
 		s.Stats.ThrottledNotifications++
 	}
+}
+
+// Counter service satisfies all existing waiters by holding and releasing
+// every GPU. Their queued fault service is subsumed by this notification.
+func (m *migrationMW) useCounterTrace(pi int, trace pageTrace) {
+	p := &m.state().Pages[pi]
+	m.comp.TaskTracker().EndTask(p.Trace.ID)
+	p.Trace = trace
 }
 
 // startWindow starts the migration of a page to GPU dst and of the pages
@@ -135,6 +166,7 @@ func (m *migrationMW) startWindow(pi, dst int) {
 	m.startMigration(pi, dst, false)
 
 	for _, mi := range members {
+		s.Pages[mi].Trace = m.traceStart(s.Pages[pi].Trace.ID, "prefetch")
 		m.startMigration(mi, dst, true)
 	}
 }
@@ -186,6 +218,8 @@ func (m *migrationMW) startRelease(pi int, gpus []int) {
 
 func (m *migrationMW) startHold(pi int) {
 	p := &m.state().Pages[pi]
+	m.tracePage(p)
+	m.mark(p, tasks.MilestoneKindQueue, "page service admitted")
 	p.Phase = pageHold
 
 	m.sendToTargets(pi, protocol.PageHoldReq{
@@ -212,6 +246,7 @@ func (m *migrationMW) ack(reqID uint64) {
 		return
 	}
 
+	m.markAck(p)
 	switch p.Phase {
 	case pageHold:
 		m.held(pi)
@@ -222,8 +257,10 @@ func (m *migrationMW) ack(reqID uint64) {
 		// destination dropped its L2 lines: the frame is not mapped yet, and
 		// the copy went around the L2.
 		s.Stats.CopyTimeSum += uint64(m.now() - p.CopyStart)
-		m.remap(pi)
-		m.commitMapping(pi, p.OldPage)
+		if page, ok := m.comp.Resources.PageTable.Find(p.PID, p.VAddr); ok && page == p.OldPage {
+			m.remap(pi)
+		}
+		m.commitMapping(pi)
 	case pageShootdown:
 		s.Stats.ShootdownTimeSum += uint64(m.now() - p.ShootdownStart)
 		m.startReleasePhase(pi)
@@ -243,12 +280,13 @@ func (m *migrationMW) held(pi int) {
 	case serviceMigrate:
 		m.startPrepare(pi)
 	case servicePin:
-		m.pin(pi, p.OldPage)
-		m.commitMapping(pi, p.OldPage)
+		if page, ok := m.comp.Resources.PageTable.Find(p.PID, p.VAddr); ok && page == p.OldPage {
+			m.pin(pi, page)
+		}
+		m.commitMapping(pi)
 	case serviceUnpin:
-		page, _ := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
 		m.clearPin(pi)
-		m.commitMapping(pi, page)
+		m.commitMapping(pi)
 	default:
 		m.startReleasePhase(pi)
 	}
@@ -311,6 +349,7 @@ func (m *migrationMW) submitCopies() bool {
 
 func (m *migrationMW) submitCopy(pi int) {
 	p := &m.state().Pages[pi]
+	m.mark(p, tasks.MilestoneKindQueue, "copy window ready")
 	p.Phase = pageCopy
 	p.CopyStart = m.now()
 
@@ -358,29 +397,35 @@ func (m *migrationMW) startPin(pi int, page vm.Page) {
 
 // commitMapping runs under the all-GPU Hold after copy or pin maintenance.
 // The new physical page can become visible only after every MMU responds.
-func (m *migrationMW) commitMapping(pi int, before vm.Page) {
+func (m *migrationMW) commitMapping(pi int) {
 	if len(m.comp.Spec.PageTables) == 0 {
 		m.startShootdown(pi)
 		return
 	}
 	p := &m.state().Pages[pi]
-	after, found := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
-	if !found && p.Service == serviceUnpin {
-		m.startShootdown(pi)
-		return
-	}
-	if !found {
-		panic("driver: migration lost its allocation")
-	}
 	p.Phase = pageMapping
-	m.comp.Middlewares.PageTable.update(before, after, pi+1)
+	table := m.comp.Middlewares.PageTable
+	view := m.comp.State.PageTables.Views[p.PID][p.VAddr]
+	after, _ := m.comp.Resources.PageTable.Find(p.PID, p.VAddr)
+	table.publish(mappingGroup{PID: p.PID, VAddr: p.VAddr}, view.withPage(after), p.Trace.ID)
+	m.mappingsReady(pi)
 }
 
+// Advice and host remaps can arrive while the page is held. Join the host
+// streams before issuing shootdown, and again before releasing any GPU.
 func (m *migrationMW) mappingsReady(pi int) {
-	if m.state().Pages[pi].Phase != pageMapping {
-		panic("driver: unexpected mapping completion")
+	p := &m.state().Pages[pi]
+	if m.comp.State.PageTables.PendingPages[p.PID][p.VAddr] != 0 {
+		return
 	}
-	m.startShootdown(pi)
+	switch p.Phase {
+	case pageMapping:
+		m.mark(p, tasks.MilestoneKindTranslation, "page tables committed")
+		m.startShootdown(pi)
+	case pageWaitReleaseMappings:
+		m.mark(p, tasks.MilestoneKindTranslation, "outstanding mappings committed before release")
+		m.startReleasePhase(pi)
+	}
 }
 
 func (m *migrationMW) startShootdown(pi int) {
@@ -395,6 +440,10 @@ func (m *migrationMW) startShootdown(pi int) {
 
 func (m *migrationMW) startReleasePhase(pi int) {
 	p := &m.state().Pages[pi]
+	if m.comp.State.PageTables.PendingPages[p.PID][p.VAddr] != 0 {
+		p.Phase = pageWaitReleaseMappings
+		return
+	}
 	p.Phase = pageRelease
 
 	m.sendToTargets(pi, protocol.PageReleaseReq{
@@ -418,6 +467,8 @@ func (m *migrationMW) finish(pi int) {
 		s.Stats.Releases++
 	}
 
+	m.comp.TaskTracker().EndTask(p.Trace.ID)
+	p.Trace, p.RetainedTrace = p.RetainedTrace, pageTrace{}
 	p.Phase = pageIdle
 	p.Service = serviceNone
 	p.Prefetched = false
@@ -426,6 +477,9 @@ func (m *migrationMW) finish(pi int) {
 	p.NewPAddr = 0
 
 	if len(p.Waiters) > 0 {
+		if p.Trace.ID == 0 {
+			p.Trace = m.traceStart(0, "waiting fault")
+		}
 		m.enqueuePage(pi)
 	}
 }

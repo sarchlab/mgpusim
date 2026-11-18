@@ -133,14 +133,15 @@ func nsToPS(ns uint64) timing.VTimeInPicoSec {
 
 // Phases of the service of a page.
 const (
-	pageIdle      = iota // nothing to do
-	pageHold             // the GPUs hold the page
-	pagePrepare          // the source flushes the old frame, the destination drops the new one
-	pageCopyWait         // waits for its turn at the destination's data mover
-	pageCopy             // the destination's data mover copies
-	pageShootdown        // the GPUs drop the old translation
-	pageRelease          // the GPUs release the page
-	pageMapping          // waits for the affected MMUs to commit the new mapping
+	pageIdle                = iota // nothing to do
+	pageHold                       // the GPUs hold the page
+	pagePrepare                    // the source flushes the old frame, the destination drops the new one
+	pageCopyWait                   // waits for its turn at the destination's data mover
+	pageCopy                       // the destination's data mover copies
+	pageShootdown                  // the GPUs drop the old translation
+	pageRelease                    // the GPUs release the page
+	pageMapping                    // waits for the affected MMUs to commit the new mapping
+	pageWaitReleaseMappings        // mappings submitted during service must commit before Release
 )
 
 // Services of a page.
@@ -164,14 +165,16 @@ type migrationPage struct {
 	// NewPAddr of GPU Dst; Prefetched is set when the page moves with the
 	// window of another page. PendingAcks counts the answers of the phase
 	// that have not arrived.
-	Phase       int     `json:"phase"`
-	Service     int     `json:"service"`
-	Dst         int     `json:"dst"`
-	Targets     []int   `json:"targets"`
-	OldPage     vm.Page `json:"old_page"`
-	NewPAddr    uint64  `json:"new_paddr"`
-	Prefetched  bool    `json:"prefetched"`
-	PendingAcks int     `json:"pending_acks"`
+	Trace         pageTrace `json:"trace"`
+	RetainedTrace pageTrace `json:"retained_trace"`
+	Phase         int       `json:"phase"`
+	Service       int       `json:"service"`
+	Dst           int       `json:"dst"`
+	Targets       []int     `json:"targets"`
+	OldPage       vm.Page   `json:"old_page"`
+	NewPAddr      uint64    `json:"new_paddr"`
+	Prefetched    bool      `json:"prefetched"`
+	PendingAcks   int       `json:"pending_acks"`
 
 	// Waiters are the GPUs that have a demand fault on the page that is not
 	// serviced yet, each once, in arrival order. A fault that arrives while
@@ -225,11 +228,12 @@ func (p *migrationPage) napEnd(gpu int) (until timing.VTimeInPicoSec, throttled 
 // notification of GPU for the physical page frame at PAddr. Deferred is set
 // on faults that a batch passed over because a memory copy uses their page.
 type migrationRequest struct {
-	Counter  bool   `json:"counter"`
-	Page     int    `json:"page"`
-	PAddr    uint64 `json:"paddr"`
-	GPU      int    `json:"gpu"`
-	Deferred bool   `json:"deferred"`
+	Trace    pageTrace `json:"trace"`
+	Counter  bool      `json:"counter"`
+	Page     int       `json:"page"`
+	PAddr    uint64    `json:"paddr"`
+	GPU      int       `json:"gpu"`
+	Deferred bool      `json:"deferred"`
 }
 
 // copyWindow is the pages that one fault or notification moves to GPU Dst, in
@@ -435,6 +439,8 @@ func (m *migrationMW) receiveAnswers() bool {
 				reflect.TypeOf(msg.Payload))
 		}
 
+		m.comp.TaskTracker().EndReqOut(m.comp.State.RequestTasks[msg.RspTo])
+		delete(m.comp.State.RequestTasks, msg.RspTo)
 		if group, ok := m.state().HostShootdowns[msg.RspTo]; ok {
 			delete(m.state().HostShootdowns, msg.RspTo)
 			m.comp.Middlewares.PageTable.ack(group)
@@ -460,13 +466,18 @@ func (m *migrationMW) receiveNotifications() (progress, queueWait bool) {
 			return progress, false
 		}
 
+		parent := m.comp.State.RequestTasks[msg.ID]
+		if t := m.comp.TaskTracker(); t != nil && parent == 0 {
+			parent = t.StartReqIn(m.comp, msg)
+			m.comp.State.RequestTasks[msg.ID] = parent
+		}
 		accepted := false
 
 		switch payload := msg.Payload.(type) {
 		case addrtransprotocol.PageFault:
-			accepted = m.acceptFault(payload)
+			accepted = m.acceptFault(payload, parent)
 		case protocol.AccessCounterNotification:
-			accepted = m.acceptNotification(payload)
+			accepted = m.acceptNotification(payload, parent)
 		default:
 			log.Panicf("driver: cannot handle %s on MigrationNotification",
 				reflect.TypeOf(msg.Payload))
@@ -477,6 +488,8 @@ func (m *migrationMW) receiveNotifications() (progress, queueWait bool) {
 		}
 
 		port.RetrieveIncoming()
+		m.comp.TaskTracker().EndReqIn(parent)
+		delete(m.comp.State.RequestTasks, msg.ID)
 
 		progress = true
 	}
@@ -490,7 +503,7 @@ func (m *migrationMW) queueFull() bool {
 // that already waits on the page is the same fault. While the page is
 // serviced, in any phase, the fault waits on the page for the last Release
 // answer. It returns false if the fault needs a place in a full queue.
-func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
+func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault, parent uint64) bool {
 	s := m.state()
 	gpu := int(f.DeviceID)
 	pi := m.pageIndex(f.PID, f.VAddr)
@@ -511,6 +524,13 @@ func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
 		m.enqueuePage(pi)
 	}
 
+	if p.Phase != pageIdle {
+		if p.RetainedTrace.ID == 0 {
+			p.RetainedTrace = m.traceStart(parent, "retained fault")
+		}
+	} else if p.Trace.ID == 0 {
+		p.Trace = m.traceStart(parent, "fault")
+	}
 	p.Waiters = append(p.Waiters, gpu)
 	s.Stats.Faults++
 
@@ -525,7 +545,7 @@ func (m *migrationMW) acceptFault(f addrtransprotocol.PageFault) bool {
 // resolved when the notification is serviced. It returns false if the
 // notification needs a place in a full queue.
 func (m *migrationMW) acceptNotification(
-	n protocol.AccessCounterNotification,
+	n protocol.AccessCounterNotification, parent uint64,
 ) bool {
 	s := m.state()
 	r := migrationRequest{
@@ -534,7 +554,9 @@ func (m *migrationMW) acceptNotification(
 		GPU:     int(n.DeviceID),
 	}
 
-	if slices.Contains(s.Queue, r) {
+	if slices.ContainsFunc(s.Queue, func(q migrationRequest) bool {
+		return q.Counter && q.GPU == r.GPU && q.PAddr == r.PAddr
+	}) {
 		s.Stats.Notifications++
 		s.Stats.CoalescedNotifications++
 
@@ -545,6 +567,7 @@ func (m *migrationMW) acceptNotification(
 		return false
 	}
 
+	r.Trace = m.traceStart(parent, "access counter")
 	s.Queue = append(s.Queue, r)
 	s.Stats.Notifications++
 
@@ -690,16 +713,19 @@ func (m *migrationMW) migrating(pid vm.PID, start, size uint64) bool {
 
 // queueCommand transfers a CP command to the shared transport and returns
 // its identity for the service or host mapping group awaiting the answer.
-func (m *migrationMW) queueCommand(dst messaging.RemotePort, payload any) uint64 {
+func (m *migrationMW) queueCommand(dst messaging.RemotePort, payload any, parent uint64) uint64 {
 	msg := messaging.Msg{ID: m.comp.NewID(), Src: m.comp.Ports.PageMigration.AsRemote(), Dst: dst, Payload: payload}
 	s := m.state()
+	if t := m.comp.TaskTracker(); t != nil {
+		m.comp.State.RequestTasks[msg.ID] = t.StartReqOut(m.comp, msg, parent)
+	}
 	s.Out = append(s.Out, msg)
 	return msg.ID
 }
 
 func (m *migrationMW) sendTo(pi, gpu int, payload any) {
 	s := m.state()
-	id := m.queueCommand(m.comp.Spec.MigrationAgents[gpu-1], payload)
+	id := m.queueCommand(m.comp.Spec.MigrationAgents[gpu-1], payload, s.Pages[pi].Trace.ID)
 	s.Pending[id] = pi
 	s.Pages[pi].PendingAcks++
 }
@@ -707,7 +733,7 @@ func (m *migrationMW) sendTo(pi, gpu int, payload any) {
 func (m *migrationMW) shootDownHostMapping(p vm.Page, group uint64) int {
 	req := protocol.PageShootdownReq{PID: p.PID, VAddr: p.VAddr, PageSize: p.PageSize}
 	for _, dst := range m.comp.Spec.MigrationAgents {
-		id := m.queueCommand(dst, req)
+		id := m.queueCommand(dst, req, m.comp.Resources.Runtime.SimulationTask())
 		m.state().HostShootdowns[id] = group
 	}
 	return len(m.comp.Spec.MigrationAgents)

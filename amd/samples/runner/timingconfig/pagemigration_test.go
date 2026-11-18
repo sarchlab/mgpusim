@@ -41,7 +41,14 @@ func buildMigrationPlatform(
 ) migrationPlatform {
 	t.Helper()
 
-	s := simulation.MakeBuilder().Build()
+	return buildMigrationPlatformWithSimulation(t, gpuType, configure, simulation.MakeBuilder())
+}
+
+func buildMigrationPlatformWithSimulation(t *testing.T, gpuType string, configure func(Builder) Builder,
+	simBuilder simulation.Builder,
+) migrationPlatform {
+	t.Helper()
+	s := simBuilder.Build()
 	t.Cleanup(func() {
 		if err := s.Terminate(); err != nil {
 			t.Error(err)
