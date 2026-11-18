@@ -18,7 +18,10 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 )
 
-type pteTraffic struct{ reads, writes int }
+type pteTraffic struct {
+	reads, writes int
+	onFirstRead   func()
+}
 
 func (h *pteTraffic) Func(ctx hooking.HookCtx) {
 	if ctx.Pos != messaging.HookPosPortMsgSend {
@@ -26,6 +29,10 @@ func (h *pteTraffic) Func(ctx hooking.HookCtx) {
 	}
 	switch ctx.Item.(messaging.Msg).Payload.(type) {
 	case memprotocol.ReadReq:
+		if h.onFirstRead != nil {
+			h.onFirstRead()
+			h.onFirstRead = nil
+		}
 		h.reads++
 	case memprotocol.WriteReq:
 		h.writes++
@@ -64,6 +71,9 @@ func TestPageTablePlacementAndRemoteDecisions(t *testing.T) {
 			if ioTraffic.writes == 0 || (gpuTraffic.writes > 0) != global {
 				t.Fatalf("PTE writes GPU %d IOMMU %d", gpuTraffic.writes, ioTraffic.writes)
 			}
+			beforeFallback := -1
+			gpuTraffic.reads = 0
+			ioTraffic.onFirstRead = func() { beforeFallback = gpuTraffic.reads }
 			for _, va := range []uint64{uint64(dev), uint64(host.Address)} {
 				expected, _ := p.driver.Resources.PageTable.Find(pid, va)
 				got := p.translate(t, peer.Ports.FaultIn, pid, va+1, 2)
@@ -71,7 +81,8 @@ func TestPageTablePlacementAndRemoteDecisions(t *testing.T) {
 					t.Fatalf("remote VA %#x: %+v, want %+v", va, got, expected)
 				}
 			}
-			if ioTraffic.reads == 0 || gpuTraffic.reads == 0 || p.driver.State.PageMigration.Stats.Faults != 0 {
+			if beforeFallback < 0 || (beforeFallback > 0) != global ||
+				ioTraffic.reads == 0 || p.driver.State.PageMigration.Stats.Faults != 0 {
 				t.Fatalf("PTE traffic GPU %+v IOMMU %+v, migration %+v", gpuTraffic, ioTraffic, p.driver.State.PageMigration.Stats)
 			}
 		})

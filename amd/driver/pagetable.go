@@ -65,6 +65,9 @@ func (v pageView) withPage(p vm.Page) pageView {
 }
 
 type pageTableState struct {
+	// HostPages gates dependent dispatch. PendingPages also includes
+	// fault-installed PTEs and migration updates that only Release awaits.
+	HostPages    map[vm.PID]map[uint64]bool
 	Views        map[vm.PID]map[uint64]pageView
 	Streams      []tableStream
 	Groups       map[uint64]mappingGroup
@@ -89,6 +92,7 @@ func (s *pageTableState) initialize(c *Comp) {
 	}
 	s.Views = make(map[vm.PID]map[uint64]pageView)
 	s.Groups = make(map[uint64]mappingGroup)
+	s.HostPages = make(map[vm.PID]map[uint64]bool)
 	s.PendingPages = make(map[vm.PID]map[uint64]int)
 	s.Dispatched = make(map[vm.PID]bool)
 }
@@ -156,6 +160,14 @@ func (m *pageTableMW) hostChanges() bool {
 			g.Shootdown = before.Page
 		}
 		m.publish(g, merged[k], 0)
+		s := &m.c.State.PageTables
+		if s.PendingPages[k.pid][k.va] != 0 {
+			// Advice can promote a lazy Map that is already in flight.
+			if s.HostPages[k.pid] == nil {
+				s.HostPages[k.pid] = make(map[uint64]bool)
+			}
+			s.HostPages[k.pid][k.va] = true
+		}
 	}
 	return true
 }
@@ -166,7 +178,7 @@ func (m *pageTableMW) ready(q rt.CommandQueue) bool {
 		return true
 	}
 	r := c.Resources.Runtime
-	pending := c.State.PageTables.PendingPages[r.QueuePID(q)]
+	pending := c.State.PageTables.HostPages[r.QueuePID(q)]
 	if len(pending) == 0 {
 		return true
 	}
@@ -182,7 +194,7 @@ func (m *pageTableMW) ready(q rt.CommandQueue) bool {
 		size := uint64(1) << c.Resources.PageTable.Log2PageSize()
 		for _, addr := range []rt.Ptr{cmd.Src, cmd.Dst} {
 			for p := uint64(addr) &^ (size - 1); p < uint64(addr)+uint64(cmd.ByteSize); p += size {
-				if pending[p] > 0 {
+				if pending[p] {
 					return false
 				}
 			}
@@ -321,6 +333,10 @@ func (m *pageTableMW) ack(id uint64) {
 	pending[g.VAddr]--
 	if pending[g.VAddr] == 0 {
 		delete(pending, g.VAddr)
+		delete(s.HostPages[g.PID], g.VAddr)
+		if len(s.HostPages[g.PID]) == 0 {
+			delete(s.HostPages, g.PID)
+		}
 	}
 	if len(pending) == 0 {
 		delete(s.PendingPages, g.PID)

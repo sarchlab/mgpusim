@@ -37,7 +37,11 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 		return true
 	}
 
+	explicit := m.comp.State.PageTables.Views[p.PID][p.VAddr].Explicit
 	for _, gpu := range m.requesters(p, owner) {
+		if slices.Contains(explicit, gpu) {
+			continue
+		}
 		switch m.hint(pi, gpu, true) {
 		case hintMigrate:
 			m.startWindow(pi, gpu)
@@ -54,23 +58,29 @@ func (m *migrationMW) serviceFaults(pi int) bool {
 		}
 	}
 
-	m.serviceThrottled(pi, owner)
+	m.serviceThrottled(pi, owner, explicit)
 
 	return true
 }
 
 // serviceThrottled ends the consideration of a page that does not move
-// now: the GPU that has the page is released if it waits (its fault was
-// answered before the page arrived), and the throttled GPUs keep waiting,
+// now: waiters that can use the resident or an advised remote mapping are
+// released to replay. The throttled GPUs keep waiting,
 // each for the end of its own nap. The request of the page has left the
 // queue; wakeThrottled queues the page again when the first of those naps
 // ends.
-func (m *migrationMW) serviceThrottled(pi, owner int) {
+func (m *migrationMW) serviceThrottled(pi, owner int, explicit []int) {
 	s := m.state()
 	p := &s.Pages[pi]
 
-	if slices.Contains(p.Waiters, owner) {
-		m.startRelease(pi, []int{owner})
+	var replay []int
+	for _, gpu := range p.Waiters {
+		if gpu == owner || slices.Contains(explicit, gpu) {
+			replay = append(replay, gpu)
+		}
+	}
+	if len(replay) != 0 {
+		m.startRelease(pi, replay)
 		return
 	}
 
@@ -407,7 +417,8 @@ func (m *migrationMW) mappingsReady(pi int) {
 	case pageMapping:
 		m.mark(p, tasks.MilestoneKindTranslation, "page tables committed")
 		m.startShootdown(pi)
-	case pageWaitHostRelease:
+	case pageWaitReleaseMappings:
+		m.mark(p, tasks.MilestoneKindTranslation, "outstanding mappings committed before release")
 		m.startReleasePhase(pi)
 	}
 }
@@ -425,7 +436,7 @@ func (m *migrationMW) startShootdown(pi int) {
 func (m *migrationMW) startReleasePhase(pi int) {
 	p := &m.state().Pages[pi]
 	if m.comp.State.PageTables.PendingPages[p.PID][p.VAddr] != 0 {
-		p.Phase = pageWaitHostRelease
+		p.Phase = pageWaitReleaseMappings
 		return
 	}
 	p.Phase = pageRelease

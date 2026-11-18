@@ -133,15 +133,15 @@ func nsToPS(ns uint64) timing.VTimeInPicoSec {
 
 // Phases of the service of a page.
 const (
-	pageIdle      = iota // nothing to do
-	pageHold             // the GPUs hold the page
-	pagePrepare          // the source flushes the old frame, the destination drops the new one
-	pageCopyWait         // waits for its turn at the destination's data mover
-	pageCopy             // the destination's data mover copies
-	pageShootdown        // the GPUs drop the old translation
-	pageRelease          // the GPUs release the page
-	pageMapping          // waits for the affected MMUs to commit the new mapping
-	pageWaitHostRelease
+	pageIdle                = iota // nothing to do
+	pageHold                       // the GPUs hold the page
+	pagePrepare                    // the source flushes the old frame, the destination drops the new one
+	pageCopyWait                   // waits for its turn at the destination's data mover
+	pageCopy                       // the destination's data mover copies
+	pageShootdown                  // the GPUs drop the old translation
+	pageRelease                    // the GPUs release the page
+	pageMapping                    // waits for the affected MMUs to commit the new mapping
+	pageWaitReleaseMappings        // mappings submitted during service must commit before Release
 )
 
 // Services of a page.

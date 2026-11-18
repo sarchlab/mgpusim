@@ -326,6 +326,8 @@ func (m *ctrlMiddleware) advanceShootdown() bool {
 	}
 
 	s.Jobs, s.Waiting = s.Waiting, nil
+	// Pause and Enable are shared by the round. Attribute each actual
+	// request to the first page job; invalidations belong to their own job.
 	s.Step = shootdownPause
 	s.PendingAcks = m.enqueueTLBCtrl(s.Jobs[0], memcontrolprotocol.Req{
 		Command: memcontrolprotocol.CmdPause})
