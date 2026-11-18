@@ -16,6 +16,42 @@ func (r *Runtime) PageTablePool(device int) (base, size uint64) {
 // submission order. A zero Before or After denotes an absent mapping.
 type MappingChange struct {
 	Before, After vm.Page
+	// AccessedBy requests a usable PTE on this physical GPU for After.
+	AccessedBy int
+}
+
+// SetAccessedBy requests a direct mapping on gpu for every page touching the
+// half-open virtual range in h's address space. A shared-PID context sees the
+// same advice. The host submits advice with its other mapping changes; it
+// neither moves the data nor advances simulation time. Fixed-latency and
+// emulation platforms have no separate GPU page tables to populate.
+func (r *Runtime) SetAccessedBy(h Context, addr Ptr, size uint64, gpu int) {
+	pid := r.context(h).PID
+	if gpu < 1 || gpu > r.GetNumGPUs() {
+		panic("runtime: SetAccessedBy requires a physical GPU")
+	}
+	if size == 0 {
+		return
+	}
+	last := uint64(addr) + (size - 1)
+	if last < uint64(addr) {
+		panic("runtime: SetAccessedBy address range overflows")
+	}
+	pageSize := uint64(1) << r.config.Log2PageSize
+	var changes []MappingChange
+	for va := uint64(addr) &^ (pageSize - 1); ; va += pageSize {
+		page, ok := r.pageTable.Find(pid, va)
+		if !ok {
+			panic("runtime: SetAccessedBy range contains an unmapped page")
+		}
+		if r.config.GPUPageTableBytes != 0 {
+			changes = append(changes, MappingChange{After: page, AccessedBy: gpu})
+		}
+		if last-va < pageSize {
+			break
+		}
+	}
+	r.state.MappingChanges = append(r.state.MappingChanges, changes...)
 }
 
 func (r *Runtime) mappingSnapshot(pid vm.PID, addr, size uint64) []vm.Page {

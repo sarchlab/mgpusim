@@ -189,7 +189,7 @@ func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
 }
 
 // WithPageTableMMU builds a local walker whose PTE requests use this GPU's
-// memory below L2. The platform configures its pool and fault handler.
+// ordinary L2 banks. The platform configures its pool and fault handler.
 func (b Builder) WithPageTableMMU(spec pagetablemmu.Spec) Builder {
 	b.walkerSpec = &spec
 	return b
@@ -251,7 +251,7 @@ func (b Builder) Build(name string) *gpubuilder.GPU {
 	b.buildRDMAEngine()
 	if b.walkerSpec != nil {
 		spec := *b.walkerSpec
-		spec.Memory = *b.dmaLocalDataSource
+		spec.Memory = *b.l1AddressMapper
 		spec.Log2PageSize = uint(b.log2PageSize)
 		b.walker = gpubuilder.BuildPageTableMMU(b.simulation, name+".GMMU", spec)
 		b.translation = b.walker.Ports.Top.AsRemote()
@@ -375,6 +375,9 @@ func (b *Builder) connectCPWithDRAMControllers() {
 func (b *Builder) connectL1ToL2() {
 	l1ToL2Conn := directconnection.NewConnection(b.name+".L1ToL2", b.simulation, b.freq)
 
+	if b.walker != nil {
+		l1ToL2Conn.BindPort(b.walker.Ports.Memory)
+	}
 	l1ToL2Conn.BindPort(b.rdmaEngine.Ports.RDMARequestInside)
 	l1ToL2Conn.BindPort(b.rdmaEngine.Ports.RDMADataInside)
 
@@ -417,7 +420,6 @@ func (b *Builder) connectL2AndDRAM() {
 
 	b.l2ToDramConnection.BindPort(b.rdmaEngine.Ports.MigrationInside)
 	if b.walker != nil {
-		b.l2ToDramConnection.BindPort(b.walker.Ports.Memory)
 		local := directconnection.NewConnection(b.name+".Translation", b.simulation, b.freq)
 		local.BindPort(b.walker.Ports.Top)
 		for _, t := range b.l2TLBs {

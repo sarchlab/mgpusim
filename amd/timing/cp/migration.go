@@ -63,6 +63,7 @@ type pageJob struct {
 // L2 maintenance of a job went to L2 bank Bank-1; Flush is set if it is the
 // Flush, which the Invalidate of that bank follows.
 type ctrlWait struct {
+	Task  uint64 `json:"task"`
 	Job   uint64 `json:"job"`
 	Bank  int    `json:"bank"`
 	Flush bool   `json:"flush"`
@@ -118,6 +119,8 @@ func (m *ctrlMiddleware) startPageJob(msg messaging.Msg) {
 	spec := m.comp.Spec
 	job := pageJob{Req: msg, TaskID: m.comp.TaskTracker().StartReqIn(m.comp, msg)}
 
+	state.PageJobs[msg.ID] = job
+
 	switch req := msg.Payload.(type) {
 	case protocol.PageHoldReq:
 		job.PendingAcks = m.enqueuePageCtrl(msg.ID, spec.AddressTranslators,
@@ -152,6 +155,10 @@ func pageRange(addr, size uint64) memcontrolprotocol.AddressRange {
 	return memcontrolprotocol.AddressRange{Start: addr, End: addr + size}
 }
 
+func (m *ctrlMiddleware) startJobRequest(job uint64, req messaging.Msg) uint64 {
+	return m.comp.TaskTracker().StartReqOut(m.comp, req, m.comp.State.PageJobs[job].TaskID)
+}
+
 // enqueuePageCtrl queues one control request for the page for every
 // address translator and returns the number of requests.
 func (m *ctrlMiddleware) enqueuePageCtrl(
@@ -178,7 +185,7 @@ func (m *ctrlMiddleware) enqueuePageCtrl(
 		}
 
 		state.PendingTranslationReqs = append(state.PendingTranslationReqs, req)
-		state.CtrlWaits[req.ID] = ctrlWait{Job: job}
+		state.CtrlWaits[req.ID] = ctrlWait{Job: job, Task: m.startJobRequest(job, req)}
 	}
 
 	return len(dsts)
@@ -287,7 +294,7 @@ func (m *ctrlMiddleware) enqueueL2Ctrl(
 
 	state.PendingCacheReqs = append(state.PendingCacheReqs, req)
 	state.CtrlWaits[req.ID] = ctrlWait{
-		Job: op.Job, Bank: bank + 1, Flush: cmd == memcontrolprotocol.CmdFlush,
+		Task: m.startJobRequest(op.Job, req), Job: op.Job, Bank: bank + 1, Flush: cmd == memcontrolprotocol.CmdFlush,
 	}
 }
 
@@ -320,7 +327,7 @@ func (m *ctrlMiddleware) advanceShootdown() bool {
 
 	s.Jobs, s.Waiting = s.Waiting, nil
 	s.Step = shootdownPause
-	s.PendingAcks = m.enqueueTLBCtrl(memcontrolprotocol.Req{
+	s.PendingAcks = m.enqueueTLBCtrl(s.Jobs[0], memcontrolprotocol.Req{
 		Command: memcontrolprotocol.CmdPause})
 
 	if s.PendingAcks == 0 {
@@ -331,7 +338,7 @@ func (m *ctrlMiddleware) advanceShootdown() bool {
 }
 
 // enqueueTLBCtrl queues a control request for every TLB.
-func (m *ctrlMiddleware) enqueueTLBCtrl(payload memcontrolprotocol.Req) int {
+func (m *ctrlMiddleware) enqueueTLBCtrl(parentJob uint64, payload memcontrolprotocol.Req) int {
 	state := &m.comp.State
 	port := m.comp.Ports.ToTranslation
 
@@ -344,7 +351,7 @@ func (m *ctrlMiddleware) enqueueTLBCtrl(payload memcontrolprotocol.Req) int {
 		}
 
 		state.PendingTranslationReqs = append(state.PendingTranslationReqs, req)
-		state.CtrlWaits[req.ID] = ctrlWait{}
+		state.CtrlWaits[req.ID] = ctrlWait{Task: m.startJobRequest(parentJob, req)}
 	}
 
 	return len(m.comp.Spec.TLBs)
@@ -369,7 +376,7 @@ func (m *ctrlMiddleware) shootdownAcked() {
 		// delays one request of every page instead of every request.
 		for _, id := range s.Jobs {
 			req := state.PageJobs[id].Req.Payload.(protocol.PageShootdownReq)
-			s.PendingAcks += m.enqueueTLBCtrl(memcontrolprotocol.Req{
+			s.PendingAcks += m.enqueueTLBCtrl(id, memcontrolprotocol.Req{
 				Command:  memcontrolprotocol.CmdInvalidate,
 				PID:      req.PID,
 				HasRange: true,
@@ -378,7 +385,7 @@ func (m *ctrlMiddleware) shootdownAcked() {
 		}
 	case shootdownInvalidate:
 		s.Step = shootdownEnable
-		s.PendingAcks = m.enqueueTLBCtrl(memcontrolprotocol.Req{
+		s.PendingAcks = m.enqueueTLBCtrl(s.Jobs[0], memcontrolprotocol.Req{
 			Command: memcontrolprotocol.CmdEnable})
 	case shootdownEnable:
 		m.finishShootdown()
@@ -422,7 +429,7 @@ func (m *ctrlMiddleware) enqueueMove(job uint64, req protocol.PageCopyReq) {
 	}
 
 	state.PendingMoveReqs = append(state.PendingMoveReqs, move)
-	state.MoveJobs[move.ID] = job
+	state.MoveJobs[move.ID] = ctrlWait{Job: job, Task: m.startJobRequest(job, move)}
 }
 
 // pageJobAcked counts an acknowledgement of a page job, ends the job with
@@ -489,6 +496,7 @@ func (m *ctrlMiddleware) migrationAcked(reqID uint64) {
 	}
 
 	delete(state.CtrlWaits, reqID)
+	m.comp.TaskTracker().EndReqOut(wait.Task)
 
 	switch {
 	case wait.Bank > 0:
@@ -542,7 +550,8 @@ func (m *ctrlMiddleware) processRspFromDataMover() bool {
 		}
 
 		delete(state.MoveJobs, msg.RspTo)
-		m.pageJobAcked(job)
+		m.comp.TaskTracker().EndReqOut(job.Task)
+		m.pageJobAcked(job.Job)
 
 		madeProgress = true
 	}

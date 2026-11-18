@@ -51,7 +51,8 @@ platform := timingconfig.MakeBuilder().WithPageMigration(spec)
 ### Timing translation
 
 The default timing platform builds a memory-backed GMMU on each GPU and a
-complete CPU-side IOMMU. A local GMMU stores mappings owned by its GPU.
+complete CPU-side IOMMU. A local GMMU stores mappings owned by its GPU and direct remote mappings
+installed for that requester.
 A miss forwards the original PID, VA, and requesting GPU to the IOMMU.
 The IOMMU walks its own table and asks the Driver to decide remote placement.
 A valid page can be used remotely through cache-line RDMA. An unmapped
@@ -60,8 +61,10 @@ terminal request stops the simulation with the PID, VA, and requesting GPU.
 Each GPU reserves the first 16 MiB of its physical span for page tables.
 The CPU reserves the first 64 MiB of its span, including the null data frame.
 The Runtime excludes these prefixes from data and migration-frame allocation
-with either allocator. GPU PTE reads and writes share the DRAM connections
-on R9 Nano and the MALL connections on MI300X. The IOMMU and remote GPU
+with either allocator. The GMMU checks its internal page-walk cache before issuing a walk read.
+PDE and PTE reads, writes, and node zeroing use the same physical-address
+interleave and L2 banks as ordinary GPU data on both R9 Nano and MI300X.
+An acknowledged write is visible to subsequent walks. The IOMMU and remote GPU
 accesses to CPU memory share a CPU memory controller backed by GlobalStorage.
 The page size follows the GPU preset throughout the platform. Set
 `PageTableSpec.Log2PageSize` to override it for every translation component
@@ -81,7 +84,8 @@ builder = builder.WithPageTable(tables)
 The filter defaults off. A negative bypasses the local walk and the complete
 IOMMU supplies fallback, including after a filter eviction. `GlobalGPU`
 replicates mappings of every GPU’s VRAM on each GPU. CPU-resident pages
-remain in the IOMMU. Remote GPU hits still consult the IOMMU for policy. `FixedLatency` selects the previous shared MMU and fault-notification
+can also be installed by advice or on demand. In the global preset remote
+hits still consult the IOMMU for policy. `FixedLatency` selects the previous shared MMU and fault-notification
 protocol. The exported standalone GPU builders continue to accept that MMU
 with `WithMMU`. A standalone memory-backed assembly uses `WithPageTableMMU`,
 connects the returned GPU's external ports, and supplies the fallback and
@@ -96,6 +100,31 @@ Host changes to previously used mappings also invalidate external TLB entries.
 Host remap and free require completion of work using those addresses.
 The allocator's functional table supplies host bookkeeping and emulation.
 Timed walks read encoded PTEs through their physical memory ports.
+
+A host calls `runtime.SetAccessedBy(ctx, addr, size, gpu)` to preinstall
+direct access to each page intersecting the byte range. Advice belongs to
+the context's PID and names a physical GPU. These timing platforms can reach
+both peer VRAM and CPU memory. Advice follows a live allocation when it moves
+and ends when it is freed. Fixed-latency and emulation models share a page
+table and require no extra publication.
+
+When the Driver permits direct access on a fault, it sends the current
+mapping in a `Resolved` response before waiting for a local Map ACK. The
+requesting GMMU can finish its active walk and use the installed PTE on
+later misses. For migration the Driver sends `Blocked` before awaiting the
+Hold ACKs. While GPUs hold the page, the Driver moves explicit mappings to
+the new residence and removes fault-installed mappings. Per-MMU command
+ordering ensures an outstanding lazy Map completes before its revocation.
+Pin expiry uses the same Hold, publication, shootdown, and Release sequence.
+It retains residency and explicit access and removes temporary direct access.
+
+With task tracking enabled, the Driver records a per-page service task for
+faults, counter notifications, prefetches, and timed unpins. Task links follow
+the actual messages through CP page jobs, cache and translator control, the
+data mover, and page-table updates. Milestones record completed waits for
+Hold, frame preparation, copy, committed mappings, TLB shootdown, and the
+last Release ACK. Outstanding request identities and the last wait boundary
+are checkpointed.
 
 ### Statistics
 
