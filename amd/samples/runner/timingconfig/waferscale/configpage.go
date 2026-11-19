@@ -7,16 +7,13 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
 
 	"github.com/sarchlab/akita/v5/sim"
 )
-
-// FlitSize is the number of bytes per mesh flit. At 1 GHz, 16-byte flits give
-// each link 16 GB/s, Akkalat's default bandwidth.
-const FlitSize = 16
 
 // ConfigPage is what the configuration page of a wafer-scale GPU shows: the
 // wafer on the first level and the components of each GPU on the second.
@@ -86,6 +83,27 @@ var configPageTemplate = template.Must(template.New("configpage").Parse(configPa
 // components of its GPU on the second.
 func WriteConfigPage(w io.Writer, page ConfigPage) error {
 	return configPageTemplate.Execute(w, page)
+}
+
+// WriteConfigPageFile collects the configuration page of a built wafer-scale
+// GPU of the given GPU type and mesh, and writes it to the file at path.
+func WriteConfigPageFile(path string, m Mesh, gpuType string, components []sim.Component) error {
+	tile, ok := ParseGPUType(gpuType)
+	if !ok {
+		return fmt.Errorf("waferscale: %q is not a wafer-scale GPU type", gpuType)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	if err := WriteConfigPage(f, CollectConfigPage(m, tile, components)); err != nil {
+		_ = f.Close()
+		return err
+	}
+
+	return f.Close()
 }
 
 // CollectConfigPage reads the specs of the components of a built wafer-scale

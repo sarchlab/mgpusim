@@ -1,7 +1,6 @@
 package timingconfig
 
 import (
-	"github.com/sarchlab/akita/v5/noc/mesh"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -30,32 +29,12 @@ func (n directNetwork) BindHostPort(port messaging.Port) { n.conn.BindPort(port)
 
 func (n directNetwork) BindGPUPort(_ int, port messaging.Port) { n.conn.BindPort(port) }
 
-// meshNetwork places the host and the GPU tiles of a wafer-scale GPU on a 2D
-// mesh. Each port joins the endpoint of its device's mesh position.
-type meshNetwork struct {
-	layout waferscale.Mesh
-	mesh   *mesh.Connector
-}
-
-func (n meshNetwork) BindHostPort(port messaging.Port) {
-	n.mesh.AddTile(n.layout.HostLocation(), []messaging.Port{port})
-}
-
-func (n meshNetwork) BindGPUPort(index int, port messaging.Port) {
-	n.mesh.AddTile(n.layout.TileLocation(index), []messaging.Port{port})
-}
+// A wafer-scale GPU connects its host and tiles with waferscale.Network.
+var _ interDeviceNetwork = waferscale.Network{}
 
 func (b *Builder) createInterDeviceNetwork() interDeviceNetwork {
 	if _, ok := waferscale.ParseGPUType(b.gpuType); ok {
-		return meshNetwork{
-			layout: b.waferMesh,
-			mesh: mesh.MakeBuilder().
-				WithSimulation(b.simulation).
-				WithFreq(timing.GHz).
-				WithFlitSize(waferscale.FlitSize).
-				WithSwitchLatency(b.switchLatency).
-				Build("Mesh"),
-		}
+		return waferscale.NewNetwork(b.simulation, b.waferMesh, b.switchLatency)
 	}
 
 	return directNetwork{

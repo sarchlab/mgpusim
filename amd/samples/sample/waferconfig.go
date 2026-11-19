@@ -17,8 +17,7 @@ without running the benchmark. Needs -timing -gpu waferscale.`)
 // writeWaferConfigPage writes the configuration page of the wafer-scale
 // platform that the simulation holds.
 func writeWaferConfigPage(path string, c Config, s *simulation.Simulation) error {
-	tile, ok := waferscale.ParseGPUType(c.GPUType)
-	if !c.Timing || !ok {
+	if _, ok := waferscale.ParseGPUType(c.GPUType); !c.Timing || !ok {
 		return errors.New("-wafer-config-html needs -timing -gpu waferscale")
 	}
 
@@ -27,18 +26,7 @@ func writeWaferConfigPage(path string, c Config, s *simulation.Simulation) error
 		m = waferscale.Mesh{Width: c.WaferMeshWidth, Height: c.WaferMeshHeight}
 	}
 
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-
-	page := waferscale.CollectConfigPage(m, tile, s.Components())
-	if err := waferscale.WriteConfigPage(f, page); err != nil {
-		_ = f.Close()
-		return err
-	}
-
-	return f.Close()
+	return waferscale.WriteConfigPageFile(path, m, c.GPUType, s.Components())
 }
 
 // writeWaferConfigPageAndExit writes the page the -wafer-config-html flag

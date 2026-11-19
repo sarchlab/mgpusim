@@ -170,11 +170,17 @@ Akita v5, not a copy.
 | File | Contents |
 |---|---|
 | `waferscale/builder.go` | mesh shape, tile locations, tile parameters, the R9 Nano tile builder, and the IOMMU pool size |
+| `waferscale/network.go` | `Network`, the mesh that connects the host and the tiles |
 | `waferscale/configpage.go` | collecting the component specs and writing the configuration page |
 | `waferscale/configpage.html.tmpl` | the page template, embedded in the binary |
-| `../network.go` | the inter-device network: a direct connection for `r9nano` and `mi300x`, the mesh for `waferscale` |
-| `../builder.go` | the `waferscale` GPU type in `timingconfig.Builder` and `WithWaferScaleMesh` |
+| `waferscale/platform_test.go` | tests that build whole wafers through `timingconfig` |
+| `../network.go` | the inter-device network interface; a direct connection for `r9nano` and `mi300x`, `waferscale.Network` for `waferscale` |
+| `../builder.go` | the `waferscale` GPU type in `timingconfig.Builder`, `WithWaferScaleMesh`, and the IOMMU pool of a wafer |
 | `amd/samples/sample/flag.go`, `waferconfig.go` | the `-wafer-mesh` and `-wafer-config-html` flags |
+
+The wafer-scale code lives in this package except for what has to be on
+`timingconfig.Builder`: selecting the GPU type, the mesh size, and the
+settings it changes in the builder.
 
 The template is a `.tmpl` file because `amd/.gitignore` ignores `*.html`, the
 generated pages.
@@ -182,11 +188,14 @@ generated pages.
 ## Tests
 
 ```bash
-go test ./amd/samples/runner/timingconfig/... -run 'WaferScale|Flatten|Split'
+go test ./amd/samples/runner/timingconfig/waferscale/
+go test ./amd/samples/runner/timingconfig/ -run TestBuildWaferScalePlatform
 go test ./amd/samples/sample/ -run 'WaferConfig|MeshShape'
 ```
 
-The platform tests check that the 5x5 and 7x7 wafers build with valid routes,
-one mesh switch per position, the 65 536-node IOMMU pool of the baseline, and a
-configuration page that places every component on the host, the mesh, or its
-tile.
+The platform tests in `platform_test.go` check that the 5x5 and 7x7 wafers
+build with valid routes, one mesh switch per position, the 65 536-node IOMMU
+pool of the baseline, and a configuration page that places every component on
+the host, the mesh, or its tile. `TestBuildWaferScalePlatform` stays in
+`timingconfig/builder_test.go` next to the R9 Nano and MI300X build tests,
+because it uses their internal routing checks.
