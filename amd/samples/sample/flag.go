@@ -2,6 +2,7 @@ package sample
 
 import (
 	"flag"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -16,7 +17,12 @@ var parallelFlag = flag.Bool("parallel", false,
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var archFlag = flag.String("arch", "gcn3", "GPU architecture: gcn3 or cdna3.")
 var gpuTypeFlag = flag.String("gpu", "r9nano",
-	"GPU model for timing simulation: r9nano or mi300x.")
+	`GPU model for timing simulation: r9nano, mi300x, or waferscale.
+waferscale is a mesh of R9 Nano-based tiles with the host in the centre (see
+-wafer-mesh); -gpus picks the tiles a benchmark runs on.`)
+var waferMeshFlag = flag.String("wafer-mesh", "5x5",
+	`Mesh shape of a waferscale GPU as WIDTHxHEIGHT. The host takes the centre
+position, so a WxH mesh has W*H-1 GPU tiles (5x5: 24, 7x7: 48).`)
 
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
@@ -122,6 +128,28 @@ func (r *Config) parseSimulationFlags() {
 
 	r.ArchType = parseArchFlag()
 	r.GPUType = parseGPUTypeFlag()
+
+	width, height, err := parseMeshShape(*waferMeshFlag)
+	if err != nil {
+		panic(err)
+	}
+	r.WaferMeshWidth, r.WaferMeshHeight = width, height
+}
+
+// parseMeshShape parses a mesh shape written as WIDTHxHEIGHT, such as 7x7.
+func parseMeshShape(shape string) (width, height int, err error) {
+	w, h, found := strings.Cut(strings.ToLower(shape), "x")
+	if found {
+		width, err = strconv.Atoi(w)
+	}
+	if found && err == nil {
+		height, err = strconv.Atoi(h)
+	}
+	if !found || err != nil || width < 1 || height < 1 {
+		return 0, 0, fmt.Errorf("invalid -wafer-mesh %q: want WIDTHxHEIGHT, such as 7x7", shape)
+	}
+
+	return width, height, nil
 }
 
 func (r *Config) parseGPUFlag() {

@@ -25,6 +25,9 @@ type Config struct {
 	ArchType                                   arch.Type
 	GPUType                                    string
 	GPUIDs                                     []int
+	// WaferMeshWidth and WaferMeshHeight set the mesh of a waferscale GPU.
+	// Zero keeps the default mesh.
+	WaferMeshWidth, WaferMeshHeight int
 }
 
 func ParseConfig() Config { var c Config; c.parseFlag(); return c }
@@ -49,6 +52,9 @@ func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() er
 		a.buildTimingPlatform()
 	} else {
 		a.buildEmuPlatform()
+	}
+	if *waferConfigHTMLFlag != "" {
+		writeWaferConfigPageAndExit(*c, a.simulation)
 	}
 	a.createUnifiedGPUs()
 	c.GPUIDs = a.GPUIDs
@@ -130,6 +136,10 @@ func (r *assembly) buildTimingPlatform() {
 		WithSimulation(r.simulation).
 		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
 		WithGPUType(r.GPUType)
+
+	if r.WaferMeshWidth != 0 && r.WaferMeshHeight != 0 {
+		b = b.WithWaferScaleMesh(r.WaferMeshWidth, r.WaferMeshHeight)
+	}
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()

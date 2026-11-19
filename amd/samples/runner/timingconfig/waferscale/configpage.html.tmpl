@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wafer-Scale GPU Config</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Asap:400,500,600&display=swap">
+<style>
+/* Design tokens follow AkitaRTM (akita/monitoring/internal/static). */
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 47.4% 11.2%);
+  --primary: hsl(211 85% 38%);
+  --primary-soft: hsl(211 85% 38% / .08);
+  --primary-line: hsl(211 85% 38% / .28);
+  --accent: hsl(28 88% 56%);
+  --accent-soft: hsl(28 88% 56% / .14);
+  --accent-line: hsl(28 88% 56% / .45);
+  --accent-text: hsl(24 75% 34%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --border: hsl(214.3 31.8% 91.4%);
+  --slate-50: #f8fafc;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-950: #020617;
+  --radius: .375rem;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; border-color: var(--border); }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--slate-50); color: var(--foreground);
+  font: 14px/1.45 Asap, ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button { font: inherit; color: inherit; }
+button:not(:disabled) { cursor: pointer; }
+svg.icon { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted-foreground); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Top navigation */
+.top-nav {
+  display: flex; align-items: center; gap: 4px; height: 56px; flex-shrink: 0;
+  background: var(--slate-950); color: #fff; border-bottom: 1px solid var(--slate-700); padding: 0 16px;
+}
+.brand { margin-right: 20px; font-size: 18px; font-weight: 600; user-select: none; white-space: nowrap; }
+.nav-link {
+  display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; border-radius: var(--radius);
+  padding: 6px 12px; font-size: 14px; font-weight: 500; color: #e2e8f0; white-space: nowrap;
+}
+.nav-link:hover { background: var(--slate-800); color: #fff; }
+.nav-link.active, .nav-link.active:hover { background: #fff; color: var(--slate-950); }
+.nav-meta { margin-left: auto; font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Panes */
+.app { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 30rem) minmax(0, 1fr); }
+.pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #fff; }
+.pane + .pane { border-left: 1px solid var(--border); }
+.pane-head { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: #fff; }
+.pane-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toolbar { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--slate-50); font-size: 12px; color: var(--muted-foreground); flex-wrap: wrap; }
+.scroll { flex: 1; min-height: 0; overflow: auto; }
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; }
+  .pane + .pane { border-left: 0; border-top: 1px solid var(--border); }
+  .scroll { overflow: visible; }
+  .nav-meta { display: none; }
+}
+
+/* Wafer map */
+.wafer { padding: 16px; }
+.mesh {
+  display: grid; gap: 6px; padding: 10px; border-radius: 14px;
+  background: radial-gradient(circle at 50% 50%, #fff 0%, var(--slate-50) 70%);
+  border: 1px solid var(--border);
+}
+.cell {
+  position: relative; aspect-ratio: 1; min-width: 0; padding: 2px;
+  border: 1px solid var(--primary-line); border-radius: var(--radius); background: var(--primary-soft);
+  color: var(--primary); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: background-color .12s, box-shadow .12s, color .12s;
+}
+.cell:hover { background: hsl(211 85% 38% / .16); }
+.cell b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.cell small { font-family: var(--mono); font-size: 10px; opacity: .7; }
+.cell.host { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-text); }
+.cell.host:hover { background: hsl(28 88% 56% / .24); }
+.cell.selected { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 2px 8px hsl(211 85% 38% / .35); }
+.cell.host.selected { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px hsl(28 88% 56% / .4); }
+.cell:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.legend { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--muted-foreground); flex-wrap: wrap; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid; }
+
+/* Summary */
+.section-label { padding: 8px 16px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--slate-50); }
+.kv { display: grid; grid-template-columns: minmax(8rem, 11rem) 1fr; }
+.kv > div { padding: 7px 16px; border-bottom: 1px solid var(--border); min-width: 0; }
+.kv > div:nth-child(odd) { color: var(--muted-foreground); font-size: 13px; }
+.kv > div:nth-child(even) { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Detail */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: #fff; color: var(--slate-700); white-space: nowrap; }
+.badge.primary { background: var(--primary-soft); border-color: var(--primary-line); color: var(--primary); }
+.badge.accent { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
+.search { position: relative; flex: 1; min-width: 180px; max-width: 360px; }
+.search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); }
+.search input {
+  width: 100%; height: 32px; padding: 0 10px 0 32px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: #fff; color: var(--foreground); font: inherit; font-size: 13px; outline: none;
+}
+.search input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.cols, .row {
+  display: grid; grid-template-columns: minmax(10rem, 18rem) minmax(8rem, 1fr) 5rem 2.25rem; gap: 12px; align-items: center;
+}
+.cols { padding: 6px 12px; font-size: 12px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); background: #fff; position: sticky; top: 0; z-index: 1; }
+.group { border-bottom: 1px solid var(--border); }
+.row { width: 100%; min-height: 44px; padding: 8px 12px; border: 0; background: none; text-align: left; font-size: 14px; }
+.row:hover { background: var(--slate-50); }
+.row .kind { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .type { font-family: var(--mono); font-size: 11px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .count { justify-self: end; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--slate-700); }
+.row .chev { justify-self: center; color: var(--primary); transition: transform .15s; display: inline-flex; }
+.group.open .row .chev { transform: rotate(90deg); }
+.panel { border-top: 1px solid var(--border); background: hsl(210 40% 98% / .6); padding: 8px 12px 12px 24px; }
+.panel h4 { margin: 8px 0 6px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.fields { display: grid; grid-template-columns: minmax(10rem, 20rem) 1fr; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; overflow: hidden; }
+.fields > div { padding: 4px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 12px; min-width: 0; word-break: break-all; }
+.fields > div:nth-child(odd) { color: var(--muted-foreground); word-break: normal; overflow-wrap: anywhere; }
+.fields > div:nth-last-child(-n+2) { border-bottom: 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { text-align: left; padding: 4px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted-foreground); background: var(--slate-50); }
+td { font-family: var(--mono); }
+td:first-child { color: var(--muted-foreground); }
+tr:last-child td { border-bottom: 0; }
+.empty { padding: 24px 16px; text-align: center; font-size: 14px; color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="brand">Wafer-Scale GPU</div>
+  <div role="tablist" aria-label="Views" style="display:flex;gap:4px">
+    <button class="nav-link" id="tab-gpu" role="tab"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M20 9h2M20 15h2M2 9h2M2 15h2"/></svg>GPU</button>
+    <button class="nav-link" id="tab-host" role="tab"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Host &amp; Network</button>
+  </div>
+  <div class="nav-meta" id="nav-meta"></div>
+</nav>
+<div class="app">
+  <aside class="pane">
+    <div class="pane-head"><span class="pane-title">Wafer</span><span class="muted mono" style="font-size:12px" id="wafer-shape"></span></div>
+    <div class="scroll">
+      <div class="wafer">
+        <div class="mesh" id="mesh"></div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--primary-soft);border-color:var(--primary-line)"></span>GPU tile</span>
+          <span><span class="swatch" style="background:var(--accent-soft);border-color:var(--accent-line)"></span>Host: driver, IOMMU, CPU memory</span>
+        </div>
+      </div>
+      <div class="section-label">Wafer</div>
+      <div class="kv" id="wafer-kv"></div>
+      <div class="section-label">Each tile</div>
+      <div class="kv" id="tile-kv"></div>
+      <div class="section-label">Mesh network</div>
+      <div class="kv" id="net-kv"></div>
+    </div>
+  </aside>
+  <section class="pane">
+    <div class="pane-head" id="detail-head"></div>
+    <div class="toolbar" id="detail-toolbar"></div>
+    <div class="scroll" id="detail-body"></div>
+  </section>
+</div>
+<script>
+const PAGE = {{.}};
+
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) if (c !== null && c !== undefined) e.append(c);
+  return e;
+}
+const SVGNS = "http://www.w3.org/2000/svg";
+function icon(d) {
+  const s = document.createElementNS(SVGNS, "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("class", "icon");
+  const p = document.createElementNS(SVGNS, "path");
+  p.setAttribute("d", d);
+  s.append(p);
+  return s;
+}
+const CHEVRON = "M9 18l6-6-6-6";
+const SEARCH = "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3";
+
+function bytes(n) {
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1 && n % 1024 === 0) { n /= 1024; i++; }
+  return n.toLocaleString() + " " + units[i];
+}
+// Strings are shown without their JSON quotes; other values as they are.
+const show = (v) => (v && v.length > 1 && v[0] === '"' ? JSON.parse(v) : v);
+const list = (x) => x || [];
+
+const m = PAGE.mesh, tile = PAGE.tile, gpus = list(PAGE.gpus);
+const host = PAGE.hostLocation;
+const cuPerTile = tile.numCUPerShaderArray * tile.numShaderArray;
+const hops = (loc) => Math.abs(loc[0] - host[0]) + Math.abs(loc[1] - host[1]);
+const maxHops = Math.max(0, ...gpus.map((g) => hops(g.location)));
+
+function iommuPool() {
+  const io = list(PAGE.host).find((g) => g.kind === "IOMMU");
+  const f = io && list(io.common).find((f) => f.path === "pool_nodes");
+  return f ? Number(f.value) : null;
+}
+
+function kv(id, rows) {
+  $(id).replaceChildren(...rows.flatMap(([k, v]) => [el("div", {}, k), el("div", {}, String(v))]));
+}
+
+function summary() {
+  const shape = `${m.width}×${m.height}`;
+  $("wafer-shape").textContent = shape + " mesh";
+  $("nav-meta").textContent = `${shape} mesh · ${gpus.length} ${PAGE.tileType} tiles · ${(cuPerTile * gpus.length).toLocaleString()} CUs`;
+  const pool = iommuPool();
+  kv("wafer-kv", [
+    ["Mesh", shape],
+    ["GPU tiles", gpus.length],
+    ["Host position", `(${host[0]}, ${host[1]})`],
+    ["CUs", (cuPerTile * gpus.length).toLocaleString()],
+    ["DRAM", bytes(tile.dramSize * gpus.length)],
+    ["IOMMU pool", pool === null ? "—" : `${pool.toLocaleString()} nodes · ${bytes(pool * 4096)}`],
+  ]);
+  kv("tile-kv", [
+    ["Microarchitecture", PAGE.tileType],
+    ["Shader arrays", tile.numShaderArray],
+    ["CUs per array", tile.numCUPerShaderArray],
+    ["CUs", cuPerTile],
+    ["L2 cache", bytes(tile.l2CacheSize)],
+    ["DRAM", bytes(tile.dramSize)],
+  ]);
+  kv("net-kv", [
+    ["Topology", "2D mesh, Z-Y-X routing"],
+    ["Flit size", `${PAGE.flitSize} B`],
+    ["Link bandwidth", `${PAGE.flitSize} GB/s at 1 GHz`],
+    ["Switch latency", `${PAGE.switchLatency} cycles`],
+    ["Farthest tile", `${maxHops} hops from host`],
+  ]);
+}
+
+function mesh() {
+  const grid = $("mesh");
+  grid.style.gridTemplateColumns = `repeat(${m.width}, minmax(0, 1fr))`;
+  const at = new Map(gpus.map((g) => [g.location[0] + "," + g.location[1], g]));
+  const cells = [];
+  for (let y = 0; y < m.height; y++) {
+    for (let x = 0; x < m.width; x++) {
+      if (x === host[0] && y === host[1]) {
+        cells.push(el("button", { class: "cell host", "data-id": "host", title: `Host (${x}, ${y})`, onclick: () => select("host") },
+          el("b", {}, "HOST"), el("small", {}, `${x},${y}`)));
+        continue;
+      }
+      const g = at.get(x + "," + y);
+      cells.push(el("button", {
+        class: "cell", "data-id": "gpu-" + g.index, onclick: () => select("gpu-" + g.index),
+        title: `${g.name} at (${x}, ${y}), ${hops(g.location)} hops from the host`,
+      }, el("b", {}, String(g.index)), el("small", {}, `${x},${y}`)));
+    }
+  }
+  grid.replaceChildren(...cells);
+}
+
+function fieldGrid(fields) {
+  return el("div", { class: "fields" }, ...fields.flatMap((f) => [el("div", {}, f.path), el("div", {}, show(f.value))]));
+}
+
+function perComponentTable(g) {
+  const head = el("tr", {}, el("th", {}, "component"), ...g.differing.map((p) => el("th", {}, p)));
+  const rows = g.names.map((n, i) => el("tr", {}, el("td", {}, n), ...list(g.values[i]).map((v) => el("td", {}, v ? show(v) : "—"))));
+  return el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, head), el("tbody", {}, ...rows)));
+}
+
+function groupView(g, filter) {
+  const match = (s) => String(s).toLowerCase().includes(filter);
+  let common = list(g.common);
+  const differing = list(g.differing);
+  if (filter && !match(g.kind) && !match(g.type)) {
+    common = common.filter((f) => match(f.path) || match(f.value));
+    if (common.length === 0 && !differing.some(match)) return null;
+  }
+  const wrap = el("div", { class: "group" });
+  let panel = null;
+  const toggle = () => {
+    wrap.classList.toggle("open");
+    if (panel) { panel.remove(); panel = null; return; }
+    panel = el("div", { class: "panel" });
+    if (common.length) panel.append(el("h4", {}, g.names.length > 1 ? `Shared by all ${g.names.length}` : "Spec"), fieldGrid(common));
+    if (differing.length) panel.append(el("h4", {}, "Per component"), perComponentTable(g));
+    if (!common.length && !differing.length) panel.append(el("div", { class: "muted", style: "font-size:13px" }, "No spec."));
+    wrap.append(panel);
+  };
+  wrap.append(el("button", { class: "row", onclick: toggle, "aria-expanded": "false" },
+    el("span", { class: "kind", title: g.kind }, g.kind),
+    el("span", { class: "type", title: g.type }, g.type),
+    el("span", { class: "count" }, "×" + g.names.length),
+    el("span", { class: "chev" }, icon(CHEVRON))));
+  if (filter) toggle();
+  return wrap;
+}
+
+function groupList(sections) {
+  const input = el("input", { type: "search", placeholder: "Filter components and fields", "aria-label": "Filter" });
+  const body = $("detail-body");
+  const render = () => {
+    const filter = input.value.trim().toLowerCase();
+    const out = [el("div", { class: "cols" }, el("span", {}, "Component"), el("span", {}, "Spec type"), el("span", { style: "justify-self:end" }, "Count"), el("span", {}))];
+    let any = false;
+    for (const [label, groups] of sections) {
+      const views = list(groups).map((g) => groupView(g, filter)).filter(Boolean);
+      if (!views.length) continue;
+      any = true;
+      if (label) out.push(el("div", { class: "section-label", style: "border-top:0" }, label));
+      out.push(...views);
+    }
+    if (!any) out.push(el("div", { class: "empty" }, "Nothing matches the filter."));
+    body.replaceChildren(...out);
+  };
+  input.addEventListener("input", render);
+  render();
+  return el("label", { class: "search" }, icon(SEARCH), input);
+}
+
+function select(id) {
+  if (location.hash !== "#" + id) history.pushState(null, "", "#" + id);
+  render(id);
+}
+
+let lastGPU = "gpu-1";
+function render(id) {
+  const isHost = id === "host";
+  if (!isHost) lastGPU = id;
+  document.querySelectorAll(".cell").forEach((c) => c.classList.toggle("selected", c.dataset.id === id));
+  $("tab-gpu").classList.toggle("active", !isHost);
+  $("tab-host").classList.toggle("active", isHost);
+  const head = $("detail-head"), toolbar = $("detail-toolbar");
+
+  if (isHost) {
+    head.replaceChildren(el("span", { class: "pane-title" }, "Host"),
+      el("span", { class: "badge accent" }, `(${host[0]}, ${host[1]})`),
+      el("span", { class: "muted", style: "font-size:13px" }, "Driver, IOMMU and CPU memory, plus the mesh"));
+    toolbar.replaceChildren(groupList([["Host", PAGE.host], ["Mesh network", PAGE.network]]));
+    return;
+  }
+
+  const g = gpus.find((g) => "gpu-" + g.index === id) || gpus[0];
+  const groups = list(g.groups);
+  const count = groups.reduce((n, x) => n + x.names.length, 0);
+  head.replaceChildren(el("span", { class: "pane-title" }, g.name),
+    el("span", { class: "badge primary" }, `(${g.location[0]}, ${g.location[1]})`),
+    el("span", { class: "badge" }, `${hops(g.location)} hops from host`),
+    el("span", { class: "badge" }, `${PAGE.tileType} tile`));
+  const stats = el("span", { class: "num" },
+    `${tile.numShaderArray} SAs × ${tile.numCUPerShaderArray} CUs · L2 ${bytes(tile.l2CacheSize)} · DRAM ${bytes(tile.dramSize)} · ${count} components in ${groups.length} kinds`);
+  toolbar.replaceChildren(groupList([[null, groups]]), stats);
+}
+
+$("tab-gpu").addEventListener("click", () => select(lastGPU));
+$("tab-host").addEventListener("click", () => select("host"));
+summary();
+mesh();
+const fromHash = () => render(location.hash.slice(1) || "gpu-1");
+window.addEventListener("popstate", fromHash);
+fromHash();
+</script>
+</body>
+</html>
