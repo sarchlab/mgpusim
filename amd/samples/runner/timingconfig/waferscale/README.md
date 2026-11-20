@@ -12,7 +12,8 @@ tile of 32 CUs and 4 GiB of memory. It is selected like the other GPU types,
 cd amd/samples/fir && go build
 ./fir -timing -gpu waferscale -verify                     # 5x5 wafer, runs on GPU[1]
 ./fir -timing -gpu waferscale -gpus 1,24 -verify          # two opposite corners
-./fir -timing -gpu waferscale -wafer-mesh 7x7 -gpus 1,48  # 48 tiles
+./fir -timing -gpu waferscale -gpus 1-4,9-12 -verify      # ranges, as in a print dialog
+./fir -timing -gpu waferscale -wafer-mesh 7x7 -unified-gpus all -verify  # all 48 tiles as one GPU
 ./fir -timing -gpu waferscale -wafer-config-html wafer.html
 ```
 
@@ -23,8 +24,16 @@ benchmark (see [Configuration page](#configuration-page)).
 |---|---|---|
 | `-gpu waferscale` | `r9nano` | select the wafer-scale GPU; `waferscale-<tile>` names a tile microarchitecture, and `waferscale` is `waferscale-r9nano` |
 | `-wafer-mesh WxH` | `5x5` | mesh shape; a WxH mesh has W*H-1 tiles |
-| `-gpus 1,2,...` | `1` | the tiles a benchmark runs on, numbered from 1 |
+| `-gpus LIST` | `1` | the tiles a benchmark runs on, numbered from 1 |
+| `-unified-gpus LIST` | none | the tiles that run a benchmark as one unified GPU |
 | `-wafer-config-html PATH` | none | write the configuration page to PATH and exit |
+
+A `LIST` takes IDs and ranges separated by commas, the way a print dialog
+takes pages: `1,3-5,8`, `1-4,5-7`, or `1-48`. `all` lists every tile of the
+wafer, 1 to W*H-1. An ID off the wafer, a range written backwards, or an ID
+listed twice is an error. These forms work for every GPU type, except `all`,
+which needs `-gpu waferscale` because the other types have no fixed number of
+GPUs.
 
 The wafer always has every tile of its mesh, whatever `-gpus` selects. A
 benchmark uses only the tiles that `-gpus` (or `-unified-gpus`) lists; the

@@ -21,12 +21,17 @@ func writeWaferConfigPage(path string, c Config, s *simulation.Simulation) error
 		return errors.New("-wafer-config-html needs -timing -gpu waferscale")
 	}
 
-	m := waferscale.DefaultMesh
+	return waferscale.WriteConfigPageFile(path, c.waferMesh(), c.GPUType, s.Components())
+}
+
+// waferMesh returns the mesh of a waferscale GPU that the configuration
+// selects, the default mesh when it selects none.
+func (c Config) waferMesh() waferscale.Mesh {
 	if c.WaferMeshWidth != 0 && c.WaferMeshHeight != 0 {
-		m = waferscale.Mesh{Width: c.WaferMeshWidth, Height: c.WaferMeshHeight}
+		return waferscale.Mesh{Width: c.WaferMeshWidth, Height: c.WaferMeshHeight}
 	}
 
-	return waferscale.WriteConfigPageFile(path, m, c.GPUType, s.Components())
+	return waferscale.DefaultMesh
 }
 
 // writeWaferConfigPageAndExit writes the page the -wafer-config-html flag

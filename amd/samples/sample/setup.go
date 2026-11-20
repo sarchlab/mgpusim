@@ -6,6 +6,7 @@ import (
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/rs/xid"
@@ -121,7 +122,7 @@ func (r *assembly) initSimulation() {
 func (r *assembly) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
@@ -134,7 +135,7 @@ func (r *assembly) buildEmuPlatform() {
 func (r *assembly) buildTimingPlatform() {
 	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithGPUType(r.GPUType)
 
 	if r.WaferMeshWidth != 0 && r.WaferMeshHeight != 0 {
