@@ -6,6 +6,7 @@ import (
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/rs/xid"
@@ -25,6 +26,9 @@ type Config struct {
 	ArchType                                   arch.Type
 	GPUType                                    string
 	GPUIDs                                     []int
+	// WaferMeshWidth and WaferMeshHeight set the mesh of a waferscale GPU.
+	// Zero keeps the default mesh.
+	WaferMeshWidth, WaferMeshHeight int
 }
 
 func ParseConfig() Config { var c Config; c.parseFlag(); return c }
@@ -49,6 +53,9 @@ func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() er
 		a.buildTimingPlatform()
 	} else {
 		a.buildEmuPlatform()
+	}
+	if *waferConfigHTMLFlag != "" {
+		writeWaferConfigPageAndExit(*c, a.simulation)
 	}
 	a.createUnifiedGPUs()
 	c.GPUIDs = a.GPUIDs
@@ -115,7 +122,7 @@ func (r *assembly) initSimulation() {
 func (r *assembly) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
@@ -128,8 +135,12 @@ func (r *assembly) buildEmuPlatform() {
 func (r *assembly) buildTimingPlatform() {
 	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithGPUType(r.GPUType)
+
+	if r.WaferMeshWidth != 0 && r.WaferMeshHeight != 0 {
+		b = b.WithWaferScaleMesh(r.WaferMeshWidth, r.WaferMeshHeight)
+	}
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()

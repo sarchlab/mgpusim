@@ -5,7 +5,6 @@ import (
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/sim/messaging"
-	"github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
@@ -38,15 +37,15 @@ func (b Builder) WithPageTable(spec PageTableSpec) Builder {
 
 const cpuMemoryTop = messaging.RemotePort("CPU.Memory.Top")
 
-func (b *Builder) buildCPUMemory(conn *direct.Connection) {
+func (b *Builder) buildCPUMemory(network interDeviceNetwork) {
 	cpu := modeling.MakeBuilder[*idealmemcontroller.Comp](idealmemcontroller.DefaultSpec()).
 		WithSimulation(b.simulation).WithResources(idealmemcontroller.Resources{Storage: b.globalStorage}).
 		Build("CPU.Memory")
-	conn.BindPort(b.buildPort(cpu, "Top", mmuTopPortBufSize))
+	network.BindHostPort(b.buildPort(cpu, "Top", mmuTopPortBufSize))
 	b.buildPort(cpu, "Control", ctrlPortBufSize)
 }
 
-func (b *Builder) buildIOMMU(conn *direct.Connection) *pagetablemmu.Comp {
+func (b *Builder) buildIOMMU(network interDeviceNetwork) *pagetablemmu.Comp {
 	spec := b.pageTable.IOMMU
 	if spec.FilterBuckets != 0 {
 		panic("timingconfig: only a GPU walker can use the routing filter")
@@ -60,7 +59,7 @@ func (b *Builder) buildIOMMU(conn *direct.Connection) *pagetablemmu.Comp {
 	for _, p := range []messaging.Port{
 		io.Ports.Top, io.Ports.Memory, io.Ports.Control, io.Ports.PageFault, io.Ports.FaultIn,
 	} {
-		conn.BindPort(p)
+		network.BindHostPort(p)
 	}
 	return io
 }

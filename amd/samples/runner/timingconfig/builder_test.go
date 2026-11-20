@@ -6,6 +6,7 @@ import (
 
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -67,6 +68,12 @@ func TestBuildMI300XPlatform(t *testing.T) {
 }
 
 func TestBuildMI300XMultiGPUPlatform(t *testing.T) { buildPlatform(t, "mi300x", 2) }
+
+// TestBuildWaferScalePlatform builds the 5x5 baseline wafer. The other
+// wafer-scale tests are in the waferscale package.
+func TestBuildWaferScalePlatform(t *testing.T) {
+	buildPlatform(t, "waferscale", waferscale.DefaultMesh.NumTiles())
+}
 
 func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 	t.Helper()

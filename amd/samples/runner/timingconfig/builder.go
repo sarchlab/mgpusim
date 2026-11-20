@@ -10,7 +10,6 @@ import (
 	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
-	directconnection "github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -19,6 +18,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
 )
 
@@ -51,6 +51,7 @@ type Builder struct {
 	pageMigration      driver.PageMigrationSpec
 	pageTable          PageTableSpec
 	allocator          gpuruntime.AllocatorType
+	waferMesh          waferscale.Mesh
 
 	globalStorage     *mem.Storage
 	rdmaAddressMapper mem.AddressMapper
@@ -72,6 +73,7 @@ func MakeBuilder() Builder {
 		h2dCycles:          500,
 		pageMigration:      driver.DefaultPageMigrationSpec(),
 		pageTable:          DefaultPageTableSpec(),
+		waferMesh:          waferscale.DefaultMesh,
 	}
 }
 
@@ -114,9 +116,20 @@ func (b Builder) WithAllocator(allocator gpuruntime.AllocatorType) Builder {
 	return b
 }
 
-// WithGPUType sets the GPU type for timing simulation (r9nano or mi300x).
+// WithGPUType sets the GPU type for timing simulation: r9nano, mi300x,
+// waferscale (R9 Nano tiles), or waferscale-<tile>. A wafer-scale GPU always
+// has one GPU per non-host position of its mesh.
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
+	return b
+}
+
+// WithWaferScaleMesh sets the mesh shape of a wafer-scale GPU. The host takes
+// the centre position and every other position holds a GPU tile, so a
+// width x height mesh has width*height-1 GPUs. The default is
+// waferscale.DefaultMesh (5x5). Other GPU types ignore it.
+func (b Builder) WithWaferScaleMesh(width, height int) Builder {
+	b.waferMesh = waferscale.Mesh{Width: width, Height: height}
 	return b
 }
 
@@ -138,11 +151,11 @@ func (b Builder) Build() *gpuruntime.Runtime {
 		Build("GlobalStorage")
 
 	pageTable := vm.MakePageTableBuilder().WithSimulation(b.simulation).WithLog2PageSize(b.log2PageSize).Build("PageTable")
-	interDeviceConn := directconnection.NewConnection("InterDeviceConn", b.simulation, timing.GHz)
-	b.buildCPUMemory(interDeviceConn)
+	network := b.createInterDeviceNetwork()
+	b.buildCPUMemory(network)
 	spec := driver.DefaultSpec()
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
-	legacy := b.configureTranslation(pageTable, interDeviceConn, &spec, &runtimeSpec)
+	legacy := b.configureTranslation(pageTable, network, &spec, &runtimeSpec)
 	b.createRDMAAddressMapper()
 	runtimeSpec.Log2PageSize = b.log2PageSize
 	runtimeSpec.Allocator = b.allocator
@@ -151,7 +164,7 @@ func (b Builder) Build() *gpuruntime.Runtime {
 	spec.H2DCycles = b.h2dCycles
 	spec.PageMigration = b.pageMigration
 	for i := 1; i <= b.numGPUs; i++ {
-		gpu := b.createGPU(i, b.createGPUBuilder(legacy, i), interDeviceConn)
+		gpu := b.createGPU(i, b.createGPUBuilder(legacy, i), network)
 		if c := gpu.PageTableMMU; c != nil {
 			spec.PageTables = append(spec.PageTables, pageTableTarget(c))
 		}
@@ -171,30 +184,30 @@ func (b Builder) Build() *gpuruntime.Runtime {
 			GlobalStorage: b.globalStorage,
 		}).Build("Driver")
 	port := b.buildPort(comp, driver.GPUPortName, driverGPUPortBufSize)
-	interDeviceConn.BindPort(port)
-	interDeviceConn.BindPort(
+	network.BindHostPort(port)
+	network.BindHostPort(
 		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
-	interDeviceConn.BindPort(
+	network.BindHostPort(
 		b.buildPort(comp, driver.MigrationNotificationPortName, driverGPUPortBufSize))
 	if legacy == nil {
 		for _, name := range []string{"PageFault[0]", "PageTable[0]"} {
-			interDeviceConn.BindPort(b.buildPort(comp, name, driverGPUPortBufSize))
+			network.BindHostPort(b.buildPort(comp, name, driverGPUPortBufSize))
 		}
 	}
 	return runtime
 }
 
-func (b *Builder) configureTranslation(pageTable *vm.PageTable, conn *directconnection.Connection,
+func (b *Builder) configureTranslation(pageTable *vm.PageTable, network interDeviceNetwork,
 	spec *driver.Spec, runtimeSpec *gpuruntime.RuntimeSpec) *mmu.Comp {
 	var legacy *mmu.Comp
 	if b.pageTable.FixedLatency {
 		legacy = b.createMMU(pageTable)
-		conn.BindPort(legacy.Ports.Top)
+		network.BindHostPort(legacy.Ports.Top)
 		for _, p := range legacy.Ports.Notification {
-			conn.BindPort(p)
+			network.BindHostPort(p)
 		}
 	} else {
-		io := b.buildIOMMU(conn)
+		io := b.buildIOMMU(network)
 		spec.PageTables = append(spec.PageTables, pageTableTarget(io))
 		spec.GlobalGPUPageTable = b.pageTable.GlobalGPU
 		runtimeSpec.CPUPageTableBytes = io.Spec.PoolNodes * 4096
@@ -236,10 +249,34 @@ func (b *Builder) adjustConfigForGPUType() {
 		// for the MMU/page table and every TLB consistently.
 		b.log2PageSize = 21 // 2 MB huge pages
 	default:
-		// Keep defaults for r9nano
+		// Keep defaults for r9nano and the wafer-scale tiles
 	}
 	if b.pageTable.Log2PageSize != 0 {
 		b.log2PageSize = b.pageTable.Log2PageSize
+	}
+	// The wafer-scale IOMMU pool depends on the final page size.
+	if tile, ok := waferscale.ParseGPUType(b.gpuType); ok {
+		b.adjustConfigForWaferScale(waferscale.TileByName(tile))
+	}
+}
+
+func (b *Builder) adjustConfigForWaferScale(tile waferscale.Tile) {
+	b.waferMesh.MustBeValid()
+	// The wafer has a fixed number of tiles, whatever GPUs a run uses.
+	b.numGPUs = b.waferMesh.NumTiles()
+	b.numCUPerSA = tile.NumCUPerShaderArray
+	b.numSAPerGPU = tile.NumShaderArray
+	b.gpuMemSize = tile.DRAMSize
+	b.switchLatency = waferscale.SwitchLatency
+	// The default IOMMU pool cannot map the memory of all the tiles. Keep
+	// a pool size that WithPageTable set explicitly.
+	if b.pageTable.IOMMU.PoolNodes == DefaultPageTableSpec().IOMMU.PoolNodes {
+		b.pageTable.IOMMU.PoolNodes = max(b.pageTable.IOMMU.PoolNodes,
+			waferscale.IOMMUPoolNodes(b.waferMesh, tile, b.log2PageSize))
+	}
+	if b.pageTable.IOMMU.PoolNodes*4096 > b.cpuMemSize {
+		panic(fmt.Sprintf("timingconfig: the IOMMU pool of a %dx%d wafer does not fit in CPU memory",
+			b.waferMesh.Width, b.waferMesh.Height))
 	}
 }
 
@@ -298,9 +335,25 @@ func (b *Builder) createGPUBuilder(
 
 	var gpuBuilder gpubuilder.GPUBuilder
 
-	switch b.gpuType {
+	kind := b.gpuType
+	if tile, ok := waferscale.ParseGPUType(b.gpuType); ok {
+		kind = waferscale.GPUType + "-" + tile
+	}
+
+	switch kind {
 	case "mi300x":
 		gpu := mi300x.MakeBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
+			WithSimulation(b.simulation).
+			WithLog2PageSize(b.log2PageSize).
+			WithGlobalStorage(b.globalStorage)
+		if mmuComponent != nil {
+			gpu = gpu.WithMMU(mmuComponent)
+		} else {
+			gpu = gpu.WithPageTableMMU(local)
+		}
+		gpuBuilder = gpu
+	case waferscale.GPUType + "-" + waferscale.TileR9Nano:
+		gpu := waferscale.MakeR9NanoTileBuilder().WithSampler(b.sampler).WithMonitor(b.monitor).
 			WithSimulation(b.simulation).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage)
@@ -373,7 +426,7 @@ func (b *Builder) createRDMAAddressMapper() {
 func (b *Builder) createGPU(
 	index int,
 	gpuBuilder gpubuilder.GPUBuilder,
-	interDeviceConn *directconnection.Connection,
+	network interDeviceNetwork,
 ) *gpubuilder.GPU {
 	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * b.gpuMemSize
@@ -384,7 +437,7 @@ func (b *Builder) createGPU(
 		Build(name)
 
 	for _, port := range gpu.ExternalPorts() {
-		interDeviceConn.BindPort(port)
+		network.BindGPUPort(index, port)
 	}
 
 	return gpu

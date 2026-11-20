@@ -384,7 +384,7 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 				builder = gpu.WithLog2CacheLineSize(5)
 			}
 			conn := directconnection.NewConnection("External", s, timing.GHz)
-			walker := b.createGPU(1, builder, conn).PageTableMMU
+			walker := b.createGPU(1, builder, directNetwork{conn: conn}).PageTableMMU
 			client := twowaybuffered.MakeBuilder().WithSimulation(s).Build()
 			pageTestClient{s}.BindPort("Requests", client)
 			conn.BindPort(client)

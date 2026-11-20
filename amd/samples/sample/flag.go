@@ -1,11 +1,14 @@
 package sample
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -16,7 +19,12 @@ var parallelFlag = flag.Bool("parallel", false,
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var archFlag = flag.String("arch", "gcn3", "GPU architecture: gcn3 or cdna3.")
 var gpuTypeFlag = flag.String("gpu", "r9nano",
-	"GPU model for timing simulation: r9nano or mi300x.")
+	`GPU model for timing simulation: r9nano, mi300x, or waferscale.
+waferscale is a mesh of R9 Nano-based tiles with the host in the centre (see
+-wafer-mesh); -gpus picks the tiles a benchmark runs on.`)
+var waferMeshFlag = flag.String("wafer-mesh", "5x5",
+	`Mesh shape of a waferscale GPU as WIDTHxHEIGHT. The host takes the centre
+position, so a WxH mesh has W*H-1 GPU tiles (5x5: 24, 7x7: 48).`)
 
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
@@ -33,10 +41,11 @@ var rdmaTransactionCountReportFlag = flag.Bool("report-rdma-transaction-count",
 var dramTransactionCountReportFlag = flag.Bool("report-dram-transaction-count",
 	false, "Report the number of transactions accessing the DRAMs.")
 var gpuFlag = flag.String("gpus", "",
-	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
+	`The GPUs to use, as IDs and ranges such as 1,3-5,8, or all for every tile
+of a waferscale GPU. By default, GPU 1 is used.`)
 var unifiedGPUFlag = flag.String("unified-gpus", "",
 	`Run multi-GPU benchmark in a unified mode.
-Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
+Use a format like -gpus, such as 1-4 or all. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
 var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
@@ -122,6 +131,28 @@ func (r *Config) parseSimulationFlags() {
 
 	r.ArchType = parseArchFlag()
 	r.GPUType = parseGPUTypeFlag()
+
+	width, height, err := parseMeshShape(*waferMeshFlag)
+	if err != nil {
+		panic(err)
+	}
+	r.WaferMeshWidth, r.WaferMeshHeight = width, height
+}
+
+// parseMeshShape parses a mesh shape written as WIDTHxHEIGHT, such as 7x7.
+func parseMeshShape(shape string) (width, height int, err error) {
+	w, h, found := strings.Cut(strings.ToLower(shape), "x")
+	if found {
+		width, err = strconv.Atoi(w)
+	}
+	if found && err == nil {
+		height, err = strconv.Atoi(h)
+	}
+	if !found || err != nil || width < 1 || height < 1 {
+		return 0, 0, fmt.Errorf("invalid -wafer-mesh %q: want WIDTHxHEIGHT, such as 7x7", shape)
+	}
+
+	return width, height, nil
 }
 
 func (r *Config) parseGPUFlag() {
@@ -134,29 +165,82 @@ func (r *Config) parseGPUFlag() {
 		panic("cannot use -gpus and -unified-gpus together")
 	}
 
-	var gpuIDs []int
-	if *gpuFlag != "" {
-		gpuIDs = r.gpuIDStringToList(*gpuFlag)
-	} else if *unifiedGPUFlag != "" {
-		gpuIDs = r.gpuIDStringToList(*unifiedGPUFlag)
+	list := *gpuFlag
+	if list == "" {
+		list = *unifiedGPUFlag
+	}
+
+	// "all" names every tile of a wafer; other GPU types have no fixed
+	// number of GPUs.
+	numAll := 0
+	if _, ok := waferscale.ParseGPUType(r.GPUType); ok {
+		numAll = r.waferMesh().NumTiles()
+	}
+
+	gpuIDs, err := parseGPUList(list, numAll)
+	if err != nil {
+		panic(err)
 	}
 
 	r.GPUIDs = gpuIDs
 }
 
-func (r *Config) gpuIDStringToList(gpuIDsString string) []int {
-	gpuIDs := make([]int, 0)
-	gpuIDTokens := strings.Split(gpuIDsString, ",")
-
-	for _, t := range gpuIDTokens {
-		gpuID, err := strconv.Atoi(t)
-		if err != nil {
-			panic(err)
+// parseGPUList parses a list of GPU IDs, numbered from 1, the way a print
+// dialog takes pages: IDs and ranges separated by commas, such as "1,3-5,8",
+// or "all" for GPUs 1 to numAll. numAll is 0 when the GPU type has no fixed
+// number of GPUs; then "all" is an error and IDs have no upper bound.
+func parseGPUList(list string, numAll int) ([]int, error) {
+	list = strings.TrimSpace(list)
+	if strings.EqualFold(list, "all") {
+		if numAll == 0 {
+			return nil, errors.New(`"all" needs -gpu waferscale; list the GPUs instead, such as 1-4`)
 		}
-		gpuIDs = append(gpuIDs, gpuID)
+
+		ids := make([]int, numAll)
+		for i := range ids {
+			ids[i] = i + 1
+		}
+
+		return ids, nil
 	}
 
-	return gpuIDs
+	var ids []int
+	seen := make(map[int]bool)
+	for _, item := range strings.Split(list, ",") {
+		first, last, err := parseGPURange(strings.TrimSpace(item))
+		if err != nil {
+			return nil, fmt.Errorf("invalid GPU list %q: %w", list, err)
+		}
+		if numAll != 0 && last > numAll {
+			return nil, fmt.Errorf("invalid GPU list %q: the wafer has GPUs 1-%d", list, numAll)
+		}
+
+		for id := first; id <= last; id++ {
+			if seen[id] {
+				return nil, fmt.Errorf("invalid GPU list %q: GPU %d appears twice", list, id)
+			}
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+
+	return ids, nil
+}
+
+// parseGPURange parses one item of a GPU list: an ID such as "3" or a range
+// such as "1-4".
+func parseGPURange(item string) (first, last int, err error) {
+	low, high, isRange := strings.Cut(item, "-")
+	first, err = strconv.Atoi(low)
+	last = first
+	if err == nil && isRange {
+		last, err = strconv.Atoi(high)
+	}
+	if err != nil || first < 1 || last < first {
+		return 0, 0, fmt.Errorf("%q is neither a GPU ID nor a range such as 1-4", item)
+	}
+
+	return first, last, nil
 }
 
 func parseArchFlag() arch.Type {
