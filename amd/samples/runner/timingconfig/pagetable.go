@@ -5,9 +5,12 @@ import (
 	"github.com/sarchlab/akita/v5/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/modeling"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/gpubuilder"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 )
 
 // PageTableSpec configures detailed translation. PoolNodes reserves a prefix
@@ -45,22 +48,58 @@ func (b *Builder) buildCPUMemory(network interDeviceNetwork) {
 	b.buildPort(cpu, "Control", ctrlPortBufSize)
 }
 
+// buildHostFabric creates the on-chip path between the IOMMU, its page-table
+// memory, and the driver, so that host-internal traffic does not cross the
+// root complex. A wafer-scale GPU keeps this traffic at the host mesh position.
+func (b *Builder) buildHostFabric() {
+	if _, ok := waferscale.ParseGPUType(b.gpuType); ok {
+		return
+	}
+	b.hostFabric = direct.NewConnection("HostFabric", b.simulation, timing.GHz)
+}
+
+// bindHostInternalPort plugs in a port that talks only to other host ports.
+func (b *Builder) bindHostInternalPort(network interDeviceNetwork, port messaging.Port) {
+	if b.hostFabric != nil {
+		b.hostFabric.BindPort(port)
+		return
+	}
+	network.BindHostPort(port)
+}
+
+// buildPageTableMemory returns where the IOMMU reads the page table. With a
+// host fabric, a second controller over the same storage serves the IOMMU,
+// because the Top port of the CPU memory is on the network for GPU DMA.
+func (b *Builder) buildPageTableMemory() messaging.RemotePort {
+	if b.hostFabric == nil {
+		return cpuMemoryTop
+	}
+	memory := modeling.MakeBuilder[*idealmemcontroller.Comp](idealmemcontroller.DefaultSpec()).
+		WithSimulation(b.simulation).WithResources(idealmemcontroller.Resources{Storage: b.globalStorage}).
+		Build("CPU.PageTableMemory")
+	top := b.buildPort(memory, "Top", mmuTopPortBufSize)
+	b.buildPort(memory, "Control", ctrlPortBufSize)
+	b.hostFabric.BindPort(top)
+	return top.AsRemote()
+}
+
 func (b *Builder) buildIOMMU(network interDeviceNetwork) *pagetablemmu.Comp {
+	b.buildHostFabric()
 	spec := b.pageTable.IOMMU
 	if spec.FilterBuckets != 0 {
 		panic("timingconfig: only a GPU walker can use the routing filter")
 	}
 	spec.PoolBase = 0
 	spec.Log2PageSize = uint(b.log2PageSize)
-	spec.Memory = mem.AddressMapper{Destinations: []messaging.RemotePort{cpuMemoryTop}}
+	spec.Memory = mem.AddressMapper{Destinations: []messaging.RemotePort{b.buildPageTableMemory()}}
 	spec.FaultHandler = "Driver.PageFault[0]"
 	spec.ConsultRemote = true
 	io := gpubuilder.BuildPageTableMMU(b.simulation, "IOMMU", spec)
-	for _, p := range []messaging.Port{
-		io.Ports.Top, io.Ports.Memory, io.Ports.Control, io.Ports.PageFault, io.Ports.FaultIn,
-	} {
+	for _, p := range []messaging.Port{io.Ports.Top, io.Ports.Control, io.Ports.FaultIn} {
 		network.BindHostPort(p)
 	}
+	b.bindHostInternalPort(network, io.Ports.Memory)
+	b.bindHostInternalPort(network, io.Ports.PageFault)
 	return io
 }
 

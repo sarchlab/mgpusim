@@ -11,7 +11,6 @@ import (
 	"github.com/sarchlab/akita/v5/mem/vm/pagetablemmu"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
-	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/mgpusim/v5/amd/driver"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/cp"
@@ -84,9 +83,10 @@ func buildMigrationPlatformWithSimulation(t *testing.T, gpuType string, configur
 		}
 	}
 
-	p.client = twowaybuffered.MakeBuilder().WithSimulation(s).Build()
-	pageTestClient{s}.BindPort("Requests", p.client)
-	p.driver.Ports.GPU.Connection().BindPort(p.client)
+	// The network routes only the ports bound while it is built. The RDMA
+	// access-counter port is on the network and its owner only sends from it,
+	// so a test can use it to exchange messages with the devices.
+	p.client = p.rdmas["GPU[1].RDMA"].Ports.AccessCounter
 	if err := s.Initialize(); err != nil {
 		t.Fatal(err)
 	}
