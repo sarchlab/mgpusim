@@ -2,8 +2,8 @@ package timingconfig
 
 import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
-	"github.com/sarchlab/akita/v5/sim/messaging/direct"
-	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 )
 
@@ -18,26 +18,25 @@ type interDeviceNetwork interface {
 	// BindGPUPort plugs in an external port of the GPU with the given
 	// 1-based index.
 	BindGPUPort(index int, port messaging.Port)
+
+	// Connect finishes the topology after every port is bound.
+	Connect()
 }
 
-// directNetwork connects all the devices with one ideal direct connection.
-type directNetwork struct {
-	conn *direct.Connection
-}
-
-func (n directNetwork) BindHostPort(port messaging.Port) { n.conn.BindPort(port) }
-
-func (n directNetwork) BindGPUPort(_ int, port messaging.Port) { n.conn.BindPort(port) }
-
-// A wafer-scale GPU connects its host and tiles with waferscale.Network.
-var _ interDeviceNetwork = waferscale.Network{}
+var (
+	_ interDeviceNetwork = (*r9nano.Network)(nil)
+	_ interDeviceNetwork = (*mi300x.Network)(nil)
+	_ interDeviceNetwork = waferscale.Network{}
+)
 
 func (b *Builder) createInterDeviceNetwork() interDeviceNetwork {
 	if _, ok := waferscale.ParseGPUType(b.gpuType); ok {
 		return waferscale.NewNetwork(b.simulation, b.waferMesh, b.switchLatency)
 	}
 
-	return directNetwork{
-		conn: direct.NewConnection("InterDeviceConn", b.simulation, timing.GHz),
+	if b.gpuType == "mi300x" {
+		return mi300x.NewNetwork(b.simulation, b.numGPUs, b.switchLatency)
 	}
+
+	return r9nano.NewNetwork(b.simulation, b.numGPUs, b.switchLatency)
 }

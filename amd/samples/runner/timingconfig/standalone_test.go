@@ -384,7 +384,7 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 				builder = gpu.WithLog2CacheLineSize(5)
 			}
 			conn := directconnection.NewConnection("External", s, timing.GHz)
-			walker := b.createGPU(1, builder, directNetwork{conn: conn}).PageTableMMU
+			walker := b.createGPU(1, builder, directTestNetwork{conn: conn}).PageTableMMU
 			client := twowaybuffered.MakeBuilder().WithSimulation(s).Build()
 			pageTestClient{s}.BindPort("Requests", client)
 			conn.BindPort(client)
@@ -415,3 +415,10 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 		})
 	}
 }
+
+// directTestNetwork places a GPU on a bare connection.
+type directTestNetwork struct{ conn *directconnection.Connection }
+
+func (n directTestNetwork) BindHostPort(port messaging.Port)       { n.conn.BindPort(port) }
+func (n directTestNetwork) BindGPUPort(_ int, port messaging.Port) { n.conn.BindPort(port) }
+func (n directTestNetwork) Connect()                               {}

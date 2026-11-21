@@ -43,3 +43,6 @@ func (n Network) BindHostPort(port messaging.Port) {
 func (n Network) BindGPUPort(index int, port messaging.Port) {
 	n.connector.AddTile(n.layout.TileLocation(index), []messaging.Port{port})
 }
+
+// Connect does nothing: BindHostPort and BindGPUPort place ports immediately.
+func (n Network) Connect() {}

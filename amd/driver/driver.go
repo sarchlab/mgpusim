@@ -104,6 +104,7 @@ func (m *executionMW) startTask(e *Execution) {
 func (m *executionMW) request(e *Execution, gpu int, payload any, delayed bool) {
 	c := m.comp
 	req := messaging.Msg{ID: c.NewID(), Src: c.Ports.GPU.AsRemote(), Dst: c.Spec.GPUs[gpu-1], Payload: payload}
+	req.TrafficBytes = requestTrafficBytes(payload)
 	e.Requests = append(e.Requests, req)
 	if delayed {
 		c.State.CopyAwaiting = append(c.State.CopyAwaiting, req)
@@ -112,6 +113,19 @@ func (m *executionMW) request(e *Execution, gpu int, payload any, delayed bool) 
 	}
 	if tracker := c.TaskTracker(); tracker != nil {
 		c.State.RequestTasks[req.ID] = tracker.StartReqOut(c, req, c.State.CommandTasks[uint64(e.Command.ID)])
+	}
+}
+
+// requestTrafficBytes is the size of a host copy on the network, following the
+// memory-message convention of a 12-byte request header.
+func requestTrafficBytes(payload any) int {
+	switch p := payload.(type) {
+	case protocol.MemCopyH2DReq:
+		return len(p.SrcBuffer) + 12
+	case protocol.MemCopyD2HReq:
+		return 12
+	default:
+		return 0
 	}
 }
 func (m *executionMW) launch(e *Execution) {

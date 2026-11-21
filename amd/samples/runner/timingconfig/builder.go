@@ -10,6 +10,7 @@ import (
 	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -45,7 +46,7 @@ type Builder struct {
 	log2PageSize       uint64
 	useMagicMemoryCopy bool
 	gpuType            string
-	switchLatency      int // PCIe/interconnect switch latency in cycles
+	switchLatency      int // latency of a PCIe switch or mesh hop in cycles
 	d2hCycles          int
 	h2dCycles          int
 	pageMigration      driver.PageMigrationSpec
@@ -54,6 +55,7 @@ type Builder struct {
 	waferMesh          waferscale.Mesh
 
 	globalStorage     *mem.Storage
+	hostFabric        *direct.Connection
 	rdmaAddressMapper mem.AddressMapper
 }
 
@@ -68,7 +70,7 @@ func MakeBuilder() Builder {
 		log2PageSize:       12,
 		useMagicMemoryCopy: false,
 		gpuType:            "r9nano",
-		switchLatency:      140, // default PCIe Gen4
+		switchLatency:      140,
 		d2hCycles:          300,
 		h2dCycles:          500,
 		pageMigration:      driver.DefaultPageMigrationSpec(),
@@ -183,18 +185,23 @@ func (b Builder) Build() *gpuruntime.Runtime {
 			PageTable:     pageTable,
 			GlobalStorage: b.globalStorage,
 		}).Build("Driver")
-	port := b.buildPort(comp, driver.GPUPortName, driverGPUPortBufSize)
-	network.BindHostPort(port)
-	network.BindHostPort(
-		b.buildPort(comp, driver.PageMigrationPortName, driverGPUPortBufSize))
-	network.BindHostPort(
-		b.buildPort(comp, driver.MigrationNotificationPortName, driverGPUPortBufSize))
-	if legacy == nil {
-		for _, name := range []string{"PageFault[0]", "PageTable[0]"} {
-			network.BindHostPort(b.buildPort(comp, name, driverGPUPortBufSize))
-		}
-	}
+	b.bindDriverPorts(comp, network, legacy == nil)
+	network.Connect()
 	return runtime
+}
+
+// bindDriverPorts plugs the driver into the network. Detailed translation adds
+// a host-internal fault port and a page-table port that reaches every walker.
+func (b *Builder) bindDriverPorts(comp *driver.Comp, network interDeviceNetwork, detailedTranslation bool) {
+	for _, name := range []string{
+		driver.GPUPortName, driver.PageMigrationPortName, driver.MigrationNotificationPortName,
+	} {
+		network.BindHostPort(b.buildPort(comp, name, driverGPUPortBufSize))
+	}
+	if detailedTranslation {
+		b.bindHostInternalPort(network, b.buildPort(comp, "PageFault[0]", driverGPUPortBufSize))
+		network.BindHostPort(b.buildPort(comp, "PageTable[0]", driverGPUPortBufSize))
+	}
 }
 
 func (b *Builder) configureTranslation(pageTable *vm.PageTable, network interDeviceNetwork,
@@ -232,12 +239,8 @@ func (b *Builder) adjustConfigForGPUType() {
 	case "mi300x":
 		b.numCUPerSA = mi300x.NumCUPerShaderArray
 		b.numSAPerGPU = mi300x.NumShaderArray
-		// Host-transfer latencies are inherited from the MI300A baseline. MI300X
-		// is a DISCRETE GPU (host link is PCIe Gen5, not the APU's on-die Infinity
-		// Fabric), so these want re-tuning for MI300X -- but the platform
-		// currently uses a direct connection that models no link latency anyway
-		// (see createConnection), so they have no effect until that is restored.
-		b.switchLatency = 15
+		// Host-transfer latencies are inherited from the MI300A baseline and are
+		// not tuned for the MI300X, a discrete GPU on PCIe Gen5.
 		b.d2hCycles = 150
 		b.h2dCycles = 250
 		// The ROCm/HIP runtime backs large device allocations with 2 MB
