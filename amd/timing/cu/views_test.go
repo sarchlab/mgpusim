@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sarchlab/akita/v5/sim/tasks"
-
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
@@ -250,15 +248,11 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	c.Decoder = insts.NewDisassembler()
 	g := checkpointGroup(c)
 	w := g.waves()[0]
-	group := c.comp.State.Groups[g.slot]
-	group.Raw.IDX = 75
-	group.Raw.IDY = 1
-	c.comp.State.Groups[g.slot] = group
+	w.raw().FirstWiFlatID = 64
 	i := checkpointInstruction(t, c)
 	w.setTestInst(i)
 	var output bytes.Buffer
-	h := &ISADebugger{Logger: log.New(&output, "", 0), cu: c, isFirstEntry: true,
-		executingInst: make(map[uint64]tasks.Task)}
+	h := NewISADebugger(log.New(&output, "", 0), c)
 	c.comp.TaskTracker().Subscribe(h, c.comp)
 	c.beginInstruction(w, w.InstID())
 	if len(h.executingInst) != 1 {
@@ -275,6 +269,20 @@ func TestDebuggerRetainsIDsAndResolvesReplacementAtCompletion(t *testing.T) {
 	c.completeInstruction(w, w.InstID())
 	if !strings.Contains(output.String(), `"PCLo":256`) || len(h.executingInst) != 0 {
 		t.Fatalf("debugger used stale State or retained completed task: %s", output.String())
+	}
+	if err := h.Close(); err != nil {
+		t.Fatal(err)
+	}
+	first := output.String()
+	if err := h.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var rows []json.RawMessage
+	if err := json.Unmarshal(output.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || first != output.String() {
+		t.Fatal("invalid or duplicated debugger output")
 	}
 	if old.Waves[slotIndex(w.handle)].Execution.InFlightInsts != 1 {
 		t.Fatal("completion mutated old state")

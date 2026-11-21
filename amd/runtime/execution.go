@@ -23,22 +23,62 @@ func (r *Runtime) DeviceCUCount(gpu int) int { return r.config.Devices[gpu-1].CU
 // DeviceIDByPAddr resolves the physical owner for Driver's copy requests.
 func (r *Runtime) DeviceIDByPAddr(addr uint64) int { return r.allocator.GetDeviceIDByPAddr(addr) }
 
-// MarkBuffersDirty records the effects of a submitted kernel in its context.
-func (r *Runtime) MarkBuffersDirty(ctx Context) {
-	buffers := r.context(ctx).Buffers
-	for i := range buffers {
-		buffers[i].Dirty = true
+// AllocateFrame takes a physical page on GPU gpu for a page that migrates
+// there; the caller maps it in the page table. The frame comes from the
+// ordinary allocator, so it may be one that FreeMemory returned: the caches
+// of the GPU can still hold lines of it, which the migration drops itself.
+// Either way the frame is in use from now on. The frame that the page leaves
+// is retired: nothing returns it to the allocator.
+func (r *Runtime) AllocateFrame(gpu int) uint64 {
+	frame := r.allocator.AllocateFrame(gpu)
+	r.takeFrame(frame)
+	return frame
+}
+
+// sharedBuffers calls visit with every allocation in the address space of a
+// process. The contexts made with InitWithExistingPID share one address
+// space: each owns, and frees, the allocations it made, but a kernel or a
+// host copy that is submitted through any of them uses the memory of all.
+// What the caches hold of an allocation therefore belongs to the address
+// space, not to the context that made the allocation.
+func (r *Runtime) sharedBuffers(pid vm.PID, visit func(b *buffer)) {
+	for i := range r.state.Contexts {
+		c := &r.state.Contexts[i]
+		if c.PID != pid {
+			continue
+		}
+		for j := range c.Buffers {
+			visit(&c.Buffers[j])
+		}
 	}
 }
 
-// NeedsFlush reports whether a Driver copy overlaps a kernel-dirtied allocation.
-func (r *Runtime) NeedsFlush(ctx Context, addr Ptr, size uint64) bool {
-	for _, b := range r.context(ctx).Buffers {
-		if b.Dirty && uint64(b.Address) < uint64(addr)+size && uint64(addr) < uint64(b.Address)+b.Size {
-			return true
+// markRangeDirty marks the allocations of an address space that have a byte
+// of a range dirty.
+func (r *Runtime) markRangeDirty(pid vm.PID, addr, size uint64) {
+	r.sharedBuffers(pid, func(b *buffer) {
+		if b.overlaps(addr, size) {
+			b.Dirty = true
 		}
-	}
-	return false
+	})
+}
+
+// MarkBuffersDirty records the effects of a submitted kernel: it may have
+// written any allocation in the address space of its context.
+func (r *Runtime) MarkBuffersDirty(ctx Context) {
+	r.sharedBuffers(r.context(ctx).PID, func(b *buffer) { b.Dirty = true })
+}
+
+// NeedsFlush reports whether a Driver copy overlaps a dirty allocation: one
+// that a kernel may have written, or that got a page that was freed before.
+// The copy may come through any context of the address space that has the
+// allocation.
+func (r *Runtime) NeedsFlush(ctx Context, addr Ptr, size uint64) bool {
+	dirty := false
+	r.sharedBuffers(r.context(ctx).PID, func(b *buffer) {
+		dirty = dirty || b.Dirty && b.overlaps(uint64(addr), size)
+	})
+	return dirty
 }
 
 // CompleteEvents triggers consecutive markers at the current Driver boundary.

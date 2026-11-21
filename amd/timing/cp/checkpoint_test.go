@@ -56,7 +56,8 @@ func checkpointCP(t *testing.T, alg string, change func(*Spec),
 		change(&spec)
 	}
 	c := MakeBuilder().WithSimulation(s).WithSpec(spec).WithMonitor(monitor).Build("CP")
-	for _, name := range []string{"ToDriver", "ToCUs", "ToDMA", "ToCaches", "ToRDMA"} {
+	for _, name := range []string{"ToDriver", "ToCUs", "ToDMA", "ToCaches", "ToRDMA",
+		"ToTranslation", "ToDataMover", "PageMigration"} {
 		p := twowaybuffered.MakeBuilder().WithSimulation(s).WithSpec(twowaybuffered.Spec{IncomingCapacity: 64,
 			OutgoingCapacity: 1}).Build()
 		c.BindPort(name, p)

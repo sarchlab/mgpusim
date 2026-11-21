@@ -74,7 +74,7 @@ func prepareSampledFIR(t *testing.T, path string) {
 		}
 	}
 	e := s.Engine().(*timing.SerialEngine)
-	for cycle := 1; cycle <= 20000; cycle++ {
+	for cycle := 1; cycle <= 250000; cycle++ {
 		if err := e.RunUntil(timing.VTimeInPicoSec(cycle) * 1000); err != nil {
 			t.Fatal(err)
 		}

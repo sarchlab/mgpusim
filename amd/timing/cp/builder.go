@@ -71,7 +71,8 @@ func (b Builder) WithMonitor(monitor *monitoring2.Monitor) Builder {
 
 // Build builds a new Command Processor. It declares the component's ports
 // ("ToDriver", "ToDMA", "ToCUs",
-// "ToCaches", "ToRDMA"); assign the port instances after Build with
+// "ToCaches", "ToRDMA", "ToTranslation", "ToDataMover", "PageMigration");
+// assign the port instances after Build with
 // BindPort.
 func (b Builder) Build(name string) *Comp {
 	if b.registrar == nil {

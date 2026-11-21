@@ -11,11 +11,12 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
 
-// ctrlMiddleware runs cache flush, kernel-start L1 invalidation, and RDMA
-// drain/restart. Driver flush drains, flushes, and invalidates L1 before L2,
-// then enables all caches. Kernel start drains, invalidates, and enables
-// L1S/L1V so an earlier kernel cannot leave stale private cache lines.
-// Each step waits for all acknowledgements before advancing.
+// ctrlMiddleware runs cache flush, kernel-start L1 invalidation, RDMA
+// drain/restart, and the page-migration commands (see migration.go). Driver
+// flush drains, flushes, and invalidates L1 before L2, then enables all
+// caches. Kernel start drains, invalidates, and enables L1S/L1V so an earlier
+// kernel cannot leave stale private cache lines. Each step waits for all
+// acknowledgements before advancing.
 type ctrlMiddleware struct {
 	comp *Comp
 }
@@ -36,10 +37,16 @@ func (m *ctrlMiddleware) Tick() bool {
 	madeProgress := false
 
 	madeProgress = m.sendPendingReqs() || madeProgress
+	madeProgress = m.sendMigrationMsgs() || madeProgress
 	madeProgress = m.sendPendingDriverRsps() || madeProgress
 	madeProgress = m.processReqFromDriver() || madeProgress
+	madeProgress = m.acceptMigrationReqs() || madeProgress
 	madeProgress = m.processRspFromRDMA() || madeProgress
 	madeProgress = m.processRspFromCaches() || madeProgress
+	madeProgress = m.processRspFromTranslation() || madeProgress
+	madeProgress = m.processRspFromDataMover() || madeProgress
+	madeProgress = m.startL2Ops() || madeProgress
+	madeProgress = m.advanceShootdown() || madeProgress
 
 	return madeProgress
 }
@@ -189,16 +196,44 @@ func (m *ctrlMiddleware) processRspFromRDMA() bool {
 	return true
 }
 
+// processRspFromCaches takes in the acknowledgements of the caches: every
+// acknowledgement of the L2 maintenance of a page job, and one
+// acknowledgement of the control sequence per tick.
 func (m *ctrlMiddleware) processRspFromCaches() bool {
-	return m.processCtrlRsp(m.toCaches())
+	port := m.toCaches()
+	madeProgress := false
+	sequenceAcked := false
+
+	for {
+		msg, ok := port.PeekIncoming()
+		if !ok {
+			return madeProgress
+		}
+
+		mustBeSuccessfulCtrlRsp(msg)
+
+		if _, ok := m.comp.State.CtrlWaits[msg.RspTo]; ok {
+			port.RetrieveIncoming()
+			m.migrationAcked(msg.RspTo)
+
+			madeProgress = true
+
+			continue
+		}
+
+		if sequenceAcked {
+			return madeProgress
+		}
+
+		port.RetrieveIncoming()
+		m.ackReceived()
+
+		sequenceAcked = true
+		madeProgress = true
+	}
 }
 
-func (m *ctrlMiddleware) processCtrlRsp(port messaging.Port) bool {
-	msg, ok := port.PeekIncoming()
-	if !ok {
-		return false
-	}
-
+func mustBeSuccessfulCtrlRsp(msg messaging.Msg) {
 	rsp, ok := msg.Payload.(memcontrolprotocol.Rsp)
 	if !ok {
 		panic("never")
@@ -209,11 +244,6 @@ func (m *ctrlMiddleware) processCtrlRsp(port messaging.Port) bool {
 			"control command %d to %s failed: %s",
 			rsp.Command, msg.Src, rsp.Error))
 	}
-
-	port.RetrieveIncoming()
-	m.ackReceived()
-
-	return true
 }
 
 func (m *ctrlMiddleware) ackReceived() {

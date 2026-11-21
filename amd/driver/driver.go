@@ -28,6 +28,7 @@ func (m *executionMW) Tick() bool {
 		progress = true
 	}
 	progress = m.receive() || progress
+	progress = m.startWaitingCopies() || progress
 	r := c.Resources.Runtime
 	for i := range r.QueueCount() {
 		q := gpuruntime.CommandQueue(i + 1)
@@ -35,6 +36,9 @@ func (m *executionMW) Tick() bool {
 			continue
 		}
 		m.markers(q)
+		if !c.Middlewares.PageTable.ready(q) {
+			continue
+		}
 		cmd, ok := r.TakeCommand(q)
 		if !ok {
 			continue
@@ -44,9 +48,12 @@ func (m *executionMW) Tick() bool {
 		m.startTask(e)
 		switch cmd.Kind {
 		case gpuruntime.LaunchKernel:
+			if len(c.Spec.PageTables) != 0 {
+				c.State.PageTables.Dispatched[r.QueuePID(q)] = true
+			}
 			m.launch(e)
 		case gpuruntime.CopyH2D, gpuruntime.CopyD2H:
-			m.copy(e)
+			m.copyUnlessMigrating(len(c.State.Executing) - 1)
 		case gpuruntime.Noop:
 			m.finish(len(c.State.Executing) - 1)
 		default:

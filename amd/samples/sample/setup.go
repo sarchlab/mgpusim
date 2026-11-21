@@ -2,9 +2,12 @@
 package sample
 
 import (
+	"errors"
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"slices"
+	"sync"
 
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v5/monitoring"
@@ -13,6 +16,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/emusystem/emugpu"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig"
 )
 
@@ -22,6 +26,9 @@ type Config struct {
 	ArchType                                   arch.Type
 	GPUType                                    string
 	GPUIDs                                     []int
+	// WaferMeshWidth and WaferMeshHeight set the mesh of a waferscale GPU.
+	// Zero keeps the default mesh.
+	WaferMeshWidth, WaferMeshHeight int
 }
 
 func ParseConfig() Config { var c Config; c.parseFlag(); return c }
@@ -35,7 +42,9 @@ type assembly struct {
 }
 
 // Build registers the chosen platform. The returned finish function flushes
-// reports and terminates the simulation after the caller's Runner completes.
+// reports, completes ISA logs, and terminates the simulation after execution
+// stops. Arrange to call finish with defer so error returns also release outputs.
+// Repeated calls return the original result.
 func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() error) {
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 	a := assembly{Config: *c}
@@ -45,10 +54,13 @@ func (c *Config) Build() (*simulation.Simulation, *gpuruntime.Runtime, func() er
 	} else {
 		a.buildEmuPlatform()
 	}
+	if *waferConfigHTMLFlag != "" {
+		writeWaferConfigPageAndExit(*c, a.simulation)
+	}
 	a.createUnifiedGPUs()
 	c.GPUIDs = a.GPUIDs
 	s, r, report := a.simulation, a.gpuDriver, a.reporter
-	return s, r, func() error { return finishSimulation(s, report) }
+	return s, r, sync.OnceValue(func() error { return finishSimulation(s, report) })
 }
 
 // Configure applies software workload choices without constructing hardware.
@@ -110,7 +122,7 @@ func (r *assembly) initSimulation() {
 func (r *assembly) buildEmuPlatform() {
 	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithArchitecture(r.ArchType)
 
 	if *isaDebug {
@@ -123,8 +135,12 @@ func (r *assembly) buildEmuPlatform() {
 func (r *assembly) buildTimingPlatform() {
 	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
 		WithSimulation(r.simulation).
-		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1]).
+		WithNumGPUs(slices.Max(r.GPUIDs)).
 		WithGPUType(r.GPUType)
+
+	if r.WaferMeshWidth != 0 && r.WaferMeshHeight != 0 {
+		b = b.WithWaferScaleMesh(r.WaferMeshWidth, r.WaferMeshHeight)
+	}
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
@@ -155,5 +171,5 @@ func finishSimulation(s *simulation.Simulation, report *reporter) error {
 		report.report()
 		report.dataRecorder.Flush()
 	}
-	return s.Terminate()
+	return errors.Join(s.Terminate(), emugpu.CloseISADebuggers(s))
 }

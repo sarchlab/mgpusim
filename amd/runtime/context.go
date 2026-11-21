@@ -19,6 +19,12 @@ type buffer struct {
 	Size    uint64
 	Dirty   bool
 }
+
+// overlaps reports whether the allocation has a byte of [addr, addr+size).
+func (b *buffer) overlaps(addr, size uint64) bool {
+	return uint64(b.Address) < addr+size && addr < uint64(b.Address)+b.Size
+}
+
 type contextData struct {
 	PID     vm.PID
 	GPU     int

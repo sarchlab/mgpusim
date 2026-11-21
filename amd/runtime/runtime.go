@@ -42,6 +42,14 @@ type runtimeState struct {
 	Queues                   []queueData
 	Events                   map[Event]eventState
 	Codes                    []codeAddress
+
+	// FreedFrames are the physical pages that FreeMemory has returned to a
+	// GPU and that no page has taken since, at most one entry per page of
+	// the GPUs. A page that takes one of them recycles it. A page that a GPU
+	// hands out without it being here is used for the first time, wherever
+	// it is among the pages in use.
+	FreedFrames    map[uint64]bool
+	MappingChanges []MappingChange
 }
 type runtimeCheckpoint struct {
 	State     runtimeState
@@ -55,6 +63,9 @@ func NewRuntime(
 ) *Runtime {
 	if reg == nil || pageTable == nil || storage == nil {
 		panic("driver: runtime needs simulation, page table and storage")
+	}
+	if (spec.CPUPageTableBytes == 0) != (spec.GPUPageTableBytes == 0) {
+		panic("runtime: detailed translation requires CPU and GPU page table reservations")
 	}
 	r := &Runtime{name: name, config: spec, pageTable: pageTable, storage: storage,
 		allocator: internal.NewMemoryAllocator(pageTable, spec.Log2PageSize),
@@ -74,6 +85,8 @@ func (r *Runtime) addDevice(kind internal.DeviceType, properties DevicePropertie
 	d.SetTotalMemSize(properties.DRAMSize)
 	r.allocator.RegisterDevice(d)
 	r.devices = append(r.devices, d)
+	_, size := r.PageTablePool(d.ID)
+	d.ReservePrefix(size, uint64(1)<<r.config.Log2PageSize)
 }
 func (r *Runtime) Name() string { return r.name }
 func (r *Runtime) SaveCheckpoint(w io.Writer) error {
@@ -153,14 +166,61 @@ func (r *Runtime) CreateCommandQueue(h Context) CommandQueue {
 func (r *Runtime) AllocateMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.Allocate(c.PID, size, c.GPU))
-	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size})
+	r.recordMappingChanges(c.PID, uint64(ptr), size, nil, true)
+	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
 }
 func (r *Runtime) AllocateUnifiedMemory(h Context, size uint64) Ptr {
 	c := r.context(h)
 	ptr := Ptr(r.allocator.AllocateUnified(c.PID, size))
-	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size})
+	r.recordMappingChanges(c.PID, uint64(ptr), size, nil, true)
+	c.Buffers = append(c.Buffers, buffer{Address: ptr, Size: size, Dirty: r.recycles(c.PID, ptr, size)})
 	return ptr
+}
+
+// recycles reports whether a range of an address space, whose pages the
+// allocator has just given their physical pages, got a page that was freed
+// before. The caches of a GPU can still hold lines of a recycled page, as
+// dirty as its last user left them, and a host copy writes memory around the
+// caches. A new allocation in such a page is therefore born dirty, so Driver
+// flushes the caches before a copy into it, exactly as it does for a buffer
+// that a kernel has written.
+func (r *Runtime) recycles(pid vm.PID, ptr Ptr, size uint64) bool {
+	recycled := false
+	pageSize := uint64(1) << r.config.Log2PageSize
+	for offset := uint64(0); offset < size; offset += pageSize {
+		page, ok := r.pageTable.Find(pid, uint64(ptr)+offset)
+		if ok && r.takeFrame(page.PAddr) {
+			recycled = true
+		}
+	}
+	return recycled
+}
+
+// takeFrame reports whether a physical page that a device has just handed
+// out is one that FreeMemory returned, and forgets that it was freed: it is
+// in use again.
+func (r *Runtime) takeFrame(pAddr uint64) bool {
+	recycled := r.state.FreedFrames[pAddr]
+	delete(r.state.FreedFrames, pAddr)
+	return recycled
+}
+
+// recordFreedFrames records the physical pages that a range of an address
+// space returns to the GPUs when it is freed: the pages that it maps now.
+// The pages that it had before a migration or a remap are not returned.
+func (r *Runtime) recordFreedFrames(pid vm.PID, ptr Ptr, size uint64) {
+	pageSize := uint64(1) << r.config.Log2PageSize
+	for offset := uint64(0); offset < size; offset += pageSize {
+		page, ok := r.pageTable.Find(pid, uint64(ptr)+offset)
+		if !ok || r.devices[r.DeviceIDByPAddr(page.PAddr)].Type != internal.DeviceTypeGPU {
+			continue
+		}
+		if r.state.FreedFrames == nil {
+			r.state.FreedFrames = make(map[uint64]bool)
+		}
+		r.state.FreedFrames[page.PAddr] = true
+	}
 }
 
 // FreeMemory releases storage immediately. Call only after the batch using it
@@ -172,6 +232,8 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 		if b.Address != ptr {
 			continue
 		}
+		r.recordFreedFrames(c.PID, ptr, b.Size)
+		r.recordMappingChanges(c.PID, uint64(ptr), b.Size, r.mappingSnapshot(c.PID, uint64(ptr), b.Size), false)
 		r.allocator.Free(c.PID, uint64(ptr), b.Size)
 		c.Buffers = append(c.Buffers[:i], c.Buffers[i+1:]...)
 		return nil
@@ -179,14 +241,35 @@ func (r *Runtime) FreeMemory(h Context, ptr Ptr) error {
 	return fmt.Errorf("runtime: unknown allocation %d", ptr)
 }
 func (r *Runtime) Remap(h Context, addr, size uint64, device int) {
-	r.allocator.Remap(r.context(h).PID, addr, size, device)
+	c := r.context(h)
+	before := r.mappingSnapshot(c.PID, addr, size)
+	r.allocator.Remap(c.PID, addr, size, device)
+	r.recordMappingChanges(c.PID, addr, size, before, true)
+	r.remapped(c.PID, addr, size)
 }
 func (r *Runtime) Distribute(h Context, addr Ptr, size uint64, gpus []int) []uint64 {
 	if len(gpus) == 1 {
 		return []uint64{size}
 	}
+	c := r.context(h)
 	d := distributorImpl{memAllocator: r.allocator, pageSizeAsPowerOf2: r.config.Log2PageSize}
-	return d.Distribute(r.context(h), uint64(addr), size, gpus)
+	before := r.mappingSnapshot(c.PID, uint64(addr), size)
+	sizes := d.Distribute(c, uint64(addr), size, gpus)
+	r.recordMappingChanges(c.PID, uint64(addr), size, before, true)
+	r.remapped(c.PID, uint64(addr), size)
+	return sizes
+}
+
+// remapped takes in that a range of an address space has moved to other
+// devices: the allocator has given every page of the range a new physical
+// page, and the pages that the range had are not returned. If one of the new
+// pages was freed before, the buffers of the range are dirty from now on,
+// like a new allocation that recycles a page, whichever context of the
+// address space made them.
+func (r *Runtime) remapped(pid vm.PID, addr, size uint64) {
+	if r.recycles(pid, Ptr(addr), size) {
+		r.markRangeDirty(pid, addr, size)
+	}
 }
 func (r *Runtime) enqueue(q CommandQueue, c Command) CommandID {
 	r.state.NextCommand++

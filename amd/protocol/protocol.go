@@ -13,6 +13,12 @@ var Protocol = messaging.DefineProtocol(
 			MemCopyD2HReq{},
 			RDMADrainCmdFromDriver{},
 			RDMARestartCmdFromDriver{},
+			PageHoldReq{},
+			PageReleaseReq{},
+			PageShootdownReq{},
+			PageFlushReq{},
+			PageInvalidateReq{},
+			PageCopyReq{},
 		},
 	},
 	messaging.RoleDef{
@@ -29,5 +35,6 @@ var Protocol = messaging.DefineProtocol(
 		},
 	},
 	messaging.RoleDef{Name: "cu", Sends: []any{WGCompletionMsg{}}},
+	messaging.RoleDef{Name: "accesscounter", Sends: []any{AccessCounterNotification{}}},
 	messaging.RoleDef{Name: "dma", Sends: []any{GeneralRsp{}, MemCopyD2HRsp{}}},
 )
