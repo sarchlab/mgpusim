@@ -95,7 +95,8 @@ func (m *cpMiddleware) processMemCopyRsp(rsp messaging.Msg) bool {
 	rspToDriver := messaging.Msg{ID: m.comp.NewID(),
 		Src:   m.toDriver().AsRemote(),
 		Dst:   originalMeta.Src,
-		RspTo: originalMeta.ID, Payload: rsp.Payload}
+		RspTo: originalMeta.ID, Payload: rsp.Payload,
+		TrafficBytes: memCopyRspTrafficBytes(rsp.Payload)}
 
 	m.toDriver().Send(rspToDriver)
 	m.toDMA().RetrieveIncoming()
@@ -108,6 +109,16 @@ func (m *cpMiddleware) processMemCopyRsp(rsp messaging.Msg) bool {
 	delete(m.comp.State.CopySendTasks, rsp.RspTo)
 
 	return true
+}
+
+// memCopyRspTrafficBytes is the size of a copy response on the network,
+// following the memory-message convention of a 4-byte response header.
+func memCopyRspTrafficBytes(payload any) int {
+	if rsp, ok := payload.(protocol.MemCopyD2HRsp); ok {
+		return len(rsp.Data) + 4
+	}
+
+	return 4
 }
 
 func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(

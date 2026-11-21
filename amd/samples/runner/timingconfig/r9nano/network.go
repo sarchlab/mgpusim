@@ -20,39 +20,38 @@ const (
 // PCIe endpoint, so the ports are collected until Connect.
 type Network struct {
 	connector *pcie.Connector
-	hostPorts *[]messaging.Port
+	hostPorts []messaging.Port
 	gpuPorts  [][]messaging.Port
 }
 
 // NewNetwork builds an empty PCIe tree for numGPUs GPUs with the given switch
 // latency in cycles.
-func NewNetwork(s modeling.Simulation, numGPUs, switchLatency int) Network {
-	return Network{
+func NewNetwork(s modeling.Simulation, numGPUs, switchLatency int) *Network {
+	return &Network{
 		connector: pcie.MakeBuilder().
 			WithSimulation(s).
 			WithFreq(timing.GHz).
 			WithFlitSize(pcieFlitSize).
 			WithSwitchLatency(switchLatency).
 			Build("PCIe"),
-		hostPorts: new([]messaging.Port),
-		gpuPorts:  make([][]messaging.Port, numGPUs),
+		gpuPorts: make([][]messaging.Port, numGPUs),
 	}
 }
 
 // BindHostPort plugs a port into the endpoint of the host.
-func (n Network) BindHostPort(port messaging.Port) {
-	*n.hostPorts = append(*n.hostPorts, port)
+func (n *Network) BindHostPort(port messaging.Port) {
+	n.hostPorts = append(n.hostPorts, port)
 }
 
 // BindGPUPort plugs a port into the endpoint of the GPU with the given
 // 1-based index.
-func (n Network) BindGPUPort(index int, port messaging.Port) {
+func (n *Network) BindGPUPort(index int, port messaging.Port) {
 	n.gpuPorts[index-1] = append(n.gpuPorts[index-1], port)
 }
 
 // Connect builds the tree from the ports bound so far.
-func (n Network) Connect() {
-	root := n.connector.AddRootComplex(*n.hostPorts)
+func (n *Network) Connect() {
+	root := n.connector.AddRootComplex(n.hostPorts)
 
 	var pcieSwitch int
 	for i, ports := range n.gpuPorts {

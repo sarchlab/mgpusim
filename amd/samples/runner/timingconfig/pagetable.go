@@ -95,11 +95,11 @@ func (b *Builder) buildIOMMU(network interDeviceNetwork) *pagetablemmu.Comp {
 	spec.FaultHandler = "Driver.PageFault[0]"
 	spec.ConsultRemote = true
 	io := gpubuilder.BuildPageTableMMU(b.simulation, "IOMMU", spec)
-	for _, p := range []messaging.Port{io.Ports.Top, io.Ports.Control, io.Ports.FaultIn} {
-		network.BindHostPort(p)
-	}
+	network.BindHostPort(io.Ports.Top)
 	b.bindHostInternalPort(network, io.Ports.Memory)
+	network.BindHostPort(io.Ports.Control)
 	b.bindHostInternalPort(network, io.Ports.PageFault)
+	network.BindHostPort(io.Ports.FaultIn)
 	return io
 }
 

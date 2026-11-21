@@ -50,3 +50,41 @@ func TestMI300XDeviceCopy(t *testing.T) {
 		t.Fatalf("device copy returned %v, want %v", got, input)
 	}
 }
+
+// Host copies cross the PCIe network in both directions on the discrete GPUs.
+func TestHostCopyKeepsBytes(t *testing.T) {
+	for _, gpuType := range []string{"r9nano", "mi300x"} {
+		t.Run(gpuType, func(t *testing.T) {
+			s := sim.MakeBuilder().Build()
+			r := timingconfig.MakeBuilder().WithSimulation(s).WithNumGPUs(1).WithGPUType(gpuType).Build()
+			if err := s.Initialize(); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = s.Terminate() })
+			ctx := r.Init()
+			q := r.CreateCommandQueue(ctx)
+			input := make([]uint32, 4096)
+			for i := range input {
+				input[i] = uint32(i)*17 + 3
+			}
+			device := r.AllocateMemory(ctx, uint64(len(input)*4))
+			benchmarks.Upload(r, q, device, input)
+			output := benchmarks.Download(r, q, device, len(input)*4)
+			for _, comp := range s.Components() {
+				if d, ok := comp.(*driver.Comp); ok {
+					d.TickLater()
+				}
+			}
+			if err := s.Run(); err != nil {
+				t.Fatal(err)
+			}
+			got := make([]uint32, len(input))
+			if err := benchmarks.Read(r, output, got); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, input) {
+				t.Fatal("the bytes changed across a host-to-device-to-host copy")
+			}
+		})
+	}
+}

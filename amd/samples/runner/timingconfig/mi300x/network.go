@@ -33,40 +33,39 @@ const (
 type Network struct {
 	connector   *networkconnector.Connector
 	pcieLatency int
-	hostPorts   *[]messaging.Port
+	hostPorts   []messaging.Port
 	gpuPorts    [][]messaging.Port
 }
 
 // NewNetwork builds an empty network for numGPUs GPUs. pcieLatency is the
 // cycles to cross each PCIe switch or the root complex.
-func NewNetwork(s modeling.Simulation, numGPUs, pcieLatency int) Network {
-	return Network{
+func NewNetwork(s modeling.Simulation, numGPUs, pcieLatency int) *Network {
+	return &Network{
 		connector: networkconnector.MakeBuilder().
 			WithSimulation(s).
 			WithFreq(timing.GHz).
 			WithFlitSize(networkFlitSize).
 			Build("InterDevice"),
 		pcieLatency: pcieLatency,
-		hostPorts:   new([]messaging.Port),
 		gpuPorts:    make([][]messaging.Port, numGPUs),
 	}
 }
 
 // BindHostPort plugs a port into the endpoint of the host.
-func (n Network) BindHostPort(port messaging.Port) {
-	*n.hostPorts = append(*n.hostPorts, port)
+func (n *Network) BindHostPort(port messaging.Port) {
+	n.hostPorts = append(n.hostPorts, port)
 }
 
 // BindGPUPort plugs a port into the endpoint of the GPU with the given
 // 1-based index.
-func (n Network) BindGPUPort(index int, port messaging.Port) {
+func (n *Network) BindGPUPort(index int, port messaging.Port) {
 	n.gpuPorts[index-1] = append(n.gpuPorts[index-1], port)
 }
 
 // Connect builds the topology from the ports bound so far.
-func (n Network) Connect() {
+func (n *Network) Connect() {
 	root := n.connector.AddSwitch(networkconnector.SwitchConfig{Name: "RootComplex"})
-	n.connector.ConnectDevice(root, *n.hostPorts, networkconnector.DeviceConfig{
+	n.connector.ConnectDevice(root, n.hostPorts, networkconnector.DeviceConfig{
 		Name:           "Host",
 		DeviceEndParam: deviceEnd(1),
 		SwitchEndParam: switchEnd(1, n.pcieLatency),
@@ -80,7 +79,7 @@ func (n Network) Connect() {
 // the latency of the switch that it enters, so the local switch adds none:
 // PCIe traffic pays only for the PCIe switches and the root complex, and
 // Infinity Fabric traffic only for the fabric hop.
-func (n Network) connectGPUsToPCIe(root int) []int {
+func (n *Network) connectGPUsToPCIe(root int) []int {
 	gpuSwitches := make([]int, len(n.gpuPorts))
 
 	var pcieSwitch int
@@ -108,7 +107,7 @@ func (n Network) connectGPUsToPCIe(root int) []int {
 	return gpuSwitches
 }
 
-func (n Network) addPCIeSwitch(root, index int) int {
+func (n *Network) addPCIeSwitch(root, index int) int {
 	id := n.connector.AddSwitch(networkconnector.SwitchConfig{
 		Name: fmt.Sprintf("PCIeSwitch[%d]", index),
 	})
@@ -121,7 +120,7 @@ func (n Network) addPCIeSwitch(root, index int) int {
 }
 
 // connectFabricDomains fully connects the GPUs of each domain.
-func (n Network) connectFabricDomains(gpuSwitches []int) {
+func (n *Network) connectFabricDomains(gpuSwitches []int) {
 	for a := range gpuSwitches {
 		for b := a + 1; b < len(gpuSwitches) && b/gpusPerFabricDomain == a/gpusPerFabricDomain; b++ {
 			n.connector.ConnectSwitches(gpuSwitches[a], gpuSwitches[b], networkconnector.SwitchToSwitchLinkParameter{
@@ -134,7 +133,7 @@ func (n Network) connectFabricDomains(gpuSwitches []int) {
 
 // endpointWidth lets a GPU use its PCIe link and all of its Infinity Fabric
 // links at the same time.
-func (n Network) endpointWidth(gpu int) int {
+func (n *Network) endpointWidth(gpu int) int {
 	domain := gpu / gpusPerFabricDomain
 	domainSize := min(len(n.gpuPorts)-domain*gpusPerFabricDomain, gpusPerFabricDomain)
 

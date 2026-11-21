@@ -24,8 +24,8 @@ type interDeviceNetwork interface {
 }
 
 var (
-	_ interDeviceNetwork = r9nano.Network{}
-	_ interDeviceNetwork = mi300x.Network{}
+	_ interDeviceNetwork = (*r9nano.Network)(nil)
+	_ interDeviceNetwork = (*mi300x.Network)(nil)
 	_ interDeviceNetwork = waferscale.Network{}
 )
 

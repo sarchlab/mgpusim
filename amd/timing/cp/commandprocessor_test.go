@@ -273,7 +273,33 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(ok).To(BeTrue())
 		Expect(rsp.RspTo).To(Equal(req.ID))
 		Expect(rsp.Dst).To(Equal(driverPort))
+		Expect(rsp.TrafficBytes).To(Equal(4))
 		Expect(cp.State.BottomMemCopyH2DToTop).To(BeEmpty())
+	})
+
+	It("should size a device-to-host copy response by its data", func() {
+		req := messaging.Msg{ID: cp.NewID(),
+			Src: driverPort,
+			Dst: toDriver.AsRemote(), Payload: protocol.MemCopyD2HReq{SrcAddress: 0x1000, ByteSize: 128}}
+
+		toDriver.Deliver(req)
+
+		tickUntilQuiet()
+
+		cloned, ok := toDMA.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+
+		toDMA.Deliver(messaging.Msg{ID: cp.NewID(),
+			Src:   dmaPort,
+			Dst:   toDMA.AsRemote(),
+			RspTo: cloned.ID, Payload: protocol.MemCopyD2HRsp{Data: make([]byte, 128)}})
+
+		tickUntilQuiet()
+
+		rsp, ok := toDriver.RetrieveOutgoing()
+		Expect(ok).To(BeTrue())
+		Expect(rsp.RspTo).To(Equal(req.ID))
+		Expect(rsp.TrafficBytes).To(Equal(132))
 	})
 
 	It("should handle a driver flush request", func() {

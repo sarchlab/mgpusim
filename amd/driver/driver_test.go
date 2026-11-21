@@ -188,11 +188,17 @@ func TestCopyRequestPartitioning(t *testing.T) {
 			if len(e.Requests) != count || len(f.c.State.RequestsToSend) != count {
 				t.Fatalf("requests: %+v", e)
 			}
+			if read && e.Requests[0].TrafficBytes != 12 {
+				t.Fatalf("D2H request traffic=%d, want 12", e.Requests[0].TrafficBytes)
+			}
 			if !read {
 				want := []int{0x700, 0x800, 0x1000, 0x300}
 				for i, req := range e.Requests {
 					if got := len(req.Payload.(protocol.MemCopyH2DReq).SrcBuffer); got != want[i] {
 						t.Fatalf("chunk %d=%d, want %d", i, got, want[i])
+					}
+					if req.TrafficBytes != want[i]+12 {
+						t.Fatalf("chunk %d traffic=%d, want %d", i, req.TrafficBytes, want[i]+12)
 					}
 				}
 			}
