@@ -168,20 +168,17 @@ func (b *Benchmark) verify() error {
 
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
-			var sum float64
+			var sum float32
 			for k := 0; k < n; k++ {
-				sum += float64(b.A[i*n+k]) * float64(b.B[k*n+j])
+				sum += float32(b.A[i*n+k] * b.B[k*n+j])
 			}
-			ref := float64(alpha)*sum + float64(beta)*float64(b.CInit[i*n+j])
-			got := float64(gpuC[i*n+j])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, j, ref, got)
+			ref := float32(alpha*sum) + float32(beta*b.CInit[i*n+j])
+			got := gpuC[i*n+j]
+			tolerance := 1e-3*float32(math.Abs(float64(ref))) + 1e-4
+			if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) ||
+				math.IsNaN(float64(ref)) || math.IsInf(float64(ref), 0) ||
+				math.Abs(float64(got-ref)) > float64(tolerance) {
+				return fmt.Errorf("SGEMM[%d,%d] got %g, expected %g within %g", i, j, got, ref, tolerance)
 			}
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 
@@ -110,11 +111,7 @@ func (b *Benchmark) initMem() {
 	} else {
 		b.initLegacyInputs()
 	}
-	if b.UseUnifiedMemory {
-		b.allocateUnifiedMemory()
-	} else {
-		b.allocateMemory()
-	}
+	b.allocateMemory()
 }
 
 func (b *Benchmark) initLegacyInputs() {
@@ -140,8 +137,8 @@ func (b *Benchmark) initCDNA3Inputs() {
 	if nnz <= 0 {
 		nnz = max(1, int32(float64(rows)*b.Sparsity+0.5))
 	}
-	b.NItems = rows * nnz
-	b.Matrix.RowOffsets = make([]uint32, rows+1)
+	b.NItems = cdna3ItemCount(rows, nnz)
+	b.Matrix.RowOffsets = make([]uint32, int(rows)+1)
 	b.Matrix.ColumnNumbers = make([]uint32, b.NItems)
 	b.Matrix.Values = make([]float32, b.NItems)
 	b.Vec = make([]float32, rows)
@@ -159,30 +156,29 @@ func (b *Benchmark) initCDNA3Inputs() {
 	}
 }
 
-func (b *Benchmark) allocateUnifiedMemory() {
-	b.DValData = b.rt.AllocateUnifiedMemory(b.Context,
-		uint64(b.NItems*4))
-	b.DVecData = b.rt.AllocateUnifiedMemory(b.Context,
-		uint64(b.Dim*4))
-	b.DColsData = b.rt.AllocateUnifiedMemory(b.Context,
-		uint64(b.NItems*4))
-	b.DRowDData = b.rt.AllocateUnifiedMemory(b.Context,
-		uint64((b.Dim+1)*4))
-	b.DOutData = b.rt.AllocateUnifiedMemory(b.Context,
-		uint64(b.Dim*4))
+func cdna3ItemCount(rows, nnzPerRow int32) int32 {
+	count := int64(rows) * int64(nnzPerRow)
+	if rows <= 0 || nnzPerRow <= 0 || count > math.MaxInt32 {
+		panic("SHOC SpMV dimensions exceed the signed 32-bit CSR kernel indices")
+	}
+	return int32(count)
+}
+
+func csrBufferBytes(rows, items int32) (values, vector, offsets uint64) {
+	return uint64(items) * 4, uint64(rows) * 4, (uint64(rows) + 1) * 4
 }
 
 func (b *Benchmark) allocateMemory() {
-	b.DValData = b.rt.AllocateMemory(b.Context,
-		uint64(b.NItems*4))
-	b.DVecData = b.rt.AllocateMemory(b.Context,
-		uint64(b.Dim*4))
-	b.DColsData = b.rt.AllocateMemory(b.Context,
-		uint64(b.NItems*4))
-	b.DRowDData = b.rt.AllocateMemory(b.Context,
-		uint64((b.Dim+1)*4))
-	b.DOutData = b.rt.AllocateMemory(b.Context,
-		uint64(b.Dim*4))
+	allocate := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		allocate = b.rt.AllocateUnifiedMemory
+	}
+	values, vector, offsets := csrBufferBytes(b.Dim, b.NItems)
+	b.DValData = allocate(b.Context, values)
+	b.DVecData = allocate(b.Context, vector)
+	b.DColsData = allocate(b.Context, values)
+	b.DRowDData = allocate(b.Context, offsets)
+	b.DOutData = allocate(b.Context, vector)
 }
 
 func (b *Benchmark) exec() {
@@ -199,7 +195,7 @@ func (b *Benchmark) exec() {
 
 	if b.Arch == arch.CDNA3 {
 		const group = 256
-		globalSize[0] = uint32((b.Dim + group - 1) / group * group)
+		globalSize[0] = uint32((uint64(b.Dim) + group - 1) / group * group)
 		localSize[0] = group
 		b.execCDNA3(globalSize, localSize)
 	} else {

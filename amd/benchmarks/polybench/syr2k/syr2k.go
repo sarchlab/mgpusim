@@ -193,11 +193,8 @@ func (b *Benchmark) verify() error {
 			ref := float64(alpha)*sum + float64(beta)*float64(b.CInit[i*n+j])
 			got := float64(gpuC[i*n+j])
 
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
+			tolerance := 5e-4 * math.Max(1, math.Abs(ref))
+			if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= tolerance) {
 				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, ref, got)
 			}

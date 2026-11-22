@@ -7,19 +7,6 @@
 // kernels (update ex, update ey, update hz). The kernel binary is compiled for
 // gfx942 only (see native/), so the benchmark must be run with `-arch cdna3`
 // (the MI300X configuration).
-//
-// The kernels use a constant 16x16 block dimension, so no hidden ABI arguments
-// are emitted (kernarg_segment_size = 24 for ex/ey, 32 for hz).
-//
-// Limitation: the kernels update the ex/ey/hz arrays in place and read
-// neighbor elements (hz reads ex[i][j+1]/ey[i+1][j]; the next step's ex/ey
-// read hz). The functional emulator computes the correct result for any grid
-// size, but in timing mode the per-CU L1 / shared L2 caches do not remain
-// coherent for these in-place dependent reads once the grid spans more than
-// one work-group, even with a DrainCommandQueue (or an explicit cache flush)
-// between every launch. The default grid is therefore a single 16x16
-// work-group, which stays coherent across all time steps and verifies in
-// timing mode.
 package fdtd2d
 
 import (
@@ -127,14 +114,6 @@ func (b *Benchmark) submit() {
 
 func (b *Benchmark) initMem() {
 	if b.N <= 0 {
-		// Default to a single 16x16 work-group. The kernels update the field
-		// arrays in place and read neighbor elements across the dependency
-		// chain (hz reads ex/ey, the next step's ex/ey read hz); with more
-		// than one work-group the timing-mode caches do not stay coherent
-		// across these in-place dependent launches even with a drain in
-		// between (the emulator computes the correct result at any size — see
-		// the package doc comment). A single work-group keeps the run fully
-		// coherent across all time steps.
 		b.N = 16
 	}
 	if b.TMax <= 0 {

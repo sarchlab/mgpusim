@@ -295,6 +295,16 @@ func (b *Benchmark) fill() {
 	}
 }
 
+func (b *Benchmark) readbackTarget(target int) any {
+	if target != 0 {
+		return nil
+	}
+	if b.Arch == arch.CDNA3 && b.Precision == "double" {
+		return b.DoubleResult
+	}
+	return b.Result
+}
+
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
@@ -312,27 +322,13 @@ func (b *Benchmark) Step() error {
 		b.Phase = 2
 	case 2:
 		for i := range b.Readbacks {
-			var dst any
-			switch b.Readbacks[i].Target {
-			case 0:
-				dst = b.Result
-				if b.Arch == arch.CDNA3 && b.Precision == "double" {
-					dst = b.DoubleResult
-				}
-			}
+			dst := b.readbackTarget(b.Readbacks[i].Target)
 			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
 		b.Phase = 3
 	case 3:
 		for _, copy := range b.Readbacks {
-			var dst any
-			switch copy.Target {
-			case 0:
-				dst = b.Result
-				if b.Arch == arch.CDNA3 && b.Precision == "double" {
-					dst = b.DoubleResult
-				}
-			}
+			dst := b.readbackTarget(copy.Target)
 			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err
 			}

@@ -17,6 +17,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
@@ -155,17 +156,12 @@ func (b *Benchmark) verify() error {
 		// Reproduce the kernel's FMA chain in float32 exactly.
 		val := b.Data[i]
 		for f := 0; f < b.NumFmas; f++ {
-			val = float32(math.FMA(
-				float64(val), float64(fmaMul), float64(fmaAdd)))
+			val = bitops.FMAF32(val, fmaMul, fmaAdd)
 		}
 		ref := val
 		got := gpuData[i]
 
-		denom := math.Abs(float64(ref))
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(float64(ref-got))/denom > 1e-3 {
+		if math.Float32bits(got) != math.Float32bits(ref) {
 			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}

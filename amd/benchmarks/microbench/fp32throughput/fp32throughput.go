@@ -172,7 +172,7 @@ func (b *Benchmark) verify() error {
 	// so precompute one reference value per lane.
 	ref := make([]float32, tpb)
 	for lane := 0; lane < tpb; lane++ {
-		a0 := float32(1.0) + float32(lane)*0.001
+		a0 := bitops.FMAF32(float32(lane), 0.001, 1)
 		a1 := a0 + 0.1
 		a2 := a0 + 0.2
 		a3 := a0 + 0.3
@@ -183,18 +183,12 @@ func (b *Benchmark) verify() error {
 			a2 = bitops.FMAF32(a2, fmaMul, fmaAdd)
 			a3 = bitops.FMAF32(a3, fmaMul, fmaAdd)
 		}
-		ref[lane] = a0 + a1 + a2 + a3
+		ref[lane] = float32(float32(a0+a1)+a2) + a3
 	}
 
 	for tid := 0; tid < numElem; tid++ {
-		want := float64(ref[tid%tpb])
-		got := float64(gpu[tid])
-
-		denom := math.Abs(want)
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(want-got)/denom > 1e-3 {
+		want, got := ref[tid%tpb], gpu[tid]
+		if math.Float32bits(got) != math.Float32bits(want) {
 			return fmt.Errorf("At thread %d, expected %f, but got %f.\n",
 				tid, want, got)
 		}

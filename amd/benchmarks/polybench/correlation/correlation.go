@@ -243,89 +243,82 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	)
 }
 
-// Verify checks the GPU result against a CPU reference computation that
-// reproduces the exact four-kernel pipeline (in float32) on the host.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
+// reference evaluates the archived independent double-precision CPU pipeline.
+func (b *Benchmark) reference() [4][]float64 {
 	n := b.N
-	m := n
+	work := make([]float64, n*n)
+	mean, stddev := make([]float64, n), make([]float64, n)
+	for i, value := range b.Data {
+		mean[i%n] += float64(value)
+	}
+	for j := range mean {
+		mean[j] /= float64(n)
+	}
+	for i, value := range b.Data {
+		diff := float64(value) - mean[i%n]
+		stddev[i%n] += diff * diff
+	}
+	for j := range stddev {
+		stddev[j] = math.Sqrt(stddev[j] / float64(n))
+		if stddev[j] < float64(float32(1e-12)) {
+			stddev[j] = 1
+		}
+	}
+	sqrtN := math.Sqrt(float64(n))
+	for i, value := range b.Data {
+		j := i % n
+		work[i] = (float64(value) - mean[j]) / (sqrtN * stddev[j])
+	}
 
-	gpuCorr := make([]float32, n*n)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuCorr); err != nil {
+	corr := make([]float64, n*n)
+	for row := 0; row < n; row++ {
+		for col := 0; col < n; col++ {
+			for k := 0; k < n; k++ {
+				corr[row*n+col] += work[k*n+row] * work[k*n+col]
+			}
+		}
+		corr[row*n+row] = 1
+	}
+	return [4][]float64{mean, stddev, work, corr}
+}
+
+func (b *Benchmark) verify() error {
+	names := [4]string{"mean", "standard deviation", "normalized data", "correlation"}
+	for stage, refs := range b.reference() {
+		if err := b.verifyStage(stage, names[stage], refs); err != nil {
+			return err
+		}
+	}
+	log.Printf("Passed!\n")
+	return nil
+}
+
+func (b *Benchmark) verifyStage(stage int, name string, expected []float64) error {
+	actual := make([]float32, len(expected))
+	if err := benchmarks.Read(b.rt, b.Readbacks[stage], actual); err != nil {
 		return err
 	}
-
-	// CPU reference, mirroring the kernels element-for-element in float32.
-	work := make([]float32, m*n)
-	copy(work, b.Data)
-
-	mean := make([]float32, n)
-	for j := 0; j < n; j++ {
-		var sum float32
-		for i := 0; i < m; i++ {
-			sum += work[i*n+j]
+	for i, ref := range expected {
+		got := float64(actual[i])
+		tolerance := 1e-5 * math.Max(1, math.Abs(ref))
+		if stage == 3 && i%(b.N+1) == 0 {
+			tolerance = 0
 		}
-		mean[j] = sum / float32(m)
-	}
-
-	stddev := make([]float32, n)
-	for j := 0; j < n; j++ {
-		mj := mean[j]
-		var sum float32
-		for i := 0; i < m; i++ {
-			diff := work[i*n+j] - mj
-			sum += diff * diff
-		}
-		s := float32(math.Sqrt(float64(sum / float32(m))))
-		if s < 1e-12 {
-			s = 1.0
-		}
-		stddev[j] = s
-	}
-
-	sqrtM := float32(math.Sqrt(float64(m)))
-	for idx := 0; idx < m*n; idx++ {
-		j := idx % n
-		work[idx] = (work[idx] - mean[j]) / (sqrtM * stddev[j])
-	}
-
-	corr := make([]float32, n*n)
-	for row := 0; row < n; row++ {
-		for col := 0; col < n; col++ {
-			if row == col {
-				corr[row*n+col] = 1.0
-				continue
-			}
-			var sum float32
-			for k := 0; k < m; k++ {
-				sum += work[k*n+row] * work[k*n+col]
-			}
-			corr[row*n+col] = sum
+		if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= tolerance) {
+			return fmt.Errorf("%s[%d] got %g, expected %g within %g", name, i, got, ref, tolerance)
 		}
 	}
-
-	for row := 0; row < n; row++ {
-		for col := 0; col < n; col++ {
-			ref := float64(corr[row*n+col])
-			got := float64(gpuCorr[row*n+col])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					row, col, ref, got)
-			}
-		}
-	}
-
-	log.Printf("Passed!\n")
-
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*((b.N)*(b.N))))
+	n := b.N
+	b.Readbacks = append(b.Readbacks,
+		benchmarks.Download(b.rt, b.Queue, b.GMean, 4*n),
+		benchmarks.Download(b.rt, b.Queue, b.GStddev, 4*n),
+		benchmarks.Download(b.rt, b.Queue, b.GData, 4*n*n),
+		benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*n*n),
+	)
 }
 
 // Step submits computation, then verification readback, then consumes results.

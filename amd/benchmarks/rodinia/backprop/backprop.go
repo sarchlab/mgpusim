@@ -69,12 +69,13 @@ func (b *Benchmark) submit() {
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	if b.InputN <= 0 {
-		b.InputN = 1024
+		b.InputN = 64
 	}
 	b.InputN = max(16, b.InputN/16*16)
 	if (b.HiddenN != 0 && b.HiddenN != hidden) || (b.OutputN != 0 && b.OutputN != 1) {
 		panic("Rodinia Backprop requires 16 hidden units and one output")
 	}
+	b.HiddenN, b.OutputN = hidden, 1
 	b.Input = make([]float32, b.InputN+1)
 	b.Weights = make([]float32, (b.InputN+1)*width)
 	b.Partials = make([]float32, b.InputN)

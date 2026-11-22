@@ -251,9 +251,9 @@ func (b *Benchmark) verify() error {
 	}
 	relErr := math.Sqrt(normRes / (normB + 1e-30))
 
-	if math.IsNaN(relErr) || math.IsInf(relErr, 0) || relErr >= 1e-3 {
+	if math.IsNaN(relErr) || math.IsInf(relErr, 0) || relErr >= 1e-4 {
 		return fmt.Errorf("Verification failed: relative residual = %.3e "+
-			"(tolerance 1e-3)\n", relErr)
+			"(tolerance 1e-4)\n", relErr)
 	}
 
 	log.Printf("Verification: rel_err = %.3e\n", relErr)

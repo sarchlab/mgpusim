@@ -50,7 +50,7 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new cache_latency benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State = &State{}
+	b.State = &State{Seed: 42}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 
 	b.rt = rt
@@ -132,9 +132,6 @@ func (b *Benchmark) initMem() {
 	}
 	if b.MeasureLaps <= 0 {
 		b.MeasureLaps = 4
-	}
-	if b.Seed == 0 {
-		b.Seed = 42
 	}
 
 	b.N = b.ArrayBytes / 4

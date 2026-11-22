@@ -285,7 +285,7 @@ func (b *Benchmark) verify() error {
 	}
 
 	rel := math.Sqrt(err / normA)
-	if rel >= 1e-4 {
+	if !(rel < 1e-4) {
 		return fmt.Errorf("Verification failed: ||A - LU||_F / ||A||_F = %.6e\n", rel)
 	}
 

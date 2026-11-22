@@ -58,7 +58,7 @@ var _ = Describe("FetchArbiter", func() {
 func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
 	group := checkpointGroup(checkpointCU(t))
 	wave := group.waves()[0]
-	group.packet().KernelObject = 0x10000
+	group.raw().Packet.Packet.KernelObject = 0x10000
 	code := &group.raw().CodeObject
 	code.Present, code.HasSymbol, code.HasMeta = true, true, true
 	code.Meta.KernelCodeEntryByteOffset = 0x1800

@@ -107,7 +107,8 @@ func (b *Benchmark) submit() {
 func randRange(seed *uint32, lo, hi float32) float32 {
 	*seed = (*seed)*1103515245 + 12345
 	t := float32(*seed&0x7fffffff) / float32(0x7fffffff)
-	return lo + t*(hi-lo)
+	// Round the product separately, as in the collected x86 host input generator.
+	return lo + float32(t*(hi-lo))
 }
 
 func (b *Benchmark) initMem() {
@@ -224,7 +225,7 @@ func (b *Benchmark) verify() error {
 
 		diff := math.Abs(float64(got - ref))
 		tol := 1e-2*math.Abs(float64(ref)) + 1e-4
-		if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || diff > tol {
+		if math.IsInf(float64(got), 0) || math.IsInf(float64(ref), 0) || !(diff <= tol) {
 			return fmt.Errorf("At option %d, expected %f, but got %f (diff=%f).\n",
 				i, ref, got, diff)
 		}

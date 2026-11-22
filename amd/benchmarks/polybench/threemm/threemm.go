@@ -209,13 +209,7 @@ func (b *Benchmark) exec() {
 	)
 }
 
-// Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
-	gpuG := make([]float32, b.NI*b.NL)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuG); err != nil {
-		return err
-	}
-
 	// E = A * B  (NI×NJ)
 	e := make([]float64, b.NI*b.NJ)
 	for i := 0; i < b.NI; i++ {
@@ -240,34 +234,54 @@ func (b *Benchmark) verify() error {
 		}
 	}
 
-	// G = E * F  (NI×NL)
+	g := make([]float64, b.NI*b.NL)
 	for i := 0; i < b.NI; i++ {
 		for l := 0; l < b.NL; l++ {
-			var sum float64
 			for j := 0; j < b.NJ; j++ {
-				sum += e[i*b.NJ+j] * f[j*b.NL+l]
-			}
-			ref := sum
-			got := float64(gpuG[i*b.NL+l])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, l, ref, got)
+				g[i*b.NL+l] += e[i*b.NJ+j] * f[j*b.NL+l]
 			}
 		}
 	}
 
-	log.Printf("Passed!\n")
+	for stage, check := range []struct {
+		name      string
+		reference []float64
+		tolerance float64
+	}{
+		{"E", e, 5e-4},
+		{"F", f, 5e-4},
+		{"G", g, 1e-3},
+	} {
+		if err := b.verifyProduct(stage, check.name, check.reference, check.tolerance); err != nil {
+			return err
+		}
+	}
 
+	log.Printf("Passed!\n")
+	return nil
+}
+
+func (b *Benchmark) verifyProduct(stage int, name string, expected []float64, tolerance float64) error {
+	actual := make([]float32, len(expected))
+	if err := benchmarks.Read(b.rt, b.Readbacks[stage], actual); err != nil {
+		return err
+	}
+	for i, ref := range expected {
+		got := float64(actual[i])
+		limit := tolerance * math.Max(1, math.Abs(ref))
+		if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= limit) {
+			return fmt.Errorf("3MM %s[%d] got %g, expected %g within %g", name, i, got, ref, limit)
+		}
+	}
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GG, 4*(b.NI*b.NL)))
+	b.Readbacks = append(b.Readbacks,
+		benchmarks.Download(b.rt, b.Queue, b.GE, 4*b.NI*b.NJ),
+		benchmarks.Download(b.rt, b.Queue, b.GF, 4*b.NJ*b.NL),
+		benchmarks.Download(b.rt, b.Queue, b.GG, 4*b.NI*b.NL),
+	)
 }
 
 // Step submits computation, then verification readback, then consumes results.
