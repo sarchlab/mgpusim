@@ -2,6 +2,7 @@
 ROCM_PATH ?= /opt/rocm
 GFX942_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 GFX942_BUILD := $(GFX942_DIR)build-gfx942.sh
+EMBEDDED_HSACO ?= ../kernels_gfx942.hsaco
 
 .PHONY: all clean clean-all regen-disasm update-embedded
 
@@ -11,7 +12,7 @@ $(HSACO): $(SRC) Makefile $(GFX942_DIR)gfx942.mk $(GFX942_BUILD)
 	ROCM_PATH="$(ROCM_PATH)" "$(GFX942_BUILD)" "$<" "$@" $(HIP_FLAGS)
 
 update-embedded: $(HSACO)
-	cp "$(HSACO)" ../kernels_gfx942.hsaco
+	cp "$(HSACO)" "$(EMBEDDED_HSACO)"
 
 regen-disasm: $(HSACO)
 	"$(ROCM_PATH)/lib/llvm/bin/llvm-objdump" --disassemble --mcpu=gfx942 "$(HSACO)" > "$(DISASM)"

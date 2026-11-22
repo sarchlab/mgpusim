@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./test-disasm.sh         # Show diff, exit 0
-#   ./test-disasm.sh --check # Fail if outputs differ (for CI)
+#   ./test-disasm.sh --check # Compare decoded instructions (for CI)
 
 set -e
 
@@ -44,18 +44,40 @@ echo "LLVM reference: $LLVM_DISASM"
 echo "MGPUSim output: $MGPUSIM_DISASM"
 echo ""
 
-if [ "$1" = "--check" ]; then
-    # Strict mode for CI - fail if different
-    if diff -q "$LLVM_DISASM" "$MGPUSIM_DISASM" > /dev/null; then
-        echo "OK: Disassembler outputs match"
-        exit 0
-    else
-        echo "FAIL: Disassembler outputs differ"
-        echo ""
-        diff -u "$LLVM_DISASM" "$MGPUSIM_DISASM" || true
-        exit 1
-    fi
+if [ "${1:-}" = "--check" ]; then
+    # LLVM reports linked virtual addresses, symbols and branch labels.
+    # Compare kernel-relative offsets, decoded operands and machine words.
+    python3 - "$LLVM_DISASM" "$MGPUSIM_DISASM" <<'PYTHON'
+import difflib
+import re
+import sys
+from pathlib import Path
+
+instruction = re.compile(r"^\s*(.*?)\s*//\s*([0-9a-fA-F]+):\s*(.*?)(?:\s+<[^>]+>)?\s*$")
+
+def instructions(path):
+    result = []
+    base = None
+    for line in Path(path).read_text().splitlines():
+        match = instruction.fullmatch(line)
+        if match is None:
+            continue
+        decoded, address, words = match.groups()
+        offset = int(address, 16)
+        if base is None:
+            base = offset
+        result.append(f"{offset - base:04x}: {' '.join(decoded.split())} // {' '.join(words.upper().split())}\n")
+    if not result:
+        raise SystemExit(f"No decoded instructions in {path}")
+    return result
+
+expected, actual = (instructions(path) for path in sys.argv[1:])
+if expected != actual:
+    sys.stderr.writelines(difflib.unified_diff(expected, actual, *sys.argv[1:]))
+    raise SystemExit(1)
+print("OK: Disassembler instructions match")
+PYTHON
 else
-    # Show diff but don't fail
+    # Show the full output, including format differences.
     diff -u "$LLVM_DISASM" "$MGPUSIM_DISASM" || echo -e "\nDifferences found (see above)"
 fi

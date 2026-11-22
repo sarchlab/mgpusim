@@ -1,7 +1,8 @@
-# Building ROCm 10.2 kernels for MI300X calibration
+# Building gfx942 kernels with ROCm 10.2.0
 
-The migrated native benchmark Makefiles include `amd/benchmarks/gfx942.mk`.
-They use the AMD ROCm 10.2.0 `gfx942` toolchain. The validated AMD Clang 24.0.0git
+All checked-in gfx942 kernel binaries are built with AMD ROCm 10.2.0.
+The native benchmark Makefiles share `amd/benchmarks/gfx942.mk`, and the
+seven tensor kernels use the same builder through `Makefile.hip`. The validated AMD Clang 24.0.0git
 revision is `bdc35841c97ff51400273b91d7bc05c96e19c2d9`, also used for the MI300X
 reference collection.
 
@@ -34,3 +35,29 @@ The pinned ROCm 7.2.4 container provides Linux C++ development headers. The reci
 compiler and bundler from the mounted 10.2.0 distribution by absolute path.
 The compiler produces a device-only bundle. The shared builder unbundles the
 linked `gfx942` ELF and validates its target before replacing the output file.
+
+
+## Rebuild every checked-in gfx942 kernel
+
+Run from the repository root in the Linux build environment above. Export
+`ROCM_PATH` if ROCm 10.2.0 is installed outside `/opt/rocm`.
+
+```bash
+set -euo pipefail
+find amd/benchmarks -name Makefile -type f -exec grep -lE '^include .*gfx942[.]mk$' {} + |
+while IFS= read -r recipe; do
+  make -B -C "$(dirname "$recipe")" update-embedded
+done
+make -B -C amd/benchmarks/dnn/gputensor/native -f Makefile.hip update-embedded
+```
+
+These commands rebuild 66 device translation units and update their 125 tracked
+output paths. VectorAdd's embedded gfx942 object is named `kernels.hsaco`.
+N-Body uses `nbody_gfx942.hsaco`. Use `regen-disasm` in a native directory to
+refresh its checked-in LLVM reference when the directory has one.
+
+FFT and Needleman–Wunsch use `-O1` because the compiler can emit packed move
+and integer XOR-add instructions at higher levels that MGPUSim does not yet
+execute. Match the native optimization flags when collecting timings for
+these workloads. The gfx803 device binaries and their build recipes are
+outside this upgrade and retain their existing toolchains.
