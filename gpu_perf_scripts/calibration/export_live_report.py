@@ -1,0 +1,128 @@
+"""Export an MGPUSim MI300X live sweep for the shared calibration report."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import time
+
+UNITS = {"array_bytes": "B", "buffer_size_mb": "MiB", "cacheline_bytes": "B",
+         "grid_spacing": "Å", "amb_temp": "°C"}
+GROUP = "mi300x"
+
+
+def parse_parameters(series):
+    """Recover typed fixed parameters from the archived sweep's series label."""
+    if not series or series in {"默认参数", "Default parameters"}:
+        return {}
+    params = {}
+    for entry in series.split(", "):
+        key, value = entry.split("=", 1)
+        if key in params:
+            raise ValueError(f"Duplicate parameter {key}")
+        try:
+            scalar = json.loads(value)
+        except json.JSONDecodeError:
+            scalar = value
+        if not isinstance(scalar, (str, bool, int, float)):
+            raise ValueError(f"Invalid scalar parameter {key}={value}")
+        params[key] = scalar
+    return params
+
+
+def nanoseconds(value, scale):
+    return None if value is None else round(value * scale)
+
+
+def convert(snapshot):
+    benchmarks = {}
+    points = []
+    states = []
+    seen = set()
+    for case in snapshot["cases"]:
+        name, axis = case["benchmark"], case["axis"]
+        params = parse_parameters(case["series"])
+        if axis in params:
+            raise ValueError(f"Scaling parameter {axis} also appears in {name}'s fixed parameters")
+        hardware_name = (
+            "MI300X transfer time" if case["kind"] == "transfer" else "MI300X GPU event time"
+        )
+        metadata = {
+            "scaling_param": axis,
+            "params": {key: {"unit": UNITS.get(key, "")} for key in (axis, *params)},
+            "values": {
+                "mi300x": {"name": hardware_name, "unit": "ns"},
+                "mgpusim": {"name": "MGPUSim kernel time", "unit": "ns"},
+            },
+        }
+        if benchmarks.setdefault(name, metadata) != metadata:
+            raise ValueError(f"Inconsistent metadata for {name}")
+        identity = name, case["x"], tuple(sorted(params.items()))
+        if identity in seen:
+            raise ValueError(f"Duplicate configuration {identity}")
+        seen.add(identity)
+        points.append({
+            "group": GROUP,
+            "benchmark": name,
+            "x": case["x"],
+            "non_scaling_params": params,
+            "values": {
+                "mi300x": nanoseconds(case.get("hardware_ms"), 1_000_000),
+                "mgpusim": nanoseconds(case.get("kernel_time_s"), 1_000_000_000),
+            },
+        })
+        states.append({
+            "case": case["case"],
+            "state": case["status"],
+            "worker": case.get("worker"),
+            "error": case.get("error") or case.get("unsupported_reason"),
+        })
+
+    data = {"groups": {GROUP: {"name": "AMD MI300X"}}, "benchmarks": benchmarks, "points": points}
+    progress = {
+        "updated_at": snapshot["updated_at"],
+        "revision": snapshot["commit"],
+        "workers": snapshot.get("workers", {}),
+        "points": states,
+    }
+    return data, progress
+
+
+def publish(snapshot_path, output):
+    data, progress = convert(json.loads(snapshot_path.read_text()))
+    # Progress is an optional hosting feed. A static Pages snapshot needs only data.json.
+    output.mkdir(parents=True, exist_ok=True)
+    for filename, payload in (("data.json", data), ("progress.json", progress)):
+        path = output / filename
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False) + "\n")
+        os.replace(temporary, path)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("snapshot", type=Path, help="MI300X collector's live snapshot")
+    parser.add_argument("output", type=Path, help="directory for the shared report files")
+    parser.add_argument("--watch", type=float, metavar="SECONDS", help="republish when the input changes")
+    args = parser.parse_args()
+    if args.watch is not None and args.watch <= 0:
+        parser.error("--watch must be positive")
+
+    last_modified = None
+    while True:
+        try:
+            modified = args.snapshot.stat().st_mtime_ns
+            if modified != last_modified:
+                publish(args.snapshot, args.output)
+                last_modified = modified
+        except (OSError, ValueError, KeyError) as error:
+            if args.watch is None or last_modified is None:
+                raise
+            print(f"Calibration export failed: {error}", flush=True)
+        if args.watch is None:
+            return
+        time.sleep(args.watch)
+
+
+if __name__ == "__main__":
+    main()
