@@ -53,7 +53,7 @@ func TestPageTablePlacementAndRemoteDecisions(t *testing.T) {
 				}
 				return b.WithPageTable(cfg)
 			})
-			if dst := p.mmu.Spec.Memory.Find(p.mmu.Spec.PoolBase); dst != "CPU.PageTableMemory.Top" {
+			if dst := p.mmu.Spec.Memory.Find(p.mmu.Spec.PoolBase); dst != cpuMemoryTop {
 				t.Fatalf("IOMMU pool routes to %s, want the page-table memory", dst)
 			}
 			r := p.driver.Resources.Runtime
