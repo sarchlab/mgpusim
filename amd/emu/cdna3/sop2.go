@@ -78,9 +78,26 @@ func (u *ALU) runSOP2(state emu.InstEmuState) {
 		u.runSMULHIU32(state)
 	case 45:
 		u.runSMULHII32(state)
+	case 46, 47, 48, 49:
+		u.runScalarShiftAdd(state, uint(inst.Opcode-45))
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
+}
+
+func (u *ALU) runScalarShiftAdd(state emu.InstEmuState, shift uint) {
+	inst := state.Inst()
+	src0 := uint64(uint32(state.ReadOperand(inst.Src0, 0)))
+	src1 := uint64(uint32(state.ReadOperand(inst.Src1, 0)))
+	sum := (src0 << shift) + src1
+	state.WriteOperand(inst.Dst, 0, uint64(uint32(sum)))
+
+	// SCC indicates unsigned overflow of the full shift and add.
+	var overflow byte
+	if sum>>32 != 0 {
+		overflow = 1
+	}
+	state.SetSCC(overflow)
 }
 
 func (u *ALU) runSADDU32(state emu.InstEmuState) {

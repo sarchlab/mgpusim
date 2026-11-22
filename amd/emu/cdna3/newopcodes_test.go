@@ -2,6 +2,7 @@ package cdna3
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math"
 	"testing"
 
@@ -484,5 +485,62 @@ func TestVOP2FMACF64InlineInvTwoPi(t *testing.T) {
 	const want = uint64(0x3fc45f306dc9c882)
 	if got := state.operands[inst.Dst][0]; got != want {
 		t.Fatalf("FP64 inline 1/(2π) = %#x, want %#x", got, want)
+	}
+}
+
+func TestScalarShiftAdd(t *testing.T) {
+	alu := NewALU(nil)
+	disassembler := insts.NewDisassembler()
+	disassembler.IsCDNA3 = true
+	legacy := insts.NewDisassembler()
+
+	for _, tc := range []struct {
+		name   string
+		opcode uint32
+		want   uint64
+	}{
+		{"s_lshl1_add_u32", 46, 7},
+		{"s_lshl2_add_u32", 47, 11},
+		{"s_lshl3_add_u32", 48, 19},
+		{"s_lshl4_add_u32", 49, 35},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			encoding := binary.LittleEndian.AppendUint32(nil, 0x80000000|tc.opcode<<23|20<<16|18<<8|10)
+			inst, err := disassembler.Decode(encoding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inst.InstName != tc.name || inst.ExeUnit != insts.ExeUnitScalar {
+				t.Fatalf("decoded %s in execution unit %v, want scalar %s", inst.InstName, inst.ExeUnit, tc.name)
+			}
+			if inst.Dst.String() != "s20" || inst.Src1.String() != "s18" || inst.Src0.String() != "s10" {
+				t.Fatalf("unexpected operands: %s, %s, %s", inst.Dst, inst.Src0, inst.Src1)
+			}
+			if _, err := legacy.Decode(encoding); err == nil {
+				t.Fatal("GCN3 unexpectedly decoded the CDNA3 scalar shift-add encoding")
+			}
+
+			state := newMockInstState()
+			state.inst = inst
+			state.SetSCC(1)
+			shift := tc.opcode - 45
+			for _, vector := range []struct {
+				src0, src1, want uint64
+				scc              byte
+			}{
+				{2, 3, tc.want, 0},
+				{0x80000000, 3, 3, 1},
+				{0xffffffff >> shift, 1 << shift, 0, 1},
+				{0xffffffff, 0xffffffff, 0xffffffff - (1 << shift), 1},
+			} {
+				state.setOperand(inst.Src0, 0, vector.src0)
+				state.setOperand(inst.Src1, 0, vector.src1)
+				alu.Run(state)
+				if got := state.ReadOperand(inst.Dst, 0); got != vector.want || state.SCC() != vector.scc {
+					t.Fatalf("inputs %#x, %#x: result = %#x, SCC = %d; want %#x, %d",
+						vector.src0, vector.src1, got, state.SCC(), vector.want, vector.scc)
+				}
+			}
+		})
 	}
 }

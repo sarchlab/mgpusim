@@ -1079,6 +1079,11 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_read_b96", 254, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read_b128", 255, FormatTable[DS], 0, ExeUnitLDS, 128, 0, 0, 0, 0})
 
+	d.addCDNA3InstType(&InstType{"s_lshl1_add_u32", 46, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_lshl2_add_u32", 47, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_lshl3_add_u32", 48, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_lshl4_add_u32", 49, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
+
 	// These gfx942 encodings reuse opcodes with different GCN3 semantics.
 	d.addCDNA3InstType(&InstType{"v_fmac_f64_e32", 4, FormatTable[VOP2], 0, ExeUnitVALU, 64, 64, 64, 0, 0})
 	d.addCDNA3InstType(&InstType{"v_mov_b64_e32", 56, FormatTable[VOP1], 0, ExeUnitVALU, 64, 64, 0, 0, 0})
