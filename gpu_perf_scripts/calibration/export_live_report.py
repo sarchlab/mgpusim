@@ -37,7 +37,6 @@ def nanoseconds(value, scale):
 def convert(snapshot):
     benchmarks = {}
     points = []
-    states = []
     seen = set()
     for case in snapshot["cases"]:
         name, axis = case["benchmark"], case["axis"]
@@ -71,32 +70,21 @@ def convert(snapshot):
                 "mgpusim": nanoseconds(case.get("kernel_time_s"), 1_000_000_000),
             },
         })
-        states.append({
-            "case": case["case"],
-            "state": case["status"],
-            "worker": case.get("worker"),
-            "error": case.get("error") or case.get("unsupported_reason"),
-        })
 
-    data = {"groups": {GROUP: {"name": "AMD MI300X"}}, "benchmarks": benchmarks, "points": points}
-    progress = {
-        "updated_at": snapshot["updated_at"],
-        "revision": snapshot["commit"],
-        "workers": snapshot.get("workers", {}),
-        "points": states,
+    return {
+        "groups": {GROUP: {"name": "AMD MI300X"}},
+        "benchmarks": benchmarks,
+        "points": points,
     }
-    return data, progress
 
 
 def publish(snapshot_path, output):
-    data, progress = convert(json.loads(snapshot_path.read_text()))
-    # Progress is an optional hosting feed. A static Pages snapshot needs only data.json.
+    data = convert(json.loads(snapshot_path.read_text()))
     output.mkdir(parents=True, exist_ok=True)
-    for filename, payload in (("data.json", data), ("progress.json", progress)):
-        path = output / filename
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False) + "\n")
-        os.replace(temporary, path)
+    path = output / "data.json"
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, separators=(",", ":"), allow_nan=False) + "\n")
+    os.replace(temporary, path)
 
 
 def main():
