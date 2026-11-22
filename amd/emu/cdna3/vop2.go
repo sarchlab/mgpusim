@@ -417,7 +417,7 @@ func (u *ALU) runVMACF32(state emu.InstEmuState) {
 	}
 }
 
-// runVFMAMKF32 implements v_fmamk_f32 / v_madmk_f32 (opcode 23)
+// runVFMAMKF32 implements CDNA3 v_fmamk_f32 (opcode 23)
 // D = S0 * K + S1
 func (u *ALU) runVFMAMKF32(state emu.InstEmuState) {
 	inst := state.Inst()
@@ -429,12 +429,12 @@ func (u *ALU) runVFMAMKF32(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
-		dst := src0*k + src1
+		dst := fmaF32(src0, k, src1)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
 
-// runVFMAAKF32 implements v_fmaak_f32 / v_madak_f32 (opcode 24)
+// runVFMAAKF32 implements CDNA3 v_fmaak_f32 (opcode 24)
 // D = S0 * S1 + K
 func (u *ALU) runVFMAAKF32(state emu.InstEmuState) {
 	inst := state.Inst()
@@ -446,7 +446,7 @@ func (u *ALU) runVFMAAKF32(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
-		dst := src0*src1 + k
+		dst := fmaF32(src0, src1, k)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
@@ -671,7 +671,7 @@ func (u *ALU) runVFMACF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		dst := math.Float32frombits(uint32(state.ReadOperand(inst.Dst, i)))
-		dst = src0*src1 + dst
+		dst = fmaF32(src0, src1, dst)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
