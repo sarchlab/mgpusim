@@ -1,11 +1,12 @@
 # Rodinia HotSpot3D
 
-CUDA host program `hotspot3d.cu` for the Rodinia HotSpot3D benchmark. The GPU kernels are not copied: `hotspot3d.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `hotspot3d.cu` for the Rodinia HotSpot3D benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/hotspot3d/native/rodinia_hotspot3d.cpp` |
-| Kernel version | commit `7155c64f` (2026-07-04) on main |
+| Kernel source | [`rodinia_hotspot3d.cpp`](../../kernels/rodinia/hotspot3d/native/rodinia_hotspot3d.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/hotspot3d/native/rodinia_hotspot3d.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_hotspot3d |
 | Kernels | `hotspot3d_kernel` |
 | Host code follows | `amd/benchmarks/rodinia/hotspot3d/hotspot3d.go` |

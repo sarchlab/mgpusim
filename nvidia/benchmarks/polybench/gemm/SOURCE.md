@@ -1,11 +1,12 @@
 # PolyBench/GPU GEMM
 
-CUDA host program `gemm.cu` for the PolyBench/GPU GEMM benchmark. The GPU kernels are not copied: `gemm.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `gemm.cu` for the PolyBench/GPU GEMM benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/gemm/native/polybench_gemm.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_gemm.cpp`](../../kernels/polybench/gemm/native/polybench_gemm.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/gemm/native/polybench_gemm.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_gemm |
 | Kernels | `polybench_gemm_kernel` |
 | Host code follows | `amd/benchmarks/polybench/gemm/gemm.go` |

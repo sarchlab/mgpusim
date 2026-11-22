@@ -72,7 +72,7 @@ func (b *Benchmark) SetUnifiedMemory()    { b.UseUnifiedMemory = true }
 
 func ceil32(x float32) int { return int(math.Ceil(float64(x))) }
 
-func (b *Benchmark) configure() {
+func (b *Benchmark) configure() int {
 	if b.Arch != arch.CDNA3 {
 		panic("CutCP requires CDNA3")
 	}
@@ -99,7 +99,9 @@ func (b *Benchmark) configure() {
 		}
 	case regionSide*b.GridSpacing <= 2*binLength:
 		factor *= 2
-		if 2*padding+3 > 11 {
+		// An unaligned region can reach one bin farther from its center bin.
+		padding++
+		if 2*padding+1 > 11 {
 			panic("CutCP cutoff exceeds neighbor-list capacity")
 		}
 	default:
@@ -118,9 +120,11 @@ func (b *Benchmark) configure() {
 	}
 	b.BinSide = ceil32(float32(regionSide*b.SideRegions)*b.GridSpacing/binLength) + 2*padding
 	b.BinOrigin = ((padding*b.BinSide+padding)*b.BinSide + padding) * binDepth
+
+	return padding
 }
 
-func (b *Benchmark) binAtoms() []Atom {
+func (b *Benchmark) binAtoms(padding int) []Atom {
 	size := b.BinSide
 	bins := make([]Atom, size*size*size*binDepth)
 	counts := make([]int, size*size*size)
@@ -131,7 +135,6 @@ func (b *Benchmark) binAtoms() []Atom {
 		return lo + float32(float32(seed&0xffff)/65535*(hi-lo))
 	}
 	domain := float32(b.GridSide) * b.GridSpacing
-	padding := ceil32(b.Cutoff / binLength)
 	for i := 0; i < b.NumAtoms; i++ {
 		atom := Atom{draw(0, domain), draw(0, domain), draw(0, domain), draw(0.1, 1)}
 		x, y, z := int(atom.X/binLength)+padding, int(atom.Y/binLength)+padding, int(atom.Z/binLength)+padding
@@ -155,11 +158,11 @@ func (b *Benchmark) binAtoms() []Atom {
 }
 
 func (b *Benchmark) submit() {
-	b.configure()
+	padding := b.configure()
 	b.loadProgram()
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
-	bins := b.binAtoms()
+	bins := b.binAtoms(padding)
 	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
 		alloc = b.rt.AllocateUnifiedMemory

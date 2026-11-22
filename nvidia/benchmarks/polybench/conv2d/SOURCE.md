@@ -1,11 +1,12 @@
 # PolyBench/GPU 2DCONV
 
-CUDA host program `conv2d.cu` for the PolyBench/GPU 2DCONV benchmark. The GPU kernels are not copied: `conv2d.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `conv2d.cu` for the PolyBench/GPU 2DCONV benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/conv2d/native/polybench_2dconv.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_2dconv.cpp`](../../kernels/polybench/conv2d/native/polybench_2dconv.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/conv2d/native/polybench_2dconv.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_2dconv |
 | Kernels | `convolution2D_kernel` |
 | Host code follows | `amd/benchmarks/polybench/conv2d/conv2d.go` |

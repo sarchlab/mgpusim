@@ -1,11 +1,12 @@
 # PolyBench/GPU 3DCONV
 
-CUDA host program `conv3d.cu` for the PolyBench/GPU 3DCONV benchmark. The GPU kernels are not copied: `conv3d.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `conv3d.cu` for the PolyBench/GPU 3DCONV benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/conv3d/native/polybench_3dconv.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_3dconv.cpp`](../../kernels/polybench/conv3d/native/polybench_3dconv.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/conv3d/native/polybench_3dconv.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_3dconv |
 | Kernels | `conv3d_kernel` |
 | Host code follows | `amd/benchmarks/polybench/conv3d/conv3d.go` |

@@ -1,11 +1,12 @@
 # Rodinia PathFinder
 
-CUDA host program `pathfinder.cu` for the Rodinia PathFinder benchmark. The GPU kernels are not copied: `pathfinder.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `pathfinder.cu` for the Rodinia PathFinder benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/pathfinder/native/rodinia_pathfinder.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`rodinia_pathfinder.cpp`](../../kernels/rodinia/pathfinder/native/rodinia_pathfinder.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/pathfinder/native/rodinia_pathfinder.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_pathfinder |
 | Kernels | `dynproc_kernel` |
 | Host code follows | `amd/benchmarks/rodinia/pathfinder/pathfinder.go` |

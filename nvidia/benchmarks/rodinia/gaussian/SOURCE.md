@@ -1,11 +1,12 @@
 # Rodinia Gaussian
 
-CUDA host program `gaussian.cu` for the Rodinia Gaussian benchmark. The GPU kernels are not copied: `gaussian.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `gaussian.cu` for the Rodinia Gaussian benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/gaussian/native/rodinia_gaussian.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`rodinia_gaussian.cpp`](../../kernels/rodinia/gaussian/native/rodinia_gaussian.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/gaussian/native/rodinia_gaussian.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_gaussian |
 | Kernels | `fan1`, `fan2` |
 | Host code follows | `amd/benchmarks/rodinia/gaussian/gaussian.go` |

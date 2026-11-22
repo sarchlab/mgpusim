@@ -25,31 +25,27 @@ cache banks, and DRAM. It reports the simulated execution time.
 | `driver/`, `gpu/`, `sm/`, `smsp/`, `message/` | The simulated components. |
 | `runner/`, `benchmark/` | Load a trace, build the platform, run the simulation. |
 
-### Shared benchmark kernels
+### CUDA benchmark kernels
 
-The CUDA benchmarks do not carry their own kernels. Each host program in
-`benchmarks/` `#include`s the HIP kernel source from `amd/benchmarks/.../native/`,
-and `benchmarks/include/hip/hip_runtime.h` maps the few HIP names those kernels
-use (`hipThreadIdx_x`, `hipBlockIdx_x`, ...) to CUDA. The AMD and NVIDIA
-simulations of a benchmark therefore run the same kernel code.
+Each CUDA host program in `benchmarks/` includes a kernel source under
+`benchmarks/kernels/`. These files preserve the kernel interfaces that the host
+programs use. They are copies of their AMD sources at MGPUSim commit
+`31ca066fb44b8a6c5997409936d0e8778a1ef805`. The shim in
+`benchmarks/include/hip/hip_runtime.h` maps HIP names such as `hipThreadIdx_x`
+and `hipBlockIdx_x` to CUDA.
 
 | Suite | Benchmarks |
 | --- | --- |
 | PolyBench/GPU (13) | [`atax`](benchmarks/polybench/atax/SOURCE.md), [`bicg`](benchmarks/polybench/bicg/SOURCE.md), [`conv2d`](benchmarks/polybench/conv2d/SOURCE.md), [`conv3d`](benchmarks/polybench/conv3d/SOURCE.md), [`correlation`](benchmarks/polybench/correlation/SOURCE.md), [`fdtd2d`](benchmarks/polybench/fdtd2d/SOURCE.md), [`gemm`](benchmarks/polybench/gemm/SOURCE.md), [`gramschmidt`](benchmarks/polybench/gramschmidt/SOURCE.md), [`jacobi2d`](benchmarks/polybench/jacobi2d/SOURCE.md), [`mvt`](benchmarks/polybench/mvt/SOURCE.md), [`syr2k`](benchmarks/polybench/syr2k/SOURCE.md), [`threemm`](benchmarks/polybench/threemm/SOURCE.md), [`twomm`](benchmarks/polybench/twomm/SOURCE.md) |
 | Rodinia (9) | [`backprop`](benchmarks/rodinia/backprop/SOURCE.md), [`gaussian`](benchmarks/rodinia/gaussian/SOURCE.md), [`hotspot`](benchmarks/rodinia/hotspot/SOURCE.md), [`hotspot3d`](benchmarks/rodinia/hotspot3d/SOURCE.md), [`lavamd`](benchmarks/rodinia/lavamd/SOURCE.md), [`lud`](benchmarks/rodinia/lud/SOURCE.md), [`nw`](benchmarks/rodinia/nw/SOURCE.md), [`pathfinder`](benchmarks/rodinia/pathfinder/SOURCE.md), [`srad`](benchmarks/rodinia/srad/SOURCE.md) |
 
-That is every benchmark in `amd/benchmarks/polybench` and `amd/benchmarks/rodinia`.
-Each benchmark directory has a `SOURCE.md` with the kernel source path, the
-commit and date of the kernel and of the Go host code it follows, the port date,
-the usage line with the default sizes (the same flags and defaults as the
-matching `amd/samples` program unless noted), and any difference from the AMD
-host code.
+Each benchmark directory has a `SOURCE.md` with its kernel snapshot and
+provenance, the version of the original Go host it follows, and its usage.
 
-To add a benchmark, create `benchmarks/<suite>/<name>/<name>.cu` that includes
-the kernel file from `amd/benchmarks/<suite>/<name>/native/`; the Makefile picks
-it up automatically. Extend the shim header if the kernel uses other HIP names.
-If the shared kernels move (for example to a top-level `benchmarks/`),
-build with `make KERNEL_ROOT=<new path>`.
+To add a benchmark, create `benchmarks/<suite>/<name>/<name>.cu` and place its
+matching kernel under `benchmarks/kernels/<suite>/<name>/native/`. The
+Makefile picks up new host programs automatically. To build against a
+compatible kernel tree, use `make KERNEL_ROOT=<new path>`.
 
 ## Workflow
 

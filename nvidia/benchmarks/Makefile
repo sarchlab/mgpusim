@@ -1,4 +1,4 @@
-# Builds CUDA versions of the benchmarks whose kernels live in amd/benchmarks.
+# Builds CUDA benchmarks with the kernel sources bundled alongside the runners.
 #
 # Every <suite>/<name>/<name>.cu here is a host program that #includes the
 # HIP kernel file from $(KERNEL_ROOT)/<suite>/<name>/native/, and
@@ -10,11 +10,11 @@
 #   make bin/polybench-gemm  # builds one benchmark
 #   make ARCH=sm_80        # target an A100 instead of an H100
 #   make list              # prints the benchmark names
-#   make KERNEL_ROOT=../../benchmarks   # if the shared kernels move
+#   make KERNEL_ROOT=/path/to/kernels   # use a compatible alternate kernel tree
 
 NVCC        ?= nvcc
 ARCH        ?= sm_90
-KERNEL_ROOT ?= ../../amd/benchmarks
+KERNEL_ROOT ?= kernels
 NVCCFLAGS   ?= -O3 -lineinfo
 
 BIN      := bin
@@ -32,8 +32,7 @@ all: $(addprefix $(BIN)/,$(NAMES))
 list:
 	@echo $(NAMES)
 
-# bin/<suite>-<name> depends on <suite>/<name>/<name>.cu and on the shared
-# kernels.
+# bin/<suite>-<name> depends on its host source and kernel sources.
 define BENCHMARK_RULE
 $(BIN)/$(call bench_name,$(1)): $(1) $(wildcard $(KERNEL_ROOT)/$(dir $(1))native/*.cpp) $(HEADERS)
 	@mkdir -p $(BIN)

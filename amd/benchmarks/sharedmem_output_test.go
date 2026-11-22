@@ -52,7 +52,7 @@ func sharedCopyBenchmark(rt *gpuruntime.Runtime, name, pattern string, verify bo
 	return sharedCopyFixture{b, b.Queue, b.GSink, []float32{192, 192}, func() []float32 { return b.NoConflictResult }}
 }
 
-// The gfx942 kernels have a separately recorded baseline VOP3A513 decode gap.
+// These tests exercise the post-kernel phase.
 // Seed their CPU-reference sink at the post-kernel phase, then execute real
 // simulator H2D/D2H and the workload's actual readback Steps. This tests normal
 // output preservation without claiming execution of those unsupported kernels.

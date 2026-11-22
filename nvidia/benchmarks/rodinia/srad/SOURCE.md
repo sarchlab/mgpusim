@@ -1,11 +1,12 @@
 # Rodinia SRAD
 
-CUDA host program `srad.cu` for the Rodinia SRAD benchmark. The GPU kernels are not copied: `srad.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `srad.cu` for the Rodinia SRAD benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/srad/native/rodinia_srad.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`rodinia_srad.cpp`](../../kernels/rodinia/srad/native/rodinia_srad.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/srad/native/rodinia_srad.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_srad |
 | Kernels | `srad1`, `srad2` |
 | Host code follows | `amd/benchmarks/rodinia/srad/srad.go` |

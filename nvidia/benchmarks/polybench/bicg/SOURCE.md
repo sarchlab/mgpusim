@@ -1,11 +1,12 @@
 # PolyBench/GPU BICG
 
-CUDA host program `bicg.cu` for the PolyBench/GPU BICG benchmark. The GPU kernels are not copied: `bicg.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `bicg.cu` for the PolyBench/GPU BICG benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/bicg/native/bicg.cpp` |
-| Kernel version | commit `2d04fc56` (2026-03-05) on main |
+| Kernel source | [`bicg.cpp`](../../kernels/polybench/bicg/native/bicg.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/bicg/native/bicg.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Translated from bicg.cl for gfx942 CDNA3 architecture |
 | Kernels | `bicgKernel1`, `bicgKernel2` |
 | Host code follows | `amd/benchmarks/polybench/bicg/benchmark.go` |

@@ -1,11 +1,12 @@
 # PolyBench/GPU FDTD-2D
 
-CUDA host program `fdtd2d.cu` for the PolyBench/GPU FDTD-2D benchmark. The GPU kernels are not copied: `fdtd2d.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `fdtd2d.cu` for the PolyBench/GPU FDTD-2D benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/fdtd2d/native/polybench_fdtd2d.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_fdtd2d.cpp`](../../kernels/polybench/fdtd2d/native/polybench_fdtd2d.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/fdtd2d/native/polybench_fdtd2d.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_fdtd2d |
 | Kernels | `fdtd_update_ex`, `fdtd_update_ey`, `fdtd_update_hz` |
 | Host code follows | `amd/benchmarks/polybench/fdtd2d/fdtd2d.go` |
