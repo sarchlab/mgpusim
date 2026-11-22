@@ -15,7 +15,7 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize is the constant 1D work-group size baked into the gfx942 kernel.
+// binDepth is the maximum number of atoms stored per spatial bin.
 const binDepth = 16
 const regionSide = 8
 const regionPoints = 512
@@ -127,7 +127,8 @@ func (b *Benchmark) binAtoms() []Atom {
 	var seed uint32 = 42
 	draw := func(lo, hi float32) float32 {
 		seed = seed*1664525 + 1013904223
-		return lo + float32(seed&0xffff)/65535*(hi-lo)
+		// Match the HIP host's separate float32 multiply and add.
+		return lo + float32(float32(seed&0xffff)/65535*(hi-lo))
 	}
 	domain := float32(b.GridSide) * b.GridSpacing
 	padding := ceil32(b.Cutoff / binLength)

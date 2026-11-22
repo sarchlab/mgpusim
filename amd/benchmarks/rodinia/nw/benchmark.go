@@ -273,8 +273,10 @@ func (b *Benchmark) runNativeNW() {
 	local := [3]uint16{uint16(block), 1, 1}
 	dynamicBytes := uint32(((block+1)*(block+1) + block*block) * 4)
 	upper, lower := *b.kernel1, *b.kernel2
-	upper.GroupSegmentByteSize += dynamicBytes
-	lower.GroupSegmentByteSize += dynamicBytes
+	upperMeta, lowerMeta := *upper.KernelCodeObjectMeta, *lower.KernelCodeObjectMeta
+	upperMeta.GroupSegmentByteSize += dynamicBytes
+	lowerMeta.GroupSegmentByteSize += dynamicBytes
+	upper.KernelCodeObjectMeta, lower.KernelCodeObjectMeta = &upperMeta, &lowerMeta
 	for diagonal := 0; diagonal < blocks; diagonal++ {
 		args := struct {
 			nativeNWArgs

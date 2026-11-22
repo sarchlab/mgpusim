@@ -133,7 +133,8 @@ func (b *Benchmark) finishForward() {
 	}
 	var sum float32
 	for j, value := range b.Hidden {
-		sum += value * b.InitialOutputWeights[j]
+		// Match the HIP host's separately rounded float32 product.
+		sum += float32(value * b.InitialOutputWeights[j])
 	}
 	b.Output = float32(sigmoid(float64(sum)))
 	output := float64(b.Output)

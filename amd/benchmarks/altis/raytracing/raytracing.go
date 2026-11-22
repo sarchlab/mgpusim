@@ -23,9 +23,7 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize is the constant work-group size baked into the kernel (the native
-// kernel uses a literal BLOCK_SIZE rather than blockDim.x, so no hidden ABI
-// arguments are emitted).
+// blockSize is the work-group size used by the v1.1 host.
 const blockSize = 256
 
 // floatsPerSphere is the number of float32 values per Sphere
@@ -116,13 +114,14 @@ func (b *Benchmark) genSpheres() {
 
 	for i := 0; i < n; i++ {
 		base := i * floatsPerSphere
-		b.SphereData[base+0] = next()*6.0 - 3.0 // cx
-		b.SphereData[base+1] = next()*6.0 - 3.0 // cy
-		b.SphereData[base+2] = next()*4.0 - 4.0 // cz
-		b.SphereData[base+3] = next()*0.5 + 0.2 // radius
-		b.SphereData[base+4] = next()*0.8 + 0.2 // r
-		b.SphereData[base+5] = next()*0.8 + 0.2 // g
-		b.SphereData[base+6] = next()*0.8 + 0.2 // b
+		// Match the HIP host's separate float32 multiply and add.
+		b.SphereData[base+0] = float32(next()*6.0) - 3.0 // cx
+		b.SphereData[base+1] = float32(next()*6.0) - 3.0 // cy
+		b.SphereData[base+2] = float32(next()*4.0) - 4.0 // cz
+		b.SphereData[base+3] = float32(next()*0.5) + 0.2 // radius
+		b.SphereData[base+4] = float32(next()*0.8) + 0.2 // r
+		b.SphereData[base+5] = float32(next()*0.8) + 0.2 // g
+		b.SphereData[base+6] = float32(next()*0.8) + 0.2 // b
 	}
 }
 

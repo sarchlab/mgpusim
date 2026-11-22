@@ -161,7 +161,9 @@ func (b *Benchmark) exec() {
 	}
 
 	code := *b.hsaco
-	code.GroupSegmentByteSize += uint32(2 * (b.NumSteps + 1) * 4)
+	meta := *code.KernelCodeObjectMeta
+	meta.GroupSegmentByteSize += uint32(2 * (b.NumSteps + 1) * 4)
+	code.KernelCodeObjectMeta = &meta
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		&code,

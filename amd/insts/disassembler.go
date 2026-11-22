@@ -275,14 +275,18 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			inst.Src0Sel = 0xFFFFFFFF
 		}
 
-		switch src0Sext {
-		case 0:
-		case 1:
-			if !d.IsCDNA3 {
-				log.Panicf("SRC0_SEXT is not implemented")
+		if src0Sext != 0 || src1Sext != 0 {
+			var supported bool
+			switch inst.Opcode {
+			case 19, 20, 21, 43: // v_and_b32, v_or_b32, v_xor_b32, v_lshrrev_b16
+				supported = d.IsCDNA3
 			}
-			inst.Src0Sext = true
+			if !supported {
+				return fmt.Errorf("SDWA source sign extension is unsupported for %s", inst.InstName)
+			}
 		}
+		inst.Src0Sext = src0Sext != 0
+		inst.Src1Sext = src1Sext != 0
 
 		switch src0Neg {
 		case 0:
@@ -311,15 +315,6 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			inst.Src1Sel = 0xFFFF0000
 		case 6:
 			inst.Src1Sel = 0xFFFFFFFF
-		}
-
-		switch src1Sext {
-		case 0:
-		case 1:
-			if !d.IsCDNA3 {
-				log.Panicf("SRC1_SEXT is not implemented")
-			}
-			inst.Src1Sext = true
 		}
 
 		switch src1Neg {

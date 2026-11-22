@@ -1509,13 +1509,9 @@ func (u *ALU) runVDIVFMASF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
 		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		src2 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src2, i), 2, inst)))
-		// v_div_fmas_f32: Part of software division - final step
-		// Simplified: if VCC[i], scale by 2^32, else normal FMA
-		var dst float32
+		dst := bitops.FMAF32(src0, src1, src2)
 		if vccBit == 1 {
-			dst = float32(math.Pow(2.0, 32)) * (src0*src1 + src2)
-		} else {
-			dst = src0*src1 + src2
+			dst *= 0x1p32
 		}
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
@@ -1533,11 +1529,9 @@ func (u *ALU) runVDIVFMASF64(state emu.InstEmuState) {
 		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
 		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
 		src2 := math.Float64frombits(readModifiedF64(state, inst.Src2, i, 2))
-		var dst float64
+		dst := math.FMA(src0, src1, src2)
 		if vccBit == 1 {
-			dst = math.Pow(2.0, 64) * (src0*src1 + src2)
-		} else {
-			dst = src0*src1 + src2
+			dst *= 0x1p64
 		}
 		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}

@@ -104,8 +104,8 @@ func (b *Benchmark) initMem() {
 	n := b.NumElements
 	b.Data = make([]float32, n)
 	for i := 0; i < n; i++ {
-		// Deterministic init, mirroring the HIP host: 1.0 + (i%1024)*0.001.
-		b.Data[i] = 1.0 + float32(i%1024)*0.001
+		// Match the HIP host's separate float32 multiply and add.
+		b.Data[i] = 1.0 + float32(float32(i%1024)*0.001)
 	}
 
 	if b.UseUnifiedMemory {

@@ -1,4 +1,8 @@
 // GPU Benchmarks v1.1, tier2/parboil_cutcp/hip/parboil_cutcp.hip.
+// Derived from Parboil benchmarks/cutcp/src/cuda/cutoff6overlap.cu
+// at a4c63da28f45699e9a274cbc49af3e067162aa2b.
+// (C) Copyright 2008-2010 The Board of Trustees of the University of Illinois.
+// All Rights Reserved. See UPSTREAM_LICENSE for the Illinois Open Source License.
 #include <hip/hip_runtime.h>
 
 #define NBRLIST_DIM  11

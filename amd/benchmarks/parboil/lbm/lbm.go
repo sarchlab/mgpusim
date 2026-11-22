@@ -14,7 +14,7 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// Q is the number of discrete velocities in the D3Q19 lattice.
+// populations is the number of discrete velocities in the D3Q19 lattice.
 const populations = 19
 const omega float32 = 1.95
 

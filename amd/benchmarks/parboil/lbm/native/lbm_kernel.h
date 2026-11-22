@@ -1,6 +1,6 @@
 // (C) Copyright 2010 The Board of Trustees of the University of Illinois.
 // Adapted from Parboil a4c63da28f45699e9a274cbc49af3e067162aa2b.
-// See UPSTREAM_LICENSE and README.md for provenance and adaptations.
+// See UPSTREAM_LICENSE for the Illinois Open Source License.
 #pragma once
 #include "lbm_common.h"
 namespace lbm {
