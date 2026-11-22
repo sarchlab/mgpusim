@@ -74,7 +74,7 @@ func (u *ALU) runVMOV(state emu.InstEmuState) {
 		}
 		src0 := state.ReadOperand(inst.Src0, i)
 		if inst.Opcode == 56 && inst.Src0.OperandType == insts.FloatOperand {
-			src0 = math.Float64bits(inst.Src0.FloatValue)
+			src0 = math.Float64bits(readF64Operand(state, inst.Src0, i))
 		}
 		state.WriteOperand(inst.Dst, i, src0)
 	}

@@ -22,14 +22,15 @@ to a local directory containing `.info/version` and `lib/llvm/bin/clang++`:
 
 ```bash
 ROCM_DIST=/path/to/extracted/rocm-10.2.0
+HOST_IMAGE=rocm/dev-ubuntu-24.04@sha256:bdc8e61026cbb844ede93d44d2c50055f51ebb2041906b60182bf3bee3139054
 docker run --rm --platform linux/amd64 \
   -v "$PWD:/work" -v "$ROCM_DIST:/rocm:ro" -w /work \
   -e ROCM_PATH=/rocm -e LD_LIBRARY_PATH=/rocm/lib:/rocm/lib/llvm/lib \
-  rocm/dev-ubuntu-24.04:7.2.4 \
+  "$HOST_IMAGE" \
   make -C amd/benchmarks/parboil/sgemm/native update-embedded
 ```
 
-The container provides Linux C++ development headers. The recipe invokes the
+The pinned ROCm 7.2.4 container provides Linux C++ development headers. The recipe invokes the
 compiler and bundler from the mounted 10.2.0 distribution by absolute path.
 The compiler produces a device-only bundle. The shared builder unbundles the
 linked `gfx942` ELF and validates its target before replacing the output file.

@@ -325,3 +325,41 @@ func TestFP64FMACWaitsForAccumulatorPair(t *testing.T) {
 		}
 	}
 }
+
+func TestCDNA3VOP2WaitsForFP32Accumulator(t *testing.T) {
+	cases := []struct {
+		name string
+		word []byte
+	}{
+		{"v_mac_f32_e32", []byte{0x03, 0x21, 0x0e, 0x2c}},
+		{"v_fmac_f32_e32", []byte{0x03, 0x21, 0x0e, 0x76}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := insts.NewDisassembler()
+			scoreboard := NewScoreboard()
+			scoreboard.VGPRBusyUntil[7] = 1
+
+			legacy, err := d.Decode(tc.word)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scoreboard.HasHazard(legacy) {
+				t.Fatal("legacy decoder changed its hazard behavior")
+			}
+
+			d.IsCDNA3 = true
+			inst, err := d.Decode(tc.word)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !scoreboard.HasHazard(inst) {
+				t.Fatal("CDNA3 accumulator should wait for v7")
+			}
+			scoreboard.Tick()
+			if scoreboard.HasHazard(inst) {
+				t.Fatal("CDNA3 accumulator still blocked after v7 became available")
+			}
+		})
+	}
+}

@@ -25,7 +25,11 @@ func TestAMDGPUKernelRegisterNote(t *testing.T) {
 	copy(note[12:], owner)
 	copy(note[20:], descriptor)
 
-	kernels := amdGPUKernelsInNotes(note, binary.LittleEndian)
+	metadata := amdGPUCodeObjectMetadataInNotes(note, binary.LittleEndian)
+	if metadata == nil {
+		t.Fatal("valid AMDGPU metadata note was not decoded")
+	}
+	kernels := metadata.Kernels
 	if len(kernels) != 2 || kernels[0].Name != "first" || kernels[1].Name != "second" {
 		t.Fatalf("unexpected kernels: %+v", kernels)
 	}
@@ -35,7 +39,7 @@ func TestAMDGPUKernelRegisterNote(t *testing.T) {
 	if meta.WFSgprCount != 24 || meta.WIVgprCount != 28 {
 		t.Fatalf("register allocation: SGPR=%d VGPR=%d", meta.WFSgprCount, meta.WIVgprCount)
 	}
-	if got := amdGPUKernelsInNotes(note[:len(note)-4], binary.LittleEndian); got != nil {
+	if got := amdGPUCodeObjectMetadataInNotes(note[:len(note)-4], binary.LittleEndian); got != nil {
 		t.Fatalf("truncated note decoded: %+v", got)
 	}
 }

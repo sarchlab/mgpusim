@@ -634,6 +634,10 @@ func (u *ALU) runVSUBREVU32(state emu.InstEmuState) {
 func readF64Operand(state emu.InstEmuState, operand *insts.Operand, lane int) float64 {
 	switch operand.OperandType {
 	case insts.FloatOperand:
+		if operand.Code == 248 {
+			// CDNA3 inline 1/(2π) uses the ISA's exact double encoding.
+			return math.Float64frombits(0x3fc45f306dc9c882)
+		}
 		return operand.FloatValue
 	case insts.LiteralConstant:
 		return math.Float64frombits(uint64(operand.LiteralConstant) << 32)

@@ -378,7 +378,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	}
 
 	switch inst.Opcode {
-	case 4: // v_fmac_f64_e32 reuses the destination as the accumulator.
+	case 4, 22, 59: // CDNA3 FMAC/MAC reuses the destination as the accumulator.
 		if d.IsCDNA3 {
 			inst.Src2 = inst.Dst
 		}

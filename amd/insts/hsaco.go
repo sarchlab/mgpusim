@@ -264,10 +264,7 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string, machID
 				)
 				// Linked gfx942 images may omit the assembler's resource
 				// symbols. Their HSA note still reports the register usage.
-				const efAMDGPUgfx942 = 0x4c
-				if machID == efAMDGPUgfx942 && executable.Type == elf.ET_DYN {
-					overrideRegisterCountsFromNotes(v5Meta, kernelName, executable)
-				}
+				overrideRegisterCountsFromNotes(v5Meta, kernelName, executable, machID)
 
 				// The kernel_code_entry_byte_offset in the .kd descriptor
 				// is measured from the descriptor's own address to the

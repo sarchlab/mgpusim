@@ -1163,7 +1163,7 @@ func (u *ALU) runVFMAF64(state emu.InstEmuState) {
 		src0 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src0, i), 0, inst))
 		src1 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src1, i), 1, inst))
 		src2 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src2, i), 2, inst))
-		dst := src0*src1 + src2
+		dst := math.FMA(src0, src1, src2)
 		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
 }

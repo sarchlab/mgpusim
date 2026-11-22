@@ -444,3 +444,45 @@ func TestFlatLoadDWordX3ReadsTwelveBytes(t *testing.T) {
 		t.Fatalf("wrong destination write: %v, lane=%d, data=%x", wave.dst, wave.lane, wave.data)
 	}
 }
+
+func TestVOP3aFMAF64FusesProductAndAddend(t *testing.T) {
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 460 // v_fma_f64
+	state.exec = 1
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+
+	// Separate multiply and add would round the product to one.
+	delta := math.Ldexp(1, -52)
+	state.setOperand(state.inst.Src0, 0, math.Float64bits(1+delta))
+	state.setOperand(state.inst.Src1, 0, math.Float64bits(1-delta))
+	state.setOperand(state.inst.Src2, 0, math.Float64bits(-1))
+	NewALU(nil).Run(state)
+
+	if got, want := math.Float64frombits(state.operands[state.inst.Dst][0]), -delta*delta; got != want {
+		t.Fatalf("v_fma_f64 returned %g, want %g", got, want)
+	}
+}
+
+func TestVOP2FMACF64InlineInvTwoPi(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0xf8, 0x20, 0x00, 0x08})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+	state.setOperand(inst.Src1, 0, math.Float64bits(1))
+	NewALU(nil).Run(state)
+
+	const want = uint64(0x3fc45f306dc9c882)
+	if got := state.operands[inst.Dst][0]; got != want {
+		t.Fatalf("FP64 inline 1/(2π) = %#x, want %#x", got, want)
+	}
+}

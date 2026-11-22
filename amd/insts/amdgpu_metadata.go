@@ -3,6 +3,7 @@ package insts
 import (
 	"debug/elf"
 	"encoding/binary"
+	"strings"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -16,7 +17,17 @@ type amdGPUKernelMetadata struct {
 	VGPR uint16 `msgpack:".vgpr_count"`
 }
 
-func overrideRegisterCountsFromNotes(meta *KernelCodeObjectMeta, name string, file *elf.File) {
+type amdGPUCodeObjectMetadata struct {
+	Target  string                 `msgpack:"amdhsa.target"`
+	Kernels []amdGPUKernelMetadata `msgpack:"amdhsa.kernels"`
+}
+
+func overrideRegisterCountsFromNotes(meta *KernelCodeObjectMeta, name string, file *elf.File, machID uint32) {
+	const efAMDGPUMachGFX942 = 0x4c
+	if file.Machine != elf.EM_AMDGPU || file.Type != elf.ET_DYN || (machID != 0 && machID != efAMDGPUMachGFX942) {
+		return
+	}
+
 	for _, section := range file.Sections {
 		if section.Type != elf.SHT_NOTE {
 			continue
@@ -27,19 +38,26 @@ func overrideRegisterCountsFromNotes(meta *KernelCodeObjectMeta, name string, fi
 			continue
 		}
 
-		for _, kernel := range amdGPUKernelsInNotes(data, file.ByteOrder) {
+		note := amdGPUCodeObjectMetadataInNotes(data, file.ByteOrder)
+		if note == nil {
+			continue
+		}
+		// The opened ELF API cannot recover e_flags. The metadata target
+		// identifies gfx942 even if the original ELF header is unavailable.
+		target, _, _ := strings.Cut(note.Target, ":")
+		if machID == 0 && !strings.HasSuffix(target, "-gfx942") {
+			continue
+		}
+		for _, kernel := range note.Kernels {
 			if kernel.Name == name {
 				applyAMDGPUMetadataCounts(meta, kernel)
+				return
 			}
 		}
 	}
 }
 
-func amdGPUKernelsInNotes(data []byte, order binary.ByteOrder) []amdGPUKernelMetadata {
-	var metadata struct {
-		Kernels []amdGPUKernelMetadata `msgpack:"amdhsa.kernels"`
-	}
-
+func amdGPUCodeObjectMetadataInNotes(data []byte, order binary.ByteOrder) *amdGPUCodeObjectMetadata {
 	for len(data) >= 12 {
 		// An ELF note is three uint32 fields followed by the name and
 		// descriptor, each padded to a four-byte boundary.
@@ -55,8 +73,9 @@ func amdGPUKernelsInNotes(data []byte, order binary.ByteOrder) []amdGPUKernelMet
 		}
 		if noteType == amdGPUMetadataNote && string(data[:nameSize]) == "AMDGPU\x00" {
 			descriptor := data[descStart : descStart+descSize]
+			var metadata amdGPUCodeObjectMetadata
 			if err := msgpack.Unmarshal(descriptor, &metadata); err == nil {
-				return metadata.Kernels
+				return &metadata
 			}
 		}
 		data = data[nextNote:]
