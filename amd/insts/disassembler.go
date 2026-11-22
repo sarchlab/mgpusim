@@ -34,10 +34,11 @@ type Opcode uint16
 
 type decodeTable struct {
 	insts map[Opcode]*InstType
+	cdna3 map[Opcode]*InstType
 }
 
 func newDecodeTable() *decodeTable {
-	return &decodeTable{make(map[Opcode]*InstType)}
+	return &decodeTable{insts: make(map[Opcode]*InstType)}
 }
 
 // Disassembler is the unit that can decode .hsaco file
@@ -56,6 +57,18 @@ func (d *Disassembler) addInstType(info *InstType) {
 		d.decodeTables[info.Format.FormatType] = newDecodeTable()
 	}
 	d.decodeTables[info.Format.FormatType].insts[info.Opcode] = info
+	info.ID = d.nextInstID
+	d.nextInstID++
+}
+
+// addCDNA3InstType registers the gfx942 interpretation of an opcode when it
+// differs from the legacy instruction in the shared table.
+func (d *Disassembler) addCDNA3InstType(info *InstType) {
+	table := d.decodeTables[info.Format.FormatType]
+	if table.cdna3 == nil {
+		table.cdna3 = make(map[Opcode]*InstType)
+	}
+	table.cdna3[info.Opcode] = info
 	info.ID = d.nextInstID
 	d.nextInstID++
 }
@@ -100,9 +113,13 @@ func (d *Disassembler) lookUp(
 	format *Format,
 	opcode Opcode,
 ) (*InstType, error) {
-	if d.decodeTables[format.FormatType] != nil &&
-		d.decodeTables[format.FormatType].insts[opcode] != nil {
-		return d.decodeTables[format.FormatType].insts[opcode], nil
+	if table := d.decodeTables[format.FormatType]; table != nil {
+		if info := table.cdna3[opcode]; d.IsCDNA3 && info != nil {
+			return info, nil
+		}
+		if info := table.insts[opcode]; info != nil {
+			return info, nil
+		}
 	}
 
 	return nil, fmt.Errorf("instruction format %s, opcode %d not found",
@@ -350,8 +367,21 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
+	if inst.DSTWidth == 64 {
+		inst.Dst.RegCount = 2
+	}
+	if inst.SRC0Width == 64 {
+		inst.Src0.RegCount = 2
+	}
+	if inst.SRC1Width == 64 {
+		inst.Src1.RegCount = 2
+	}
 
 	switch inst.Opcode {
+	case 4, 22, 59: // CDNA3 FMAC/MAC reuses the destination as the accumulator.
+		if d.IsCDNA3 {
+			inst.Src2 = inst.Dst
+		}
 	case 23, 36: // v_madmk / v_fmamk: D = S0 * K + S1
 		inst.Imm = true
 		inst.ByteSize += 4

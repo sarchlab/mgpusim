@@ -92,10 +92,9 @@ changing code, and checkpoints carry no version or configuration-hash checks.
 
 ## Compiling HIP Kernels
 
-For LLVM/ROCm compiler tasks (compiling HIP code to HSACO), use the Docker image:
-```bash
-docker run -it rocm/dev-ubuntu-24.04:7.2.4
-```
+Use ROCm 10.2.0 for all checked-in gfx942 device binaries. See
+[Building ROCm 10.2 kernels](docs/gfx942-kernel-build.md) for native and embedded
+targets. The existing gfx803 kernels use their separate legacy toolchains.
 
 ## Timing Expectations
 

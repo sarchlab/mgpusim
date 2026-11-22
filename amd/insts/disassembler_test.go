@@ -354,3 +354,37 @@ var _ = Describe("CDNA3 Disassembler", func() {
 		Expect(printer.Print(inst)).To(Equal("global_store_dword v[0:1], v2, off"))
 	})
 })
+
+func TestCDNA3OverridesLegacyVOPEncodings(t *testing.T) {
+	d := insts.NewDisassembler()
+	cases := []struct {
+		bytes     []byte
+		cdna3Name string
+		gcnName   string
+	}{
+		{[]byte{0x08, 0x21, 0x00, 0x08}, "v_fmac_f64_e32", "v_mul_legacy_f32"},
+		{[]byte{0x12, 0x71, 0x00, 0x7e}, "v_mov_b64_e32", "v_movrelsd_b32"},
+	}
+	for _, tc := range cases {
+		d.IsCDNA3 = false
+		legacy, err := d.Decode(tc.bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if legacy.InstName != tc.gcnName || legacy.Dst.RegCount > 1 {
+			t.Fatalf("unexpected legacy decode: %s %s", legacy.InstName, legacy.Dst)
+		}
+
+		d.IsCDNA3 = true
+		native, err := d.Decode(tc.bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if native.InstName != tc.cdna3Name || native.Dst.RegCount != 2 || native.Src0.RegCount != 2 {
+			t.Fatalf("unexpected CDNA3 decode: %s %s %s", native.InstName, native.Dst, native.Src0)
+		}
+		if native.FormatType == insts.VOP2 && (native.Src1.RegCount != 2 || native.Src2 != native.Dst) {
+			t.Fatalf("invalid FMAC source operands: %s %s", native.Src1, native.Src2)
+		}
+	}
+}

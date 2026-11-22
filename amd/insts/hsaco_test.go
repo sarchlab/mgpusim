@@ -1,6 +1,7 @@
 package insts
 
 import (
+	"debug/elf"
 	"encoding/binary"
 	"testing"
 )
@@ -188,5 +189,26 @@ func TestLoadKernelCodeObjectFromFS_V2V3(t *testing.T) {
 	if len(co.Data) != expectedLen {
 		t.Errorf("expected Data length %d (symbol size %d - 256), got %d",
 			expectedLen, co.Symbol.Size, len(co.Data))
+	}
+}
+
+func TestLinkedGFX942KernelUsesRegisterMetadata(t *testing.T) {
+	const path = "../../amd/benchmarks/tango/blackscholes/kernels_gfx942.hsaco"
+	const name = "blackscholes_kernel"
+	elfFile, err := elf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = elfFile.Close() })
+
+	objects := map[string]*KernelCodeObject{
+		"path": LoadKernelCodeObjectFromFS(path, name),
+		"ELF":  LoadKernelCodeObjectFromELF(elfFile, name),
+	}
+	for label, co := range objects {
+		if co.WFSgprCount != 24 || co.WIVgprCount != 28 {
+			t.Errorf("%s: ROCm 10.2 Black-Scholes register allocation: SGPR=%d VGPR=%d",
+				label, co.WFSgprCount, co.WIVgprCount)
+		}
 	}
 }

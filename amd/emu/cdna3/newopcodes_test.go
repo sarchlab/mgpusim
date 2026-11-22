@@ -1,9 +1,12 @@
 package cdna3
 
 import (
+	"bytes"
+	"encoding/binary"
 	"math"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -341,5 +344,203 @@ func TestSOPKCmpK(t *testing.T) {
 			t.Fatalf("%s (opcode %d): expected SCC=%d, got %d",
 				c.name, c.opcode, c.want, state.scc)
 		}
+	}
+}
+
+func TestVOP2FMACF64(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0x08, 0x21, 0x00, 0x08})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+
+	// Without fusion the product rounds to 1.0 and the result would be zero.
+	delta := math.Ldexp(1, -52)
+	state.setOperand(inst.Src0, 0, math.Float64bits(1+delta))
+	state.setOperand(inst.Src1, 0, math.Float64bits(1-delta))
+	state.setOperand(inst.Dst, 0, math.Float64bits(-1))
+	state.setOperand(inst.Dst, 1, 99)
+
+	NewALU(nil).Run(state)
+
+	if got, want := math.Float64frombits(state.operands[inst.Dst][0]), -delta*delta; got != want {
+		t.Fatalf("v_fmac_f64 returned %g, want %g", got, want)
+	}
+	if got := state.operands[inst.Dst][1]; got != 99 {
+		t.Fatalf("inactive lane was overwritten: got %#x", got)
+	}
+}
+
+func TestVOP3aPkAddF32BroadcastsInlineConstant(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// v_pk_add_f32 v[14:15], v[6:7], 1.0 neg_lo:[1,0] neg_hi:[1,0]
+	inst, err := d.Decode([]byte{0x0e, 0x41, 0xb2, 0xd3, 0x06, 0xe5, 0x01, 0x38})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+	state.setOperand(inst.Src0, 0, f32bits(0.25)|f32bits(0.5)<<32)
+	state.setOperand(inst.Src1, 0, f32bits(1))
+
+	NewALU(nil).Run(state)
+
+	want := f32bits(0.75) | f32bits(0.5)<<32
+	if got := state.operands[inst.Dst][0]; got != want {
+		t.Fatalf("v_pk_add_f32 returned %#x, want %#x", got, want)
+	}
+}
+
+type flatLoadTestStorage struct {
+	emu.StorageAccessor
+	data    []byte
+	address uint64
+	size    uint64
+}
+
+func (s *flatLoadTestStorage) Read(_ vm.PID, addr, size uint64) []byte {
+	s.address, s.size = addr, size
+	return s.data
+}
+
+type flatLoadTestWave struct {
+	*mockInstState
+	dst  *insts.Operand
+	lane int
+	data []byte
+}
+
+func (w *flatLoadTestWave) WriteOperandBytes(operand *insts.Operand, lane int, data []byte) {
+	w.dst, w.lane, w.data = operand, lane, data
+}
+
+func TestFlatLoadDWordX3ReadsTwelveBytes(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// global_load_dwordx3 v[0:2], v[10:11], off
+	inst, err := d.Decode([]byte{0x00, 0x80, 0x58, 0xdc, 0x0a, 0x00, 0x7f, 0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wave := &flatLoadTestWave{mockInstState: newMockInstState()}
+	wave.inst = inst
+	wave.exec = 2
+	wave.setOperand(inst.Addr, 1, 0x123456780)
+	storage := &flatLoadTestStorage{data: []byte("three dwords")}
+	NewALU(storage).Run(wave)
+
+	if storage.address != 0x123456780 || storage.size != 12 {
+		t.Fatalf("load address and size: got %#x %d", storage.address, storage.size)
+	}
+	if wave.dst != inst.Dst || wave.lane != 1 || !bytes.Equal(wave.data, storage.data) {
+		t.Fatalf("wrong destination write: %v, lane=%d, data=%x", wave.dst, wave.lane, wave.data)
+	}
+}
+
+func TestVOP3aFMAF64FusesProductAndAddend(t *testing.T) {
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 460 // v_fma_f64
+	state.exec = 1
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+
+	// Separate multiply and add would round the product to one.
+	delta := math.Ldexp(1, -52)
+	state.setOperand(state.inst.Src0, 0, math.Float64bits(1+delta))
+	state.setOperand(state.inst.Src1, 0, math.Float64bits(1-delta))
+	state.setOperand(state.inst.Src2, 0, math.Float64bits(-1))
+	NewALU(nil).Run(state)
+
+	if got, want := math.Float64frombits(state.operands[state.inst.Dst][0]), -delta*delta; got != want {
+		t.Fatalf("v_fma_f64 returned %g, want %g", got, want)
+	}
+}
+
+func TestVOP2FMACF64InlineInvTwoPi(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0xf8, 0x20, 0x00, 0x08})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+	state.setOperand(inst.Src1, 0, math.Float64bits(1))
+	NewALU(nil).Run(state)
+
+	const want = uint64(0x3fc45f306dc9c882)
+	if got := state.operands[inst.Dst][0]; got != want {
+		t.Fatalf("FP64 inline 1/(2π) = %#x, want %#x", got, want)
+	}
+}
+
+func TestScalarShiftAdd(t *testing.T) {
+	alu := NewALU(nil)
+	disassembler := insts.NewDisassembler()
+	disassembler.IsCDNA3 = true
+	legacy := insts.NewDisassembler()
+
+	for _, tc := range []struct {
+		name   string
+		opcode uint32
+		want   uint64
+	}{
+		{"s_lshl1_add_u32", 46, 7},
+		{"s_lshl2_add_u32", 47, 11},
+		{"s_lshl3_add_u32", 48, 19},
+		{"s_lshl4_add_u32", 49, 35},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			encoding := binary.LittleEndian.AppendUint32(nil, 0x80000000|tc.opcode<<23|20<<16|18<<8|10)
+			inst, err := disassembler.Decode(encoding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inst.InstName != tc.name || inst.ExeUnit != insts.ExeUnitScalar {
+				t.Fatalf("decoded %s in execution unit %v, want scalar %s", inst.InstName, inst.ExeUnit, tc.name)
+			}
+			if inst.Dst.String() != "s20" || inst.Src1.String() != "s18" || inst.Src0.String() != "s10" {
+				t.Fatalf("unexpected operands: %s, %s, %s", inst.Dst, inst.Src0, inst.Src1)
+			}
+			if _, err := legacy.Decode(encoding); err == nil {
+				t.Fatal("GCN3 unexpectedly decoded the CDNA3 scalar shift-add encoding")
+			}
+
+			state := newMockInstState()
+			state.inst = inst
+			state.SetSCC(1)
+			shift := tc.opcode - 45
+			for _, vector := range []struct {
+				src0, src1, want uint64
+				scc              byte
+			}{
+				{2, 3, tc.want, 0},
+				{0x80000000, 3, 3, 1},
+				{0xffffffff >> shift, 1 << shift, 0, 1},
+				{0xffffffff, 0xffffffff, 0xffffffff - (1 << shift), 1},
+			} {
+				state.setOperand(inst.Src0, 0, vector.src0)
+				state.setOperand(inst.Src1, 0, vector.src1)
+				alu.Run(state)
+				if got := state.ReadOperand(inst.Dst, 0); got != vector.want || state.SCC() != vector.scc {
+					t.Fatalf("inputs %#x, %#x: result = %#x, SCC = %d; want %#x, %d",
+						vector.src0, vector.src1, got, state.SCC(), vector.want, vector.scc)
+				}
+			}
+		})
 	}
 }

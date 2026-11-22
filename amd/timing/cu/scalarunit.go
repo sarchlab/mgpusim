@@ -134,6 +134,8 @@ func (u *ScalarUnit) executeSMEMInst() bool {
 		return u.executeSMEMLoad(16)
 	case 3:
 		return u.executeSMEMLoad(32)
+	case 4:
+		return u.executeSMEMLoad(64)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}

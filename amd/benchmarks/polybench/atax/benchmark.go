@@ -12,6 +12,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
@@ -261,6 +262,8 @@ func (b *Benchmark) verify() error {
 func (b *Benchmark) cpuAtax() {
 	b.CpuY = make([]float32, b.NY)
 	tmp := make([]float32, b.NX)
+	// Both gfx942 kernels accumulate with v_fmac_f32.
+	fused := b.Arch == arch.CDNA3
 
 	for i := 0; i < b.NY; i++ {
 		b.CpuY[i] = 0
@@ -270,11 +273,21 @@ func (b *Benchmark) cpuAtax() {
 		tmp[i] = 0
 
 		for j := 0; j < b.NY; j++ {
-			tmp[i] += b.A[i*b.NY+j] * b.X[j]
+			a := b.A[i*b.NY+j]
+			if fused {
+				tmp[i] = bitops.FMAF32(a, b.X[j], tmp[i])
+			} else {
+				tmp[i] += a * b.X[j]
+			}
 		}
 
 		for j := 0; j < b.NY; j++ {
-			b.CpuY[j] += b.A[i*b.NY+j] * tmp[i]
+			a := b.A[i*b.NY+j]
+			if fused {
+				b.CpuY[j] = bitops.FMAF32(a, tmp[i], b.CpuY[j])
+			} else {
+				b.CpuY[j] += a * tmp[i]
+			}
 		}
 	}
 }

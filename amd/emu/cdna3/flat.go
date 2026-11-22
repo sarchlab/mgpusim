@@ -69,12 +69,8 @@ func (u *ALU) runFlat(state emu.InstEmuState) {
 		u.runFlatLoadSByte(state)
 	case 18:
 		u.runFlatLoadUShort(state)
-	case 20:
-		u.runFlatLoadDWord(state)
-	case 21:
-		u.runFlatLoadDWordX2(state)
-	case 23:
-		u.runFlatLoadDWordX4(state)
+	case 20, 21, 22, 23:
+		u.runFlatLoadDWords(state, uint64(inst.Opcode-19))
 	case 28:
 		u.runFlatStoreDWord(state)
 	case 29:
@@ -155,7 +151,7 @@ func (u *ALU) runFlatLoadUShort(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runFlatLoadDWord(state emu.InstEmuState) {
+func (u *ALU) runFlatLoadDWords(state emu.InstEmuState, dwords uint64) {
 	inst := state.Inst()
 	pid := state.PID()
 	exec := state.EXEC()
@@ -167,41 +163,7 @@ func (u *ALU) runFlatLoadDWord(state emu.InstEmuState) {
 		}
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 4)
-		state.WriteOperandBytes(inst.Dst, i, buf)
-	}
-}
-
-func (u *ALU) runFlatLoadDWordX2(state emu.InstEmuState) {
-	inst := state.Inst()
-	pid := state.PID()
-	exec := state.EXEC()
-	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
-
-	for i := 0; i < 64; i++ {
-		if exec&(1<<uint(i)) == 0 {
-			continue
-		}
-
-		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 8)
-		state.WriteOperandBytes(inst.Dst, i, buf)
-	}
-}
-
-func (u *ALU) runFlatLoadDWordX4(state emu.InstEmuState) {
-	inst := state.Inst()
-	pid := state.PID()
-	exec := state.EXEC()
-	hasSAddr, scalarBase := u.flatPrecomputeScalarBase(state)
-
-	for i := 0; i < 64; i++ {
-		if exec&(1<<uint(i)) == 0 {
-			continue
-		}
-
-		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 16)
+		buf := u.storageAccessor.Read(pid, addr, 4*dwords)
 		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }

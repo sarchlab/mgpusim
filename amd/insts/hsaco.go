@@ -262,6 +262,9 @@ func loadKernelCodeObjectFromELF(executable *elf.File, kernelName string, machID
 				overrideRegisterCountsFromSymbols(
 					v5Meta, kernelName, symbols,
 				)
+				// Linked gfx942 images may omit the assembler's resource
+				// symbols. Their HSA note still reports the register usage.
+				overrideRegisterCountsFromNotes(v5Meta, kernelName, executable, machID)
 
 				// The kernel_code_entry_byte_offset in the .kd descriptor
 				// is measured from the descriptor's own address to the
