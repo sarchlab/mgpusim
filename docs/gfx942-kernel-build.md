@@ -43,21 +43,41 @@ Run from the repository root in the Linux build environment above. Export
 `ROCM_PATH` if ROCm 10.2.0 is installed outside `/opt/rocm`.
 
 ```bash
+(
 set -euo pipefail
 find amd/benchmarks -name Makefile -type f -exec grep -lE '^include .*gfx942[.]mk$' {} + |
 while IFS= read -r recipe; do
   make -B -C "$(dirname "$recipe")" update-embedded
 done
 make -B -C amd/benchmarks/dnn/gputensor/native -f Makefile.hip update-embedded
+)
 ```
 
 These commands rebuild 66 device translation units and update their 125 tracked
 output paths. VectorAdd's embedded gfx942 object is named `kernels.hsaco`.
-N-Body uses `nbody_gfx942.hsaco`. Use `regen-disasm` in a native directory to
-refresh its checked-in LLVM reference when the directory has one.
+N-Body uses `nbody_gfx942.hsaco`. To refresh the checked-in LLVM references after
+the kernel rebuild, run this in the same environment:
+
+```bash
+(
+set -euo pipefail
+find amd/benchmarks -name Makefile -type f -exec grep -lE '^include .*gfx942[.]mk$' {} + |
+while IFS= read -r recipe; do
+  directory=$(dirname "$recipe")
+  reference=$(sed -n 's/^DISASM = //p' "$recipe")
+  if [ -n "$reference" ] && [ -f "$directory/$reference" ]; then
+    make -C "$directory" regen-disasm
+  fi
+done
+)
+```
+
+For these bulk commands on macOS, use the same container mounts and environment
+as above and run the commands in a Bash shell from `/work`.
 
 FFT and Needleman–Wunsch use `-O1` because the compiler can emit packed move
 and integer XOR-add instructions at higher levels that MGPUSim does not yet
-execute. Match the native optimization flags when collecting timings for
-these workloads. The gfx803 device binaries and their build recipes are
-outside this upgrade and retain their existing toolchains.
+execute. CutCP retains `-ffast-math -O1`, and LBM and Binomial Options retain
+`-ffast-math`. Match these native flags when collecting hardware timings.
+The gfx803 device binaries and their build recipes retain their existing
+toolchains.

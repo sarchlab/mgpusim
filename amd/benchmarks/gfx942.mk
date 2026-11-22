@@ -15,7 +15,14 @@ update-embedded: $(HSACO)
 	cp "$(HSACO)" "$(EMBEDDED_HSACO)"
 
 regen-disasm: $(HSACO)
-	"$(ROCM_PATH)/lib/llvm/bin/llvm-objdump" --disassemble --mcpu=gfx942 "$(HSACO)" > "$(DISASM)"
+	@set -eu; \
+	  if [ "$$(cat "$(ROCM_PATH)/.info/version" 2>/dev/null)" != 10.2.0 ]; then \
+	    echo "ROCM_PATH must point to a ROCm 10.2.0 installation" >&2; exit 1; \
+	  fi; \
+	  tmp=$$(mktemp "$(DISASM).XXXXXX"); \
+	  trap 'rm -f "$$tmp"' 0; \
+	  "$(ROCM_PATH)/lib/llvm/bin/llvm-objdump" --disassemble --mcpu=gfx942 "$(HSACO)" > "$$tmp"; \
+	  cat "$$tmp" > "$(DISASM)"
 
 clean:
 	rm -f *.ll *.bc *.s *.o *.cui *.fatbin *.hipfb
