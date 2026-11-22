@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -429,7 +430,7 @@ func (u *ALU) runVFMAMKF32(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
-		dst := fmaF32(src0, k, src1)
+		dst := bitops.FMAF32(src0, k, src1)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
@@ -446,7 +447,7 @@ func (u *ALU) runVFMAAKF32(state emu.InstEmuState) {
 		}
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
-		dst := fmaF32(src0, src1, k)
+		dst := bitops.FMAF32(src0, src1, k)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
@@ -671,7 +672,7 @@ func (u *ALU) runVFMACF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		src1 := math.Float32frombits(uint32(state.ReadOperand(inst.Src1, i)))
 		dst := math.Float32frombits(uint32(state.ReadOperand(inst.Dst, i)))
-		dst = fmaF32(src0, src1, dst)
+		dst = bitops.FMAF32(src0, src1, dst)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }

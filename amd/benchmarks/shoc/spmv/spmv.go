@@ -13,6 +13,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/matrix/csr"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
@@ -257,7 +258,13 @@ func (b *Benchmark) spmvCPU() []float32 {
 		t := float32(0)
 		for j := b.Matrix.RowOffsets[i]; j < b.Matrix.RowOffsets[i+1]; j++ {
 			col := b.Matrix.ColumnNumbers[j]
-			t += b.Matrix.Values[j] * b.Vec[col]
+			value, input := b.Matrix.Values[j], b.Vec[col]
+			if b.Arch == arch.CDNA3 {
+				// The gfx942 kernel accumulates with v_fmac_f32.
+				t = bitops.FMAF32(value, input, t)
+			} else {
+				t += value * input
+			}
 		}
 		cpuOutput[i] = t
 	}

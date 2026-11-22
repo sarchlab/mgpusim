@@ -1148,7 +1148,7 @@ func (u *ALU) runVFMAF32(state emu.InstEmuState) {
 		src0 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)))
 		src1 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src1, i), 1, inst)))
 		src2 := math.Float32frombits(uint32(applyF32Modifier(state.ReadOperand(inst.Src2, i), 2, inst)))
-		dst := fmaF32(src0, src1, src2)
+		dst := bitops.FMAF32(src0, src1, src2)
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
 	}
 }
@@ -1618,8 +1618,8 @@ func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 			c_hi = -c_hi
 		}
 
-		res_lo := fmaF32(a_lo, b_lo, c_lo)
-		res_hi := fmaF32(a_hi, b_hi, c_hi)
+		res_lo := bitops.FMAF32(a_lo, b_lo, c_lo)
+		res_hi := bitops.FMAF32(a_hi, b_hi, c_hi)
 
 		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
 		state.WriteOperand(inst.Dst, i, dstBits)
