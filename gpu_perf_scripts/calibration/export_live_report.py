@@ -50,8 +50,12 @@ def convert(snapshot):
             "scaling_param": axis,
             "params": {key: {"unit": UNITS.get(key, "")} for key in (axis, *params)},
             "values": {
-                "mi300x": {"name": hardware_name, "unit": "ns"},
-                "mgpusim": {"name": "MGPUSim kernel time", "unit": "ns"},
+                "mi300x": {
+                    "name": hardware_name, "unit": "ns", "role": "hardware_measurement",
+                },
+                "mgpusim": {
+                    "name": "MGPUSim kernel time", "unit": "ns", "role": "simulator_output",
+                },
             },
         }
         if benchmarks.setdefault(name, metadata) != metadata:
