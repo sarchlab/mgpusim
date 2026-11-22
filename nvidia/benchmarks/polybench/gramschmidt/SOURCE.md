@@ -1,11 +1,12 @@
 # PolyBench/GPU GRAMSCHM
 
-CUDA host program `gramschmidt.cu` for the PolyBench/GPU GRAMSCHM benchmark. The GPU kernels are not copied: `gramschmidt.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `gramschmidt.cu` for the PolyBench/GPU GRAMSCHM benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/gramschmidt/native/polybench_gramschmidt.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_gramschmidt.cpp`](../../kernels/polybench/gramschmidt/native/polybench_gramschmidt.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/gramschmidt/native/polybench_gramschmidt.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_gramschmidt |
 | Kernels | `gram_norm_finish`, `gram_normalize`, `gram_project` |
 | Host code follows | `amd/benchmarks/polybench/gramschmidt/gramschmidt.go` |

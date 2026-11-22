@@ -13,6 +13,8 @@ var gridSize = flag.Int("size", 32,
 var numIterations = flag.Int("iterations", 10,
 	"The number of stencil time-steps to simulate.")
 
+var pyramidHeight = flag.Int("pyramid-height", 1, "Maximum number of stencil steps per launch.")
+
 func main() {
 	flag.Parse()
 
@@ -23,6 +25,7 @@ func main() {
 	benchmark := hotspot.NewBenchmark(runtime)
 	benchmark.GridSize = *gridSize
 	benchmark.NumIterations = *numIterations
+	benchmark.PyramidHeight = *pyramidHeight
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

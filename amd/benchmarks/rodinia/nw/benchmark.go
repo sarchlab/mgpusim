@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
@@ -32,21 +33,15 @@ type KernelArgs struct {
 	OffsetC            int32
 }
 
-// CDNA3KernelArgs defines kernel arguments for CDNA3 architecture (gfx942)
-// No LocalInputItemSets/LocalReference - those are __shared__ inside the kernel.
-// KernargSegmentByteSize=56 (no hidden args needed - kernel uses AQL packet for dispatch dims)
-type CDNA3KernelArgs struct {
-	Reference      gpuruntime.Ptr // offset 0
-	InputItemSets  gpuruntime.Ptr // offset 8
-	OutputItemSets gpuruntime.Ptr // offset 16
-	Cols           int32          // offset 24
-	Penalty        int32          // offset 28
-	Blk            int32          // offset 32
-	BlockSize      int32          // offset 36
-	BlockWidth     int32          // offset 40
-	WorkSize       int32          // offset 44
-	OffsetR        int32          // offset 48
-	OffsetC        int32          // offset 52
+type nativeNWArgs struct {
+	Reference, Matrix          gpuruntime.Ptr
+	Columns, Penalty, Diagonal int32
+}
+
+// The lower triangle adds the block count before the work-group width.
+type nativeNWLowerArgs struct {
+	nativeNWArgs
+	Blocks, BlockSize int32
 }
 
 var blosum62 = [][]int32{
@@ -168,7 +163,43 @@ func (b *Benchmark) initMem() {
 	b.allocateGPUMem()
 }
 
+func (b *Benchmark) initNativeData() {
+	block := b.NativeBlockSize
+	if block == 0 {
+		block = 16
+	}
+	if block < 1 || block > 64 || b.Length <= 0 || b.Penalty <= 0 {
+		panic("invalid Needleman-Wunsch configuration")
+	}
+	effective := ((b.Length-1)/block + 1) * block
+	b.BlockSize = block
+	b.Row, b.Col = effective+1, effective+1
+	if b.Col > math.MaxInt32/b.Col || b.Col > math.MaxInt32/max(b.Penalty, 11) {
+		panic("Needleman-Wunsch indices or scores overflow 32-bit limits")
+	}
+	b.Reference = make([]int32, b.Row*b.Col)
+	b.InputItemSets = make([]int32, b.Row*b.Col)
+	b.OutputItemSets = make([]int32, b.Row*b.Col)
+	rows, cols := make([]uint32, b.Row), make([]uint32, b.Col)
+	rand := benchmarks.NewGlibcRand(7)
+	for _, seq := range [][]uint32{rows, cols} {
+		for i := 1; i < len(seq); i++ {
+			seq[i] = rand.Next()%10 + 1
+		}
+	}
+	for i := 1; i < b.Row; i++ {
+		b.InputItemSets[i*b.Col], b.InputItemSets[i] = int32(-i*b.Penalty), int32(-i*b.Penalty)
+		for j := 1; j < b.Col; j++ {
+			b.Reference[i*b.Col+j] = blosum62[rows[i]][cols[j]]
+		}
+	}
+}
+
 func (b *Benchmark) initData() {
+	if b.Arch == arch.CDNA3 {
+		b.initNativeData()
+		return
+	}
 	rng := rand.New(rand.NewSource(1))
 	b.Reference = make([]int32, b.Row*b.Col)
 	b.InputItemSets = make([]int32, b.Row*b.Col)
@@ -218,8 +249,12 @@ func (b *Benchmark) allocate(byteSize uint64) gpuruntime.Ptr {
 
 func (b *Benchmark) exec() {
 	b.copyInputDataToGPU()
-	b.runKernel1()
-	b.runKernel2()
+	if b.Arch == arch.CDNA3 {
+		b.runNativeNW()
+	} else {
+		b.runKernel1()
+		b.runKernel2()
+	}
 	b.copyOutputDataFromGPU()
 }
 
@@ -232,6 +267,33 @@ func (b *Benchmark) copyOutputDataFromGPU() {
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DInputItemSets, Target: 0})
 }
 
+func (b *Benchmark) runNativeNW() {
+	block := b.BlockSize
+	blocks := (b.Col - 1) / block
+	local := [3]uint16{uint16(block), 1, 1}
+	dynamicBytes := uint32(((block+1)*(block+1) + block*block) * 4)
+	upper, lower := *b.kernel1, *b.kernel2
+	upperMeta, lowerMeta := *upper.KernelCodeObjectMeta, *lower.KernelCodeObjectMeta
+	upperMeta.GroupSegmentByteSize += dynamicBytes
+	lowerMeta.GroupSegmentByteSize += dynamicBytes
+	upper.KernelCodeObjectMeta, lower.KernelCodeObjectMeta = &upperMeta, &lowerMeta
+	for diagonal := 0; diagonal < blocks; diagonal++ {
+		args := struct {
+			nativeNWArgs
+			BlockSize int32
+		}{nativeNWArgs{b.DReference, b.DInputItemSets, int32(b.Col), int32(b.Penalty), int32(diagonal)}, int32(block)}
+		grid := [3]uint32{uint32((diagonal + 1) * block), 1, 1}
+		b.rt.EnqueueLaunchKernel(b.Queue, &upper, grid, local, &args)
+	}
+	for diagonal := 0; diagonal < blocks-1; diagonal++ {
+		args := nativeNWLowerArgs{
+			nativeNWArgs{b.DReference, b.DInputItemSets, int32(b.Col), int32(b.Penalty), int32(diagonal)},
+			int32(blocks), int32(block)}
+		grid := [3]uint32{uint32((blocks - 1 - diagonal) * block), 1, 1}
+		b.rt.EnqueueLaunchKernel(b.Queue, &lower, grid, local, &args)
+	}
+}
+
 func (b *Benchmark) runKernel1() {
 	workSize := b.Col - 1
 	offsetR := 0
@@ -242,39 +304,22 @@ func (b *Benchmark) runKernel1() {
 		globalSize := [3]uint32{uint32(b.BlockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.BlockSize), 1, 1}
 
-		if b.Arch == arch.CDNA3 {
-			cdna3Args := CDNA3KernelArgs{
-				Reference:      b.DReference,
-				InputItemSets:  b.DInputItemSets,
-				OutputItemSets: b.DOutputItemSets,
-				Cols:           int32(b.Col),
-				Penalty:        int32(b.Penalty),
-				Blk:            int32(blk),
-				BlockSize:      int32(b.BlockSize),
-				BlockWidth:     int32(blockWidth),
-				WorkSize:       int32(workSize),
-				OffsetR:        int32(offsetR),
-				OffsetC:        int32(offsetC),
-			}
-			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &cdna3Args)
-		} else {
-			args := KernelArgs{
-				Reference:          b.DReference,
-				InputItemSets:      b.DInputItemSets,
-				OutputItemSets:     b.DOutputItemSets,
-				LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
-				LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
-				Cols:               int32(b.Col),
-				Penalty:            int32(b.Penalty),
-				Blk:                int32(blk),
-				BlockSize:          int32(b.BlockSize),
-				BlockWidth:         int32(blockWidth),
-				WorkSize:           int32(workSize),
-				OffsetR:            int32(offsetR),
-				OffsetC:            int32(offsetC),
-			}
-			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &args)
+		args := KernelArgs{
+			Reference:          b.DReference,
+			InputItemSets:      b.DInputItemSets,
+			OutputItemSets:     b.DOutputItemSets,
+			LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
+			LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
+			Cols:               int32(b.Col),
+			Penalty:            int32(b.Penalty),
+			Blk:                int32(blk),
+			BlockSize:          int32(b.BlockSize),
+			BlockWidth:         int32(blockWidth),
+			WorkSize:           int32(workSize),
+			OffsetR:            int32(offsetR),
+			OffsetC:            int32(offsetC),
 		}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel1, globalSize, localSize, &args)
 	}
 }
 
@@ -288,39 +333,22 @@ func (b *Benchmark) runKernel2() {
 		globalSize := [3]uint32{uint32(b.BlockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.BlockSize), 1, 1}
 
-		if b.Arch == arch.CDNA3 {
-			cdna3Args := CDNA3KernelArgs{
-				Reference:      b.DReference,
-				InputItemSets:  b.DInputItemSets,
-				OutputItemSets: b.DOutputItemSets,
-				Cols:           int32(b.Col),
-				Penalty:        int32(b.Penalty),
-				Blk:            int32(blk),
-				BlockSize:      int32(b.BlockSize),
-				BlockWidth:     int32(blockWidth),
-				WorkSize:       int32(workSize),
-				OffsetR:        int32(offsetR),
-				OffsetC:        int32(offsetC),
-			}
-			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &cdna3Args)
-		} else {
-			args := KernelArgs{
-				Reference:          b.DReference,
-				InputItemSets:      b.DInputItemSets,
-				OutputItemSets:     b.DOutputItemSets,
-				LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
-				LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
-				Cols:               int32(b.Col),
-				Penalty:            int32(b.Penalty),
-				Blk:                int32(blk),
-				BlockSize:          int32(b.BlockSize),
-				BlockWidth:         int32(blockWidth),
-				WorkSize:           int32(workSize),
-				OffsetR:            int32(offsetR),
-				OffsetC:            int32(offsetC),
-			}
-			b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &args)
+		args := KernelArgs{
+			Reference:          b.DReference,
+			InputItemSets:      b.DInputItemSets,
+			OutputItemSets:     b.DOutputItemSets,
+			LocalInputItemSets: gpuruntime.LocalPtr((b.BlockSize + 1) * (b.BlockSize + 1) * 4),
+			LocalReference:     gpuruntime.LocalPtr(b.BlockSize * b.BlockSize * 4),
+			Cols:               int32(b.Col),
+			Penalty:            int32(b.Penalty),
+			Blk:                int32(blk),
+			BlockSize:          int32(b.BlockSize),
+			BlockWidth:         int32(blockWidth),
+			WorkSize:           int32(workSize),
+			OffsetR:            int32(offsetR),
+			OffsetC:            int32(offsetC),
 		}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel2, globalSize, localSize, &args)
 	}
 }
 

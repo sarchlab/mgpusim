@@ -9,7 +9,9 @@ import (
 )
 
 var n = flag.Int("size", 32, "The volume edge length N (NxNxN volume).")
-var filterSize = flag.Int("filter-size", 3, "The cubic filter edge length.")
+var filterSize = flag.Int("filter-size", 3, "Fixed convolution stencil extent (3).")
+
+var blockSize = flag.Int("block-size", 8, "The edge length of a cubic work-group.")
 
 func main() {
 	flag.Parse()
@@ -21,6 +23,7 @@ func main() {
 	benchmark := conv3d.NewBenchmark(runtime)
 	benchmark.N = *n
 	benchmark.FilterSize = *filterSize
+	benchmark.BlockSize = *blockSize
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

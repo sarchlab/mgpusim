@@ -98,6 +98,13 @@ type CDNA3KernelArgs struct {
 	Pad1                [190]byte
 }
 
+type v11KernelArgs struct {
+	Data, RoundKeys gpuruntime.Ptr
+	Blocks          int32
+	_               uint32
+	Launch          benchmarks.GFX942LaunchDimensions
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
@@ -144,13 +151,70 @@ func (b *Benchmark) loadProgram() {
 		hsacoBytes = gcn3HSACOBytes
 	}
 
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "Encrypt")
+	if b.usesNativeAES() {
+		b.hsaco = insts.LoadGFX942KernelWithReadOnlyData(hsacoBytes, "aes256_encrypt_kernel")
+	} else {
+		b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "Encrypt")
+	}
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 }
 
+func (b *Benchmark) usesNativeAES() bool {
+	return b.Arch == arch.CDNA3 && len(b.Gpus) == 1
+}
+
+func expandKey(key []byte) []byte {
+	roundKeys := make([]byte, 240)
+	copy(roundKeys, key)
+	rcon := byte(1)
+	for i := 32; i < len(roundKeys); i += 4 {
+		word := [4]byte{roundKeys[i-4], roundKeys[i-3], roundKeys[i-2], roundKeys[i-1]}
+		switch i % 32 {
+		case 0:
+			word = [4]byte{s[word[1]] ^ rcon, s[word[2]], s[word[3]], s[word[0]]}
+			rcon <<= 1
+		case 16:
+			for j, value := range word {
+				word[j] = s[value]
+			}
+		}
+		for j, value := range word {
+			roundKeys[i+j] = roundKeys[i+j-32] ^ value
+		}
+	}
+	return roundKeys
+}
+
+func (b *Benchmark) initNativeAES() {
+	if b.Length < 16 || b.Length%16 != 0 {
+		panic("AES input must contain at least one complete 16-byte block")
+	}
+	b.Key = make([]byte, 32)
+	for i := range b.Key {
+		b.Key[i] = byte(i*0x13 + 0x37)
+	}
+	b.Input = make([]byte, b.Length)
+	for i := range b.Input {
+		b.Input[i] = byte(i)
+	}
+	roundKeys := expandKey(b.Key)
+	alloc := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		alloc = b.rt.AllocateUnifiedMemory
+	}
+	b.GInput = alloc(b.Context, uint64(b.Length))
+	b.GExpandedKey[0] = alloc(b.Context, uint64(len(roundKeys)))
+	b.Upload(b.rt, b.Queue, b.GExpandedKey[0], roundKeys)
+	b.Upload(b.rt, b.Queue, b.GInput, b.Input)
+}
+
 func (b *Benchmark) initMem() {
+	if b.usesNativeAES() {
+		b.initNativeAES()
+		return
+	}
 	b.Key = []byte{
 		0, 1, 2, 3, 4, 5, 6, 7,
 		8, 9, 10, 11, 12, 13, 14, 15,
@@ -206,8 +270,29 @@ func (b *Benchmark) setup() {
 	b.initMem()
 }
 
+func (b *Benchmark) enqueueNativeAES() {
+	block := b.BlockSize
+	if block == 0 {
+		block = 256
+	}
+	if block < 1 || block > 1024 {
+		panic("AES block size must be between 1 and 1024")
+	}
+	blocks := b.Length / 16
+	grid := [3]uint32{uint32((blocks + block - 1) / block * block), 1, 1}
+	group := [3]uint16{uint16(block), 1, 1}
+	args := v11KernelArgs{Data: b.GInput, RoundKeys: b.GExpandedKey[0], Blocks: int32(blocks),
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group)}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
+}
+
 // LaunchKernel launches kernel
 func (b *Benchmark) LaunchKernel() {
+	if b.usesNativeAES() {
+		b.enqueueNativeAES()
+		return
+	}
+
 	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 	numWi := b.Length / 16
 	localSize := [3]uint16{64, 1, 1}

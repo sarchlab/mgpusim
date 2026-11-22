@@ -93,6 +93,20 @@ func (u *ALU) sdwaSrcSelect(src uint32, sel insts.SDWASelect) uint32 {
 	return src
 }
 
+func (u *ALU) sdwaRead(source uint32, selection insts.SDWASelect, extend bool) uint32 {
+	value := u.sdwaSrcSelect(source, selection)
+	if !extend {
+		return value
+	}
+	switch selection {
+	case insts.SDWASelectByte0, insts.SDWASelectByte1, insts.SDWASelectByte2, insts.SDWASelectByte3:
+		return uint32(int32(int8(value)))
+	case insts.SDWASelectWord0, insts.SDWASelectWord1:
+		return uint32(int32(int16(value)))
+	}
+	return value
+}
+
 // sdwaSelectValue computes the value, mask, and sign bit for SDWA dst_sel.
 func sdwaSelectValue(dstNew uint32, sel insts.SDWASelect) (value, mask uint32, signBit bool) {
 	switch sel {

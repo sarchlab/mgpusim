@@ -22,13 +22,19 @@ llvm="$rocm/lib/llvm/bin"
 scratch=$(mktemp -d "$(dirname "$output")/.gfx942.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 
-# There is no host object to pair with this single device translation unit.
-# Disable the host/device identifier that hashes the temporary output path.
-"$llvm/clang++" --rocm-path="$rocm" --offload-arch=gfx942 --offload-device-only \
-    -O3 "$@" -fuse-cuid=none -x hip "$source_file" -o "$scratch/bundle"
-"$llvm/clang-offload-bundler" --type=o --unbundle \
-    --targets=hipv4-amdgcn-amd-amdhsa--gfx942 \
-    --input="$scratch/bundle" --output="$scratch/kernel.hsaco"
+if [[ "$source_file" == *.cl ]]; then
+    # The ROCclr device copy kernel is OpenCL and uses no library functions.
+    "$llvm/clang" --target=amdgcn-amd-amdhsa -mcpu=gfx942 -x cl \
+        -cl-std=CL2.0 -O3 -nogpulib "$@" "$source_file" -o "$scratch/kernel.hsaco"
+else
+    # There is no host object to pair with this single device translation unit.
+    # Disable the host/device identifier that hashes the temporary output path.
+    "$llvm/clang++" --rocm-path="$rocm" --offload-arch=gfx942 --offload-device-only \
+        -O3 "$@" -fuse-cuid=none -x hip "$source_file" -o "$scratch/bundle"
+    "$llvm/clang-offload-bundler" --type=o --unbundle \
+        --targets=hipv4-amdgcn-amd-amdhsa--gfx942 \
+        --input="$scratch/bundle" --output="$scratch/kernel.hsaco"
+fi
 header=$("$llvm/llvm-readelf" --file-header "$scratch/kernel.hsaco")
 if ! grep -q 'Machine:.*EM_AMDGPU' <<<"$header" ||
     ! grep -q 'Type:.*DYN' <<<"$header" ||

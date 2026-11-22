@@ -10,6 +10,8 @@ import (
 
 var n = flag.Int("size", 256, "The number of mesh cells N.")
 
+var blockSize = flag.Int("block-size", 256, "Cells processed per work-group.")
+
 func main() {
 	flag.Parse()
 
@@ -19,6 +21,7 @@ func main() {
 
 	benchmark := cfd.NewBenchmark(runtime)
 	benchmark.N = *n
+	benchmark.BlockSize = *blockSize
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

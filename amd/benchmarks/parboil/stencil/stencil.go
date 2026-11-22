@@ -10,7 +10,7 @@
 //
 // Stencil:
 //
-//	out[i] = c0*in[i] + c1*(in[i-1] + in[i+1] + in[i-nx] + in[i+nx]
+//	out[i] = -c0*in[i] + c1*(in[i-1] + in[i+1] + in[i-nx] + in[i+nx]
 //	                        + in[i-nx*ny] + in[i+nx*ny])
 //
 // Interior points are updated; the 1-cell boundary remains fixed.
@@ -32,25 +32,21 @@ import (
 const blockSize = 16
 
 const (
-	c0 float32 = 0.6
-	c1 float32 = (1.0 - 0.6) / 6.0
+	c0 float32 = 1.0 / 6.0
+	c1 float32 = c0 / 6.0
 )
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 36): two 8-byte global_buffer pointers followed by
-// five 4-byte by_value scalars, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The kernel
-// uses constant block dimensions, so no hidden ABI arguments are emitted.
 type KernelArgs struct {
-	In  gpuruntime.Ptr // offset 0
-	Out gpuruntime.Ptr // offset 8
-	Nx  int32          // offset 16
-	Ny  int32          // offset 20
-	Nz  int32          // offset 24
-	C0  float32        // offset 28
-	C1  float32        // offset 32
+	In     gpuruntime.Ptr // offset 0
+	Out    gpuruntime.Ptr // offset 8
+	Nx     int32          // offset 16
+	Ny     int32          // offset 20
+	Nz     int32          // offset 24
+	C0     float32        // offset 28
+	C1     float32        // offset 32
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the stencil benchmark.
@@ -123,8 +119,12 @@ func (b *Benchmark) initMem() {
 
 	// Deterministic host init that is reproduced exactly in Verify().
 	b.HData = make([]float32, total)
-	for i := 0; i < total; i++ {
-		b.HData[i] = float32((i*7919)%1000) / 1000.0
+	if n < 3 {
+		panic("stencil requires at least three cells per dimension")
+	}
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.HData {
+		b.HData[i] = float32(rand.Next()%1000) / 1000.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -147,26 +147,28 @@ func (b *Benchmark) exec() {
 	globalX := gridDimX * blockSize
 	globalY := gridDimY * blockSize
 
-	// The kernel uses a 2D (x,y) grid and loops over z internally, so the
-	// grid's z-dimension is 1 (see native/parboil_stencil.cpp for the reason).
+	grid := [3]uint32{globalX, globalY, uint32(n)}
+	group := [3]uint16{blockSize, blockSize, 1}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
 	src := b.GA
 	dst := b.GB
 	for t := 0; t < b.NumTimesteps; t++ {
 		args := KernelArgs{
-			In:  src,
-			Out: dst,
-			Nx:  int32(n),
-			Ny:  int32(n),
-			Nz:  int32(n),
-			C0:  c0,
-			C1:  c1,
+			In:     src,
+			Out:    dst,
+			Nx:     int32(n),
+			Ny:     int32(n),
+			Nz:     int32(n),
+			C0:     c0,
+			C1:     c1,
+			Launch: launch,
 		}
 
 		b.rt.EnqueueLaunchKernel(
 			b.Queue,
 			b.hsaco,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
+			grid,
+			group,
 			&args,
 		)
 
@@ -188,10 +190,10 @@ func (b *Benchmark) verify() error {
 	}
 
 	// CPU reference: same ping-pong stencil with the same init.
-	cur := make([]float32, total)
-	next := make([]float32, total)
-	copy(cur, b.HData)
-	copy(next, b.HData)
+	cur, next := make([]float64, total), make([]float64, total)
+	for i, x := range b.HData {
+		cur[i], next[i] = float64(x), float64(x)
+	}
 
 	for t := 0; t < b.NumTimesteps; t++ {
 		for iz := 0; iz < n; iz++ {
@@ -201,13 +203,8 @@ func (b *Benchmark) verify() error {
 					if ix >= 1 && ix < n-1 &&
 						iy >= 1 && iy < n-1 &&
 						iz >= 1 && iz < n-1 {
-						next[idx] = c0*cur[idx] +
-							c1*(cur[idx-1]+
-								cur[idx+1]+
-								cur[idx-n]+
-								cur[idx+n]+
-								cur[idx-n*n]+
-								cur[idx+n*n])
+						next[idx] = float64(c1)*(cur[idx+n*n]+cur[idx-n*n]+
+							cur[idx+n]+cur[idx-n]+cur[idx+1]+cur[idx-1]) - float64(c0)*cur[idx]
 					}
 					// boundary cells: keep the value already in next
 				}
@@ -220,11 +217,12 @@ func (b *Benchmark) verify() error {
 		ref := float64(cur[i])
 		got := float64(gpuOut[i])
 
-		denom := math.Abs(ref)
-		if denom < 1.0 {
-			denom = 1.0
+		x, y, z := i%n, i/n%n, i/(n*n)
+		tol := math.Max(1e-7, 2e-5*math.Abs(ref))
+		if x == 0 || y == 0 || z == 0 || x == n-1 || y == n-1 || z == n-1 {
+			tol = 0
 		}
-		if math.Abs(ref-got)/denom > 1e-3 {
+		if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(ref-got) > tol {
 			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}

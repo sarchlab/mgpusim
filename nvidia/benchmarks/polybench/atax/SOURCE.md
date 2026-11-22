@@ -1,11 +1,12 @@
 # PolyBench/GPU ATAX
 
-CUDA host program `atax.cu` for the PolyBench/GPU ATAX benchmark. The GPU kernels are not copied: `atax.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `atax.cu` for the PolyBench/GPU ATAX benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/atax/native/atax.cpp` |
-| Kernel version | commit `2d04fc56` (2026-03-05) on main |
+| Kernel source | [`atax.cpp`](../../kernels/polybench/atax/native/atax.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/atax/native/atax.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Translated from atax.cl for gfx942 CDNA3 architecture |
 | Kernels | `atax_kernel1`, `atax_kernel2` |
 | Host code follows | `amd/benchmarks/polybench/atax/benchmark.go` |

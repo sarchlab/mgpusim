@@ -3,10 +3,9 @@
 // MI300X (CDNA3 / gfx942) model.
 //
 // PathFinder is a dynamic-programming sweep that finds the minimum-cost path
-// through a 2D grid of weights from the top row to the bottom row. Each row
-// is processed by one kernel launch using the previous row's costs; the
-// source/destination row buffers are double-buffered (ping-pong) across the
-// Rows iterations. The kernel binary is compiled for gfx942 only (see
+// through a 2D grid of weights from the top row to the bottom row. Work-groups use LDS to update a tile of
+// multiple rows per launch, with overlapping halos between adjacent tiles.
+// The kernel binary is compiled for gfx942 only (see
 // native/), so the benchmark must be run with `-arch cdna3` (MI300X).
 package pathfinder
 
@@ -29,20 +28,12 @@ const blockSize = 256
 // intMax mirrors INT_MAX used as the out-of-bounds sentinel in the kernel.
 const intMax int32 = math.MaxInt32
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 32): three 8-byte global_buffer pointers followed
-// by two 4-byte by_value scalars, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernel uses a constant block size and reads only blockIdx/threadIdx, so no
-// hidden ABI arguments are emitted.
+// KernelArgs is the ABI of the tiled pathfinder kernel.
 type KernelArgs struct {
-	GPUWall gpuruntime.Ptr // offset 0
-	GPUSrc  gpuruntime.Ptr // offset 8
-	GPUDst  gpuruntime.Ptr // offset 16
-	Cols    int32          // offset 24
-	T       int32          // offset 28
+	Iterations                    int32
+	_                             uint32
+	GPUWall, GPUSrc, GPUDst       gpuruntime.Ptr
+	Cols, Rows, StartStep, Border int32
 }
 
 // Benchmark defines the PathFinder benchmark.
@@ -105,9 +96,9 @@ func (b *Benchmark) submit() {
 // genWall produces a deterministic wall (cost grid) reproducible in Verify().
 func genWall(rows, cols int) []int32 {
 	wall := make([]int32, rows*cols)
+	rand := benchmarks.NewGlibcRand(9)
 	for i := range wall {
-		// Simple deterministic LCG-style hash into [0, 10).
-		wall[i] = int32((i*1103515245 + 12345) & 0x7fffffff % 10)
+		wall[i] = int32(rand.Next() % 10)
 	}
 	return wall
 }
@@ -125,58 +116,41 @@ func (b *Benchmark) initMem() {
 
 	b.Wall = genWall(rows, cols)
 
-	wallBytes := uint64(rows * cols * 4)
-	rowBytes := uint64(cols * 4)
-
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		b.GWall = b.rt.AllocateUnifiedMemory(b.Context, wallBytes)
-		b.GBuf[0] = b.rt.AllocateUnifiedMemory(b.Context, rowBytes)
-		b.GBuf[1] = b.rt.AllocateUnifiedMemory(b.Context, rowBytes)
-	} else {
-		b.GWall = b.rt.AllocateMemory(b.Context, wallBytes)
-		b.GBuf[0] = b.rt.AllocateMemory(b.Context, rowBytes)
-		b.GBuf[1] = b.rt.AllocateMemory(b.Context, rowBytes)
+		alloc = b.rt.AllocateUnifiedMemory
 	}
-
-	b.Upload(b.rt, b.Queue, b.GWall, b.Wall)
-
-	// Initialize src buffer (gBuf[0]) with row 0 of the wall.
-	row0 := make([]int32, cols)
-	copy(row0, b.Wall[:cols])
-	b.Upload(b.rt, b.Queue, b.GBuf[0], row0)
+	rowBytes := uint64(cols * 4)
+	b.GBuf[0] = alloc(b.Context, rowBytes)
+	b.GBuf[1] = alloc(b.Context, rowBytes)
+	if rows > 1 {
+		b.GWall = alloc(b.Context, uint64((rows-1)*cols*4))
+		b.Upload(b.rt, b.Queue, b.GWall, b.Wall[cols:])
+	}
+	b.Upload(b.rt, b.Queue, b.GBuf[0], b.Wall[:cols])
 }
 
 func (b *Benchmark) exec() {
-	cols := b.Cols
-	rows := b.Rows
-
-	gridDim := uint32((cols + blockSize - 1) / blockSize)
-	globalX := gridDim * blockSize
-
-	src := 0 // index into b.gBuf
-	for t := 1; t < rows; t++ {
-		dst := 1 - src
-
-		args := KernelArgs{
-			GPUWall: b.GWall,
-			GPUSrc:  b.GBuf[src],
-			GPUDst:  b.GBuf[dst],
-			Cols:    int32(cols),
-			T:       int32(t),
-		}
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco,
-			[3]uint32{globalX, 1, 1},
-			[3]uint16{blockSize, 1, 1},
-			&args,
-		)
-
-		src = dst
+	height := b.PyramidHeight
+	if height == 0 {
+		height = 20
 	}
-
-	// After the loop, the most recent result is in b.gBuf[src].
+	if height < 1 || height >= blockSize/2 {
+		panic("pathfinder pyramid height must be positive and less than half the block size")
+	}
+	cols, rows := b.Cols, b.Rows
+	tileWidth := blockSize - 2*height
+	groups := (cols + tileWidth - 1) / tileWidth
+	grid := [3]uint32{uint32(groups * blockSize), 1, 1}
+	group := [3]uint16{blockSize, 1, 1}
+	src, dst := 0, 1
+	for t := 0; t < rows-1; t += height {
+		args := KernelArgs{Iterations: int32(min(height, rows-1-t)),
+			GPUWall: b.GWall, GPUSrc: b.GBuf[src], GPUDst: b.GBuf[dst],
+			Cols: int32(cols), Rows: int32(rows), StartStep: int32(t), Border: int32(height)}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
+		src, dst = dst, src
+	}
 	b.FinalGBuf = b.GBuf[src]
 }
 

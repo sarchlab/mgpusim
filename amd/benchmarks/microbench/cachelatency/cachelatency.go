@@ -26,17 +26,13 @@ import (
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 24): one 8-byte global_buffer pointer, two 4-byte
-// by_value scalars, then another 8-byte global_buffer pointer, packed with
-// no padding (mgpusim serializes args with binary.Write, which inserts no
-// alignment padding). The kernel reads only blockIdx.x / threadIdx.x in a
-// guard, so no hidden ABI arguments are emitted.
+// The explicit ABI uses a 64-bit access count aligned at offset 16.
 type KernelArgs struct {
-	Arr         gpuruntime.Ptr // offset 0
-	StartIdx    uint32         // offset 8
-	NumAccesses uint32         // offset 12
-	Result      gpuruntime.Ptr // offset 16
+	Arr         gpuruntime.Ptr
+	StartIdx    uint32
+	_           uint32
+	NumAccesses uint64
+	Result      gpuruntime.Ptr
 }
 
 // Benchmark defines the cache_latency benchmark.
@@ -54,7 +50,7 @@ var cdna3HSACOBytes []byte
 // NewBenchmark returns a new cache_latency benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 	b := new(Benchmark)
-	b.State = &State{}
+	b.State = &State{Seed: 42}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
 
 	b.rt = rt
@@ -93,7 +89,9 @@ func (b *Benchmark) submit() {
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
-	b.exec()
+	primer := max(1, min(b.M, (256*1024*1024)/b.CachelineBytes))
+	b.exec(uint64(primer))
+	b.exec(uint64(b.NumAccesses))
 }
 
 // Timed-access bounds, matching the real benchmark: a floor so tiny resident
@@ -111,30 +109,10 @@ const (
 // lines still span the whole array (cache footprint == ArrayBytes). Non-node
 // slots stay zero; the chase only ever visits node slots.
 //
-// The permutation uses a deterministic Fisher-Yates shuffle driven by a
-// splitmix-style PRNG so the cycle is exactly reproducible in Verify.
+// The archived HIP host uses GCC's std::shuffle with std::mt19937.
 func (b *Benchmark) buildChain() {
 	m, s := b.M, uint32(b.Stride)
-
-	perm := make([]uint32, m)
-	for i := 0; i < m; i++ {
-		perm[i] = uint32(i)
-	}
-
-	state := uint64(b.Seed)*2654435761 + 0x9E3779B97F4A7C15
-	next := func() uint64 {
-		state += 0x9E3779B97F4A7C15
-		z := state
-		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
-		z = (z ^ (z >> 27)) * 0x94D049BB133111EB
-		return z ^ (z >> 31)
-	}
-
-	// Fisher-Yates over the m node ordinals.
-	for i := m - 1; i > 0; i-- {
-		j := int(next() % uint64(i+1))
-		perm[i], perm[j] = perm[j], perm[i]
-	}
+	perm := shuffledOrdinals(m, b.Seed)
 
 	b.Chain = make([]uint32, b.N) // non-node slots stay 0
 	for i := 0; i < m; i++ {
@@ -155,9 +133,6 @@ func (b *Benchmark) initMem() {
 	if b.MeasureLaps <= 0 {
 		b.MeasureLaps = 4
 	}
-	if b.Seed == 0 {
-		b.Seed = 42
-	}
 
 	b.N = b.ArrayBytes / 4
 	b.Stride = b.CachelineBytes / 4
@@ -173,18 +148,9 @@ func (b *Benchmark) initMem() {
 
 	// Timed accesses: derive from MeasureLaps like the real benchmark unless an
 	// explicit NumAccesses was given. The floor gives tiny resident sizes many
-	// laps, so the (necessarily counted) first cold lap is amortized -- the sim
-	// records cumulative GPU busy time and cannot run a separate untimed warmup
-	// the way the real benchmark does.
+	// laps. Primer and measured dispatch can be distinguished in a kernel trace.
 	if b.NumAccesses <= 0 {
-		na := b.MeasureLaps * b.M
-		if na < minTimedAccesses {
-			na = minTimedAccesses
-		}
-		if na > maxTimedAccesses {
-			na = maxTimedAccesses
-		}
-		b.NumAccesses = na
+		b.NumAccesses = min(max(b.MeasureLaps*b.M, minTimedAccesses), maxTimedAccesses)
 	}
 
 	b.buildChain()
@@ -205,11 +171,11 @@ func (b *Benchmark) initMem() {
 	b.Upload(b.rt, b.Queue, b.GResult, []uint32{0})
 }
 
-func (b *Benchmark) exec() {
+func (b *Benchmark) exec(accesses uint64) {
 	args := KernelArgs{
 		Arr:         b.GArr,
 		StartIdx:    b.StartIdx,
-		NumAccesses: uint32(b.NumAccesses),
+		NumAccesses: accesses,
 		Result:      b.GResult,
 	}
 

@@ -1,11 +1,12 @@
 # Rodinia LUD
 
-CUDA host program `lud.cu` for the Rodinia LUD benchmark. The GPU kernels are not copied: `lud.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `lud.cu` for the Rodinia LUD benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/lud/native/rodinia_lud.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`rodinia_lud.cpp`](../../kernels/rodinia/lud/native/rodinia_lud.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/lud/native/rodinia_lud.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_lud |
 | Kernels | `lud_diagonal`, `lud_perimeter`, `lud_internal` |
 | Host code follows | `amd/benchmarks/rodinia/lud/lud.go` |

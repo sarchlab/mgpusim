@@ -19,6 +19,10 @@ type State struct {
 	BytesMode        bool
 	Passes           int32
 	HalfNFfts        int64
+	Transforms       int64
+	Precision        string
+	DoubleSource     []Double2
+	DoubleResult     []Double2
 	NFfts            int64
 	HalfNCmplx       int64
 	UsedBytes        uint64

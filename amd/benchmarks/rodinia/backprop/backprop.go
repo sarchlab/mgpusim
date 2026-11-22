@@ -1,13 +1,4 @@
-// Package backprop implements the Rodinia Backpropagation benchmark, ported
-// from sarchlab/gpu_benchmarks (tier2/rodinia_backprop) for the MGPUSim MI300X
-// (CDNA3 / gfx942) model.
-//
-// It runs one forward + backward training epoch over a two-layer
-// fully-connected network (INPUT_N -> HIDDEN_N -> OUTPUT_N), exercising six
-// kernels: forward_hidden, forward_output, backward_output_delta,
-// backward_hidden_delta, update_w1 (2D grid) and update_w2.  The kernel binary
-// is compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300X configuration).
+// Package backprop runs the Rodinia hybrid input-to-hidden-to-output training epoch.
 package backprop
 
 import (
@@ -23,403 +14,255 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-const (
-	blockSz = 256 // 1D block width (matches BLOCK_SZ in the kernel; HW uses 256)
-	tile2D  = 16  // 2D block dim for update_w1 (matches TILE2D in the kernel)
-	lr      = float32(0.1)
-)
+const hidden = 16
+const width = hidden + 1
 
-// fwHiddenArgs matches forward_hidden (kernarg_segment_size = 40).
-type fwHiddenArgs struct {
-	Input   gpuruntime.Ptr // offset 0
-	W1      gpuruntime.Ptr // offset 8
-	B1      gpuruntime.Ptr // offset 16
-	Hidden  gpuruntime.Ptr // offset 24
-	InputN  int32          // offset 32
-	HiddenN int32          // offset 36
+type forwardArgs struct {
+	Input, Hidden, Weights, Partials gpuruntime.Ptr
+	Inputs, HiddenSize               int32
 }
 
-// fwOutputArgs matches forward_output (kernarg_segment_size = 40).
-type fwOutputArgs struct {
-	Hidden  gpuruntime.Ptr // offset 0
-	W2      gpuruntime.Ptr // offset 8
-	B2      gpuruntime.Ptr // offset 16
-	Output  gpuruntime.Ptr // offset 24
-	HiddenN int32          // offset 32
-	OutputN int32          // offset 36
+type adjustArgs struct {
+	Delta                    gpuruntime.Ptr
+	HiddenSize               int32
+	_                        uint32
+	Input                    gpuruntime.Ptr
+	Inputs                   int32
+	_                        uint32
+	Weights, PreviousWeights gpuruntime.Ptr
 }
 
-// bwOutputDeltaArgs matches backward_output_delta (kernarg_segment_size = 28).
-type bwOutputDeltaArgs struct {
-	Output   gpuruntime.Ptr // offset 0
-	Target   gpuruntime.Ptr // offset 8
-	DeltaOut gpuruntime.Ptr // offset 16
-	OutputN  int32          // offset 24
-}
-
-// bwHiddenDeltaArgs matches backward_hidden_delta (kernarg_segment_size = 40).
-type bwHiddenDeltaArgs struct {
-	Hidden   gpuruntime.Ptr // offset 0
-	W2       gpuruntime.Ptr // offset 8
-	DeltaOut gpuruntime.Ptr // offset 16
-	DeltaHid gpuruntime.Ptr // offset 24
-	HiddenN  int32          // offset 32
-	OutputN  int32          // offset 36
-}
-
-// updateW1Args matches update_w1 (kernarg_segment_size = 36).
-type updateW1Args struct {
-	W1       gpuruntime.Ptr // offset 0
-	Input    gpuruntime.Ptr // offset 8
-	DeltaHid gpuruntime.Ptr // offset 16
-	InputN   int32          // offset 24
-	HiddenN  int32          // offset 28
-	LR       float32        // offset 32
-}
-
-// updateW2Args matches update_w2 (kernarg_segment_size = 36).
-type updateW2Args struct {
-	W2       gpuruntime.Ptr // offset 0
-	Hidden   gpuruntime.Ptr // offset 8
-	DeltaOut gpuruntime.Ptr // offset 16
-	HiddenN  int32          // offset 24
-	OutputN  int32          // offset 28
-	LR       float32        // offset 32
-}
-
-// Benchmark defines the Backprop benchmark.
+// Benchmark owns both GPU launches and the intermediate CPU phase.
 type Benchmark struct {
 	*State
 	benchmarks.Checkpoint[State]
-	rt *gpuruntime.Runtime
-
-	kForwardHidden       *insts.KernelCodeObject
-	kForwardOutput       *insts.KernelCodeObject
-	kBackwardOutputDelta *insts.KernelCodeObject
-	kBackwardHiddenDelta *insts.KernelCodeObject
-	kUpdateW1            *insts.KernelCodeObject
-	kUpdateW2            *insts.KernelCodeObject
+	rt              *gpuruntime.Runtime
+	forward, adjust *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-// NewBenchmark returns a new Backprop benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
-	b := new(Benchmark)
-	b.State = &State{}
+	b := &Benchmark{rt: rt, State: &State{}}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
-
-	b.rt = rt
-	b.Context = b.rt.Init()
-
+	b.Context = rt.Init()
 	return b
 }
 
 func (b *Benchmark) loadProgram() {
-	load := func(name string) *insts.KernelCodeObject {
-		k := insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, name)
-		if k == nil {
-			log.Panicf("Failed to load kernel %q from binary", name)
-		}
-		return k
+	b.forward = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "bpnn_layerforward_CUDA")
+	b.adjust = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "bpnn_adjust_weights_cuda")
+	if b.forward == nil || b.adjust == nil {
+		log.Panic("could not load the two Backprop GPU kernels")
 	}
-
-	b.kForwardHidden = load("forward_hidden")
-	b.kForwardOutput = load("forward_output")
-	b.kBackwardOutputDelta = load("backward_output_delta")
-	b.kBackwardHiddenDelta = load("backward_hidden_delta")
-	b.kUpdateW1 = load("update_w1")
-	b.kUpdateW2 = load("update_w2")
 }
 
-// SelectGPU selects the GPUs to run on. Backprop uses a single GPU.
-func (b *Benchmark) SelectGPU(gpus []int) {
-	b.Gpus = gpus
-}
+func (b *Benchmark) SelectGPU(gpus []int) { b.Gpus = gpus }
+func (b *Benchmark) SetUnifiedMemory()    { b.UseUnifiedMemory = true }
 
-// SetUnifiedMemory requests the use of unified memory.
-func (b *Benchmark) SetUnifiedMemory() {
-	b.UseUnifiedMemory = true
-}
-
-// Prepare the inputs for the first queued phase.
 func (b *Benchmark) submit() {
 	if b.Arch != arch.CDNA3 {
-		log.Panic("the rodinia backprop benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300x")
+		panic("the Rodinia Backprop kernels require CDNA3")
 	}
-
 	b.loadProgram()
-
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
-	b.initMem()
-	b.exec()
-}
-
-// pseudoRand reproduces a simple deterministic LCG so the host init can be
-// recomputed exactly in Verify() (independent of the C rand()).
-func pseudoRand(seed *uint32) float32 {
-	*seed = (*seed)*1664525 + 1013904223
-	// take top 24 bits as a [0,1) fraction
-	return float32(*seed>>8) / float32(1<<24)
-}
-
-func (b *Benchmark) initMem() { //nolint:funlen,gocognit
 	if b.InputN <= 0 {
 		b.InputN = 64
 	}
-	if b.HiddenN <= 0 {
-		b.HiddenN = 32
+	b.InputN = max(16, b.InputN/16*16)
+	if (b.HiddenN != 0 && b.HiddenN != hidden) || (b.OutputN != 0 && b.OutputN != 1) {
+		panic("Rodinia Backprop requires 16 hidden units and one output")
 	}
-	if b.OutputN <= 0 {
-		b.OutputN = 4
+	b.HiddenN, b.OutputN = hidden, 1
+	b.Input = make([]float32, b.InputN+1)
+	b.Weights = make([]float32, (b.InputN+1)*width)
+	b.Partials = make([]float32, b.InputN)
+	rand := benchmarks.NewGlibcRand(7)
+	draw := func() float32 { return float32(rand.Next()) / 2147483647 }
+	for i := range b.Weights {
+		b.Weights[i] = draw()
 	}
-
-	in := b.InputN
-	hid := b.HiddenN
-	out := b.OutputN
-
-	b.HInput = make([]float32, in)
-	b.HW1 = make([]float32, in*hid)
-	b.HW2 = make([]float32, hid*out)
-	b.HB1 = make([]float32, hid)
-	b.HB2 = make([]float32, out)
-	b.HTarget = make([]float32, out)
-
-	for i := 0; i < in; i++ {
-		b.HInput[i] = float32(i%256) / 256.0
+	for j := range b.InitialOutputWeights {
+		_ = draw()
+		b.InitialOutputWeights[j] = draw()
 	}
-	var seed uint32 = 42
-	for i := range b.HW1 {
-		b.HW1[i] = (pseudoRand(&seed) - 0.5) * 0.2 // [-0.1, 0.1]
+	b.Input[0] = 1
+	for i := 1; i < len(b.Input); i++ {
+		b.Input[i] = draw()
 	}
-	for i := range b.HW2 {
-		b.HW2[i] = (pseudoRand(&seed) - 0.5) * 0.2
-	}
-	for i := range b.HB1 {
-		b.HB1[i] = 0.0
-	}
-	for i := range b.HB2 {
-		b.HB2[i] = 0.0
-	}
-	for i := range b.HTarget {
-		b.HTarget[i] = 1.0
-	}
-
-	alloc := func(n int) gpuruntime.Ptr {
-		if b.UseUnifiedMemory {
-			return b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
-		}
-		return b.rt.AllocateMemory(b.Context, uint64(n*4))
-	}
-
-	b.GInput = alloc(in)
-	b.GW1 = alloc(in * hid)
-	b.GB1 = alloc(hid)
-	b.GHidden = alloc(hid)
-	b.GW2 = alloc(hid * out)
-	b.GB2 = alloc(out)
-	b.GOutput = alloc(out)
-	b.GTarget = alloc(out)
-	b.GDeltaOut = alloc(out)
-	b.GDeltaHid = alloc(hid)
-
-	b.Upload(b.rt, b.Queue, b.GInput, b.HInput)
-	b.Upload(b.rt, b.Queue, b.GW1, b.HW1)
-	b.Upload(b.rt, b.Queue, b.GB1, b.HB1)
-	b.Upload(b.rt, b.Queue, b.GW2, b.HW2)
-	b.Upload(b.rt, b.Queue, b.GB2, b.HB2)
-	b.Upload(b.rt, b.Queue, b.GTarget, b.HTarget)
+	b.initDevice()
+	grid, group := b.geometry()
+	args := forwardArgs{b.GInput, b.GHidden, b.GWeights, b.GPartials, int32(b.InputN), hidden}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.forward, grid, group, &args)
 }
 
-func grid1D(n int) uint32 {
-	return uint32((n + blockSz - 1) / blockSz * blockSz)
+func (b *Benchmark) initDevice() {
+	alloc := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		alloc = b.rt.AllocateUnifiedMemory
+	}
+	weightsBytes := uint64(len(b.Weights) * 4)
+	b.GInput = alloc(b.Context, uint64(len(b.Input)*4))
+	b.GHidden = alloc(b.Context, width*4)
+	b.GWeights = alloc(b.Context, weightsBytes)
+	b.GPrevious = alloc(b.Context, weightsBytes)
+	b.GDelta = alloc(b.Context, width*4)
+	b.GPartials = alloc(b.Context, uint64(len(b.Partials)*4))
+	b.Upload(b.rt, b.Queue, b.GInput, b.Input)
+	b.Upload(b.rt, b.Queue, b.GWeights, b.Weights)
+	b.Upload(b.rt, b.Queue, b.GPrevious, make([]float32, len(b.Weights)))
 }
 
-func (b *Benchmark) exec() { //nolint:funlen,gocognit
-	in := b.InputN
-	hid := b.HiddenN
-	out := b.OutputN
-
-	// 1. forward_hidden  (one thread per hidden unit)
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kForwardHidden,
-		[3]uint32{grid1D(hid), 1, 1},
-		[3]uint16{blockSz, 1, 1},
-		&fwHiddenArgs{
-			Input: b.GInput, W1: b.GW1, B1: b.GB1, Hidden: b.GHidden,
-			InputN: int32(in), HiddenN: int32(hid),
-		},
-	)
-
-	// 2. forward_output  (one thread per output unit)
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kForwardOutput,
-		[3]uint32{grid1D(out), 1, 1},
-		[3]uint16{blockSz, 1, 1},
-		&fwOutputArgs{
-			Hidden: b.GHidden, W2: b.GW2, B2: b.GB2, Output: b.GOutput,
-			HiddenN: int32(hid), OutputN: int32(out),
-		},
-	)
-
-	// 3. backward_output_delta
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kBackwardOutputDelta,
-		[3]uint32{grid1D(out), 1, 1},
-		[3]uint16{blockSz, 1, 1},
-		&bwOutputDeltaArgs{
-			Output: b.GOutput, Target: b.GTarget, DeltaOut: b.GDeltaOut,
-			OutputN: int32(out),
-		},
-	)
-
-	// 4. backward_hidden_delta
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kBackwardHiddenDelta,
-		[3]uint32{grid1D(hid), 1, 1},
-		[3]uint16{blockSz, 1, 1},
-		&bwHiddenDeltaArgs{
-			Hidden: b.GHidden, W2: b.GW2, DeltaOut: b.GDeltaOut,
-			DeltaHid: b.GDeltaHid,
-			HiddenN:  int32(hid), OutputN: int32(out),
-		},
-	)
-
-	// 5. update_w1  (2D grid: x->input i, y->hidden j)
-	gx := uint32((in + tile2D - 1) / tile2D * tile2D)
-	gy := uint32((hid + tile2D - 1) / tile2D * tile2D)
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kUpdateW1,
-		[3]uint32{gx, gy, 1},
-		[3]uint16{tile2D, tile2D, 1},
-		&updateW1Args{
-			W1: b.GW1, Input: b.GInput, DeltaHid: b.GDeltaHid,
-			InputN: int32(in), HiddenN: int32(hid), LR: lr,
-		},
-	)
-
-	// 6. update_w2
-	b.rt.EnqueueLaunchKernel(
-		b.Queue, b.kUpdateW2,
-		[3]uint32{grid1D(hid), 1, 1},
-		[3]uint16{blockSz, 1, 1},
-		&updateW2Args{
-			W2: b.GW2, Hidden: b.GHidden, DeltaOut: b.GDeltaOut,
-			HiddenN: int32(hid), OutputN: int32(out), LR: lr,
-		},
-	)
+func (b *Benchmark) geometry() ([3]uint32, [3]uint16) {
+	return [3]uint32{hidden, uint32(b.InputN), 1}, [3]uint16{hidden, 16, 1}
 }
 
-func sigmoid(x float64) float64 {
-	return 1.0 / (1.0 + math.Exp(-x))
+func sigmoid(x float64) float64 { return 1 / (1 + math.Exp(-x)) }
+
+func (b *Benchmark) finishForward() {
+	b.Hidden[0] = 1
+	for j := 1; j < width; j++ {
+		var sum float32
+		for block := 0; block < b.InputN/16; block++ {
+			sum += b.Partials[block*hidden+j-1]
+		}
+		sum += b.Weights[j]
+		b.Hidden[j] = float32(sigmoid(float64(sum)))
+	}
+	var sum float32
+	for j, value := range b.Hidden {
+		// Match the HIP host's separately rounded float32 product.
+		sum += float32(value * b.InitialOutputWeights[j])
+	}
+	b.Output = float32(sigmoid(float64(sum)))
+	output := float64(b.Output)
+	b.OutputDelta = float32(output * (1 - output) * float64(float32(0.1)-b.Output))
+	for j := 1; j < width; j++ {
+		h := float64(b.Hidden[j])
+		propagated := b.OutputDelta * b.InitialOutputWeights[j]
+		b.HiddenDelta[j] = float32(h * (1 - h) * float64(propagated))
+	}
+	for j, value := range b.Hidden {
+		change := float32(0.3 * float64(b.OutputDelta) * float64(value))
+		b.OutputMomentum[j] = change
+		b.OutputWeights[j] = b.InitialOutputWeights[j] + change
+	}
 }
 
-// Verify recomputes the full epoch on the CPU and compares the updated weight
-// matrices (w1, w2) against the GPU results.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
-	in := b.InputN
-	hid := b.HiddenN
-	out := b.OutputN
+func (b *Benchmark) adjustWeights() {
+	b.finishForward()
+	b.Upload(b.rt, b.Queue, b.GDelta, b.HiddenDelta)
+	// The archived forward kernel uses the input weights as scratch.
+	b.Upload(b.rt, b.Queue, b.GWeights, b.Weights)
+	grid, group := b.geometry()
+	args := adjustArgs{Delta: b.GDelta, HiddenSize: hidden, Input: b.GInput,
+		Inputs: int32(b.InputN), Weights: b.GWeights, PreviousWeights: b.GPrevious}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.adjust, grid, group, &args)
+}
 
-	// CPU reference, all in float64 then compared with tolerance.
-	hidden := make([]float64, hid)
-	output := make([]float64, out)
-	deltaOut := make([]float64, out)
-	deltaHid := make([]float64, hid)
-
-	// forward_hidden
-	for j := 0; j < hid; j++ {
-		sum := float64(b.HB1[j])
-		for i := 0; i < in; i++ {
-			sum += float64(b.HInput[i]) * float64(b.HW1[i*hid+j])
-		}
-		hidden[j] = sigmoid(sum)
+func compare(actual, expected, absolute, relative float64, field string, index int) error {
+	tolerance := math.Max(absolute, relative*math.Abs(expected))
+	if math.IsNaN(actual) || math.IsInf(actual, 0) || math.Abs(actual-expected) > tolerance {
+		return fmt.Errorf("%s[%d]: got %g, expected %g", field, index, actual, expected)
 	}
-	// forward_output
-	for k := 0; k < out; k++ {
-		sum := float64(b.HB2[k])
-		for j := 0; j < hid; j++ {
-			sum += hidden[j] * float64(b.HW2[j*out+k])
-		}
-		output[k] = sigmoid(sum)
-	}
-	// backward_output_delta
-	for k := 0; k < out; k++ {
-		o := output[k]
-		deltaOut[k] = o * (1.0 - o) * (float64(b.HTarget[k]) - o)
-	}
-	// backward_hidden_delta
-	for j := 0; j < hid; j++ {
-		sum := 0.0
-		for k := 0; k < out; k++ {
-			sum += float64(b.HW2[j*out+k]) * deltaOut[k]
-		}
-		deltaHid[j] = hidden[j] * (1.0 - hidden[j]) * sum
-	}
-	// update_w1
-	refW1 := make([]float64, in*hid)
-	for i := 0; i < in; i++ {
-		for j := 0; j < hid; j++ {
-			refW1[i*hid+j] = float64(b.HW1[i*hid+j]) +
-				float64(lr)*float64(b.HInput[i])*deltaHid[j]
-		}
-	}
-	// update_w2
-	refW2 := make([]float64, hid*out)
-	for j := 0; j < hid; j++ {
-		for k := 0; k < out; k++ {
-			refW2[j*out+k] = float64(b.HW2[j*out+k]) +
-				float64(lr)*hidden[j]*deltaOut[k]
-		}
-	}
-
-	gpuW1 := make([]float32, in*hid)
-	gpuW2 := make([]float32, hid*out)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuW1); err != nil {
-		return err
-	}
-	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuW2); err != nil {
-		return err
-	}
-
-	check := func(name string, idx int, ref float64, got float64) error {
-		denom := math.Abs(ref)
-		if denom < 1e-3 {
-			denom = 1e-3
-		}
-		if math.Abs(ref-got)/denom > 1e-3 {
-			return fmt.Errorf("%s[%d]: expected %f, but got %f.\n",
-				name, idx, ref, got)
-		}
-
-		return nil
-	}
-
-	for i := range refW1 {
-		if err := check("w1", i, refW1[i], float64(gpuW1[i])); err != nil {
-			return err
-		}
-	}
-	for i := range refW2 {
-		if err := check("w2", i, refW2[i], float64(gpuW2[i])); err != nil {
-			return err
-		}
-	}
-
-	log.Printf("Passed!\n")
-
 	return nil
 }
 
-func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GW1, 4*((b.InputN)*(b.HiddenN))))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GW2, 4*((b.HiddenN)*(b.OutputN))))
+func (b *Benchmark) referenceForward() ([width]float64, error) {
+	var activation [width]float64
+	activation[0] = 1
+	for j := 1; j < width; j++ {
+		dot := float64(b.Weights[j])
+		for block := 0; block < b.InputN/16; block++ {
+			var sum, scale float64
+			for row := 1; row <= 16; row++ {
+				i := block*16 + row
+				product := float64(b.Input[i]) * float64(b.Weights[i*width+j])
+				sum += product
+				scale += math.Abs(product)
+			}
+			index := block*hidden + j - 1
+			if err := compare(float64(b.Partials[index]), sum, 1e-6*math.Max(1, scale), 0, "partial", index); err != nil {
+				return activation, err
+			}
+			dot += sum
+		}
+		activation[j] = sigmoid(dot)
+	}
+	return activation, nil
 }
 
-// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) verify() error {
+	activation, err := b.referenceForward()
+	if err != nil {
+		return err
+	}
+	var dot float64
+	for j, v := range activation {
+		dot += v * float64(b.InitialOutputWeights[j])
+	}
+	output := sigmoid(dot)
+	delta := output * (1 - output) * (float64(float32(0.1)) - output)
+	if err = compare(float64(b.Output), output, 2e-5, 2e-5, "output", 0); err != nil {
+		return err
+	}
+	if err = compare(float64(b.OutputDelta), delta, 1e-7, 2e-5, "output delta", 0); err != nil {
+		return err
+	}
+	var hiddenDelta [width]float64
+	for j, value := range activation {
+		if j > 0 {
+			hiddenDelta[j] = value * (1 - value) * delta * float64(b.InitialOutputWeights[j])
+		}
+		if err = compare(float64(b.Hidden[j]), value, 2e-5, 2e-5, "hidden", j); err != nil {
+			return err
+		}
+		if err = compare(float64(b.HiddenDelta[j]), hiddenDelta[j], 1e-7, 2e-5, "hidden delta", j); err != nil {
+			return err
+		}
+		change := 0.3 * delta * value
+		if err = verifyWeight(float64(b.OutputWeights[j]), float64(b.InitialOutputWeights[j]),
+			float64(b.OutputMomentum[j]), change, j); err != nil {
+			return err
+		}
+	}
+	weights, previous := make([]float32, len(b.Weights)), make([]float32, len(b.Weights))
+	if err = benchmarks.Read(b.rt, b.Readbacks[0], weights); err != nil {
+		return err
+	}
+	if err = benchmarks.Read(b.rt, b.Readbacks[1], previous); err != nil {
+		return err
+	}
+	for index, weight := range weights {
+		i, j := index/width, index%width
+		old, momentum := float64(b.Weights[index]), float64(previous[index])
+		if j == 0 {
+			if weight != b.Weights[index] || momentum != 0 {
+				return fmt.Errorf("unused input weight %d changed", index)
+			}
+			continue
+		}
+		change := 0.3 * hiddenDelta[j] * float64(b.Input[i])
+		if err = verifyWeight(float64(weight), old, momentum, change, index); err != nil {
+			return err
+		}
+	}
+	log.Printf("Passed!\n")
+	return nil
+}
+
+func verifyWeight(weight, old, momentum, change float64, index int) error {
+	if err := compare(weight, old+change, 2e-5, 2e-5, "weight", index); err != nil {
+		return err
+	}
+	if err := compare(momentum, change, 1e-7, 2e-5, "momentum", index); err != nil {
+		return err
+	}
+	return compare(weight-old, change, 1e-7, 2e-5, "weight change", index)
+}
+
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
@@ -427,24 +270,32 @@ func (b *Benchmark) Step() error {
 	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
-
 	switch b.Phase {
 	case 0:
 		b.submit()
-		b.Phase = 1
 	case 1:
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GPartials, 4*len(b.Partials)))
+	case 2:
+		if err := benchmarks.Read(b.rt, b.Readbacks[0], b.Partials); err != nil {
+			return err
+		}
+		b.Readbacks = nil
+		b.adjustWeights()
+	case 3:
 		if !b.Verification {
 			b.Ended = true
 			return nil
 		}
-		b.enqueueVerification()
-		b.Phase = 2
-	case 2:
+		bytes := 4 * len(b.Weights)
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GWeights, bytes),
+			benchmarks.Download(b.rt, b.Queue, b.GPrevious, bytes))
+	case 4:
 		if err := b.verify(); err != nil {
 			return err
 		}
 		b.Readbacks = nil
 		b.Ended = true
 	}
+	b.Phase++
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 
 var numOptions = flag.Int("options", 8, "The number of options to price.")
 var numSteps = flag.Int("steps", 64,
-	"The number of binomial tree steps per option (steps+1 must be <= 256).")
+	"The number of binomial tree steps per option (maximum 1024).")
 
 func main() {
 	flag.Parse()

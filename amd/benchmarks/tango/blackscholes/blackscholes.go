@@ -31,14 +31,7 @@ const blockSize = 256
 const riskFreeRate float32 = 0.02
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 60). mgpusim serializes args with binary.Write,
-// which packs fields in declaration order with NO automatic alignment
-// padding, so an explicit pad field is inserted at offset 36 to align the
-// callPrice pointer to its metadata offset of 40. The kernel reads only
-// blockIdx/threadIdx (constant block size), so no hidden ABI arguments are
-// emitted.
+// Explicit arguments are followed by the gfx942 launch geometry.
 type KernelArgs struct {
 	S         gpuruntime.Ptr // offset 0
 	K         gpuruntime.Ptr // offset 8
@@ -49,6 +42,8 @@ type KernelArgs struct {
 	CallPrice gpuruntime.Ptr // offset 40
 	PutPrice  gpuruntime.Ptr // offset 48
 	N         int32          // offset 56
+	_         uint32
+	Launch    benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the Black-Scholes benchmark.
@@ -113,7 +108,8 @@ func (b *Benchmark) submit() {
 func randRange(seed *uint32, lo, hi float32) float32 {
 	*seed = *seed*1103515245 + 12345
 	t := float32(*seed&0x7fffffff) / float32(0x7fffffff)
-	return lo + t*(hi-lo)
+	// Round the product separately, as in the collected x86 host input generator.
+	return lo + float32(t*(hi-lo))
 }
 
 func (b *Benchmark) initMem() {
@@ -173,6 +169,7 @@ func (b *Benchmark) exec() {
 		CallPrice: b.GCall,
 		PutPrice:  b.GPut,
 		N:         int32(n),
+		Launch:    benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(
@@ -236,13 +233,13 @@ func (b *Benchmark) verify() error {
 		refPut := k*expRT*(1.0-cd2) - s*(1.0-cd1)
 
 		tol := 1e-3*(float32(math.Abs(float64(refCall)))+
-			float32(math.Abs(float64(refPut)))) + 1e-3
+			float32(math.Abs(float64(refPut)))) + 1e-5
 
-		if float32(math.Abs(float64(gpuCall[i]-refCall))) > tol {
+		if math.IsInf(float64(tol), 0) || !(math.Abs(float64(gpuCall[i]-refCall)) <= float64(tol)) {
 			return fmt.Errorf("At option %d, call expected %f, but got %f.\n",
 				i, refCall, gpuCall[i])
 		}
-		if float32(math.Abs(float64(gpuPut[i]-refPut))) > tol {
+		if !(math.Abs(float64(gpuPut[i]-refPut)) <= float64(tol)) {
 			return fmt.Errorf("At option %d, put expected %f, but got %f.\n",
 				i, refPut, gpuPut[i])
 		}

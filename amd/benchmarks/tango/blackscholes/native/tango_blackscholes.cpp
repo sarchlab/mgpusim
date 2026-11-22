@@ -1,19 +1,8 @@
-/*
- * HIP kernel for Tango Black-Scholes (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/tango_blackscholes.
- *
- * Each thread prices one European option (call + put) with the
- * Black-Scholes closed-form formula, using a polynomial approximation
- * of the cumulative normal distribution (Abramowitz & Stegun 26.2.17).
- *
- * Uses a constant BLOCK_SIZE (not blockDim) for the block geometry so the
- * compiler emits no hidden ABI arguments.
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/tango_blackscholes/hip/tango_blackscholes.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
-#define BLOCK_SIZE 256
-
-__device__ inline float cnd(float d) {
+__device__ __host__ inline float cnd(float d) {
     const float A1 = 0.31938153f;
     const float A2 = -0.356563782f;
     const float A3 = 1.781477937f;
@@ -29,6 +18,10 @@ __device__ inline float cnd(float d) {
     return cnd_val;
 }
 
+// ---------------------------------------------------------------------------
+// Black-Scholes kernel: each thread prices one option (call + put)
+// ---------------------------------------------------------------------------
+
 extern "C" __global__ void blackscholes_kernel(
     const float* __restrict__ S,       // stock price
     const float* __restrict__ K,       // strike price
@@ -39,7 +32,7 @@ extern "C" __global__ void blackscholes_kernel(
     float*       putPrice,
     int          N)
 {
-    int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N) return;
 
     float s  = S[idx];

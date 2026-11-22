@@ -1,4 +1,4 @@
-SRC = memory_bandwidth.cpp
+SRC = memory_bandwidth.cl
 HSACO = memory_bandwidth.hsaco
 DISASM = memory_bandwidth.disasm
 

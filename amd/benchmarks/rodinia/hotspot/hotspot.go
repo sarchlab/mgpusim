@@ -36,24 +36,13 @@ const (
 	cSi        = 1.75e6
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// Verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 48): three 8-byte global_buffer pointers followed
-// by six 4-byte by_value scalars, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernel uses a constant block dimension, so no hidden ABI arguments are
-// emitted.
+// KernelArgs describes the shared-memory pyramidal HotSpot kernel.
 type KernelArgs struct {
-	TempSrc    gpuruntime.Ptr // offset 0
-	TempDst    gpuruntime.Ptr // offset 8
-	Power      gpuruntime.Ptr // offset 16
-	GridCols   int32          // offset 24
-	GridRows   int32          // offset 28
-	StepDivCap float32        // offset 32
-	Rx1        float32        // offset 36
-	Ry1        float32        // offset 40
-	Rz1        float32        // offset 44
+	Iterations                         int32
+	_                                  uint32
+	Power, TempSrc, TempDst            gpuruntime.Ptr
+	Cols, Rows, BorderCols, BorderRows int32
+	Cap, RX, RY, RZ, DT, TimeElapsed   float32
 }
 
 // Benchmark defines the Hotspot benchmark.
@@ -82,7 +71,7 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 
 func (b *Benchmark) loadProgram() {
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "hotspot_kernel")
+		cdna3HSACOBytes, "calculate_temp")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -126,10 +115,10 @@ func (b *Benchmark) initMem() {
 
 	b.Temp = make([]float32, total)
 	b.Power = make([]float32, total)
-	for i := 0; i < total; i++ {
-		// Deterministic synthetic init (reproducible in Verify).
-		b.Temp[i] = float32(ambTemp) + float32(i%200)/10.0
-		b.Power[i] = float32(i%100) / 500.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.Temp {
+		b.Temp[i] = float32(ambTemp) + float32(rand.Next()%200)/10.0
+		b.Power[i] = float32(rand.Next()%100) / 500.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -147,130 +136,132 @@ func (b *Benchmark) initMem() {
 }
 
 // thermalParams computes the derived thermal scalars for the current grid.
-func (b *Benchmark) thermalParams() (stepDivCap, rx1, ry1, rz1 float32) {
-	n := float64(b.GridSize)
-	gridHeight := chipHeight / n
-	gridWidth := chipWidth / n
-	cap := cSi * tChip * gridHeight * gridWidth
-	rx := gridWidth / (2.0 * kSi * tChip * gridHeight)
-	ry := gridHeight / (2.0 * kSi * tChip * gridWidth)
-	rz := tChip / (kSi * gridHeight * gridWidth)
-	maxSlope := kSi / (0.5 * tChip * cSi)
-	step := 0.001 / maxSlope
-	stepDivCap = float32(step / cap)
-	rx1 = float32(1.0 / rx)
-	ry1 = float32(1.0 / ry)
-	rz1 = float32(1.0 / rz)
-	return
+func up(value float64) float64 {
+	return math.Nextafter(value, math.Inf(1))
+}
+
+type thermalCoefficients struct {
+	Cap, RX, RY, RZ, DT float32
+	SDC, IX, IY, IZ     float64
+}
+
+func (c thermalCoefficients) rowNorm() float64 {
+	x, y, a := c.SDC*c.IX, c.SDC*c.IY, c.SDC*c.IZ
+	sum := 2*x + 2*y + a
+	const eps = 0x1p-52
+	return up(up(math.Abs(1-sum)+up(2*x+2*y)) + up(8*eps*up(1+sum)))
+}
+
+func (b *Benchmark) thermalParams() thermalCoefficients {
+	const thickness float32 = 0.0005
+	dx := float32(0.016) / float32(b.GridSize)
+	dy := float32(0.016) / float32(b.GridSize)
+	slope := float32(3e6 / (0.5 * float64(thickness) * 1.75e6))
+	c := thermalCoefficients{
+		Cap: float32(0.5 * 1.75e6 * float64(thickness) * float64(dx) * float64(dy)),
+		RX:  float32(float64(dx) / (2 * 100 * float64(thickness) * float64(dy))),
+		RY:  float32(float64(dy) / (2 * 100 * float64(thickness) * float64(dx))),
+		RZ:  thickness / (100 * dy * dx), DT: float32(0.001 / float64(slope)),
+	}
+	weights := func() {
+		c.SDC = float64(c.DT / c.Cap)
+		c.IX, c.IY, c.IZ = float64(1/c.RX), float64(1/c.RY), float64(1/c.RZ)
+	}
+	weights()
+	if c.rowNorm() > 1 {
+		c.DT = float32(0.9 * float64(c.Cap) / (2/float64(c.RX) + 2/float64(c.RY) + 1/float64(c.RZ)))
+		weights()
+	}
+	if c.rowNorm() > 1 || math.IsNaN(c.rowNorm()) {
+		panic("HotSpot stencil coefficients amplify the input")
+	}
+	return c
 }
 
 func (b *Benchmark) exec() {
-	n := b.GridSize
-	gridDim := uint32((n + blockSize - 1) / blockSize)
-	globalX := gridDim * blockSize
-	globalY := gridDim * blockSize
-
-	stepDivCap, rx1, ry1, rz1 := b.thermalParams()
-
-	src := b.GTempA
-	dst := b.GTempB
-
-	for k := 0; k < b.NumIterations; k++ {
-		args := KernelArgs{
-			TempSrc:    src,
-			TempDst:    dst,
-			Power:      b.GPower,
-			GridCols:   int32(n),
-			GridRows:   int32(n),
-			StepDivCap: stepDivCap,
-			Rx1:        rx1,
-			Ry1:        ry1,
-			Rz1:        rz1,
-		}
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&args,
-		)
-
-		src, dst = dst, src
+	height := b.PyramidHeight
+	if height == 0 {
+		height = 1
 	}
-
-	// After the loop, src holds the most recent result.
+	if height < 1 || height >= blockSize/2 {
+		panic("HotSpot pyramid height must be between 1 and 7")
+	}
+	n := b.GridSize
+	covered := blockSize - 2*height
+	global := uint32((n + covered - 1) / covered * blockSize)
+	grid, group := [3]uint32{global, global, 1}, [3]uint16{blockSize, blockSize, 1}
+	c := b.thermalParams()
+	src, dst := b.GTempA, b.GTempB
+	for done := 0; done < b.NumIterations; {
+		steps := min(height, b.NumIterations-done)
+		args := KernelArgs{Iterations: int32(steps), Power: b.GPower, TempSrc: src, TempDst: dst,
+			Cols: int32(n), Rows: int32(n), BorderCols: int32(height), BorderRows: int32(height),
+			Cap: c.Cap, RX: c.RX, RY: c.RY, RZ: c.RZ, DT: c.DT, TimeElapsed: 0.001}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
+		src, dst = dst, src
+		done += steps
+	}
 	b.FinalSrc = src
 }
 
-// Verify checks the GPU result against a CPU reference computation that
-// reproduces the same iterative stencil exactly.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
-	n := b.GridSize
-	total := n * n
+func (b *Benchmark) errorBound(c thermalCoefficients) float64 {
+	var magnitude, power float64
+	for i, t := range b.Temp {
+		magnitude = max(magnitude, math.Abs(float64(t)))
+		power = max(power, math.Abs(float64(b.Power[i])))
+	}
+	g := c.rowNorm()
+	h := up(1 + up(c.SDC*up(up(4*c.IX+4*c.IY)+c.IZ)))
+	source := up(c.SDC * up(power+up(c.IZ*80)))
+	const uf, ud = 0x1p-24, 0x1p-53
+	gamma2, gd := up(2*uf/(1-2*uf)), up(24*ud/(1-24*ud))
+	tiny := up(64 * 0x1p-126 * up(1+up(c.SDC*up(1+up(c.IX+up(c.IY+c.IZ))))))
+	var bound float64
+	for t := 0; t < b.NumIterations; t++ {
+		gpuMagnitude := up(magnitude + bound)
+		next := up(up(g*magnitude) + source)
+		cpuRound := up(gd * up(up(h*magnitude)+source))
+		pairs := up(2 * uf * up(up(c.IX+c.IY)*gpuMagnitude))
+		ambient := up(gamma2 * up(c.IZ*up(80+gpuMagnitude)))
+		inner := up(c.SDC * up(pairs+ambient))
+		doubleRound := up(gd * up(up(up(h*gpuMagnitude)+source)+inner))
+		beforeStore := up(up(up(g*gpuMagnitude)+source) + up(inner+doubleRound))
+		gpuRound := up(up(inner+doubleRound) + up(uf*beforeStore))
+		bound = up(up(g*bound) + up(gpuRound+up(cpuRound+tiny)))
+		magnitude = up(next + up(cpuRound+tiny))
+	}
+	return bound
+}
 
-	gpu := make([]float32, total)
+func (b *Benchmark) verify() error {
+	n := b.GridSize
+	gpu := make([]float32, n*n)
 	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
 		return err
 	}
-
-	stepDivCap, rx1, ry1, rz1 := b.thermalParams()
-
-	cur := make([]float32, total)
-	next := make([]float32, total)
-	copy(cur, b.Temp)
-
-	for k := 0; k < b.NumIterations; k++ {
-		for row := 0; row < n; row++ {
-			for col := 0; col < n; col++ {
-				idx := row*n + col
-				tc := cur[idx]
-
-				tn := tc
-				if row > 0 {
-					tn = cur[(row-1)*n+col]
-				}
-				ts := tc
-				if row < n-1 {
-					ts = cur[(row+1)*n+col]
-				}
-				tw := tc
-				if col > 0 {
-					tw = cur[row*n+(col-1)]
-				}
-				te := tc
-				if col < n-1 {
-					te = cur[row*n+(col+1)]
-				}
-
-				delta := stepDivCap *
-					(b.Power[idx] +
-						(tn+ts-2.0*tc)*ry1 +
-						(tw+te-2.0*tc)*rx1 +
-						(float32(ambTemp)-tc)*rz1)
-
-				next[idx] = tc + delta
-			}
+	c := b.thermalParams()
+	cur, next := make([]float64, n*n), make([]float64, n*n)
+	for i, t := range b.Temp {
+		cur[i] = float64(t)
+	}
+	for i := 0; i < b.NumIterations; i++ {
+		for idx, center := range cur {
+			y, x := idx/n, idx%n
+			north, south := cur[max(y-1, 0)*n+x], cur[min(y+1, n-1)*n+x]
+			west, east := cur[y*n+max(x-1, 0)], cur[y*n+min(x+1, n-1)]
+			next[idx] = center + c.SDC*(float64(b.Power[idx])+(south+north-2*center)*c.IY+
+				(east+west-2*center)*c.IX+(80-center)*c.IZ)
 		}
 		cur, next = next, cur
 	}
-
-	for i := 0; i < total; i++ {
-		ref := float64(cur[i])
-		got := float64(gpu[i])
-
-		denom := math.Abs(ref)
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(ref-got)/denom > 1e-3 {
-			return fmt.Errorf("At cell %d (row %d, col %d), expected %f, but got %f.\n",
-				i, i/n, i%n, ref, got)
+	bound := b.errorBound(c)
+	for i, reference := range cur {
+		actual := float64(gpu[i])
+		if math.IsNaN(actual) || math.IsInf(actual, 0) || math.Abs(reference-actual) > bound {
+			return fmt.Errorf("temperature at (%d,%d): got %g, expected %g (bound %g)", i/n, i%n, actual, reference, bound)
 		}
 	}
-
 	log.Printf("Passed!\n")
-
 	return nil
 }
 

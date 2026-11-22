@@ -1,11 +1,12 @@
 # Rodinia Backprop
 
-CUDA host program `backprop.cu` for the Rodinia Backprop benchmark. The GPU kernels are not copied: `backprop.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `backprop.cu` for the Rodinia Backprop benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/backprop/native/rodinia_backprop.cpp` |
-| Kernel version | commit `7155c64f` (2026-07-04) on main |
+| Kernel source | [`rodinia_backprop.cpp`](../../kernels/rodinia/backprop/native/rodinia_backprop.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/backprop/native/rodinia_backprop.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/rodinia_backprop |
 | Kernels | `forward_hidden`, `forward_output`, `backward_output_delta`, `backward_hidden_delta`, `update_w1`, `update_w2` |
 | Host code follows | `amd/benchmarks/rodinia/backprop/backprop.go` |

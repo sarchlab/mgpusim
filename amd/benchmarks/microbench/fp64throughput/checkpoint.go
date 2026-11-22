@@ -22,10 +22,9 @@ type State struct {
 	// rounded down to a multiple of 4 (matching the host program), with a
 	// minimum of 4. Each iteration performs 4 FP64 FMAs (one per
 	// accumulator), so total FP64 FLOPs = numThreads * FmasPerThread * 2.
-	FmasPerThread    int
-	NumThreads       int
-	In               []float64
-	GIn              gpuruntime.Ptr
+	FmasPerThread int
+	NumThreads    int
+
 	GOut             gpuruntime.Ptr
 	UseUnifiedMemory bool
 }

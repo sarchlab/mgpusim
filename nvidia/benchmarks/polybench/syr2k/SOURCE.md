@@ -1,11 +1,12 @@
 # PolyBench/GPU SYR2K
 
-CUDA host program `syr2k.cu` for the PolyBench/GPU SYR2K benchmark. The GPU kernels are not copied: `syr2k.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `syr2k.cu` for the PolyBench/GPU SYR2K benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/polybench/syr2k/native/polybench_syr2k.cpp` |
-| Kernel version | commit `146a4c8c` (2026-06-17) on main |
+| Kernel source | [`polybench_syr2k.cpp`](../../kernels/polybench/syr2k/native/polybench_syr2k.cpp) |
+| Original kernel path | `amd/benchmarks/polybench/syr2k/native/polybench_syr2k.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | Extracted from `sarchlab/gpu_benchmarks` tier2/polybench_syr2k |
 | Kernels | `polybench_syr2k_kernel` |
 | Host code follows | `amd/benchmarks/polybench/syr2k/syr2k.go` |

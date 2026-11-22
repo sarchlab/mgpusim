@@ -1,32 +1,13 @@
-/*
- * HIP kernel for the int32_throughput microbenchmark (gfx942 / CDNA3).
- * Extracted from sarchlab/gpu_benchmarks tier1/int32_throughput.
- *
- * Each thread runs a long chain of INT32 multiply-add operations
- * (a = a * mul + add) entirely in registers, then writes its accumulated
- * result to out[globalThreadId]. The dominant compute is the register-only
- * MAD chain, so the kernel still measures INT32 arithmetic throughput; the
- * single final store per thread makes the result fully verifiable on the
- * host (with int32 wraparound).
- *
- * The work-group size is passed as an explicit threads_per_block argument
- * (blockDim.x reads back as 0 in this CDNA3 model for multi-block launches),
- * so the global thread id is correct for any swept block size.
- */
-#include "hip/hip_runtime.h"
+// Device source from GPU Benchmarks v1.1 (a8ca84f8), int32_throughput.hip.
+#include <hip/hip_runtime.h>
 
-extern "C" __global__ void int32_mad_kernel(int *out, int mads_per_thread,
-                                            int threads_per_block)
+extern "C" __global__ void int32_mad_kernel(unsigned *out, int mads_per_thread,
+                                 unsigned mul, unsigned add)
 {
-    int tid = blockIdx.x * threads_per_block + threadIdx.x;
-
-    int a0 = 1 + static_cast<int>(threadIdx.x);
-    int a1 = a0 + 111;
-    int a2 = a0 + 222;
-    int a3 = a0 + 333;
-
-    const int mul = 3;
-    const int add = 1;
+    unsigned a0 = 1u + threadIdx.x;
+    unsigned a1 = a0 + 111u;
+    unsigned a2 = a0 + 222u;
+    unsigned a3 = a0 + 333u;
 
     for (int i = 0; i < mads_per_thread; i += 4) {
         a0 = a0 * mul + add;
@@ -35,5 +16,12 @@ extern "C" __global__ void int32_mad_kernel(int *out, int mads_per_thread,
         a3 = a3 * mul + add;
     }
 
+    // Store one checksum per global thread (not just thread 0) so every
+    // launched thread's MAD chain is observable. A single guarded write would
+    // let the optimizer treat the other threads' recurrences as dead and
+    // eliminate them, undercounting the work the grid reports. The write is a
+    // single store after the timed loop, negligible next to the per-thread MAD
+    // chain.
+    const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     out[tid] = a0 + a1 + a2 + a3;
 }

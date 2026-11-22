@@ -16,6 +16,7 @@ type State struct {
 	Queue             gpuruntime.CommandQueue
 	Arch              arch.Type
 	BlockSize         int
+	NativeBlockSize   int
 	Length            int
 	Penalty           int
 	Row               int

@@ -10,8 +10,8 @@ import (
 
 var (
 	inputN  = flag.Int("input", 64, "Number of input units.")
-	hiddenN = flag.Int("hidden", 32, "Number of hidden units.")
-	outputN = flag.Int("output", 4, "Number of output units.")
+	hiddenN = flag.Int("hidden", 16, "Number of hidden units.")
+	outputN = flag.Int("output", 1, "Number of output units.")
 )
 
 func main() {

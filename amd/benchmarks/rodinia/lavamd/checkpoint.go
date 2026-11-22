@@ -15,26 +15,13 @@ type State struct {
 	Arch      arch.Type
 	// NumBoxes is the number of boxes per dimension (the grid is
 	// NumBoxes^3 boxes).
-	NumBoxes int
-	// ParticlesPerBox is the number of particles in each box.
-	ParticlesPerBox  int
-	TotalBoxes       int
-	TotalParticles   int
-	HPosX            []float32
-	HPosY            []float32
-	HPosZ            []float32
-	HNeighborList    []int32
-	HNeighborCount   []int32
-	GPosX            gpuruntime.Ptr
-	GPosY            gpuruntime.Ptr
-	GPosZ            gpuruntime.Ptr
-	GForceX          gpuruntime.Ptr
-	GForceY          gpuruntime.Ptr
-	GForceZ          gpuruntime.Ptr
-	GEnergy          gpuruntime.Ptr
-	GNeighborList    gpuruntime.Ptr
-	GNeighborCount   gpuruntime.Ptr
-	UseUnifiedMemory bool
+	NumBoxes                              int
+	ParticlesPerBox                       int
+	Dim                                   Dimensions
+	Positions                             []Vector
+	Charges                               []float64
+	GBoxes, GPositions, GCharges, GForces gpuruntime.Ptr
+	UseUnifiedMemory                      bool
 }
 
 func (b *Benchmark) bind() error {

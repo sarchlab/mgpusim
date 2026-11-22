@@ -4,8 +4,8 @@
 //
 // 2MM computes two chained matrix multiplications:
 //
-//	D = alpha*A*B + beta*D
-//	E = alpha*C*D + beta*E
+//	tmp = alpha*A*B
+//	D = tmp*C + beta*D
 //
 // for NxN square matrices. Both multiplications use the same shared-memory
 // tiled GEMM kernel (mm_kernel, TILE_SIZE = 16), launched twice. The kernel
@@ -56,7 +56,7 @@ type Benchmark struct {
 	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
-	hsaco *insts.KernelCodeObject
+	firstKernel, secondKernel *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -75,10 +75,10 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "mm_kernel")
-	if b.hsaco == nil {
-		log.Panic("Failed to load kernel binary")
+	b.firstKernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "_Z9mm_kernelILb0EEvPKfS1_Pfiff")
+	b.secondKernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "_Z9mm_kernelILb1EEvPKfS1_Pfiff")
+	if b.firstKernel == nil || b.secondKernel == nil {
+		log.Panic("could not load PolyBench 2MM kernels")
 	}
 }
 
@@ -119,13 +119,12 @@ func (b *Benchmark) initMem() {
 	b.B = make([]float32, numElem)
 	b.C = make([]float32, numElem)
 	b.DInit = make([]float32, numElem)
-	b.EInit = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 100.0
-		b.B[i] = float32((i*2)%100) / 100.0
-		b.C[i] = float32((i*3)%100) / 100.0
-		b.DInit[i] = float32((i*4)%100) / 100.0
-		b.EInit[i] = float32((i*5)%100) / 100.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
+		b.B[i] = float32(rand.Next()%100) / 10.0
+		b.C[i] = float32(rand.Next()%100) / 10.0
+		b.DInit[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -146,7 +145,6 @@ func (b *Benchmark) initMem() {
 	b.Upload(b.rt, b.Queue, b.GB, b.B)
 	b.Upload(b.rt, b.Queue, b.GC, b.C)
 	b.Upload(b.rt, b.Queue, b.GD, b.DInit)
-	b.Upload(b.rt, b.Queue, b.GE, b.EInit)
 }
 
 func (b *Benchmark) exec() {
@@ -155,100 +153,51 @@ func (b *Benchmark) exec() {
 	globalX := gridDim * tileSize
 	globalY := gridDim * tileSize
 
-	// First multiplication: D = alpha*A*B + beta*D
-	args1 := KernelArgs{
-		P:     b.GA,
-		Q:     b.GB,
-		Out:   b.GD,
-		N:     int32(n),
-		Alpha: alpha,
-		Beta:  beta,
-	}
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, globalY, 1},
-		[3]uint16{tileSize, tileSize, 1},
-		&args1,
-	)
-
-	// Drain before the second launch: E = alpha*C*D + beta*E depends on the
-	// full D matrix produced above, so the first kernel's writes to D must be
-	// globally visible before the second kernel reads them.
-
-	// Second multiplication: E = alpha*C*D + beta*E
-	args2 := KernelArgs{
-		P:     b.GC,
-		Q:     b.GD,
-		Out:   b.GE,
-		N:     int32(n),
-		Alpha: alpha,
-		Beta:  beta,
-	}
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, globalY, 1},
-		[3]uint16{tileSize, tileSize, 1},
-		&args2,
-	)
+	// First form tmp = alpha*A*B, then D = tmp*C + beta*D.
+	grid := [3]uint32{globalX, globalY, 1}
+	group := [3]uint16{tileSize, tileSize, 1}
+	first := KernelArgs{P: b.GA, Q: b.GB, Out: b.GE, N: int32(n), Alpha: alpha}
+	second := KernelArgs{P: b.GE, Q: b.GC, Out: b.GD, N: int32(n), Alpha: 1, Beta: beta}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.firstKernel, grid, group, &first)
+	b.rt.EnqueueLaunchKernel(b.Queue, b.secondKernel, grid, group, &second)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	n := b.N
 
-	// CPU reference for D = alpha*A*B + beta*D.
-	//
-	// The GPU stores the intermediate matrix D back to global memory as
-	// float32 before the second multiplication reads it, so the reference
-	// rounds D to float32 too — otherwise the float64 intermediate would
-	// drift from the GPU result through the chained product.
-	refD := make([]float32, n*n)
+	// Compute both products independently in double precision.
+	refTmp := make([]float64, n*n)
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
 			var sum float64
 			for k := 0; k < n; k++ {
 				sum += float64(b.A[i*n+k]) * float64(b.B[k*n+j])
 			}
-			refD[i*n+j] = float32(
-				float64(alpha)*sum + float64(beta)*float64(b.DInit[i*n+j]))
+			refTmp[i*n+j] = float64(alpha) * sum
 		}
 	}
-
-	// CPU reference for E = alpha*C*D + beta*E (using the new D)
-	refE := make([]float64, n*n)
+	refD := make([]float64, n*n)
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
 			var sum float64
 			for k := 0; k < n; k++ {
-				sum += float64(b.C[i*n+k]) * float64(refD[k*n+j])
+				sum += refTmp[i*n+k] * float64(b.C[k*n+j])
 			}
-			refE[i*n+j] = float64(alpha)*sum + float64(beta)*float64(b.EInit[i*n+j])
+			refD[i*n+j] = sum + float64(beta)*float64(b.DInit[i*n+j])
 		}
 	}
-
-	gpuE := make([]float32, n*n)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuE); err != nil {
-		return err
-	}
-
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			ref := refE[i*n+j]
-			got := float64(gpuE[i*n+j])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			// Tolerance is looser than a single GEMM (1e-3): 2MM chains two
-			// single-precision matmuls, so float32 reduction rounding
-			// compounds through the product. A genuinely wrong result would
-			// differ by orders of magnitude, not ~1%.
-			if math.Abs(ref-got)/denom > 1e-2 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, j, ref, got)
+	actual := make([]float32, n*n)
+	for stage, expected := range [][]float64{refTmp, refD} {
+		if err := benchmarks.Read(b.rt, b.Readbacks[stage], actual); err != nil {
+			return err
+		}
+		for i, reference := range expected {
+			got := float64(actual[i])
+			if math.IsNaN(got) || math.IsInf(got, 0) ||
+				math.Abs(reference-got) > 5e-4*math.Max(1, math.Abs(reference)) {
+				return fmt.Errorf("product %d at (%d,%d): got %g, expected %g",
+					stage+1, i/n, i%n, got, reference)
 			}
 		}
 	}
@@ -259,7 +208,8 @@ func (b *Benchmark) verify() error {
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GE, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GE, 4*b.N*b.N))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GD, 4*b.N*b.N))
 }
 
 // Step submits computation, then verification readback, then consumes results.

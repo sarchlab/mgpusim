@@ -17,7 +17,6 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
-	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
@@ -28,18 +27,12 @@ import (
 // blockDim is the constant work-group size baked into the kernel (BLOCK_DIM).
 const blockDim = 16
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 20): two 8-byte global_buffer pointers
-// followed by one 4-byte by_value scalar, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment
-// padding). The kernel uses a constant BLOCK_DIM and reads only
-// blockIdx/threadIdx, so no hidden ABI arguments are emitted.
+// KernelArgs is the ABI of both Jacobi dispatches.
 type KernelArgs struct {
-	A gpuruntime.Ptr // offset 0
-	B gpuruntime.Ptr // offset 8
-	N int32          // offset 16
+	A, B   gpuruntime.Ptr
+	N      int32
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the Jacobi-2D benchmark.
@@ -48,7 +41,7 @@ type Benchmark struct {
 	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
-	hsaco *insts.KernelCodeObject
+	stencil, copyBack *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
@@ -67,10 +60,10 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "jacobi2d_kernel")
-	if b.hsaco == nil {
-		log.Panic("Failed to load kernel binary")
+	b.stencil = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "jacobi2d_kernel")
+	b.copyBack = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "jacobi2d_copy_kernel")
+	if b.stencil == nil || b.copyBack == nil {
+		log.Panic("could not load the PolyBench Jacobi kernels")
 	}
 }
 
@@ -110,12 +103,15 @@ func (b *Benchmark) initMem() {
 	n := b.N
 	numElem := n * n
 
-	// Deterministic interior init (boundaries stay 0). Reproduced exactly in
-	// Verify().
+	if n < 3 {
+		panic("Jacobi requires at least a 3 by 3 grid")
+	}
 	b.AInit = make([]float32, numElem)
-	for i := 1; i < n-1; i++ {
-		for j := 1; j < n-1; j++ {
-			b.AInit[i*n+j] = float32((i*7+j*13)%100) / 10.0
+	b.BInit = make([]float32, numElem)
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			b.AInit[i*n+j] = (float32(i)*float32(j+2) + 10) / float32(n)
+			b.BInit[i*n+j] = (float32(i-4)*float32(j-1) + 11) / float32(n)
 		}
 	}
 
@@ -127,101 +123,58 @@ func (b *Benchmark) initMem() {
 		b.GB = b.rt.AllocateMemory(b.Context, uint64(numElem*4))
 	}
 
-	// A holds the initial grid; B starts zeroed.
 	b.Upload(b.rt, b.Queue, b.GA, b.AInit)
-	zeros := make([]float32, numElem)
-	b.Upload(b.rt, b.Queue, b.GB, zeros)
+	b.Upload(b.rt, b.Queue, b.GB, b.BInit)
 }
 
 func (b *Benchmark) exec() {
 	n := b.N
-	// Grid covers the (N-2)x(N-2) interior, rounded up to whole blocks.
-	gridDimX := uint32((n - 2 + blockDim - 1) / blockDim)
-	gridDimY := uint32((n - 2 + blockDim - 1) / blockDim)
-	globalX := gridDimX * blockDim
-	globalY := gridDimY * blockDim
-
-	src, dst := b.GA, b.GB
+	global := uint32((n - 2 + blockDim - 1) / blockDim * blockDim)
+	grid := [3]uint32{global, global, 1}
+	group := [3]uint16{blockDim, blockDim, 1}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
+	stencil := KernelArgs{A: b.GA, B: b.GB, N: int32(n), Launch: launch}
+	copyBack := KernelArgs{A: b.GB, B: b.GA, N: int32(n), Launch: launch}
 	for t := 0; t < b.TSteps; t++ {
-		args := KernelArgs{
-			A: src,
-			B: dst,
-			N: int32(n),
-		}
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockDim, blockDim, 1},
-			&args,
-		)
-
-		src, dst = dst, src
-	}
-
-	// After the loop, src points at the buffer holding the final result.
-	// Store it in gA so Verify reads a single, well-defined location.
-	b.GA = src
-	b.GB = dst
-}
-
-// cpuStep computes one Jacobi-2D step on the CPU (interior only).
-func cpuStep(a, out []float32, n int) {
-	for i := 1; i < n-1; i++ {
-		for j := 1; j < n-1; j++ {
-			out[i*n+j] = (a[(i-1)*n+j] + a[(i+1)*n+j] +
-				a[i*n+(j-1)] + a[i*n+(j+1)] +
-				a[i*n+j]) * 0.2
-		}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.stencil, grid, group, &stencil)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.copyBack, grid, group, &copyBack)
 	}
 }
 
-// Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
 	n := b.N
-	numElem := n * n
-
-	gpuResult := make([]float32, numElem)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuResult); err != nil {
-		return err
-	}
-
-	// CPU reference: same double-buffered iteration the GPU ran.
-	ca := make([]float32, numElem)
-	cb := make([]float32, numElem)
-	copy(ca, b.AInit)
-
-	src, dst := ca, cb
+	a, out := append([]float32(nil), b.AInit...), append([]float32(nil), b.BInit...)
 	for t := 0; t < b.TSteps; t++ {
-		cpuStep(src, dst, n)
-		src, dst = dst, src
-	}
-	// src now holds the CPU result.
-
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			ref := float64(src[i*n+j])
-			got := float64(gpuResult[i*n+j])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
+		for i := 1; i < n-1; i++ {
+			for j := 1; j < n-1; j++ {
+				k := i*n + j
+				out[k] = 0.2 * (a[k] + a[k-1] + a[k+1] + a[k+n] + a[k-n])
 			}
-			if math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, j, ref, got)
-			}
+		}
+		for i := 1; i < n-1; i++ {
+			from, to := i*n+1, (i+1)*n-1
+			copy(a[from:to], out[from:to])
 		}
 	}
 
+	actual := make([]float32, n*n)
+	for grid, expected := range [][]float32{a, out} {
+		if err := benchmarks.Read(b.rt, b.Readbacks[grid], actual); err != nil {
+			return err
+		}
+		for i, reference := range expected {
+			if actual[i] != reference {
+				return fmt.Errorf("grid %d at (%d,%d): got %g, expected %g", grid+1, i/n, i%n, actual[i], reference)
+			}
+		}
+	}
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*((b.N)*(b.N))))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GA, 4*b.N*b.N))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GB, 4*b.N*b.N))
 }
 
 // Step submits computation, then verification readback, then consumes results.

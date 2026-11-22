@@ -21,12 +21,13 @@ type State struct {
 	// GridSpacing is the distance between adjacent grid points.
 	GridSpacing float32
 	// Cutoff is the interaction cutoff radius.
-	Cutoff           float32
-	Atoms            []float32 // flat float4: [x,y,z,q] per atom
-	Potential        []float32 // GridSide^3 grid points
-	GAtoms           gpuruntime.Ptr
-	GPot             gpuruntime.Ptr
-	UseUnifiedMemory bool
+	Cutoff                          float32
+	Atoms                           []Atom
+	Neighbors                       []BinOffset
+	BinSide, BinOrigin, SideRegions int
+	GAtoms                          gpuruntime.Ptr
+	GPot                            gpuruntime.Ptr
+	UseUnifiedMemory                bool
 }
 
 func (b *Benchmark) bind() error {

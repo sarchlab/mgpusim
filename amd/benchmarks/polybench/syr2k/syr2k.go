@@ -77,7 +77,7 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 
 func (b *Benchmark) loadProgram() {
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "polybench_syr2k_kernel")
+		cdna3HSACOBytes, "syr2k_kernel")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -122,12 +122,13 @@ func (b *Benchmark) initMem() {
 	b.A = make([]float32, n*m)
 	b.B = make([]float32, n*m)
 	b.CInit = make([]float32, n*n)
-	for i := 0; i < n*m; i++ {
-		b.A[i] = float32(i%100) / 100.0
-		b.B[i] = float32((i*2)%100) / 100.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
+		b.B[i] = float32(rand.Next()%100) / 10.0
 	}
-	for i := 0; i < n*n; i++ {
-		b.CInit[i] = float32((i*3)%100) / 100.0
+	for i := range b.CInit {
+		b.CInit[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -192,11 +193,8 @@ func (b *Benchmark) verify() error {
 			ref := float64(alpha)*sum + float64(beta)*float64(b.CInit[i*n+j])
 			got := float64(gpuC[i*n+j])
 
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
+			tolerance := 5e-4 * math.Max(1, math.Abs(ref))
+			if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= tolerance) {
 				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, ref, got)
 			}

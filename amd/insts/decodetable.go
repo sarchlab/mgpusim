@@ -875,6 +875,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pk_i16_i32", 664, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 
 	// CDNA3 VOP3A instructions
+	d.addInstType(&InstType{"v_pack_b32_f16", 672, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_lshl_add_u32", 509, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_lshl_or_b32", 512, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_add_lshl_u32", 510, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
@@ -882,7 +883,10 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_lshl_add_u64", 520, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 64, 0})
 	d.addInstType(&InstType{"v_or3_b32", 514, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 	d.addInstType(&InstType{"v_sub_u32_e64", 53 + 256, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
-	d.addInstType(&InstType{"v_pk_add_f16", 929, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_pk_fma_f16", 910, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_pk_add_f16", 911, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_fma_mixlo_f16", 929, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addInstType(&InstType{"v_fma_mixhi_f16", 930, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
 
 	// SOP1 Instructions
 	d.addInstType(&InstType{"s_mov_b32", 0, FormatTable[SOP1], 0, ExeUnitScalar, 32, 32, 0, 0, 0})
@@ -1079,6 +1083,21 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_read_b96", 254, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read_b128", 255, FormatTable[DS], 0, ExeUnitLDS, 128, 0, 0, 0, 0})
 
+	d.addCDNA3InstType(&InstType{"v_and_or_b32", 513, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addCDNA3InstType(&InstType{"v_frexp_mant_f32_e64", 372, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_pk_mov_b32", 947, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 64, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_cvt_i32_f64", 3, FormatTable[VOP1], 0, ExeUnitVALU, 32, 64, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_rndne_f64", 25, FormatTable[VOP1], 0, ExeUnitVALU, 64, 64, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_cvt_i32_f32_e64", 328, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_xad_u32", 499, FormatTable[VOP3a], 0, ExeUnitVALU, 32, 32, 32, 32, 0})
+	d.addCDNA3InstType(&InstType{"v_ldexp_f64", 644, FormatTable[VOP3a], 0, ExeUnitVALU, 64, 64, 32, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_cmp_eq_u64", 18, FormatTable[SOPC], 0, ExeUnitScalar, 0, 64, 64, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_cmp_lg_u64", 19, FormatTable[SOPC], 0, ExeUnitScalar, 0, 64, 64, 0, 0})
+	d.addCDNA3InstType(&InstType{"ds_read2st64_b32", 56, FormatTable[DS], 0, ExeUnitLDS, 64, 0, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"ds_write_b64", 77, FormatTable[DS], 0, ExeUnitLDS, 0, 64, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"ds_write_b96", 222, FormatTable[DS], 0, ExeUnitLDS, 0, 96, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"ds_read_b96", 254, FormatTable[DS], 0, ExeUnitLDS, 96, 0, 0, 0, 0})
+	d.addCDNA3InstType(&InstType{"s_nor_b64", 25, FormatTable[SOP2], 0, ExeUnitScalar, 64, 64, 64, 0, 0})
 	d.addCDNA3InstType(&InstType{"s_lshl1_add_u32", 46, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
 	d.addCDNA3InstType(&InstType{"s_lshl2_add_u32", 47, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
 	d.addCDNA3InstType(&InstType{"s_lshl3_add_u32", 48, FormatTable[SOP2], 0, ExeUnitScalar, 32, 32, 32, 0, 0})
@@ -1086,5 +1105,6 @@ func (d *Disassembler) initializeDecodeTable() {
 
 	// These gfx942 encodings reuse opcodes with different GCN3 semantics.
 	d.addCDNA3InstType(&InstType{"v_fmac_f64_e32", 4, FormatTable[VOP2], 0, ExeUnitVALU, 64, 64, 64, 0, 0})
+	d.addCDNA3InstType(&InstType{"v_cvt_f64_u32", 22, FormatTable[VOP1], 0, ExeUnitVALU, 64, 32, 0, 0, 0})
 	d.addCDNA3InstType(&InstType{"v_mov_b64_e32", 56, FormatTable[VOP1], 0, ExeUnitVALU, 64, 64, 0, 0, 0})
 }

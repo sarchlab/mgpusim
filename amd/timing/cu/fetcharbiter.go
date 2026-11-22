@@ -60,7 +60,7 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	co := &group.raw().CodeObject
 	if co.Present && co.HasSymbol {
 		lastPCInBinary := co.Symbol.Size +
-			group.packet().KernelObject
+			group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset
 		lastPCInInstBuffer := state.InstBufferStartPC +
 			uint64(len(state.InstBuffer))
 		if lastPCInInstBuffer >= lastPCInBinary {

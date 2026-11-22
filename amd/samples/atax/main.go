@@ -11,6 +11,8 @@ import (
 var xFlag = flag.Int("x", 4096, "The width of the matrix.")
 var yFlag = flag.Int("y", 4096, "The height of the matrix.")
 
+var blockFlag = flag.Int("block-size", 256, "The number of work-items per work-group.")
+
 func main() {
 	flag.Parse()
 
@@ -22,6 +24,7 @@ func main() {
 	benchmark.Arch = config.ArchType
 	benchmark.NX = *xFlag
 	benchmark.NY = *yFlag
+	benchmark.BlockSize = *blockFlag
 
 	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)

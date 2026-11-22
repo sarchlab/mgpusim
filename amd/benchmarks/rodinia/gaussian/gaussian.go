@@ -40,10 +40,11 @@ const (
 // args with binary.Write, which does not insert alignment padding). The
 // kernel uses a constant block dimension, so no hidden ABI args are emitted.
 type Fan1KernelArgs struct {
-	M    gpuruntime.Ptr // offset 0
-	A    gpuruntime.Ptr // offset 8
-	Size int32          // offset 16
-	T    int32          // offset 20
+	M      gpuruntime.Ptr // offset 0
+	A      gpuruntime.Ptr // offset 8
+	Size   int32          // offset 16
+	T      int32          // offset 20
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Fan2KernelArgs defines the kernel arguments for fan2 (gfx942 / CDNA3).
@@ -52,11 +53,12 @@ type Fan1KernelArgs struct {
 // (kernarg_segment_size = 32): three 8-byte global_buffer pointers followed
 // by two 4-byte by_value scalars, packed with no padding. No hidden ABI args.
 type Fan2KernelArgs struct {
-	M    gpuruntime.Ptr // offset 0
-	A    gpuruntime.Ptr // offset 8
-	B    gpuruntime.Ptr // offset 16
-	Size int32          // offset 24
-	T    int32          // offset 28
+	M      gpuruntime.Ptr // offset 0
+	A      gpuruntime.Ptr // offset 8
+	B      gpuruntime.Ptr // offset 16
+	Size   int32          // offset 24
+	T      int32          // offset 28
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the Gaussian elimination benchmark.
@@ -128,19 +130,13 @@ func (b *Benchmark) initData() {
 	b.AInit = make([]float32, n*n)
 	b.BInit = make([]float32, n)
 
-	// Off-diagonal entries are kept strictly in [0.1, 1.0] (never exactly
-	// 0). A pivot column with an exact-zero entry below the diagonal yields
-	// a 0/pivot multiplier; that is mathematically just 0, but it exercises
-	// the hardware fast-divide's zero-numerator path. Avoiding exact zeros
-	// keeps the system well-conditioned and the result faithful.
-	for i := 0; i < n*n; i++ {
-		b.AInit[i] = float32((i*7+3)%9)/10.0 + 0.1
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.AInit {
+		b.AInit[i] = float32(rand.Next()%10) / 10.0
 	}
 	for i := 0; i < n; i++ {
-		b.AInit[i*n+i] += float32(n) // diagonal dominance: no pivoting needed
-	}
-	for i := 0; i < n; i++ {
-		b.BInit[i] = float32((i*3+1)%9)/10.0 + 1.0
+		b.AInit[i*n+i] += float32(n)
+		b.BInit[i] = float32(rand.Next()%10)/10.0 + 1.0
 	}
 }
 
@@ -182,10 +178,11 @@ func (b *Benchmark) exec() {
 		// fan1: 1D grid, BLOCK1D threads/block.
 		grid1 := uint32((remaining + block1D - 1) / block1D)
 		fan1Args := Fan1KernelArgs{
-			M:    b.GM,
-			A:    b.GA,
-			Size: int32(n),
-			T:    int32(t),
+			M:      b.GM,
+			A:      b.GA,
+			Size:   int32(n),
+			T:      int32(t),
+			Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{grid1 * block1D, 1, 1}, [3]uint16{block1D, 1, 1}),
 		}
 		b.rt.EnqueueLaunchKernel(
 			b.Queue,
@@ -203,6 +200,9 @@ func (b *Benchmark) exec() {
 			B:    b.GB,
 			Size: int32(n),
 			T:    int32(t),
+			Launch: benchmarks.NewGFX942LaunchDimensions(
+				[3]uint32{grid2 * block2D, grid2 * block2D, 1},
+				[3]uint16{block2D, block2D, 1}),
 		}
 		b.rt.EnqueueLaunchKernel(
 			b.Queue,
@@ -251,9 +251,9 @@ func (b *Benchmark) verify() error {
 	}
 	relErr := math.Sqrt(normRes / (normB + 1e-30))
 
-	if math.IsNaN(relErr) || math.IsInf(relErr, 0) || relErr >= 1e-3 {
+	if math.IsNaN(relErr) || math.IsInf(relErr, 0) || relErr >= 1e-4 {
 		return fmt.Errorf("Verification failed: relative residual = %.3e "+
-			"(tolerance 1e-3)\n", relErr)
+			"(tolerance 1e-4)\n", relErr)
 	}
 
 	log.Printf("Verification: rel_err = %.3e\n", relErr)

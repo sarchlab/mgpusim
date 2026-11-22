@@ -242,7 +242,7 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	alu := NewALU(nil)
 	state := newMockInstState()
 	state.inst.FormatType = insts.VOP3a
-	state.inst.Opcode = 929
+	state.inst.Opcode = 911
 	state.inst.Src0 = &insts.Operand{}
 	state.inst.Src1 = &insts.Operand{}
 	state.inst.Dst = &insts.Operand{}
@@ -542,5 +542,100 @@ func TestScalarShiftAdd(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestVOP3aDivFixupF32UsesNumeratorAndDenominatorInOrder(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 478
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 3
+	state.setOperand(state.inst.Src0, 0, uint64(math.Float32bits(float32(math.NaN()))))
+	state.setOperand(state.inst.Src1, 0, uint64(math.Float32bits(-2)))
+	state.setOperand(state.inst.Src2, 0, 0)
+	state.setOperand(state.inst.Src0, 1, uint64(math.Float32bits(float32(math.NaN()))))
+	state.setOperand(state.inst.Src1, 1, 0)
+	state.setOperand(state.inst.Src2, 1, uint64(math.Float32bits(-2)))
+	alu.Run(state)
+	if got := state.ReadOperand(state.inst.Dst, 0); got != 0x80000000 {
+		t.Fatalf("0 / -2 returned 0x%x, want negative zero", got)
+	}
+	if got := state.ReadOperand(state.inst.Dst, 1); got != 0xff800000 {
+		t.Fatalf("-2 / 0 returned 0x%x, want negative infinity", got)
+	}
+}
+
+func TestVOP3aPkAddF32UsesIndependentSigns(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// v_pk_add_f32 v[2:3], v[26:27], v[6:7] op_sel_hi:[0,0]
+	// neg_lo:[0,1] neg_hi:[1,1], as emitted for Parboil LBM.
+	inst, err := d.Decode([]byte{0x02, 0x43, 0xb2, 0xd3, 0x1a, 0x0d, 0x02, 0x40})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+	state.setOperand(inst.Src0, 0, f32bits(2)|f32bits(5)<<32)
+	state.setOperand(inst.Src1, 0, f32bits(3)|f32bits(7)<<32)
+
+	NewALU(nil).Run(state)
+
+	want := f32bits(-1) | f32bits(-5)<<32
+	if got := state.operands[inst.Dst][0]; got != want {
+		t.Fatalf("v_pk_add_f32 returned %#x, want %#x", got, want)
+	}
+}
+
+func TestSOPKMovI32SignExtendsImmediate(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// s_movk_i32 s21, 0xfce0 as emitted for a LavaMD LDS address.
+	inst, err := d.Decode([]byte{0xe0, 0xfc, 0x15, 0xb0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := newMockInstState()
+	state.inst = inst
+	state.setOperand(inst.SImm16, 0, 0xfce0)
+
+	NewALU(nil).Run(state)
+
+	if got := state.operands[inst.Dst][0]; got != 0xfffffce0 {
+		t.Fatalf("s_movk_i32 returned %#x, want 0xfffffce0", got)
+	}
+}
+
+func TestVOPCNotGreaterF64ReadsRegisterPairs(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// v_cmp_ngt_f64_e32 vcc, s[0:1], v[2:3], emitted for SRAD.
+	inst, err := d.Decode([]byte{0x00, 0x04, 0xd6, 0x7c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inst.Src0.RegCount != 2 || inst.Src1.RegCount != 2 {
+		t.Fatalf("decoded sources %v, %v, want two register pairs", inst.Src0, inst.Src1)
+	}
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 0b111
+	state.setOperand(inst.Src0, 0, math.Float64bits(3))
+	state.setOperand(inst.Src1, 0, math.Float64bits(2))
+	state.setOperand(inst.Src0, 1, math.Float64bits(3))
+	state.setOperand(inst.Src1, 1, math.Float64bits(4))
+	state.setOperand(inst.Src0, 2, math.Float64bits(math.NaN()))
+	state.setOperand(inst.Src1, 2, math.Float64bits(2))
+
+	NewALU(nil).Run(state)
+
+	if state.vcc != 0b110 {
+		t.Fatalf("v_cmp_ngt_f64 returned mask %b, want 110", state.vcc)
 	}
 }

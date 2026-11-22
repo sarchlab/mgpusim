@@ -13,7 +13,8 @@ type State struct {
 	Queue         gpuruntime.CommandQueue
 	Gpus          []int
 	Arch          arch.Type
-	GridSize      int       // grid is GridSize x GridSize
+	GridSize      int // grid is GridSize x GridSize
+	PyramidHeight int
 	NumIterations int       // stencil time-steps per run
 	Temp          []float32 // initial temperature grid
 	Power         []float32 // power density grid

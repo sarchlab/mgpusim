@@ -175,6 +175,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit, name string) {
 	}
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, coalescer)
 	vectorMemoryUnit.maxCoalescingPenalty = b.spec.MaxCoalescingPenalty
+	vectorMemoryUnit.sharedAperture = b.resources.ALU.ArchName() == "CDNA3"
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	for i := 0; i < b.spec.SIMDCount; i++ {

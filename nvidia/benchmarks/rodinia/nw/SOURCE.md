@@ -1,11 +1,12 @@
 # Rodinia Needleman-Wunsch
 
-CUDA host program `nw.cu` for the Rodinia Needleman-Wunsch benchmark. The GPU kernels are not copied: `nw.cu` `#include`s the HIP kernel file of the AMD benchmark, which nvcc compiles unchanged through `../../include/hip/hip_runtime.h`.
+CUDA host program `nw.cu` for the Rodinia Needleman-Wunsch benchmark. The host includes the bundled kernel, which the HIP shim makes available to nvcc.
 
 | | |
 | --- | --- |
-| Kernel source | `amd/benchmarks/rodinia/nw/native/nw.cpp` |
-| Kernel version | commit `2d04fc56` (2026-03-05) on main |
+| Kernel source | [`nw.cpp`](../../kernels/rodinia/nw/native/nw.cpp) |
+| Original kernel path | `amd/benchmarks/rodinia/nw/native/nw.cpp` |
+| Kernel snapshot | Commit `31ca066fb44b8a6c5997409936d0e8778a1ef805` |
 | Kernel origin | HIP translation of `nw.cl` (Rodinia OpenCL) in the same directory |
 | Kernels | `nw_kernel1`, `nw_kernel2` |
 | Host code follows | `amd/benchmarks/rodinia/nw/benchmark.go` |

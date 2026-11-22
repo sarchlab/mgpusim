@@ -1,18 +1,4 @@
-// Package srad implements the Rodinia SRAD benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/rodinia_srad) for the MGPUSim MI300X
-// (CDNA3 / gfx942) model.
-//
-// SRAD (Speckle-Reducing Anisotropic Diffusion) is an iterative 2D image
-// smoothing scheme based on Perona-Malik anisotropic diffusion. Each
-// iteration runs two stencil kernels:
-//
-//	srad1: compute directional gradients (dN/dS/dW/dE) and the diffusion
-//	       coefficient c for every pixel.
-//	srad2: update the image J using those diffusion coefficients.
-//
-// Both kernels are launched NumIterations times. The kernel binary is
-// compiled for gfx942 only (see native/), so the benchmark must be run with
-// `-arch cdna3` (the MI300X configuration).
+// Package srad runs the Rodinia SRAD hybrid CPU-GPU diffusion benchmark.
 package srad
 
 import (
@@ -31,312 +17,226 @@ import (
 // blockSize is the (constant) thread-block dimension baked into the kernel.
 const blockSize = 16
 
-// lambda is the SRAD update strength (matches the HIP host default).
-const lambda float32 = 0.25
-
-// q0sqr is the speckle-noise parameter (matches the HIP host default).
-const q0sqr float32 = 0.05
-
-// Srad1Args defines the kernel arguments for the gfx942 (CDNA3) srad1 kernel.
-//
-// Verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 60): six 8-byte global_buffer pointers followed by
-// three 4-byte by_value scalars, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernel uses a constant block dimension, so no hidden ABI arguments are
-// emitted.
-type Srad1Args struct {
-	J     gpuruntime.Ptr // offset 0
-	DN    gpuruntime.Ptr // offset 8
-	DS    gpuruntime.Ptr // offset 16
-	DW    gpuruntime.Ptr // offset 24
-	DE    gpuruntime.Ptr // offset 32
-	C     gpuruntime.Ptr // offset 40
-	Rows  int32          // offset 48
-	Cols  int32          // offset 52
-	Q0sqr float32        // offset 56
+type sradFields struct {
+	E, W, N, S, J, C gpuruntime.Ptr
+	Cols, Rows       int32
 }
 
-// Srad2Args defines the kernel arguments for the gfx942 (CDNA3) srad2 kernel.
-// Same layout as Srad1Args (kernarg_segment_size = 60); the final scalar is
-// lambda instead of q0sqr.
-type Srad2Args struct {
-	J      gpuruntime.Ptr // offset 0
-	DN     gpuruntime.Ptr // offset 8
-	DS     gpuruntime.Ptr // offset 16
-	DW     gpuruntime.Ptr // offset 24
-	DE     gpuruntime.Ptr // offset 32
-	C      gpuruntime.Ptr // offset 40
-	Rows   int32          // offset 48
-	Cols   int32          // offset 52
-	Lambda float32        // offset 56
+type srad1Args struct {
+	sradFields
+	QSqr   float32
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
+}
+type srad2Args struct {
+	sradFields
+	Lambda, QSqr float32
+	Launch       benchmarks.GFX942LaunchDimensions
 }
 
-// Benchmark defines the SRAD benchmark.
+// Benchmark preserves the image downloaded between iterations for the CPU ROI
+// calculation and for independent validation of the actual final step.
 type Benchmark struct {
 	*State
 	benchmarks.Checkpoint[State]
-	rt *gpuruntime.Runtime
-
-	hsaco1 *insts.KernelCodeObject
-	hsaco2 *insts.KernelCodeObject
+	rt            *gpuruntime.Runtime
+	first, second *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-// NewBenchmark returns a new SRAD benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
-	b := new(Benchmark)
-	b.State = &State{}
+	b := &Benchmark{rt: rt, State: &State{}}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
-
-	b.rt = rt
-	b.Context = b.rt.Init()
-
+	b.Context = rt.Init()
 	return b
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco1 = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "srad1")
-	if b.hsaco1 == nil {
-		log.Panic("Failed to load srad1 kernel binary")
-	}
-	b.hsaco2 = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "srad2")
-	if b.hsaco2 == nil {
-		log.Panic("Failed to load srad2 kernel binary")
+	b.first = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "srad_cuda_1")
+	b.second = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "srad_cuda_2")
+	if b.first == nil || b.second == nil {
+		panic("could not load archived SRAD kernels")
 	}
 }
 
-// SelectGPU selects the GPUs to run on. SRAD uses a single GPU.
-func (b *Benchmark) SelectGPU(gpus []int) {
-	b.Gpus = gpus
-}
+func (b *Benchmark) SelectGPU(gpus []int) { b.Gpus = gpus }
+func (b *Benchmark) SetUnifiedMemory()    { b.UseUnifiedMemory = true }
 
-// SetUnifiedMemory requests the use of unified memory.
-func (b *Benchmark) SetUnifiedMemory() {
-	b.UseUnifiedMemory = true
-}
-
-// Prepare the inputs for the first queued phase.
-func (b *Benchmark) submit() {
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
-		log.Panic("the rodinia srad benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300x")
+		panic("SRAD requires CDNA3")
 	}
-
-	b.loadProgram()
-
-	b.rt.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.rt.CreateCommandQueue(b.Context)
-	b.initMem()
-	b.exec()
-}
-
-func (b *Benchmark) initMem() {
 	if b.ImageSize <= 0 {
-		b.ImageSize = 64
+		b.ImageSize = 32
 	}
 	if b.NumIterations <= 0 {
 		b.NumIterations = 10
 	}
-
-	n := b.ImageSize
-	total := n * n
-
-	// Deterministic synthetic image in (0, 1], reproducible in Verify.
-	b.JInit = make([]float32, total)
-	for i := 0; i < total; i++ {
-		b.JInit[i] = float32((i%97)+1) / 98.0
+	if b.Lambda == 0 {
+		b.Lambda = 0.5
 	}
-
+	b.ImageSize = (b.ImageSize + blockSize - 1) / blockSize * blockSize
+	n := b.ImageSize
+	b.loadProgram()
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
+	b.Initial = make([]float32, n*n)
+	b.Final = make([]float32, n*n)
+	rand := benchmarks.NewGlibcRand(7)
+	for i := range b.Initial {
+		b.Initial[i] = float32(math.Exp(float64(float32(rand.Next()) / 2147483647)))
+	}
+	b.Current = append([]float32(nil), b.Initial...)
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		b.GJ = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDN = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDS = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDW = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GDE = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-		b.GC = b.rt.AllocateUnifiedMemory(b.Context, uint64(total*4))
-	} else {
-		b.GJ = b.rt.AllocateMemory(b.Context, uint64(total*4))
-		b.GDN = b.rt.AllocateMemory(b.Context, uint64(total*4))
-		b.GDS = b.rt.AllocateMemory(b.Context, uint64(total*4))
-		b.GDW = b.rt.AllocateMemory(b.Context, uint64(total*4))
-		b.GDE = b.rt.AllocateMemory(b.Context, uint64(total*4))
-		b.GC = b.rt.AllocateMemory(b.Context, uint64(total*4))
+		alloc = b.rt.AllocateUnifiedMemory
 	}
-
-	b.Upload(b.rt, b.Queue, b.GJ, b.JInit)
-}
-
-func (b *Benchmark) exec() {
-	n := b.ImageSize
-	gridDim := uint32((n + blockSize - 1) / blockSize)
-	globalX := gridDim * blockSize
-	globalY := gridDim * blockSize
-
-	for k := 0; k < b.NumIterations; k++ {
-		args1 := Srad1Args{
-			J:     b.GJ,
-			DN:    b.GDN,
-			DS:    b.GDS,
-			DW:    b.GDW,
-			DE:    b.GDE,
-			C:     b.GC,
-			Rows:  int32(n),
-			Cols:  int32(n),
-			Q0sqr: q0sqr,
-		}
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco1,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&args1,
-		)
-
-		args2 := Srad2Args{
-			J:      b.GJ,
-			DN:     b.GDN,
-			DS:     b.GDS,
-			DW:     b.GDW,
-			DE:     b.GDE,
-			C:      b.GC,
-			Rows:   int32(n),
-			Cols:   int32(n),
-			Lambda: lambda,
-		}
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco2,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&args2,
-		)
+	for i := range b.Buffers {
+		b.Buffers[i] = alloc(b.Context, uint64(4*n*n))
 	}
 }
 
-// Verify checks the GPU result against a CPU reference computation that
-// reproduces the same two-phase SRAD iteration exactly.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
+func roiVariation(image []float32, n int) float32 {
+	edge := min(n, 128)
+	var sum, squareSum float32
+	for i := 0; i < edge; i++ {
+		for j := 0; j < edge; j++ {
+			value := image[i*n+j]
+			sum += value
+			squareSum += float32(value * value)
+		}
+	}
+	count := float32(edge * edge)
+	mean := sum / count
+	meanSquare := float32(mean * mean)
+	return (squareSum/count - meanSquare) / meanSquare
+}
+
+func (b *Benchmark) launchStep() {
 	n := b.ImageSize
-	total := n * n
+	grid, group := [3]uint32{uint32(n), uint32(n), 1}, [3]uint16{blockSize, blockSize, 1}
+	buffers := b.Buffers
+	fields := sradFields{J: buffers[0], C: buffers[1], E: buffers[2], W: buffers[3], S: buffers[4], N: buffers[5],
+		Cols: int32(n), Rows: int32(n)}
+	q := roiVariation(b.Current, n)
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
+	first := srad1Args{sradFields: fields, QSqr: q, Launch: launch}
+	second := srad2Args{sradFields: fields, Lambda: b.Lambda, QSqr: q, Launch: launch}
+	b.Upload(b.rt, b.Queue, b.Buffers[0], b.Current)
+	b.rt.EnqueueLaunchKernel(b.Queue, b.first, grid, group, &first)
+	b.rt.EnqueueLaunchKernel(b.Queue, b.second, grid, group, &second)
+}
 
-	gpu := make([]float32, total)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpu); err != nil {
-		return err
+func (b *Benchmark) cpuStep(input []float32, result *[6][]float32) {
+	n := b.ImageSize
+	q := roiVariation(input, n)
+	J, C, E, W, S, N := result[0], result[1], result[2], result[3], result[4], result[5]
+	for k, center := range input {
+		row, col := k/n, k%n
+		up, down := max(row-1, 0), min(row+1, n-1)
+		left, right := max(col-1, 0), min(col+1, n-1)
+		N[k], S[k] = input[up*n+col]-center, input[down*n+col]-center
+		W[k], E[k] = input[row*n+left]-center, input[row*n+right]-center
+		gradient := (float32(N[k]*N[k]) + float32(S[k]*S[k]) + float32(W[k]*W[k]) + float32(E[k]*E[k])) /
+			float32(center*center)
+		laplacian := (N[k] + S[k] + W[k] + E[k]) / center
+		num := float32(0.5*float64(gradient) - (1.0/16.0)*float64(float32(laplacian*laplacian)))
+		den := float32(1 + 0.25*float64(laplacian))
+		qs := num / float32(den*den)
+		den = (qs - q) / float32(q*(1+q))
+		C[k] = min(1, max(0, float32(1/(1+float64(den)))))
 	}
+	for k, center := range input {
+		row, col := k/n, k%n
+		south, east := min(row+1, n-1)*n+col, row*n+min(col+1, n-1)
+		divergence := float32(C[k]*N[k]) + float32(C[south]*S[k]) + float32(C[k]*W[k]) + float32(C[east]*E[k])
+		J[k] = float32(float64(center) + 0.25*float64(b.Lambda)*float64(divergence))
+	}
+}
 
-	jc := make([]float32, total)
-	copy(jc, b.JInit)
+func cpuBuffers(n int) [6][]float32 {
+	var result [6][]float32
+	for i := range result {
+		result[i] = make([]float32, n*n)
+	}
+	return result
+}
 
-	dN := make([]float32, total)
-	dS := make([]float32, total)
-	dW := make([]float32, total)
-	dE := make([]float32, total)
-	c := make([]float32, total)
-
-	for k := 0; k < b.NumIterations; k++ {
-		// Phase 1: gradients + diffusion coefficient.
-		for row := 0; row < n; row++ {
-			for col := 0; col < n; col++ {
-				idx := row*n + col
-
-				iN := row - 1
-				if row <= 0 {
-					iN = 0
-				}
-				iS := row + 1
-				if row >= n-1 {
-					iS = n - 1
-				}
-				jW := col - 1
-				if col <= 0 {
-					jW = 0
-				}
-				jE := col + 1
-				if col >= n-1 {
-					jE = n - 1
-				}
-
-				jcv := jc[idx]
-				dn := jc[iN*n+col] - jcv
-				ds := jc[iS*n+col] - jcv
-				dw := jc[row*n+jW] - jcv
-				de := jc[row*n+jE] - jcv
-
-				dN[idx] = dn
-				dS[idx] = ds
-				dW[idx] = dw
-				dE[idx] = de
-
-				g2 := (dn*dn + ds*ds + dw*dw + de*de) / (jcv * jcv)
-				l := (dn + ds + dw + de) / jcv
-				num := (0.5 * g2) - ((1.0 / 16.0) * (l * l))
-				den := 1.0 + (0.25 * l)
-				qsqr := num / (den * den)
-
-				den = (qsqr - q0sqr) / (q0sqr * (1.0 + q0sqr))
-				ci := 1.0 / (1.0 + den)
-				if ci < 0.0 {
-					ci = 0.0
-				}
-				if ci > 1.0 {
-					ci = 1.0
-				}
-				c[idx] = ci
-			}
+func compareField(actual, expected []float32, tolerance float64, field int) error {
+	for i, value := range actual {
+		got, want := float64(value), float64(expected[i])
+		if math.IsNaN(got) || math.IsInf(got, 0) || math.IsNaN(want) || math.IsInf(want, 0) ||
+			math.Abs(got-want) > tolerance*math.Max(1, math.Abs(want)) {
+			return fmt.Errorf("SRAD field %d at %d: got %g, expected %g", field, i, got, want)
 		}
-
-		// Phase 2: image update.
-		for row := 0; row < n; row++ {
-			for col := 0; col < n; col++ {
-				idx := row*n + col
-
-				iS := row + 1
-				if row >= n-1 {
-					iS = n - 1
-				}
-				jE := col + 1
-				if col >= n-1 {
-					jE = n - 1
-				}
-
-				cN := c[idx]
-				cS := c[iS*n+col]
-				cW := c[idx]
-				cE := c[row*n+jE]
-
-				d := cN*dN[idx] + cS*dS[idx] + cW*dW[idx] + cE*dE[idx]
-				jc[idx] += 0.25 * lambda * d
-			}
+		if field == 1 && (got < 0 || got > 1 || want < 0 || want > 1) {
+			return fmt.Errorf("SRAD coefficient at %d is outside [0,1]", i)
 		}
 	}
-
-	for i := 0; i < total; i++ {
-		ref := float64(jc[i])
-		got := float64(gpu[i])
-
-		denom := math.Abs(ref)
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(ref-got)/denom > 1e-3 {
-			return fmt.Errorf("At pixel %d (row %d, col %d), expected %f, but got %f.\n",
-				i, i/n, i%n, ref, got)
-		}
-	}
-
-	log.Printf("Passed!\n")
-
 	return nil
 }
 
-func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GJ, 4*((b.ImageSize)*(b.ImageSize))))
+func (b *Benchmark) verify() error {
+	trajectory := cpuBuffers(b.ImageSize)
+	prev := append([]float32(nil), b.Initial...)
+	for i := 0; i < b.NumIterations; i++ {
+		b.cpuStep(prev, &trajectory)
+		prev, trajectory[0] = trajectory[0], prev
+	}
+	if err := compareField(b.Final, prev, 1e-3, 0); err != nil {
+		return err
+	}
+	finalStep := cpuBuffers(b.ImageSize)
+	b.cpuStep(b.Current, &finalStep)
+	if err := compareField(b.Final, finalStep[0], 1e-5, 0); err != nil {
+		return err
+	}
+	actual := make([]float32, len(b.Final))
+	for i, readback := range b.Readbacks {
+		if err := benchmarks.Read(b.rt, readback, actual); err != nil {
+			return err
+		}
+		var tolerance float64
+		if i == 0 {
+			tolerance = 1e-5
+		}
+		if err := compareField(actual, finalStep[i+1], tolerance, i+1); err != nil {
+			return err
+		}
+	}
+	log.Printf("Passed!\n")
+	return nil
 }
 
-// Step submits computation, then verification readback, then consumes results.
+func (b *Benchmark) handleImage() error {
+	final := b.Iteration == b.NumIterations-1
+	dst := b.Current
+	if final {
+		dst = b.Final
+	}
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], dst); err != nil {
+		return err
+	}
+	b.Readbacks = nil
+	b.Iteration++
+	if !final {
+		b.launchStep()
+		b.Phase = 1
+		return nil
+	}
+	if !b.Verification {
+		b.Ended = true
+		return nil
+	}
+	for _, buffer := range b.Buffers[1:] {
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, buffer, len(dst)*4))
+	}
+	b.Phase = 3
+	return nil
+}
+
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
@@ -344,19 +244,17 @@ func (b *Benchmark) Step() error {
 	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
-
 	switch b.Phase {
 	case 0:
-		b.submit()
+		b.setup()
+		b.launchStep()
 		b.Phase = 1
 	case 1:
-		if !b.Verification {
-			b.Ended = true
-			return nil
-		}
-		b.enqueueVerification()
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.Buffers[0], len(b.Current)*4))
 		b.Phase = 2
 	case 2:
+		return b.handleImage()
+	case 3:
 		if err := b.verify(); err != nil {
 			return err
 		}

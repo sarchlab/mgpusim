@@ -29,22 +29,16 @@ import (
 
 const blockSize = 16
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernels.
-//
-// All three 3mm kernels share an identical signature: three 8-byte
-// global_buffer pointers followed by three 4-byte by_value int32 scalars.
-// The layout is verified against the compiled kernels' AMDGPU metadata
-// (kernarg_segment_size = 36), packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernels read only blockIdx/threadIdx with constant block dims, so no
-// hidden ABI arguments are emitted.
+// KernelArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type KernelArgs struct {
-	In0 gpuruntime.Ptr // offset 0  (A / C / E)
-	In1 gpuruntime.Ptr // offset 8  (B / D / F)
-	Out gpuruntime.Ptr // offset 16 (E / F / G)
-	D0  int32          // offset 24 (NI / NJ / NI)
-	D1  int32          // offset 28 (NK / NM / NJ)
-	D2  int32          // offset 32 (NJ / NL / NL)
+	In0    gpuruntime.Ptr // offset 0  (A / C / E)
+	In1    gpuruntime.Ptr // offset 8  (B / D / F)
+	Out    gpuruntime.Ptr // offset 16 (E / F / G)
+	D0     int32          // offset 24 (NI / NJ / NI)
+	D1     int32          // offset 28 (NK / NM / NJ)
+	D2     int32          // offset 32 (NJ / NL / NL)
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the 3MM benchmark.
@@ -133,17 +127,11 @@ func (b *Benchmark) initMem() {
 	b.D = make([]float32, b.NM*b.NL)
 
 	// Deterministic init reproducible in Verify().
-	for i := range b.A {
-		b.A[i] = float32(i%100) / 10.0
-	}
-	for i := range b.B {
-		b.B[i] = float32((i*2)%100) / 10.0
-	}
-	for i := range b.C {
-		b.C[i] = float32((i*3)%100) / 10.0
-	}
-	for i := range b.D {
-		b.D[i] = float32((i*4)%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for _, matrix := range [][]float32{b.A, b.B, b.C, b.D} {
+		for i := range matrix {
+			matrix[i] = float32(rand.Next()%100) / 10.0
+		}
 	}
 
 	alloc := b.rt.AllocateMemory
@@ -176,6 +164,9 @@ func (b *Benchmark) exec() {
 	args1 := KernelArgs{
 		In0: b.GA, In1: b.GB, Out: b.GE,
 		D0: int32(b.NI), D1: int32(b.NK), D2: int32(b.NJ),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NJ), gridDim(b.NI), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -189,6 +180,9 @@ func (b *Benchmark) exec() {
 	args2 := KernelArgs{
 		In0: b.GC, In1: b.GD, Out: b.GF,
 		D0: int32(b.NJ), D1: int32(b.NM), D2: int32(b.NL),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NL), gridDim(b.NJ), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -202,6 +196,9 @@ func (b *Benchmark) exec() {
 	args3 := KernelArgs{
 		In0: b.GE, In1: b.GF, Out: b.GG,
 		D0: int32(b.NI), D1: int32(b.NJ), D2: int32(b.NL),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NL), gridDim(b.NI), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -212,13 +209,7 @@ func (b *Benchmark) exec() {
 	)
 }
 
-// Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
-	gpuG := make([]float32, b.NI*b.NL)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuG); err != nil {
-		return err
-	}
-
 	// E = A * B  (NI×NJ)
 	e := make([]float64, b.NI*b.NJ)
 	for i := 0; i < b.NI; i++ {
@@ -243,34 +234,54 @@ func (b *Benchmark) verify() error {
 		}
 	}
 
-	// G = E * F  (NI×NL)
+	g := make([]float64, b.NI*b.NL)
 	for i := 0; i < b.NI; i++ {
 		for l := 0; l < b.NL; l++ {
-			var sum float64
 			for j := 0; j < b.NJ; j++ {
-				sum += e[i*b.NJ+j] * f[j*b.NL+l]
-			}
-			ref := sum
-			got := float64(gpuG[i*b.NL+l])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, l, ref, got)
+				g[i*b.NL+l] += e[i*b.NJ+j] * f[j*b.NL+l]
 			}
 		}
 	}
 
-	log.Printf("Passed!\n")
+	for stage, check := range []struct {
+		name      string
+		reference []float64
+		tolerance float64
+	}{
+		{"E", e, 5e-4},
+		{"F", f, 5e-4},
+		{"G", g, 1e-3},
+	} {
+		if err := b.verifyProduct(stage, check.name, check.reference, check.tolerance); err != nil {
+			return err
+		}
+	}
 
+	log.Printf("Passed!\n")
+	return nil
+}
+
+func (b *Benchmark) verifyProduct(stage int, name string, expected []float64, tolerance float64) error {
+	actual := make([]float32, len(expected))
+	if err := benchmarks.Read(b.rt, b.Readbacks[stage], actual); err != nil {
+		return err
+	}
+	for i, ref := range expected {
+		got := float64(actual[i])
+		limit := tolerance * math.Max(1, math.Abs(ref))
+		if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= limit) {
+			return fmt.Errorf("3MM %s[%d] got %g, expected %g within %g", name, i, got, ref, limit)
+		}
+	}
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GG, 4*(b.NI*b.NL)))
+	b.Readbacks = append(b.Readbacks,
+		benchmarks.Download(b.rt, b.Queue, b.GE, 4*b.NI*b.NJ),
+		benchmarks.Download(b.rt, b.Queue, b.GF, 4*b.NJ*b.NL),
+		benchmarks.Download(b.rt, b.Queue, b.GG, 4*b.NI*b.NL),
+	)
 }
 
 // Step submits computation, then verification readback, then consumes results.

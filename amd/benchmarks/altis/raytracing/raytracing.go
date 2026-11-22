@@ -23,9 +23,7 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize is the constant work-group size baked into the kernel (the native
-// kernel uses a literal BLOCK_SIZE rather than blockDim.x, so no hidden ABI
-// arguments are emitted).
+// blockSize is the work-group size used by the v1.1 host.
 const blockSize = 256
 
 // floatsPerSphere is the number of float32 values per Sphere
@@ -34,18 +32,15 @@ const floatsPerSphere = 7
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 28): two 8-byte global_buffer pointers followed by
-// three 4-byte by_value int scalars, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment padding).
-// The kernel uses a constant block size and reads only blockIdx/threadIdx, so
-// no hidden ABI arguments are emitted.
+// Explicit arguments are followed by the gfx942 launch geometry.
 type KernelArgs struct {
 	Image      gpuruntime.Ptr // offset 0
 	Spheres    gpuruntime.Ptr // offset 8
 	Width      int32          // offset 16
 	Height     int32          // offset 20
 	NumSpheres int32          // offset 24
+	_          uint32
+	Launch     benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the ray tracing benchmark.
@@ -119,13 +114,14 @@ func (b *Benchmark) genSpheres() {
 
 	for i := 0; i < n; i++ {
 		base := i * floatsPerSphere
-		b.SphereData[base+0] = next()*6.0 - 3.0 // cx
-		b.SphereData[base+1] = next()*6.0 - 3.0 // cy
-		b.SphereData[base+2] = next()*4.0 - 4.0 // cz
-		b.SphereData[base+3] = next()*0.5 + 0.2 // radius
-		b.SphereData[base+4] = next()*0.8 + 0.2 // r
-		b.SphereData[base+5] = next()*0.8 + 0.2 // g
-		b.SphereData[base+6] = next()*0.8 + 0.2 // b
+		// Match the HIP host's separate float32 multiply and add.
+		b.SphereData[base+0] = float32(next()*6.0) - 3.0 // cx
+		b.SphereData[base+1] = float32(next()*6.0) - 3.0 // cy
+		b.SphereData[base+2] = float32(next()*4.0) - 4.0 // cz
+		b.SphereData[base+3] = float32(next()*0.5) + 0.2 // radius
+		b.SphereData[base+4] = float32(next()*0.8) + 0.2 // r
+		b.SphereData[base+5] = float32(next()*0.8) + 0.2 // g
+		b.SphereData[base+6] = float32(next()*0.8) + 0.2 // b
 	}
 }
 
@@ -166,6 +162,7 @@ func (b *Benchmark) exec() {
 		Width:      int32(b.Width),
 		Height:     int32(b.Height),
 		NumSpheres: int32(b.Spheres),
+		Launch:     benchmarks.NewGFX942LaunchDimensions([3]uint32{gridX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(

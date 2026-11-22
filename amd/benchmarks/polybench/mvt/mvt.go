@@ -31,20 +31,14 @@ import (
 // compiler emits no hidden ABI arguments.
 const blockSize = 256
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernels.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 28): three 8-byte global_buffer pointers
-// followed by one 4-byte by_value scalar, packed with no padding
-// (mgpusim serializes args with binary.Write, which inserts no alignment
-// padding). The kernels read only blockIdx/threadIdx, so no hidden ABI
-// arguments are emitted. The same layout is used by both mvt_kernel1
-// (A, y1, x1, n) and mvt_kernel2 (A, y2, x2, n).
+// KernelArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type KernelArgs struct {
-	A gpuruntime.Ptr // offset 0
-	Y gpuruntime.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
-	X gpuruntime.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
-	N int32          // offset 24
+	A      gpuruntime.Ptr // offset 0
+	Y      gpuruntime.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
+	X      gpuruntime.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
+	N      int32          // offset 24
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the MVT benchmark.
@@ -124,12 +118,13 @@ func (b *Benchmark) initMem() {
 	b.Y2 = make([]float32, n)
 
 	// Deterministic host init, reproduced exactly in Verify().
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
 	}
-	for j := 0; j < n; j++ {
-		b.Y1[j] = float32((j*3)%100) / 10.0
-		b.Y2[j] = float32((j*7)%100) / 10.0
+	for i := range b.Y1 {
+		b.Y1[i] = float32(rand.Next()%100) / 10.0
+		b.Y2[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -158,10 +153,11 @@ func (b *Benchmark) exec() {
 
 	// Kernel 1: x1 = A * y1
 	args1 := KernelArgs{
-		A: b.GA,
-		Y: b.GY1,
-		X: b.GX1,
-		N: int32(n),
+		A:      b.GA,
+		Y:      b.GY1,
+		X:      b.GX1,
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -173,10 +169,11 @@ func (b *Benchmark) exec() {
 
 	// Kernel 2: x2 = A^T * y2
 	args2 := KernelArgs{
-		A: b.GA,
-		Y: b.GY2,
-		X: b.GX2,
-		N: int32(n),
+		A:      b.GA,
+		Y:      b.GY2,
+		X:      b.GX2,
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -202,12 +199,12 @@ func (b *Benchmark) verify() error {
 
 	// x1[i] = sum_j A[i,j] * y1[j]
 	for i := 0; i < n; i++ {
-		var sum float64
+		var sum float32
 		for j := 0; j < n; j++ {
-			sum += float64(b.A[i*n+j]) * float64(b.Y1[j])
+			sum += float32(b.A[i*n+j] * b.Y1[j])
 		}
-		got := float64(gpuX1[i])
-		if relErr(sum, got) > 1e-3 {
+		got := gpuX1[i]
+		if !matchesReference(sum, got) {
 			return fmt.Errorf("x1 mismatch at %d: expected %f, but got %f.\n",
 				i, sum, got)
 		}
@@ -215,12 +212,12 @@ func (b *Benchmark) verify() error {
 
 	// x2[j] = sum_i A[i,j] * y2[i]
 	for j := 0; j < n; j++ {
-		var sum float64
+		var sum float32
 		for i := 0; i < n; i++ {
-			sum += float64(b.A[i*n+j]) * float64(b.Y2[i])
+			sum += float32(b.A[i*n+j] * b.Y2[i])
 		}
-		got := float64(gpuX2[j])
-		if relErr(sum, got) > 1e-3 {
+		got := gpuX2[j]
+		if !matchesReference(sum, got) {
 			return fmt.Errorf("x2 mismatch at %d: expected %f, but got %f.\n",
 				j, sum, got)
 		}
@@ -236,12 +233,10 @@ func (b *Benchmark) enqueueVerification() {
 	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GX2, 4*(b.N)))
 }
 
-func relErr(ref, got float64) float64 {
-	denom := math.Abs(ref)
-	if denom < 1.0 {
-		denom = 1.0
-	}
-	return math.Abs(ref-got) / denom
+func matchesReference(ref, actual float32) bool {
+	denom := float32(math.Abs(float64(ref))) + 1e-6
+	difference := float32(math.Abs(float64(ref - actual)))
+	return !math.IsInf(float64(ref), 0) && !math.IsInf(float64(actual), 0) && difference/denom <= 1e-3
 }
 
 // Step submits computation, then verification readback, then consumes results.

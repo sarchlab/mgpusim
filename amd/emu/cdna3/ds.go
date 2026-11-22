@@ -20,17 +20,19 @@ func (u *ALU) runDS(state emu.InstEmuState) {
 	case 54:
 		u.runDSREADB32(state)
 	case 55:
-		u.runDSREAD2B32(state)
+		u.runDSREAD2B32(state, 4)
+	case 56:
+		u.runDSREAD2B32(state, 64*4)
 	case 78:
 		u.runDSWRITE2B64(state)
 	case 118:
 		u.runDSREADB64(state)
 	case 119:
 		u.runDSREAD2B64(state)
-	case 223:
-		u.runDSWRITEB128(state)
-	case 255:
-		u.runDSREADB128(state)
+	case 77, 222, 223:
+		u.runDSWRITEWide(state, inst.SRC0Width/8)
+	case 254, 255:
+		u.runDSREADWide(state, inst.DSTWidth/8)
 	default:
 		log.Panicf("Opcode %d for DS format is not implemented", inst.Opcode)
 	}
@@ -157,7 +159,7 @@ func (u *ALU) runDSREADB32(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runDSREAD2B32(state emu.InstEmuState) {
+func (u *ALU) runDSREAD2B32(state emu.InstEmuState, offsetStride uint32) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -169,8 +171,8 @@ func (u *ALU) runDSREAD2B32(state emu.InstEmuState) {
 		}
 
 		baseAddr := uint32(state.ReadOperand(inst.Addr, i))
-		addr0 := baseAddr + inst.Offset0*4
-		addr1 := baseAddr + inst.Offset1*4
+		addr0 := baseAddr + inst.Offset0*offsetStride
+		addr1 := baseAddr + inst.Offset1*offsetStride
 
 		if addr0+4 > uint32(len(lds)) {
 			log.Panicf("DS_READ2_B32: LDS address 0x%x + 4 exceeds LDS size %d (lane %d)", addr0, len(lds), i)
@@ -234,7 +236,7 @@ func (u *ALU) runDSREADB64(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runDSWRITEB128(state emu.InstEmuState) {
+func (u *ALU) runDSWRITEWide(state emu.InstEmuState, size int) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -244,16 +246,16 @@ func (u *ALU) runDSWRITEB128(state emu.InstEmuState) {
 			continue
 		}
 
-		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
-		if addr0+16 > uint32(len(lds)) {
-			log.Panicf("DS_WRITE_B128: LDS address 0x%x + 16 exceeds LDS size %d (lane %d)", addr0, len(lds), i)
+		addr0 := int(uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0)
+		if addr0+size > len(lds) {
+			log.Panicf("DS write: LDS address 0x%x + %d exceeds LDS size %d (lane %d)", addr0, size, len(lds), i)
 		}
-		data := state.ReadOperandBytes(inst.Data, i, 16)
-		copy(lds[addr0:addr0+16], data)
+		data := state.ReadOperandBytes(inst.Data, i, size)
+		copy(lds[addr0:addr0+size], data)
 	}
 }
 
-func (u *ALU) runDSREADB128(state emu.InstEmuState) {
+func (u *ALU) runDSREADWide(state emu.InstEmuState, size int) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	lds := u.LDS()
@@ -264,12 +266,12 @@ func (u *ALU) runDSREADB128(state emu.InstEmuState) {
 			continue
 		}
 
-		addr0 := uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0
-		if addr0+16 > uint32(len(lds)) {
-			log.Panicf("DS_READ_B128: LDS address 0x%x + 16 exceeds LDS size %d (lane %d)", addr0, len(lds), i)
+		addr0 := int(uint32(state.ReadOperand(inst.Addr, i)) + inst.Offset0)
+		if addr0+size > len(lds) {
+			log.Panicf("DS read: LDS address 0x%x + %d exceeds LDS size %d (lane %d)", addr0, size, len(lds), i)
 		}
-		copy(buf[:], lds[addr0:addr0+16])
-		state.WriteOperandBytes(inst.Dst, i, buf[:])
+		copy(buf[:size], lds[addr0:addr0+size])
+		state.WriteOperandBytes(inst.Dst, i, buf[:size])
 	}
 }
 

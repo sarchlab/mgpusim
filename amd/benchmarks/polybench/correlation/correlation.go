@@ -35,18 +35,13 @@ const (
 	blockSize = 256 // must match BLOCK_SIZE in native/polybench_correlation.cpp
 )
 
-// MeanArgs / StddevArgs / NormalizeArgs / CorrelationArgs mirror the kernarg
-// layout reported by the compiled gfx942 kernels (verified against the AMDGPU
-// metadata). mgpusim serializes args with binary.Write, which packs fields in
-// declaration order with no alignment padding, so each field lands on its
-// metadata offset. No hidden ABI arguments are emitted (constant block dims).
-
-// MeanArgs: kernarg_segment_size = 24.
+// MeanArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type MeanArgs struct {
-	Data gpuruntime.Ptr // offset 0
-	Mean gpuruntime.Ptr // offset 8
-	M    int32          // offset 16
-	N    int32          // offset 20
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	M      int32          // offset 16
+	N      int32          // offset 20
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // StddevArgs: kernarg_segment_size = 32.
@@ -56,6 +51,7 @@ type StddevArgs struct {
 	Stddev gpuruntime.Ptr // offset 16
 	M      int32          // offset 24
 	N      int32          // offset 28
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // NormalizeArgs: kernarg_segment_size = 32.
@@ -65,6 +61,7 @@ type NormalizeArgs struct {
 	Stddev gpuruntime.Ptr // offset 16
 	M      int32          // offset 24
 	N      int32          // offset 28
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // CorrelationArgs: kernarg_segment_size = 24.
@@ -152,9 +149,9 @@ func (b *Benchmark) initMem() {
 	numElem := n * n // M == N
 
 	b.Data = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		// Deterministic host init reproduced exactly in Verify().
-		b.Data[i] = float32((i*7+3)%1000) / 100.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.Data {
+		b.Data[i] = float32(rand.Next()%1000) / 100.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -189,10 +186,11 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	globalCorr := gridDim * tileSize
 
 	meanArgs := MeanArgs{
-		Data: b.GData,
-		Mean: b.GMean,
-		M:    int32(m),
-		N:    int32(n),
+		Data:   b.GData,
+		Mean:   b.GMean,
+		M:      int32(m),
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.meanKernel,
@@ -207,6 +205,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.stddevKernel,
@@ -221,6 +220,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalMN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.normalizeKernel,
@@ -243,89 +243,82 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	)
 }
 
-// Verify checks the GPU result against a CPU reference computation that
-// reproduces the exact four-kernel pipeline (in float32) on the host.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
+// reference evaluates the archived independent double-precision CPU pipeline.
+func (b *Benchmark) reference() [4][]float64 {
 	n := b.N
-	m := n
+	work := make([]float64, n*n)
+	mean, stddev := make([]float64, n), make([]float64, n)
+	for i, value := range b.Data {
+		mean[i%n] += float64(value)
+	}
+	for j := range mean {
+		mean[j] /= float64(n)
+	}
+	for i, value := range b.Data {
+		diff := float64(value) - mean[i%n]
+		stddev[i%n] += diff * diff
+	}
+	for j := range stddev {
+		stddev[j] = math.Sqrt(stddev[j] / float64(n))
+		if stddev[j] < float64(float32(1e-12)) {
+			stddev[j] = 1
+		}
+	}
+	sqrtN := math.Sqrt(float64(n))
+	for i, value := range b.Data {
+		j := i % n
+		work[i] = (float64(value) - mean[j]) / (sqrtN * stddev[j])
+	}
 
-	gpuCorr := make([]float32, n*n)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuCorr); err != nil {
+	corr := make([]float64, n*n)
+	for row := 0; row < n; row++ {
+		for col := 0; col < n; col++ {
+			for k := 0; k < n; k++ {
+				corr[row*n+col] += work[k*n+row] * work[k*n+col]
+			}
+		}
+		corr[row*n+row] = 1
+	}
+	return [4][]float64{mean, stddev, work, corr}
+}
+
+func (b *Benchmark) verify() error {
+	names := [4]string{"mean", "standard deviation", "normalized data", "correlation"}
+	for stage, refs := range b.reference() {
+		if err := b.verifyStage(stage, names[stage], refs); err != nil {
+			return err
+		}
+	}
+	log.Printf("Passed!\n")
+	return nil
+}
+
+func (b *Benchmark) verifyStage(stage int, name string, expected []float64) error {
+	actual := make([]float32, len(expected))
+	if err := benchmarks.Read(b.rt, b.Readbacks[stage], actual); err != nil {
 		return err
 	}
-
-	// CPU reference, mirroring the kernels element-for-element in float32.
-	work := make([]float32, m*n)
-	copy(work, b.Data)
-
-	mean := make([]float32, n)
-	for j := 0; j < n; j++ {
-		var sum float32
-		for i := 0; i < m; i++ {
-			sum += work[i*n+j]
+	for i, ref := range expected {
+		got := float64(actual[i])
+		tolerance := 1e-5 * math.Max(1, math.Abs(ref))
+		if stage == 3 && i%(b.N+1) == 0 {
+			tolerance = 0
 		}
-		mean[j] = sum / float32(m)
-	}
-
-	stddev := make([]float32, n)
-	for j := 0; j < n; j++ {
-		mj := mean[j]
-		var sum float32
-		for i := 0; i < m; i++ {
-			diff := work[i*n+j] - mj
-			sum += diff * diff
-		}
-		s := float32(math.Sqrt(float64(sum / float32(m))))
-		if s < 1e-12 {
-			s = 1.0
-		}
-		stddev[j] = s
-	}
-
-	sqrtM := float32(math.Sqrt(float64(m)))
-	for idx := 0; idx < m*n; idx++ {
-		j := idx % n
-		work[idx] = (work[idx] - mean[j]) / (sqrtM * stddev[j])
-	}
-
-	corr := make([]float32, n*n)
-	for row := 0; row < n; row++ {
-		for col := 0; col < n; col++ {
-			if row == col {
-				corr[row*n+col] = 1.0
-				continue
-			}
-			var sum float32
-			for k := 0; k < m; k++ {
-				sum += work[k*n+row] * work[k*n+col]
-			}
-			corr[row*n+col] = sum
+		if math.IsInf(got, 0) || math.IsInf(ref, 0) || !(math.Abs(ref-got) <= tolerance) {
+			return fmt.Errorf("%s[%d] got %g, expected %g within %g", name, i, got, ref, tolerance)
 		}
 	}
-
-	for row := 0; row < n; row++ {
-		for col := 0; col < n; col++ {
-			ref := float64(corr[row*n+col])
-			got := float64(gpuCorr[row*n+col])
-
-			denom := math.Abs(ref)
-			if denom < 1.0 {
-				denom = 1.0
-			}
-			if math.Abs(ref-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					row, col, ref, got)
-			}
-		}
-	}
-
-	log.Printf("Passed!\n")
-
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*((b.N)*(b.N))))
+	n := b.N
+	b.Readbacks = append(b.Readbacks,
+		benchmarks.Download(b.rt, b.Queue, b.GMean, 4*n),
+		benchmarks.Download(b.rt, b.Queue, b.GStddev, 4*n),
+		benchmarks.Download(b.rt, b.Queue, b.GData, 4*n*n),
+		benchmarks.Download(b.rt, b.Queue, b.GCorr, 4*n*n),
+	)
 }
 
 // Step submits computation, then verification readback, then consumes results.

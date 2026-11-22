@@ -10,6 +10,9 @@ import (
 
 var length = flag.Int("length", 64, "The number bases in the gene sequence")
 
+var blockSize = flag.Int("block-size", 16, "Work-group width for the CDNA3 tiled kernel.")
+var penalty = flag.Int("penalty", 10, "Gap penalty used by Needleman-Wunsch.")
+
 func main() {
 	flag.Parse()
 
@@ -20,6 +23,8 @@ func main() {
 	benchmark := nw.NewBenchmark(runtime)
 	benchmark.Arch = config.ArchType
 	benchmark.SetLength(*length)
+	benchmark.NativeBlockSize = *blockSize
+	benchmark.SetPenalty(*penalty)
 
 	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)

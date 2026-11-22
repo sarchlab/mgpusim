@@ -20,6 +20,9 @@ func (r *Runtime) EnqueueLaunchKernel(
 	group [3]uint16,
 	args any,
 ) CommandID {
+	if co.KernargSegmentByteSize == 0 && args != nil {
+		panic("runtime: zero-argument kernel requires nil arguments")
+	}
 	queue := r.queue(q)
 	h := queue.Context
 	ctx := r.context(h)
@@ -34,43 +37,47 @@ func (r *Runtime) EnqueueLaunchKernel(
 	for _, device := range gpus {
 		ctx.GPU = device
 		key := codeKey{Queue: q, PID: ctx.PID, GPU: device, Hash: codeHash}
-		if r.codeIndex == nil {
-			r.rebuildCodeIndex()
-		}
-		var code Ptr
-		for _, index := range r.codeIndex[key] {
-			entry := r.state.Codes[index]
-			if reflect.DeepEqual(entry.Code, cmd.Code) {
-				code = entry.Address
-				break
-			}
-		}
-		if code == 0 {
-			code = r.AllocateMemory(h, uint64(len(co.Data)))
-			r.codeIndex[key] = append(r.codeIndex[key], len(r.state.Codes))
-			r.state.Codes = append(r.state.Codes, codeAddress{q, ctx.PID, device, cmd.Code, code})
-			r.stageUpload(q, code, co.Data)
-		}
-		argAddress := r.AllocateMemory(h, co.KernargSegmentByteSize)
+		code := r.enqueueCodeUpload(key, cmd.Code, co.Data, h)
 		packet := kernels.HsaKernelDispatchPacket{
-			GridSizeX:      grid[0],
-			GridSizeY:      grid[1],
-			GridSizeZ:      grid[2],
-			WorkgroupSizeX: group[0],
-			WorkgroupSizeY: group[1],
-			WorkgroupSizeZ: group[2],
-			KernelObject:   uint64(code),
-			KernargAddress: uint64(argAddress),
+			GridSizeX:        grid[0],
+			GridSizeY:        grid[1],
+			GridSizeZ:        grid[2],
+			WorkgroupSizeX:   group[0],
+			WorkgroupSizeY:   group[1],
+			WorkgroupSizeZ:   group[2],
+			KernelObject:     uint64(code),
+			GroupSegmentSize: co.GroupSegmentByteSize,
 		}
-		captured := prepareLocalMemory(co, args, &packet)
+		if co.KernargSegmentByteSize > 0 {
+			argAddress := r.AllocateMemory(h, co.KernargSegmentByteSize)
+			packet.KernargAddress = uint64(argAddress)
+			captured := prepareLocalMemory(co, args, &packet)
+			r.stageUpload(q, argAddress, captured)
+		}
 		packetAddress := r.AllocateMemory(h, uint64(binary.Size(packet)))
-		r.stageUpload(q, argAddress, captured)
 		r.stageUpload(q, packetAddress, packet)
 		cmd.Packets = append(cmd.Packets, kernels.PacketSnapshot(&packet))
 		cmd.PacketAddresses = append(cmd.PacketAddresses, packetAddress)
 	}
 	return r.enqueue(q, cmd)
 }
+func (r *Runtime) enqueueCodeUpload(key codeKey, snapshot insts.CodeObjectValue, data []byte, ctx Context) Ptr {
+	if r.codeIndex == nil {
+		r.rebuildCodeIndex()
+	}
+	for _, index := range r.codeIndex[key] {
+		entry := r.state.Codes[index]
+		if reflect.DeepEqual(entry.Code, snapshot) {
+			return entry.Address
+		}
+	}
+	address := r.AllocateMemory(ctx, uint64(len(data)))
+	r.codeIndex[key] = append(r.codeIndex[key], len(r.state.Codes))
+	r.state.Codes = append(r.state.Codes, codeAddress{key.Queue, key.PID, key.GPU, snapshot, address})
+	r.stageUpload(key.Queue, address, data)
+	return address
+}
+
 func prepareLocalMemory(co *insts.KernelCodeObject, args any, packet *kernels.HsaKernelDispatchPacket) any {
 	value := reflect.ValueOf(args)
 	if value.Kind() != reflect.Pointer || value.IsNil() {
@@ -82,9 +89,11 @@ func prepareLocalMemory(co *insts.KernelCodeObject, args any, packet *kernels.Hs
 	if captured.Elem().Kind() == reflect.Struct {
 		fields := captured.Elem()
 		for i := 0; i < fields.NumField(); i++ {
-			if size, ok := fields.Field(i).Interface().(LocalPtr); ok {
-				fields.Field(i).SetUint(uint64(lds))
-				lds += uint32(size)
+			field := fields.Field(i)
+			if field.Type() == reflect.TypeFor[LocalPtr]() && field.CanSet() {
+				size := uint32(field.Uint())
+				field.SetUint(uint64(lds))
+				lds += size
 			}
 		}
 	}

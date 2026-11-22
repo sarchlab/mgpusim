@@ -10,7 +10,7 @@ import (
 
 var (
 	numAtoms    = flag.Int("num-atoms", 64, "Number of atoms (point charges).")
-	gridSide    = flag.Int("grid-side", 8, "Grid points per axis (grid is grid-side^3 points).")
+	gridSide    = flag.Int("grid-side", 16, "Grid points per axis (grid is grid-side^3 points).")
 	gridSpacing = flag.Float64("grid-spacing", 0.5, "Distance between adjacent grid points.")
 	cutoff      = flag.Float64("cutoff", 12.0, "Interaction cutoff radius.")
 )

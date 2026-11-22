@@ -3,17 +3,13 @@
 // MGPUSim MI300X (CDNA3 / gfx942) model.
 //
 // Each thread runs a long chain of INT32 multiply-add operations
-// (a = a*mul + add) entirely in registers and then writes its accumulated
+// (a = a*madMul + madAdd) entirely in registers and then writes its accumulated
 // result to out[globalThreadId]. The dominant compute is the register-only
 // MAD chain (the original throughput microbenchmark), while the per-thread
 // store makes the result fully verifiable on the host with int32
 // wraparound.
 //
-// The block size is passed as an explicit threads_per_block kernel argument
-// (blockDim.x reads back as 0 in this model), so the calibration can sweep it
-// and the global thread id stays correct. The kernel binary is compiled for
-// gfx942 only (see native/), so the benchmark must be run with `-arch cdna3`
-// (the MI300X configuration).
+// The compiled kernel targets MI300X (gfx942).
 package int32throughput
 
 import (
@@ -28,23 +24,20 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// defaultThreadsPerBlock is the work-group size used when ThreadsPerBlock is
-// unset. The block size is a runtime kernel argument (passed explicitly
-// because blockDim.x reads back as 0 in this model), so the calibration can
-// sweep it.
-const defaultThreadsPerBlock = 256
+const (
+	defaultThreadsPerBlock        = 256
+	madMul                 uint32 = 1664525
+	madAdd                 uint32 = 1013904223
+)
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 16): one 8-byte global_buffer pointer
-// followed by two 4-byte by_value int32s (mads_per_thread,
-// threads_per_block), packed with no padding (mgpusim serializes args with
-// binary.Write, which does not insert alignment padding).
+// KernelArgs is the device ABI for the version 1.1 HIP kernel.
 type KernelArgs struct {
-	Out             gpuruntime.Ptr // offset 0
-	MadsPerThread   int32          // offset 8
-	ThreadsPerBlock int32          // offset 12
+	Out           gpuruntime.Ptr
+	MadsPerThread int32
+	Mul           uint32
+	Add           uint32
+	_             [4]byte
+	Launch        benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the int32_throughput benchmark.
@@ -133,41 +126,30 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	globalX := uint32(b.NumThreads)
-
+	grid := [3]uint32{uint32(b.NumThreads), 1, 1}
+	group := [3]uint16{uint16(b.ThreadsPerBlock), 1, 1}
 	args := KernelArgs{
-		Out:             b.GOut,
-		MadsPerThread:   int32(b.EffectiveMadsPerThread),
-		ThreadsPerBlock: int32(b.ThreadsPerBlock),
+		Out: b.GOut, MadsPerThread: int32(b.EffectiveMadsPerThread), Mul: madMul, Add: madAdd,
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group),
 	}
-
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
-		&args,
-	)
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 }
 
 // cpuReferenceForThread reproduces, exactly, the value a thread with the
 // given threadIdx.x writes. The initial accumulators are
 // a0=1+threadIdx.x, a1=a0+111, a2=a0+222, a3=a0+333; all arithmetic is
-// int32 with wraparound.
-func (b *Benchmark) cpuReferenceForThread(threadIdxX int) int32 {
-	a0 := int32(1 + threadIdxX)
+// unsigned with wraparound.
+func (b *Benchmark) cpuReferenceForThread(threadIdxX int) uint32 {
+	a0 := uint32(1 + threadIdxX)
 	a1 := a0 + 111
 	a2 := a0 + 222
 	a3 := a0 + 333
 
-	const mul = int32(3)
-	const add = int32(1)
-
 	for i := 0; i < b.EffectiveMadsPerThread; i += 4 {
-		a0 = a0*mul + add
-		a1 = a1*mul + add
-		a2 = a2*mul + add
-		a3 = a3*mul + add
+		a0 = a0*madMul + madAdd
+		a1 = a1*madMul + madAdd
+		a2 = a2*madMul + madAdd
+		a3 = a3*madMul + madAdd
 	}
 
 	return a0 + a1 + a2 + a3
@@ -175,7 +157,7 @@ func (b *Benchmark) cpuReferenceForThread(threadIdxX int) int32 {
 
 // Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
-	gpuOut := make([]int32, b.NumThreads)
+	gpuOut := make([]uint32, b.NumThreads)
 	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOut); err != nil {
 		return err
 	}

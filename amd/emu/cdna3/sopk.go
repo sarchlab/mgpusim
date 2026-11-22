@@ -49,14 +49,14 @@ func (u *ALU) runSOPK(state emu.InstEmuState) {
 func (u *ALU) runSMOVKI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	imm := emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
-	state.WriteOperand(inst.Dst, 0, uint64(emu.Int16ToBits(imm)))
+	state.WriteOperand(inst.Dst, 0, uint64(uint32(int32(imm))))
 }
 
 func (u *ALU) runSCMOVKI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	if state.SCC() == 1 {
 		imm := emu.AsInt16(uint16(state.ReadOperand(inst.SImm16, 0) & 0xffff))
-		state.WriteOperand(inst.Dst, 0, uint64(emu.Int16ToBits(imm)))
+		state.WriteOperand(inst.Dst, 0, uint64(uint32(int32(imm))))
 	}
 }
 

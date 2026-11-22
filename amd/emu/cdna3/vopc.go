@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 //nolint:gocyclo,funlen
@@ -44,6 +45,10 @@ func (u *ALU) runVOPC(state emu.InstEmuState) {
 		u.runVCmpNeqF32(state)
 	case 0x4e:
 		u.runVCmpNltF32(state)
+	case 0x6b:
+		u.runVCmpUnorderedF64(state, false, nil)
+	case 0x6e:
+		u.runVCmpUnorderedF64(state, true, nil)
 	// i16 comparisons
 	case 0xa4:
 		u.runVCmpGtI16(state)
@@ -71,6 +76,8 @@ func (u *ALU) runVOPC(state emu.InstEmuState) {
 		u.runVCmpNeU32(state)
 	case 0xce:
 		u.runVCmpGeU32(state)
+	case 0xe3:
+		u.runVCmpLeI64(state)
 	// u64 comparisons (0xe8-0xef range)
 	case 0xe8:
 		u.runVCmpFU64(state)
@@ -693,6 +700,48 @@ func (u *ALU) runVCmpClassF32(state emu.InstEmuState) {
 		}
 
 		if (class & classMask) != 0 {
+			vcc |= 1 << uint(i)
+		}
+	}
+	state.SetVCC(vcc)
+}
+
+func (u *ALU) runVCmpUnorderedF64(state emu.InstEmuState, negateLess bool, dst *insts.Operand) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
+		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
+		// Swapping arguments exchanges NGT and NLT without changing NaN handling.
+		if negateLess {
+			src0, src1 = src1, src0
+		}
+		if !(src0 > src1) {
+			vcc |= 1 << uint(i)
+		}
+	}
+	if dst != nil {
+		state.WriteOperand(dst, 0, vcc)
+	} else {
+		state.SetVCC(vcc)
+	}
+}
+
+func (u *ALU) runVCmpLeI64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	var vcc uint64
+	for i := 0; i < 64; i++ {
+		if exec&(1<<uint(i)) == 0 {
+			continue
+		}
+		src0 := int64(state.ReadOperand(inst.Src0, i))
+		src1 := int64(state.ReadOperand(inst.Src1, i))
+		if src0 <= src1 {
 			vcc |= 1 << uint(i)
 		}
 	}

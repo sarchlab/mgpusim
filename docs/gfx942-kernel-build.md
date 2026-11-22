@@ -53,8 +53,8 @@ make -B -C amd/benchmarks/dnn/gputensor/native -f Makefile.hip update-embedded
 )
 ```
 
-These commands rebuild 66 device translation units and update their 125 tracked
-output paths. VectorAdd's embedded gfx942 object is named `kernels.hsaco`.
+These commands rebuild the device translation units and refresh their checked-in
+embedded objects. VectorAdd's embedded gfx942 object is named `kernels.hsaco`.
 N-Body uses `nbody_gfx942.hsaco`. To refresh the checked-in LLVM references after
 the kernel rebuild, run this in the same environment:
 
@@ -75,9 +75,8 @@ done
 For these bulk commands on macOS, use the same container mounts and environment
 as above and run the commands in a Bash shell from `/work`.
 
-FFT and Needleman–Wunsch use `-O1` because the compiler can emit packed move
-and integer XOR-add instructions at higher levels that MGPUSim does not yet
-execute. CutCP retains `-ffast-math -O1`, and LBM and Binomial Options retain
-`-ffast-math`. Match these native flags when collecting hardware timings.
+The MI300X parity ports use the GPU Benchmarks v1.1 device implementations and
+its ROCm optimization settings. In particular, FFT, Needleman–Wunsch, CutCP,
+LBM and Binomial Options use `-O3` without simulator-only fast-math flags.
 The gfx803 device binaries and their build recipes retain their existing
 toolchains.

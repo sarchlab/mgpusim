@@ -25,32 +25,13 @@ import (
 // kernel. Using a compile-time constant in the kernel avoids hidden ABI args.
 const blockSize = 16
 
-// PolyBench fixed 3x3 convolution coefficients.
-const (
-	c00 float32 = 0.8
-	c01 float32 = 0.2
-	c02 float32 = 0.3
-	c10 float32 = 0.2
-	c11 float32 = 0.7
-	c12 float32 = 0.4
-	c20 float32 = 0.1
-	c21 float32 = 0.2
-	c22 float32 = 0.5
-)
-
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 24): two 8-byte global_buffer pointers
-// followed by two 4-byte by_value scalars, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment
-// padding). The kernel uses constant block dimensions, so no hidden ABI
-// arguments are emitted.
+// KernelArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type KernelArgs struct {
-	A  gpuruntime.Ptr // offset 0
-	B  gpuruntime.Ptr // offset 8
-	NI int32          // offset 16
-	NJ int32          // offset 20
+	A      gpuruntime.Ptr // offset 0
+	B      gpuruntime.Ptr // offset 8
+	NI     int32          // offset 16
+	NJ     int32          // offset 20
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the 2D convolution benchmark.
@@ -120,8 +101,9 @@ func (b *Benchmark) initMem() {
 
 	// Deterministic host init that Verify() reproduces exactly.
 	b.A = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -145,10 +127,11 @@ func (b *Benchmark) exec() {
 	globalY := gridDim * blockSize
 
 	args := KernelArgs{
-		A:  b.GA,
-		B:  b.GB,
-		NI: int32(n),
-		NJ: int32(n),
+		A:      b.GA,
+		B:      b.GB,
+		NI:     int32(n),
+		NJ:     int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, globalY, 1}, [3]uint16{blockSize, blockSize, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(
@@ -168,34 +151,21 @@ func (b *Benchmark) verify() error {
 		return err
 	}
 
-	ref := make([]float32, n*n)
-	for i := 1; i < n-1; i++ {
-		for j := 1; j < n-1; j++ {
-			ref[i*n+j] =
-				c00*b.A[(i-1)*n+(j-1)] +
-					c01*b.A[(i-1)*n+j] +
-					c02*b.A[(i-1)*n+(j+1)] +
-					c10*b.A[i*n+(j-1)] +
-					c11*b.A[i*n+j] +
-					c12*b.A[i*n+(j+1)] +
-					c20*b.A[(i+1)*n+(j-1)] +
-					c21*b.A[(i+1)*n+j] +
-					c22*b.A[(i+1)*n+(j+1)]
-		}
-	}
-
+	weights := [3][3]float64{{0.2, 0.5, -0.8}, {-0.3, 0.6, -0.9}, {0.4, 0.7, 0.1}}
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
-			want := float64(ref[i*n+j])
-			got := float64(gpuB[i*n+j])
-
-			denom := math.Abs(want)
-			if denom < 1.0 {
-				denom = 1.0
+			var want, tolerance float64
+			if i > 0 && i < n-1 && j > 0 && j < n-1 {
+				for dy, row := range weights {
+					for dx, weight := range row {
+						want += weight * float64(b.A[(i+dy-1)*n+j+dx-1])
+					}
+				}
+				tolerance = 1e-5 * math.Max(1, math.Abs(want))
 			}
-			if math.Abs(want-got)/denom > 1e-3 {
-				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
-					i, j, want, got)
+			got := float64(gpuB[i*n+j])
+			if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(want-got) > tolerance {
+				return fmt.Errorf("convolution[%d,%d] got %g, expected %g within %g", i, j, got, want, tolerance)
 			}
 		}
 	}

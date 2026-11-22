@@ -13,6 +13,8 @@ var imageSize = flag.Int("size", 32,
 var numIterations = flag.Int("iterations", 10,
 	"The number of SRAD iterations to run.")
 
+var lambda = flag.Float64("lambda", 0.5, "Diffusion coefficient.")
+
 func main() {
 	flag.Parse()
 
@@ -22,6 +24,7 @@ func main() {
 
 	benchmark := srad.NewBenchmark(runtime)
 	benchmark.ImageSize = *imageSize
+	benchmark.Lambda = float32(*lambda)
 	benchmark.NumIterations = *numIterations
 	benchmark.Arch = config.ArchType
 

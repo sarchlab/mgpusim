@@ -82,6 +82,9 @@ func (o Operand) String() string {
 	case RegOperand:
 		return o.regOperandToString()
 	case IntOperand:
+		if o.Code == 235 {
+			return "src_shared_base"
+		}
 		return fmt.Sprintf("%d", o.IntValue)
 	case FloatOperand:
 		switch o.FloatValue {

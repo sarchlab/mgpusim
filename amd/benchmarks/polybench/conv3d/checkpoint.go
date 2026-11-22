@@ -14,13 +14,12 @@ type State struct {
 	Gpus      []int
 	Arch      arch.Type
 	// N is the edge length of the NxNxN volume.
-	N int
-	// FilterSize is the edge length of the cubic filter (e.g. 3).
+	N         int
+	BlockSize int
+	// FilterSize accepts the former default for source compatibility.
 	FilterSize       int
 	Input            []float32
-	Filter           []float32
 	GInput           gpuruntime.Ptr
-	GFilter          gpuruntime.Ptr
 	GOutput          gpuruntime.Ptr
 	UseUnifiedMemory bool
 }

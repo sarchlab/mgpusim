@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
@@ -121,20 +120,22 @@ var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
 	var hsacoBytes []byte
+	nameRows, nameCols := "bicgKernel1", "bicgKernel2"
 	if b.Arch == arch.CDNA3 {
 		hsacoBytes = cdna3HSACOBytes
+		nameRows, nameCols = "bicg_kernel2", "bicg_kernel1"
 	} else {
 		hsacoBytes = gcn3HSACOBytes
 	}
 
 	b.kernel1 = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "bicgKernel1")
+		hsacoBytes, nameRows)
 	if b.kernel1 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
 	b.kernel2 = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "bicgKernel2")
+		hsacoBytes, nameCols)
 	if b.kernel2 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -151,7 +152,6 @@ func (b *Benchmark) setup() {
 }
 
 func (b *Benchmark) initMem() {
-	rand.Seed(1)
 	b.A = make([]float32, b.NX*b.NY)
 	b.R = make([]float32, b.NX)
 	b.S = make([]float32, b.NY)
@@ -160,15 +160,24 @@ func (b *Benchmark) initMem() {
 	b.SOutput = make([]float32, b.NY)
 	b.QOutput = make([]float32, b.NX)
 
-	for i := 0; i < b.NX; i++ {
-		b.R[i] = float32(i) * math.Pi
-		for j := 0; j < b.NY; j++ {
-			b.A[i*b.NY+j] = float32(i) * float32(j) / float32(b.NX)
+	if b.Arch == arch.CDNA3 {
+		rand := benchmarks.NewGlibcRand(42)
+		for _, input := range [][]float32{b.A, b.P, b.R} {
+			for i := range input {
+				input[i] = float32(rand.Next()%100) / 10.0
+			}
 		}
-	}
+	} else {
+		for i := 0; i < b.NX; i++ {
+			b.R[i] = float32(i) * math.Pi
+			for j := 0; j < b.NY; j++ {
+				b.A[i*b.NY+j] = float32(i) * float32(j) / float32(b.NX)
+			}
+		}
 
-	for i := 0; i < b.NY; i++ {
-		b.P[i] = float32(i) * math.Pi
+		for i := 0; i < b.NY; i++ {
+			b.P[i] = float32(i) * math.Pi
+		}
 	}
 
 	if b.UseUnifiedMemory {
@@ -275,16 +284,31 @@ func (b *Benchmark) exec() {
 	b.Upload(b.rt, b.Queue, b.DR, b.R)
 	b.Upload(b.rt, b.Queue, b.DP, b.P)
 
-	localSize := [3]uint16{256, 1, 1}
-	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
-	globalSize := [3]uint32{globalSizeX, 1, 1}
-
-	b.launchKernel1(localSize, globalSize, globalSizeX)
-
-	globalSizeX = uint32(((b.NY-1)/256 + 1) * 256)
-	globalSize = [3]uint32{globalSizeX, 1, 1}
-
-	b.launchKernel2(localSize, globalSize, globalSizeX)
+	block := b.BlockSize
+	if block == 0 {
+		block = 256
+	}
+	if block < 1 || block > 1024 {
+		panic("block size must be between 1 and 1024")
+	}
+	localSize := [3]uint16{uint16(block), 1, 1}
+	launchRows := func() {
+		globalX := uint32(((b.NX + block - 1) / block) * block)
+		grid := [3]uint32{globalX, 1, 1}
+		b.launchKernel1(localSize, grid, globalX)
+	}
+	launchColumns := func() {
+		globalX := uint32(((b.NY + block - 1) / block) * block)
+		grid := [3]uint32{globalX, 1, 1}
+		b.launchKernel2(localSize, grid, globalX)
+	}
+	if b.Arch == arch.CDNA3 {
+		launchColumns()
+		launchRows()
+	} else {
+		launchRows()
+		launchColumns()
+	}
 
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DS, Target: 0})
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DQ, Target: 1})

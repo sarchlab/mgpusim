@@ -1,31 +1,13 @@
-/*
- * HIP kernels for PolyBench Correlation (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/polybench_correlation.
- *
- * Computes a correlation matrix from an MxN data matrix in four steps:
- *   1. mean_kernel        - column means
- *   2. stddev_kernel      - column standard deviations
- *   3. normalize_kernel   - normalize each element
- *   4. correlation_kernel - tiled (TILE_SIZE x TILE_SIZE) matmul of
- *                           normalized^T * normalized
- *
- * The 1D kernels use a CONSTANT block size (BLOCK_SIZE) and the tiled
- * kernel a CONSTANT TILE_SIZE instead of blockDim.x/y so the compiler
- * emits no hidden ABI arguments.
- */
-#include "hip/hip_runtime.h"
-#include <math.h>
+// GPU Benchmarks v1.1, tier2/polybench_correlation/hip/polybench_correlation.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
-#define BLOCK_SIZE 256
 #define TILE_SIZE 16
 
-extern "C" __global__ void mean_kernel(
-    const float* __restrict__ data,
-    float* __restrict__ mean,
-    int M,
-    int N)
-{
-    int j = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+extern "C" __global__ void mean_kernel(const float* __restrict__ data,
+                            float* __restrict__ mean,
+                            int M, int N) {
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
     if (j >= N) return;
 
     float sum = 0.0f;
@@ -35,14 +17,11 @@ extern "C" __global__ void mean_kernel(
     mean[j] = sum / (float)M;
 }
 
-extern "C" __global__ void stddev_kernel(
-    const float* __restrict__ data,
-    const float* __restrict__ mean,
-    float* __restrict__ stddev,
-    int M,
-    int N)
-{
-    int j = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+extern "C" __global__ void stddev_kernel(const float* __restrict__ data,
+                              const float* __restrict__ mean,
+                              float* __restrict__ stddev,
+                              int M, int N) {
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
     if (j >= N) return;
 
     float m = mean[j];
@@ -55,14 +34,11 @@ extern "C" __global__ void stddev_kernel(
     stddev[j] = (s < 1e-12f) ? 1.0f : s;
 }
 
-extern "C" __global__ void normalize_kernel(
-    float* __restrict__ data,
-    const float* __restrict__ mean,
-    const float* __restrict__ stddev,
-    int M,
-    int N)
-{
-    int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+extern "C" __global__ void normalize_kernel(float* __restrict__ data,
+                                 const float* __restrict__ mean,
+                                 const float* __restrict__ stddev,
+                                 int M, int N) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= M * N) return;
 
     int j = idx % N;
@@ -70,12 +46,9 @@ extern "C" __global__ void normalize_kernel(
     data[idx] = (data[idx] - mean[j]) / (sqrt_m * stddev[j]);
 }
 
-extern "C" __global__ void correlation_kernel(
-    const float* __restrict__ data,
-    float* __restrict__ corr,
-    int M,
-    int N)
-{
+extern "C" __global__ void correlation_kernel(const float* __restrict__ data,
+                                   float* __restrict__ corr,
+                                   int M, int N) {
     __shared__ float sA[TILE_SIZE][TILE_SIZE];
     __shared__ float sB[TILE_SIZE][TILE_SIZE];
 

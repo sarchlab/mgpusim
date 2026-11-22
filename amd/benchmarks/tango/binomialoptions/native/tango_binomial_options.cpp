@@ -1,46 +1,21 @@
-/*
- * HIP kernel for Tango Binomial Options (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/tango_binomial_options.
- *
- * Cox-Ross-Rubinstein (CRR) binomial tree model for American put option
- * pricing. One threadblock processes one option; threads collaborate on
- * backward induction through the tree using shared memory.
- *
- * Differences from the original HIP source, to keep the kernarg layout
- * simple (no hidden ABI args) and use only statically-sized LDS:
- *   - A constant compile-time BLOCK_SIZE is used instead of blockDim.x.
- *   - Shared memory is a static array of MAX_NODES floats instead of a
- *     dynamically-sized extern __shared__ buffer (so no LDS-size kernarg).
- * The numerical algorithm is byte-for-byte identical, so the CPU reference
- * in the Go driver reproduces the result exactly. The caller must launch
- * with block dim {BLOCK_SIZE,1,1} and numSteps+1 <= MAX_NODES.
- */
-#include "hip/hip_runtime.h"
-
-#define BLOCK_SIZE 256
-// Sized to the ground truth's steps=1024 (numSteps+1 = 1025 tree nodes). LDS
-// footprint (1025*4 ~= 4 KB) matches the real kernel's dynamic per-option shared
-// memory, so occupancy stays representative.
-#define MAX_NODES  1025
+// GPU Benchmarks v1.1, tier2/tango_binomial_options/hip/tango_binomial_options.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
 struct OptionData {
-    float S;      // stock price
-    float K;      // strike price
-    float T;      // time to expiration
-    float r;      // risk-free rate
-    float sigma;  // volatility
+    float S, K, T, r, sigma;
 };
+
+extern __shared__ float shared_values[];
 
 extern "C" __global__ void binomial_kernel(
     const OptionData* __restrict__ options,
     float*            __restrict__ prices,
     int               numSteps)
 {
-    __shared__ float shared_values[MAX_NODES];
-
     int optIdx = blockIdx.x;
     int tid    = threadIdx.x;
-    int bdim   = BLOCK_SIZE;
+    int bdim   = blockDim.x;
 
     OptionData opt = options[optIdx];
 
@@ -55,27 +30,39 @@ extern "C" __global__ void binomial_kernel(
 
     int numNodes = numSteps + 1;
 
+    // Double-buffer the tree level. A single in-place
+    // buffer races: computing node j reads shared_values[j+1] while the thread
+    // owning node j+1 overwrites it in the same sweep — only one barrier per
+    // level, so on sm_70+ this corrupts even within a warp. `cur` is read-only
+    // for the level, `nxt` is written, then they swap.
+    float* cur = shared_values;
+    float* nxt = shared_values + numNodes;
+
     // Step 1: Compute terminal payoffs (stride loop)
     for (int j = tid; j < numNodes; j += bdim) {
         float ST = opt.S * powf(u, (float)(2 * j - numSteps));
         float payoff = fmaxf(opt.K - ST, 0.0f);
-        shared_values[j] = payoff;
+        cur[j] = payoff;
     }
     __syncthreads();
 
     // Step 2: Backward induction
     for (int step = numSteps; step > 0; --step) {
         for (int j = tid; j < step; j += bdim) {
-            float cont = Rinv * (p * shared_values[j + 1] + q * shared_values[j]);
+            // Expected value discounted
+            float cont = Rinv * (p * cur[j + 1] + q * cur[j]);
+            // American option: can exercise early
             float ST = opt.S * powf(u, (float)(2 * j - (step - 1)));
             float exercise = fmaxf(opt.K - ST, 0.0f);
-            shared_values[j] = fmaxf(cont, exercise);
+            nxt[j] = fmaxf(cont, exercise);
         }
         __syncthreads();
+        float* tmp = cur; cur = nxt; nxt = tmp;
     }
 
-    // Thread 0 writes the option price
+    // Thread 0 writes the option price (final result lives in `cur` after the
+    // last swap).
     if (tid == 0) {
-        prices[optIdx] = shared_values[0];
+        prices[optIdx] = cur[0];
     }
 }

@@ -1,20 +1,10 @@
-// Package cutcp implements the Parboil CUTCP benchmark, ported from
-// sarchlab/gpu_benchmarks (tier2/parboil_cutcp) for the MGPUSim MI300X
-// (CDNA3 / gfx942) model.
-//
-// CUTCP (Coulombic potential with cutoff) is a direct summation of
-// electrostatic charge interactions on a 3D grid: each thread computes the
-// potential at one grid point by iterating over all atoms within a cutoff
-// radius. The kernel binary is compiled for gfx942 only (see native/), so
-// the benchmark must be run with `-arch cdna3` (the MI300X configuration).
-//
-// The native kernel uses a constant BLOCK_SIZE (= 128) for its 1D launch,
-// so the compiler emits no hidden ABI arguments (kernarg_segment_size = 32).
+// Package cutcp implements the Parboil v1.1 binned cutoff potential benchmark.
 package cutcp
 
 import (
 	// embed hsaco files
 	_ "embed"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math"
@@ -25,224 +15,235 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize is the constant 1D work-group size baked into the gfx942 kernel.
-const blockSize = 128
+// binDepth is the maximum number of atoms stored per spatial bin.
+const binDepth = 16
+const regionSide = 8
+const regionPoints = 512
+const binLength = 4
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 32): two 8-byte global_buffer pointers
-// followed by four 4-byte by_value scalars, packed with no padding
-// (mgpusim serializes args with binary.Write, which does not insert
-// alignment padding). The kernel uses a constant BLOCK_SIZE for its launch
-// geometry, so no hidden ABI arguments are emitted.
+type Atom struct{ X, Y, Z, Charge float32 }
+type BinOffset struct{ X, Y, Z int32 }
+
 type KernelArgs struct {
-	Atoms       gpuruntime.Ptr // offset 0  (flat float4 array {x,y,z,charge})
-	Potential   gpuruntime.Ptr // offset 8
-	NumAtoms    int32          // offset 16
-	GridSide    int32          // offset 20
-	GridSpacing float32        // offset 24
-	Cutoff2     float32        // offset 28
+	BinsX, BinsY                 int32
+	Bins                         gpuruntime.Ptr
+	Spacing, Cutoff2, InvCutoff2 float32
+	_                            uint32
+	Regions                      gpuruntime.Ptr
+	Slab                         int32
+	_                            uint32
+	Launch                       benchmarks.GFX942LaunchDimensions
 }
 
-// Benchmark defines the CUTCP benchmark.
+// Benchmark runs the v1.1 spatially binned potential calculation.
 type Benchmark struct {
 	*State
 	benchmarks.Checkpoint[State]
-	rt *gpuruntime.Runtime
-
-	hsaco *insts.KernelCodeObject
+	rt     *gpuruntime.Runtime
+	kernel *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-// NewBenchmark returns a new CUTCP benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
-	b := new(Benchmark)
-	b.State = &State{}
+	b := &Benchmark{State: &State{}, rt: rt}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
-
-	b.rt = rt
-	b.Context = b.rt.Init()
-
+	b.Context = rt.Init()
 	return b
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "cutcp_kernel")
-	if b.hsaco == nil {
-		log.Panic("Failed to load kernel binary")
+	if len(b.Neighbors) == 0 {
+		return
 	}
+	offsets := make([]byte, binary.Size(b.Neighbors))
+	if _, err := binary.Encode(offsets, binary.LittleEndian, b.Neighbors); err != nil {
+		panic(err)
+	}
+	count := binary.LittleEndian.AppendUint32(nil, uint32(len(b.Neighbors)))
+	b.kernel = insts.LoadGFX942KernelWithReadOnlyData(cdna3HSACOBytes,
+		"_ZL37cuda_cutoff_potential_lattice6overlapiiP15HIP_vector_typeIfLj4EEfffPfi",
+		insts.ReadOnlyConstant{Name: "NbrListLen", Data: count}, insts.ReadOnlyConstant{Name: "NbrList", Data: offsets})
 }
 
-// SelectGPU selects the GPUs to run on. CUTCP uses a single GPU.
-func (b *Benchmark) SelectGPU(gpus []int) {
-	b.Gpus = gpus
-}
+func (b *Benchmark) SelectGPU(gpus []int) { b.Gpus = gpus }
+func (b *Benchmark) SetUnifiedMemory()    { b.UseUnifiedMemory = true }
 
-// SetUnifiedMemory requests the use of unified memory.
-func (b *Benchmark) SetUnifiedMemory() {
-	b.UseUnifiedMemory = true
-}
+func ceil32(x float32) int { return int(math.Ceil(float64(x))) }
 
-// Prepare the inputs for the first queued phase.
-func (b *Benchmark) submit() {
+func (b *Benchmark) configure() int {
 	if b.Arch != arch.CDNA3 {
-		log.Panic("the parboil cutcp benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300x")
+		panic("CutCP requires CDNA3")
 	}
-
-	b.loadProgram()
-
-	b.rt.SelectGPU(b.Context, b.Gpus[0])
-	b.Queue = b.rt.CreateCommandQueue(b.Context)
-	b.initMem()
-	b.exec()
-}
-
-// lcgRand reproduces the host LCG PRNG from the original HIP benchmark so
-// that Verify() can regenerate the exact same atom data.
-func lcgRand(state *uint32) uint32 {
-	*state = *state*1664525 + 1013904223
-	return *state
-}
-
-func randFloat(state *uint32, lo, hi float32) float32 {
-	return lo + float32(lcgRand(state)&0xFFFF)/65535.0*(hi-lo)
-}
-
-func (b *Benchmark) initMem() {
 	if b.NumAtoms <= 0 {
 		b.NumAtoms = 64
 	}
 	if b.GridSide <= 0 {
-		b.GridSide = 8
+		b.GridSide = 16
 	}
 	if b.GridSpacing <= 0 {
 		b.GridSpacing = 0.5
 	}
 	if b.Cutoff <= 0 {
-		b.Cutoff = 12.0
+		b.Cutoff = 12
 	}
+	b.SideRegions = (b.GridSide + regionSide - 1) / regionSide
+	padding := ceil32(b.Cutoff / binLength)
+	ratio := binLength / (regionSide * b.GridSpacing)
+	factor := float32(math.Sqrt(3))
+	switch {
+	case math.Floor(float64(ratio)) == math.Ceil(float64(ratio)):
+		if 2*padding+1 > 11 {
+			panic("CutCP cutoff exceeds aligned neighbor-list capacity")
+		}
+	case regionSide*b.GridSpacing <= 2*binLength:
+		factor *= 2
+		// An unaligned region can reach one bin farther from its center bin.
+		padding++
+		if 2*padding+1 > 11 {
+			panic("CutCP cutoff exceeds neighbor-list capacity")
+		}
+	default:
+		panic("CutCP grid spacing exceeds one Angstrom")
+	}
+	limit := b.Cutoff + factor*binLength
+	b.Neighbors = nil
+	for z := -padding; z <= padding; z++ {
+		for y := -padding; y <= padding; y++ {
+			for x := -padding; x <= padding; x++ {
+				if float32(x*x+y*y+z*z)*binLength*binLength < limit*limit {
+					b.Neighbors = append(b.Neighbors, BinOffset{int32(x), int32(y), int32(z)})
+				}
+			}
+		}
+	}
+	b.BinSide = ceil32(float32(regionSide*b.SideRegions)*b.GridSpacing/binLength) + 2*padding
+	b.BinOrigin = ((padding*b.BinSide+padding)*b.BinSide + padding) * binDepth
 
-	totalPoints := b.GridSide * b.GridSide * b.GridSide
-	domainSize := float32(b.GridSide) * b.GridSpacing
+	return padding
+}
 
-	// Generate synthetic atom data with the same LCG/seed as the HIP host.
-	b.Atoms = make([]float32, b.NumAtoms*4)
+func (b *Benchmark) binAtoms(padding int) []Atom {
+	size := b.BinSide
+	bins := make([]Atom, size*size*size*binDepth)
+	counts := make([]int, size*size*size)
 	var seed uint32 = 42
+	draw := func(lo, hi float32) float32 {
+		seed = seed*1664525 + 1013904223
+		// Match the HIP host's separate float32 multiply and add.
+		return lo + float32(float32(seed&0xffff)/65535*(hi-lo))
+	}
+	domain := float32(b.GridSide) * b.GridSpacing
 	for i := 0; i < b.NumAtoms; i++ {
-		x := randFloat(&seed, 0.0, domainSize)
-		y := randFloat(&seed, 0.0, domainSize)
-		z := randFloat(&seed, 0.0, domainSize)
-		q := randFloat(&seed, -1.0, 1.0)
-		b.Atoms[i*4+0] = x
-		b.Atoms[i*4+1] = y
-		b.Atoms[i*4+2] = z
-		b.Atoms[i*4+3] = q
+		atom := Atom{draw(0, domain), draw(0, domain), draw(0, domain), draw(0.1, 1)}
+		x, y, z := int(atom.X/binLength)+padding, int(atom.Y/binLength)+padding, int(atom.Z/binLength)+padding
+		if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size || atom.Charge == 0 {
+			continue
+		}
+		index := (z*size+y)*size + x
+		if counts[index] >= binDepth {
+			panic("CutCP atom bin exceeds the fixed 16-atom capacity")
+		}
+		bins[index*binDepth+counts[index]] = atom
+		counts[index]++
 	}
+	b.Atoms = make([]Atom, 0, b.NumAtoms)
+	for _, atom := range bins {
+		if atom.Charge != 0 {
+			b.Atoms = append(b.Atoms, atom)
+		}
+	}
+	return bins
+}
 
-	b.Potential = make([]float32, totalPoints)
-
+func (b *Benchmark) submit() {
+	padding := b.configure()
+	b.loadProgram()
+	b.rt.SelectGPU(b.Context, b.Gpus[0])
+	b.Queue = b.rt.CreateCommandQueue(b.Context)
+	bins := b.binAtoms(padding)
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		b.GAtoms = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(b.NumAtoms*4*4))
-		b.GPot = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(totalPoints*4))
-	} else {
-		b.GAtoms = b.rt.AllocateMemory(
-			b.Context, uint64(b.NumAtoms*4*4))
-		b.GPot = b.rt.AllocateMemory(
-			b.Context, uint64(totalPoints*4))
+		alloc = b.rt.AllocateUnifiedMemory
 	}
+	b.GAtoms = alloc(b.Context, uint64(len(bins))*16)
+	b.GPot = alloc(b.Context, uint64(b.regionSize())*4)
+	b.Upload(b.rt, b.Queue, b.GAtoms, bins)
+	b.Upload(b.rt, b.Queue, b.GPot, make([]float32, b.regionSize()))
+	b.exec()
+}
 
-	b.Upload(b.rt, b.Queue, b.GAtoms, b.Atoms)
+func (b *Benchmark) regionSize() int {
+	return b.SideRegions * b.SideRegions * b.SideRegions * regionPoints
 }
 
 func (b *Benchmark) exec() {
-	totalPoints := b.GridSide * b.GridSide * b.GridSide
-	gridSize := uint32((totalPoints + blockSize - 1) / blockSize)
-	globalX := gridSize * blockSize
+	group := [3]uint16{8, 2, 8}
+	grid := [3]uint32{uint32(b.SideRegions) * 8, uint32(b.SideRegions) * 2, 8}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
 	cutoff2 := b.Cutoff * b.Cutoff
-
-	args := KernelArgs{
-		Atoms:       b.GAtoms,
-		Potential:   b.GPot,
-		NumAtoms:    int32(b.NumAtoms),
-		GridSide:    int32(b.GridSide),
-		GridSpacing: b.GridSpacing,
-		Cutoff2:     cutoff2,
+	for slab := 0; slab < b.SideRegions; slab++ {
+		args := KernelArgs{BinsX: int32(b.BinSide), BinsY: int32(b.BinSide),
+			Bins: b.GAtoms + gpuruntime.Ptr(b.BinOrigin*16), Spacing: b.GridSpacing, Cutoff2: cutoff2, InvCutoff2: 1 / cutoff2,
+			Regions: b.GPot, Slab: int32(slab), Launch: launch}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel, grid, group, &args)
 	}
-
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
-		&args,
-	)
 }
 
-// cpuPotential computes the reference potential at a single grid point.
-func (b *Benchmark) cpuPotential(px, py, pz, cutoff2 float32) float32 {
-	var pot float32
-	for i := 0; i < b.NumAtoms; i++ {
-		dx := px - b.Atoms[i*4+0]
-		dy := py - b.Atoms[i*4+1]
-		dz := pz - b.Atoms[i*4+2]
-		r2 := dx*dx + dy*dy + dz*dz
-		if r2 < cutoff2 && r2 > 1e-12 {
-			pot += b.Atoms[i*4+3] / float32(math.Sqrt(float64(r2)))
+func bounds(coordinate, cutoff, spacing float32, n int) (int, int) {
+	x, c, h := float64(coordinate), float64(cutoff), float64(spacing)
+	return max(0, int(math.Floor((x-c)/h))-1), min(n-1, int(math.Ceil((x+c)/h))+1)
+}
+
+func (b *Benchmark) reference() []float32 {
+	n, h := b.GridSide, b.GridSpacing
+	cutoff2 := b.Cutoff * b.Cutoff
+	inverse := 1 / cutoff2
+	reference := make([]float32, n*n*n)
+	for _, atom := range b.Atoms {
+		x0, x1 := bounds(atom.X, b.Cutoff, h, n)
+		y0, y1 := bounds(atom.Y, b.Cutoff, h, n)
+		z0, z1 := bounds(atom.Z, b.Cutoff, h, n)
+		for z := z0; z <= z1; z++ {
+			for y := y0; y <= y1; y++ {
+				for x := x0; x <= x1; x++ {
+					dx, dy, dz := atom.X-float32(x)*h, atom.Y-float32(y)*h, atom.Z-float32(z)*h
+					r2 := float32(dx*dx) + float32(dy*dy) + float32(dz*dz)
+					if r2 < cutoff2 {
+						s := 1 - r2*inverse
+						i := (z*n+y)*n + x
+						reference[i] += atom.Charge * (1 / float32(math.Sqrt(float64(r2)))) * s * s
+					}
+				}
+			}
 		}
 	}
-	return pot
+	return reference
 }
 
-// Verify checks the GPU result against a CPU reference computation.
 func (b *Benchmark) verify() error {
-	totalPoints := b.GridSide * b.GridSide * b.GridSide
-	gpuPot := make([]float32, totalPoints)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuPot); err != nil {
+	actual := make([]float32, b.regionSize())
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], actual); err != nil {
 		return err
 	}
-
-	cutoff2 := b.Cutoff * b.Cutoff
-	side := b.GridSide
-
-	for idx := 0; idx < totalPoints; idx++ {
-		gz := idx / (side * side)
-		gy := (idx / side) % side
-		gx := idx % side
-		px := float32(gx) * b.GridSpacing
-		py := float32(gy) * b.GridSpacing
-		pz := float32(gz) * b.GridSpacing
-
-		ref := b.cpuPotential(px, py, pz, cutoff2)
-		got := gpuPot[idx]
-
-		diff := math.Abs(float64(got - ref))
-		tol := 1e-3 * (math.Abs(float64(ref)) + 1e-6)
-		if diff > tol {
-			return fmt.Errorf("At grid[%d] (%d,%d,%d), expected %f, but got %f.\n",
-				idx, gx, gy, gz, ref, got)
+	ref := b.reference()
+	n, r := b.GridSide, b.SideRegions
+	for i, want := range ref {
+		z, y, x := i/(n*n), i/n%n, i%n
+		region := ((z/8*r+y/8)*r + x/8) * regionPoints
+		local := (z%8*8+y%8)*8 + x%8
+		got := float64(actual[region+local])
+		tol := 1e-3 * (math.Abs(float64(want)) + 1e-4)
+		if math.IsNaN(got) || math.IsInf(got, 0) || math.IsNaN(float64(want)) ||
+			math.IsInf(float64(want), 0) || math.Abs(got-float64(want)) > tol {
+			return fmt.Errorf("potential at (%d,%d,%d): got %g, expected %g", x, y, z, got, want)
 		}
 	}
-
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
-func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(
-		b.Readbacks,
-		benchmarks.Download(b.rt, b.Queue, b.GPot, 4*(b.GridSide*b.GridSide*b.GridSide)),
-	)
-}
-
-// Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
@@ -250,18 +251,15 @@ func (b *Benchmark) Step() error {
 	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
-
 	switch b.Phase {
 	case 0:
 		b.submit()
-		b.Phase = 1
 	case 1:
 		if !b.Verification {
 			b.Ended = true
 			return nil
 		}
-		b.enqueueVerification()
-		b.Phase = 2
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GPot, b.regionSize()*4))
 	case 2:
 		if err := b.verify(); err != nil {
 			return err
@@ -269,5 +267,6 @@ func (b *Benchmark) Step() error {
 		b.Readbacks = nil
 		b.Ended = true
 	}
+	b.Phase++
 	return nil
 }

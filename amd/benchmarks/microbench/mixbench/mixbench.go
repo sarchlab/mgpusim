@@ -17,12 +17,10 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
-
-// blockSize must match BLOCK_SIZE in native/mixbench.cpp.
-const blockSize = 256
 
 // FMA constants must match the kernel exactly.
 const (
@@ -30,18 +28,12 @@ const (
 	fmaAdd float32 = 0.0000001
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 16): one 8-byte global_buffer pointer
-// followed by two 4-byte by_value int32 scalars, packed with no padding
-// (mgpusim serializes args with binary.Write, which does not insert
-// alignment padding). The kernel uses a constant BLOCK_SIZE instead of
-// blockDim.x, so no hidden ABI arguments are emitted.
+// KernelArgs is the device ABI for the version 1.1 HIP kernel.
 type KernelArgs struct {
-	Data        gpuruntime.Ptr // offset 0
-	NumElements int32          // offset 8
-	NumFmas     int32          // offset 12
+	Data        gpuruntime.Ptr
+	NumElements int32
+	NumFmas     int32
+	Launch      benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the mixbench benchmark.
@@ -112,8 +104,8 @@ func (b *Benchmark) initMem() {
 	n := b.NumElements
 	b.Data = make([]float32, n)
 	for i := 0; i < n; i++ {
-		// Deterministic init, mirroring the HIP host: 1.0 + (i%1024)*0.001.
-		b.Data[i] = 1.0 + float32(i%1024)*0.001
+		// Match the HIP host's separate float32 multiply and add.
+		b.Data[i] = 1.0 + float32(float32(i%1024)*0.001)
 	}
 
 	if b.UseUnifiedMemory {
@@ -127,10 +119,17 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 	n := b.NumElements
+	blockSize := b.ThreadsPerBlock
+	if blockSize <= 0 {
+		blockSize = 256
+	}
 	numBlocks := uint32((n + blockSize - 1) / blockSize)
-	globalX := numBlocks * blockSize
+	globalX := numBlocks * uint32(blockSize)
 
+	grid := [3]uint32{globalX, 1, 1}
+	group := [3]uint16{uint16(blockSize), 1, 1}
 	args := KernelArgs{
+		Launch:      benchmarks.NewGFX942LaunchDimensions(grid, group),
 		Data:        b.GData,
 		NumElements: int32(n),
 		NumFmas:     int32(b.NumFmas),
@@ -139,8 +138,8 @@ func (b *Benchmark) exec() {
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
+		grid,
+		group,
 		&args,
 	)
 }
@@ -157,17 +156,12 @@ func (b *Benchmark) verify() error {
 		// Reproduce the kernel's FMA chain in float32 exactly.
 		val := b.Data[i]
 		for f := 0; f < b.NumFmas; f++ {
-			val = float32(math.FMA(
-				float64(val), float64(fmaMul), float64(fmaAdd)))
+			val = bitops.FMAF32(val, fmaMul, fmaAdd)
 		}
 		ref := val
 		got := gpuData[i]
 
-		denom := math.Abs(float64(ref))
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(float64(ref-got))/denom > 1e-3 {
+		if math.Float32bits(got) != math.Float32bits(ref) {
 			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}

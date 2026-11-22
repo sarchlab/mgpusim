@@ -15,6 +15,8 @@ var Dim = flag.Int("dim", 128, "The number of rows in the input matrix.")
 var Sparsity = flag.Float64("sparsity", 0.01,
 	"The ratio between non-zero elements to all the elelements in the matrix")
 
+var nnzPerRow = flag.Int("nnz-per-row", 0, "Nonzeros per row for the CDNA3 CSR kernel.")
+
 func main() {
 	flag.Parse()
 
@@ -25,6 +27,7 @@ func main() {
 	benchmark := spmv.NewBenchmark(runtime)
 	benchmark.Dim = int32(*Dim)
 	benchmark.Sparsity = *Sparsity
+	benchmark.NNZPerRow = int32(*nnzPerRow)
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

@@ -27,20 +27,12 @@ import (
 // constant instead of blockDim, the compiler emits no hidden ABI arguments.
 const blockSize = 8
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 32): three 8-byte global_buffer
-// pointers followed by two 4-byte by_value int scalars, packed with no
-// padding (mgpusim serializes args with binary.Write, which does not
-// insert alignment padding). The kernel reads only blockIdx/threadIdx with
-// a constant block size, so no hidden ABI arguments are emitted.
+// KernelArgs is the v1.1 fixed stencil ABI.
 type KernelArgs struct {
-	Input      gpuruntime.Ptr // offset 0
-	Filter     gpuruntime.Ptr // offset 8
-	Output     gpuruntime.Ptr // offset 16
-	N          int32          // offset 24
-	FilterSize int32          // offset 28
+	Input, Output gpuruntime.Ptr
+	N             int32
+	_             uint32
+	Launch        benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the 3D convolution benchmark.
@@ -104,123 +96,75 @@ func (b *Benchmark) initMem() {
 	if b.N <= 0 {
 		b.N = 32
 	}
-	if b.FilterSize <= 0 {
-		b.FilterSize = 3
-	}
-
 	n := b.N
-	volElems := n * n * n
-	filtElems := b.FilterSize * b.FilterSize * b.FilterSize
-
-	// Deterministic host init, reproduced exactly in Verify().
-	b.Input = make([]float32, volElems)
-	for i := 0; i < volElems; i++ {
-		b.Input[i] = float32(i%100) / 100.0
+	if n < 3 {
+		panic("volume must have at least three elements per side")
 	}
-
-	b.Filter = make([]float32, filtElems)
-	var filtSum float32
-	for i := 0; i < filtElems; i++ {
-		b.Filter[i] = float32(i%10 + 1)
-		filtSum += b.Filter[i]
+	if b.FilterSize != 0 && b.FilterSize != 3 {
+		panic("the v1.1 convolution uses a fixed three-point spatial extent")
 	}
-	for i := 0; i < filtElems; i++ {
-		b.Filter[i] /= filtSum
+	volume := n * n * n
+	b.Input = make([]float32, volume)
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.Input {
+		b.Input[i] = float32(rand.Next()%100) / 100.0
 	}
-
+	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
-		b.GInput = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(volElems*4))
-		b.GFilter = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(filtElems*4))
-		b.GOutput = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(volElems*4))
-	} else {
-		b.GInput = b.rt.AllocateMemory(b.Context, uint64(volElems*4))
-		b.GFilter = b.rt.AllocateMemory(b.Context, uint64(filtElems*4))
-		b.GOutput = b.rt.AllocateMemory(b.Context, uint64(volElems*4))
+		alloc = b.rt.AllocateUnifiedMemory
 	}
-
+	b.GInput = alloc(b.Context, uint64(volume*4))
+	b.GOutput = alloc(b.Context, uint64(volume*4))
 	b.Upload(b.rt, b.Queue, b.GInput, b.Input)
-	b.Upload(b.rt, b.Queue, b.GFilter, b.Filter)
 }
 
 func (b *Benchmark) exec() {
-	n := b.N
-	gridDim := uint32((n + blockSize - 1) / blockSize)
-	global := gridDim * blockSize
-
-	args := KernelArgs{
-		Input:      b.GInput,
-		Filter:     b.GFilter,
-		Output:     b.GOutput,
-		N:          int32(n),
-		FilterSize: int32(b.FilterSize),
+	edge := b.BlockSize
+	if edge == 0 {
+		edge = blockSize
 	}
-
-	// Kernel maps: x->k, y->j, z->i; all three dims span the NxNxN volume.
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{global, global, global},
-		[3]uint16{blockSize, blockSize, blockSize},
-		&args,
-	)
+	if edge < 1 || edge > 10 {
+		panic("convolution block edge must be between 1 and 10")
+	}
+	global := uint32((b.N + edge - 1) / edge * edge)
+	grid := [3]uint32{global, global, global}
+	group := [3]uint16{uint16(edge), uint16(edge), uint16(edge)}
+	args := KernelArgs{Input: b.GInput, Output: b.GOutput, N: int32(b.N),
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group)}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 }
 
-// Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) verify() error { //nolint:funlen,gocognit
+// Verify uses independent coefficients with duplicate source offsets combined.
+func (b *Benchmark) verify() error {
 	n := b.N
-	fs := b.FilterSize
-	half := fs / 2
-
-	gpuOut := make([]float32, n*n*n)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuOut); err != nil {
+	output := make([]float32, n*n*n)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], output); err != nil {
 		return err
 	}
-
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			for k := 0; k < n; k++ {
-				var sum float64
-				for fi := 0; fi < fs; fi++ {
-					ii := i - half + fi
-					if ii < 0 || ii >= n {
-						continue
-					}
-					for fj := 0; fj < fs; fj++ {
-						jj := j - half + fj
-						if jj < 0 || jj >= n {
-							continue
-						}
-						for fk := 0; fk < fs; fk++ {
-							kk := k - half + fk
-							if kk < 0 || kk >= n {
-								continue
-							}
-							sum += float64(b.Input[(ii*n+jj)*n+kk]) *
-								float64(b.Filter[(fi*fs+fj)*fs+fk])
-						}
-					}
-				}
-
-				ref := sum
-				got := float64(gpuOut[(i*n+j)*n+k])
-
-				denom := math.Abs(ref)
-				if denom < 1.0 {
-					denom = 1.0
-				}
-				if math.Abs(ref-got)/denom > 1e-3 {
-					return fmt.Errorf("At (%d,%d,%d), expected %f, but got %f.\n",
-						i, j, k, ref, got)
-				}
+	offsets := [][3]int{{-1, -1, -1}, {1, -1, -1}, {0, -1, 0}, {0, 0, 0}, {0, 1, 0},
+		{-1, -1, 1}, {1, -1, 1}, {-1, 0, 1}, {1, 0, 1}, {-1, 1, 1}, {1, 1, 1}}
+	weights := []float64{-1, 21, -3, 6, -9, 2, 4, 5, 7, -8, 10}
+	magnitude := []float64{15, 21, 3, 6, 9, 2, 4, 5, 7, 8, 10}
+	for idx, actual := range output {
+		i, j, k := idx/(n*n), idx/n%n, idx%n
+		var expected, tol float64
+		if i > 0 && j > 0 && k > 0 && i < n-1 && j < n-1 && k < n-1 {
+			var scale float64
+			for t, offset := range offsets {
+				at := ((i+offset[0])*n+j+offset[1])*n + k + offset[2]
+				x := float64(b.Input[at])
+				expected += weights[t] * x
+				scale += magnitude[t] * math.Abs(x)
 			}
+			tol = 2e-6 * math.Max(1, scale)
+		}
+		got := float64(actual)
+		if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-expected) > tol {
+			return fmt.Errorf("at (%d,%d,%d): got %g, expected %g (tolerance %g)",
+				i, j, k, got, expected, tol)
 		}
 	}
-
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
