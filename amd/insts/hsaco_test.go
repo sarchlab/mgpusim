@@ -190,3 +190,14 @@ func TestLoadKernelCodeObjectFromFS_V2V3(t *testing.T) {
 			expectedLen, co.Symbol.Size, len(co.Data))
 	}
 }
+
+func TestLinkedGFX942KernelUsesRegisterMetadata(t *testing.T) {
+	co := LoadKernelCodeObjectFromFS(
+		"../../amd/benchmarks/tango/blackscholes/kernels_gfx942.hsaco",
+		"blackscholes_kernel",
+	)
+	if co.WFSgprCount < 24 || co.WIVgprCount < 28 {
+		t.Fatalf("ROCm 10.2 Black-Scholes register allocation: SGPR=%d VGPR=%d",
+			co.WFSgprCount, co.WIVgprCount)
+	}
+}

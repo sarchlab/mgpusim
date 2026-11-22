@@ -92,7 +92,9 @@ changing code, and checkpoints carry no version or configuration-hash checks.
 
 ## Compiling HIP Kernels
 
-For LLVM/ROCm compiler tasks (compiling HIP code to HSACO), use the Docker image:
+For native kernels using the shared MI300X calibration recipe, see
+[Building ROCm 10.2 kernels](docs/gfx942-kernel-build.md). Legacy Makefiles that
+explicitly specify ROCm 7.2.4 continue to use this Docker image:
 ```bash
 docker run -it rocm/dev-ubuntu-24.04:7.2.4
 ```

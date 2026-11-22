@@ -184,28 +184,28 @@ func TestSOP2Opcode38SBFEI32(t *testing.T) {
 	}
 }
 
-func TestVOP1Opcode56VMOVRELSDB32(t *testing.T) {
+func TestVOP1Opcode56VMOVB64(t *testing.T) {
 	alu := NewALU(nil)
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0x12, 0x71, 0x00, 0x7e})
+	if err != nil {
+		t.Fatal(err)
+	}
 	state := newMockInstState()
-	state.inst.FormatType = insts.VOP1
-	state.inst.Opcode = 56
-	state.exec = 0xF
+	state.inst = inst
+	state.exec = 1
 
-	state.setOperand(state.inst.Src0, 0, 11)
-	state.setOperand(state.inst.Src0, 1, 22)
-	state.setOperand(state.inst.Src0, 2, 33)
-	state.setOperand(state.inst.Src0, 3, 44)
+	const value = 0x1122334455667788
+	state.setOperand(state.inst.Src0, 0, value)
+	state.setOperand(state.inst.Dst, 1, 99)
 
 	alu.Run(state)
 
-	if state.operands[state.inst.Dst][0] != 11 ||
-		state.operands[state.inst.Dst][1] != 22 ||
-		state.operands[state.inst.Dst][2] != 33 ||
-		state.operands[state.inst.Dst][3] != 44 {
-		t.Fatalf("unexpected movrelsd result: [%d %d %d %d]",
-			state.operands[state.inst.Dst][0],
-			state.operands[state.inst.Dst][1],
-			state.operands[state.inst.Dst][2],
-			state.operands[state.inst.Dst][3])
+	if got := state.operands[state.inst.Dst][0]; got != value {
+		t.Fatalf("v_mov_b64 returned %#x, want %#x", got, uint64(value))
+	}
+	if got := state.operands[state.inst.Dst][1]; got != 99 {
+		t.Fatalf("inactive lane was overwritten: got %#x", got)
 	}
 }

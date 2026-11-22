@@ -1531,6 +1531,16 @@ func (u *ALU) isDIVFIXUPF64Overflow(
 		exponentSrc1 == 2047
 }
 
+// Packed FP32 operations broadcast non-register constants to both words.
+func readPackedF32Operand(state emu.InstEmuState, operand *insts.Operand, lane int) uint64 {
+	bits := state.ReadOperand(operand, lane)
+	if operand.OperandType == insts.RegOperand {
+		return bits
+	}
+	word := uint64(uint32(bits))
+	return word | word<<32
+}
+
 func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -1547,9 +1557,9 @@ func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
 			continue
 		}
 
-		src0Bits := state.ReadOperand(inst.Src0, i)
-		src1Bits := state.ReadOperand(inst.Src1, i)
-		src2Bits := state.ReadOperand(inst.Src2, i)
+		src0Bits := readPackedF32Operand(state, inst.Src0, i)
+		src1Bits := readPackedF32Operand(state, inst.Src1, i)
+		src2Bits := readPackedF32Operand(state, inst.Src2, i)
 
 		src0_lo := math.Float32frombits(uint32(src0Bits))
 		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
@@ -1634,8 +1644,8 @@ func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
 			continue
 		}
 
-		src0Bits := state.ReadOperand(inst.Src0, i)
-		src1Bits := state.ReadOperand(inst.Src1, i)
+		src0Bits := readPackedF32Operand(state, inst.Src0, i)
+		src1Bits := readPackedF32Operand(state, inst.Src1, i)
 
 		src0_lo := math.Float32frombits(uint32(src0Bits))
 		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
@@ -1705,8 +1715,8 @@ func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 			continue
 		}
 
-		src0Bits := state.ReadOperand(inst.Src0, i)
-		src1Bits := state.ReadOperand(inst.Src1, i)
+		src0Bits := readPackedF32Operand(state, inst.Src0, i)
+		src1Bits := readPackedF32Operand(state, inst.Src1, i)
 
 		src0_lo := math.Float32frombits(uint32(src0Bits))
 		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))

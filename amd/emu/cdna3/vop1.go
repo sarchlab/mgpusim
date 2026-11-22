@@ -5,14 +5,15 @@ import (
 	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 //nolint:gocyclo,funlen
 func (u *ALU) runVOP1(state emu.InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
-	case 1:
-		u.runVMOVB32(state)
+	case 1, 56:
+		u.runVMOV(state)
 	case 2:
 		u.runVREADFIRSTLANEB32(state)
 	case 4:
@@ -57,8 +58,6 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runBFREVB32(state)
 	case 45:
 		u.runVFFBHU32(state)
-	case 56:
-		u.runVMOVRELSDB32(state)
 	case 76:
 		u.runLogLegacyF32(state)
 	default:
@@ -66,7 +65,7 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMOVB32(state emu.InstEmuState) {
+func (u *ALU) runVMOV(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
 	for i := 0; i < 64; i++ {
@@ -74,6 +73,9 @@ func (u *ALU) runVMOVB32(state emu.InstEmuState) {
 			continue
 		}
 		src0 := state.ReadOperand(inst.Src0, i)
+		if inst.Opcode == 56 && inst.Src0.OperandType == insts.FloatOperand {
+			src0 = math.Float64bits(inst.Src0.FloatValue)
+		}
 		state.WriteOperand(inst.Dst, i, src0)
 	}
 }
@@ -469,21 +471,6 @@ func (u *ALU) runVFFBHU32(state emu.InstEmuState) {
 			}
 			state.WriteOperand(inst.Dst, i, uint64(pos))
 		}
-	}
-}
-
-func (u *ALU) runVMOVRELSDB32(state emu.InstEmuState) {
-	inst := state.Inst()
-	exec := state.EXEC()
-	for i := 0; i < 64; i++ {
-		if exec&(1<<uint(i)) == 0 {
-			continue
-		}
-		// Full relative source+destination behavior depends on M0/GPR indexing mode,
-		// which is not modeled in this ALU path yet. For current CDNA3 benchmarks,
-		// M0 remains 0, which makes this instruction equivalent to a lane-wise move.
-		src0 := state.ReadOperand(inst.Src0, i)
-		state.WriteOperand(inst.Dst, i, src0)
 	}
 }
 

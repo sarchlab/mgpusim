@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 //nolint:gocyclo,funlen
@@ -19,6 +20,8 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 		u.runVSUBF32(state)
 	case 3:
 		u.runVSUBREVF32(state)
+	case 4:
+		u.runVFMACF64(state)
 	case 5:
 		u.runVMULF32(state)
 	case 6:
@@ -623,6 +626,33 @@ func (u *ALU) runVSUBREVU32(state emu.InstEmuState) {
 		src0 := uint32(state.ReadOperand(inst.Src0, i))
 		src1 := uint32(state.ReadOperand(inst.Src1, i))
 		state.WriteOperand(inst.Dst, i, uint64(src1-src0))
+	}
+}
+
+// VOP2 expands a floating-point literal by placing its bits in the high word
+// of the double. Float inline constants are represented as Go float64 values.
+func readF64Operand(state emu.InstEmuState, operand *insts.Operand, lane int) float64 {
+	switch operand.OperandType {
+	case insts.FloatOperand:
+		return operand.FloatValue
+	case insts.LiteralConstant:
+		return math.Float64frombits(uint64(operand.LiteralConstant) << 32)
+	default:
+		return math.Float64frombits(state.ReadOperand(operand, lane))
+	}
+}
+
+func (u *ALU) runVFMACF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for lane := 0; lane < 64; lane++ {
+		if exec&(1<<uint(lane)) == 0 {
+			continue
+		}
+		a := readF64Operand(state, inst.Src0, lane)
+		b := readF64Operand(state, inst.Src1, lane)
+		acc := readF64Operand(state, inst.Dst, lane)
+		state.WriteOperand(inst.Dst, lane, math.Float64bits(math.FMA(a, b, acc)))
 	}
 }
 

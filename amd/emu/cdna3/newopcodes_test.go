@@ -1,9 +1,11 @@
 package cdna3
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -341,5 +343,104 @@ func TestSOPKCmpK(t *testing.T) {
 			t.Fatalf("%s (opcode %d): expected SCC=%d, got %d",
 				c.name, c.opcode, c.want, state.scc)
 		}
+	}
+}
+
+func TestVOP2FMACF64(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0x08, 0x21, 0x00, 0x08})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+
+	// Without fusion the product rounds to 1.0 and the result would be zero.
+	delta := math.Ldexp(1, -52)
+	state.setOperand(inst.Src0, 0, math.Float64bits(1+delta))
+	state.setOperand(inst.Src1, 0, math.Float64bits(1-delta))
+	state.setOperand(inst.Dst, 0, math.Float64bits(-1))
+	state.setOperand(inst.Dst, 1, 99)
+
+	NewALU(nil).Run(state)
+
+	if got, want := math.Float64frombits(state.operands[inst.Dst][0]), -delta*delta; got != want {
+		t.Fatalf("v_fmac_f64 returned %g, want %g", got, want)
+	}
+	if got := state.operands[inst.Dst][1]; got != 99 {
+		t.Fatalf("inactive lane was overwritten: got %#x", got)
+	}
+}
+
+func TestVOP3aPkAddF32BroadcastsInlineConstant(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// v_pk_add_f32 v[14:15], v[6:7], 1.0 neg_lo:[1,0] neg_hi:[1,0]
+	inst, err := d.Decode([]byte{0x0e, 0x41, 0xb2, 0xd3, 0x06, 0xe5, 0x01, 0x38})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := newMockInstState()
+	state.inst = inst
+	state.exec = 1
+	state.setOperand(inst.Src0, 0, f32bits(0.25)|f32bits(0.5)<<32)
+	state.setOperand(inst.Src1, 0, f32bits(1))
+
+	NewALU(nil).Run(state)
+
+	want := f32bits(0.75) | f32bits(0.5)<<32
+	if got := state.operands[inst.Dst][0]; got != want {
+		t.Fatalf("v_pk_add_f32 returned %#x, want %#x", got, want)
+	}
+}
+
+type flatLoadTestStorage struct {
+	emu.StorageAccessor
+	data    []byte
+	address uint64
+	size    uint64
+}
+
+func (s *flatLoadTestStorage) Read(_ vm.PID, addr, size uint64) []byte {
+	s.address, s.size = addr, size
+	return s.data
+}
+
+type flatLoadTestWave struct {
+	*mockInstState
+	dst  *insts.Operand
+	lane int
+	data []byte
+}
+
+func (w *flatLoadTestWave) WriteOperandBytes(operand *insts.Operand, lane int, data []byte) {
+	w.dst, w.lane, w.data = operand, lane, data
+}
+
+func TestFlatLoadDWordX3ReadsTwelveBytes(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	// global_load_dwordx3 v[0:2], v[10:11], off
+	inst, err := d.Decode([]byte{0x00, 0x80, 0x58, 0xdc, 0x0a, 0x00, 0x7f, 0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wave := &flatLoadTestWave{mockInstState: newMockInstState()}
+	wave.inst = inst
+	wave.exec = 2
+	wave.setOperand(inst.Addr, 1, 0x123456780)
+	storage := &flatLoadTestStorage{data: []byte("three dwords")}
+	NewALU(storage).Run(wave)
+
+	if storage.address != 0x123456780 || storage.size != 12 {
+		t.Fatalf("load address and size: got %#x %d", storage.address, storage.size)
+	}
+	if wave.dst != inst.Dst || wave.lane != 1 || !bytes.Equal(wave.data, storage.data) {
+		t.Fatalf("wrong destination write: %v, lane=%d, data=%x", wave.dst, wave.lane, wave.data)
 	}
 }

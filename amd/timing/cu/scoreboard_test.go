@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -302,3 +304,24 @@ var _ = Describe("Scoreboard", func() {
 		})
 	})
 })
+
+func TestFP64FMACWaitsForAccumulatorPair(t *testing.T) {
+	d := insts.NewDisassembler()
+	d.IsCDNA3 = true
+	inst, err := d.Decode([]byte{0x08, 0x21, 0x00, 0x08})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, reg := range []int{0, 1} {
+		scoreboard := NewScoreboard()
+		scoreboard.VGPRBusyUntil[reg] = 1
+		if !scoreboard.HasHazard(inst) {
+			t.Fatalf("FMAC did not wait for incoming accumulator register v%d", reg)
+		}
+		scoreboard.Tick()
+		if scoreboard.HasHazard(inst) {
+			t.Fatalf("FMAC still blocked after v%d became available", reg)
+		}
+	}
+}

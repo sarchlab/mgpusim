@@ -227,6 +227,34 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.state().Reads[1].Payload.(memprotocol.ReadReq).AccessByteSize).To(Equal(uint64(8)))
 	})
 
+	It("splits s_load_dwordx16 across two cache lines", func() {
+		wave := newTestWave()
+		regAccessor := newMockRegFileAccessor()
+		setTestAccessor(wave, regAccessor)
+
+		inst := testInst(testIDs.NewID(), insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 4
+		inst.Data = insts.NewSRegOperand(4, 4, 16)
+		inst.Base = insts.NewSRegOperand(2, 2, 2)
+		inst.Offset = insts.NewIntOperand(0, 56)
+		wave.setTestInst(inst)
+		regAccessor.setRegValue(insts.SReg(2), 2, 0, wave.execution().SRegOffset,
+			insts.Uint64ToBytes(0x1000)[:8])
+
+		bu.state().Stages.Exec = testWaveID(cu, wave)
+		bu.Run()
+
+		Expect(wave.execution().OutstandingScalarMemAccess).To(Equal(1))
+		Expect(bu.state().Reads).To(HaveLen(2))
+		first := bu.state().Reads[0].Payload.(memprotocol.ReadReq)
+		second := bu.state().Reads[1].Payload.(memprotocol.ReadReq)
+		Expect(first.Address).To(Equal(uint64(0x1038)))
+		Expect(first.AccessByteSize).To(Equal(uint64(8)))
+		Expect(second.Address).To(Equal(uint64(0x1040)))
+		Expect(second.AccessByteSize).To(Equal(uint64(56)))
+	})
+
 	It("should send request out", func() {
 		req := messaging.Msg{ID: testIDs.NewID(),
 			Src: cu.ToScalarMem.AsRemote(),
