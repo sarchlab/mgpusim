@@ -22,8 +22,10 @@ llvm="$rocm/lib/llvm/bin"
 scratch=$(mktemp -d "$(dirname "$output")/.gfx942.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 
+# There is no host object to pair with this single device translation unit.
+# Disable the host/device identifier that hashes the temporary output path.
 "$llvm/clang++" --rocm-path="$rocm" --offload-arch=gfx942 --offload-device-only \
-    -O3 "$@" -x hip "$source_file" -o "$scratch/bundle"
+    -O3 "$@" -fuse-cuid=none -x hip "$source_file" -o "$scratch/bundle"
 "$llvm/clang-offload-bundler" --type=o --unbundle \
     --targets=hipv4-amdgcn-amd-amdhsa--gfx942 \
     --input="$scratch/bundle" --output="$scratch/kernel.hsaco"
