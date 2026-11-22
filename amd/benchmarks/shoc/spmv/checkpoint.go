@@ -17,6 +17,7 @@ type State struct {
 	UseUnifiedMemory bool
 	Arch             arch.Type
 	Dim              int32
+	NNZPerRow        int32
 	Sparsity         float64
 	DValData         gpuruntime.Ptr
 	DVecData         gpuruntime.Ptr

@@ -1,25 +1,14 @@
-/*
- * HIP kernel for PolyBench SYR2K (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/polybench_syr2k.
- *
- * Symmetric rank-2k update: C = alpha*A*B^T + alpha*B*A^T + beta*C
- * A and B are [N x M] matrices, C is [N x N].
- * Tiled with shared memory (TILE_SIZE x TILE_SIZE), one thread per C element.
- *
- * Uses a constant TILE_SIZE (not blockDim) for the block geometry so the
- * compiler emits no hidden ABI arguments.
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/polybench_syr2k/hip/polybench_syr2k.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
 #define TILE_SIZE 16
 
-extern "C" __global__ void polybench_syr2k_kernel(
-    const float* __restrict__ A,
-    const float* __restrict__ B,
-    float* __restrict__ C,
-    int N, int M,
-    float alpha, float beta)
-{
+extern "C" __global__ void syr2k_kernel(const float* __restrict__ A,
+                              const float* __restrict__ B,
+                              float* __restrict__ C,
+                              int N, int M,
+                              float alpha, float beta) {
     __shared__ float sA_row[TILE_SIZE][TILE_SIZE];
     __shared__ float sB_row[TILE_SIZE][TILE_SIZE];
     __shared__ float sA_col[TILE_SIZE][TILE_SIZE];

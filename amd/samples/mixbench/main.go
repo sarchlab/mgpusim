@@ -13,6 +13,8 @@ var numElements = flag.Int("size", 4096,
 var numFmas = flag.Int("fmas", 16,
 	"The FP32 FMA-chain length per work-item.")
 
+var threadsPerBlock = flag.Int("threads-per-block", 256, "Work-group size (threads per block).")
+
 func main() {
 	flag.Parse()
 
@@ -23,6 +25,7 @@ func main() {
 	benchmark := mixbench.NewBenchmark(runtime)
 	benchmark.NumElements = *numElements
 	benchmark.NumFmas = *numFmas
+	benchmark.ThreadsPerBlock = *threadsPerBlock
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

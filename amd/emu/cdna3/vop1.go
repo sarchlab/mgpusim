@@ -58,6 +58,10 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runBFREVB32(state)
 	case 45:
 		u.runVFFBHU32(state)
+	case 51:
+		u.runFrexpF32(state, true)
+	case 52:
+		u.runFrexpF32(state, false)
 	case 76:
 		u.runLogLegacyF32(state)
 	default:
@@ -484,5 +488,25 @@ func (u *ALU) runLogLegacyF32(state emu.InstEmuState) {
 		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
 		dst := float32(math.Log2(float64(src)))
 		state.WriteOperand(inst.Dst, i, uint64(math.Float32bits(dst)))
+	}
+}
+
+func (u *ALU) runFrexpF32(state emu.InstEmuState, exponent bool) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for lane := 0; lane < 64; lane++ {
+		if exec&(1<<uint(lane)) == 0 {
+			continue
+		}
+		src := applyF32Modifier(state.ReadOperand(inst.Src0, lane), 0, inst)
+		value := float64(math.Float32frombits(uint32(src)))
+		mantissa, power := math.Frexp(value)
+		if exponent {
+			state.WriteOperand(inst.Dst, lane, uint64(uint32(power)))
+		} else if math.IsNaN(value) || math.IsInf(value, 0) {
+			state.WriteOperand(inst.Dst, lane, uint64(uint32(src)))
+		} else {
+			state.WriteOperand(inst.Dst, lane, uint64(math.Float32bits(float32(mantissa))))
+		}
 	}
 }

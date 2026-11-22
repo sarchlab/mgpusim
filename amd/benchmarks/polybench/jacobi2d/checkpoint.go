@@ -16,6 +16,7 @@ type State struct {
 	N                int
 	TSteps           int
 	AInit            []float32
+	BInit            []float32
 	GA               gpuruntime.Ptr
 	GB               gpuruntime.Ptr
 	UseUnifiedMemory bool

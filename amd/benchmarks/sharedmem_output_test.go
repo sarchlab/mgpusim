@@ -32,8 +32,14 @@ func sharedCopyBenchmark(rt *gpuruntime.Runtime, name, pattern string, verify bo
 		b.SelectGPU([]int{1})
 		b.SetVerification(verify)
 		b.Queue = rt.CreateCommandQueue(b.Context)
-		b.GSink = rt.AllocateMemory(b.Context, 8)
-		return sharedCopyFixture{b, b.Queue, b.GSink, []float32{8, 8}, func() []float32 { return b.NoConflictResult }}
+		b.GSink = rt.AllocateMemory(b.Context, uint64(b.NumBlocks*b.BlockSize*4))
+		// One iteration visits 12288/64 cells initialized to one. For this
+		// many updates the float32 accumulator rounds to exactly one.
+		want := make([]float32, b.NumBlocks*b.BlockSize)
+		for i := range want {
+			want[i] = 1
+		}
+		return sharedCopyFixture{b, b.Queue, b.GSink, want, func() []float32 { return b.NoConflictResult }}
 	}
 	b := sharedmemlatency.NewBenchmark(rt)
 	b.NumBlocks, b.InnerIters, b.BlockSize = 2, 1, 64

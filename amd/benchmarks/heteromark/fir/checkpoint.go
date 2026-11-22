@@ -14,6 +14,7 @@ type State struct {
 	Gpus             []int
 	Arch             arch.Type
 	Length           int
+	BlockSize        int
 	NumTapsParam     int
 	NumTaps          int
 	InputData        []float32

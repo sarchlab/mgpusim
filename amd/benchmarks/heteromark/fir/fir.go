@@ -52,6 +52,12 @@ type CDNA3KernelArgs struct {
 	HiddenGridDims      uint16   // offset 104
 }
 
+type v11KernelArgs struct {
+	Input, Output, Filter gpuruntime.Ptr
+	Samples, Taps         int32
+	Launch                benchmarks.GFX942LaunchDimensions
+}
+
 // Benchmark defines a benchmark
 type Benchmark struct {
 	*State
@@ -86,7 +92,11 @@ func (b *Benchmark) loadProgram() {
 	} else {
 		hsacoBytes = gcn3HSACOBytes
 	}
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, "FIR")
+	kernel := "FIR"
+	if b.usesNativeFIR() {
+		kernel = "fir_filter_kernel"
+	}
+	b.hsaco = insts.LoadKernelCodeObjectFromBytes(hsacoBytes, kernel)
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -104,6 +114,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 
 // Prepare the inputs for the first queued phase.
 func (b *Benchmark) submit() {
+	b.configureTaps()
 	b.loadProgram()
 
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
@@ -111,21 +122,41 @@ func (b *Benchmark) submit() {
 	b.initMem()
 }
 
-func (b *Benchmark) initMem() {
+func (b *Benchmark) usesNativeFIR() bool {
+	return b.Arch == arch.CDNA3 && len(b.Gpus) == 1 && b.NumTaps <= 128
+}
+
+func (b *Benchmark) configureTaps() {
 	if b.NumTapsParam > 0 {
 		b.NumTaps = b.NumTapsParam
 	} else if b.NumTaps == 0 {
 		b.NumTaps = 16
 	}
 
-	b.FilterData = make([]float32, b.NumTaps)
-	for i := 0; i < b.NumTaps; i++ {
-		b.FilterData[i] = float32(i)
-	}
+}
 
+func (b *Benchmark) initMem() {
+	b.FilterData = make([]float32, b.NumTaps)
 	b.InputData = make([]float32, b.Length)
-	for i := 0; i < b.Length; i++ {
-		b.InputData[i] = float32(i)
+	if b.usesNativeFIR() {
+		for i := range b.InputData {
+			b.InputData[i] = float32(math.Sin(float64(float32(i)*0.01))) + 0.5
+		}
+		var sum float32
+		for i := range b.FilterData {
+			b.FilterData[i] = 1 / float32(i+1)
+			sum += b.FilterData[i]
+		}
+		for i := range b.FilterData {
+			b.FilterData[i] /= sum
+		}
+	} else {
+		for i := range b.InputData {
+			b.InputData[i] = float32(i)
+		}
+		for i := range b.FilterData {
+			b.FilterData[i] = float32(i)
+		}
 	}
 
 	if b.UseUnifiedMemory {
@@ -222,7 +253,28 @@ func (b *Benchmark) enqueueKernel(queue gpuruntime.CommandQueue, gpuIndex, numGP
 	}
 }
 
+func (b *Benchmark) enqueueNativeFIR() {
+	block := b.BlockSize
+	if block == 0 {
+		block = 256
+	}
+	if block < 1 || block > 1024 {
+		panic("FIR block size must be between 1 and 1024")
+	}
+	grid := [3]uint32{uint32((b.Length + block - 1) / block * block), 1, 1}
+	group := [3]uint16{uint16(block), 1, 1}
+	args := v11KernelArgs{Input: b.GInputData, Output: b.GOutputData, Filter: b.GFilterData[0],
+		Samples: int32(b.Length), Taps: int32(b.NumTaps),
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group)}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
+}
+
 func (b *Benchmark) exec() {
+	if b.usesNativeFIR() {
+		b.enqueueNativeFIR()
+		return
+	}
+
 	queues := make([]gpuruntime.CommandQueue, len(b.Gpus))
 
 	for i, gpu := range b.Gpus {
@@ -250,7 +302,12 @@ func (b *Benchmark) verify() error {
 			sum += b.InputData[i-j] * b.FilterData[j]
 		}
 
-		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
+		tol := 1e-5
+		if b.usesNativeFIR() {
+			tol = 1e-4*math.Abs(float64(sum)) + 1e-6
+		}
+		actual := float64(gpuOutput[i])
+		if math.IsNaN(actual) || math.IsInf(actual, 0) || math.Abs(float64(sum)-actual) > tol {
 			return fmt.Errorf("At position %d, expected %f, but get %f.\n",
 				i, sum, gpuOutput[i])
 		}

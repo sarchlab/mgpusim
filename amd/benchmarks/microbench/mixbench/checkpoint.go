@@ -17,6 +17,7 @@ type State struct {
 	NumElements int
 	// NumFmas is the FP32 FMA-chain length per work-item.
 	NumFmas          int
+	ThreadsPerBlock  int
 	Data             []float32
 	GData            gpuruntime.Ptr
 	UseUnifiedMemory bool

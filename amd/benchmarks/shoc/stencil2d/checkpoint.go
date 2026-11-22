@@ -26,6 +26,7 @@ type State struct {
 	CurrData         gpuruntime.Ptr
 	NewData          gpuruntime.Ptr
 	NumRows          int
+	BlockSize        int
 	NumCols          int
 	DataSize         int
 	NumPaddedCols    int

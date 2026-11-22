@@ -34,18 +34,15 @@ const floatsPerSphere = 7
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
 //
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 28): two 8-byte global_buffer pointers followed by
-// three 4-byte by_value int scalars, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment padding).
-// The kernel uses a constant block size and reads only blockIdx/threadIdx, so
-// no hidden ABI arguments are emitted.
+// Explicit arguments are followed by the gfx942 launch geometry.
 type KernelArgs struct {
 	Image      gpuruntime.Ptr // offset 0
 	Spheres    gpuruntime.Ptr // offset 8
 	Width      int32          // offset 16
 	Height     int32          // offset 20
 	NumSpheres int32          // offset 24
+	_          uint32
+	Launch     benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the ray tracing benchmark.
@@ -166,6 +163,7 @@ func (b *Benchmark) exec() {
 		Width:      int32(b.Width),
 		Height:     int32(b.Height),
 		NumSpheres: int32(b.Spheres),
+		Launch:     benchmarks.NewGFX942LaunchDimensions([3]uint32{gridX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(

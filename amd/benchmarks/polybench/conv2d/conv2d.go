@@ -38,19 +38,13 @@ const (
 	c22 float32 = 0.5
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 24): two 8-byte global_buffer pointers
-// followed by two 4-byte by_value scalars, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment
-// padding). The kernel uses constant block dimensions, so no hidden ABI
-// arguments are emitted.
+// KernelArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type KernelArgs struct {
-	A  gpuruntime.Ptr // offset 0
-	B  gpuruntime.Ptr // offset 8
-	NI int32          // offset 16
-	NJ int32          // offset 20
+	A      gpuruntime.Ptr // offset 0
+	B      gpuruntime.Ptr // offset 8
+	NI     int32          // offset 16
+	NJ     int32          // offset 20
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the 2D convolution benchmark.
@@ -120,8 +114,9 @@ func (b *Benchmark) initMem() {
 
 	// Deterministic host init that Verify() reproduces exactly.
 	b.A = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -145,10 +140,11 @@ func (b *Benchmark) exec() {
 	globalY := gridDim * blockSize
 
 	args := KernelArgs{
-		A:  b.GA,
-		B:  b.GB,
-		NI: int32(n),
-		NJ: int32(n),
+		A:      b.GA,
+		B:      b.GB,
+		NI:     int32(n),
+		NJ:     int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, globalY, 1}, [3]uint16{blockSize, blockSize, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(

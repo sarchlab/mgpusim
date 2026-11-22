@@ -113,10 +113,11 @@ func (b *Benchmark) initMem() {
 	b.A = make([]float32, numElem)
 	b.B = make([]float32, numElem)
 	b.CInit = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 100.0
-		b.B[i] = float32((i*2)%100) / 100.0
-		b.CInit[i] = float32((i*3)%100) / 100.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
+		b.B[i] = float32(rand.Next()%100) / 10.0
+		b.CInit[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {

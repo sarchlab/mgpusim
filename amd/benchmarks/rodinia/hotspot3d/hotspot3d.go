@@ -10,9 +10,7 @@
 // two temperature buffers.
 //
 // The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300X configuration). The
-// block geometry is a constant 8x8x8 cube, so the kernel emits no hidden ABI
-// arguments (kernarg_segment_size = 60).
+// benchmark must be run with `-arch cdna3` (the MI300X configuration).
 package hotspot3d
 
 import (
@@ -28,41 +26,22 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockDim is the constant cubic work-group edge length. It MUST match the
-// BLOCK_DIM constant compiled into native/rodinia_hotspot3d.cpp.
-const blockDim = 8
+const defaultBlockSize = 8
 
-// Chip thermal constants (Rodinia defaults, extended to 3D).
-const (
-	chipHeight float32 = 0.016
-	chipWidth  float32 = 0.016
-	chipDepth  float32 = 0.016
-	tChip      float32 = 0.0005
-	kSi        float32 = 100.0
-	cSi        float32 = 1.75e6
-)
+// Coefficients follows the v1.1 ABI, including the host-derived quantities
+// preceding the stencil weights.
+type Coefficients struct {
+	Cap, RX, RY, RZ, DT, UpstreamDT float32
+	SDC, CE, CW, CN, CS, CT, CB, CC float32
+}
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 60): three 8-byte global_buffer pointers followed
-// by nine 4-byte by_value scalars (3 int32 + 6 float32), packed with no
-// padding (mgpusim serializes args with binary.Write, which does not insert
-// alignment padding). The kernel uses a constant block size and reads only
-// blockIdx/threadIdx, so no hidden ABI arguments are emitted.
+// KernelArgs defines the arguments for the v1.1 HotSpot3D kernel.
 type KernelArgs struct {
-	TempSrc    gpuruntime.Ptr // offset 0
-	TempDst    gpuruntime.Ptr // offset 8
-	Power      gpuruntime.Ptr // offset 16
-	Nx         int32          // offset 24
-	Ny         int32          // offset 28
-	Nz         int32          // offset 32
-	StepDivCap float32        // offset 36
-	Rx1        float32        // offset 40
-	Ry1        float32        // offset 44
-	Rz1        float32        // offset 48
-	Ra1        float32        // offset 52
-	AmbTemp    float32        // offset 56
+	TempSrc, TempDst, Power gpuruntime.Ptr
+	N                       int32
+	Coefficients            Coefficients
+	Ambient                 float32
+	Launch                  benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the HotSpot3D benchmark.
@@ -124,26 +103,48 @@ func (b *Benchmark) submit() {
 
 // computeThermalParams computes the derived thermal parameters exactly as the
 // HIP host does, so the Verify() reference uses identical coefficients.
+func roundedUp(value float64) float64 {
+	return math.Nextafter(value, math.Inf(1))
+}
+
+func (c Coefficients) rowNorm() float64 {
+	var norm float64
+	for _, value := range []float32{c.CC, c.CW, c.CE, c.CS, c.CN, c.CB, c.CT} {
+		norm = roundedUp(norm + math.Abs(float64(value)))
+	}
+	return norm
+}
+
 func (b *Benchmark) computeThermalParams() {
-	n := float32(b.GridSize)
-
-	dx := chipWidth / n
-	dy := chipHeight / n
-	dz := chipDepth / n
-
-	cap := cSi * tChip * dx * dy
-	rx := dx / (2.0 * kSi * tChip * dy)
-	ry := dy / (2.0 * kSi * tChip * dx)
-	rz := dz / (2.0 * kSi * tChip * dx)
-	ra := tChip / (kSi * dx * dy)
-	maxSlope := kSi / (0.5 * tChip * cSi)
-	step := float32(0.001) / maxSlope
-
-	b.StepDivCap = step / cap
-	b.Rx1 = 1.0 / rx
-	b.Ry1 = 1.0 / ry
-	b.Rz1 = 1.0 / rz
-	b.Ra1 = 1.0 / ra
+	const thickness float32 = 0.0005
+	dx := float32(0.016) / float32(b.GridSize)
+	dy := float32(0.016) / float32(b.GridSize)
+	dz := thickness / float32(b.GridSize)
+	c := Coefficients{
+		Cap: float32(0.5 * 1.75e6 * float64(thickness) * float64(dx) * float64(dy)),
+		RX:  float32(float64(dy) / (2 * 100 * float64(thickness) * float64(dx))),
+		RY:  float32(float64(dx) / (2 * 100 * float64(thickness) * float64(dy))),
+		RZ:  dz / (100 * dx * dy),
+	}
+	maxSlope := float32(3e6 / (0.5 * float64(thickness) * 1.75e6))
+	c.UpstreamDT = float32(0.001 / float64(maxSlope))
+	c.DT = c.UpstreamDT
+	setWeights := func() {
+		c.SDC = c.DT / c.Cap
+		c.CE, c.CW = c.SDC/c.RX, c.SDC/c.RX
+		c.CN, c.CS = c.SDC/c.RY, c.SDC/c.RY
+		c.CT, c.CB = c.SDC/c.RZ, c.SDC/c.RZ
+		c.CC = float32(1 - (2*float64(c.CE) + 2*float64(c.CN) + 3*float64(c.CT)))
+	}
+	setWeights()
+	if c.rowNorm() > 1 {
+		c.DT = float32(0.9 * float64(c.Cap) / (2/float64(c.RX) + 2/float64(c.RY) + 3/float64(c.RZ)))
+		setWeights()
+	}
+	if c.rowNorm() > 1 || math.IsNaN(c.rowNorm()) {
+		panic("HotSpot3D stencil coefficients amplify the input")
+	}
+	b.Coefficients = c
 }
 
 func (b *Benchmark) initMem() {
@@ -151,11 +152,6 @@ func (b *Benchmark) initMem() {
 		b.GridSize = 32
 	}
 	if b.NumIterations <= 0 {
-		// The explicit stencil with these synthetic coefficients is only
-		// conditionally stable; a small step count keeps temperatures bounded
-		// so the float32 GPU result and the (also float32) CPU reference agree
-		// to within the 1e-3 relative tolerance. Larger counts let the unstable
-		// mode grow and amplify float rounding differences.
 		b.NumIterations = 2
 	}
 	if b.AmbTemp <= 0 {
@@ -167,12 +163,12 @@ func (b *Benchmark) initMem() {
 	n := b.GridSize
 	totalCells := n * n * n
 
-	// Deterministic host init (reproducible in Verify, unlike C rand()).
 	b.TempInit = make([]float32, totalCells)
 	b.Power = make([]float32, totalCells)
-	for i := 0; i < totalCells; i++ {
-		b.TempInit[i] = b.AmbTemp + float32(i%200)/10.0
-		b.Power[i] = float32((i*7)%100) / 500.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.TempInit {
+		b.TempInit[i] = b.AmbTemp + float32(rand.Next()%200)/10.0
+		b.Power[i] = float32(rand.Next()%100) / 500.0
 	}
 
 	bytes := uint64(totalCells * 4)
@@ -191,52 +187,29 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	n := b.GridSize
-
-	// 3D grid: one work-item per (x, y, z) cell. globalX/Y are block-size
-	// multiples (ceil(n/blockDim)*blockDim); the z grid dimension is n with
-	// blockDim.z == 1 (the kernel uses z = blockIdx.z). globalX/Y/Z are total
-	// work-item counts, matching the AQL packet's global-size semantics.
-	gridDim := uint32((n + blockDim - 1) / blockDim)
-	globalX := gridDim * blockDim
-	globalY := gridDim * blockDim
-	globalZ := uint32(n)
-
-	src := 0
-	dst := 1
-	for k := 0; k < b.NumIterations; k++ {
-		args := KernelArgs{
-			TempSrc:    b.GTemp[src],
-			TempDst:    b.GTemp[dst],
-			Power:      b.GPower,
-			Nx:         int32(n),
-			Ny:         int32(n),
-			Nz:         int32(n),
-			StepDivCap: b.StepDivCap,
-			Rx1:        b.Rx1,
-			Ry1:        b.Ry1,
-			Rz1:        b.Rz1,
-			Ra1:        b.Ra1,
-			AmbTemp:    b.AmbTemp,
-		}
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco,
-			[3]uint32{globalX, globalY, globalZ},
-			[3]uint16{blockDim, blockDim, 1},
-			&args,
-		)
-
+	block := b.BlockSize
+	if block == 0 {
+		block = defaultBlockSize
+	}
+	if block < 1 || block > 10 {
+		panic("HotSpot3D block edge must be between 1 and 10")
+	}
+	global := uint32((b.GridSize + block - 1) / block * block)
+	grid := [3]uint32{global, global, global}
+	group := [3]uint16{uint16(block), uint16(block), uint16(block)}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
+	src, dst := 0, 1
+	for i := 0; i < b.NumIterations; i++ {
+		args := KernelArgs{TempSrc: b.GTemp[src], TempDst: b.GTemp[dst], Power: b.GPower,
+			N: int32(b.GridSize), Coefficients: b.Coefficients, Ambient: b.AmbTemp, Launch: launch}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 		src, dst = dst, src
 	}
-
-	// After the loop, src holds the most recently written buffer.
 	b.FinalBuf = src
 }
 
 // cpuStep applies one stencil time-step on the host, matching the kernel.
-func (b *Benchmark) cpuStep(src, dst []float32) {
+func (b *Benchmark) cpuStep(src, dst []float64) {
 	n := b.GridSize
 	for z := 0; z < n; z++ {
 		for y := 0; y < n; y++ {
@@ -269,16 +242,39 @@ func (b *Benchmark) cpuStep(src, dst []float32) {
 					tzp = src[(z+1)*n*n+y*n+x]
 				}
 
-				delta := b.StepDivCap * (b.Power[idx] +
-					(txm+txp-2.0*tc)*b.Rx1 +
-					(tym+typ-2.0*tc)*b.Ry1 +
-					(tzm+tzp-2.0*tc)*b.Rz1 +
-					(b.AmbTemp-tc)*b.Ra1)
-
-				dst[idx] = tc + delta
+				c := b.Coefficients
+				dst[idx] = float64(c.CC)*tc + float64(c.CW)*txm + float64(c.CE)*txp +
+					float64(c.CS)*typ + float64(c.CN)*tym + float64(c.CB)*tzm +
+					float64(c.CT)*tzp + float64(c.SDC)*float64(b.Power[idx]) +
+					float64(c.CT)*float64(b.AmbTemp)
 			}
 		}
 	}
+}
+
+func (b *Benchmark) errorBound() float64 {
+	var magnitude, power float64
+	for i, temperature := range b.TempInit {
+		magnitude = max(magnitude, math.Abs(float64(temperature)))
+		power = max(power, math.Abs(float64(b.Power[i])))
+	}
+	c := b.Coefficients
+	g := c.rowNorm()
+	source := roundedUp(roundedUp(math.Abs(float64(c.SDC))*power) +
+		roundedUp(math.Abs(float64(c.CT))*math.Abs(float64(b.AmbTemp))))
+	const uf, ud = 0x1p-24, 0x1p-53
+	const tiny = 18 * 0x1p-126
+	gf, gd := roundedUp(18*uf/(1-18*uf)), roundedUp(18*ud/(1-18*ud))
+	var errorBound float64
+	for t := 0; t < b.NumIterations; t++ {
+		next := roundedUp(roundedUp(g*magnitude) + source)
+		propagated := roundedUp(g * errorBound)
+		cpuError := roundedUp(roundedUp(gd*next) + tiny)
+		gpuError := roundedUp(gf * roundedUp(next+propagated))
+		errorBound = roundedUp(roundedUp(propagated+gpuError) + cpuError)
+		magnitude = roundedUp(next + cpuError)
+	}
+	return errorBound
 }
 
 // Verify checks the GPU result against a CPU reference computation.
@@ -292,9 +288,11 @@ func (b *Benchmark) verify() error {
 	}
 
 	// CPU reference: ping-pong the stencil for NumIterations steps.
-	bufA := make([]float32, totalCells)
-	bufB := make([]float32, totalCells)
-	copy(bufA, b.TempInit)
+	bufA := make([]float64, totalCells)
+	bufB := make([]float64, totalCells)
+	for index, initial := range b.TempInit {
+		bufA[index] = float64(initial)
+	}
 	src, dst := bufA, bufB
 	for k := 0; k < b.NumIterations; k++ {
 		b.cpuStep(src, dst)
@@ -302,15 +300,12 @@ func (b *Benchmark) verify() error {
 	}
 	// src now holds the final reference result.
 
+	bound := b.errorBound()
 	for i := 0; i < totalCells; i++ {
-		ref := float64(src[i])
+		ref := src[i]
 		got := float64(gpuResult[i])
 
-		denom := math.Abs(ref)
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(ref-got)/denom > 1e-3 {
+		if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(ref-got) > bound {
 			return fmt.Errorf("At cell %d, expected %f, but got %f.\n",
 				i, ref, got)
 		}

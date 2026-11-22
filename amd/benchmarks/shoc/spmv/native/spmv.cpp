@@ -1,25 +1,20 @@
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/shoc_spmv/hip/shoc_spmv.hip.
+#include <hip/hip_runtime.h>
 
-#define SINGLE_PRECISION
-#define FPTYPE float
-
-extern "C" __global__ void spmv_csr_scalar_kernel(
-    const FPTYPE * __restrict__ val,
-    const FPTYPE * __restrict__ vec,
-    const int * __restrict__ cols,
-    const int * __restrict__ rowDelimiters,
-    const int dim,
-    FPTYPE * __restrict__ out)
+extern "C" __global__ void spmv_csr_kernel(
+    const int*   __restrict__ row_ptr,
+    const int*   __restrict__ col_idx,
+    const float* __restrict__ values,
+    const float* __restrict__ x,
+    float*       __restrict__ y,
+    int num_rows)
 {
-    int myRow = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-    if (myRow < dim) {
-        FPTYPE t = 0;
-        int start = rowDelimiters[myRow];
-        int end = rowDelimiters[myRow + 1];
-        for (int j = start; j < end; j++) {
-            int col = cols[j];
-            t += val[j] * vec[col];
-        }
-        out[myRow] = t;
-    }
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= num_rows) return;
+    float sum = 0.0f;
+    int start = row_ptr[row];
+    int end   = row_ptr[row + 1];
+    for (int k = start; k < end; ++k)
+        sum += values[k] * x[col_idx[k]];
+    y[row] = sum;
 }

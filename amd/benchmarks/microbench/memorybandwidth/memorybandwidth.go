@@ -2,19 +2,13 @@
 // ported from sarchlab/gpu_benchmarks (tier1/memory_bandwidth) for the
 // MGPUSim MI300X (CDNA3 / gfx942) model.
 //
-// The original HIP benchmark measures memory bandwidth using host-side
-// hipMemcpy in three directions (H2D, D2H, D2D). Only the device-to-device
-// (D2D) path performs GPU work: it streams every element of a source buffer
-// into a destination buffer. This port models that path with an explicit
-// element-wise copy kernel (dst[i] = src[i]), which is the on-device
-// equivalent of a device-to-device memcpy and produces a verifiable result.
-//
-// The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300X configuration).
+// Measured device-to-device transfers use the ROCclr copy kernel. Host-link
+// transfer cases measure HIP and CPU-link behavior outside this benchmark.
 package memorybandwidth
 
 import (
 	// embed hsaco files
+	"bytes"
 	_ "embed"
 	"fmt"
 	"log"
@@ -25,21 +19,22 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize matches the constant BLOCK_SIZE in native/memory_bandwidth.cpp.
-const blockSize = 256
+const (
+	blockSize           = 512
+	copyGroupLimit      = 304
+	alignedElementBytes = 16
+)
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU
-// metadata (kernarg_segment_size = 20): two 8-byte global_buffer pointers
-// (src at offset 0, dst at offset 8) followed by one 4-byte by_value int
-// (num_elements at offset 16), packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernel uses a constant block size, so no hidden ABI arguments are emitted.
+// KernelArgs is the explicit ABI of the ROCclr copy kernel.
 type KernelArgs struct {
-	Src         gpuruntime.Ptr // offset 0
-	Dst         gpuruntime.Ptr // offset 8
-	NumElements int32          // offset 16
+	Src           gpuruntime.Ptr
+	Dst           gpuruntime.Ptr
+	Size          uint64
+	Remainder     uint32
+	AlignedSize   uint32
+	EndPtr        gpuruntime.Ptr
+	NextChunk     uint32
+	WorkgroupSize uint32
 }
 
 // Benchmark defines the memory_bandwidth benchmark.
@@ -68,7 +63,7 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 
 func (b *Benchmark) loadProgram() {
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "memcpy_d2d_kernel")
+		cdna3HSACOBytes, "__amd_rocclr_copyBuffer")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -104,33 +99,36 @@ func (b *Benchmark) initMem() {
 		b.NumElements = 4096
 	}
 
-	n := b.NumElements
-
-	b.Src = make([]float32, n)
-	for i := 0; i < n; i++ {
-		b.Src[i] = float32(i%1000) * 0.5
-	}
+	n := b.NumElements * 4
+	b.Src = bytes.Repeat([]byte{0xab}, n)
 
 	if b.UseUnifiedMemory {
-		b.GSrc = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
-		b.GDst = b.rt.AllocateUnifiedMemory(b.Context, uint64(n*4))
+		b.GSrc = b.rt.AllocateUnifiedMemory(b.Context, uint64(n))
+		b.GDst = b.rt.AllocateUnifiedMemory(b.Context, uint64(n))
 	} else {
-		b.GSrc = b.rt.AllocateMemory(b.Context, uint64(n*4))
-		b.GDst = b.rt.AllocateMemory(b.Context, uint64(n*4))
+		b.GSrc = b.rt.AllocateMemory(b.Context, uint64(n))
+		b.GDst = b.rt.AllocateMemory(b.Context, uint64(n))
 	}
 
 	b.Upload(b.rt, b.Queue, b.GSrc, b.Src)
 }
 
 func (b *Benchmark) exec() {
-	n := b.NumElements
-	gridSize := uint32((n + blockSize - 1) / blockSize)
-	globalX := gridSize * blockSize
+	n := uint64(b.NumElements) * 4
+	items := (n + alignedElementBytes - 1) / alignedElementBytes
+	groups := min((items+blockSize-1)/blockSize, copyGroupLimit)
+	globalX := uint32(groups * blockSize)
+	remainder := n % alignedElementBytes
 
 	args := KernelArgs{
-		Src:         b.GSrc,
-		Dst:         b.GDst,
-		NumElements: int32(n),
+		Src:           b.GSrc,
+		Dst:           b.GDst,
+		Size:          n,
+		Remainder:     uint32(remainder),
+		AlignedSize:   alignedElementBytes,
+		EndPtr:        b.GDst + gpuruntime.Ptr(n-remainder),
+		NextChunk:     globalX,
+		WorkgroupSize: blockSize,
 	}
 
 	b.rt.EnqueueLaunchKernel(
@@ -145,15 +143,15 @@ func (b *Benchmark) exec() {
 // Verify checks the GPU result against the source buffer. A device-to-device
 // copy must reproduce the source exactly.
 func (b *Benchmark) verify() error {
-	n := b.NumElements
-	gpuDst := make([]float32, n)
+	n := b.NumElements * 4
+	gpuDst := make([]byte, n)
 	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuDst); err != nil {
 		return err
 	}
 
 	for i := 0; i < n; i++ {
 		if gpuDst[i] != b.Src[i] {
-			return fmt.Errorf("At index %d, expected %f, but got %f.\n",
+			return fmt.Errorf("at byte %d, expected 0x%02x, got 0x%02x",
 				i, b.Src[i], gpuDst[i])
 		}
 	}

@@ -113,7 +113,18 @@ func (u *ScalarUnit) runExecStage() bool {
 			return true
 		}
 
-		u.alu.Run(u.cu.wave(u.state().Stages.Exec).emulation())
+		operation := u.cu.wave(u.state().Stages.Exec).emulation()
+		inst := operation.Inst()
+		if inst.FormatType == insts.SOP1 && inst.Opcode == 28 && u.alu.ArchName() == "CDNA3" {
+			// The CDNA3 ALU expects the next PC for S_GETPC_B64, as in
+			// functional execution. Timing retires the current PC later.
+			pc := operation.PC()
+			operation.SetPC(pc + uint64(inst.ByteSize))
+			u.alu.Run(operation)
+			operation.SetPC(pc)
+		} else {
+			u.alu.Run(operation)
+		}
 
 		u.state().Stages.Write = u.state().Stages.Exec
 		u.state().Stages.Exec = 0

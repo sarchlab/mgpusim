@@ -12,6 +12,9 @@ var numRow = flag.Int("row", 64, "The number of rows in the input matrix.")
 var numCol = flag.Int("col", 64, "The number of columns in the input matrix.")
 var numIter = flag.Int("iter", 1, "The number of iterations to run.")
 
+var matrixSize = flag.Int("n", 0, "Square grid size including both boundaries.")
+var blockSize = flag.Int("block-size", 16, "Work-group edge length for the CDNA3 square stencil.")
+
 func main() {
 	flag.Parse()
 
@@ -24,6 +27,10 @@ func main() {
 	benchmark.NumIteration = *numIter
 	benchmark.NumRows = *numRow + 2
 	benchmark.NumCols = *numCol + 2
+	if *matrixSize > 0 {
+		benchmark.NumRows, benchmark.NumCols = *matrixSize, *matrixSize
+	}
+	benchmark.BlockSize = *blockSize
 
 	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)

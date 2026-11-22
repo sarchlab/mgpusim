@@ -31,20 +31,14 @@ import (
 // compiler emits no hidden ABI arguments.
 const blockSize = 256
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernels.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 28): three 8-byte global_buffer pointers
-// followed by one 4-byte by_value scalar, packed with no padding
-// (mgpusim serializes args with binary.Write, which inserts no alignment
-// padding). The kernels read only blockIdx/threadIdx, so no hidden ABI
-// arguments are emitted. The same layout is used by both mvt_kernel1
-// (A, y1, x1, n) and mvt_kernel2 (A, y2, x2, n).
+// KernelArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type KernelArgs struct {
-	A gpuruntime.Ptr // offset 0
-	Y gpuruntime.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
-	X gpuruntime.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
-	N int32          // offset 24
+	A      gpuruntime.Ptr // offset 0
+	Y      gpuruntime.Ptr // offset 8  (y1 for kernel1, y2 for kernel2)
+	X      gpuruntime.Ptr // offset 16 (x1 for kernel1, x2 for kernel2)
+	N      int32          // offset 24
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the MVT benchmark.
@@ -124,12 +118,13 @@ func (b *Benchmark) initMem() {
 	b.Y2 = make([]float32, n)
 
 	// Deterministic host init, reproduced exactly in Verify().
-	for i := 0; i < numElem; i++ {
-		b.A[i] = float32(i%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.A {
+		b.A[i] = float32(rand.Next()%100) / 10.0
 	}
-	for j := 0; j < n; j++ {
-		b.Y1[j] = float32((j*3)%100) / 10.0
-		b.Y2[j] = float32((j*7)%100) / 10.0
+	for i := range b.Y1 {
+		b.Y1[i] = float32(rand.Next()%100) / 10.0
+		b.Y2[i] = float32(rand.Next()%100) / 10.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -158,10 +153,11 @@ func (b *Benchmark) exec() {
 
 	// Kernel 1: x1 = A * y1
 	args1 := KernelArgs{
-		A: b.GA,
-		Y: b.GY1,
-		X: b.GX1,
-		N: int32(n),
+		A:      b.GA,
+		Y:      b.GY1,
+		X:      b.GX1,
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -173,10 +169,11 @@ func (b *Benchmark) exec() {
 
 	// Kernel 2: x2 = A^T * y2
 	args2 := KernelArgs{
-		A: b.GA,
-		Y: b.GY2,
-		X: b.GX2,
-		N: int32(n),
+		A:      b.GA,
+		Y:      b.GY2,
+		X:      b.GX2,
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,

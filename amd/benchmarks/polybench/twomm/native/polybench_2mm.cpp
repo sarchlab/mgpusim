@@ -1,28 +1,14 @@
-/*
- * HIP kernel for PolyBench 2MM (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/polybench_2mm.
- *
- * 2MM computes two chained matrix multiplications:
- *   D = alpha*A*B + beta*D
- *   E = alpha*C*D + beta*E
- * for NxN square matrices. Both multiplications use the same tiled
- * shared-memory GEMM kernel (mm_kernel), launched twice from the host.
- *
- * Uses a constant TILE_SIZE (not blockDim) for the block geometry so the
- * compiler emits no hidden ABI arguments (kernarg_segment_size = 36).
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/polybench_2mm/hip/polybench_2mm.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
 #define TILE_SIZE 16
 
-extern "C" __global__ void mm_kernel(
-    const float* __restrict__ P,
-    const float* __restrict__ Q,
-    float* __restrict__ Out,
-    int N,
-    float alpha,
-    float beta)
-{
+template<bool Accumulate>
+__global__ void mm_kernel(const float* __restrict__ P,
+                          const float* __restrict__ Q,
+                          float* __restrict__ Out,
+                          int N, float alpha, float beta) {
     __shared__ float sP[TILE_SIZE][TILE_SIZE];
     __shared__ float sQ[TILE_SIZE][TILE_SIZE];
 
@@ -49,6 +35,12 @@ extern "C" __global__ void mm_kernel(
     }
 
     if (row < N && col < N) {
-        Out[row * N + col] = alpha * sum + beta * Out[row * N + col];
+        // The temporary has no initial value: stage 1 must never read it.
+        float value = alpha * sum;
+        if (Accumulate) value += beta * Out[row * N + col];
+        Out[row * N + col] = value;
     }
 }
+
+template __global__ void mm_kernel<false>(const float*, const float*, float*, int, float, float);
+template __global__ void mm_kernel<true>(const float*, const float*, float*, int, float, float);

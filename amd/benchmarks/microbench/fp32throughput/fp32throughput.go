@@ -4,8 +4,7 @@
 //
 // Each work-item runs a chain of fused multiply-add (FMA) operations on
 // register-resident floats using four independent accumulators. The kernel
-// is memory-traffic free except for a single checksum write from work-item
-// (0,0), which is what Verify() reproduces on the CPU. The kernel binary is
+// stores one checksum per work-item, which the CPU verifier reproduces. The kernel binary is
 // compiled for gfx942 only (see native/), so the benchmark must be run with
 // `-arch cdna3` (the MI300X configuration).
 package fp32throughput
@@ -19,6 +18,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
@@ -30,18 +30,12 @@ const (
 	fmaAdd float32 = 0.0000001
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// One 8-byte global_buffer pointer followed by two 4-byte by_value scalars,
-// packed with no padding (mgpusim serializes args with binary.Write, which does
-// not insert alignment padding; all fields are naturally aligned here so
-// kernarg_segment_size = 16). The kernel reads only blockIdx.x / threadIdx.x
-// plus these explicit args -- block size is passed as ThreadsPerBlock rather
-// than read from blockDim.x, so no hidden ABI arguments are emitted.
+// KernelArgs is the device ABI for the version 1.1 HIP kernel.
 type KernelArgs struct {
-	Out             gpuruntime.Ptr // offset 0, size 8 (global_buffer)
-	FmasPerThread   int32          // offset 8, size 4 (by_value)
-	ThreadsPerBlock int32          // offset 12, size 4 (by_value)
+	Out           gpuruntime.Ptr
+	FmasPerThread int32
+	_             [4]byte
+	Launch        benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the fp32_throughput benchmark.
@@ -148,23 +142,13 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	numBlocks := b.numBlocks()
-	tpb := b.threadsPerBlock()
-	globalX := uint32(numBlocks * tpb)
-
+	grid := [3]uint32{uint32(b.numThreads()), 1, 1}
+	group := [3]uint16{uint16(b.threadsPerBlock()), 1, 1}
 	args := KernelArgs{
-		Out:             b.GOut,
-		FmasPerThread:   b.fmasPerThread(),
-		ThreadsPerBlock: int32(tpb),
+		Out: b.GOut, FmasPerThread: b.fmasPerThread(),
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group),
 	}
-
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{uint16(tpb), 1, 1},
-		&args,
-	)
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 }
 
 // Verify checks the GPU result against a CPU reference computation.
@@ -194,10 +178,10 @@ func (b *Benchmark) verify() error {
 		a3 := a0 + 0.3
 
 		for i := 0; i < iters; i++ {
-			a0 = a0*fmaMul + fmaAdd
-			a1 = a1*fmaMul + fmaAdd
-			a2 = a2*fmaMul + fmaAdd
-			a3 = a3*fmaMul + fmaAdd
+			a0 = bitops.FMAF32(a0, fmaMul, fmaAdd)
+			a1 = bitops.FMAF32(a1, fmaMul, fmaAdd)
+			a2 = bitops.FMAF32(a2, fmaMul, fmaAdd)
+			a3 = bitops.FMAF32(a3, fmaMul, fmaAdd)
 		}
 		ref[lane] = a0 + a1 + a2 + a3
 	}

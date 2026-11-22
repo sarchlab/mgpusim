@@ -24,7 +24,6 @@ type State struct {
 	// AccessPattern selects which kernel(s) run: "no_conflict" (default),
 	// "conflict", or "both".
 	AccessPattern string
-	GIn           gpuruntime.Ptr
 	GSink         gpuruntime.Ptr
 	// noConflictResult holds the d_sink contents after the no-conflict
 	// kernel, snapshotted before the conflict kernel overwrites the sink.

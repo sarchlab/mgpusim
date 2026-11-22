@@ -20,13 +20,6 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// emptyArgs is the kernel argument struct: one unused pointer, present only so
-// the kernarg segment is non-zero (Runtime cannot allocate 0 bytes). The
-// kernel never dereferences it.
-type emptyArgs struct {
-	Out gpuruntime.Ptr // offset 0
-}
-
 // Benchmark defines the empty_kernel benchmark.
 type Benchmark struct {
 	*State
@@ -90,23 +83,13 @@ func (b *Benchmark) exec() {
 		b.BlockSize = 256
 	}
 
-	// A tiny unused buffer just to give the kernel a valid (non-zero) kernarg.
-	var out gpuruntime.Ptr
-	if b.UseUnifiedMemory {
-		out = b.rt.AllocateUnifiedMemory(b.Context, 4)
-	} else {
-		out = b.rt.AllocateMemory(b.Context, 4)
-	}
-
 	globalX := uint32(b.NumBlocks * b.BlockSize)
-	args := emptyArgs{Out: out}
-
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
 		b.hsaco,
 		[3]uint32{globalX, 1, 1},
 		[3]uint16{uint16(b.BlockSize), 1, 1},
-		&args,
+		nil,
 	)
 }
 

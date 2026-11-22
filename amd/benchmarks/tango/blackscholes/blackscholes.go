@@ -31,14 +31,7 @@ const blockSize = 256
 const riskFreeRate float32 = 0.02
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 60). mgpusim serializes args with binary.Write,
-// which packs fields in declaration order with NO automatic alignment
-// padding, so an explicit pad field is inserted at offset 36 to align the
-// callPrice pointer to its metadata offset of 40. The kernel reads only
-// blockIdx/threadIdx (constant block size), so no hidden ABI arguments are
-// emitted.
+// Explicit arguments are followed by the gfx942 launch geometry.
 type KernelArgs struct {
 	S         gpuruntime.Ptr // offset 0
 	K         gpuruntime.Ptr // offset 8
@@ -49,6 +42,8 @@ type KernelArgs struct {
 	CallPrice gpuruntime.Ptr // offset 40
 	PutPrice  gpuruntime.Ptr // offset 48
 	N         int32          // offset 56
+	_         uint32
+	Launch    benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the Black-Scholes benchmark.
@@ -173,6 +168,7 @@ func (b *Benchmark) exec() {
 		CallPrice: b.GCall,
 		PutPrice:  b.GPut,
 		N:         int32(n),
+		Launch:    benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 
 	b.rt.EnqueueLaunchKernel(

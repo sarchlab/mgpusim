@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"log"
 
+	"github.com/sarchlab/akita/v5/mem/vm"
+
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
@@ -59,6 +61,25 @@ func (u *ALU) flatAddrWithScalar(
 	return addr
 }
 
+func (u *ALU) readFlat(inst *insts.Inst, pid vm.PID, address, size uint64) []byte {
+	offset, shared := insts.CDNA3SharedOffset(address)
+	if inst.Segment == 0 && shared {
+		begin := uint64(offset)
+		return u.lds[begin : begin+size]
+	}
+	return u.storageAccessor.Read(pid, address, size)
+}
+
+func (u *ALU) writeFlat(inst *insts.Inst, pid vm.PID, address uint64, data []byte) {
+	offset, shared := insts.CDNA3SharedOffset(address)
+	if inst.Segment == 0 && shared {
+		begin := int(offset)
+		copy(u.lds[begin:begin+len(data)], data)
+		return
+	}
+	u.storageAccessor.Write(pid, address, data)
+}
+
 //nolint:gocyclo
 func (u *ALU) runFlat(state emu.InstEmuState) {
 	inst := state.Inst()
@@ -97,7 +118,7 @@ func (u *ALU) runFlatLoadUByte(state emu.InstEmuState) {
 		}
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 1)
+		buf := u.readFlat(inst, pid, addr, 1)
 
 		result[0] = buf[0]
 		result[1] = 0
@@ -120,7 +141,7 @@ func (u *ALU) runFlatLoadSByte(state emu.InstEmuState) {
 		}
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 1)
+		buf := u.readFlat(inst, pid, addr, 1)
 
 		signedByte := int8(buf[0])
 		binary.LittleEndian.PutUint32(result[:], uint32(int32(signedByte)))
@@ -141,7 +162,7 @@ func (u *ALU) runFlatLoadUShort(state emu.InstEmuState) {
 		}
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 2)
+		buf := u.readFlat(inst, pid, addr, 2)
 
 		result[0] = buf[0]
 		result[1] = buf[1]
@@ -163,7 +184,7 @@ func (u *ALU) runFlatLoadDWords(state emu.InstEmuState, dwords uint64) {
 		}
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
-		buf := u.storageAccessor.Read(pid, addr, 4*dwords)
+		buf := u.readFlat(inst, pid, addr, 4*dwords)
 		state.WriteOperandBytes(inst.Dst, i, buf)
 	}
 }
@@ -181,7 +202,7 @@ func (u *ALU) runFlatStoreDWord(state emu.InstEmuState) {
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
 		data := state.ReadOperandBytes(inst.Data, i, 4)
-		u.storageAccessor.Write(pid, addr, data)
+		u.writeFlat(inst, pid, addr, data)
 	}
 }
 
@@ -198,7 +219,7 @@ func (u *ALU) runFlatStoreDWordX2(state emu.InstEmuState) {
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
 		data := state.ReadOperandBytes(inst.Data, i, 8)
-		u.storageAccessor.Write(pid, addr, data)
+		u.writeFlat(inst, pid, addr, data)
 	}
 }
 
@@ -215,7 +236,7 @@ func (u *ALU) runFlatStoreDWordX3(state emu.InstEmuState) {
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
 		data := state.ReadOperandBytes(inst.Data, i, 12)
-		u.storageAccessor.Write(pid, addr, data)
+		u.writeFlat(inst, pid, addr, data)
 	}
 }
 
@@ -232,6 +253,6 @@ func (u *ALU) runFlatStoreDWordX4(state emu.InstEmuState) {
 
 		addr := u.flatAddrWithScalar(state, i, hasSAddr, scalarBase)
 		data := state.ReadOperandBytes(inst.Data, i, 16)
-		u.storageAccessor.Write(pid, addr, data)
+		u.writeFlat(inst, pid, addr, data)
 	}
 }

@@ -37,30 +37,29 @@ import (
 
 const blockSize = 16
 
-// ExEyKernelArgs matches the layout of fdtd_update_ex / fdtd_update_ey.
-//
-// Verified against AMDGPU metadata (kernarg_segment_size = 24): two 8-byte
-// global_buffer pointers followed by two 4-byte by_value ints, packed with no
-// padding (mgpusim serializes args with binary.Write, which inserts no
-// alignment padding). No hidden ABI arguments are present.
-type ExEyKernelArgs struct {
-	Field gpuruntime.Ptr // offset 0  (ex or ey, in/out)
-	Hz    gpuruntime.Ptr // offset 8  (hz, read-only)
-	NX    int32          // offset 16
-	NY    int32          // offset 20
+// ExKernelArgs is the ABI for updating ex.
+type ExKernelArgs struct {
+	Field  gpuruntime.Ptr
+	Hz     gpuruntime.Ptr
+	NX, NY int32
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
-// HzKernelArgs matches the layout of fdtd_update_hz.
-//
-// Verified against AMDGPU metadata (kernarg_segment_size = 32): three 8-byte
-// global_buffer pointers followed by two 4-byte by_value ints. No hidden ABI
-// arguments are present.
+// EyKernelArgs adds the time-varying input on the boundary row.
+type EyKernelArgs struct {
+	Field  gpuruntime.Ptr
+	Hz     gpuruntime.Ptr
+	NX, NY int32
+	Fict   float32
+	_      uint32
+	Launch benchmarks.GFX942LaunchDimensions
+}
+
+// HzKernelArgs is the ABI for updating hz.
 type HzKernelArgs struct {
-	Ex gpuruntime.Ptr // offset 0  (read-only)
-	Ey gpuruntime.Ptr // offset 8  (read-only)
-	Hz gpuruntime.Ptr // offset 16 (in/out)
-	NX int32          // offset 24
-	NY int32          // offset 28
+	Ex, Ey, Hz gpuruntime.Ptr
+	NX, NY     int32
+	Launch     benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the FDTD-2D benchmark.
@@ -150,10 +149,11 @@ func (b *Benchmark) initMem() {
 	b.HzInit = make([]float32, numElem)
 
 	// Deterministic host init reproducible in Verify().
-	for i := 0; i < numElem; i++ {
-		b.ExInit[i] = float32(i%100) / 10.0
-		b.EyInit[i] = float32((i*2)%100) / 10.0
-		b.HzInit[i] = float32((i*3)%100) / 10.0
+	rand := benchmarks.NewGlibcRand(42)
+	for _, field := range [][]float32{b.ExInit, b.EyInit, b.HzInit} {
+		for i := range field {
+			field[i] = float32(rand.Next()%100) / 10.0
+		}
 	}
 
 	if b.UseUnifiedMemory {
@@ -172,51 +172,20 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	n := b.N
-	gridDim := uint32((n + blockSize - 1) / blockSize)
-	globalX := gridDim * blockSize
-	globalY := gridDim * blockSize
-
-	exArgs := ExEyKernelArgs{Field: b.GEx, Hz: b.GHz, NX: int32(n), NY: int32(n)}
-	eyArgs := ExEyKernelArgs{Field: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n)}
-	hzArgs := HzKernelArgs{
-		Ex: b.GEx, Ey: b.GEy, Hz: b.GHz, NX: int32(n), NY: int32(n),
-	}
-
-	// The three kernels in each time step have read-after-write dependencies:
-	// the hz update reads the ex/ey written this step, and the next step's
-	// ex/ey updates read the hz written this step. Draining the command queue
-	// between dependent launches serializes them, as in the chained-GEMM
-	// benchmarks (2mm/3mm), which is sufficient for the single-workgroup
-	// default configuration. (See the package doc comment about the
-	// multi-workgroup timing-mode cache-coherency limitation.)
-	cohere := func() {
-	}
+	n := int32(b.N)
+	global := uint32((b.N + blockSize - 1) / blockSize * blockSize)
+	grid := [3]uint32{global, global, 1}
+	group := [3]uint16{blockSize, blockSize, 1}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
+	exArgs := ExKernelArgs{Field: b.GEx, Hz: b.GHz, NX: n, NY: n, Launch: launch}
+	eyArgs := EyKernelArgs{Field: b.GEy, Hz: b.GHz, NX: n, NY: n, Launch: launch}
+	hzArgs := HzKernelArgs{Ex: b.GEx, Ey: b.GEy, Hz: b.GHz, NX: n, NY: n, Launch: launch}
 
 	for t := 0; t < b.TMax; t++ {
-		b.rt.EnqueueLaunchKernel(
-			b.Queue, b.kernelEx,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&exArgs,
-		)
-		cohere()
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue, b.kernelEy,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&eyArgs,
-		)
-		cohere()
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue, b.kernelHz,
-			[3]uint32{globalX, globalY, 1},
-			[3]uint16{blockSize, blockSize, 1},
-			&hzArgs,
-		)
-		cohere()
+		eyArgs.Fict = float32(t)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernelEx, grid, group, &exArgs)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernelEy, grid, group, &eyArgs)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernelHz, grid, group, &hzArgs)
 	}
 }
 
@@ -238,54 +207,43 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 		return err
 	}
 
-	// CPU reference: same field init, same TMax time steps, in float32 to
-	// mirror the GPU arithmetic.
-	ex := make([]float32, numElem)
-	ey := make([]float32, numElem)
-	hz := make([]float32, numElem)
-	copy(ex, b.ExInit)
-	copy(ey, b.EyInit)
-	copy(hz, b.HzInit)
-
+	// The CPU reference uses double precision and exact boundary checks.
+	ex, ey, hz := make([]float64, numElem), make([]float64, numElem), make([]float64, numElem)
+	for i := range ex {
+		ex[i], ey[i], hz[i] = float64(b.ExInit[i]), float64(b.EyInit[i]), float64(b.HzInit[i])
+	}
 	for t := 0; t < b.TMax; t++ {
-		// Update ex.
 		for i := 0; i < n; i++ {
+			for j := 1; j < n; j++ {
+				q := i*n + j
+				ex[q] -= 0.5 * (hz[q] - hz[q-1])
+			}
 			for j := 0; j < n; j++ {
+				q := i*n + j
 				if i == 0 {
-					ex[0*n+j] = 0.0
+					ey[q] = float64(t)
 				} else {
-					ex[i*n+j] += 0.5 * (hz[i*n+j] - hz[(i-1)*n+j])
+					ey[q] -= 0.5 * (hz[q] - hz[q-n])
 				}
 			}
 		}
-		// Update ey.
-		for i := 0; i < n; i++ {
-			for j := 0; j < n; j++ {
-				if j == 0 {
-					ey[i*n+0] = 0.0
-				} else {
-					ey[i*n+j] += 0.5 * (hz[i*n+j] - hz[i*n+(j-1)])
-				}
-			}
-		}
-		// Update hz.
 		for i := 0; i < n-1; i++ {
 			for j := 0; j < n-1; j++ {
-				hz[i*n+j] -= 0.7 * (ex[i*n+(j+1)] - ex[i*n+j] +
-					ey[(i+1)*n+j] - ey[i*n+j])
+				q := i*n + j
+				hz[q] -= float64(float32(0.7)) * (ex[q+1] - ex[q] + ey[q+n] - ey[q])
 			}
 		}
 	}
 
-	check := func(name string, ref, got []float32) error {
+	check := func(name string, ref []float64, got []float32, exact func(int, int) bool) error {
 		for idx := 0; idx < numElem; idx++ {
-			r := float64(ref[idx])
+			r := ref[idx]
 			g := float64(got[idx])
-			denom := math.Abs(r)
-			if denom < 1.0 {
-				denom = 1.0
+			tol := 1e-3 * math.Max(1, math.Abs(r))
+			if exact(idx/n, idx%n) {
+				tol = 0
 			}
-			if math.Abs(r-g)/denom > 1e-3 {
+			if math.IsNaN(g) || math.IsInf(g, 0) || math.Abs(r-g) > tol {
 				return fmt.Errorf("%s mismatch at (%d,%d): expected %f, got %f.\n",
 					name, idx/n, idx%n, r, g)
 			}
@@ -294,13 +252,13 @@ func (b *Benchmark) verify() error { //nolint:funlen,gocognit
 		return nil
 	}
 
-	if err := check("ex", ex, gpuEx); err != nil {
+	if err := check("ex", ex, gpuEx, func(_, j int) bool { return j == 0 }); err != nil {
 		return err
 	}
-	if err := check("ey", ey, gpuEy); err != nil {
+	if err := check("ey", ey, gpuEy, func(i, _ int) bool { return i == 0 }); err != nil {
 		return err
 	}
-	if err := check("hz", hz, gpuHz); err != nil {
+	if err := check("hz", hz, gpuHz, func(i, j int) bool { return i == n-1 || j == n-1 }); err != nil {
 		return err
 	}
 

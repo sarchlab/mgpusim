@@ -13,9 +13,9 @@ type State struct {
 	Queue     gpuruntime.CommandQueue
 	Gpus      []int
 	Arch      arch.Type
-	// NumElements is the number of float32 elements copied device-to-device.
+	// NumElements is the number of four-byte elements copied device-to-device.
 	NumElements      int
-	Src              []float32
+	Src              []byte
 	GSrc             gpuruntime.Ptr
 	GDst             gpuruntime.Ptr
 	UseUnifiedMemory bool

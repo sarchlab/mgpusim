@@ -8,7 +8,9 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/sample"
 )
 
-var lenInput = flag.Int("length", 65536, "The length of array to sort.")
+var lenInput = flag.Int("length", 65536, "The number of input bytes, a multiple of 16.")
+
+var blockSize = flag.Int("block-size", 256, "The number of work-items per group on CDNA3.")
 
 func main() {
 	flag.Parse()
@@ -20,6 +22,7 @@ func main() {
 	benchmark := aes.NewBenchmark(runtime)
 	benchmark.Arch = config.ArchType
 	benchmark.Length = *lenInput
+	benchmark.BlockSize = *blockSize
 
 	config.Configure(benchmark)
 	runner.AddBenchmark(benchmark)

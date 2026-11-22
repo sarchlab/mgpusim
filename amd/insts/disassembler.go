@@ -278,7 +278,10 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 		switch src0Sext {
 		case 0:
 		case 1:
-			log.Panicf("SRC0_SEXT is not implemented")
+			if !d.IsCDNA3 {
+				log.Panicf("SRC0_SEXT is not implemented")
+			}
+			inst.Src0Sext = true
 		}
 
 		switch src0Neg {
@@ -313,7 +316,10 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 		switch src1Sext {
 		case 0:
 		case 1:
-			log.Panicf("SRC1_SEXT is not implemented")
+			if !d.IsCDNA3 {
+				log.Panicf("SRC1_SEXT is not implemented")
+			}
+			inst.Src1Sext = true
 		}
 
 		switch src1Neg {
@@ -561,6 +567,9 @@ func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) error {
 func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
+	if inst.SRC0Width == 64 && inst.Src0.OperandType == RegOperand {
+		inst.Src0.RegCount = 2
+	}
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
@@ -570,6 +579,9 @@ func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
 	}
 
 	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 8, 15)))
+	if inst.SRC1Width == 64 && inst.Src1.OperandType == RegOperand {
+		inst.Src1.RegCount = 2
+	}
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 		if len(buf) < 8 {
@@ -677,15 +689,13 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 	d.parseNeg(inst, inst.Neg)
 
-	// For VOP3P packed instructions (944-946), extract OpSel and OpSelHi
-	if inst.Opcode == 944 {
-		// 3-source FMA: bits [13:11] = op_sel[2:0], bit [14] = op_sel_hi[2]
+	// VOP3P reuses the output-modifier bits as high input selectors.
+	switch inst.Opcode {
+	case 910, 929, 930, 944:
 		inst.OpSel = int(extractBits(bytesLo, 11, 13))
 		inst.OpSelHi = int(extractBits(bytesHi, 27, 28)) |
 			(int(extractBits(bytesLo, 14, 14)) << 2)
-	} else if (inst.Opcode >= 945 && inst.Opcode <= 946) || inst.Opcode == 929 {
-		// 2-source MUL/ADD: bits [12:11] = op_sel[1:0],
-		// bits [14:13] = neg_hi[1:0] (ignored; neg_lo from Neg field applies to both halves)
+	case 911, 945, 946, 947:
 		inst.OpSel = int(extractBits(bytesLo, 11, 12))
 		inst.OpSelHi = int(extractBits(bytesHi, 27, 28))
 	}
@@ -724,7 +734,15 @@ func (d *Disassembler) parseAbs(inst *Inst, abs int) {
 func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
-	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
+	source := uint16(extractBits(bytes, 0, 7))
+	if d.IsCDNA3 && source == 235 {
+		inst.Src0 = NewIntOperand(int(source), int64(CDNA3SharedApertureBase))
+	} else {
+		inst.Src0, _ = getOperand(source)
+		if inst.Src0 == nil {
+			return fmt.Errorf("invalid SOP1 source operand %d", source)
+		}
+	}
 	if inst.SRC0Width == 64 {
 		inst.Src0.RegCount = 2
 	}

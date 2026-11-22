@@ -159,14 +159,13 @@ func (b *Benchmark) initMem() {
 }
 
 // initMatrix builds a diagonally-dominant matrix so that LU without pivoting
-// is numerically stable. It uses a deterministic LCG so that Verify() can
-// reproduce the exact same input matrix.
+// is numerically stable. It uses the archived glibc srand/rand sequence.
 func initMatrix(a []float32, n int) {
-	rng := newRand(42)
+	rng := benchmarks.NewGlibcRand(42)
 	for i := 0; i < n; i++ {
 		var rowSum float32
 		for j := 0; j < n; j++ {
-			v := float32(rng.next()%10+1) * 0.1
+			v := float32(rng.Next()%10+1) * 0.1
 			a[i*n+j] = v
 			if i != j {
 				rowSum += float32(math.Abs(float64(v)))
@@ -174,18 +173,6 @@ func initMatrix(a []float32, n int) {
 		}
 		a[i*n+i] = rowSum + 1.0
 	}
-}
-
-// rand is a tiny deterministic PRNG (glibc-style LCG) so the Go host init is
-// fully reproducible inside Verify(). The absolute sequence does not need to
-// match C rand(); it only needs to be identical between initMem and Verify.
-type rand struct{ state uint64 }
-
-func newRand(seed uint64) *rand { return &rand{state: seed} }
-
-func (r *rand) next() int {
-	r.state = r.state*6364136223846793005 + 1442695040888963407
-	return int((r.state >> 33) & 0x7fffffff)
 }
 
 func (b *Benchmark) exec() {

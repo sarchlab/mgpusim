@@ -21,6 +21,7 @@ type VectorMemoryUnit struct {
 	coalescer coalescer
 
 	maxCoalescingPenalty int
+	sharedAperture       bool
 }
 
 // NewVectorMemoryUnit creates a new Vector Memory Unit.
@@ -176,6 +177,15 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 
 	wave := u.cu.wave(item.Handle)
 	inst := wave.Inst()
+	if u.sharedAperture && inst.FormatType == insts.FLAT && inst.Segment == 0 && flatTargetsLDS(wave) {
+		if !u.cu.LDSUnit.CanAcceptWave() {
+			return false
+		}
+		u.cu.LDSUnit.AcceptWave(wave)
+		u.state().InstructionsOutput.Pop()
+		u.state().Instructions--
+		return true
+	}
 	switch inst.FormatType {
 	case insts.FLAT:
 		ok := u.executeFlatInsts(wave)
@@ -192,6 +202,29 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 	u.state().Instructions--
 
 	return true
+}
+
+// A generic CDNA3 FLAT instruction can address LDS through the shared
+// aperture. Route uniform LDS waves to the same pipeline as DS instructions.
+func flatTargetsLDS(wave *Wavefront) bool {
+	state := wave.emulation()
+	inst := state.Inst()
+	exec := state.EXEC()
+	var sharedLanes uint64
+	for lane := 0; lane < 64; lane++ {
+		mask := uint64(1) << lane
+		if exec&mask == 0 {
+			continue
+		}
+		address := state.ReadOperand(inst.Addr, lane) + uint64(int64(int32(inst.Offset0)))
+		if _, shared := insts.CDNA3SharedOffset(address); shared {
+			sharedLanes |= mask
+		}
+	}
+	if sharedLanes != 0 && sharedLanes != exec {
+		log.Panic("mixed LDS and global addresses in one CDNA3 FLAT wave are unsupported")
+	}
+	return sharedLanes != 0
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(

@@ -35,18 +35,13 @@ const (
 	blockSize = 256 // must match BLOCK_SIZE in native/polybench_correlation.cpp
 )
 
-// MeanArgs / StddevArgs / NormalizeArgs / CorrelationArgs mirror the kernarg
-// layout reported by the compiled gfx942 kernels (verified against the AMDGPU
-// metadata). mgpusim serializes args with binary.Write, which packs fields in
-// declaration order with no alignment padding, so each field lands on its
-// metadata offset. No hidden ABI arguments are emitted (constant block dims).
-
-// MeanArgs: kernarg_segment_size = 24.
+// MeanArgs encodes explicit kernel arguments and gfx942 launch geometry.
 type MeanArgs struct {
-	Data gpuruntime.Ptr // offset 0
-	Mean gpuruntime.Ptr // offset 8
-	M    int32          // offset 16
-	N    int32          // offset 20
+	Data   gpuruntime.Ptr // offset 0
+	Mean   gpuruntime.Ptr // offset 8
+	M      int32          // offset 16
+	N      int32          // offset 20
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // StddevArgs: kernarg_segment_size = 32.
@@ -56,6 +51,7 @@ type StddevArgs struct {
 	Stddev gpuruntime.Ptr // offset 16
 	M      int32          // offset 24
 	N      int32          // offset 28
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // NormalizeArgs: kernarg_segment_size = 32.
@@ -65,6 +61,7 @@ type NormalizeArgs struct {
 	Stddev gpuruntime.Ptr // offset 16
 	M      int32          // offset 24
 	N      int32          // offset 28
+	Launch benchmarks.GFX942LaunchDimensions
 }
 
 // CorrelationArgs: kernarg_segment_size = 24.
@@ -152,9 +149,9 @@ func (b *Benchmark) initMem() {
 	numElem := n * n // M == N
 
 	b.Data = make([]float32, numElem)
-	for i := 0; i < numElem; i++ {
-		// Deterministic host init reproduced exactly in Verify().
-		b.Data[i] = float32((i*7+3)%1000) / 100.0
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.Data {
+		b.Data[i] = float32(rand.Next()%1000) / 100.0
 	}
 
 	if b.UseUnifiedMemory {
@@ -189,10 +186,11 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 	globalCorr := gridDim * tileSize
 
 	meanArgs := MeanArgs{
-		Data: b.GData,
-		Mean: b.GMean,
-		M:    int32(m),
-		N:    int32(n),
+		Data:   b.GData,
+		Mean:   b.GMean,
+		M:      int32(m),
+		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.meanKernel,
@@ -207,6 +205,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.stddevKernel,
@@ -221,6 +220,7 @@ func (b *Benchmark) exec() { //nolint:funlen,gocognit
 		Stddev: b.GStddev,
 		M:      int32(m),
 		N:      int32(n),
+		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{globalMN, 1, 1}, [3]uint16{blockSize, 1, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue, b.normalizeKernel,

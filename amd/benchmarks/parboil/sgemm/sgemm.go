@@ -179,7 +179,7 @@ func (b *Benchmark) verify() error {
 			if denom < 1.0 {
 				denom = 1.0
 			}
-			if math.Abs(ref-got)/denom > 1e-3 {
+			if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(ref-got)/denom > 1e-3 {
 				return fmt.Errorf("At (%d,%d), expected %f, but got %f.\n",
 					i, j, ref, got)
 			}

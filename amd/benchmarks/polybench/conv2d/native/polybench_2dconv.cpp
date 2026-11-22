@@ -1,33 +1,21 @@
-/*
- * HIP kernel for PolyBench 2D Convolution (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/polybench_2dconv.
- *
- * Applies a fixed 3x3 PolyBench coefficient stencil to an NI x NJ matrix A,
- * producing output B. One thread per output element.
- *
- * Uses a constant BLOCK_SIZE (not blockDim) for the block geometry so the
- * compiler emits no hidden ABI arguments (small, simple kernarg).
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/polybench_2dconv/hip/polybench_2dconv.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
-#define BLOCK_SIZE 16
-
-extern "C" __global__ void convolution2D_kernel(
-    const float* __restrict__ A,
-    float* __restrict__ B,
-    int NI,
-    int NJ)
-{
-    int j = (int)(blockIdx.x * BLOCK_SIZE + threadIdx.x);
-    int i = (int)(blockIdx.y * BLOCK_SIZE + threadIdx.y);
+extern "C" __global__ void convolution2D_kernel(const float* __restrict__ A,
+                                     float*       __restrict__ B,
+                                     int NI, int NJ) {
+    int j = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    int i = (int)(blockIdx.y * blockDim.y + threadIdx.y);
 
     if (i < 1 || i >= NI - 1 || j < 1 || j >= NJ - 1)
         return;
 
-    // PolyBench fixed coefficients
-    const float c00 = 0.8f, c01 = 0.2f, c02 = 0.3f;
-    const float c10 = 0.2f, c11 = 0.7f, c12 = 0.4f;
-    const float c20 = 0.1f, c21 = 0.2f, c22 = 0.5f;
+    // Upstream names enumerate the first coordinate vertically: row 0 below
+    // corresponds to c11,c21,c31, not c11,c12,c13.
+    const float c00 = 0.2f, c01 = 0.5f, c02 = -0.8f;
+    const float c10 = -0.3f, c11 = 0.6f, c12 = -0.9f;
+    const float c20 = 0.4f, c21 = 0.7f, c22 = 0.1f;
 
     B[i * NJ + j] =
         c00 * A[(i - 1) * NJ + (j - 1)] +

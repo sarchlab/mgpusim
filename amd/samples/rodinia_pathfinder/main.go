@@ -11,6 +11,8 @@ import (
 var rows = flag.Int("rows", 64, "The number of grid rows (DP sweep iterations).")
 var cols = flag.Int("cols", 128, "The number of grid columns (row width).")
 
+var pyramidHeight = flag.Int("pyramid-height", 20, "The maximum number of rows advanced per launch.")
+
 func main() {
 	flag.Parse()
 
@@ -20,6 +22,7 @@ func main() {
 
 	benchmark := pathfinder.NewBenchmark(runtime)
 	benchmark.Rows = *rows
+	benchmark.PyramidHeight = *pyramidHeight
 	benchmark.Cols = *cols
 	benchmark.Arch = config.ArchType
 

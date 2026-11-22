@@ -126,3 +126,28 @@ extern "C" __global__ void StencilKernel(VALTYPE* data, VALTYPE* newData,
         wDiagonal * diagonalValueSum;
   }
 }
+
+// GPU Benchmarks v1.1, tier2/shoc_stencil2d/hip/shoc_stencil2d.hip.
+extern "C" __global__ void stencil2d_kernel(const float* __restrict__ in,
+                                  float* __restrict__ out,
+                                  int N)
+{
+    // Map thread to interior cell (1-indexed)
+    int i = blockIdx.y * blockDim.y + threadIdx.y + 1;  // row
+    int j = blockIdx.x * blockDim.x + threadIdx.x + 1;  // col
+    if (i >= N - 1 || j >= N - 1) return;
+
+    float center = in[i * N + j];
+    float north  = in[(i - 1) * N + j];
+    float south  = in[(i + 1) * N + j];
+    float west   = in[i * N + (j - 1)];
+    float east   = in[i * N + (j + 1)];
+    float nw     = in[(i - 1) * N + (j - 1)];
+    float ne     = in[(i - 1) * N + (j + 1)];
+    float sw     = in[(i + 1) * N + (j - 1)];
+    float se     = in[(i + 1) * N + (j + 1)];
+
+    out[i * N + j] = 0.5f   * center
+                   + 0.1f   * (north + south + west + east)
+                   + 0.025f * (nw + ne + sw + se);
+}

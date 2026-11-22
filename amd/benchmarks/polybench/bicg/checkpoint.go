@@ -16,6 +16,7 @@ type State struct {
 	Arch             arch.Type
 	NX               int
 	NY               int
+	BlockSize        int
 	A                []float32
 	R                []float32
 	S                []float32

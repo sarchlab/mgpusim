@@ -14,6 +14,7 @@ type State struct {
 	Gpus             []int
 	Arch             arch.Type
 	Rows             int
+	PyramidHeight    int
 	Cols             int
 	Wall             []int32
 	GWall            gpuruntime.Ptr

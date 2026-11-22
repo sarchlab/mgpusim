@@ -75,6 +75,8 @@ func (u *ALU) runVOP2(state emu.InstEmuState) {
 		u.runVADDU16(state)
 	case 42:
 		u.runVLSHLREVB16(state)
+	case 43:
+		u.runVLSHRREVB16(state)
 	case 52:
 		u.runVADDU32(state)
 	case 53:
@@ -302,6 +304,28 @@ func (u *ALU) runVLSHRREVB32(state emu.InstEmuState) {
 	}
 }
 
+func (u *ALU) runVLSHRREVB16(state emu.InstEmuState) {
+	inst := state.Inst()
+	exec := state.EXEC()
+	for lane := 0; lane < 64; lane++ {
+		if exec&(1<<uint(lane)) == 0 {
+			continue
+		}
+		shift := uint32(state.ReadOperand(inst.Src0, lane))
+		value := uint32(state.ReadOperand(inst.Src1, lane))
+		if inst.IsSdwa {
+			shift = u.sdwaRead(shift, inst.Src0Sel, inst.Src0Sext)
+			value = u.sdwaRead(value, inst.Src1Sel, inst.Src1Sext)
+		}
+		result := uint32(uint16(value) >> (shift & 15))
+		if inst.IsSdwa {
+			old := uint32(state.ReadOperand(inst.Dst, lane))
+			result = u.sdwaDstSelect(old, result, inst.DstSel, inst.DstUnused)
+		}
+		state.WriteOperand(inst.Dst, lane, uint64(result))
+	}
+}
+
 func (u *ALU) runVASHRREVI32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -344,8 +368,8 @@ func (u *ALU) runVANDB32(state emu.InstEmuState) {
 			if exec&(1<<uint(i)) == 0 {
 				continue
 			}
-			src0 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel)
-			src1 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel)
+			src0 := u.sdwaRead(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel, inst.Src0Sext)
+			src1 := u.sdwaRead(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel, inst.Src1Sext)
 			dst := src0 & src1
 			dst = u.sdwaDstSelect(uint32(state.ReadOperand(inst.Dst, i)), dst, inst.DstSel, inst.DstUnused)
 			state.WriteOperand(inst.Dst, i, uint64(dst))
@@ -369,8 +393,8 @@ func (u *ALU) runVORB32(state emu.InstEmuState) {
 			if exec&(1<<uint(i)) == 0 {
 				continue
 			}
-			src0 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel)
-			src1 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel)
+			src0 := u.sdwaRead(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel, inst.Src0Sext)
+			src1 := u.sdwaRead(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel, inst.Src1Sext)
 			dst := src0 | src1
 			dst = u.sdwaDstSelect(uint32(state.ReadOperand(inst.Dst, i)), dst, inst.DstSel, inst.DstUnused)
 			state.WriteOperand(inst.Dst, i, uint64(dst))
@@ -394,8 +418,8 @@ func (u *ALU) runVXORB32(state emu.InstEmuState) {
 			if exec&(1<<uint(i)) == 0 {
 				continue
 			}
-			src0 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel)
-			src1 := u.sdwaSrcSelect(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel)
+			src0 := u.sdwaRead(uint32(state.ReadOperand(inst.Src0, i)), inst.Src0Sel, inst.Src0Sext)
+			src1 := u.sdwaRead(uint32(state.ReadOperand(inst.Src1, i)), inst.Src1Sel, inst.Src1Sext)
 			dst := src0 ^ src1
 			dst = u.sdwaDstSelect(uint32(state.ReadOperand(inst.Dst, i)), dst, inst.DstSel, inst.DstUnused)
 			state.WriteOperand(inst.Dst, i, uint64(dst))

@@ -18,15 +18,11 @@ type State struct {
 	// NumIterations is the number of stencil time-steps to run.
 	NumIterations int
 	// AmbTemp is the ambient temperature.
-	AmbTemp float32
-	// Derived thermal parameters (computed in initMem).
-	StepDivCap float32
-	Rx1        float32
-	Ry1        float32
-	Rz1        float32
-	Ra1        float32
-	TempInit   []float32
-	Power      []float32
+	AmbTemp      float32
+	BlockSize    int
+	Coefficients Coefficients
+	TempInit     []float32
+	Power        []float32
 	// Two device temperature buffers (ping-pong) plus the power buffer.
 	GTemp  [2]gpuruntime.Ptr
 	GPower gpuruntime.Ptr

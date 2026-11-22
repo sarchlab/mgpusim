@@ -1,25 +1,13 @@
-/*
- * HIP kernel for Parboil SGEMM (gfx942 / CDNA3)
- * Extracted from sarchlab/gpu_benchmarks tier2/parboil_sgemm.
- *
- * Tiled single-precision GEMM: C = alpha*A*B + beta*C for NxN square
- * matrices, one thread per C element with shared-memory tiles
- * (TILE x TILE).
- *
- * Uses a constant TILE (not blockDim) for the block geometry so the
- * compiler emits no hidden ABI arguments (kernarg_segment_size = 36).
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/parboil_sgemm/hip/parboil_sgemm.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
 #define TILE 16
 
-extern "C" __global__ void sgemm_kernel(
-    const float* __restrict__ A,
-    const float* __restrict__ B,
-    float* __restrict__ C,
-    int N,
-    float alpha,
-    float beta)
+extern "C" __global__ void sgemm_kernel(const float* __restrict__ A,
+                              const float* __restrict__ B,
+                              float* __restrict__ C,
+                              int N, float alpha, float beta)
 {
     __shared__ float tA[TILE][TILE];
     __shared__ float tB[TILE][TILE];

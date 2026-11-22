@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"math/rand"
+	"math"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
@@ -168,7 +168,25 @@ var gcn3HSACOBytes []byte
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
+type v11KernelArgs struct {
+	In, Out gpuruntime.Ptr
+	N       int32
+	_       uint32
+	Launch  benchmarks.GFX942LaunchDimensions
+}
+
+func (b *Benchmark) usesNativeStencil() bool {
+	return b.Arch == arch.CDNA3 && b.NumRows == b.NumCols
+}
+
 func (b *Benchmark) loadKernels() {
+	if b.usesNativeStencil() {
+		b.stencilKernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "stencil2d_kernel")
+		if b.stencilKernel == nil {
+			log.Panic("could not load stencil2d_kernel")
+		}
+		return
+	}
 	var hsacoBytes []byte
 	if b.Arch == arch.CDNA3 {
 		hsacoBytes = cdna3HSACOBytes
@@ -200,15 +218,26 @@ func (b *Benchmark) setup() {
 }
 
 func (b *Benchmark) initMem() {
-	rand.Seed(1)
 	b.NumPaddedCols = ((b.NumCols-1)/b.Pad + 1) * b.Pad
+	if b.usesNativeStencil() {
+		b.NumPaddedCols = b.NumCols
+	}
 	b.PaddedDataSize = b.NumRows * b.NumPaddedCols
 
 	b.HInput = make([]float32, b.PaddedDataSize)
 	b.HOutput = make([]float32, b.PaddedDataSize)
-	for i := 0; i < b.PaddedDataSize; i++ {
-		// b.hInput[i] = float32(i)
-		b.HInput[i] = 1
+	if b.usesNativeStencil() {
+		n := b.NumRows
+		rand := benchmarks.NewGlibcRand(123)
+		for i := 1; i < n-1; i++ {
+			for j := 1; j < n-1; j++ {
+				b.HInput[i*n+j] = float32(rand.Next()%100) / 10.0
+			}
+		}
+	} else {
+		for i := range b.HInput {
+			b.HInput[i] = 1
+		}
 	}
 
 	if b.UseUnifiedMemory {
@@ -281,22 +310,46 @@ func (b *Benchmark) launchStencilKernel(
 	}
 }
 
+func (b *Benchmark) launchNativeStencil() {
+	block := b.BlockSize
+	if block == 0 {
+		block = 16
+	}
+	if block < 1 || block > 32 || b.NumRows < 3 {
+		panic("invalid SHOC stencil problem dimensions")
+	}
+	global := uint32((b.NumRows - 2 + block - 1) / block * block)
+	grid := [3]uint32{global, global, 1}
+	group := [3]uint16{uint16(block), uint16(block), 1}
+	launch := benchmarks.NewGFX942LaunchDimensions(grid, group)
+	for i := 0; i < b.NumIteration; i++ {
+		args := v11KernelArgs{In: b.CurrData, Out: b.NewData, N: int32(b.NumRows), Launch: launch}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.stencilKernel, grid, group, &args)
+		b.CurrData, b.NewData = b.NewData, b.CurrData
+	}
+}
+
 func (b *Benchmark) exec() {
 	b.Upload(b.rt, b.Queue, b.CurrData, b.HInput)
 	b.Upload(b.rt, b.Queue, b.NewData, b.HInput)
 
-	for i := 0; i < b.NumIteration; i++ {
-		ldsSize := (b.LocalRows + 2) * (b.LocalCols + 2) * 4
+	if b.usesNativeStencil() {
+		b.launchNativeStencil()
+	} else {
+		for i := 0; i < b.NumIteration; i++ {
+			ldsSize := (b.LocalRows + 2) * (b.LocalCols + 2) * 4
 
-		globalSize := [3]uint32{
-			uint32((b.NumRows - 2) / b.LocalRows),
-			uint32(b.NumCols - 2),
-			1,
+			globalSize := [3]uint32{
+				uint32((b.NumRows - 2) / b.LocalRows),
+				uint32(b.NumCols - 2),
+				1,
+			}
+			localSize := [3]uint16{1, uint16(b.LocalCols), 1}
+
+			b.launchStencilKernel(globalSize, localSize, ldsSize)
+			b.CurrData, b.NewData = b.NewData, b.CurrData
 		}
-		localSize := [3]uint16{1, uint16(b.LocalCols), 1}
 
-		b.launchStencilKernel(globalSize, localSize, ldsSize)
-		b.CurrData, b.NewData = b.NewData, b.CurrData
 	}
 
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.CurrData, Target: 0})
@@ -304,6 +357,9 @@ func (b *Benchmark) exec() {
 
 // Verify verfies
 func (b *Benchmark) verify() error {
+	if b.usesNativeStencil() {
+		return b.verifyNativeStencil()
+	}
 	cpuOutput := b.cpuStencil2D()
 
 	mismatch := false
@@ -324,6 +380,40 @@ func (b *Benchmark) verify() error {
 	}
 	log.Printf("Passed!\n")
 
+	return nil
+}
+
+func (b *Benchmark) verifyNativeStencil() error {
+	n := b.NumRows
+	ref := make([]float64, n*n)
+	next := make([]float64, n*n)
+	for i, input := range b.HInput {
+		ref[i] = float64(input)
+	}
+	for t := 0; t < b.NumIteration; t++ {
+		for i := 1; i < n-1; i++ {
+			for j := 1; j < n-1; j++ {
+				k := i*n + j
+				center := ref[k]
+				cardinal := ref[k-n] + ref[k+n] + ref[k-1] + ref[k+1]
+				diagonal := ref[k-n-1] + ref[k-n+1] + ref[k+n-1] + ref[k+n+1]
+				next[k] = 0.5*center + float64(float32(0.1))*cardinal + float64(float32(0.025))*diagonal
+			}
+		}
+		ref, next = next, ref
+	}
+	for i, actual := range b.HOutput {
+		r, g := ref[i], float64(actual)
+		tol := 1e-4 * (math.Abs(r) + 1e-6)
+		row, col := i/n, i%n
+		if row == 0 || row == n-1 || col == 0 || col == n-1 {
+			tol = 0
+		}
+		if math.IsNaN(g) || math.IsInf(g, 0) || math.Abs(r-g) > tol {
+			return fmt.Errorf("at (%d,%d): got %g, expected %g", i/n, i%n, g, r)
+		}
+	}
+	log.Printf("Passed!\n")
 	return nil
 }
 

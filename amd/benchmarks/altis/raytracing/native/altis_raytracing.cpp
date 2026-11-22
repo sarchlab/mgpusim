@@ -1,23 +1,17 @@
-/*
- * HIP kernel for the Altis ray tracing benchmark (gfx942 / CDNA3).
- * Extracted from sarchlab/gpu_benchmarks tier2/altis_raytracing.
- *
- * Casts one ray per pixel through an image plane and intersects each ray
- * with num_spheres spheres, shading the nearest hit with Phong lighting.
- * One thread per pixel.
- *
- * Uses a constant BLOCK_SIZE (not blockDim.x) for the block geometry so the
- * compiler emits no hidden ABI arguments (smaller, simpler kernarg).
- */
-#include "hip/hip_runtime.h"
-
-#define BLOCK_SIZE 256
+// GPU Benchmarks v1.1, tier2/altis_raytracing/hip/altis_raytracing.hip.
+#include <hip/hip_runtime.h>
+#include <cmath>
 
 struct Sphere {
     float cx, cy, cz;  // center
     float radius;
     float r, g, b;     // color
 };
+
+// ---------------------------------------------------------------------------
+// Device: ray-sphere intersection
+// Returns t (distance) or -1 if no hit.
+// ---------------------------------------------------------------------------
 
 __device__ static float intersect_sphere(
     float ox, float oy, float oz,   // ray origin
@@ -45,12 +39,16 @@ __device__ static float intersect_sphere(
     return -1.0f;
 }
 
+// ---------------------------------------------------------------------------
+// Kernel: ray trace one pixel per thread
+// ---------------------------------------------------------------------------
+
 extern "C" __global__ void raytrace_kernel(
     unsigned char* __restrict__ image,
     const Sphere* __restrict__ spheres,
     int width, int height, int num_spheres)
 {
-    int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int total_pixels = width * height;
     if (idx >= total_pixels) return;
 
@@ -59,7 +57,7 @@ extern "C" __global__ void raytrace_kernel(
 
     // Camera setup: look along -Z, image plane at z = -1
     float aspect = (float)width / (float)height;
-    float fov_scale = 1.0f;  // tan(45 deg) ~ 1
+    float fov_scale = 1.0f;  // tan(45°) ≈ 1
 
     // Map pixel to normalized device coords [-1, 1]
     float u = (2.0f * ((float)px + 0.5f) / (float)width - 1.0f) * aspect * fov_scale;
@@ -110,7 +108,7 @@ extern "C" __global__ void raytrace_kernel(
         if (ndotl < 0.0f) ndotl = 0.0f;
 
         // Specular (Phong)
-        // Reflect light around normal: R = 2(N.L)N - L
+        // Reflect light around normal: R = 2(N·L)N - L
         float rx = 2.0f * ndotl * nx - lx;
         float ry = 2.0f * ndotl * ny - ly;
         float rz = 2.0f * ndotl * nz - lz;

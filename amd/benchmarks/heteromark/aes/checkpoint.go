@@ -15,6 +15,7 @@ type State struct {
 	Gpus             []int
 	Arch             arch.Type
 	Length           int
+	BlockSize        int
 	Input            []byte
 	Key              []byte
 	ExpandedKey      []uint32

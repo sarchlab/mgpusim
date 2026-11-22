@@ -11,6 +11,8 @@ import (
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
 var numTaps = flag.Int("taps", 16, "The number of filter taps.")
 
+var blockSize = flag.Int("block-size", 256, "The number of work-items per group on CDNA3.")
+
 func main() {
 	flag.Parse()
 
@@ -21,6 +23,7 @@ func main() {
 	benchmark := fir.NewBenchmark(runtime)
 	benchmark.Length = *numData
 	benchmark.NumTapsParam = *numTaps
+	benchmark.BlockSize = *blockSize
 	benchmark.Arch = config.ArchType
 
 	config.Configure(benchmark)

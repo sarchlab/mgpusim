@@ -15,6 +15,8 @@ var numIterations = flag.Int("iterations", 2,
 var ambTemp = flag.Float64("amb-temp", 80.0,
 	"The ambient temperature.")
 
+var block = flag.Int("block-size", 8, "Edge length of the cubic work-group.")
+
 func main() {
 	flag.Parse()
 
@@ -24,6 +26,7 @@ func main() {
 
 	benchmark := hotspot3d.NewBenchmark(runtime)
 	benchmark.GridSize = *gridSize
+	benchmark.BlockSize = *block
 	benchmark.NumIterations = *numIterations
 	benchmark.AmbTemp = float32(*ambTemp)
 	benchmark.Arch = config.ArchType

@@ -8,13 +8,7 @@
 // tree. The kernel binary is compiled for gfx942 only (see native/), so the
 // benchmark must be run with `-arch cdna3` (the MI300X configuration).
 //
-// The native kernel uses a constant compile-time block size (BLOCK_SIZE=256)
-// and a statically-sized LDS array (MAX_NODES=1025) instead of the original's
-// blockDim.x stride bound and dynamic shared memory. As a result the compiler
-// emits no hidden ABI arguments (kernarg_segment_size = 20) and the launch
-// must use block dim {256,1,1} with NumSteps+1 <= 1025. MAX_NODES is sized to
-// the ground truth's steps=1024 (1025 nodes); its ~4 KB LDS footprint matches
-// the real kernel's dynamic per-option shared memory.
+// Each step writes to a different LDS buffer from the one it reads.
 package binomialoptions
 
 import (
@@ -30,11 +24,7 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize and maxNodes must match the native kernel (BLOCK_SIZE, MAX_NODES).
-const (
-	blockSize = 256
-	maxNodes  = 1025
-)
+const maxNodes = 1025
 
 // optionData mirrors the kernel's OptionData struct (5 contiguous float32s).
 type optionData struct {
@@ -46,16 +36,13 @@ type optionData struct {
 }
 
 // KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// Layout verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 20): two 8-byte global_buffer pointers followed by
-// one 4-byte by_value scalar, packed with no padding (mgpusim serializes args
-// with binary.Write, which does not insert alignment padding). The kernel uses
-// a constant block dimension, so no hidden ABI arguments are emitted.
+// Explicit arguments are followed by the gfx942 launch geometry.
 type KernelArgs struct {
 	Options  gpuruntime.Ptr // offset 0
 	Prices   gpuruntime.Ptr // offset 8
 	NumSteps int32          // offset 16
+	_        uint32
+	Launch   benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the Binomial Options benchmark.
@@ -161,19 +148,24 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 	// One work-group per option, fixed block size matching the kernel.
-	globalX := uint32(b.NumOptions * blockSize)
+	threads := min(b.NumSteps+1, 1024)
+	globalX := uint32(b.NumOptions * threads)
+	group := [3]uint16{uint16(threads), 1, 1}
 
 	args := KernelArgs{
 		Options:  b.GOptions,
 		Prices:   b.GPrices,
 		NumSteps: int32(b.NumSteps),
+		Launch:   benchmarks.NewGFX942LaunchDimensions([3]uint32{globalX, 1, 1}, group),
 	}
 
+	code := *b.hsaco
+	code.GroupSegmentByteSize += uint32(2 * (b.NumSteps + 1) * 4)
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
-		b.hsaco,
+		&code,
 		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
+		group,
 		&args,
 	)
 }
@@ -231,8 +223,8 @@ func (b *Benchmark) verify() error {
 		got := gpuPrices[i]
 
 		diff := math.Abs(float64(got - ref))
-		tol := 1e-2*math.Abs(float64(ref)) + 1e-3
-		if diff > tol {
+		tol := 1e-2*math.Abs(float64(ref)) + 1e-4
+		if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || diff > tol {
 			return fmt.Errorf("At option %d, expected %f, but got %f (diff=%f).\n",
 				i, ref, got, diff)
 		}

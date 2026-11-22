@@ -38,6 +38,13 @@ func (u *ALU) runSOPC(state emu.InstEmuState) {
 		u.runSBITCMP0B32(state)
 	case 13:
 		u.runSBITCMP1B32(state)
+	case 18, 19:
+		match := state.ReadOperand(inst.Src0, 0) == state.ReadOperand(inst.Src1, 0)
+		if match == (inst.Opcode == 18) {
+			state.SetSCC(1)
+		} else {
+			state.SetSCC(0)
+		}
 	default:
 		log.Panicf("Opcode %d for SOPC format is not implemented", inst.Opcode)
 	}

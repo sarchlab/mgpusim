@@ -242,7 +242,7 @@ func TestVOP3aPkAddF16(t *testing.T) {
 	alu := NewALU(nil)
 	state := newMockInstState()
 	state.inst.FormatType = insts.VOP3a
-	state.inst.Opcode = 929
+	state.inst.Opcode = 911
 	state.inst.Src0 = &insts.Operand{}
 	state.inst.Src1 = &insts.Operand{}
 	state.inst.Dst = &insts.Operand{}
@@ -542,5 +542,30 @@ func TestScalarShiftAdd(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestVOP3aDivFixupF32UsesNumeratorAndDenominatorInOrder(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.VOP3a
+	state.inst.Opcode = 478
+	state.inst.Src0 = &insts.Operand{}
+	state.inst.Src1 = &insts.Operand{}
+	state.inst.Src2 = &insts.Operand{}
+	state.inst.Dst = &insts.Operand{}
+	state.exec = 3
+	state.setOperand(state.inst.Src0, 0, uint64(math.Float32bits(float32(math.NaN()))))
+	state.setOperand(state.inst.Src1, 0, uint64(math.Float32bits(-2)))
+	state.setOperand(state.inst.Src2, 0, 0)
+	state.setOperand(state.inst.Src0, 1, uint64(math.Float32bits(float32(math.NaN()))))
+	state.setOperand(state.inst.Src1, 1, 0)
+	state.setOperand(state.inst.Src2, 1, uint64(math.Float32bits(-2)))
+	alu.Run(state)
+	if got := state.ReadOperand(state.inst.Dst, 0); got != 0x80000000 {
+		t.Fatalf("0 / -2 returned 0x%x, want negative zero", got)
+	}
+	if got := state.ReadOperand(state.inst.Dst, 1); got != 0xff800000 {
+		t.Fatalf("-2 / 0 returned 0x%x, want negative infinity", got)
 	}
 }

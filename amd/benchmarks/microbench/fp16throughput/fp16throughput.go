@@ -1,14 +1,5 @@
-// Package fp16throughput implements the fp16_throughput microbenchmark,
-// ported from sarchlab/gpu_benchmarks (tier1/fp16_throughput) for the
-// MGPUSim MI300X (CDNA3 / gfx942) model.
-//
-// Each work-item runs a long chain of packed half2 fused-multiply-add (FMA)
-// operations entirely in registers. Only work-item (0,0) of work-group 0
-// writes the accumulated half2 result to a single output element, which the
-// benchmark reads back and verifies against a CPU reference.
-//
-// The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300X configuration).
+// Package fp16throughput implements the GPU Benchmarks v1.1 packed FP16
+// throughput workload for MI300X (gfx942).
 package fp16throughput
 
 import (
@@ -24,17 +15,12 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 12): one 8-byte global_buffer pointer followed by
-// one 4-byte by_value scalar, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The
-// kernel reads only blockIdx.x / threadIdx.x (no blockDim), so no hidden
-// ABI arguments are emitted.
+// KernelArgs is the device ABI for the version 1.1 HIP kernel.
 type KernelArgs struct {
-	Out           gpuruntime.Ptr // offset 0
-	FmasPerThread int32          // offset 8
+	Out           gpuruntime.Ptr
+	FmasPerThread int32
+	_             [4]byte
+	Launch        benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark defines the fp16_throughput benchmark.
@@ -114,41 +100,22 @@ func (b *Benchmark) initParams() {
 
 func (b *Benchmark) initMem() {
 	b.initParams()
-
-	// Output is a single __half2 (4 bytes). Allocate a full dword.
+	outBytes := uint64(b.NumBlocks * b.ThreadsPerBlock * 4)
 	if b.UseUnifiedMemory {
-		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, 4)
+		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, outBytes)
 	} else {
-		b.GOut = b.rt.AllocateMemory(b.Context, 4)
+		b.GOut = b.rt.AllocateMemory(b.Context, outBytes)
 	}
-
-	// Initialize to zero so a missing write is detectable.
-	zero := []uint32{0}
-	b.Upload(b.rt, b.Queue, b.GOut, zero)
 }
 
 func (b *Benchmark) exec() {
-	globalX := uint32(b.NumBlocks * b.ThreadsPerBlock)
-
+	grid := [3]uint32{uint32(b.NumBlocks * b.ThreadsPerBlock), 1, 1}
+	group := [3]uint16{uint16(b.ThreadsPerBlock), 1, 1}
 	args := KernelArgs{
-		Out:           b.GOut,
-		FmasPerThread: int32(b.FmasPerThread),
+		Out: b.GOut, FmasPerThread: int32(b.FmasPerThread),
+		Launch: benchmarks.NewGFX942LaunchDimensions(grid, group),
 	}
-
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{uint16(b.ThreadsPerBlock), 1, 1},
-		&args,
-	)
-}
-
-// half2ToFloats unpacks a packed __half2 dword into its two fp32 lane values.
-func half2ToFloats(packed uint32) (float32, float32) {
-	lo := float16ToFloat32(uint16(packed & 0xFFFF))
-	hi := float16ToFloat32(uint16((packed >> 16) & 0xFFFF))
-	return lo, hi
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 }
 
 // float16ToFloat32 converts an IEEE-754 half-precision value to float32.
@@ -180,63 +147,42 @@ func float16ToFloat32(h uint16) float32 {
 	}
 }
 
-// Verify checks the GPU result against a CPU reference computation.
-//
-// The reference reproduces work-item (0,0): base = 1.0, so a0..a3 start at
-// 1.0, 1.1, 1.2, 1.3. The multiplier (1.0000001) rounds to exactly 1.0 in
-// fp16 and the addend (0.0000001) rounds to 0.0, so each __hfma2 leaves the
-// accumulators unchanged. The written value is a0+a1+a2+a3 per lane.
 func (b *Benchmark) verify() error {
-	out := make([]uint32, 1)
+	out := make([]uint32, b.NumBlocks*b.ThreadsPerBlock)
 	if err := benchmarks.Read(b.rt, b.Readbacks[0], out); err != nil {
 		return err
 	}
 
-	lo, hi := half2ToFloats(out[0])
-
-	// CPU reference, evaluated in fp16-rounded arithmetic.
-	const base = float32(1.0)
-	a0 := roundToHalf(base)
-	a1 := roundToHalf(base + 0.1)
-	a2 := roundToHalf(base + 0.2)
-	a3 := roundToHalf(base + 0.3)
-
-	mul := roundToHalf(1.0000001)
-	add := roundToHalf(0.0000001)
-	for i := 0; i < b.FmasPerThread; i += 4 {
-		a0 = roundToHalf(roundToHalf(a0*mul) + add)
-		a1 = roundToHalf(roundToHalf(a1*mul) + add)
-		a2 = roundToHalf(roundToHalf(a2*mul) + add)
-		a3 = roundToHalf(roundToHalf(a3*mul) + add)
-	}
-	ref := roundToHalf(roundToHalf(a0+a1) + roundToHalf(a2+a3))
-
-	checkLane := func(name string, got float32) error {
-		denom := math.Abs(float64(ref))
-		if denom < 1.0 {
-			denom = 1.0
+	reference := make([]uint32, b.ThreadsPerBlock)
+	for lane := range reference {
+		base := float32(1) + float32(lane)*0.001
+		a0 := roundToHalf(base)
+		a1 := roundToHalf(base + 0.1)
+		a2 := roundToHalf(base + 0.2)
+		a3 := roundToHalf(base + 0.3)
+		const mul, add = 0.9990234375, 0.0009765625
+		for i := 0; i < b.FmasPerThread; i += 4 {
+			a0 = roundToHalf(a0*mul + add)
+			a1 = roundToHalf(a1*mul + add)
+			a2 = roundToHalf(a2*mul + add)
+			a3 = roundToHalf(a3*mul + add)
 		}
-		if math.Abs(float64(ref-got))/denom > 1e-2 {
-			return fmt.Errorf("Mismatch in %s lane: expected %f, but got %f.\n",
-				name, ref, got)
+		sum := float32ToFloat16(roundToHalf(a0+a1) + roundToHalf(a2+a3))
+		reference[lane] = uint32(sum) | uint32(sum)<<16
+	}
+	for tid, got := range out {
+		ref := reference[tid%b.ThreadsPerBlock]
+		if got != ref {
+			return fmt.Errorf("at work-item %d: expected packed half2 %#08x, got %#08x", tid, ref, got)
 		}
-
-		return nil
-	}
-	if err := checkLane("lo", lo); err != nil {
-		return err
-	}
-	if err := checkLane("hi", hi); err != nil {
-		return err
 	}
 
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*(1)))
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GOut, 4*b.NumBlocks*b.ThreadsPerBlock))
 }
 
 // roundToHalf rounds a float32 value to the nearest representable fp16 value

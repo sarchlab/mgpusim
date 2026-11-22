@@ -1,42 +1,26 @@
-/**
- * bicg.cpp: HIP implementation of PolyBench/GPU BICG kernels
- * Translated from bicg.cl for gfx942 CDNA3 architecture
- */
+// GPU Benchmarks v1.1, tier2/polybench_bicg/hip/polybench_bicg.hip.
+#include <hip/hip_runtime.h>
 
-#include "hip/hip_runtime.h"
-
-typedef float DATA_TYPE;
-
-extern "C" __global__ void bicgKernel1(DATA_TYPE *A, DATA_TYPE *p, DATA_TYPE *q, int nx, int ny) 
-{
-    int i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-    
-    if (i < nx)
-    {
-        q[i] = 0.0;
-
-        int j;
-        for(j=0; j < ny; j++)
-        {
-            q[i] += A[i * ny + j] * p[j];
-        }
-    }
-    
+extern "C" __global__ void bicg_kernel1(const float* __restrict__ A,
+                              const float* __restrict__ r,
+                              float* __restrict__ s,
+                              int m, int n) {
+    int j = blockDim.x * blockIdx.x + threadIdx.x;
+    if (j >= n) return;
+    float sum = 0.0f;
+    for (int i = 0; i < m; i++)
+        sum += A[i * n + j] * r[i];
+    s[j] = sum;
 }
 
-extern "C" __global__ void bicgKernel2(DATA_TYPE *A, DATA_TYPE *r, DATA_TYPE *s, int nx, int ny) 
-{
-    int j = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-    
-    if (j < ny)
-    {
-        s[j] = 0.0;
-
-        int i;
-        for(i = 0; i < nx; i++)
-        {
-            s[j] += A[i * ny + j] * r[i];
-        }
-    }
-    
+extern "C" __global__ void bicg_kernel2(const float* __restrict__ A,
+                              const float* __restrict__ p,
+                              float* __restrict__ q,
+                              int m, int n) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= m) return;
+    float sum = 0.0f;
+    for (int j = 0; j < n; j++)
+        sum += A[i * n + j] * p[j];
+    q[i] = sum;
 }

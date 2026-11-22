@@ -32,29 +32,12 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-// CDNA3KernelArgs sets up kernel arguments for CDNA3
+// CDNA3KernelArgs describes the v1.1 scalar CSR kernel.
 type CDNA3KernelArgs struct {
-	Val                 gpuruntime.Ptr
-	Vec                 gpuruntime.Ptr
-	Cols                gpuruntime.Ptr
-	RowDelimiters       gpuruntime.Ptr
-	Dim                 int32
-	Padding             int32
-	Out                 gpuruntime.Ptr
-	HiddenBlockCountX   uint32
-	HiddenBlockCountY   uint32
-	HiddenBlockCountZ   uint32
-	HiddenGroupSizeX    uint16
-	HiddenGroupSizeY    uint16
-	HiddenGroupSizeZ    uint16
-	HiddenRemainderX    uint16
-	HiddenRemainderY    uint16
-	HiddenRemainderZ    uint16
-	Padding2            [16]byte
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-	HiddenGridDims      uint16
+	RowOffsets, Columns, Values, X, Y gpuruntime.Ptr
+	Rows                              int32
+	_                                 uint32
+	Launch                            benchmarks.GFX942LaunchDimensions
 }
 
 // Benchmark set up test parameters
@@ -96,14 +79,16 @@ var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
 	var hsacoBytes []byte
+	symbol := "spmv_csr_scalar_kernel"
 	if b.Arch == arch.CDNA3 {
 		hsacoBytes = cdna3HSACOBytes
+		symbol = "spmv_csr_kernel"
 	} else {
 		hsacoBytes = gcn3HSACOBytes
 	}
 
 	b.spmvKernel = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "spmv_csr_scalar_kernel")
+		hsacoBytes, symbol)
 	if b.spmvKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -120,6 +105,19 @@ func (b *Benchmark) setup() {
 }
 
 func (b *Benchmark) initMem() {
+	if b.Arch == arch.CDNA3 {
+		b.initCDNA3Inputs()
+	} else {
+		b.initLegacyInputs()
+	}
+	if b.UseUnifiedMemory {
+		b.allocateUnifiedMemory()
+	} else {
+		b.allocateMemory()
+	}
+}
+
+func (b *Benchmark) initLegacyInputs() {
 	b.NItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
 	fmt.Fprintf(os.Stderr, "Number of non-zero elements %d\n", b.NItems)
 
@@ -136,10 +134,29 @@ func (b *Benchmark) initMem() {
 		b.Vec[j] = (rng.Float32() * b.Maxval)
 	}
 
-	if b.UseUnifiedMemory {
-		b.allocateUnifiedMemory()
-	} else {
-		b.allocateMemory()
+}
+
+func (b *Benchmark) initCDNA3Inputs() {
+	rows, nnz := b.Dim, b.NNZPerRow
+	if nnz <= 0 {
+		nnz = max(1, int32(float64(rows)*b.Sparsity+0.5))
+	}
+	b.NItems = rows * nnz
+	b.Matrix.RowOffsets = make([]uint32, rows+1)
+	b.Matrix.ColumnNumbers = make([]uint32, b.NItems)
+	b.Matrix.Values = make([]float32, b.NItems)
+	b.Vec = make([]float32, rows)
+	b.Out = make([]float32, rows)
+	for i := range b.Matrix.RowOffsets {
+		b.Matrix.RowOffsets[i] = uint32(i) * uint32(nnz)
+	}
+	rand := benchmarks.NewGlibcRand(42)
+	for i := range b.Matrix.Values {
+		b.Matrix.ColumnNumbers[i] = rand.Next() % uint32(rows)
+		b.Matrix.Values[i] = float32(rand.Next()) / 2147483647
+	}
+	for i := range b.Vec {
+		b.Vec[i] = float32(rand.Next()) / 2147483647
 	}
 }
 
@@ -182,6 +199,9 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(blockSize), 1, 1}
 
 	if b.Arch == arch.CDNA3 {
+		const group = 256
+		globalSize[0] = uint32((b.Dim + group - 1) / group * group)
+		localSize[0] = group
 		b.execCDNA3(globalSize, localSize)
 	} else {
 		b.execGCN3(globalSize, localSize)
@@ -214,12 +234,9 @@ func (b *Benchmark) execCDNA3(
 	globalSize [3]uint32, localSize [3]uint16,
 ) {
 	args := CDNA3KernelArgs{
-		Val:           b.DValData,
-		Vec:           b.DVecData,
-		Cols:          b.DColsData,
-		RowDelimiters: b.DRowDData,
-		Dim:           b.Dim,
-		Out:           b.DOutData,
+		RowOffsets: b.DRowDData, Columns: b.DColsData, Values: b.DValData,
+		X: b.DVecData, Y: b.DOutData, Rows: b.Dim,
+		Launch: benchmarks.NewGFX942LaunchDimensions(globalSize, localSize),
 	}
 
 	b.rt.EnqueueLaunchKernel(b.Queue,
