@@ -11,9 +11,12 @@ import (
 // other. It tells host ports from GPU ports so that a topology can place each
 // device.
 type interDeviceNetwork interface {
-	// BindHostPort plugs in a port of the driver, the IOMMU, the MMU, or the
-	// CPU memory.
+	// BindHostPort plugs in a port of the driver, the IOMMU, or the MMU.
 	BindHostPort(port messaging.Port)
+
+	// BindHostMemoryPort plugs in the Top port of the host memory, which can
+	// need a wider link than the other host ports.
+	BindHostMemoryPort(port messaging.Port)
 
 	// BindGPUPort plugs in an external port of the GPU with the given
 	// 1-based index.
@@ -35,8 +38,8 @@ func (b *Builder) createInterDeviceNetwork() interDeviceNetwork {
 	}
 
 	if b.gpuType == "mi300x" {
-		return mi300x.NewNetwork(b.simulation, b.numGPUs, b.switchLatency)
+		return mi300x.NewNetwork(b.simulation, b.numGPUs, b.switchLatency, b.rootComplexLatency)
 	}
 
-	return r9nano.NewNetwork(b.simulation, b.numGPUs, b.switchLatency)
+	return r9nano.NewNetwork(b.simulation, b.numGPUs, b.switchLatency, b.rootComplexLatency)
 }

@@ -3,10 +3,9 @@ package mi300x
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v5/noc/networkconnector"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling"
-	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/pcietree"
 )
 
 const (
@@ -24,37 +23,41 @@ const (
 	gpusPerFabricDomain = 4
 	// gpusPerPCIeSwitch is the number of GPUs below each PCIe switch.
 	gpusPerPCIeSwitch = 2
+	// hostFabricWidth is the flits per cycle of the Host Fabric uplink and
+	// memory link. A 64 B response is 2 flits after encoding, so 16 flits carry
+	// 512 GB/s, above the 460.8 GB/s of the default host memory.
+	hostFabricWidth = 16
 )
 
-// Network connects the host and the GPUs. Every GPU has a local switch with
-// one PCIe uplink and one Infinity Fabric link to each GPU of its domain.
-// Every two GPUs share a PCIe switch below the root complex. Each device is one
-// endpoint, so the ports are collected until Connect.
+// Network connects the host and the GPUs. The host ports are on a Host Fabric
+// below the root complex. Every GPU has a local switch with one PCIe uplink and
+// one Infinity Fabric link to each GPU of its domain, and every two GPUs share
+// a PCIe switch below the root complex.
 type Network struct {
-	connector   *networkconnector.Connector
+	tree        *pcietree.Tree
 	pcieLatency int
-	hostPorts   []messaging.Port
+	rootLatency int
+	host        pcietree.HostPorts
 	gpuPorts    [][]messaging.Port
 }
 
-// NewNetwork builds an empty network for numGPUs GPUs. pcieLatency is the
-// cycles to cross each PCIe switch or the root complex.
-func NewNetwork(s modeling.Simulation, numGPUs, pcieLatency int) *Network {
+// NewNetwork builds an empty network for numGPUs GPUs with the given PCIe
+// switch and root complex latencies in cycles.
+func NewNetwork(s modeling.Simulation, numGPUs, pcieLatency, rootLatency int) *Network {
 	return &Network{
-		connector: networkconnector.MakeBuilder().
-			WithSimulation(s).
-			WithFreq(timing.GHz).
-			WithFlitSize(networkFlitSize).
-			Build("InterDevice"),
+		tree:        pcietree.New(s, "InterDevice", networkFlitSize),
 		pcieLatency: pcieLatency,
+		rootLatency: rootLatency,
 		gpuPorts:    make([][]messaging.Port, numGPUs),
 	}
 }
 
-// BindHostPort plugs a port into the endpoint of the host.
-func (n *Network) BindHostPort(port messaging.Port) {
-	n.hostPorts = append(n.hostPorts, port)
-}
+// BindHostPort gives a host port its own endpoint on the Host Fabric.
+func (n *Network) BindHostPort(port messaging.Port) { n.host.Bind(port) }
+
+// BindHostMemoryPort gives the host memory port its own wide endpoint on the
+// Host Fabric.
+func (n *Network) BindHostMemoryPort(port messaging.Port) { n.host.BindMemory(port) }
 
 // BindGPUPort plugs a port into the endpoint of the GPU with the given
 // 1-based index.
@@ -64,69 +67,45 @@ func (n *Network) BindGPUPort(index int, port messaging.Port) {
 
 // Connect builds the topology from the ports bound so far.
 func (n *Network) Connect() {
-	root := n.connector.AddSwitch(networkconnector.SwitchConfig{Name: "RootComplex"})
-	n.connector.ConnectDevice(root, n.hostPorts, networkconnector.DeviceConfig{
-		Name:           "Host",
-		DeviceEndParam: deviceEnd(1),
-		SwitchEndParam: switchEnd(1, n.pcieLatency),
-	})
+	root := n.tree.AddRootComplex(pcietree.RootConfig{Latency: n.rootLatency})
+	numPCIeSwitches := (len(n.gpuPorts) + gpusPerPCIeSwitch - 1) / gpusPerPCIeSwitch
+	n.host.Connect(n.tree, root, max(hostFabricWidth, numPCIeSwitches))
 
-	gpuSwitches := n.connectGPUsToPCIe(root)
-	n.connectFabricDomains(gpuSwitches)
+	n.connectFabricDomains(n.connectGPUsToPCIe(root))
 }
 
 // connectGPUsToPCIe attaches every GPU through its local switch. A flit pays
 // the latency of the switch that it enters, so the local switch adds none:
 // PCIe traffic pays only for the PCIe switches and the root complex, and
 // Infinity Fabric traffic only for the fabric hop.
-func (n *Network) connectGPUsToPCIe(root int) []int {
-	gpuSwitches := make([]int, len(n.gpuPorts))
+func (n *Network) connectGPUsToPCIe(root pcietree.Group) []pcietree.Group {
+	gpuSwitches := make([]pcietree.Group, len(n.gpuPorts))
 
-	var pcieSwitch int
+	var pcieSwitch pcietree.Group
 	for i, ports := range n.gpuPorts {
 		if i%gpusPerPCIeSwitch == 0 {
-			pcieSwitch = n.addPCIeSwitch(root, i/gpusPerPCIeSwitch)
+			pcieSwitch = n.tree.AddLocalGroup(root, pcietree.LocalGroupConfig{
+				Name:        fmt.Sprintf("PCIeSwitch[%d]", i/gpusPerPCIeSwitch),
+				Latency:     n.pcieLatency,
+				UplinkWidth: 1,
+			})
 		}
 
-		gpuSwitches[i] = n.connector.AddSwitch(networkconnector.SwitchConfig{
-			Name: fmt.Sprintf("GPU[%d].Switch", i+1),
+		gpuSwitches[i] = n.tree.AddLocalGroup(pcieSwitch, pcietree.LocalGroupConfig{
+			Name:        fmt.Sprintf("GPU[%d].Switch", i+1),
+			UplinkWidth: 1,
 		})
-		n.connector.ConnectSwitches(gpuSwitches[i], pcieSwitch, networkconnector.SwitchToSwitchLinkParameter{
-			LeftEndParam:  switchEnd(1, 0),
-			RightEndParam: switchEnd(1, n.pcieLatency),
-		})
-
-		width := n.endpointWidth(i)
-		n.connector.ConnectDevice(gpuSwitches[i], ports, networkconnector.DeviceConfig{
-			Name:           fmt.Sprintf("GPU[%d].EndPoint", i+1),
-			DeviceEndParam: deviceEnd(width),
-			SwitchEndParam: switchEnd(width, 0),
-		})
+		gpuSwitches[i].ConnectDevice(fmt.Sprintf("GPU[%d].EndPoint", i+1), n.endpointWidth(i), ports)
 	}
 
 	return gpuSwitches
 }
 
-func (n *Network) addPCIeSwitch(root, index int) int {
-	id := n.connector.AddSwitch(networkconnector.SwitchConfig{
-		Name: fmt.Sprintf("PCIeSwitch[%d]", index),
-	})
-	n.connector.ConnectSwitches(id, root, networkconnector.SwitchToSwitchLinkParameter{
-		LeftEndParam:  switchEnd(1, n.pcieLatency),
-		RightEndParam: switchEnd(1, n.pcieLatency),
-	})
-
-	return id
-}
-
 // connectFabricDomains fully connects the GPUs of each domain.
-func (n *Network) connectFabricDomains(gpuSwitches []int) {
+func (n *Network) connectFabricDomains(gpuSwitches []pcietree.Group) {
 	for a := range gpuSwitches {
 		for b := a + 1; b < len(gpuSwitches) && b/gpusPerFabricDomain == a/gpusPerFabricDomain; b++ {
-			n.connector.ConnectSwitches(gpuSwitches[a], gpuSwitches[b], networkconnector.SwitchToSwitchLinkParameter{
-				LeftEndParam:  switchEnd(1, infinityFabricLatency),
-				RightEndParam: switchEnd(1, infinityFabricLatency),
-			})
+			pcietree.ConnectPeers(gpuSwitches[a], gpuSwitches[b], infinityFabricLatency)
 		}
 	}
 }
@@ -138,12 +117,4 @@ func (n *Network) endpointWidth(gpu int) int {
 	domainSize := min(len(n.gpuPorts)-domain*gpusPerFabricDomain, gpusPerFabricDomain)
 
 	return domainSize // domainSize-1 fabric links plus one PCIe link.
-}
-
-func switchEnd(width, latency int) networkconnector.LinkEndSwitchParameter {
-	return networkconnector.LinkEndSwitchParameter{InputWidth: width, OutputWidth: width, Latency: latency}
-}
-
-func deviceEnd(width int) networkconnector.LinkEndDeviceParameter {
-	return networkconnector.LinkEndDeviceParameter{InputWidth: width, OutputWidth: width}
 }

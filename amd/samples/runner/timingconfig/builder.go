@@ -10,7 +10,6 @@ import (
 	monitoring2 "github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
-	"github.com/sarchlab/akita/v5/sim/messaging/direct"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
 	"github.com/sarchlab/akita/v5/sim/modeling"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -47,15 +46,16 @@ type Builder struct {
 	useMagicMemoryCopy bool
 	gpuType            string
 	switchLatency      int // latency of a PCIe switch or mesh hop in cycles
+	rootComplexLatency int // latency of the PCIe root complex in cycles
 	d2hCycles          int
 	h2dCycles          int
 	pageMigration      driver.PageMigrationSpec
 	pageTable          PageTableSpec
+	hostMemory         *HostMemorySpec
 	allocator          gpuruntime.AllocatorType
 	waferMesh          waferscale.Mesh
 
 	globalStorage     *mem.Storage
-	hostFabric        *direct.Connection
 	rdmaAddressMapper mem.AddressMapper
 }
 
@@ -71,6 +71,7 @@ func MakeBuilder() Builder {
 		useMagicMemoryCopy: false,
 		gpuType:            "r9nano",
 		switchLatency:      140,
+		rootComplexLatency: 140,
 		d2hCycles:          300,
 		h2dCycles:          500,
 		pageMigration:      driver.DefaultPageMigrationSpec(),
@@ -191,7 +192,7 @@ func (b Builder) Build() *gpuruntime.Runtime {
 }
 
 // bindDriverPorts plugs the driver into the network. Detailed translation adds
-// a host-internal fault port and a page-table port that reaches every walker.
+// a fault port and a page-table port that reaches every walker.
 func (b *Builder) bindDriverPorts(comp *driver.Comp, network interDeviceNetwork, detailedTranslation bool) {
 	for _, name := range []string{
 		driver.GPUPortName, driver.PageMigrationPortName, driver.MigrationNotificationPortName,
@@ -199,7 +200,7 @@ func (b *Builder) bindDriverPorts(comp *driver.Comp, network interDeviceNetwork,
 		network.BindHostPort(b.buildPort(comp, name, driverGPUPortBufSize))
 	}
 	if detailedTranslation {
-		b.bindHostInternalPort(network, b.buildPort(comp, "PageFault[0]", driverGPUPortBufSize))
+		network.BindHostPort(b.buildPort(comp, "PageFault[0]", driverGPUPortBufSize))
 		network.BindHostPort(b.buildPort(comp, "PageTable[0]", driverGPUPortBufSize))
 	}
 }

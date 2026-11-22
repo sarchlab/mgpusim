@@ -38,6 +38,9 @@ func (n Network) BindHostPort(port messaging.Port) {
 	n.connector.AddTile(n.layout.HostLocation(), []messaging.Port{port})
 }
 
+// BindHostMemoryPort plugs the CPU memory port into the host position.
+func (n Network) BindHostMemoryPort(port messaging.Port) { n.BindHostPort(port) }
+
 // BindGPUPort plugs an external port of the GPU with the given 1-based index
 // into the position of its tile.
 func (n Network) BindGPUPort(index int, port messaging.Port) {

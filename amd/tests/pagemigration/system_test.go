@@ -371,12 +371,13 @@ func (s *system) runWatching(watch func()) {
 
 	const limit = 100_000_000 // 100 ms
 
+	step := s.nanosecondSteps()
 	for i := 0; !s.done(); i++ {
 		if i == limit {
 			s.t.Fatalf("the commands do not complete; migration: %+v", s.stats())
 		}
 
-		if err := s.engine.RunUntil(s.engine.CurrentTime() + 1000); err != nil {
+		if err := step(); err != nil {
 			s.t.Fatal(err)
 		}
 
@@ -384,6 +385,21 @@ func (s *system) runWatching(watch func()) {
 	}
 
 	s.run()
+}
+
+// nanosecondSteps returns a function that runs one more nanosecond of
+// simulated time. It keeps its own deadline because RunUntil leaves the clock
+// at the last event: when only the host memory is active, its next event can
+// be more than 1 ns away, and a deadline based on the clock would never reach
+// it.
+func (s *system) nanosecondSteps() func() error {
+	deadline := s.engine.CurrentTime()
+
+	return func() error {
+		deadline += 1000
+
+		return s.engine.RunUntil(deadline)
+	}
 }
 
 func (s *system) stats() driver.PageMigrationStats {

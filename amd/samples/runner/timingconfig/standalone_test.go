@@ -419,6 +419,8 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 // directTestNetwork places a GPU on a bare connection.
 type directTestNetwork struct{ conn *directconnection.Connection }
 
-func (n directTestNetwork) BindHostPort(port messaging.Port)       { n.conn.BindPort(port) }
+func (n directTestNetwork) BindHostPort(port messaging.Port) { n.conn.BindPort(port) }
+
+func (directTestNetwork) BindHostMemoryPort(messaging.Port)        {}
 func (n directTestNetwork) BindGPUPort(_ int, port messaging.Port) { n.conn.BindPort(port) }
 func (n directTestNetwork) Connect()                               {}

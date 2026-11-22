@@ -2,6 +2,7 @@ package timingconfig
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	simulation "github.com/sarchlab/akita/v5/sim"
@@ -70,9 +71,9 @@ func buildNetworkPlatform(t *testing.T, gpuType string, numGPUs, portsPerDevice 
 		}
 	})
 
-	var network interDeviceNetwork = r9nano.NewNetwork(s, numGPUs, 140)
+	var network interDeviceNetwork = r9nano.NewNetwork(s, numGPUs, 140, 140)
 	if gpuType == "mi300x" {
-		network = mi300x.NewNetwork(s, numGPUs, 140)
+		network = mi300x.NewNetwork(s, numGPUs, 140, 140)
 	}
 
 	p := networkPlatform{s: s, host: newNetworkProbe(s, "Host", portsPerDevice)}
@@ -180,48 +181,22 @@ func TestMI300XEndpointDrivesAllFabricLinks(t *testing.T) {
 	}
 }
 
-// IOMMU page walks and faults stay on the host, while GPU DMA reaches the CPU
-// memory through the network.
-func TestHostInternalTrafficAvoidsTheRootComplex(t *testing.T) {
+// The IOMMU reads the page table from the one host memory that GPU DMA uses.
+func TestIOMMUUsesTheSharedHostMemory(t *testing.T) {
 	for _, g := range gpuTypes {
 		t.Run(g.name, func(t *testing.T) {
 			p := buildMigrationPlatform(t, g.name, defaultPlatform)
-			for _, port := range []messaging.Port{
-				p.mmu.Ports.Memory, p.mmu.Ports.PageFault, p.driver.Ports.PageFault[0],
-			} {
-				if got := port.Connection().Name(); got != "HostFabric" {
-					t.Errorf("%s is on %s", port.Name(), got)
-				}
-			}
-			if got := p.mmu.Spec.Memory.Find(p.mmu.Spec.PoolBase); got != "CPU.PageTableMemory.Top" {
+			if got := p.mmu.Spec.Memory.Find(p.mmu.Spec.PoolBase); got != cpuMemoryTop {
 				t.Errorf("page walks go to %s", got)
 			}
-			if p.driver.Ports.PageTable[0].Connection().Name() == "HostFabric" {
-				t.Error("the page-table port must reach the GPUs through the network")
-			}
-		})
-	}
-}
-
-func TestFixedLatencyMMUHasNoPageTableMemory(t *testing.T) {
-	for _, g := range gpuTypes {
-		t.Run(g.name, func(t *testing.T) {
-			s := simulation.MakeBuilder().Build()
-			t.Cleanup(func() {
-				if err := s.Terminate(); err != nil {
-					t.Error(err)
+			var memories int
+			for _, c := range p.sim.Components() {
+				if strings.HasPrefix(c.Name(), "CPU.") {
+					memories++
 				}
-			})
-			spec := DefaultPageTableSpec()
-			spec.FixedLatency = true
-			MakeBuilder().WithSimulation(s).WithNumGPUs(2).WithGPUType(g.name).WithPageTable(spec).Build()
-			if err := s.Initialize(); err != nil {
-				t.Fatal(err)
 			}
-			for _, c := range s.Components() {
-				if c.Name() == "CPU.PageTableMemory" {
-					t.Fatal("a fixed-latency MMU has no page-table memory")
-				}
+			if memories != 1 {
+				t.Errorf("found %d CPU memory components, want 1", memories)
 			}
 		})
 	}
