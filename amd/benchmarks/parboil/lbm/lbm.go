@@ -1,19 +1,4 @@
-// Package lbm implements the Parboil LBM (Lattice Boltzmann Method, D3Q19)
-// benchmark, ported from sarchlab/gpu_benchmarks (tier2/parboil_lbm) for the
-// MGPUSim MI300X (CDNA3 / gfx942) model.
-//
-// It simulates fluid flow on a regular NxNxN 3D grid using the D3Q19 lattice.
-// A fused collide-stream kernel applies the BGK collision operator and streams
-// the post-collision distributions to neighbor cells, with bounce-back
-// boundary conditions at the grid boundaries. The host iterates the kernel for
-// a fixed number of timesteps, swapping the source/destination distribution
-// buffers each step.
-//
-// The kernel binary is compiled for gfx942 only (see native/), so the
-// benchmark must be run with `-arch cdna3` (the MI300X configuration). The
-// D3Q19 velocity set, weights and opposite tables live as __constant__ arrays
-// baked into the code object, and the kernel uses a constant block size, so no
-// hidden ABI arguments are emitted (kernarg_segment_size = 32).
+// Package lbm implements the Parboil v1.1 D3Q19 collision and scatter benchmark.
 package lbm
 
 import (
@@ -30,307 +15,278 @@ import (
 )
 
 // Q is the number of discrete velocities in the D3Q19 lattice.
-const Q = 19
+const populations = 19
+const omega float32 = 1.95
 
-// blockSize is the compile-time block dimension baked into the kernel.
-const blockSize = 128
-
-// D3Q19 velocity set, weights and opposite-direction table. These mirror the
-// __constant__ tables baked into the kernel and are used by the CPU reference.
-var (
-	hEx = [Q]int{0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0}
-	hEy = [Q]int{0, 0, 0, 1, -1, 0, 0, 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1}
-	hEz = [Q]int{0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1}
-
-	hW = [Q]float32{
-		1.0 / 3.0,
-		1.0 / 18.0, 1.0 / 18.0, 1.0 / 18.0,
-		1.0 / 18.0, 1.0 / 18.0, 1.0 / 18.0,
-		1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,
-		1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,
-		1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0,
-	}
-
-	hOpp = [Q]int{0, 2, 1, 4, 3, 6, 5, 10, 9, 8, 7, 14, 13, 12, 11, 18, 17, 16, 15}
+const (
+	center = iota
+	north
+	south
+	east
+	west
+	top
+	bottom
+	northEast
+	northWest
+	southEast
+	southWest
+	northTop
+	northBottom
+	southTop
+	southBottom
+	eastTop
+	eastBottom
+	westTop
+	westBottom
+	flagsSlot
 )
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 32): two 8-byte global_buffer pointers followed by
-// four 4-byte by_value scalars, packed with no padding (mgpusim serializes
-// args with binary.Write, which does not insert alignment padding). The kernel
-// uses constant block dimensions and __constant__ tables only, so no hidden
-// ABI arguments are emitted.
-type KernelArgs struct {
-	FSrc  gpuruntime.Ptr // offset 0
-	FDst  gpuruntime.Ptr // offset 8
-	Nx    int32          // offset 16
-	Ny    int32          // offset 20
-	Nz    int32          // offset 24
-	Omega float32        // offset 28
+var direction = [populations][3]int{
+	{0, 0, 0}, {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1},
+	{1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0}, {0, 1, 1}, {0, 1, -1}, {0, -1, 1}, {0, -1, -1},
+	{1, 0, 1}, {1, 0, -1}, {-1, 0, 1}, {-1, 0, -1},
 }
 
-// Benchmark defines the LBM benchmark.
+var opposite = [populations]int{center, south, north, west, east, bottom, top,
+	southWest, southEast, northWest, northEast, southBottom, southTop, northBottom, northTop,
+	westBottom, westTop, eastBottom, eastTop}
+
+type Layout struct{ N, PX, Plane, Cells, Margin, Entries int32 }
+
+func newLayout(n int) Layout {
+	px := n + 8
+	plane := px * n
+	cells := plane * (n + 4)
+	margin := 2 * plane
+	return Layout{int32(n), int32(px), int32(plane), int32(cells), int32(margin), int32(20*cells + 40*margin)}
+}
+
+func (l Layout) cell(x, y, z int) int {
+	return int(l.Margin) + x + y*int(l.PX) + z*int(l.Plane)
+}
+
+func (l Layout) deviceIndex(x, y, z, q int) int {
+	return l.cell(x, y, z) + q*int(l.Cells)
+}
+
+func flags(x, y, z, n int) uint32 {
+	if x == 0 || y == 0 || z == 0 || x == n-1 || y == n-1 || z == n-1 {
+		return 1
+	}
+	if (z == 1 || z == n-2) && x > 1 && x < n-2 && y > 1 && y < n-2 {
+		return 2
+	}
+	return 0
+}
+
+func weight(q int) float64 {
+	switch {
+	case q == 0:
+		return 1.0 / 3.0
+	case q <= bottom:
+		return 1.0 / 18.0
+	default:
+		return 1.0 / 36.0
+	}
+}
+
+type kernelArgs struct {
+	Src, Dst gpuruntime.Ptr
+	Layout   Layout
+}
+
+// Benchmark runs the upstream padded/scatter LBM kernel.
 type Benchmark struct {
 	*State
 	benchmarks.Checkpoint[State]
-	rt *gpuruntime.Runtime
-
-	hsaco *insts.KernelCodeObject
+	rt     *gpuruntime.Runtime
+	kernel *insts.KernelCodeObject
 }
 
 //go:embed kernels_gfx942.hsaco
 var cdna3HSACOBytes []byte
 
-// NewBenchmark returns a new LBM benchmark.
 func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
-	b := new(Benchmark)
-	b.State = &State{}
+	b := &Benchmark{State: &State{}, rt: rt}
 	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
-
-	b.rt = rt
-	b.Context = b.rt.Init()
-
+	b.Context = rt.Init()
 	return b
 }
 
 func (b *Benchmark) loadProgram() {
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "lbm_collide_stream_kernel")
-	if b.hsaco == nil {
-		log.Panic("Failed to load kernel binary")
+	b.kernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, "lbm_collide_stream_kernel")
+	if b.kernel == nil {
+		panic("could not load Parboil LBM kernel")
 	}
 }
 
-// SelectGPU selects the GPUs to run on. LBM uses a single GPU.
-func (b *Benchmark) SelectGPU(gpus []int) {
-	b.Gpus = gpus
-}
+func (b *Benchmark) SelectGPU(gpus []int) { b.Gpus = gpus }
+func (b *Benchmark) SetUnifiedMemory()    { b.UseUnifiedMemory = true }
 
-// SetUnifiedMemory requests the use of unified memory.
-func (b *Benchmark) SetUnifiedMemory() {
-	b.UseUnifiedMemory = true
-}
-
-// Prepare the inputs for the first queued phase.
-func (b *Benchmark) submit() {
+func (b *Benchmark) setup() {
 	if b.Arch != arch.CDNA3 {
-		log.Panic("the parboil lbm benchmark ships only a gfx942 " +
-			"kernel; run with -arch cdna3 -gpu mi300x")
+		panic("Parboil LBM requires CDNA3")
 	}
-
+	if b.GridDim == 0 {
+		b.GridDim = 64
+	}
+	if b.NumTimesteps == 0 {
+		b.NumTimesteps = 100
+	}
+	if b.Tau != 0 && b.Tau != 1.0/omega {
+		panic("Parboil v1.1 fixes omega at 1.95")
+	}
+	n := b.GridDim
+	if n < 3 || n > 483 || 20*int64(n+8)*int64(n)*int64(n+8) > math.MaxInt32 || b.NumTimesteps < 1 {
+		panic("unsupported LBM grid or timestep count")
+	}
+	if n == 256 && b.NumTimesteps == 500 {
+		panic("Parboil v1.1 excludes grid 256 with 500 steps")
+	}
 	b.loadProgram()
-
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
-	b.initMem()
-	b.exec()
-}
-
-// lcgRand reproduces the host LCG PRNG from the original benchmark.
-func lcgRand(state *uint32) uint32 {
-	*state = *state*1664525 + 1013904223
-	return *state
-}
-
-// randFloat reproduces the host rand_float helper.
-func randFloat(state *uint32, lo, hi float32) float32 {
-	return lo + float32(lcgRand(state)&0xFFFF)/65535.0*(hi-lo)
-}
-
-func (b *Benchmark) initMem() {
-	if b.GridDim <= 0 {
-		b.GridDim = 16
-	}
-	if b.NumTimesteps <= 0 {
-		b.NumTimesteps = 4
-	}
-	if b.Tau <= 0 {
-		b.Tau = 0.7
-	}
-
-	n := b.GridDim
-	numCells := n * n * n
-
-	// Deterministic equilibrium initialization, identical to the HIP host.
-	b.HF = make([]float32, Q*numCells)
-	seed := uint32(42)
-	for idx := 0; idx < numCells; idx++ {
-		rho := 1.0 + 0.001*randFloat(&seed, -1.0, 1.0)
-		for q := 0; q < Q; q++ {
-			b.HF[q*numCells+idx] = hW[q] * rho
-		}
-	}
-
-	zeros := make([]float32, Q*numCells)
-
-	if b.UseUnifiedMemory {
-		b.GFSrc = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(Q*numCells*4))
-		b.GFDst = b.rt.AllocateUnifiedMemory(
-			b.Context, uint64(Q*numCells*4))
-	} else {
-		b.GFSrc = b.rt.AllocateMemory(
-			b.Context, uint64(Q*numCells*4))
-		b.GFDst = b.rt.AllocateMemory(
-			b.Context, uint64(Q*numCells*4))
-	}
-
-	b.Upload(b.rt, b.Queue, b.GFSrc, b.HF)
-	b.Upload(b.rt, b.Queue, b.GFDst, zeros)
-}
-
-func (b *Benchmark) exec() {
-	n := b.GridDim
-	numCells := n * n * n
-	omega := float32(1.0) / b.Tau
-
-	gridSize := uint32((numCells + blockSize - 1) / blockSize)
-	globalX := gridSize * blockSize
-
-	src := b.GFSrc
-	dst := b.GFDst
-
-	for t := 0; t < b.NumTimesteps; t++ {
-		args := KernelArgs{
-			FSrc:  src,
-			FDst:  dst,
-			Nx:    int32(n),
-			Ny:    int32(n),
-			Nz:    int32(n),
-			Omega: omega,
-		}
-
-		b.rt.EnqueueLaunchKernel(
-			b.Queue,
-			b.hsaco,
-			[3]uint32{globalX, 1, 1},
-			[3]uint16{blockSize, 1, 1},
-			&args,
-		)
-
-		src, dst = dst, src
-	}
-
-	// After the loop, the final result lives in src (it was last written-to
-	// destination before the final swap).
-	b.GFSrc = src
-	b.GFDst = dst
-}
-
-// cpuCollideStream runs one collide-stream timestep on the CPU, identical to
-// the device kernel.
-func cpuCollideStream(fSrc, fDst []float32, n int, omega float32) {
-	numCells := n * n * n
-	nx, ny, nz := n, n, n
-
-	for idx := 0; idx < numCells; idx++ {
-		iz := idx / (nx * ny)
-		iy := (idx / nx) % ny
-		ix := idx % nx
-
-		isBoundary := ix == 0 || ix == nx-1 ||
-			iy == 0 || iy == ny-1 ||
-			iz == 0 || iz == nz-1
-
-		var f [Q]float32
-		for q := 0; q < Q; q++ {
-			f[q] = fSrc[q*numCells+idx]
-		}
-
-		var rho, ux, uy, uz float32
-		for q := 0; q < Q; q++ {
-			rho += f[q]
-			ux += f[q] * float32(hEx[q])
-			uy += f[q] * float32(hEy[q])
-			uz += f[q] * float32(hEz[q])
-		}
-		invRho := 1.0 / float32(math.Max(float64(rho), 1e-10))
-		ux *= invRho
-		uy *= invRho
-		uz *= invRho
-
-		u2 := ux*ux + uy*uy + uz*uz
-		var fPost [Q]float32
-		for q := 0; q < Q; q++ {
-			eu := float32(hEx[q])*ux + float32(hEy[q])*uy + float32(hEz[q])*uz
-			fEq := hW[q] * rho * (1.0 + 3.0*eu + 4.5*eu*eu - 1.5*u2)
-			fPost[q] = f[q] + omega*(fEq-f[q])
-		}
-
-		for q := 0; q < Q; q++ {
-			nxi := ix + hEx[q]
-			nyi := iy + hEy[q]
-			nzi := iz + hEz[q]
-
-			if isBoundary {
-				fDst[hOpp[q]*numCells+idx] = fPost[q]
-			} else if nxi >= 0 && nxi < nx && nyi >= 0 && nyi < ny &&
-				nzi >= 0 && nzi < nz {
-				nidx := nzi*nx*ny + nyi*nx + nxi
-				fDst[q*numCells+nidx] = fPost[q]
-			} else {
-				fDst[hOpp[q]*numCells+idx] = fPost[q]
+	b.Layout = newLayout(n)
+	layout := b.Layout
+	initial := make([]float32, layout.Entries)
+	for z := -2; z < n+2; z++ {
+		for y := 0; y < n; y++ {
+			for x := 0; x < n; x++ {
+				initial[layout.deviceIndex(x, y, z, flagsSlot)] = math.Float32frombits(flags(x, y, z, n))
+				if z >= 0 && z < n {
+					for q := 0; q < populations; q++ {
+						initial[layout.deviceIndex(x, y, z, q)] = float32(weight(q))
+					}
+				}
 			}
 		}
 	}
+	alloc := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		alloc = b.rt.AllocateUnifiedMemory
+	}
+	b.GFSrc = alloc(b.Context, uint64(layout.Entries)*4)
+	b.GFDst = alloc(b.Context, uint64(layout.Entries)*4)
+	b.Upload(b.rt, b.Queue, b.GFSrc, initial)
+	b.Upload(b.rt, b.Queue, b.GFDst, initial)
 }
 
-// Verify checks the GPU result against a CPU reference computation.
-func (b *Benchmark) verify() error {
-	n := b.GridDim
-	numCells := n * n * n
-	omega := float32(1.0) / b.Tau
-
-	gpuF := make([]float32, Q*numCells)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuF); err != nil {
-		return err
-	}
-
-	// CPU reference: replay the exact same timesteps with buffer swapping.
-	src := make([]float32, Q*numCells)
-	dst := make([]float32, Q*numCells)
-	copy(src, b.HF)
-	for i := range dst {
-		dst[i] = 0
-	}
-
+func (b *Benchmark) exec() {
+	n := uint32(b.GridDim)
+	grid, group := [3]uint32{n * n, n, 1}, [3]uint16{uint16(n), 1, 1}
+	margin := gpuruntime.Ptr(b.Layout.Margin * 4)
+	src, dst := b.GFSrc, b.GFDst
 	for t := 0; t < b.NumTimesteps; t++ {
-		cpuCollideStream(src, dst, n, omega)
+		args := kernelArgs{Src: src + margin, Dst: dst + margin, Layout: b.Layout}
+		b.rt.EnqueueLaunchKernel(b.Queue, b.kernel, grid, group, &args)
 		src, dst = dst, src
 	}
-	// src now holds the final result.
+	b.Final = src
+}
 
-	for i := 0; i < Q*numCells; i++ {
-		ref := float64(src[i])
-		got := float64(gpuF[i])
+func velocity(f []float32) (rho, u, v, w float32) {
+	for _, x := range f {
+		rho += x
+	}
+	u = (f[east] - f[west] + f[northEast] - f[northWest] + f[southEast] - f[southWest] +
+		f[eastTop] + f[eastBottom] - f[westTop] - f[westBottom]) / rho
+	v = (f[north] - f[south] + f[northEast] + f[northWest] - f[southEast] - f[southWest] +
+		f[northTop] + f[northBottom] - f[southTop] - f[southBottom]) / rho
+	w = (f[top] - f[bottom] + f[northTop] - f[northBottom] + f[southTop] - f[southBottom] +
+		f[eastTop] - f[eastBottom] + f[westTop] - f[westBottom]) / rho
+	return
+}
 
-		denom := math.Abs(ref)
-		if denom < 1.0 {
-			denom = 1.0
-		}
-		if math.Abs(ref-got)/denom > 1e-3 {
-			q := i / numCells
-			cell := i % numCells
-			return fmt.Errorf("At q=%d cell=%d, expected %f, but got %f.\n",
-				q, cell, ref, got)
+func (b *Benchmark) cpuReference() []float32 {
+	layout := b.Layout
+	n := b.GridDim
+	states := [2][]float32{make([]float32, layout.Entries), make([]float32, layout.Entries)}
+	for _, field := range states {
+		for z := 0; z < n; z++ {
+			for y := 0; y < n; y++ {
+				for x := 0; x < n; x++ {
+					base := 20 * layout.cell(x, y, z)
+					for q := 0; q < populations; q++ {
+						field[base+q] = float32(weight(q))
+					}
+				}
+			}
 		}
 	}
+	src, dst := states[0], states[1]
+	for t := 0; t < b.NumTimesteps; t++ {
+		for z := 0; z < n; z++ {
+			for y := 0; y < n; y++ {
+				for x := 0; x < n; x++ {
+					b.relaxAndScatterCell(src, dst, x, y, z)
+				}
+			}
+		}
+		src, dst = dst, src
+	}
+	return src
+}
 
+func (b *Benchmark) relaxAndScatterCell(src, dst []float32, x, y, z int) {
+	layout := b.Layout
+	base := 20 * layout.cell(x, y, z)
+	input := src[base : base+populations]
+	rho, u, v, w := velocity(input)
+	flags := flags(x, y, z, b.GridDim)
+	if flags == 2 {
+		u, v, w = 0.005, 0.002, 0
+	}
+	u2 := 1.5 * (u*u + v*v + w*w)
+	for q, d := range direction {
+		target := 20*layout.cell(x+d[0], y+d[1], z+d[2]) + q
+		if flags == 1 {
+			dst[target] = input[opposite[q]]
+			continue
+		}
+		projection := float32(d[0])*u + float32(d[1])*v + float32(d[2])*w
+		equilibrium := 1 + projection*(4.5*projection+3) - u2
+		dst[target] = float32(float64((1-omega)*input[q]) + weight(q)*float64(omega)*float64(rho)*float64(equilibrium))
+	}
+}
+
+func (b *Benchmark) verify() error {
+	actual := make([]float32, b.Layout.Entries)
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], actual); err != nil {
+		return err
+	}
+	expected := b.cpuReference()
+	n := b.GridDim
+	var cellActual [populations]float32
+	for z := 0; z < n; z++ {
+		for y := 0; y < n; y++ {
+			for x := 0; x < n; x++ {
+				layout := b.Layout
+				for q := range cellActual {
+					got := actual[layout.deviceIndex(x, y, z, q)]
+					want := expected[20*layout.cell(x, y, z)+q]
+					cellActual[q] = got
+					if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || math.Abs(float64(got)-float64(want)) > 1e-5 {
+						return fmt.Errorf("population %d at (%d,%d,%d): got %g, expected %g", q, x, y, z, got, want)
+					}
+				}
+				if got := math.Float32bits(actual[layout.deviceIndex(x, y, z, flagsSlot)]); got != flags(x, y, z, n) {
+					return fmt.Errorf("incorrect LBM flags at (%d,%d,%d): %d", x, y, z, got)
+				}
+				_, u, v, w := velocity(cellActual[:])
+				base := 20 * layout.cell(x, y, z)
+				_, ru, rv, rw := velocity(expected[base : base+populations])
+				dx, dy, dz := float64(u-ru), float64(v-rv), float64(w-rw)
+				errorValue := math.Sqrt(dx*dx + dy*dy + dz*dz)
+				if math.IsNaN(errorValue) || errorValue > 1e-5 {
+					return fmt.Errorf("LBM velocity at (%d,%d,%d) differs by %g", x, y, z, errorValue)
+				}
+			}
+		}
+	}
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
-func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(
-		b.Readbacks,
-		benchmarks.Download(b.rt, b.Queue, b.GFSrc, 4*(Q*((b.GridDim)*(b.GridDim)*(b.GridDim)))),
-	)
-}
-
-// Step submits computation, then verification readback, then consumes results.
 func (b *Benchmark) Step() error {
 	if err := b.Prepare(); err != nil {
 		return err
@@ -338,18 +294,16 @@ func (b *Benchmark) Step() error {
 	if err := b.ReleaseUploads(b.rt); err != nil {
 		return err
 	}
-
 	switch b.Phase {
 	case 0:
-		b.submit()
-		b.Phase = 1
+		b.setup()
+		b.exec()
 	case 1:
 		if !b.Verification {
 			b.Ended = true
 			return nil
 		}
-		b.enqueueVerification()
-		b.Phase = 2
+		b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.Final, int(b.Layout.Entries)*4))
 	case 2:
 		if err := b.verify(); err != nil {
 			return err
@@ -357,5 +311,6 @@ func (b *Benchmark) Step() error {
 		b.Readbacks = nil
 		b.Ended = true
 	}
+	b.Phase++
 	return nil
 }

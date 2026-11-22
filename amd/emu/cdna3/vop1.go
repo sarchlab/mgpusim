@@ -16,6 +16,8 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVMOV(state)
 	case 2:
 		u.runVREADFIRSTLANEB32(state)
+	case 3:
+		u.runVCVTI32F64(state)
 	case 4:
 		u.runVCVTF64I32(state)
 	case 22:
@@ -36,10 +38,14 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVCVTF64F32(state)
 	case 17:
 		u.runVCVTF32UBYTE0(state)
+	case 25:
+		u.runRoundF64(state)
 	case 28:
 		u.runTRUNKF32(state)
 	case 30:
 		u.runRNDNEF32(state)
+	case 31:
+		u.runFloorF32(state)
 	case 32:
 		u.runEXPF32(state)
 	case 33:
@@ -52,6 +58,8 @@ func (u *ALU) runVOP1(state emu.InstEmuState) {
 		u.runVRCPF64(state)
 	case 39:
 		u.runVSQRTF32(state)
+	case 41, 42:
+		u.runTrigF32(state)
 	case 43:
 		u.runVNOTB32(state)
 	case 44:
@@ -179,15 +187,9 @@ func (u *ALU) runVCVTI32F32(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, i)))
-		var dst int32
-		if src <= float32(math.MinInt32) {
-			dst = math.MinInt32
-		} else if src >= float32(math.MaxInt32) {
-			dst = math.MaxInt32
-		} else {
-			dst = int32(src)
-		}
+		bits := applyF32Modifier(state.ReadOperand(inst.Src0, i), 0, inst)
+		src := math.Float32frombits(uint32(bits))
+		dst := int32FromFloat(float64(src))
 		state.WriteOperand(inst.Dst, i, uint64(emu.Int32ToBits(dst)))
 	}
 }
@@ -507,6 +509,73 @@ func (u *ALU) runFrexpF32(state emu.InstEmuState, exponent bool) {
 			state.WriteOperand(inst.Dst, lane, uint64(uint32(src)))
 		} else {
 			state.WriteOperand(inst.Dst, lane, uint64(math.Float32bits(float32(mantissa))))
+		}
+	}
+}
+
+func int32FromFloat(value float64) int32 {
+	switch {
+	case math.IsNaN(value):
+		return 0
+	case value <= math.MinInt32:
+		return math.MinInt32
+	case value >= math.MaxInt32:
+		return math.MaxInt32
+	default:
+		return int32(value)
+	}
+}
+
+func (u *ALU) runVCVTI32F64(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			value := readF64Operand(state, inst.Src0, lane)
+			state.WriteOperand(inst.Dst, lane, uint64(uint32(int32FromFloat(value))))
+		}
+	}
+}
+
+func (u *ALU) runRoundF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			value := readF64Operand(state, inst.Src0, lane)
+			state.WriteOperand(inst.Dst, lane, math.Float64bits(math.RoundToEven(value)))
+		}
+	}
+}
+
+func (u *ALU) runFloorF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			value := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, lane)))
+			state.WriteOperand(inst.Dst, lane, uint64(math.Float32bits(float32(math.Floor(float64(value))))))
+		}
+	}
+}
+
+func (u *ALU) runTrigF32(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			value := math.Float32frombits(uint32(state.ReadOperand(inst.Src0, lane)))
+			// AMDGPU sine/cosine use turns, so reduce before converting to radians.
+			turns := math.Remainder(float64(value), 1)
+			var result float64
+			if inst.Opcode == 41 {
+				result = math.Sin(2 * math.Pi * turns)
+				if math.Abs(turns) == 0.5 {
+					result = math.Copysign(0, turns)
+				}
+			} else {
+				result = math.Cos(2 * math.Pi * turns)
+				if math.Abs(turns) == 0.25 {
+					result = 0
+				}
+			}
+			state.WriteOperand(inst.Dst, lane, uint64(math.Float32bits(float32(result))))
 		}
 	}
 }

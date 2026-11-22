@@ -1,196 +1,286 @@
-// HIP port of fft1D_512 kernel from SHOC FFT benchmark
-// Translated from OpenCL fft.cl
-// Optimized to avoid scratch memory spills
-
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/shoc_fft/hip/shoc_fft.hip.
+// FFT codelets are from SHOC (Vasily Volkov, UC Regents).
+#include <hip/hip_runtime.h>
 #include <cmath>
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846f
+#define M_PI 3.14159265358979323846
 #endif
-
 #ifndef M_SQRT1_2
-#define M_SQRT1_2 0.70710678118654752440f
+#define M_SQRT1_2 0.70710678118654752440
 #endif
 
-__device__ __forceinline__ float2 cmplx_mul(float2 a, float2 b) {
-    return make_float2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x);
+template<class T2, class T> __device__ T2 make_T2(T x, T y);
+
+template <> inline __device__
+float2 make_T2<float2,float>(float x, float y) { return make_float2(x, y); }
+
+template <> inline __device__
+double2 make_T2<double2,double>(double x, double y) { return make_double2(x, y); }
+
+// complex number arithmetic
+template <class T2, class T> inline __device__
+T2 cmul( T2 a, T2 b ) { return make_T2<T2,T>( a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x ); }
+template <class T2, class T> inline __device__
+T2 cmul( T2 a, T  b ) { return make_T2<T2,T>( b*a.x, b*a.y ); }
+template <class T2, class T> inline __device__
+T2 cadd( T2 a, T2 b ) { return make_T2<T2,T>( a.x + b.x, a.y + b.y ); }
+template <class T2, class T> inline __device__
+T2 csub( T2 a, T2 b ) { return make_T2<T2,T>( a.x - b.x, a.y - b.y ); }
+
+#define COS_PI_8  0.923879533f
+#define SIN_PI_8  0.382683432f
+#define exp_1_16  make_T2<T2,T>(  COS_PI_8, -SIN_PI_8 )
+#define exp_3_16  make_T2<T2,T>(  SIN_PI_8, -COS_PI_8 )
+#define exp_5_16  make_T2<T2,T>( -SIN_PI_8, -COS_PI_8 )
+#define exp_7_16  make_T2<T2,T>( -COS_PI_8, -SIN_PI_8 )
+#define exp_9_16  make_T2<T2,T>( -COS_PI_8,  SIN_PI_8 )
+#define exp_1_8   make_T2<T2,T>(  1, -1 )//requires post-multiply by 1/sqrt(2)
+#define exp_1_4   make_T2<T2,T>(  0, -1 )
+#define exp_3_8   make_T2<T2,T>( -1, -1 )//requires post-multiply by 1/sqrt(2)
+
+#define iexp_1_16  make_T2<T2,T>(  COS_PI_8,  SIN_PI_8 )
+#define iexp_3_16  make_T2<T2,T>(  SIN_PI_8,  COS_PI_8 )
+#define iexp_5_16  make_T2<T2,T>( -SIN_PI_8,  COS_PI_8 )
+#define iexp_7_16  make_T2<T2,T>( -COS_PI_8,  SIN_PI_8 )
+#define iexp_9_16  make_T2<T2,T>( -COS_PI_8, -SIN_PI_8 )
+#define iexp_1_8   make_T2<T2,T>(  1, 1 )//requires post-multiply by 1/sqrt(2)
+#define iexp_1_4   make_T2<T2,T>(  0, 1 )
+#define iexp_3_8   make_T2<T2,T>( -1, 1 )//requires post-multiply by 1/sqrt(2)
+
+template <class T2, class T> inline __device__
+T2 exp_i( T phi )
+{
+    return make_T2<T2,T>( __cosf(phi), __sinf(phi) );
 }
 
-__device__ __forceinline__ float2 cm_fl_mul(float2 a, float b) {
-    return make_float2(b*a.x, b*a.y);
+// bit reversal
+template<int radix> inline __device__ int rev( int bits );
+template<> inline __device__ int rev<2>( int bits ) { return bits; }
+template<> inline __device__ int rev<4>( int bits )
+{
+    int reversed[] = {0,2,1,3};
+    return reversed[bits];
+}
+template<> inline __device__ int rev<8>( int bits )
+{
+    int reversed[] = {0,4,2,6,1,5,3,7};
+    return reversed[bits];
+}
+template<> inline __device__ int rev<16>( int bits )
+{
+    int reversed[] = {0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15};
+    return reversed[bits];
+}
+inline __device__ int rev4x4( int bits )
+{
+    int reversed[] = {0,2,1,3, 4,6,5,7, 8,10,9,11, 12,14,13,15};
+    return reversed[bits];
 }
 
-__device__ __forceinline__ float2 cmplx_add(float2 a, float2 b) {
-    return make_float2(a.x + b.x, a.y + b.y);
+// all FFTs produce output in bit-reversed order
+#define IFFT2 FFT2
+template<class T2, class T> inline __device__
+void FFT2( T2 &a0, T2 &a1 )
+{
+    T2 c0 = a0;
+    a0 = cadd<T2,T>(c0, a1);
+    a1 = csub<T2,T>(c0, a1);
 }
 
-__device__ __forceinline__ float2 cmplx_sub(float2 a, float2 b) {
-    return make_float2(a.x - b.x, a.y - b.y);
+template<class T2, class T> inline __device__
+void FFT4( T2 &a0, T2 &a1, T2 &a2, T2 &a3 )
+{
+    FFT2<T2,T>( a0, a2 );
+    FFT2<T2,T>( a1, a3 );
+    a3 = cmul<T2,T>(a3, exp_1_4);
+    FFT2<T2,T>( a0, a1 );
+    FFT2<T2,T>( a2, a3 );
 }
 
-__device__ __forceinline__ float2 exp_i(float phi) {
-    return make_float2(cosf(phi), sinf(phi));
+template<class T2, class T> inline __device__
+void IFFT4( T2 &a0, T2 &a1, T2 &a2, T2 &a3 )
+{
+    IFFT2<T2,T>( a0, a2 );
+    IFFT2<T2,T>( a1, a3 );
+    a3 = cmul<T2,T>(a3, iexp_1_4);
+    IFFT2<T2,T>( a0, a1 );
+    IFFT2<T2,T>( a2, a3 );
 }
 
-// Bit-reverse order for radix-8: {0,4,2,6,1,5,3,7}
-__device__ __forceinline__ int bitrev8(int i) {
-    // reversed[i] for i=0..7: {0,4,2,6,1,5,3,7}
-    switch(i) {
-        case 0: return 0;
-        case 1: return 4;
-        case 2: return 2;
-        case 3: return 6;
-        case 4: return 1;
-        case 5: return 5;
-        case 6: return 3;
-        default: return 7;
+template<class T2, class T> inline __device__
+void FFT2( T2 *a ) { FFT2<T2,T>( a[0], a[1] ); }
+template<class T2, class T> inline __device__
+void FFT4( T2 *a ) { FFT4<T2,T>( a[0], a[1], a[2], a[3] ); }
+template<class T2, class T> inline __device__
+void IFFT4( T2 *a ) { IFFT4<T2,T>( a[0], a[1], a[2], a[3] ); }
+
+template<class T2, class T> inline __device__
+void FFT8( T2 *a )
+{
+    FFT2<T2,T>( a[0], a[4] );
+    FFT2<T2,T>( a[1], a[5] );
+    FFT2<T2,T>( a[2], a[6] );
+    FFT2<T2,T>( a[3], a[7] );
+
+    a[5] = cmul<T2,T>(cmul<T2,T>(a[5], exp_1_8 ), M_SQRT1_2);
+    a[6] = cmul<T2,T>(a[6], exp_1_4);
+    a[7] = cmul<T2,T>(cmul<T2,T>(a[7], exp_3_8 ), M_SQRT1_2);
+
+    FFT4<T2,T>( a[0], a[1], a[2], a[3] );
+    FFT4<T2,T>( a[4], a[5], a[6], a[7] );
+}
+
+template<class T2, class T> inline __device__
+void IFFT8( T2 *a )
+{
+    IFFT2<T2,T>( a[0], a[4] );
+    IFFT2<T2,T>( a[1], a[5] );
+    IFFT2<T2,T>( a[2], a[6] );
+    IFFT2<T2,T>( a[3], a[7] );
+
+    a[5] = cmul<T2,T>(cmul<T2,T>(a[5], iexp_1_8 ), M_SQRT1_2);
+    a[6] = cmul<T2,T>(a[6], iexp_1_4);
+    a[7] = cmul<T2,T>(cmul<T2,T>(a[7], iexp_3_8 ), M_SQRT1_2);
+
+    IFFT4<T2,T>( a[0], a[1], a[2], a[3] );
+    IFFT4<T2,T>( a[4], a[5], a[6], a[7] );
+}
+
+// loads
+template<int n, class T2> inline __device__
+void load( T2 *a, T2 *x, int sx )
+{
+    for( int i = 0; i < n; i++ )
+        a[i] = x[i*sx];
+}
+template<int n, class T2, class T> inline __device__
+void loadx( T2 *a, T *x, int sx )
+{
+    for( int i = 0; i < n; i++ )
+        a[i].x = x[i*sx];
+}
+template<int n, class T2, class T> inline __device__
+void loady( T2 *a, T *x, int sx )
+{
+    for( int i = 0; i < n; i++ )
+        a[i].y = x[i*sx];
+}
+
+// stores, input is in bit reversed order
+template<int n, class T2> inline __device__
+void store( T2 *a, T2 *x, int sx )
+{
+#pragma unroll
+    for( int i = 0; i < n; i++ )
+        x[i*sx] = a[rev<n>(i)];
+}
+template<int n, class T2, class T> inline __device__
+void storex( T2 *a, T *x, int sx )
+{
+#pragma unroll
+    for( int i = 0; i < n; i++ )
+        x[i*sx] = a[rev<n>(i)].x;
+}
+template<int n, class T2, class T> inline __device__
+void storey( T2 *a, T *x, int sx )
+{
+#pragma unroll
+    for( int i = 0; i < n; i++ )
+        x[i*sx] = a[rev<n>(i)].y;
+}
+
+// multiply by twiddle factors in bit-reversed order
+template<int radix, class T2, class T> inline __device__
+void twiddle( T2 *a, int i, int n )
+{
+#pragma unroll
+    for( int j = 1; j < radix; j++ )
+        a[j] = cmul<T2,T>(a[j], exp_i<T2,T>((-2*M_PI*rev<radix>(j)/n)*i));
+}
+
+template<int radix, class T2, class T> inline __device__
+void itwiddle( T2 *a, int i, int n )
+{
+#pragma unroll
+    for( int j = 1; j < radix; j++ )
+        a[j] = cmul<T2,T>(a[j], exp_i<T2,T>((2*M_PI*rev<radix>(j)/n)*i));
+}
+
+// transpose via shared memory, input is in bit-reversed layout
+template<int n, class T2, class T> inline __device__
+void transpose( T2 *a, T *s, int ds, T *l, int dl, int sync = 0xf )
+{
+    storex<n,T2,T>( a, s, ds );  if( sync&8 ) __syncthreads();
+    loadx<n,T2,T> ( a, l, dl );  if( sync&4 ) __syncthreads();
+    storey<n,T2,T>( a, s, ds );  if( sync&2 ) __syncthreads();
+    loady<n,T2,T> ( a, l, dl );  if( sync&1 ) __syncthreads();
+}
+
+template<class T2, class T> __global__
+void FFT512_device( T2 *work )
+{
+    int tid = threadIdx.x;
+    int hi = tid>>3;
+    int lo = tid&7;
+
+    work += (blockIdx.y * gridDim.x + blockIdx.x) * 512 + tid;
+
+    T2 a[8];
+    __shared__ T smem[8*8*9];
+
+    load<8, T2>( a, work, 64 );
+
+    FFT8<T2,T>( a );
+
+    twiddle<8,T2,T>( a, tid, 512 );
+    transpose<8, T2, T>( a, &smem[hi*8+lo], 66, &smem[lo*66+hi], 8 );
+
+    FFT8<T2,T>( a );
+
+    twiddle<8,T2,T>( a, hi, 64);
+    transpose<8, T2, T>( a, &smem[hi*8+lo], 8*9, &smem[hi*8*9+lo], 8, 0xE );
+
+    FFT8<T2,T>( a );
+
+    store<8, T2>( a, work, 64 );
+}
+
+template<class T2, class T> __global__
+void IFFT512_device( T2 *work )
+{
+    int i, tid = threadIdx.x;
+    int hi = tid>>3;
+    int lo = tid&7;
+
+    work += (blockIdx.y * gridDim.x + blockIdx.x) * 512 + tid;
+
+    T2 a[8];
+    __shared__ T smem[8*8*9];
+
+    load<8, T2>( a, work, 64 );
+
+    IFFT8<T2,T>( a );
+
+    itwiddle<8,T2,T>( a, tid, 512 );
+    transpose<8,T2,T>( a, &smem[hi*8+lo], 66, &smem[lo*66+hi], 8 );
+
+    IFFT8<T2,T>( a );
+
+    itwiddle<8,T2,T>( a, hi, 64);
+    transpose<8,T2,T>( a, &smem[hi*8+lo], 8*9, &smem[hi*8*9+lo], 8, 0xE );
+
+    IFFT8<T2,T>( a );
+
+    // normalize...
+    for (i = 0; i < 8; i++) {
+        a[i].x /= 512;
+        a[i].y /= 512;
     }
+    store<8, T2>( a, work, 64 );
 }
 
-__device__ __forceinline__ void FFT2(float2 *a0, float2 *a1) {
-    float2 c0 = *a0;
-    *a0 = cmplx_add(c0, *a1);
-    *a1 = cmplx_sub(c0, *a1);
-}
-
-__device__ __forceinline__ void FFT4(float2 *a0, float2 *a1, float2 *a2, float2 *a3) {
-    float2 exp14 = make_float2(0.0f, -1.0f);
-    FFT2(a0, a2);
-    FFT2(a1, a3);
-    *a3 = cmplx_mul(*a3, exp14);
-    FFT2(a0, a1);
-    FFT2(a2, a3);
-}
-
-__device__ __forceinline__ void FFT8(float2 *a) {
-    float2 exp18 = make_float2(1.0f, -1.0f);
-    float2 exp14 = make_float2(0.0f, -1.0f);
-    float2 exp38 = make_float2(-1.0f, -1.0f);
-
-    FFT2(&a[0], &a[4]);
-    FFT2(&a[1], &a[5]);
-    FFT2(&a[2], &a[6]);
-    FFT2(&a[3], &a[7]);
-
-    a[5] = cm_fl_mul(cmplx_mul(a[5], exp18), M_SQRT1_2);
-    a[6] = cmplx_mul(a[6], exp14);
-    a[7] = cm_fl_mul(cmplx_mul(a[7], exp38), M_SQRT1_2);
-
-    FFT4(&a[0], &a[1], &a[2], &a[3]);
-    FFT4(&a[4], &a[5], &a[6], &a[7]);
-}
-
-__device__ __forceinline__ void globalLoads8(float2 *data, float2 *in, int stride) {
-    data[0] = in[0*stride];
-    data[1] = in[1*stride];
-    data[2] = in[2*stride];
-    data[3] = in[3*stride];
-    data[4] = in[4*stride];
-    data[5] = in[5*stride];
-    data[6] = in[6*stride];
-    data[7] = in[7*stride];
-}
-
-__device__ __forceinline__ void globalStores8(float2 *data, float2 *out, int stride) {
-    out[0*stride] = data[0]; // reversed[0]=0
-    out[1*stride] = data[4]; // reversed[1]=4
-    out[2*stride] = data[2]; // reversed[2]=2
-    out[3*stride] = data[6]; // reversed[3]=6
-    out[4*stride] = data[1]; // reversed[4]=1
-    out[5*stride] = data[5]; // reversed[5]=5
-    out[6*stride] = data[3]; // reversed[6]=3
-    out[7*stride] = data[7]; // reversed[7]=7
-}
-
-__device__ __forceinline__ void storex8(float2 *a, float *x, int sx) {
-    x[0*sx] = a[0].x;
-    x[1*sx] = a[4].x;
-    x[2*sx] = a[2].x;
-    x[3*sx] = a[6].x;
-    x[4*sx] = a[1].x;
-    x[5*sx] = a[5].x;
-    x[6*sx] = a[3].x;
-    x[7*sx] = a[7].x;
-}
-
-__device__ __forceinline__ void storey8(float2 *a, float *x, int sx) {
-    x[0*sx] = a[0].y;
-    x[1*sx] = a[4].y;
-    x[2*sx] = a[2].y;
-    x[3*sx] = a[6].y;
-    x[4*sx] = a[1].y;
-    x[5*sx] = a[5].y;
-    x[6*sx] = a[3].y;
-    x[7*sx] = a[7].y;
-}
-
-__device__ __forceinline__ void loadx8(float2 *a, float *x, int sx) {
-    a[0].x = x[0*sx];
-    a[1].x = x[1*sx];
-    a[2].x = x[2*sx];
-    a[3].x = x[3*sx];
-    a[4].x = x[4*sx];
-    a[5].x = x[5*sx];
-    a[6].x = x[6*sx];
-    a[7].x = x[7*sx];
-}
-
-__device__ __forceinline__ void loady8(float2 *a, float *x, int sx) {
-    a[0].y = x[0*sx];
-    a[1].y = x[1*sx];
-    a[2].y = x[2*sx];
-    a[3].y = x[3*sx];
-    a[4].y = x[4*sx];
-    a[5].y = x[5*sx];
-    a[6].y = x[6*sx];
-    a[7].y = x[7*sx];
-}
-
-__device__ __forceinline__ void doTranspose(
-    float2 *a, float *s, int ds, float *l, int dl, int sync
-) {
-    storex8(a, s, ds);  if (sync & 8) __syncthreads();
-    loadx8 (a, l, dl);  if (sync & 4) __syncthreads();
-    storey8(a, s, ds);  if (sync & 2) __syncthreads();
-    loady8 (a, l, dl);  if (sync & 1) __syncthreads();
-}
-
-__device__ __forceinline__ void twiddle8(float2 *a, int idx, int n) {
-    // reversed8 = {0,4,2,6,1,5,3,7}
-    a[1] = cmplx_mul(a[1], exp_i((-2.0f*M_PI*4/n)*idx));
-    a[2] = cmplx_mul(a[2], exp_i((-2.0f*M_PI*2/n)*idx));
-    a[3] = cmplx_mul(a[3], exp_i((-2.0f*M_PI*6/n)*idx));
-    a[4] = cmplx_mul(a[4], exp_i((-2.0f*M_PI*1/n)*idx));
-    a[5] = cmplx_mul(a[5], exp_i((-2.0f*M_PI*5/n)*idx));
-    a[6] = cmplx_mul(a[6], exp_i((-2.0f*M_PI*3/n)*idx));
-    a[7] = cmplx_mul(a[7], exp_i((-2.0f*M_PI*7/n)*idx));
-}
-
-extern "C" __global__ __launch_bounds__(64, 1)
-void fft1D_512(float2 *work) {
-    int tid = hipThreadIdx_x;
-    int blockIdx_val = hipBlockIdx_x * 512 + tid;
-    int hi = tid >> 3;
-    int lo = tid & 7;
-    float2 data[8];
-    __shared__ float smem[8 * 8 * 9];
-
-    work = work + blockIdx_val;
-
-    globalLoads8(data, work, 64);
-
-    FFT8(data);
-
-    twiddle8(data, tid, 512);
-    doTranspose(data, &smem[hi * 8 + lo], 66, &smem[lo * 66 + hi], 8, 0xf);
-
-    FFT8(data);
-
-    twiddle8(data, hi, 64);
-    doTranspose(data, &smem[hi * 8 + lo], 8 * 9, &smem[hi * 8 * 9 + lo], 8, 0xE);
-
-    FFT8(data);
-
-    globalStores8(data, work, 64);
-}
+template __global__ void FFT512_device<float2,float>(float2*);
+template __global__ void IFFT512_device<float2,float>(float2*);
+template __global__ void FFT512_device<double2,double>(double2*);
+template __global__ void IFFT512_device<double2,double>(double2*);

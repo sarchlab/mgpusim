@@ -195,12 +195,14 @@ func (b *Benchmark) exec() {
 		// fan2: 2D grid, BLOCK2D x BLOCK2D threads/block.
 		grid2 := uint32((remaining + block2D - 1) / block2D)
 		fan2Args := Fan2KernelArgs{
-			M:      b.GM,
-			A:      b.GA,
-			B:      b.GB,
-			Size:   int32(n),
-			T:      int32(t),
-			Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{grid2 * block2D, grid2 * block2D, 1}, [3]uint16{block2D, block2D, 1}),
+			M:    b.GM,
+			A:    b.GA,
+			B:    b.GB,
+			Size: int32(n),
+			T:    int32(t),
+			Launch: benchmarks.NewGFX942LaunchDimensions(
+				[3]uint32{grid2 * block2D, grid2 * block2D, 1},
+				[3]uint16{block2D, block2D, 1}),
 		}
 		b.rt.EnqueueLaunchKernel(
 			b.Queue,

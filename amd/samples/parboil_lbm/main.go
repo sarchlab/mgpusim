@@ -12,8 +12,8 @@ var gridDim = flag.Int("grid", 16,
 	"The per-dimension grid size N (NxNxN D3Q19 lattice).")
 var numTimesteps = flag.Int("timesteps", 4,
 	"The number of collide-stream iterations to run.")
-var tau = flag.Float64("tau", 0.7,
-	"The relaxation time tau (omega = 1/tau).")
+var tau = flag.Float64("tau", 0,
+	"Legacy tau flag. Zero uses upstream omega=1.95.")
 
 func main() {
 	flag.Parse()

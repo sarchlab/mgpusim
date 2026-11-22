@@ -132,7 +132,6 @@ func (b *Benchmark) configureTaps() {
 	} else if b.NumTaps == 0 {
 		b.NumTaps = 16
 	}
-
 }
 
 func (b *Benchmark) initMem() {

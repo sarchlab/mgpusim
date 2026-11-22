@@ -133,7 +133,6 @@ func (b *Benchmark) initLegacyInputs() {
 	for j := int32(0); j < b.Dim; j++ {
 		b.Vec[j] = (rng.Float32() * b.Maxval)
 	}
-
 }
 
 func (b *Benchmark) initCDNA3Inputs() {

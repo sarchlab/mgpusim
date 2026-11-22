@@ -33,6 +33,11 @@ func applyF64Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
 	return math.Float64bits(f)
 }
 
+func readModifiedF64(state emu.InstEmuState, operand *insts.Operand, lane, source int) uint64 {
+	bits := math.Float64bits(readF64Operand(state, operand, lane))
+	return applyF64Modifier(bits, source, state.Inst())
+}
+
 func applyB32Modifier(val uint64, srcIdx int, inst *insts.Inst) uint64 {
 	if inst.Neg&(1<<uint(srcIdx)) != 0 {
 		v := emu.AsInt32(uint32(val))
@@ -49,6 +54,8 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 	u.vop3aPreprocess(state)
 
 	switch inst.Opcode {
+	case 107, 110:
+		u.runVCmpUnorderedF64(state, inst.Opcode == 110, inst.Dst)
 	case 65: // 0x41 v_cmp_lt_f32
 		u.runVCmpLtF32VOP3a(state)
 	case 66: // 0x42 v_cmp_eq_f32
@@ -179,6 +186,12 @@ func (u *ALU) runVOP3A(state emu.InstEmuState) {
 		u.runVBFIB32(state)
 	case 947:
 		u.runVPKMOVB32(state)
+	case 328:
+		u.runVCVTI32F32(state)
+	case 499:
+		u.runVXADU32(state)
+	case 644:
+		u.runLDEXPF64(state)
 	case 372:
 		u.runFrexpF32(state, false)
 	case 513:
@@ -950,6 +963,29 @@ func (u *ALU) runVPKMOVB32(state emu.InstEmuState) {
 	}
 }
 
+func (u *ALU) runVXADU32(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			a := uint32(state.ReadOperand(inst.Src0, lane))
+			b := uint32(state.ReadOperand(inst.Src1, lane))
+			c := uint32(state.ReadOperand(inst.Src2, lane))
+			state.WriteOperand(inst.Dst, lane, uint64((a^b)+c))
+		}
+	}
+}
+
+func (u *ALU) runLDEXPF64(state emu.InstEmuState) {
+	inst := state.Inst()
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) != 0 {
+			value := math.Float64frombits(readModifiedF64(state, inst.Src0, lane, 0))
+			power := int(int32(state.ReadOperand(inst.Src1, lane)))
+			state.WriteOperand(inst.Dst, lane, math.Float64bits(math.Ldexp(value, power)))
+		}
+	}
+}
+
 func (u *ALU) runVANDORB32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
@@ -1222,8 +1258,8 @@ func (u *ALU) runVADDF64(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src0, i), 0, inst))
-		src1 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src1, i), 1, inst))
+		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
+		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
 		dst := src0 + src1
 		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
@@ -1251,9 +1287,9 @@ func (u *ALU) runVFMAF64(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float64frombits(applyF64Modifier(math.Float64bits(readF64Operand(state, inst.Src0, i)), 0, inst))
-		src1 := math.Float64frombits(applyF64Modifier(math.Float64bits(readF64Operand(state, inst.Src1, i)), 1, inst))
-		src2 := math.Float64frombits(applyF64Modifier(math.Float64bits(readF64Operand(state, inst.Src2, i)), 2, inst))
+		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
+		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
+		src2 := math.Float64frombits(readModifiedF64(state, inst.Src2, i, 2))
 		dst := math.FMA(src0, src1, src2)
 		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
@@ -1454,8 +1490,8 @@ func (u *ALU) runVMULF64(state emu.InstEmuState) {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-		src0 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src0, i), 0, inst))
-		src1 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src1, i), 1, inst))
+		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
+		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
 		dst := src0 * src1
 		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
@@ -1494,9 +1530,9 @@ func (u *ALU) runVDIVFMASF64(state emu.InstEmuState) {
 			continue
 		}
 		vccBit := (vcc >> uint(i)) & 1
-		src0 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src0, i), 0, inst))
-		src1 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src1, i), 1, inst))
-		src2 := math.Float64frombits(applyF64Modifier(state.ReadOperand(inst.Src2, i), 2, inst))
+		src0 := math.Float64frombits(readModifiedF64(state, inst.Src0, i, 0))
+		src1 := math.Float64frombits(readModifiedF64(state, inst.Src1, i, 1))
+		src2 := math.Float64frombits(readModifiedF64(state, inst.Src2, i, 2))
 		var dst float64
 		if vccBit == 1 {
 			dst = math.Pow(2.0, 64) * (src0*src1 + src2)
@@ -1531,86 +1567,26 @@ func (u *ALU) runVDIVFIXUPF32(state emu.InstEmuState) {
 
 func (u *ALU) runVDIVFIXUPF64(state emu.InstEmuState) {
 	inst := state.Inst()
-	exec := state.EXEC()
-	for i := 0; i < 64; i++ {
-		if exec&(1<<uint(i)) == 0 {
+	for lane := 0; lane < 64; lane++ {
+		if state.EXEC()&(1<<uint(lane)) == 0 {
 			continue
 		}
-		src0 := applyF64Modifier(state.ReadOperand(inst.Src0, i), 0, inst)
-		src1 := applyF64Modifier(state.ReadOperand(inst.Src1, i), 1, inst)
-		src2 := applyF64Modifier(state.ReadOperand(inst.Src2, i), 2, inst)
-		state.WriteOperand(inst.Dst, i, u.calculateDivFixUpF64(src0, src1, src2))
+		estimate := readModifiedF64(state, inst.Src0, lane, 0)
+		denominator := readModifiedF64(state, inst.Src1, lane, 1)
+		numerator := readModifiedF64(state, inst.Src2, lane, 2)
+		state.WriteOperand(inst.Dst, lane, u.calculateDivFixUpF64(estimate, denominator, numerator))
 	}
 }
 
-//nolint:gocyclo,funlen
-func (u *ALU) calculateDivFixUpF64(
-	src0Bits, src1Bits, src2Bits uint64,
-) uint64 {
-	signS1 := src1Bits >> 63
-	signS2 := src2Bits >> 63
-	signOut := (signS1) ^ (signS2)
-
-	src0 := math.Float64frombits(src0Bits)
-	src1 := math.Float64frombits(src1Bits)
-	src2 := math.Float64frombits(src2Bits)
-
-	exponentSrc1 := (src1Bits << 1) >> 53
-	exponentSrc2 := (src2Bits << 1) >> 53
-
-	var dst float64
-
-	nan := math.Float64frombits(0x7FFFFFFFFFFFFFFF)
-	nanWithQuieting := math.Float64frombits(0x7FF8_0000_0000_0001)
-	undetermined := float64(0xFFF8_0000_0000_0000)
-
-	if src2 == nan {
-		dst = nanWithQuieting
-	} else if src1 == nan {
-		dst = nanWithQuieting
-	} else if (src1 == 0) && (src2 == 0) {
-		dst = undetermined
-	} else if u.isInfByInf(src1, src2) {
-		dst = undetermined
-	} else if src1 == 0 || (math.Abs(src2) == 0x7FF0000000000000 || math.Abs(src2) == 0xFFF0000000000000) {
-		// x/0 , or inf / y
-		if signOut == 1 {
-			dst = 0xFFF0000000000000 // -INF
-		} else {
-			dst = 0x7FF0000000000000 // +INF
-		}
-	} else if (math.Abs(src1) == 0x7FF0000000000000 || math.Abs(src1) == 0xFFF0000000000000) || (src2 == 0) {
-		// x/inf, 0/y
-		if signOut == 1 {
-			dst = 0x8000000000000000 // -0
-		} else {
-			dst = 0x0000000000000000 // +0
-		}
-	} else if u.isDIVFIXUPF64Overflow(exponentSrc1, exponentSrc2) {
-		log.Panicf("Underflow for VOP3A instruction DIVFIXUPF64 not implemented \n")
-	} else {
-		if signOut == 1 {
-			dst = math.Abs(src0) * (-1.0)
-		} else {
-			dst = math.Abs(src0)
-		}
+func (u *ALU) calculateDivFixUpF64(estimateBits, denominatorBits, numeratorBits uint64) uint64 {
+	denominator := math.Float64frombits(denominatorBits)
+	numerator := math.Float64frombits(numeratorBits)
+	if denominator == 0 || numerator == 0 || math.IsNaN(denominator) || math.IsNaN(numerator) ||
+		math.IsInf(denominator, 0) || math.IsInf(numerator, 0) {
+		return math.Float64bits(numerator / denominator)
 	}
-
-	return math.Float64bits(dst)
-}
-
-func (u *ALU) isInfByInf(src1, src2 float64) bool {
-	return (math.Abs(src1) == 0x7FF0000000000000 ||
-		math.Abs(src1) == 0xFFF0000000000000) &&
-		(math.Abs(src2) == 0x7FF0000000000000 ||
-			math.Abs(src2) == 0xFFF0000000000000)
-}
-
-func (u *ALU) isDIVFIXUPF64Overflow(
-	exponentSrc1, exponentSrc2 uint64,
-) bool {
-	return int64(exponentSrc2-exponentSrc1) < -1075 ||
-		exponentSrc1 == 2047
+	const sign = uint64(1) << 63
+	return estimateBits&^sign | (denominatorBits^numeratorBits)&sign
 }
 
 // Packed FP32 operations broadcast non-register constants to both words.
@@ -1623,229 +1599,74 @@ func readPackedF32Operand(state emu.InstEmuState, operand *insts.Operand, lane i
 	return word | word<<32
 }
 
-func (u *ALU) runVPKFMAF32(state emu.InstEmuState) { //nolint:funlen
+// Packed FP32 encodes the word selectors and signs independently for each
+// result. The low instruction word's normal ABS bits encode NEG_HI here.
+func readPackedF32Half(
+	state emu.InstEmuState,
+	operand *insts.Operand,
+	lane, source, selectBits, negBits int,
+) float32 {
+	bits := readPackedF32Operand(state, operand, lane)
+	if selectBits&(1<<source) != 0 {
+		bits >>= 32
+	}
+	if negBits&(1<<source) != 0 {
+		bits ^= 1 << 31
+	}
+	return math.Float32frombits(uint32(bits))
+}
+
+func readPackedF32Pair(
+	state emu.InstEmuState,
+	operand *insts.Operand,
+	lane, source int,
+) (lo, hi float32) {
+	inst := state.Inst()
+	return readPackedF32Half(state, operand, lane, source, inst.OpSel, inst.Neg),
+		readPackedF32Half(state, operand, lane, source, inst.OpSelHi, inst.Abs)
+}
+
+func writePackedF32Pair(state emu.InstEmuState, lane int, lo, hi float32) {
+	bits := uint64(math.Float32bits(lo)) | uint64(math.Float32bits(hi))<<32
+	state.WriteOperand(state.Inst().Dst, lane, bits)
+}
+
+func (u *ALU) runVPKFMAF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
-
-	// VOP3P encoding for 3-source FMA:
-	// OpSel[0:2]: src0/src1/src2 word select for lower result
-	// OpSelHi[0:2]: src0/src1/src2 word select for upper result
-	// Neg field applies to both lo and hi halves.
-	op_sel := inst.OpSel
-	op_sel_hi := inst.OpSelHi
-
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0Bits := readPackedF32Operand(state, inst.Src0, i)
-		src1Bits := readPackedF32Operand(state, inst.Src1, i)
-		src2Bits := readPackedF32Operand(state, inst.Src2, i)
-
-		src0_lo := math.Float32frombits(uint32(src0Bits))
-		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
-		src1_lo := math.Float32frombits(uint32(src1Bits))
-		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
-		src2_lo := math.Float32frombits(uint32(src2Bits))
-		src2_hi := math.Float32frombits(uint32(src2Bits >> 32))
-
-		var a_lo, a_hi float32
-		var b_lo, b_hi float32
-		var c_lo, c_hi float32
-
-		if op_sel&1 != 0 {
-			a_lo = src0_hi
-		} else {
-			a_lo = src0_lo
-		}
-		if op_sel&2 != 0 {
-			b_lo = src1_hi
-		} else {
-			b_lo = src1_lo
-		}
-		if op_sel&4 != 0 {
-			c_lo = src2_hi
-		} else {
-			c_lo = src2_lo
-		}
-
-		if op_sel_hi&1 != 0 {
-			a_hi = src0_hi
-		} else {
-			a_hi = src0_lo
-		}
-		if op_sel_hi&2 != 0 {
-			b_hi = src1_hi
-		} else {
-			b_hi = src1_lo
-		}
-		if op_sel_hi&4 != 0 {
-			c_hi = src2_hi
-		} else {
-			c_hi = src2_lo
-		}
-
-		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg {
-			a_lo = -a_lo
-			a_hi = -a_hi
-		}
-		if inst.Src1Neg {
-			b_lo = -b_lo
-			b_hi = -b_hi
-		}
-		if inst.Src2Neg {
-			c_lo = -c_lo
-			c_hi = -c_hi
-		}
-
-		res_lo := bitops.FMAF32(a_lo, b_lo, c_lo)
-		res_hi := bitops.FMAF32(a_hi, b_hi, c_hi)
-
-		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
-		state.WriteOperand(inst.Dst, i, dstBits)
+		aLo, aHi := readPackedF32Pair(state, inst.Src0, i, 0)
+		bLo, bHi := readPackedF32Pair(state, inst.Src1, i, 1)
+		cLo, cHi := readPackedF32Pair(state, inst.Src2, i, 2)
+		writePackedF32Pair(state, i, bitops.FMAF32(aLo, bLo, cLo), bitops.FMAF32(aHi, bHi, cHi))
 	}
 }
 
 func (u *ALU) runVPKMULF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
-
-	// VOP3P encoding for 2-source packed f32 operations:
-	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
-	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
-	// OpSelHi[0] (bit 0): src0 word select for upper result (0=lo, 1=hi)
-	// OpSelHi[1] (bit 1): src1 word select for upper result (0=lo, 1=hi)
-	// Neg field (neg_lo) applies negation to both lo and hi halves.
-	op_sel := inst.OpSel
-	op_sel_hi := inst.OpSelHi
-
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0Bits := readPackedF32Operand(state, inst.Src0, i)
-		src1Bits := readPackedF32Operand(state, inst.Src1, i)
-
-		src0_lo := math.Float32frombits(uint32(src0Bits))
-		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
-		src1_lo := math.Float32frombits(uint32(src1Bits))
-		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
-
-		var a_lo, b_lo float32
-		var a_hi, b_hi float32
-
-		// Lower result word select
-		if op_sel&1 != 0 {
-			a_lo = src0_hi
-		} else {
-			a_lo = src0_lo
-		}
-		if op_sel&2 != 0 {
-			b_lo = src1_hi
-		} else {
-			b_lo = src1_lo
-		}
-
-		// Upper result word select
-		if op_sel_hi&1 != 0 {
-			a_hi = src0_hi
-		} else {
-			a_hi = src0_lo
-		}
-		if op_sel_hi&2 != 0 {
-			b_hi = src1_hi
-		} else {
-			b_hi = src1_lo
-		}
-
-		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg {
-			a_lo = -a_lo
-			a_hi = -a_hi
-		}
-		if inst.Src1Neg {
-			b_lo = -b_lo
-			b_hi = -b_hi
-		}
-
-		res_lo := a_lo * b_lo
-		res_hi := a_hi * b_hi
-
-		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
-		state.WriteOperand(inst.Dst, i, dstBits)
+		aLo, aHi := readPackedF32Pair(state, inst.Src0, i, 0)
+		bLo, bHi := readPackedF32Pair(state, inst.Src1, i, 1)
+		writePackedF32Pair(state, i, aLo*bLo, aHi*bHi)
 	}
 }
 
 func (u *ALU) runVPKADDF32(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
-
-	// VOP3P encoding for 2-source packed f32 operations:
-	// OpSel[0] (bit 0): src0 word select for lower result (0=lo, 1=hi)
-	// OpSel[1] (bit 1): src1 word select for lower result (0=lo, 1=hi)
-	// OpSelHi[0] (bit 0): src0 word select for upper result (0=lo, 1=hi)
-	// OpSelHi[1] (bit 1): src1 word select for upper result (0=lo, 1=hi)
-	// Neg field (neg_lo) applies negation to both lo and hi halves.
-	op_sel := inst.OpSel
-	op_sel_hi := inst.OpSelHi
-
 	for i := 0; i < 64; i++ {
 		if exec&(1<<uint(i)) == 0 {
 			continue
 		}
-
-		src0Bits := readPackedF32Operand(state, inst.Src0, i)
-		src1Bits := readPackedF32Operand(state, inst.Src1, i)
-
-		src0_lo := math.Float32frombits(uint32(src0Bits))
-		src0_hi := math.Float32frombits(uint32(src0Bits >> 32))
-		src1_lo := math.Float32frombits(uint32(src1Bits))
-		src1_hi := math.Float32frombits(uint32(src1Bits >> 32))
-
-		var a_lo, a_hi float32
-		var b_lo, b_hi float32
-
-		// Lower result word select
-		if op_sel&1 != 0 {
-			a_lo = src0_hi
-		} else {
-			a_lo = src0_lo
-		}
-		if op_sel&2 != 0 {
-			b_lo = src1_hi
-		} else {
-			b_lo = src1_lo
-		}
-
-		// Upper result word select
-		if op_sel_hi&1 != 0 {
-			a_hi = src0_hi
-		} else {
-			a_hi = src0_lo
-		}
-		if op_sel_hi&2 != 0 {
-			b_hi = src1_hi
-		} else {
-			b_hi = src1_lo
-		}
-
-		// Apply neg modifiers (neg_lo = neg_hi for VOP3P)
-		if inst.Src0Neg {
-			a_lo = -a_lo
-			a_hi = -a_hi
-		}
-		if inst.Src1Neg {
-			b_lo = -b_lo
-			b_hi = -b_hi
-		}
-
-		res_lo := a_lo + b_lo
-		res_hi := a_hi + b_hi
-
-		dstBits := uint64(math.Float32bits(res_lo)) | (uint64(math.Float32bits(res_hi)) << 32)
-		state.WriteOperand(inst.Dst, i, dstBits)
+		aLo, aHi := readPackedF32Pair(state, inst.Src0, i, 0)
+		bLo, bHi := readPackedF32Pair(state, inst.Src1, i, 1)
+		writePackedF32Pair(state, i, aLo+bLo, aHi+bHi)
 	}
 }

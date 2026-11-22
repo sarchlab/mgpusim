@@ -349,7 +349,6 @@ func (b *Benchmark) exec() {
 			b.launchStencilKernel(globalSize, localSize, ldsSize)
 			b.CurrData, b.NewData = b.NewData, b.CurrData
 		}
-
 	}
 
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.CurrData, Target: 0})

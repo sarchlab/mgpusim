@@ -54,6 +54,8 @@ func (u *ALU) runSOP2(state emu.InstEmuState) {
 		u.runSORN2B32(state)
 	case 21:
 		u.runSORN2B64(state)
+	case 25:
+		u.runSNORB64(state)
 	case 28:
 		u.runSLSHLB32(state)
 	case 29:
@@ -383,6 +385,17 @@ func (u *ALU) runSORN2B64(state emu.InstEmuState) {
 		state.SetSCC(1)
 	} else {
 		state.SetSCC(0)
+	}
+}
+
+func (u *ALU) runSNORB64(state emu.InstEmuState) {
+	inst := state.Inst()
+	value := ^(state.ReadOperand(inst.Src0, 0) | state.ReadOperand(inst.Src1, 0))
+	state.WriteOperand(inst.Dst, 0, value)
+	if value == 0 {
+		state.SetSCC(0)
+	} else {
+		state.SetSCC(1)
 	}
 }
 

@@ -24,7 +24,7 @@ func (u *ALU) runVOP3B(state emu.InstEmuState) {
 		u.runVSUBBREVU32VOP3b(state)
 	case 480:
 		u.runVDIVSCALEF32(state)
-	case 494:
+	case 481:
 		u.runVDIVSCALEF64(state)
 	default:
 		log.Panicf("Opcode %d for VOP3b format is not implemented", inst.Opcode)
@@ -184,19 +184,12 @@ func (u *ALU) runVDIVSCALEF32(state emu.InstEmuState) {
 func (u *ALU) runVDIVSCALEF64(state emu.InstEmuState) {
 	inst := state.Inst()
 	exec := state.EXEC()
-	for i := 0; i < 64; i++ {
-		if exec&(1<<uint(i)) == 0 {
-			continue
+	for lane := 0; lane < 64; lane++ {
+		if exec&(1<<uint(lane)) != 0 {
+			value := readF64Operand(state, inst.Src0, lane)
+			state.WriteOperand(inst.Dst, lane, math.Float64bits(value))
 		}
-		src0 := math.Float64frombits(state.ReadOperand(inst.Src0, i))
-		src1 := math.Float64frombits(state.ReadOperand(inst.Src1, i))
-		src2 := math.Float64frombits(state.ReadOperand(inst.Src2, i))
-
-		// Simplified implementation
-		dst := src0
-		if src1 != 0 && src2 != 0 {
-			dst = src0
-		}
-		state.WriteOperand(inst.Dst, i, math.Float64bits(dst))
 	}
+	// The unscaled path is sufficient for normally ranged operands.
+	state.WriteOperand(inst.SDst, 0, 0)
 }

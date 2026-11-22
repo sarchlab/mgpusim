@@ -1,105 +1,98 @@
-/*
- * HIP kernels for the Rodinia Backpropagation benchmark (gfx942 / CDNA3).
- * Extracted from sarchlab/gpu_benchmarks tier2/rodinia_backprop.
- *
- * Two-layer fully-connected neural net forward + backward pass:
- *   INPUT_N -> HIDDEN_N -> OUTPUT_N
- *
- * Six kernels: forward_hidden, forward_output, backward_output_delta,
- * backward_hidden_delta, update_w1 (2D), update_w2.
- *
- * The 1D kernels use a constant block width (BLOCK_SZ) and the 2D update_w1
- * uses a constant 16x16 block, so the compiler emits no hidden ABI arguments
- * (no blockDim reads).  All bounds checks remain so the grid may be padded.
- */
-#include "hip/hip_runtime.h"
+// GPU Benchmarks v1.1, tier2/rodinia_backprop/hip/rodinia_backprop.hip.
+#include <hip/hip_runtime.h>
 
-#define BLOCK_SZ 256
-#define TILE2D   16
+#define WIDTH 16
+#define HEIGHT 16
+#define ETA 0.3
+#define MOMENTUM 0.3
 
-__device__ __forceinline__ float sigmoid_d(float x)
+extern "C" __global__ void
+bpnn_layerforward_CUDA(float *input_cuda,
+	                   float *output_hidden_cuda,
+					   float *input_hidden_cuda,
+					   float *hidden_partial_sum,
+					   int in,
+					   int hid)
 {
-    return 1.0f / (1.0f + expf(-x));
+   int by = blockIdx.y;
+   int tx = threadIdx.x;
+   int ty = threadIdx.y;
+
+   int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;
+
+   int index_in = HEIGHT * by + ty + 1;
+
+   __shared__ float input_node[HEIGHT];
+   __shared__ float weight_matrix[HEIGHT][WIDTH];
+
+
+   if ( tx == 0 )
+   input_node[ty] = input_cuda[index_in] ;
+
+   __syncthreads();
+
+   weight_matrix[ty][tx] = input_hidden_cuda[index];
+
+   __syncthreads();
+
+   weight_matrix[ty][tx] = weight_matrix[ty][tx] * input_node[ty];
+
+   __syncthreads();
+
+   for ( int i = 1 ; i <= __log2f(HEIGHT) ; i++){
+
+	   int power_two = __powf(2, i);
+
+	   if( ty % power_two == 0 )
+	   weight_matrix[ty][tx] = weight_matrix[ty][tx] + weight_matrix[ty + power_two/2][tx];
+
+	   __syncthreads();
+
+   }
+
+   //__syncthreads();
+
+   input_hidden_cuda[index] = weight_matrix[ty][tx];
+
+   __syncthreads();
+
+   if ( tx == 0 ) {
+	   hidden_partial_sum[by * hid + ty] = weight_matrix[tx][ty];
+   }
+
 }
 
-// hidden[j] = sigmoid(b1[j] + sum_i input[i]*w1[i*hidden_n+j])
-extern "C" __global__ void forward_hidden(const float* __restrict__ input,
-                                          const float* __restrict__ w1,
-                                          const float* __restrict__ b1,
-                                          float* __restrict__ hidden,
-                                          int input_n, int hidden_n)
-{
-    int j = blockIdx.x * BLOCK_SZ + threadIdx.x;
-    if (j >= hidden_n) return;
-    float sum = b1[j];
-    for (int i = 0; i < input_n; i++)
-        sum += input[i] * w1[i * hidden_n + j];
-    hidden[j] = sigmoid_d(sum);
-}
 
-// output[k] = sigmoid(b2[k] + sum_j hidden[j]*w2[j*output_n+k])
-extern "C" __global__ void forward_output(const float* __restrict__ hidden,
-                                          const float* __restrict__ w2,
-                                          const float* __restrict__ b2,
-                                          float* __restrict__ output,
-                                          int hidden_n, int output_n)
+extern "C" __global__ void bpnn_adjust_weights_cuda(float * delta,
+										 int hid,
+										 float * ly,
+										 int in,
+										 float * w,
+										 float * oldw)
 {
-    int k = blockIdx.x * BLOCK_SZ + threadIdx.x;
-    if (k >= output_n) return;
-    float sum = b2[k];
-    for (int j = 0; j < hidden_n; j++)
-        sum += hidden[j] * w2[j * output_n + k];
-    output[k] = sigmoid_d(sum);
-}
 
-// delta_out[k] = output[k]*(1-output[k])*(target[k]-output[k])
-extern "C" __global__ void backward_output_delta(const float* __restrict__ output,
-                                                 const float* __restrict__ target,
-                                                 float* __restrict__ delta_out,
-                                                 int output_n)
-{
-    int k = blockIdx.x * BLOCK_SZ + threadIdx.x;
-    if (k >= output_n) return;
-    float o = output[k];
-    delta_out[k] = o * (1.0f - o) * (target[k] - o);
-}
 
-// delta_hid[j] = hidden[j]*(1-hidden[j])*sum_k(w2[j*output_n+k]*delta_out[k])
-extern "C" __global__ void backward_hidden_delta(const float* __restrict__ hidden,
-                                                 const float* __restrict__ w2,
-                                                 const float* __restrict__ delta_out,
-                                                 float* __restrict__ delta_hid,
-                                                 int hidden_n, int output_n)
-{
-    int j = blockIdx.x * BLOCK_SZ + threadIdx.x;
-    if (j >= hidden_n) return;
-    float h = hidden[j];
-    float sum = 0.0f;
-    for (int k = 0; k < output_n; k++)
-        sum += w2[j * output_n + k] * delta_out[k];
-    delta_hid[j] = h * (1.0f - h) * sum;
-}
+   int by = blockIdx.y;
 
-// w1[i*hidden_n+j] += lr * input[i] * delta_hid[j]   (2D grid: x->i, y->j)
-extern "C" __global__ void update_w1(float* __restrict__ w1,
-                                     const float* __restrict__ input,
-                                     const float* __restrict__ delta_hid,
-                                     int input_n, int hidden_n, float lr)
-{
-    int i = blockIdx.x * TILE2D + threadIdx.x;
-    int j = blockIdx.y * TILE2D + threadIdx.y;
-    if (i >= input_n || j >= hidden_n) return;
-    w1[i * hidden_n + j] += lr * input[i] * delta_hid[j];
-}
+   int tx = threadIdx.x;
+   int ty = threadIdx.y;
 
-// w2[j*output_n+k] += lr * hidden[j] * delta_out[k]
-extern "C" __global__ void update_w2(float* __restrict__ w2,
-                                     const float* __restrict__ hidden,
-                                     const float* __restrict__ delta_out,
-                                     int hidden_n, int output_n, float lr)
-{
-    int j = blockIdx.x * BLOCK_SZ + threadIdx.x;
-    if (j >= hidden_n) return;
-    for (int k = 0; k < output_n; k++)
-        w2[j * output_n + k] += lr * hidden[j] * delta_out[k];
+   int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;
+   int index_y = HEIGHT * by + ty + 1;
+   int index_x = tx + 1;
+   //eta = 0.3;
+   //momentum = 0.3;
+
+   w[index] += ((ETA * delta[index_x] * ly[index_y]) + (MOMENTUM * oldw[index]));
+   oldw[index] = ((ETA * delta[index_x] * ly[index_y]) + (MOMENTUM * oldw[index]));
+
+
+   __syncthreads();
+
+   if (ty == 0 && by ==0){
+   w[index_x] += ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
+   oldw[index_x] = ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
+   }
+
+
 }

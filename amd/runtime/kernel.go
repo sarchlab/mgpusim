@@ -37,23 +37,7 @@ func (r *Runtime) EnqueueLaunchKernel(
 	for _, device := range gpus {
 		ctx.GPU = device
 		key := codeKey{Queue: q, PID: ctx.PID, GPU: device, Hash: codeHash}
-		if r.codeIndex == nil {
-			r.rebuildCodeIndex()
-		}
-		var code Ptr
-		for _, index := range r.codeIndex[key] {
-			entry := r.state.Codes[index]
-			if reflect.DeepEqual(entry.Code, cmd.Code) {
-				code = entry.Address
-				break
-			}
-		}
-		if code == 0 {
-			code = r.AllocateMemory(h, uint64(len(co.Data)))
-			r.codeIndex[key] = append(r.codeIndex[key], len(r.state.Codes))
-			r.state.Codes = append(r.state.Codes, codeAddress{q, ctx.PID, device, cmd.Code, code})
-			r.stageUpload(q, code, co.Data)
-		}
+		code := r.enqueueCodeUpload(key, cmd.Code, co.Data, h)
 		packet := kernels.HsaKernelDispatchPacket{
 			GridSizeX:        grid[0],
 			GridSizeY:        grid[1],
@@ -77,6 +61,23 @@ func (r *Runtime) EnqueueLaunchKernel(
 	}
 	return r.enqueue(q, cmd)
 }
+func (r *Runtime) enqueueCodeUpload(key codeKey, snapshot insts.CodeObjectValue, data []byte, ctx Context) Ptr {
+	if r.codeIndex == nil {
+		r.rebuildCodeIndex()
+	}
+	for _, index := range r.codeIndex[key] {
+		entry := r.state.Codes[index]
+		if reflect.DeepEqual(entry.Code, snapshot) {
+			return entry.Address
+		}
+	}
+	address := r.AllocateMemory(ctx, uint64(len(data)))
+	r.codeIndex[key] = append(r.codeIndex[key], len(r.state.Codes))
+	r.state.Codes = append(r.state.Codes, codeAddress{key.Queue, key.PID, key.GPU, snapshot, address})
+	r.stageUpload(key.Queue, address, data)
+	return address
+}
+
 func prepareLocalMemory(co *insts.KernelCodeObject, args any, packet *kernels.HsaKernelDispatchPacket) any {
 	value := reflect.ValueOf(args)
 	if value.Kind() != reflect.Pointer || value.IsNil() {

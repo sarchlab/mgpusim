@@ -164,7 +164,9 @@ func (b *Benchmark) exec() {
 	args1 := KernelArgs{
 		In0: b.GA, In1: b.GB, Out: b.GE,
 		D0: int32(b.NI), D1: int32(b.NK), D2: int32(b.NJ),
-		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{gridDim(b.NJ), gridDim(b.NI), 1}, [3]uint16{blockSize, blockSize, 1}),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NJ), gridDim(b.NI), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -178,7 +180,9 @@ func (b *Benchmark) exec() {
 	args2 := KernelArgs{
 		In0: b.GC, In1: b.GD, Out: b.GF,
 		D0: int32(b.NJ), D1: int32(b.NM), D2: int32(b.NL),
-		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{gridDim(b.NL), gridDim(b.NJ), 1}, [3]uint16{blockSize, blockSize, 1}),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NL), gridDim(b.NJ), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,
@@ -192,7 +196,9 @@ func (b *Benchmark) exec() {
 	args3 := KernelArgs{
 		In0: b.GE, In1: b.GF, Out: b.GG,
 		D0: int32(b.NI), D1: int32(b.NJ), D2: int32(b.NL),
-		Launch: benchmarks.NewGFX942LaunchDimensions([3]uint32{gridDim(b.NL), gridDim(b.NI), 1}, [3]uint16{blockSize, blockSize, 1}),
+		Launch: benchmarks.NewGFX942LaunchDimensions(
+			[3]uint32{gridDim(b.NL), gridDim(b.NI), 1},
+			[3]uint16{blockSize, blockSize, 1}),
 	}
 	b.rt.EnqueueLaunchKernel(
 		b.Queue,

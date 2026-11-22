@@ -4,7 +4,8 @@
 //
 // PathFinder is a dynamic-programming sweep that finds the minimum-cost path
 // through a 2D grid of weights from the top row to the bottom row. Work-groups use LDS to update a tile of
-// multiple rows per launch, with overlapping halos between adjacent tiles. The kernel binary is compiled for gfx942 only (see
+// multiple rows per launch, with overlapping halos between adjacent tiles.
+// The kernel binary is compiled for gfx942 only (see
 // native/), so the benchmark must be run with `-arch cdna3` (MI300X).
 package pathfinder
 

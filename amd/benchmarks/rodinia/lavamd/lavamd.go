@@ -13,6 +13,8 @@ package lavamd
 import (
 	// embed hsaco files
 	_ "embed"
+	"encoding/binary"
+	"fmt"
 	"log"
 	"math"
 
@@ -22,37 +24,33 @@ import (
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
 
-// blockSize is the workgroup size (compile-time constant in the kernel, so no
-// hidden ABI args are emitted).
 const blockSize = 128
 
-// Lennard-Jones constants, matching the kernel.
-const (
-	ljA     float32 = 2.0
-	ljB     float32 = 1.0
-	boxSize float32 = 10.0
-)
+const calibratedParticles = 100
 
-// KernelArgs defines the kernel arguments for the gfx942 (CDNA3) kernel.
-//
-// The layout below is verified against the compiled kernel's AMDGPU metadata
-// (kernarg_segment_size = 80): nine 8-byte global_buffer pointers followed by
-// two 4-byte by_value int32 scalars, packed with no padding (mgpusim
-// serializes args with binary.Write, which does not insert alignment padding).
-// The kernel uses a constant block size, so no hidden ABI arguments are
-// emitted.
+type Vector struct{ V, X, Y, Z float64 }
+type Neighbor struct {
+	X, Y, Z, Box int32
+	Offset       int64
+}
+type Box struct {
+	X, Y, Z, ID int32
+	Offset      int64
+	Count       int32
+	_           int32
+	Neighbors   [26]Neighbor
+}
+
+type Dimensions struct {
+	CurrentArg, ArchArg, CoresArg, Boxes1D                     int32
+	NumberBoxes, BoxBytes, Particles, VectorBytes, ChargeBytes int64
+}
+
+// KernelArgs reproduces the ROCm LP64 layout.
 type KernelArgs struct {
-	PosX            gpuruntime.Ptr // offset 0
-	PosY            gpuruntime.Ptr // offset 8
-	PosZ            gpuruntime.Ptr // offset 16
-	ForceX          gpuruntime.Ptr // offset 24
-	ForceY          gpuruntime.Ptr // offset 32
-	ForceZ          gpuruntime.Ptr // offset 40
-	EnergyOut       gpuruntime.Ptr // offset 48
-	NeighborList    gpuruntime.Ptr // offset 56
-	NeighborCount   gpuruntime.Ptr // offset 64
-	ParticlesPerBox int32          // offset 72
-	TotalBoxes      int32          // offset 76
+	Alpha                             float64
+	Dim                               Dimensions
+	Boxes, Positions, Charges, Forces gpuruntime.Ptr
 }
 
 // Benchmark defines the LavaMD benchmark.
@@ -81,7 +79,7 @@ func NewBenchmark(rt *gpuruntime.Runtime) *Benchmark {
 
 func (b *Benchmark) loadProgram() {
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
-		cdna3HSACOBytes, "lavamd_kernel")
+		cdna3HSACOBytes, "kernel_gpu_cuda")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -113,224 +111,125 @@ func (b *Benchmark) submit() {
 }
 
 // lcgRand is a simple linear-congruential PRNG matching the HIP host code.
-func lcgRand(state *uint32) uint32 {
-	*state = *state*1664525 + 1013904223
-	return *state
-}
-
-func randFloat(state *uint32, lo, hi float32) float32 {
-	return lo + float32(lcgRand(state)&0xFFFF)/65535.0*(hi-lo)
-}
-
-// initHostData builds the deterministic input arrays (positions, neighbor
-// lists, neighbor counts). It is shared by initMem and Verify so the reference
-// uses the exact same inputs.
-func (b *Benchmark) initHostData() { //nolint:funlen,gocognit
-	nb := b.NumBoxes
-	ppb := b.ParticlesPerBox
-
-	b.HPosX = make([]float32, b.TotalParticles)
-	b.HPosY = make([]float32, b.TotalParticles)
-	b.HPosZ = make([]float32, b.TotalParticles)
-	b.HNeighborList = make([]int32, b.TotalBoxes*27)
-	b.HNeighborCount = make([]int32, b.TotalBoxes)
-
-	var seed uint32 = 42
-
-	for bz := 0; bz < nb; bz++ {
-		for by := 0; by < nb; by++ {
-			for bx := 0; bx < nb; bx++ {
-				boxID := bz*nb*nb + by*nb + bx
-				base := boxID * ppb
-
-				for p := 0; p < ppb; p++ {
-					b.HPosX[base+p] = float32(bx)*boxSize +
-						randFloat(&seed, 0.5, boxSize-0.5)
-					b.HPosY[base+p] = float32(by)*boxSize +
-						randFloat(&seed, 0.5, boxSize-0.5)
-					b.HPosZ[base+p] = float32(bz)*boxSize +
-						randFloat(&seed, 0.5, boxSize-0.5)
+func (b *Benchmark) neighborBoxes(home int) []int {
+	size := b.NumBoxes
+	x, y, z := home%size, (home/size)%size, home/(size*size)
+	result := make([]int, 0, 26)
+	for dz := -1; dz <= 1; dz++ {
+		for dy := -1; dy <= 1; dy++ {
+			for dx := -1; dx <= 1; dx++ {
+				xx, yy, zz := x+dx, y+dy, z+dz
+				if (dx == 0 && dy == 0 && dz == 0) || xx < 0 || yy < 0 || zz < 0 || xx >= size || yy >= size || zz >= size {
+					continue
 				}
-
-				count := 0
-				for dz := -1; dz <= 1; dz++ {
-					for dy := -1; dy <= 1; dy++ {
-						for dx := -1; dx <= 1; dx++ {
-							nnx := bx + dx
-							nny := by + dy
-							nnz := bz + dz
-							if nnx >= 0 && nnx < nb &&
-								nny >= 0 && nny < nb &&
-								nnz >= 0 && nnz < nb {
-								nid := nnz*nb*nb + nny*nb + nnx
-								b.HNeighborList[boxID*27+count] = int32(nid)
-								count++
-							}
-						}
-					}
-				}
-				b.HNeighborCount[boxID] = int32(count)
+				result = append(result, (zz*size+yy)*size+xx)
 			}
 		}
 	}
+	return result
 }
 
 func (b *Benchmark) initMem() {
 	if b.NumBoxes <= 0 {
-		b.NumBoxes = 4
+		b.NumBoxes = 1
 	}
-	if b.ParticlesPerBox <= 0 {
-		b.ParticlesPerBox = 100
+	if b.ParticlesPerBox != 0 && b.ParticlesPerBox != calibratedParticles {
+		panic("v1.1 LavaMD fixes the number of particles per box at 100")
 	}
-
-	b.TotalBoxes = b.NumBoxes * b.NumBoxes * b.NumBoxes
-	b.TotalParticles = b.TotalBoxes * b.ParticlesPerBox
-
-	b.initHostData()
-
-	posBytes := uint64(b.TotalParticles * 4)
-	neighBytes := uint64(b.TotalBoxes * 27 * 4)
-	ncountBytes := uint64(b.TotalBoxes * 4)
-
+	n := b.NumBoxes
+	boxCount := n * n * n
+	particleCount := boxCount * calibratedParticles
+	boxes := make([]Box, boxCount)
+	for i := range boxes {
+		x, y, z := i%n, (i/n)%n, i/(n*n)
+		box := &boxes[i]
+		box.X, box.Y, box.Z, box.ID = int32(x), int32(y), int32(z), int32(i)
+		box.Offset = int64(i * calibratedParticles)
+		neighbors := b.neighborBoxes(i)
+		box.Count = int32(len(neighbors))
+		for j, other := range neighbors {
+			box.Neighbors[j] = Neighbor{
+				X: int32(other % n), Y: int32((other / n) % n), Z: int32(other / (n * n)),
+				Box: int32(other), Offset: int64(other * calibratedParticles)}
+		}
+	}
+	b.Positions = make([]Vector, particleCount)
+	b.Charges = make([]float64, particleCount)
+	rand := benchmarks.NewGlibcRand(42)
+	decimal := func() float64 { return float64(rand.Next()%10+1) / 10.0 }
+	for i := range b.Positions {
+		b.Positions[i] = Vector{decimal(), decimal(), decimal(), decimal()}
+	}
+	for i := range b.Charges {
+		b.Charges[i] = decimal()
+	}
+	b.Dim = Dimensions{Boxes1D: int32(n), NumberBoxes: int64(boxCount), BoxBytes: int64(binary.Size(boxes)),
+		Particles: int64(particleCount), VectorBytes: int64(particleCount * 32), ChargeBytes: int64(particleCount * 8)}
 	alloc := b.rt.AllocateMemory
 	if b.UseUnifiedMemory {
 		alloc = b.rt.AllocateUnifiedMemory
 	}
-
-	b.GPosX = alloc(b.Context, posBytes)
-	b.GPosY = alloc(b.Context, posBytes)
-	b.GPosZ = alloc(b.Context, posBytes)
-	b.GForceX = alloc(b.Context, posBytes)
-	b.GForceY = alloc(b.Context, posBytes)
-	b.GForceZ = alloc(b.Context, posBytes)
-	b.GEnergy = alloc(b.Context, posBytes)
-	b.GNeighborList = alloc(b.Context, neighBytes)
-	b.GNeighborCount = alloc(b.Context, ncountBytes)
-
-	b.Upload(b.rt, b.Queue, b.GPosX, b.HPosX)
-	b.Upload(b.rt, b.Queue, b.GPosY, b.HPosY)
-	b.Upload(b.rt, b.Queue, b.GPosZ, b.HPosZ)
-	b.Upload(b.rt, b.Queue, b.GNeighborList, b.HNeighborList)
-	b.Upload(b.rt, b.Queue, b.GNeighborCount, b.HNeighborCount)
+	b.GBoxes = alloc(b.Context, uint64(b.Dim.BoxBytes))
+	b.GPositions = alloc(b.Context, uint64(b.Dim.VectorBytes))
+	b.GCharges = alloc(b.Context, uint64(b.Dim.ChargeBytes))
+	b.GForces = alloc(b.Context, uint64(b.Dim.VectorBytes))
+	b.Upload(b.rt, b.Queue, b.GBoxes, boxes)
+	b.Upload(b.rt, b.Queue, b.GPositions, b.Positions)
+	b.Upload(b.rt, b.Queue, b.GCharges, b.Charges)
+	b.Upload(b.rt, b.Queue, b.GForces, make([]Vector, particleCount))
 }
+
+const alpha = 0.5
 
 func (b *Benchmark) exec() {
 	args := KernelArgs{
-		PosX:            b.GPosX,
-		PosY:            b.GPosY,
-		PosZ:            b.GPosZ,
-		ForceX:          b.GForceX,
-		ForceY:          b.GForceY,
-		ForceZ:          b.GForceZ,
-		EnergyOut:       b.GEnergy,
-		NeighborList:    b.GNeighborList,
-		NeighborCount:   b.GNeighborCount,
-		ParticlesPerBox: int32(b.ParticlesPerBox),
-		TotalBoxes:      int32(b.TotalBoxes),
+		Alpha: alpha, Dim: b.Dim, Boxes: b.GBoxes, Positions: b.GPositions,
+		Charges: b.GCharges, Forces: b.GForces,
 	}
-
-	// Grid: one workgroup per box, blockSize work-items per workgroup.
-	globalX := uint32(b.TotalBoxes) * blockSize
-
-	b.rt.EnqueueLaunchKernel(
-		b.Queue,
-		b.hsaco,
-		[3]uint32{globalX, 1, 1},
-		[3]uint16{blockSize, 1, 1},
-		&args,
-	)
+	grid := [3]uint32{uint32(b.Dim.NumberBoxes) * blockSize, 1, 1}
+	group := [3]uint16{blockSize, 1, 1}
+	b.rt.EnqueueLaunchKernel(b.Queue, b.hsaco, grid, group, &args)
 }
 
-// Verify checks the GPU result against a CPU reference computation.
-//
-//nolint:funlen // Keep the CPU reference algorithm and comparison together.
 func (b *Benchmark) verify() error {
-	gpuFX := make([]float32, b.TotalParticles)
-	gpuFY := make([]float32, b.TotalParticles)
-	gpuFZ := make([]float32, b.TotalParticles)
-	gpuPE := make([]float32, b.TotalParticles)
-	if err := benchmarks.Read(b.rt, b.Readbacks[0], gpuFX); err != nil {
+	actual := make([]Vector, len(b.Positions))
+	if err := benchmarks.Read(b.rt, b.Readbacks[0], actual); err != nil {
 		return err
 	}
-	if err := benchmarks.Read(b.rt, b.Readbacks[1], gpuFY); err != nil {
-		return err
-	}
-	if err := benchmarks.Read(b.rt, b.Readbacks[2], gpuFZ); err != nil {
-		return err
-	}
-	if err := benchmarks.Read(b.rt, b.Readbacks[3], gpuPE); err != nil {
-		return err
-	}
-
-	ppb := b.ParticlesPerBox
-
-	for boxID := 0; boxID < b.TotalBoxes; boxID++ {
-		baseI := boxID * ppb
-		nNeighbors := int(b.HNeighborCount[boxID])
-
-		for p := 0; p < ppb; p++ {
-			i := baseI + p
-			px := b.HPosX[i]
-			py := b.HPosY[i]
-			pz := b.HPosZ[i]
-
-			var fx, fy, fz, pe float32
-
-			for n := 0; n < nNeighbors; n++ {
-				nbox := int(b.HNeighborList[boxID*27+n])
-				baseJ := nbox * ppb
-
-				for q := 0; q < ppb; q++ {
-					j := baseJ + q
-
-					dx := px - b.HPosX[j]
-					dy := py - b.HPosY[j]
-					dz := pz - b.HPosZ[j]
-
-					r2 := dx*dx + dy*dy + dz*dz
-
-					if r2 > 1e-10 {
-						r2inv := float32(1.0) / r2
-						r6inv := r2inv * r2inv * r2inv
-
-						force := r2inv * r6inv * (ljA*r6inv - ljB)
-						pe += r6inv * (ljA*r6inv - ljB)
-
-						fx += force * dx
-						fy += force * dy
-						fz += force * dz
-					}
+	for box := 0; box < int(b.Dim.NumberBoxes); box++ {
+		neighbors := append([]int{box}, b.neighborBoxes(box)...)
+		for i := 0; i < calibratedParticles; i++ {
+			index := box*calibratedParticles + i
+			position := b.Positions[index]
+			var want Vector
+			for _, otherBox := range neighbors {
+				start := otherBox * calibratedParticles
+				for j := start; j < start+calibratedParticles; j++ {
+					other := b.Positions[j]
+					r2 := position.V + other.V - (position.X*other.X + position.Y*other.Y + position.Z*other.Z)
+					value := math.Exp(-2 * alpha * alpha * r2)
+					force, charge := 2*value, b.Charges[j]
+					want.V += charge * value
+					want.X += charge * (force * (position.X - other.X))
+					want.Y += charge * (force * (position.Y - other.Y))
+					want.Z += charge * (force * (position.Z - other.Z))
 				}
 			}
-
-			checkClose(i, "force_x", fx, gpuFX[i])
-			checkClose(i, "force_y", fy, gpuFY[i])
-			checkClose(i, "force_z", fz, gpuFZ[i])
-			checkClose(i, "energy", pe, gpuPE[i])
+			got := actual[index]
+			for component, value := range []float64{got.V, got.X, got.Y, got.Z} {
+				ref := []float64{want.V, want.X, want.Y, want.Z}[component]
+				if math.IsNaN(value) || math.IsInf(value, 0) || math.Abs(value-ref) > 1e-10*math.Max(1, math.Abs(ref)) {
+					return fmt.Errorf("particle %d component %d: got %g, expected %g", index, component, value, ref)
+				}
+			}
 		}
 	}
-
 	log.Printf("Passed!\n")
-
 	return nil
 }
 
 func (b *Benchmark) enqueueVerification() {
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceX, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceY, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForceZ, 4*(b.TotalParticles)))
-	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GEnergy, 4*(b.TotalParticles)))
-}
-
-func checkClose(idx int, name string, ref, got float32) {
-	denom := math.Abs(float64(ref))
-	if denom < 1.0 {
-		denom = 1.0
-	}
-	if math.Abs(float64(ref-got))/denom > 1e-3 {
-		log.Fatalf("At particle %d, %s expected %f, but got %f.\n",
-			idx, name, ref, got)
-	}
+	b.Readbacks = append(b.Readbacks, benchmarks.Download(b.rt, b.Queue, b.GForces, int(b.Dim.VectorBytes)))
 }
 
 // Step submits computation, then verification readback, then consumes results.

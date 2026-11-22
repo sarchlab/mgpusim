@@ -194,21 +194,7 @@ func (b *Benchmark) Step() error {
 		}
 		b.Phase = 3
 	case 3:
-		if !b.Verification {
-			b.Ended = true
-			return nil
-		}
-		if b.NoConflictResult != nil {
-			if err := b.verify(b.NoConflictResult); err != nil {
-				return err
-			}
-		}
-		if b.AccessPattern == "no_conflict" {
-			b.Ended = true
-			return nil
-		}
-		b.Readback = benchmarks.Download(b.rt, b.Queue, b.GSink, 4*b.NumBlocks*b.BlockSize)
-		b.Phase = 4
+		return b.verifyBeforeConflict()
 	case 4:
 		conflict := make([]float32, b.NumBlocks*b.BlockSize)
 		if err := benchmarks.Read(b.rt, b.Readback, conflict); err != nil {
@@ -220,5 +206,24 @@ func (b *Benchmark) Step() error {
 		}
 		b.Ended = true
 	}
+	return nil
+}
+
+func (b *Benchmark) verifyBeforeConflict() error {
+	if !b.Verification {
+		b.Ended = true
+		return nil
+	}
+	if b.NoConflictResult != nil {
+		if err := b.verify(b.NoConflictResult); err != nil {
+			return err
+		}
+	}
+	if b.AccessPattern == "no_conflict" {
+		b.Ended = true
+		return nil
+	}
+	b.Readback = benchmarks.Download(b.rt, b.Queue, b.GSink, 4*b.NumBlocks*b.BlockSize)
+	b.Phase = 4
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
@@ -30,41 +31,12 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-// CDNA3KernelArgs defines kernel arguments for CDNA3 (GFX942).
-// The CDNA3 kernel uses __shared__ memory, so no Smem parameter.
-//
-//	offset 0x00: Work               (8 bytes, global_buffer)
-//	offset 0x08: HiddenBlockCountX  (4 bytes)
-//	offset 0x0c: HiddenBlockCountY  (4 bytes)
-//	offset 0x10: HiddenBlockCountZ  (4 bytes)
-//	offset 0x14: HiddenGroupSizeX   (2 bytes)
-//	offset 0x16: HiddenGroupSizeY   (2 bytes)
-//	offset 0x18: HiddenGroupSizeZ   (2 bytes)
-//	offset 0x1a: HiddenRemainderX   (2 bytes)
-//	offset 0x1c: HiddenRemainderY   (2 bytes)
-//	offset 0x1e: HiddenRemainderZ   (2 bytes)
-//	offset 0x20: Padding2           (16 bytes)
-//	offset 0x30: HiddenGlobalOffsetX (8 bytes)
-//	offset 0x38: HiddenGlobalOffsetY (8 bytes)
-//	offset 0x40: HiddenGlobalOffsetZ (8 bytes)
-//	offset 0x48: HiddenGridDims     (2 bytes)
-type CDNA3KernelArgs struct {
-	Work                gpuruntime.Ptr
-	HiddenBlockCountX   uint32
-	HiddenBlockCountY   uint32
-	HiddenBlockCountZ   uint32
-	HiddenGroupSizeX    uint16
-	HiddenGroupSizeY    uint16
-	HiddenGroupSizeZ    uint16
-	HiddenRemainderX    uint16
-	HiddenRemainderY    uint16
-	HiddenRemainderZ    uint16
-	Padding2            [16]byte
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-	HiddenGridDims      uint16
+type nativeFFTArgs struct {
+	Work   gpuruntime.Ptr
+	Launch benchmarks.GFX942LaunchDimensions
 }
+
+type Double2 struct{ X, Y float64 }
 
 // Benchmark defines a benchmark
 type Benchmark struct {
@@ -72,7 +44,7 @@ type Benchmark struct {
 	benchmarks.Checkpoint[State]
 	rt *gpuruntime.Runtime
 
-	fftKernel *insts.KernelCodeObject
+	fftKernel, inverseKernel *insts.KernelCodeObject
 }
 
 // NewBenchmark returns a benchmark
@@ -103,17 +75,20 @@ var gcn3HSACOBytes []byte
 var cdna3HSACOBytes []byte
 
 func (b *Benchmark) loadProgram() {
-	var hsacoBytes []byte
-	if b.Arch == arch.CDNA3 {
-		hsacoBytes = cdna3HSACOBytes
+	if b.Arch != arch.CDNA3 {
+		b.fftKernel = insts.LoadKernelCodeObjectFromBytes(gcn3HSACOBytes, "fft1D_512")
 	} else {
-		hsacoBytes = gcn3HSACOBytes
+		forward := "_Z13FFT512_deviceI15HIP_vector_typeIfLj2EEfEvPT_"
+		inverse := "_Z14IFFT512_deviceI15HIP_vector_typeIfLj2EEfEvPT_"
+		if b.Precision == "double" {
+			forward = "_Z13FFT512_deviceI15HIP_vector_typeIdLj2EEdEvPT_"
+			inverse = "_Z14IFFT512_deviceI15HIP_vector_typeIdLj2EEdEvPT_"
+		}
+		b.fftKernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, forward)
+		b.inverseKernel = insts.LoadKernelCodeObjectFromBytes(cdna3HSACOBytes, inverse)
 	}
-
-	b.fftKernel = insts.LoadKernelCodeObjectFromBytes(
-		hsacoBytes, "fft1D_512")
-	if b.fftKernel == nil {
-		log.Panic("Failed to load kernel binary")
+	if b.fftKernel == nil || (b.Arch == arch.CDNA3 && b.inverseKernel == nil) {
+		log.Panic("failed to load the FFT kernel")
 	}
 }
 
@@ -128,6 +103,10 @@ func (b *Benchmark) setup() {
 }
 
 func (b *Benchmark) initMem() {
+	if b.Arch == arch.CDNA3 {
+		b.initNativeFFT()
+		return
+	}
 	if !b.BytesMode {
 		b.Bytes = b.Bytes * 1024 * 1024
 	}
@@ -150,18 +129,71 @@ func (b *Benchmark) initMem() {
 	b.Upload(b.rt, b.Queue, b.DSource, b.Source)
 }
 
-func (b *Benchmark) exec() {
-	localWorkSize := int64(64)
-	vectorGlobalWSize := localWorkSize * b.NFfts
+func (b *Benchmark) initNativeFFT() {
+	if b.Precision != "" && b.Precision != "float" && b.Precision != "double" {
+		panic("FFT precision must be float or double")
+	}
+	elementBytes := int64(8)
+	if b.Precision == "double" {
+		elementBytes = 16
+	}
+	b.NFfts = b.Transforms
+	if b.NFfts == 0 {
+		length := b.Bytes
+		if !b.BytesMode {
+			length *= 1024 * 1024
+		}
+		b.NFfts = length / (512 * elementBytes)
+	}
+	if b.NFfts <= 0 {
+		panic("FFT configuration must contain at least one complete transform")
+	}
+	count := b.NFfts * 512
+	b.UsedBytes = uint64(count * elementBytes)
+	alloc := b.rt.AllocateMemory
+	if b.UseUnifiedMemory {
+		alloc = b.rt.AllocateUnifiedMemory
+	}
+	b.DSource = alloc(b.Context, b.UsedBytes)
+	rand := benchmarks.NewGlibcRand(42)
+	next := func() float32 { return float32(rand.Next())/2147483647*2 - 1 }
+	if b.Precision == "double" {
+		b.DoubleSource, b.DoubleResult = make([]Double2, count), make([]Double2, count)
+		for i := range b.DoubleSource {
+			b.DoubleSource[i] = Double2{float64(next()), float64(next())}
+		}
+		b.Upload(b.rt, b.Queue, b.DSource, b.DoubleSource)
+		return
+	}
+	b.Source, b.Result = make([]Float2, count), make([]Float2, count)
+	for i := range b.Source {
+		b.Source[i] = Float2{next(), next()}
+	}
+	b.Upload(b.rt, b.Queue, b.DSource, b.Source)
+}
 
-	globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
-	localSize := [3]uint16{uint16(localWorkSize), 1, 1}
-
+func (b *Benchmark) launchNativeFFT() {
+	slices := int64(1)
+	for b.NFfts/slices > 65535 {
+		slices *= 2
+	}
+	grid := [3]uint32{uint32(b.NFfts / slices * 64), uint32(slices), 1}
+	block := [3]uint16{64, 1, 1}
+	args := nativeFFTArgs{Work: b.DSource, Launch: benchmarks.NewGFX942LaunchDimensions(grid, block)}
 	for k := int32(0); k < b.Passes; k++ {
-		if b.Arch == arch.CDNA3 {
-			b.execCDNA3(globalSize, localSize)
-		} else {
-			b.execGCN3(globalSize, localSize)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.fftKernel, grid, block, &args)
+		b.rt.EnqueueLaunchKernel(b.Queue, b.inverseKernel, grid, block, &args)
+	}
+}
+
+func (b *Benchmark) exec() {
+	if b.Arch == arch.CDNA3 {
+		b.launchNativeFFT()
+	} else {
+		local := [3]uint16{64, 1, 1}
+		grid := [3]uint32{uint32(64 * b.NFfts), 1, 1}
+		for k := int32(0); k < b.Passes; k++ {
+			b.execGCN3(grid, local)
 		}
 	}
 	b.Readbacks = append(b.Readbacks, benchmarks.Readback{Source: b.DSource, Target: 0})
@@ -187,23 +219,34 @@ func (b *Benchmark) execGCN3(
 	)
 }
 
-func (b *Benchmark) execCDNA3(
-	globalSize [3]uint32,
-	localSize [3]uint16,
-) {
-	args := CDNA3KernelArgs{
-		Work: b.DSource,
+func (b *Benchmark) verifyRoundTrip() error {
+	passed := func(dx, dy float64) bool {
+		errorSum := math.Abs(dx) + math.Abs(dy)
+		return !math.IsNaN(errorSum) && errorSum < 1e-2
 	}
-
-	b.rt.EnqueueLaunchKernel(b.Queue,
-		b.fftKernel,
-		globalSize, localSize,
-		&args,
-	)
+	if b.Precision == "double" {
+		for i, gpu := range b.DoubleResult {
+			source := b.DoubleSource[i]
+			if !passed(gpu.X-source.X, gpu.Y-source.Y) {
+				return fmt.Errorf("double FFT round-trip failed at sample %d", i)
+			}
+		}
+	} else {
+		for i, gpu := range b.Result {
+			source := b.Source[i]
+			if !passed(float64(gpu.X)-float64(source.X), float64(gpu.Y)-float64(source.Y)) {
+				return fmt.Errorf("FFT round-trip failed at sample %d", i)
+			}
+		}
+	}
+	log.Printf("Passed!\n")
+	return nil
 }
 
-// Verify verifies
 func (b *Benchmark) verify() error {
+	if b.Arch == arch.CDNA3 {
+		return b.verifyRoundTrip()
+	}
 	mismatch := false
 
 	if b.fftCPU() == 1 {
@@ -273,6 +316,9 @@ func (b *Benchmark) Step() error {
 			switch b.Readbacks[i].Target {
 			case 0:
 				dst = b.Result
+				if b.Arch == arch.CDNA3 && b.Precision == "double" {
+					dst = b.DoubleResult
+				}
 			}
 			b.Readbacks[i].Buffer = benchmarks.Download(b.rt, b.Queue, b.Readbacks[i].Source, binary.Size(dst))
 		}
@@ -283,6 +329,9 @@ func (b *Benchmark) Step() error {
 			switch copy.Target {
 			case 0:
 				dst = b.Result
+				if b.Arch == arch.CDNA3 && b.Precision == "double" {
+					dst = b.DoubleResult
+				}
 			}
 			if err := benchmarks.Read(b.rt, copy.Buffer, dst); err != nil {
 				return err

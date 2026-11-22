@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -52,3 +54,25 @@ var _ = Describe("FetchArbiter", func() {
 		Expect(wfs[0].execution().LastFetchTime).To(Equal(timing.VTimeInPicoSec(9500)))
 	})
 })
+
+func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
+	group := checkpointGroup(checkpointCU(t))
+	wave := group.waves()[0]
+	group.packet().KernelObject = 0x10000
+	code := &group.raw().CodeObject
+	code.Present, code.HasSymbol, code.HasMeta = true, true, true
+	code.Meta.KernelCodeEntryByteOffset = 0x1800
+	code.Symbol.Size = 64
+
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x11800
+	arbiter := FetchArbiter{InstBufByteSize: 256}
+	if !arbiter.canFetchFromWF(wave) {
+		t.Fatal("refused the first instruction at the linked kernel entry")
+	}
+	state.InstBuffer = make([]byte, 64)
+	if arbiter.canFetchFromWF(wave) {
+		t.Fatal("allowed a fetch beyond the linked kernel instructions")
+	}
+}

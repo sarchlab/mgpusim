@@ -10,7 +10,9 @@ import (
 // the original relative addresses. This is needed for PC-relative references
 // to a constant lookup table. Writable state and dynamic relocations require
 // an ELF loader with additional support.
-func LoadGFX942KernelWithReadOnlyData(data []byte, name string) *KernelCodeObject {
+func LoadGFX942KernelWithReadOnlyData(
+	data []byte, name string, constantsByName ...ReadOnlyConstant,
+) *KernelCodeObject {
 	executable, err := elf.NewFile(bytes.NewReader(data))
 	if err != nil {
 		log.Panicf("open gfx942 code object: %v", err)
@@ -36,6 +38,7 @@ func LoadGFX942KernelWithReadOnlyData(data []byte, name string) *KernelCodeObjec
 	if err != nil {
 		log.Panicf("read gfx942 constants: %v", err)
 	}
+	applyReadOnlyConstants(executable, section, constants, constantsByName)
 	entry := code.Symbol.Value
 	base := min(section.Addr, entry)
 	end := max(section.Addr+uint64(len(constants)), entry+uint64(len(code.Data)))
@@ -48,4 +51,37 @@ func LoadGFX942KernelWithReadOnlyData(data []byte, name string) *KernelCodeObjec
 	code.Data = image
 	code.KernelCodeEntryByteOffset = entry - base
 	return code
+}
+
+// ReadOnlyConstant initializes a named .rodata object before a code image is
+// uploaded. Data can initialize all or a leading portion of the symbol.
+type ReadOnlyConstant struct {
+	Name string
+	Data []byte
+}
+
+func applyReadOnlyConstants(file *elf.File, section *elf.Section, data []byte, patches []ReadOnlyConstant) {
+	if len(patches) == 0 {
+		return
+	}
+	symbols, err := file.Symbols()
+	if err != nil {
+		log.Panicf("read gfx942 data symbols: %v", err)
+	}
+	for _, patch := range patches {
+		var target *elf.Symbol
+		for i, symbol := range symbols {
+			if symbol.Name == patch.Name && elf.ST_TYPE(symbol.Info) == elf.STT_OBJECT &&
+				int(symbol.Section) < len(file.Sections) && file.Sections[symbol.Section] == section {
+				target = &symbols[i]
+				break
+			}
+		}
+		if target == nil || target.Value < section.Addr || uint64(len(patch.Data)) > target.Size ||
+			target.Value-section.Addr > uint64(len(data)) ||
+			uint64(len(patch.Data)) > uint64(len(data))-(target.Value-section.Addr) {
+			log.Panicf("invalid gfx942 read-only constant %q", patch.Name)
+		}
+		copy(data[target.Value-section.Addr:], patch.Data)
+	}
 }
