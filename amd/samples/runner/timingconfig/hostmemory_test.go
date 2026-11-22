@@ -153,6 +153,10 @@ func (h *hostBench) saturate(t *testing.T, clients []*hostClient, requests int) 
 	if err := h.s.Run(); err != nil {
 		t.Fatal(err)
 	}
+	if h.traffic.done != requests {
+		t.Fatalf("%d requests completed, %d issued, want %d",
+			h.traffic.done, requests-h.traffic.budget, requests)
+	}
 	return float64((h.traffic.done-1)*hostLineBytes) / (float64(h.traffic.last-h.traffic.first) / 1000)
 }
 
@@ -240,7 +244,13 @@ func TestHostMemoryPathLatency(t *testing.T) {
 
 // Page-table reads queue behind GPU DMA to the same channel.
 func TestGPUDMADelaysPageTableReads(t *testing.T) {
-	const samples = 10
+	const (
+		samples = 10
+		// maxRequests outlasts the walker's reads at the rate of one channel
+		// and, at the largest stride, stays below 100 MB of the backing store.
+		// A walker that stops responding ends the run when it is used up.
+		maxRequests = 100_000
+	)
 	for _, p := range hostPlatforms {
 		t.Run(p.name, func(t *testing.T) {
 			idle := buildHostBench(t, p.name, 2, 1, hostClientWindow)
@@ -248,7 +258,7 @@ func TestGPUDMADelaysPageTableReads(t *testing.T) {
 
 			bench := buildHostBench(t, p.name, p.gpus, 1, hostClientWindow)
 			bench.traffic.stride = uint64(p.spec.Channels) * hostLineBytes // every read hits one channel
-			bench.traffic.budget = 1 << 30
+			bench.traffic.budget = maxRequests
 			walker := bench.host[0]
 			walker.onRsp = func() {
 				if len(walker.rtts) >= samples {
