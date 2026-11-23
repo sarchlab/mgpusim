@@ -282,6 +282,7 @@ func TestCheckpointRestoresVectorPipelinesInFlight(t *testing.T) {
 	if err := f.simulation.SaveCheckpoint(path); err != nil {
 		t.Fatal(err)
 	}
+	ticksAtCheckpoint := len(f.ticks.cycles)
 	f.run()
 
 	restored := newVMUFixture(t, spec)
@@ -299,7 +300,7 @@ func TestCheckpointRestoresVectorPipelinesInFlight(t *testing.T) {
 	if len(f.port.sends) != 3 || !slices.Equal(restored.port.sends, f.port.sends) {
 		t.Fatalf("restored sends %v, uninterrupted %v", restored.port.sends, f.port.sends)
 	}
-	if !slices.Equal(restored.ticks.cycles, f.ticks.cycles[len(f.ticks.cycles)-len(restored.ticks.cycles):]) {
-		t.Fatalf("restored ticks %v, uninterrupted %v", restored.ticks.cycles, f.ticks.cycles)
+	if want := f.ticks.cycles[ticksAtCheckpoint:]; !slices.Equal(restored.ticks.cycles, want) {
+		t.Fatalf("restored ticks %v, want uninterrupted suffix %v", restored.ticks.cycles, want)
 	}
 }
