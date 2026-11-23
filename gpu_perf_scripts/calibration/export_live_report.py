@@ -1,6 +1,8 @@
 """Export an MGPUSim MI300X live sweep for the shared calibration report."""
 
 import argparse
+from collections import Counter
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -32,6 +34,36 @@ def parse_parameters(series):
 
 def nanoseconds(value, scale):
     return None if value is None else round(value * scale)
+
+
+def render_timestamp(timestamp):
+    if timestamp is None:
+        return None
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
+
+
+def run_progress(snapshot):
+    cases = snapshot["cases"]
+    counts = Counter(case["status"] for case in cases)
+    starts = []
+    for case in cases:
+        start = case.get("started_at")
+        if start is None and case.get("finished_at") is not None and case.get("wall_seconds") is not None:
+            start = case["finished_at"] - case["wall_seconds"]
+        if start is not None:
+            starts.append(start)
+    started_at = snapshot.get("started_at")
+    if started_at is None:
+        started_at = min(starts, default=None)
+    return {
+        "started_at": render_timestamp(started_at),
+        "updated_at": render_timestamp(snapshot.get("updated_at")),
+        "total": len(cases),
+        "completed": counts["complete"],
+        "running": counts["running"],
+        "queued": counts["queued"],
+        "unsuccessful": len(cases) - counts["complete"] - counts["running"] - counts["queued"],
+    }
 
 
 def convert(snapshot):
@@ -75,14 +107,17 @@ def convert(snapshot):
             },
         })
 
+    progress = run_progress(snapshot)
     return {
         "report": {
             "title": "MGPUSim MI300X calibration",
             "description": "Kernel time from the GPU Benchmarks v1.1 MI300X measurements and the matching MGPUSim configurations.",
+            "live": progress["running"] > 0 or progress["queued"] > 0,
+            "groups": {GROUP: {"name": "AMD MI300X"}},
         },
-        "groups": {GROUP: {"name": "AMD MI300X"}},
+        "progress": progress,
         "benchmarks": benchmarks,
-        "points": points,
+        "data": points,
     }
 
 
