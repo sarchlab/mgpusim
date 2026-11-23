@@ -76,6 +76,10 @@ def convert(snapshot):
         })
 
     return {
+        "report": {
+            "title": "MGPUSim MI300X calibration",
+            "description": "Kernel time from the GPU Benchmarks v1.1 MI300X measurements and the matching MGPUSim configurations.",
+        },
         "groups": {GROUP: {"name": "AMD MI300X"}},
         "benchmarks": benchmarks,
         "points": points,
