@@ -121,6 +121,9 @@ func newReporter(s *simulation.Simulation) *reporter {
 
 func (r *reporter) injectTracers(s *simulation.Simulation) {
 	r.injectKernelTimeTracer(s)
+	if *reportKernelDispatches {
+		r.injectKernelDispatchRecorder(s)
+	}
 	r.injectInstCountTracer(s)
 	r.injectCUCPIHook(s)
 	r.injectCacheLatencyTracer(s)
