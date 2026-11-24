@@ -194,6 +194,13 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
+def same_dispatch(hardware, simulated, demangled):
+    return (
+        same_kernel(hardware[0], demangled[simulated[0]])
+        and list(simulated[1:-1]) == hardware[1:-1]
+    )
+
+
 def report(reference, results, version, revision, *, live=False):
     durations = []
     all_simulated = (
@@ -248,12 +255,22 @@ def report(reference, results, version, revision, *, live=False):
             state = run["status"]
             hardware = case["launches"]
             simulated = run.get("launches", [])
+            # The cache-latency sample launches a primer before the measured
+            # pointer chase. The hardware reference records only the latter.
+            if (
+                bench == "cache_latency"
+                and len(hardware) == 1
+                and len(simulated) == 2
+                and base_kernel_name(hardware[0][0]) == "pointer_chase_kernel"
+                and same_dispatch(hardware[0], simulated[0], demangled)
+            ):
+                simulated = simulated[1:]
+
             paired = [None] * len(hardware)
             if len(simulated) == len(hardware):
                 for index, (real, sim) in enumerate(zip(hardware, simulated)):
                     if (
-                        same_kernel(real[0], demangled[sim[0]])
-                        and list(sim[1:-1]) == real[1:-1]
+                        same_dispatch(real, sim, demangled)
                         and math.isfinite(sim[-1])
                         and sim[-1] > 0
                     ):
