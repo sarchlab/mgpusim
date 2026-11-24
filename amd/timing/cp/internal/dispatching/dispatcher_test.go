@@ -133,6 +133,45 @@ var _ = Describe("Dispatcher", func() {
 		Expect(dispatcher.state().Inflight).To(HaveLen(1))
 	})
 
+	DescribeTable("should throttle each die by the work-group and wavefront rates",
+		func(cycles, wavesPerPeriod, minimum, waves, interval int) {
+			dispatcher = MakeBuilder().
+				WithCP(cp).
+				WithPortSource(&fakePortSource{ports: map[string]messaging.Port{
+					"ToCUs": dispatchingPort,
+				}}).
+				WithDispatchingPortName("ToCUs").
+				WithAlg("per-die").
+				WithPerDieDispatchRate(cycles, wavesPerPeriod, minimum).
+				Build("dispatcher").(*DispatcherImpl)
+			die := NewMockdieAwareAlgorithm(ctrl)
+			dispatcher.dieAware = die
+			dispatcher.state().Dispatching = makeLaunchReq()
+			location := dispatchLocation{
+				valid:     true,
+				wg:        kernels.NewWorkGroup(testNewID()),
+				cu:        "CU0",
+				locations: make([]protocol.WfDispatchLocation, waves),
+			}
+			dispatchingPort.EXPECT().CanSend().Return(true).Times(2)
+			dispatchingPort.EXPECT().Send(gomock.Any()).Times(2)
+			die.EXPECT().NextForDie(0).Return(location).Times(2)
+
+			Expect(dispatcher.tickPerDie()).To(BeTrue())
+			Expect(dispatcher.state().NumDispatchedWGs).To(Equal(1))
+			for i := 1; i < interval; i++ {
+				Expect(dispatcher.tickPerDie()).To(BeTrue())
+				Expect(dispatcher.state().NumDispatchedWGs).To(Equal(1))
+			}
+			Expect(dispatcher.tickPerDie()).To(BeTrue())
+			Expect(dispatcher.state().NumDispatchedWGs).To(Equal(2))
+		},
+		Entry("legacy cycles per wavefront", 2, 0, 0, 4, 8),
+		Entry("small work-group limited by the work-group rate", 21, 16, 10, 4, 10),
+		Entry("fractional wavefront cost rounded up", 21, 16, 10, 8, 11),
+		Entry("large work-group limited by the wavefront rate", 21, 16, 10, 16, 21),
+	)
+
 	It("should wait until cycle left becomes 0", func() {
 		req := makeLaunchReq()
 		dispatcher.state().Dispatching = req

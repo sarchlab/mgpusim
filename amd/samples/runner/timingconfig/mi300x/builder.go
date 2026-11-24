@@ -781,25 +781,21 @@ func (b *Builder) buildDMAEngine() {
 func (b *Builder) buildCP() {
 	spec := cp.DefaultSpec()
 	spec.Freq = b.freq
-	// No fixed kernel launch/teardown overhead is modeled. The empty_kernel floor
-	// (~8.66 us at 1 WG) is launch_sync_us -- a host round-trip (CPU launch + API +
-	// device sync) that is NOT GPU time. Modeling it as a fixed GPU launch latency
-	// would fake host cost as device cost; the calibration metric anchors the floor
-	// out (error is measured relative to the smallest-grid point), so only the
-	// per-WG dispatch slope matters and it is unaffected. Leave all three overheads
-	// at zero unless/until a GPU-side launch measurement exists.
+	// This calibration changes the sustained dispatch rates only. The
+	// fixed launch and completion delays are separate from those rates.
 	spec.ConstantKernelLaunchOverhead = 0
 	spec.SubsequentKernelLaunchOverhead = 0
 	spec.ConstantKernelOverhead = 0
 
-	// Per-die (per-XCD) dispatch: a kernel's work-groups are split into NumXCD
-	// contiguous blocks (one per die) and dispatched across the 8 XCDs in
-	// parallel, each XCD dispatching 1 wavefront / 2 cycles. For a 256-thread
-	// (4-wavefront) WG that is 8 cycles/WG per die, so 8 dies aggregate to ~1
-	// WG/cycle = ~0.48 ns/WG at 2.1 GHz, matching the empty_kernel sweep slope.
+	// Calibrate the effective per-XCD rates from the GPU-side empty-kernel
+	// dispatch sweep. Across eight XCDs at 2.1 GHz, 10 cycles per work-group
+	// and 21 cycles per 16 wavefronts reproduce the two sustained rates
+	// observed in the sweep (about 0.60 and 1.26 ns per work-group).
 	spec.Alg = "per-die"
 	spec.NumDies = NumXCD
-	spec.WavefrontDispatchCycles = 2
+	spec.WavefrontDispatchCycles = 21
+	spec.WavefrontsPerDispatchPeriod = 16
+	spec.MinWorkGroupDispatchCycles = 10
 
 	spec.Driver = b.driverPort
 	spec.DMAEngine = b.dmaEngine.Ports.ToCP.AsRemote()
