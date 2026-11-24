@@ -47,6 +47,7 @@ func buildStandaloneGPU(
 	gpuType string,
 	log2PageSize uint64,
 	basePortsOnly bool,
+	configure func(gpubuilder.GPUBuilder) gpubuilder.GPUBuilder,
 ) standaloneGPU {
 	t.Helper()
 
@@ -93,6 +94,9 @@ func buildStandaloneGPU(
 			WithLog2PageSize(log2PageSize).WithGlobalStorage(storage).WithDriverPort("Driver.GPU")
 	}
 
+	if configure != nil {
+		builder = configure(builder)
+	}
 	gpu := builder.
 		WithGPUID(1).
 		WithMemAddrOffset(deviceBytes).
@@ -126,7 +130,9 @@ func buildStandaloneGPU(
 
 	runtimeSpec := gpuruntime.DefaultRuntimeSpec()
 	runtimeSpec.Log2PageSize = log2PageSize
-	runtimeSpec.Devices = []gpuruntime.DeviceProperties{{CUCount: 1, DRAMSize: deviceBytes}}
+	runtimeSpec.Devices = []gpuruntime.DeviceProperties{
+		{CUCount: len(gpu.CommandProcessor.Spec.CUs), DRAMSize: deviceBytes},
+	}
 
 	rt := gpuruntime.NewRuntime(s, "Runtime", runtimeSpec, pageTable, storage)
 	d := driver.MakeBuilder().WithSimulation(s).WithSpec(spec).
@@ -137,10 +143,6 @@ func buildStandaloneGPU(
 		driver.GPUPortName, driver.PageMigrationPortName, driver.MigrationNotificationPortName,
 	} {
 		conn.BindPort(port(d, name))
-	}
-
-	if err := s.Initialize(); err != nil {
-		t.Fatal(err)
 	}
 
 	return standaloneGPU{sim: s, rt: rt, gpu: gpu, driver: d}
@@ -202,7 +204,10 @@ func TestAGPUBuiltOnItsOwnNeedsNoPageMigrationConfiguration(t *testing.T) {
 	for _, g := range gpuTypes {
 		for _, ports := range []string{"every-port", "ports-as-before"} {
 			t.Run(g.name+"/"+ports, func(t *testing.T) {
-				p := buildStandaloneGPU(t, g.name, g.log2PageSize, ports == "ports-as-before")
+				p := buildStandaloneGPU(t, g.name, g.log2PageSize, ports == "ports-as-before", nil)
+				if err := p.sim.Initialize(); err != nil {
+					t.Fatal(err)
+				}
 				p.mustHaveNoDataMover(t)
 				p.mustRunAKernel(t, g.name)
 			})

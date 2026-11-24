@@ -31,9 +31,8 @@ type SimpleRegisterFile struct {
 	owner       *Comp
 	vectorIndex int
 
-	// In vector register, each lane can have up-to 256 VGPRs. Then the offset
-	// difference from v0 lane 0 to v0 lane 1 is 256*4 = 1024B. Field
-	// ByteSizePerLane should be set to 1024 in vector registers.
+	// ByteSizePerLane is the distance in bytes between the same VGPR in
+	// consecutive lanes of this SIMD.
 	ByteSizePerLane int
 }
 
