@@ -813,6 +813,16 @@ var benchmarks = []benchmark{
 	// CDNA3/MI300X (gfx942) architecture tests
 	// Multi-GPU support via unified GPU mode (automatic workgroup distribution)
 	{
+		benchmarkPath:  "../../benchmarks/altis/raytracing",
+		executablePath: "../../samples/altis_raytracing",
+		executable:     "altis_raytracing",
+		// This scene exposes a grazing hit that the CPU reference used to miss.
+		sizeArgs: []string{"-width=64", "-height=512", "-spheres=64", "-disable-rtm"},
+		cases: []benchmarkCase{
+			{gpus: []int{1}, timing: true, arch: "cdna3", gpuType: "mi300x"},
+		},
+	},
+	{
 		benchmarkPath:  "../../benchmarks/dnn/layer_benchmarks/conv2d",
 		executablePath: "../../samples/conv2d",
 		executable:     "conv2d",
