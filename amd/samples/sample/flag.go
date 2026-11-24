@@ -48,6 +48,8 @@ var unifiedGPUFlag = flag.String("unified-gpus", "",
 Use a format like -gpus, such as 1-4 or all. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
+var reportKernelDispatches = flag.Bool("report-kernel-dispatches", false,
+	"Record per-dispatch command-processor times and launch metadata in SQLite.")
 var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
 var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")

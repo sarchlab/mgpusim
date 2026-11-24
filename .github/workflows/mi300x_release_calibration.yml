@@ -1,0 +1,161 @@
+name: MI300X Release Calibration
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      benchmark:
+        description: Optional benchmark to run for a preview
+        type: string
+
+concurrency:
+  group: ${{ github.event_name == 'release' && 'mi300x-release-calibration' || format('mi300x-preview-{0}', github.run_id) }}
+  queue: max
+
+permissions:
+  contents: read
+
+env:
+  CALIBRATION: gpu_perf_scripts/calibration/release/workflow.py
+
+jobs:
+  plan:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    outputs:
+      series: ${{ steps.matrix.outputs.series }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - id: matrix
+        env:
+          BENCHMARK: ${{ inputs.benchmark }}
+          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          series=$(python3 "$CALIBRATION" matrix --benchmark "$BENCHMARK")
+          echo "series=$series" >> "$GITHUB_OUTPUT"
+          python3 -c 'import json,sys; print(json.dumps({
+              "series": json.loads(sys.argv[1]), "version": sys.argv[2], "revision": sys.argv[3]
+          }))' "$series" "$VERSION" "$GITHUB_SHA" > calibration-plan.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calibration-plan
+          path: calibration-plan.json
+          overwrite: true
+
+  sweep:
+    needs: plan
+    name: "${{ matrix.series.benchmark }} (series ${{ matrix.series.id }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 40
+      matrix:
+        series: ${{ fromJSON(needs.plan.outputs.series) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build benchmark and run series
+        env:
+          SAMPLE: ${{ matrix.series.sample }}
+          SERIES: ${{ matrix.series.id }}
+        run: |
+          go build -o "$RUNNER_TEMP/sample" "./amd/samples/$SAMPLE"
+          python3 "$CALIBRATION" run "$SERIES" "$RUNNER_TEMP/sample" result
+      - name: Upload series results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: series-${{ matrix.series.id }}
+          path: result/results.json
+          if-no-files-found: ignore
+          overwrite: true
+      - name: Upload series logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-logs-${{ matrix.series.id }}
+          path: result/runs/*/stdout.log
+          if-no-files-found: ignore
+          overwrite: true
+
+  report:
+    needs: [plan, sweep]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: sarchlab/calibration-report
+          # Report version used for the verified multi-dispatch preview.
+          ref: 373981613f52a657dc775899bcff4b901c90d6f2
+          path: report-template
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: series-*
+          path: artifacts
+      - name: Build report
+        env:
+          BENCHMARK: ${{ inputs.benchmark }}
+          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          python3 gpu_perf_scripts/calibration/release/build_site.py artifacts report-template/site site \
+            --benchmark "$BENCHMARK" --version "$VERSION" --revision "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mi300x-release-calibration-report
+          path: site
+
+  publish:
+    needs: report
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}calibration/releases/${{ github.event.release.tag_name }}/
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: pages
+      - uses: actions/download-artifact@v4
+        with:
+          name: mi300x-release-calibration-report
+          path: report
+      - name: Save versioned report in Pages branch
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          [[ "$VERSION" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]]
+          dest="calibration/releases/$VERSION"
+          mkdir -p "pages/$dest"
+          cp -R report/. "pages/$dest/"
+          git -C pages add -- "$dest"
+          if ! git -C pages diff --cached --quiet; then
+            git -C pages -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Publish MI300X calibration for $VERSION"
+            git -C pages push origin HEAD:gh-pages
+          fi
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: pages
+      - uses: actions/deploy-pages@v4
+        id: deployment
