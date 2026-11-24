@@ -19,6 +19,7 @@ import (
 
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v5/amd/bitops"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
 )
@@ -174,8 +175,7 @@ func (b *Benchmark) exec() {
 	)
 }
 
-// cpuShadePixel computes the RGBA bytes for a single pixel using the exact
-// same float32 math as the kernel, so the result is bit-reproducible.
+// cpuShadePixel computes the reference RGBA bytes for a single pixel.
 func (b *Benchmark) cpuShadePixel(px, py int) [4]byte { //nolint:funlen,gocognit
 	width := b.Width
 	height := b.Height
@@ -189,7 +189,8 @@ func (b *Benchmark) cpuShadePixel(px, py int) [4]byte { //nolint:funlen,gocognit
 	var ox, oy, oz float32 = 0.0, 0.0, 5.0
 	dx, dy, dz := u, v, float32(-1.0)
 
-	length := f32sqrt(dx*dx + dy*dy + dz*dz)
+	// The shipped gfx942 kernel fuses the x square into the rounded y square.
+	length := f32sqrt(bitops.FMAF32(dx, dx, float32(dy*dy)) + 1)
 	dx /= length
 	dy /= length
 	dz /= length
@@ -280,18 +281,21 @@ func intersectSphere(
 	ey := oy - cy
 	ez := oz - cz
 
-	a := dx*dx + dy*dy + dz*dz
-	bb := 2.0 * (ex*dx + ey*dy + ez*dz)
-	c := ex*ex + ey*ey + ez*ez - radius*radius
+	// Match the gfx942 kernel's operation order and fused multiply-adds.
+	// At a grazing intersection, rounding can change the sign of the discriminant.
+	a := bitops.FMAF32(dy, dy, float32(dx*dx)) + float32(dz*dz)
+	b := 2 * (bitops.FMAF32(ey, dy, float32(ex*dx)) + float32(ez*dz))
+	centerDistanceSquared := bitops.FMAF32(ey, ey, float32(ex*ex)) + float32(ez*ez)
+	c := bitops.FMAF32(-radius, radius, centerDistanceSquared)
 
-	disc := bb*bb - 4.0*a*c
+	disc := bitops.FMAF32(b, b, -float32(4*a*c))
 	if disc < 0.0 {
 		return -1.0
 	}
 
 	sq := f32sqrt(disc)
-	t0 := (-bb - sq) / (2.0 * a)
-	t1 := (-bb + sq) / (2.0 * a)
+	t0 := (-b - sq) / (2.0 * a)
+	t1 := (-b + sq) / (2.0 * a)
 
 	if t0 > 0.001 {
 		return t0
