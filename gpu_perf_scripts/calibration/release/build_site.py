@@ -111,29 +111,49 @@ def render_site(data, template, destination, *, launch_counts=None):
                 "../report.css",
                 parent="../",
             )
-    if launch_counts is not None:
-        items = "".join(
-            f'<li><a href="{href}">{escape(label)}</a></li>' for href, label in links
-        )
-        nav = f'<nav aria-label="Benchmark reports"><ul>{items}</ul></nav>'
-        (destination / "index.html").write_text(
-            html.replace("</main>", f"{nav}\n</main>")
-        )
-        atomic_json(destination / "data.json", {**data, "data": [], "benchmarks": {}})
-        return
+    render_overview(data, html, destination, links)
 
-    progress = data["progress"]
-    intro = (
-        f"{progress['completed']:,} of {progress['total']:,} configurations matched. "
-        + data["report"]["description"]
+
+def render_overview(data, html, destination, links):
+    # Keep the landing page responsive even when a benchmark has thousands
+    # of launches. The linked benchmark pages retain every result.
+    charts = defaultdict(list)
+    for point in data["data"]:
+        fixed = tuple(sorted(point["non_scaling_params"].items()))
+        charts[(point["benchmark"], fixed)].append(point)
+    shown = list(charts.values())[:LAUNCHES_PER_PAGE]
+    points = [point for chart in shown for point in chart]
+    names = {point["benchmark"] for point in points}
+    header = dict(data["report"])
+    if len(shown) < len(charts):
+        header["description"] += (
+            f" The overview uses {len(shown):,} of {len(charts):,} available charts. "
+            "Open a benchmark below for its complete results."
+        )
+    atomic_json(
+        destination / "data.json",
+        {
+            **data,
+            "report": header,
+            "benchmarks": {
+                name: meta for name, meta in data["benchmarks"].items() if name in names
+            },
+            "data": points,
+        },
     )
-    link_list(
-        destination / "index.html",
-        data["report"]["title"],
-        intro,
-        links,
-        "./report.css",
+    items = "".join(f'<a href="{href}">{escape(label)}</a>' for href, label in links)
+    navigation = (
+        f'<nav class="benchmark-links" aria-label="Benchmark reports">{items}</nav>'
     )
+    style = """<style>
+.benchmark-links { display: flex; flex-wrap: wrap; gap: .65rem 1.2rem; margin-block: 1rem; }
+.benchmark-links a { overflow-wrap: anywhere; }
+</style>"""
+    html = html.replace("</head>", style + "\n</head>")
+    html = html.replace(
+        '<section class="charts"', navigation + '\n    <section class="charts"'
+    )
+    (destination / "index.html").write_text(html)
 
 
 def main():
