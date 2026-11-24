@@ -34,7 +34,7 @@ def link_list(path, title, intro, links, css, parent=None):
 """)
 
 
-def render_site(data, template, destination):
+def render_site(data, template, destination, *, launch_counts=None):
     destination.mkdir(parents=True, exist_ok=True)
     for name in ("report.css", "summary.js", "report.js"):
         shutil.copy2(template / name, destination / name)
@@ -44,7 +44,8 @@ def render_site(data, template, destination):
         grouped[point["benchmark"]].append(point)
 
     links = []
-    for benchmark, points in grouped.items():
+    for benchmark in launch_counts if launch_counts is not None else grouped:
+        points = grouped[benchmark]
         if not re.fullmatch(r"[a-z][a-z0-9_]*", benchmark):
             raise ValueError(f"Invalid benchmark name: {benchmark}")
         benchmark_dir = destination / benchmark
@@ -55,6 +56,12 @@ def render_site(data, template, destination):
         for point in points:
             ordinal = int(point["non_scaling_params"]["launch"].split(" ", 1)[0][1:])
             pages[(ordinal - 1) // LAUNCHES_PER_PAGE].append(point)
+        if launch_counts is not None:
+            page_count = (
+                launch_counts[benchmark] + LAUNCHES_PER_PAGE - 1
+            ) // LAUNCHES_PER_PAGE
+            for page in range(page_count):
+                pages.setdefault(page, [])
         page_links = []
         for page, items in sorted(pages.items()):
             paginated = len(pages) > 1
@@ -76,16 +83,21 @@ def render_site(data, template, destination):
                 screen = screen.replace(f'"./{asset}"', f'"{relative}{asset}"')
             (page_dir / "index.html").write_text(screen)
             first = page * LAUNCHES_PER_PAGE + 1
-            last = max(
-                int(item["non_scaling_params"]["launch"].split(" ", 1)[0][1:])
-                for item in items
-            )
+            if launch_counts is None:
+                last = max(
+                    int(item["non_scaling_params"]["launch"].split(" ", 1)[0][1:])
+                    for item in items
+                )
+            else:
+                last = min(first + LAUNCHES_PER_PAGE - 1, launch_counts[benchmark])
             page_title = f"{title} · launches {first}–{last}" if paginated else title
             atomic_json(
                 page_dir / "data.json",
                 {
                     "report": {**data["report"], "title": page_title},
-                    "benchmarks": {benchmark: data["benchmarks"][benchmark]},
+                    "benchmarks": {benchmark: data["benchmarks"][benchmark]}
+                    if benchmark in data["benchmarks"]
+                    else {},
                     "data": items,
                 },
             )
@@ -99,6 +111,17 @@ def render_site(data, template, destination):
                 "../report.css",
                 parent="../",
             )
+    if launch_counts is not None:
+        items = "".join(
+            f'<li><a href="{href}">{escape(label)}</a></li>' for href, label in links
+        )
+        nav = f'<nav aria-label="Benchmark reports"><ul>{items}</ul></nav>'
+        (destination / "index.html").write_text(
+            html.replace("</main>", f"{nav}\n</main>")
+        )
+        atomic_json(destination / "data.json", {**data, "data": [], "benchmarks": {}})
+        return
+
     progress = data["progress"]
     intro = (
         f"{progress['completed']:,} of {progress['total']:,} configurations matched. "

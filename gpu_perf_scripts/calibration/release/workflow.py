@@ -194,7 +194,7 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
-def report(reference, results, version, revision):
+def report(reference, results, version, revision, *, live=False):
     durations = []
     all_simulated = (
         row
@@ -235,6 +235,9 @@ def report(reference, results, version, revision):
         )
         definition["params"].update(params)
         for case in series["cases"]:
+            if live and not group_results:
+                counts["queued"] += 1
+                continue
             run = group_results.get("cases", {}).get(
                 str(case["case"]),
                 {
@@ -287,7 +290,7 @@ def report(reference, results, version, revision):
             "title": f"MGPUSim {version} MI300X calibration",
             "description": f"Simulation commit {revision}. Each chart compares one dispatch "
             "with its median MI300X timing from GPU Benchmarks v1.1.",
-            "live": False,
+            "live": live,
             "groups": {"mi300x": {"name": "AMD MI300X"}},
         },
         "progress": {
@@ -295,9 +298,9 @@ def report(reference, results, version, revision):
             "updated_at": timestamp(),
             "total": total,
             "running": 0,
-            "queued": 0,
+            "queued": counts["queued"],
             "completed": counts["complete"],
-            "unsuccessful": total - counts["complete"],
+            "unsuccessful": total - counts["complete"] - counts["queued"],
         },
         "benchmarks": benchmarks,
         "data": points,

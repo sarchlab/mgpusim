@@ -11,6 +11,27 @@ series and completed results are preserved.
 Run the workflow manually to get a report artifact without publishing. The
 optional benchmark parameter limits a manual run to one benchmark.
 
+## Preview an active run
+
+Run the collector on a machine with authenticated GitHub CLI access to the
+repository. It reads only the plan and result artifacts. Each completed series
+appears at the next poll. An in-flight series is pending until its result
+artifact is uploaded. The standard report refreshes its JSON every ten seconds.
+
+```sh
+gh run list --workflow mi300x_release_calibration.yml
+python3 gpu_perf_scripts/calibration/release/preview.py RUN_ID \
+  /path/to/calibration-report/site /path/to/preview/RUN_ID \
+  --publish marin-5:.cache/mgpusim/calibration-previews/RUN_ID/
+```
+
+Use the template revision pinned by the release workflow. The collector polls
+GitHub every 60 seconds by default and exits after its final update. The
+optional `--publish` destination must already be served over the Tailnet and is
+updated with rsync over SSH. The example destination is available at
+`http://marin-5.tail13b378.ts.net:18840/RUN_ID/`. Omit it to serve the output
+locally. Use a separate output directory for each run.
+
 ## Reference data
 
 `mi300x-v1.1.json.gz` contains the MI300X ROCm 10.2 remeasurement completed on

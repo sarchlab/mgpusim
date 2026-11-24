@@ -32,9 +32,18 @@ jobs:
       - id: matrix
         env:
           BENCHMARK: ${{ inputs.benchmark }}
+          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
           series=$(python3 "$CALIBRATION" matrix --benchmark "$BENCHMARK")
           echo "series=$series" >> "$GITHUB_OUTPUT"
+          python3 -c 'import json,sys; print(json.dumps({
+              "series": json.loads(sys.argv[1]), "version": sys.argv[2], "revision": sys.argv[3]
+          }))' "$series" "$VERSION" "$GITHUB_SHA" > calibration-plan.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calibration-plan
+          path: calibration-plan.json
+          overwrite: true
 
   sweep:
     needs: plan
@@ -65,10 +74,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: series-${{ matrix.series.id }}
-          path: |
-            result/results.json
-            result/runs/*/stdout.log
+          path: result/results.json
           if-no-files-found: ignore
+          overwrite: true
+      - name: Upload series logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-logs-${{ matrix.series.id }}
+          path: result/runs/*/stdout.log
+          if-no-files-found: ignore
+          overwrite: true
 
   report:
     needs: [plan, sweep]
