@@ -187,8 +187,12 @@ func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	sRegFile := &SimpleRegisterFile{owner: cu.comp, vectorIndex: -1}
 	cu.SRegFile = sRegFile
 
-	for i := 0; i < b.spec.SIMDCount; i++ {
-		vRegFile := &SimpleRegisterFile{owner: cu.comp, vectorIndex: i, ByteSizePerLane: 1024}
+	const lanesPerWave, bytesPerRegister = 64, 4
+	for i, registerCount := range b.spec.VGPRCounts {
+		vRegFile := &SimpleRegisterFile{
+			owner: cu.comp, vectorIndex: i,
+			ByteSizePerLane: registerCount / lanesPerWave * bytesPerRegister,
+		}
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
 }
