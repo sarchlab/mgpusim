@@ -58,9 +58,10 @@ The simulator records individual dispatch intervals when
 names, launch order and grid and workgroup dimensions. The report shows
 verification failures with a warning and includes their timing when it is
 available and matches the hardware launch sequence. The standard report
-excludes those points from accuracy statistics. Reports open on the standard
-overview. Large runs show a bounded set of charts on that page and link to the
-complete benchmark results. Long launch sequences are split into linked pages.
+excludes those points from accuracy statistics. Small runs use a single
+unmodified Calibration Report template. For larger runs, a separate directory
+links to the overview and to each benchmark report. Long launch sequences are
+split into pages, each using the same unmodified template.
 
 ## GitHub Pages setup
 

@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from zipfile import ZipFile
 
-from build_site import render_site
+from build_site import render_site, report_layout
 from workflow import matrix_rows, read_reference, report
 
 
@@ -50,16 +50,9 @@ def select_reference(reference, plan):
     ):
         raise ValueError("Run plan does not match this calibration reference")
 
-    launch_counts = {}
     for i, series in enumerate(reference["series"]):
         series["selection_excluded"] = i not in selection
-        if i in selection:
-            name = series["benchmark"]
-            launch_counts[name] = max(
-                launch_counts.get(name, 0),
-                max(len(case["launches"]) for case in series["cases"]),
-            )
-    return launch_counts, selection.keys()
+    return selection.keys()
 
 
 def watch(reference, template, output, repo, run_id, interval, destination):
@@ -83,7 +76,8 @@ def watch(reference, template, output, repo, run_id, interval, destination):
                         raise ValueError(
                             "Calibration plan revision does not match the run"
                         )
-                    launch_counts, selected = select_reference(reference, plan)
+                    selected = select_reference(reference, plan)
+                    layout = report_layout(reference)
                     plan_id = current_plan_id
 
                 if plan is not None:
@@ -119,7 +113,7 @@ def watch(reference, template, output, repo, run_id, interval, destination):
                                 f" Results published for {len(results)} of {len(selected)} series. "
                                 "Configurations in active series are pending until their artifacts arrive."
                             )
-                        render_site(data, template, output, launch_counts=launch_counts)
+                        render_site(data, template, output, layout=layout)
                         if destination:
                             subprocess.run(
                                 [

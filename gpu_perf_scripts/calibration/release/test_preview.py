@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from build_site import render_site
 from preview import watch
 
 
@@ -69,7 +70,7 @@ class PreviewTest(unittest.TestCase):
             output = root / "out"
 
             def inspect_live(_):
-                data = json.loads((output / "data.json").read_text())
+                data = json.loads((output / "overview/data.json").read_text())
                 self.assertEqual(data["progress"]["queued"], 1)
                 self.assertEqual(data["progress"]["unsuccessful"], 0)
                 self.assertTrue(data["report"]["live"])
@@ -98,7 +99,7 @@ class PreviewTest(unittest.TestCase):
             ):
                 watch(reference, template, output, "sarchlab/mgpusim", 123, 1, None)
             self.assertEqual(download.call_count, 3)
-            final = json.loads((output / "data.json").read_text())
+            final = json.loads((output / "overview/data.json").read_text())
             self.assertEqual(final["progress"]["completed"], 2)
             self.assertFalse(final["report"]["live"])
             self.assertEqual(len(final["data"]), 48)
@@ -106,6 +107,30 @@ class PreviewTest(unittest.TestCase):
             page = json.loads((output / "example/part-2/data.json").read_text())
             self.assertEqual(page["data"][0]["values"]["mgpusim"], 1500)
             self.assertFalse(page["report"]["live"])
+            self.assertEqual((output / "overview/index.html").read_text(), html)
+            self.assertEqual((output / "example/part-2/index.html").read_text(), html)
+            self.assertIn('href="overview/"', (output / "index.html").read_text())
+            self.assertFalse((output / "data.json").exists())
+
+    def test_small_report_copies_the_template_and_writes_only_data(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            template = root / "template"
+            template.mkdir()
+            (template / "index.html").write_bytes(b"<!doctype html><main>Report</main>")
+            (template / "report.js").write_bytes(b"// standard renderer")
+            data = {"report": {"live": True}, "benchmarks": {}, "data": []}
+            output = root / "report"
+            render_site(data, template, output, layout=({"example": 1}, False))
+            for name in ("index.html", "report.js"):
+                self.assertEqual(
+                    (output / name).read_bytes(), (template / name).read_bytes()
+                )
+            self.assertEqual(json.loads((output / "data.json").read_text()), data)
+            self.assertEqual(
+                {file.name for file in output.iterdir()},
+                {"index.html", "report.js", "data.json"},
+            )
 
 
 if __name__ == "__main__":
