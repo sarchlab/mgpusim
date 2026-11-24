@@ -43,11 +43,11 @@ var _ = Describe("Vector Memory Unit", func() {
 		cu.ToVectorMem = toVectorMem
 
 		vecMemUnit.state().InstructionsPipeline =
-			queueing.MakePipeline[vectorMemInst](1, 6)
+			queueing.MakeFastPipeline[vectorMemInst](1, 6, cu.comp.Spec.Freq, cu.comp)
 		vecMemUnit.state().InstructionsOutput =
 			queueing.MakeBuffer[vectorMemInst](16)
 		vecMemUnit.state().TransactionsPipeline =
-			queueing.MakePipeline[uint64](2, 10)
+			queueing.MakeFastPipeline[uint64](2, 10, cu.comp.Spec.Freq, cu.comp)
 		vecMemUnit.state().TransactionsOutput =
 			queueing.MakeBuffer[uint64](8)
 	})
@@ -58,7 +58,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	It("should not allow accepting wavefront if the instruction pipeline "+
 		"entry stage is occupied", func() {
-		vecMemUnit.state().InstructionsPipeline.Accept(vectorMemInst{})
+		vecMemUnit.state().InstructionsPipeline.Push(vectorMemInst{})
 		Expect(vecMemUnit.CanAcceptWave()).To(BeFalse())
 	})
 

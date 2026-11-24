@@ -84,9 +84,9 @@ type VectorUnitState struct {
 	// IssueTasks holds coalescing subtasks until the first transaction is sent.
 	IssueTasks           map[uint64]uint64
 	Waiting              []VectorAccessState
-	InstructionsPipeline queueing.Pipeline[vectorMemInst]
+	InstructionsPipeline queueing.FastPipeline[vectorMemInst]
 	InstructionsOutput   queueing.Buffer[vectorMemInst]
-	TransactionsPipeline queueing.Pipeline[uint64]
+	TransactionsPipeline queueing.FastPipeline[uint64]
 	TransactionsOutput   queueing.Buffer[uint64]
 }
 type SIMDSlotState struct {
@@ -123,9 +123,15 @@ func (s *State) Initialize(c *Comp) {
 	s.ScalarUnit.Tasks = make(map[uint64]uint64)
 	s.VectorUnit.IssueTasks = make(map[uint64]uint64)
 	s.VectorUnit.InstructionsOutput = queueing.MakeBuffer[vectorMemInst](4 * c.Spec.SIMDCount)
-	s.VectorUnit.InstructionsPipeline = queueing.MakePipeline[vectorMemInst](
-		c.Spec.SIMDCount, c.Spec.VecMemInstPipelineStages)
+	s.VectorUnit.InstructionsPipeline = queueing.MakeFastPipeline[vectorMemInst](
+		c.Spec.SIMDCount, c.Spec.VecMemInstPipelineStages, c.Spec.Freq, c)
 	s.VectorUnit.TransactionsOutput = queueing.MakeBuffer[uint64](max(8, c.Spec.MemPipelineBufferSize))
-	s.VectorUnit.TransactionsPipeline = queueing.MakePipeline[uint64](
-		max(1, c.Spec.VecMemTransPipelineWidth), c.Spec.VecMemTransPipelineStages)
+	s.VectorUnit.TransactionsPipeline = queueing.MakeFastPipeline[uint64](
+		max(1, c.Spec.VecMemTransPipelineWidth), c.Spec.VecMemTransPipelineStages, c.Spec.Freq, c)
+}
+
+// AfterCheckpointLoad gives the decoded vector-memory pipelines their clock.
+func (s *State) AfterCheckpointLoad(c *Comp) {
+	s.VectorUnit.InstructionsPipeline.BindClock(c)
+	s.VectorUnit.TransactionsPipeline.BindClock(c)
 }

@@ -72,15 +72,17 @@ func (u *VectorMemoryUnit) endIssueSubtask(inst uint64) {
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *VectorMemoryUnit) CanAcceptWave() bool {
-	return u.state().InstructionsPipeline.CanAccept()
+	return u.state().InstructionsPipeline.CanPush()
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *Wavefront,
 ) {
-	u.state().InstructionsPipeline.Accept(vectorMemInst{Handle: handleOf(wave)})
+	u.state().InstructionsPipeline.Push(vectorMemInst{Handle: handleOf(wave)})
 	u.state().Instructions++
+	// The decoder runs after this unit, so Run cannot see this item this cycle.
+	u.scheduleNextReady()
 }
 
 // IsIdle moves one wavefront into the read buffer of the Scalar unit
@@ -94,12 +96,26 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 func (u *VectorMemoryUnit) Run() bool {
 	madeProgress := false
 	madeProgress = u.sendRequest() || madeProgress
-	madeProgress = u.state().TransactionsPipeline.Tick(
+	madeProgress = u.state().TransactionsPipeline.DrainReady(
 		&u.state().TransactionsOutput) || madeProgress
 	madeProgress = u.instToTransaction() || madeProgress
-	madeProgress = u.state().InstructionsPipeline.Tick(
+	madeProgress = u.state().InstructionsPipeline.DrainReady(
 		&u.state().InstructionsOutput) || madeProgress
+	u.scheduleNextReady()
 	return madeProgress
+}
+
+// scheduleNextReady wakes the CU on the next edge a pipeline head becomes
+// ready, so it can sleep while items travel. A ready head blocked on a full
+// output needs no timer: the send port or a memory response wakes the CU.
+func (u *VectorMemoryUnit) scheduleNextReady() {
+	due, ok := u.state().InstructionsPipeline.NextReadyTime()
+	if transactionDue, found := u.state().TransactionsPipeline.NextReadyTime(); found && (!ok || transactionDue < due) {
+		due, ok = transactionDue, true
+	}
+	if ok {
+		u.cu.comp.TickAt(due)
+	}
 }
 
 func (u *VectorMemoryUnit) instToTransaction() bool {
@@ -125,16 +141,17 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 
 	if u.state().Stall > 0 {
 		u.state().Stall--
-		return false
+		// The penalty counts consecutive cycles, and no timer covers them.
+		return u.state().Stall > 0 || len(u.state().Waiting) > 0
 	}
 
 	for len(u.state().Waiting) > 0 {
-		if !u.state().TransactionsPipeline.CanAccept() {
+		if !u.state().TransactionsPipeline.CanPush() {
 			break
 		}
 
 		txn := u.state().Waiting[0]
-		u.state().TransactionsPipeline.Accept(txn.requestID())
+		u.state().TransactionsPipeline.Push(txn.requestID())
 		u.state().Waiting = u.state().Waiting[1:]
 		madeProgress = true
 

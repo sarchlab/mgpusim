@@ -33,33 +33,34 @@ func (m *forwardMiddleware) port(name string) messaging.Port {
 	}
 }
 
-// Tick forwards as many messages as the per-cycle limits allow.
+// Tick forwards as many messages as the per-cycle limits allow. A phase stops
+// at its first attempt that moves nothing, and the other phases still run.
 func (m *forwardMiddleware) Tick() bool {
 	madeProgress := m.sendNotifications()
 	spec := m.comp.Spec
 
-	for i := 0; i < spec.OutgoingReqPerCycle; i++ {
-		madeProgress = m.processFromL1() || madeProgress
+	for i := 0; i < spec.OutgoingReqPerCycle && m.processFromL1(); i++ {
+		madeProgress = true
 	}
 
-	for i := 0; i < spec.OutgoingRspPerCycle; i++ {
-		madeProgress = m.processFromL2() || madeProgress
+	for i := 0; i < spec.OutgoingRspPerCycle && m.processFromL2(); i++ {
+		madeProgress = true
 	}
 
-	for i := 0; i < spec.IncomingReqPerCycle; i++ {
-		madeProgress = m.processIncomingReq() || madeProgress
+	for i := 0; i < spec.IncomingReqPerCycle && m.processIncomingReq(); i++ {
+		madeProgress = true
 	}
 
-	for i := 0; i < spec.IncomingRspPerCycle; i++ {
-		madeProgress = m.processIncomingRsp() || madeProgress
+	for i := 0; i < spec.IncomingRspPerCycle && m.processIncomingRsp(); i++ {
+		madeProgress = true
 	}
 
-	for i := 0; i < spec.MigrationRspPerCycle; i++ {
-		madeProgress = m.processMigrationRsp() || madeProgress
+	for i := 0; i < spec.MigrationRspPerCycle && m.processMigrationRsp(); i++ {
+		madeProgress = true
 	}
 
-	for i := 0; i < spec.MigrationReqPerCycle; i++ {
-		madeProgress = m.processMigrationReq() || madeProgress
+	for i := 0; i < spec.MigrationReqPerCycle && m.processMigrationReq(); i++ {
+		madeProgress = true
 	}
 
 	return madeProgress

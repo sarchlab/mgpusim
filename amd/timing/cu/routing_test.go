@@ -48,7 +48,12 @@ func TestVectorMemModulesIsImmutableCheckpointConfiguration(t *testing.T) {
 		if err := other.LoadCheckpoint(bytes.NewReader(checkpoint.Bytes())); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(other.Spec, otherSpec) || !reflect.DeepEqual(other.State, c.State) {
+		// Compare saved State: each restored pipeline holds its own component clock.
+		var restored bytes.Buffer
+		if err := other.SaveCheckpoint(&restored); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(other.Spec, otherSpec) || !bytes.Equal(restored.Bytes(), checkpoint.Bytes()) {
 			t.Fatal("restore must load state and retain configured routing")
 		}
 		_ = otherSimulation.Terminate()

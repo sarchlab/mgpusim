@@ -35,6 +35,17 @@ func (c *noopConn) Unplug(_ messaging.Port)          {}
 func (c *noopConn) NotifyAvailable(_ messaging.Port) {}
 func (c *noopConn) NotifySend(messaging.Port)        {}
 
+// headProbePort counts how often a forwarding phase inspects a real port's head.
+type headProbePort struct {
+	messaging.Port
+	probes int
+}
+
+func (p *headProbePort) PeekIncoming() (messaging.Msg, bool) {
+	p.probes++
+	return p.Port.PeekIncoming()
+}
+
 var _ = Describe("RDMA Engine", func() {
 	var (
 		simulation *sim.Simulation
@@ -410,6 +421,124 @@ var _ = Describe("RDMA Engine", func() {
 
 			Expect(rdmaEngine.State.TransactionsFromOutside).To(HaveLen(1))
 			Expect(hasIncoming(dataInside)).To(BeTrue())
+		})
+	})
+
+	Context("per-cycle phase limits", func() {
+		const dataMover = messaging.RemotePort("GPU[2].DataMover.Outside")
+
+		probe := func(port *messaging.Port) *headProbePort {
+			p := &headProbePort{Port: *port}
+			*port = p
+			return p
+		}
+
+		deliverMigrationReads := func(n int) []messaging.Msg {
+			reads := make([]messaging.Msg, n)
+			for i := range reads {
+				reads[i] = makeReadReq(dataMover, migrationOutside.AsRemote())
+				migrationOutside.Deliver(reads[i])
+			}
+			return reads
+		}
+
+		It("should probe each empty port once and still visit every phase", func() {
+			spec := &rdmaEngine.Spec
+			spec.OutgoingReqPerCycle, spec.OutgoingRspPerCycle = 3, 3
+			spec.IncomingReqPerCycle, spec.IncomingRspPerCycle = 3, 3
+			spec.MigrationReqPerCycle, spec.MigrationRspPerCycle = 3, 3
+			ports := &rdmaEngine.Ports
+			probes := []*headProbePort{
+				probe(&ports.RDMARequestInside), probe(&ports.RDMADataInside),
+				probe(&ports.RDMADataOutside), probe(&ports.RDMARequestOutside),
+				probe(&ports.MigrationInside), probe(&ports.MigrationOutside),
+			}
+
+			Expect(rdmaEngine.Middlewares.Forward.Tick()).To(BeFalse())
+
+			for _, p := range probes {
+				Expect(p.probes).To(Equal(1))
+			}
+		})
+
+		It("should stop a blocked direction after one probe, serve the other, and resume", func() {
+			rspProbe := probe(&rdmaEngine.Ports.MigrationInside)
+			fillOutgoing(migrationOutside)
+			trans := transaction{
+				OriginalReqID:  rdmaEngine.NewID(),
+				OriginalSrc:    dataMover,
+				ForwardedReqID: rdmaEngine.NewID(),
+			}
+			rdmaEngine.State.TransactionsFromMigration = []transaction{trans}
+			rsp := makeDataReadyRsp(localMemory, migrationInside.AsRemote(), trans.ForwardedReqID)
+			migrationInside.Deliver(rsp)
+			read := deliverMigrationReads(1)[0]
+
+			Expect(rdmaEngine.Middlewares.Forward.Tick()).To(BeTrue())
+
+			Expect(rspProbe.probes).To(Equal(1))
+			Expect(rdmaEngine.State.TransactionsFromMigration[0].RemoteMilestoneEmitted).To(BeTrue())
+			Expect(rdmaEngine.State.TransactionsFromMigration[1].OriginalReqID).To(Equal(read.ID))
+			forwarded, ok := migrationInside.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(forwarded.Dst).To(Equal(localMemory))
+
+			// Let pending ticks go idle, so only the freed port can resume it.
+			Expect(simulation.Engine().Run()).To(Succeed())
+			head, ok := migrationInside.PeekIncoming()
+			Expect(ok).To(BeTrue())
+			Expect(head.ID).To(Equal(rsp.ID))
+
+			_, ok = migrationOutside.RetrieveOutgoing()
+			Expect(ok).To(BeTrue())
+			Expect(simulation.Engine().Run()).To(Succeed())
+
+			Expect(hasIncoming(migrationInside)).To(BeFalse())
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(HaveLen(1))
+			var returned messaging.Msg
+			for ok {
+				var next messaging.Msg
+				if next, ok = migrationOutside.RetrieveOutgoing(); ok {
+					returned = next
+				}
+			}
+			Expect(returned.Dst).To(Equal(dataMover))
+			Expect(returned.RspTo).To(Equal(trans.OriginalReqID))
+		})
+
+		It("should stop a batch at its first blocked request", func() {
+			reqProbe := probe(&rdmaEngine.Ports.MigrationOutside)
+			for range 2 {
+				migrationInside.Send(messaging.Msg{ID: rdmaEngine.NewID(),
+					Src: migrationInside.AsRemote(), Dst: "Elsewhere", Payload: RestartRsp{}})
+			}
+			reads := deliverMigrationReads(4)
+
+			Expect(rdmaEngine.Middlewares.Forward.Tick()).To(BeTrue())
+
+			Expect(reqProbe.probes).To(Equal(3))
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(HaveLen(2))
+			head, ok := migrationOutside.PeekIncoming()
+			Expect(ok).To(BeTrue())
+			Expect(head.ID).To(Equal(reads[2].ID))
+		})
+
+		It("should keep the successful batch cap exact", func() {
+			rdmaEngine.Spec.MigrationReqPerCycle = 2
+			reqProbe := probe(&rdmaEngine.Ports.MigrationOutside)
+			reads := deliverMigrationReads(4)
+
+			Expect(rdmaEngine.Middlewares.Forward.Tick()).To(BeTrue())
+
+			Expect(reqProbe.probes).To(Equal(2))
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(HaveLen(2))
+			Expect(rdmaEngine.State.TransactionsFromMigration[0].OriginalReqID).To(Equal(reads[0].ID))
+			Expect(rdmaEngine.State.TransactionsFromMigration[1].OriginalReqID).To(Equal(reads[1].ID))
+
+			Expect(rdmaEngine.Middlewares.Forward.Tick()).To(BeTrue())
+
+			Expect(reqProbe.probes).To(Equal(4))
+			Expect(rdmaEngine.State.TransactionsFromMigration).To(HaveLen(4))
 		})
 	})
 

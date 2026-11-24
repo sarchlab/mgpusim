@@ -291,7 +291,7 @@ func checkPipelineLifecycle(t *testing.T, scoreboard bool) {
 	spec := DefaultSpec()
 	spec.RegisterScoreboard = scoreboard
 	spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
-	c := checkpointCU(t, spec)
+	c, simulation := checkpointCUAndSimulation(t, false, spec)
 	w := checkpointGroup(c).waves()[0]
 	// Scalar/vector ALU, async scalar/vector loads, then s_endpgm.
 	code := []byte{0x81, 0, 0x80, 0xbe, 0x81, 2, 0, 0x7e,
@@ -310,7 +310,7 @@ func checkPipelineLifecycle(t *testing.T, scoreboard bool) {
 	ace := newFakePort("CU.ACE")
 	ace.full = true
 	c.ToACE = ace
-	seen := runLifecyclePipeline(t, c, w, scalar, vector)
+	seen := runLifecyclePipeline(t, c, simulation.Engine().(*timing.SerialEngine), w, scalar, vector)
 	simd := "SIMD"
 	if scoreboard {
 		simd = "SIMD slot"
@@ -332,12 +332,18 @@ func checkPipelineLifecycle(t *testing.T, scoreboard bool) {
 		t.Fatal("pipeline lifetime leaked")
 	}
 }
-func runLifecyclePipeline(t *testing.T, c *ComputeUnit, w *Wavefront, scalar, vector *fakePort) map[string]bool {
+func runLifecyclePipeline(
+	t *testing.T, c *ComputeUnit, engine *timing.SerialEngine, w *Wavefront, scalar, vector *fakePort,
+) map[string]bool {
 	t.Helper()
 	scalarSent, vectorSent := 0, 0
 	seen := make(map[string]bool)
 	for cycle := 0; cycle < 200 && w.execution().State != wavefront.WfCompleted; cycle++ {
-		c.Tick()
+		// Fake ports do not notify the CU, so tick each edge of simulated time.
+		c.comp.TickLater()
+		if err := engine.RunUntil(c.comp.Spec.Freq.NextTick(engine.CurrentTime())); err != nil {
+			t.Fatal(err)
+		}
 		assertLifecycleHolders(t, c)
 		for _, holders := range testOperationHolders(c) {
 			for _, kind := range holders {
@@ -346,6 +352,7 @@ func runLifecyclePipeline(t *testing.T, c *ComputeUnit, w *Wavefront, scalar, ve
 		}
 		if cycle == 4 {
 			replaceCUState(t, c)
+			c.comp.State.AfterCheckpointLoad(c.comp)
 		}
 		if seen["scalar request buffer"] {
 			scalar.full = false
