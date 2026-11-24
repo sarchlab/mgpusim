@@ -13,12 +13,18 @@ only in an unsupported param produce identical sim runs -- memoized here, and th
 sim curve repeats across that dimension in the report (the honest result).
 
 Usage:  run_sweep.py <benchmark> <out.csv> [--ref CSV]
-Env: PER_RUN_TIMEOUT (s, default 1800), SWEEP_TIMEOUT (s, default 86400),
+Env: PER_RUN_TIMEOUT (s, default 3600), SWEEP_TIMEOUT (s, default 86400),
      FB_RUN_ID, FB_EVERY (default 5), GOOGLE_APPLICATION_CREDENTIALS, FB_PY.
 """
 import argparse
 import csv
+import heapq
+from contextlib import closing
+import json
+import math
 import os
+from pathlib import Path
+import re
 import subprocess
 import sqlite3
 import sys
@@ -26,10 +32,11 @@ import tempfile
 import time
 
 from calib_common import parse_ns, xparse
+from export_live_report import parse_parameters
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
-COMMON = ["-timing", "-arch", "cdna3", "-gpu", "mi300x", "-disable-rtm"]
+COMMON = ["-timing", "-arch", "cdna3", "-gpu", "mi300x", "-disable-rtm", "-verify"]
 
 # benchmark -> {sample dir, scaling-value flag, ground-truth-param -> CLI flag}.
 #
@@ -209,6 +216,29 @@ def sim_cost(scaling_value, ns):
     return cost
 
 
+def series_key(config):
+    _, axis, _, params = config
+    return axis, json.dumps(params, sort_keys=True, separators=(",", ":"))
+
+
+def ordered_configs(configs):
+    """Prefer low-cost work while visiting each series in increasing X order."""
+    series = {}
+    for config in configs:
+        series.setdefault(series_key(config), []).append(config)
+    groups = [iter(sorted(group, key=lambda c: xparse(c[2]))) for group in series.values()]
+    ready = []
+    for i, group in enumerate(groups):
+        config = next(group)
+        heapq.heappush(ready, (sim_cost(config[2], config[3]), i, config))
+    while ready:
+        _, i, config = heapq.heappop(ready)
+        yield config
+        following = next(groups[i], None)
+        if following is not None:
+            heapq.heappush(ready, (sim_cost(following[2], following[3]), i, following))
+
+
 def load_configs(ref, benchmark):
     """[(real_ms, scaling_name, scaling_value, non_scaling_dict)] cheapest-to-SIMULATE first."""
     out = []
@@ -222,8 +252,7 @@ def load_configs(ref, benchmark):
                 real = float("inf")
             out.append((real, r["scaling_param_name"], r["scaling_param_value"],
                         parse_ns(r.get("non_scaling_json", "{}"))))
-    out.sort(key=lambda c: sim_cost(c[2], c[3]))
-    return out
+    return list(ordered_configs(out))
 
 
 def sample_args(spec, scaling_value, ns):
@@ -241,28 +270,96 @@ def sample_args(spec, scaling_value, ns):
     return args
 
 
+def recorded_kernel_time(db):
+    if not db.is_file():
+        return None
+    try:
+        with closing(sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)) as con:
+            rows = con.execute(
+                "SELECT Value FROM mgpusim_metrics WHERE What='kernel_time' AND Location='Driver'"
+            ).fetchall()
+        if len(rows) == 1:
+            value = float(rows[0][0])
+            if math.isfinite(value) and value > 0:
+                return value
+    except (sqlite3.Error, TypeError, ValueError):
+        pass
+    return None
+
+
+def verification_failure(log):
+    reason = None
+    for line in log:
+        match = re.match(r"^panic: Benchmark\[\d+\]: (.+)", line)
+        if match:
+            reason = match[1].strip()
+    if reason and (
+        re.search(r"\b(mismatch(?:es)?|verif(?:ication|ied))\b", reason, re.IGNORECASE)
+        or ("expected" in reason.lower() and "got" in reason.lower())
+    ):
+        return reason
+    return None
+
+
 def run_one(binary, args, work_dir, per_run_timeout):
-    """Run the sample under the per-run timeout; return kernel_time (s) or None."""
-    run_dir = tempfile.mkdtemp(dir=work_dir)
-    cmd = [binary] + COMMON + args + ["-metric-file-name", "t"]
-    try:
-        subprocess.run(cmd, cwd=run_dir, timeout=per_run_timeout,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except subprocess.TimeoutExpired:
-        return "timeout"
-    except OSError:
-        return None
-    db = os.path.join(run_dir, "t.sqlite3")
-    if not os.path.exists(db):
-        return None
-    try:
-        con = sqlite3.connect(db)
-        row = con.execute("SELECT Value FROM mgpusim_metrics "
-                          "WHERE What='kernel_time' AND Location='Driver' LIMIT 1;").fetchone()
-        con.close()
-        return float(row[0]) if row and row[0] is not None else None
-    except (sqlite3.Error, ValueError):
-        return None
+    """Capture the exit status and any persisted, usable Driver kernel time."""
+    with tempfile.TemporaryDirectory(dir=work_dir) as directory:
+        run_dir = Path(directory)
+        cmd = [binary, *COMMON, *args, "-metric-file-name", "t"]
+        try:
+            with (run_dir / "stdout.log").open("w+") as log:
+                process = subprocess.run(cmd, cwd=run_dir, timeout=per_run_timeout,
+                                         stdout=log, stderr=subprocess.STDOUT)
+                timing = recorded_kernel_time(run_dir / "t.sqlite3")
+                if process.returncode == 0:
+                    if timing is not None:
+                        return {"status": "complete", "kernel_time_s": timing}
+                    return {"status": "failed", "error": "Driver kernel time was not recorded"}
+                log.seek(0)
+                mismatch = verification_failure(log)
+                if mismatch:
+                    result = {"status": "failed", "failure_kind": "verification_failed",
+                              "failure_reason": mismatch}
+                    if timing is not None:
+                        result["kernel_time_s"] = timing
+                    return result
+                return {"status": "failed", "error": f"Simulator exited with status {process.returncode}"}
+        except subprocess.TimeoutExpired:
+            return {"status": "timeout", "error": f"Simulator exceeded {per_run_timeout} seconds"}
+        except OSError as error:
+            return {"status": "failed", "error": str(error)}
+
+
+def sweep_points(configs, command_for, execute, stop_on_timeout=True):
+    cutoffs = {}
+    cache = {}
+    for index, config in enumerate(configs):
+        _, axis, value, params = config
+        x = xparse(value)
+        series = series_key(config)
+        if stop_on_timeout and series in cutoffs and x > cutoffs[series]:
+            yield index, {"status": "skipped_after_timeout",
+                          "error": f"A smaller point timed out at {axis}={cutoffs[series]}."}
+            continue
+        command = tuple(command_for(config))
+        result = cache.get(command)
+        if result is None:
+            result = execute(index, command)
+            if result["status"] != "timeout":
+                cache[command] = result
+        if result["status"] == "timeout":
+            cutoffs.setdefault(series, x)
+        yield index, result
+
+
+def write_snapshot(path, points, start, live=True):
+    if path is None:
+        return
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps({
+        "started_at": start, "updated_at": time.time(), "cases": points, "live": live,
+    }, allow_nan=False) + "\n")
+    temporary.replace(path)
 
 
 def fb_stream(benchmark, out_csv, ref):
@@ -285,82 +382,109 @@ def main():
     ap.add_argument("benchmark")
     ap.add_argument("out")
     ap.add_argument("--ref", default=os.path.join(SCRIPT_DIR, "mi300x_ground_truth.csv"))
+    ap.add_argument("--snapshot", type=Path, help="write live status and timing JSON for the report")
+    ap.add_argument("--plan", type=Path, help="JSON list of explicit calibration cases")
+    ap.add_argument("--reference", type=Path, help="JSON mapping plan case IDs to hardware measurements")
     args = ap.parse_args()
+    if bool(args.plan) != bool(args.reference):
+        ap.error("--plan and --reference must be provided together")
 
     spec = SPECS.get(args.benchmark)
-    if spec is None:
-        sys.exit(f"no sweep spec for benchmark '{args.benchmark}'")
-    per_run = int(os.environ.get("PER_RUN_TIMEOUT", "1800"))
+    if spec is None and args.plan is None:
+        ap.error(f"no sweep spec for benchmark '{args.benchmark}'")
+    per_run = int(os.environ.get("PER_RUN_TIMEOUT", "3600"))
     budget = int(os.environ.get("SWEEP_TIMEOUT", "86400"))
     every = int(os.environ.get("FB_EVERY", "5"))
-    # Configs are ordered cheapest-to-simulate first, so the first config that
-    # times out or fails means every remaining config is at least as expensive.
-    # Stop there instead of burning a full PER_RUN_TIMEOUT on each remaining
-    # (more expensive) config. Set SWEEP_STOP_ON_TIMEOUT=0 for an exhaustive sweep.
     stop_on_timeout = os.environ.get("SWEEP_STOP_ON_TIMEOUT", "1") != "0"
-    os.environ.setdefault("CGO_ENABLED", "1")  # timing metrics via the SQLite recorder
+    os.environ.setdefault("CGO_ENABLED", "1")
 
-    build_dir = tempfile.mkdtemp()
-    work_dir = tempfile.mkdtemp()
-    binary = os.path.join(build_dir, args.benchmark)
-    print(f"Building {spec['sample']} ...")
-    subprocess.run(["go", "build", "-o", binary, f"./amd/samples/{spec['sample']}/"],
-                   cwd=REPO_ROOT, check=True)
+    if args.plan:
+        planned = [row for row in json.loads(args.plan.read_text())
+                   if row["benchmark"] == args.benchmark and not row.get("unsupported_reason")]
+        samples = {row["sample"] for row in planned}
+        if len(samples) != 1:
+            ap.error("--plan must specify one sample for the selected benchmark")
+        sample = samples.pop()
+        if not re.fullmatch(r"[a-z0-9_]+", sample):
+            ap.error("invalid sample directory")
+        refs = json.loads(args.reference.read_text())
+        commands = {}
+        cases = []
+        for row in planned:
+            measurement = refs[str(row["case"])]
+            real = measurement["hardware_ms"]
+            params = parse_parameters(row["series"])
+            config = (real if real is not None else math.inf, row["axis"], str(row["x"]), params)
+            key = (*series_key(config), config[2])
+            if key in commands:
+                ap.error(f"duplicate configuration in plan: {key}")
+            cases.append(config)
+            commands[key] = row["args"]
+        configs = list(ordered_configs(cases))
+        kind = refs[str(planned[0]["case"])]["kind"]
 
-    configs = load_configs(args.ref, args.benchmark)
+        def command_for(config):
+            return commands[(*series_key(config), config[2])]
+    else:
+        sample = spec["sample"]
+        configs = load_configs(args.ref, args.benchmark)
+        kind = "transfer" if args.benchmark == "memory_bandwidth" else "kernel"
+
+        def command_for(config):
+            return sample_args(spec, config[2], config[3])
+
     out_abs = os.path.abspath(args.out)
-    with open(out_abs, "w", newline="") as f:
-        f.write("benchmark,scaling_param_name,scaling_param_value,non_scaling_json,kernel_time_s\n")
+    points = [
+        {"benchmark": args.benchmark, "axis": axis, "x": xparse(value),
+         "non_scaling_params": params, "kind": kind, "status": "queued",
+         "hardware_ms": real_ms if math.isfinite(real_ms) else None}
+        for real_ms, axis, value, params in configs
+    ]
 
-    print(f"Sweeping {args.benchmark}: {len(configs)} configs "
-          f"(per-run {per_run}s, budget {budget}s), cheapest-to-simulate first...")
-    start = time.time()
-    import json as _json
-    cache = {}
-    ran = timed_out = failed = 0
-    writer_f = open(out_abs, "a", newline="")
-    writer = csv.writer(writer_f)
-    for i, (real_ms, sname, sval, ns) in enumerate(configs, 1):
-        if time.time() - start >= budget:
-            print(f"  budget {budget}s reached after {i - 1} configs; stopping early.", flush=True)
-            break
-        sargs = sample_args(spec, sval, ns)
-        key = tuple(sargs)
-        cached = key in cache
-        kt = cache[key] if cached else run_one(binary, sargs, work_dir, per_run)
-        cache[key] = kt
-        tag = f"[{i}/{len(configs)}] {sname}={sval} {_json.dumps(ns, separators=(',', ':'))}"
-        if isinstance(kt, float):
-            writer.writerow([args.benchmark, sname, sval, _json.dumps(ns, separators=(",", ":")), kt])
-            writer_f.flush()
-            ran += 1
-            print(f"  ok      {tag}  sim={kt}s{' (cached)' if cached else ''}", flush=True)
-            if ran % every == 0:
-                fb_stream(args.benchmark, out_abs, args.ref)
-        elif kt == "timeout":
-            timed_out += 1
-            print(f"  timeout {tag}  (> {per_run}s)", flush=True)
-            if stop_on_timeout and not cached:
-                print(f"  STOP: timed out; the remaining {len(configs) - i} configs are "
-                      f"at least this expensive (cheapest-first order). Skipping them.",
-                      flush=True)
+    completed = 0
+    with (tempfile.TemporaryDirectory() as directory,
+          open(out_abs, "w", newline="") as output):
+        writer = csv.writer(output)
+        writer.writerow(["benchmark", "scaling_param_name", "scaling_param_value",
+                         "non_scaling_json", "kernel_time_s"])
+        output.flush()
+        binary = os.path.join(directory, args.benchmark)
+        print(f"Building {sample} ...", flush=True)
+        subprocess.run(["go", "build", "-o", binary, f"./amd/samples/{sample}/"],
+                       cwd=REPO_ROOT, check=True)
+
+        start = time.time()
+        deadline = time.monotonic() + budget
+        write_snapshot(args.snapshot, points, start)
+        def execute(index, flags):
+            points[index]["status"] = "running"
+            write_snapshot(args.snapshot, points, start)
+            return run_one(binary, flags, directory, per_run)
+
+        results = sweep_points(configs, command_for, execute, stop_on_timeout)
+        for _ in configs:
+            if time.monotonic() >= deadline:
                 break
-        else:
-            failed += 1
-            print(f"  FAIL    {tag}", flush=True)
-            if stop_on_timeout and not cached:
-                print(f"  STOP: no metric (sim failure); the remaining {len(configs) - i} "
-                      f"configs are more expensive. Skipping them.", flush=True)
-                break
-    writer_f.close()
-    fb_stream(args.benchmark, out_abs, args.ref)  # final flush
-    print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")
-    # Surface a wholly-broken sweep (e.g. a sample that panics for every config) so
-    # the matrix child fails and the run isn't silently marked completed with no
-    # points for this benchmark.
-    if ran == 0:
-        sys.exit(f"ERROR: {args.benchmark} produced no metric for any config "
-                 f"({timed_out} timed out, {failed} failed).")
+            index, result = next(results)
+            point = points[index]
+            point.update(result)
+            write_snapshot(args.snapshot, points, start)
+            _, axis, value, params = configs[index]
+            print(f"[{index + 1}/{len(configs)}] {axis}={value} {params}: {point['status']}",
+                  flush=True)
+            if point["status"] == "complete":
+                writer.writerow([args.benchmark, axis, value, json.dumps(params), point["kernel_time_s"]])
+                output.flush()
+                completed += 1
+                if not args.plan and completed % every == 0:
+                    fb_stream(args.benchmark, out_abs, args.ref)
+
+        write_snapshot(args.snapshot, points, start, live=False)
+
+    if not args.plan:
+        fb_stream(args.benchmark, out_abs, args.ref)
+    if completed == 0:
+        sys.exit(f"ERROR: {args.benchmark} produced no verified timing.")
 
 
 if __name__ == "__main__":

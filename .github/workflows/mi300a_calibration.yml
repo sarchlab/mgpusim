@@ -42,9 +42,8 @@ jobs:
   # so it never consumes a (scarce) self-hosted runner. ALL enabled benchmarks run
   # at every tier; the tier only sets the per-simulation (PER_RUN_TIMEOUT) and
   # per-benchmark (SWEEP_TIMEOUT) caps, plus the job's hard timeout. Configs run
-  # cheapest-to-simulate first and the sweep early-stops at the first config that
-  # exceeds the per-sim cap (run_sweep.py), so the tier controls how far up the
-  # size curve each benchmark reaches and how long the whole pass takes:
+  # cheapest-to-simulate first across series and smallest-first within each
+  # series. A timeout skips only larger sizes in that same series.
   #   small=10m/30m  medium=30m/2h  large=2h/1day  x-large=12h/1week  (per-sim/per-bench)
   # The list covers EVERY benchmark with a faithful, non-hanging sim port (all of
   # run_sweep.py's enabled SPECS). Intentionally EXCLUDED (no faithful port / hang
@@ -154,20 +153,23 @@ jobs:
       - name: Run sweep
         env:
           # Per-sim / per-benchmark caps come from the scope tier (setup job).
-          # Cheapest-first + early-stop: the per-sim cap bounds the largest size
-          # reached; the per-benchmark cap bounds total time.
+          # The per-sim cap applies to each series. The sweep cap limits
+          # how long new simulations are started.
           PER_RUN_TIMEOUT: ${{ needs.setup.outputs.per_run }}
           SWEEP_TIMEOUT: ${{ needs.setup.outputs.sweep_timeout }}
         run: |
           python3 gpu_perf_scripts/calibration/run_sweep.py \
-            ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv
+            ${{ matrix.benchmark }} ${{ matrix.benchmark }}_sim_results.csv \
+            --snapshot ${{ matrix.benchmark }}_sweep.json
 
       - name: Upload sweep results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.benchmark }}-sim-results
-          path: ${{ matrix.benchmark }}_sim_results.csv
+          path: |
+            ${{ matrix.benchmark }}_sim_results.csv
+            ${{ matrix.benchmark }}_sweep.json
 
   report:
     name: Render report + finalize run
