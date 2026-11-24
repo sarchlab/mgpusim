@@ -94,7 +94,11 @@ func buildDispatchers(comp *Comp) []dispatching.Dispatcher {
 		WithCP(comp).
 		WithAlg(alg).
 		WithNumDies(comp.Spec.NumDies).
-		WithWavefrontDispatchCycles(comp.Spec.WavefrontDispatchCycles).
+		WithPerDieDispatchRate(
+			comp.Spec.WavefrontDispatchCycles,
+			comp.Spec.WavefrontsPerDispatchPeriod,
+			comp.Spec.MinWorkGroupDispatchCycles,
+		).
 		WithCUResourcePool(cuResourcePool).
 		WithPortSource(dispatcherPorts{comp}).
 		WithDispatchingPortName("ToCUs").

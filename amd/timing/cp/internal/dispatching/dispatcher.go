@@ -51,7 +51,9 @@ type DispatcherImpl struct {
 	state                          func() *State
 	alg                            algorithm
 	dieAware                       dieAwareAlgorithm // non-nil iff alg dispatches per-die
-	wavefrontDispatchCycles        int               // per-die cost charged per wavefront dispatched
+	wavefrontDispatchCycles        int
+	wavefrontsPerDispatchPeriod    int
+	minWorkGroupDispatchCycles     int
 	latencyTable                   []int
 	constantKernelOverhead         int
 	constantKernelLaunchOverhead   int
@@ -382,7 +384,7 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 
 // tickPerDie advances all dies one cycle: each die whose rate gate is free may
 // dispatch one work-group this cycle, so up to NumDies work-groups dispatch per
-// cycle (one per die), each die independently throttled by wavefrontDispatchCycles.
+// cycle (one per die), each die independently throttled by its dispatch rate.
 func (d *DispatcherImpl) tickPerDie() (madeProgress bool) {
 	for die := range d.state().DieCyclesLeft {
 		if d.state().DieCyclesLeft[die] > 0 {
@@ -400,9 +402,8 @@ func (d *DispatcherImpl) tickPerDie() (madeProgress bool) {
 }
 
 // dispatchNextWGForDie dispatches one work-group on the given die and arms that
-// die's rate gate for wavefrontDispatchCycles per wavefront dispatched. The
-// port's send capacity is checked before reserving CU resources so a full port
-// never strands a reserved work-group.
+// die's rate gate. Check port capacity before reserving CU resources so a
+// full port cannot strand a reserved work-group.
 func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 	port := d.getDispatchingPort()
 	if !port.CanSend() {
@@ -425,17 +426,24 @@ func (d *DispatcherImpl) dispatchNextWGForDie(die int) (madeProgress bool) {
 
 	d.state().NumDispatchedWGs++
 	d.state().Inflight[req.ID] = saveLocation(loc)
-	// The die is busy dispatching this WG's wavefronts for
-	// wavefrontDispatchCycles*W cycles total. This dispatch consumes the current
-	// cycle (the first busy cycle), so the gate holds the remaining W*cycles-1,
-	// giving an exact per-die period of W*cycles (not W*cycles+1).
-	d.state().DieCyclesLeft[die] = d.wavefrontDispatchCycles*len(loc.locations) - 1
+	// A work-group occupies a dispatch slot and consumes wavefront throughput.
+	// Charge the slower of the two rates. This dispatch consumes the first cycle.
+	cycles := d.workGroupDispatchCycles(len(loc.locations))
+	d.state().DieCyclesLeft[die] = max(0, cycles-1)
 
 	if d.progressBar != nil {
 		d.progressBar.IncrementInProgress(1)
 	}
 
 	return true
+}
+
+func (d *DispatcherImpl) workGroupDispatchCycles(wavefronts int) int {
+	// Round up to the next cycle so fractional throughput never allows
+	// the next work-group to dispatch early.
+	width := d.wavefrontsPerDispatchPeriod
+	wavefrontCycles := (d.wavefrontDispatchCycles*wavefronts + width - 1) / width
+	return max(d.minWorkGroupDispatchCycles, wavefrontCycles)
 }
 
 // Parent supplies the simulation services owned by the command processor.

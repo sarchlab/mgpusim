@@ -25,6 +25,8 @@ type Builder struct {
 	wgScalingThreshold             int
 	numDies                        int
 	wavefrontDispatchCycles        int
+	wavefrontsPerDispatchPeriod    int
+	minWorkGroupDispatchCycles     int
 }
 
 // WithSampler shares the simulation's recoverable wavefront sampling state.
@@ -42,6 +44,7 @@ func MakeBuilder() Builder {
 		wgScalingThreshold:             128,
 		numDies:                        1,
 		wavefrontDispatchCycles:        2,
+		wavefrontsPerDispatchPeriod:    1,
 	}
 	return b
 }
@@ -100,12 +103,15 @@ func (b Builder) WithNumDies(n int) Builder {
 	return b
 }
 
-// WithWavefrontDispatchCycles sets the per-die dispatch cost charged per
-// wavefront, in cycles. A W-wavefront work-group occupies its die's dispatch
-// pipe for W*cycles before that die can dispatch the next work-group. Only used
-// by the "per-die" algorithm.
-func (b Builder) WithWavefrontDispatchCycles(cycles int) Builder {
+// WithPerDieDispatchRate sets the wavefront throughput and minimum interval
+// between work-group dispatches on each die.
+func (b Builder) WithPerDieDispatchRate(cycles, wavefronts, minWorkGroupCycles int) Builder {
+	if cycles < 0 || wavefronts < 0 || minWorkGroupCycles < 0 {
+		panic("dispatching: per-die dispatch rate settings must be non-negative")
+	}
 	b.wavefrontDispatchCycles = cycles
+	b.wavefrontsPerDispatchPeriod = max(1, wavefronts)
+	b.minWorkGroupDispatchCycles = minWorkGroupCycles
 	return b
 }
 
@@ -174,6 +180,9 @@ func (b Builder) Build(name string) Dispatcher {
 		subsequentKernelLaunchOverhead: b.subsequentKernelLaunchOverhead,
 		wgScalingThreshold:             b.wgScalingThreshold,
 		monitor:                        b.monitor,
+		wavefrontDispatchCycles:        b.wavefrontDispatchCycles,
+		wavefrontsPerDispatchPeriod:    b.wavefrontsPerDispatchPeriod,
+		minWorkGroupDispatchCycles:     b.minWorkGroupDispatchCycles,
 	}
 
 	switch b.alg {
@@ -208,7 +217,6 @@ func (b Builder) Build(name string) Dispatcher {
 
 	if da, ok := d.alg.(dieAwareAlgorithm); ok {
 		d.dieAware = da
-		d.wavefrontDispatchCycles = b.wavefrontDispatchCycles
 	}
 
 	return d

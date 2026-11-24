@@ -2,10 +2,10 @@
 // ported from sarchlab/gpu_benchmarks (tier1/empty_kernel) for the MGPUSim MI300X
 // (CDNA3 / gfx942) model.
 //
-// The kernel does no work, so the simulated kernel time for a single launch is the
-// model's pure launch / dispatch / grid-scheduling / completion overhead --
-// directly comparable to the real benchmark's launch_sync_us (the round-trip
-// launch+synchronize cost per launch). The kernel binary is compiled for gfx942
+// The kernel does no application work. Calibration compares the simulator's
+// command-processor dispatch interval with the GPU-side profiler duration for
+// the corresponding launch. The hardware benchmark also reports a separate
+// host launch-and-synchronize time. The kernel binary is compiled for gfx942
 // only (see native/), so the benchmark must be run with `-arch cdna3`.
 package emptykernel
 

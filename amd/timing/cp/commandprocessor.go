@@ -59,10 +59,19 @@ type Spec struct {
 	// across in parallel.
 	NumDies int `json:"num_dies"`
 
-	// WavefrontDispatchCycles is the per-die dispatch cost charged per wavefront,
-	// in cycles, for the "per-die" algorithm. A W-wavefront work-group occupies
-	// its die's dispatch pipe for W*cycles before the die dispatches the next.
+	// WavefrontDispatchCycles is the length of the per-die wavefront dispatch
+	// period, in cycles. Only used by the "per-die" algorithm.
 	WavefrontDispatchCycles int `json:"wavefront_dispatch_cycles"`
+
+	// WavefrontsPerDispatchPeriod sets the number of wavefronts serviced per
+	// WavefrontDispatchCycles. Zero preserves the original cycles-per-wavefront
+	// behavior. For W wavefronts the cost is ceil(W * cycles / wavefronts).
+	WavefrontsPerDispatchPeriod int `json:"wavefronts_per_dispatch_period"`
+
+	// MinWorkGroupDispatchCycles sets the minimum interval between work-group
+	// dispatches on the same die, even if the wavefront cost is lower. Zero
+	// disables this minimum.
+	MinWorkGroupDispatchCycles int `json:"min_work_group_dispatch_cycles"`
 }
 
 // Control sequences that the Command Processor can be running. The Command
