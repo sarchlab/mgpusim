@@ -63,6 +63,45 @@ class ReleaseCalibrationTest(unittest.TestCase):
         self.assertEqual(unmatched["statuses"]["mgpusim"]["state"], "unsupported")
         self.assertEqual(data["progress"]["completed"], 1)
 
+    def test_report_omits_only_the_cache_latency_primer(self):
+        geometry = [1, 1, 1, 1, 1, 1]
+        hardware = ["pointer_chase_kernel(unsigned int const*)", *geometry, 2000]
+        primer = ["pointer_chase_kernel", *geometry, 100]
+        measured = ["pointer_chase_kernel", *geometry, 1500]
+        different_geometry = ["pointer_chase_kernel", 2, *geometry[1:], 100]
+        other_kernel = ["other_kernel", *geometry, 100]
+
+        for benchmark, launches, expected in (
+            ("cache_latency", [primer, measured], 1500),
+            ("cache_latency", [measured], 1500),
+            ("cache_latency", [primer, primer, measured], None),
+            ("cache_latency", [different_geometry, measured], None),
+            ("cache_latency", [primer, different_geometry], None),
+            ("cache_latency", [other_kernel, measured], None),
+            ("cache_latency", [primer, other_kernel], None),
+            ("example", [primer, measured], None),
+        ):
+            with self.subTest(benchmark=benchmark, launches=launches):
+                series = {
+                    **SERIES,
+                    "benchmark": benchmark,
+                    "cases": [{"case": 1, "x": 64, "launches": [hardware]}],
+                }
+                results = {
+                    0: {
+                        "started_at": "2026-11-24T16:00:00Z",
+                        "cases": {"1": {"status": "complete", "launches": launches}},
+                    }
+                }
+                data = report({"series": [series]}, results, "test", "sample-sha")
+                (point,) = data["data"]
+                self.assertEqual(point["values"]["mgpusim"], expected)
+                if expected is None:
+                    self.assertEqual(point["statuses"]["mgpusim"]["state"], "unsupported")
+                else:
+                    self.assertNotIn("statuses", point)
+                    self.assertEqual(data["progress"]["completed"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
