@@ -63,8 +63,9 @@ report omits the simulated cache primer from the comparison when both simulated
 pointer-chase launches match the single measured hardware launch's name and
 geometry. Small runs use a single
 unmodified Calibration Report template. For larger runs, a separate directory
-links to the overview and to each benchmark report. Long launch sequences are
-split into pages, each using the same unmodified template.
+links to an overview with all results and to each benchmark report. Long launch
+sequences are split into numbered pages with explicit launch ranges. Each page
+uses the same unmodified template.
 
 ## GitHub Pages setup
 

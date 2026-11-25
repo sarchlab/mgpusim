@@ -10,7 +10,7 @@ from pathlib import Path
 
 from workflow import atomic_json, base_kernel_name, read_reference, report
 
-LAUNCHES_PER_PAGE = 48
+LAUNCHES_PER_DETAIL_PAGE = 48
 
 
 def link_list(path, title, intro, links, css, parent=None):
@@ -48,13 +48,13 @@ def report_layout(reference):
         )
         fixed = tuple(sorted(series["parameters"].items()))
         for case in cases:
-            if len(charts) > LAUNCHES_PER_PAGE:
+            if len(charts) > LAUNCHES_PER_DETAIL_PAGE:
                 break
             charts.update(
                 (benchmark, fixed, ordinal, base_kernel_name(launch[0]))
                 for ordinal, launch in enumerate(case["launches"], start=1)
             )
-    return launch_counts, len(charts) > LAUNCHES_PER_PAGE
+    return launch_counts, len(charts) > LAUNCHES_PER_DETAIL_PAGE
 
 
 def write_report(data, template, destination):
@@ -68,7 +68,7 @@ def render_site(data, template, destination, *, layout):
         write_report(data, template, destination)
         return
 
-    render_overview(data, template, destination / "overview")
+    write_report(data, template, destination / "overview")
     grouped = defaultdict(list)
     for point in data["data"]:
         grouped[point["benchmark"]].append(point)
@@ -84,16 +84,17 @@ def render_site(data, template, destination, *, layout):
         pages = defaultdict(list)
         for point in grouped[benchmark]:
             ordinal = int(point["non_scaling_params"]["launch"].split(" ", 1)[0][1:])
-            pages[(ordinal - 1) // LAUNCHES_PER_PAGE].append(point)
+            pages[(ordinal - 1) // LAUNCHES_PER_DETAIL_PAGE].append(point)
 
-        page_count = (count + LAUNCHES_PER_PAGE - 1) // LAUNCHES_PER_PAGE
+        page_count = (count + LAUNCHES_PER_DETAIL_PAGE - 1) // LAUNCHES_PER_DETAIL_PAGE
         page_links = []
         for page in range(page_count):
             split = page_count > 1
             page_dir = benchmark_dir / f"part-{page + 1}" if split else benchmark_dir
-            first = page * LAUNCHES_PER_PAGE + 1
-            last = min(first + LAUNCHES_PER_PAGE - 1, count)
-            page_title = f"{title} · launches {first}–{last}" if split else title
+            first = page * LAUNCHES_PER_DETAIL_PAGE + 1
+            last = min(first + LAUNCHES_PER_DETAIL_PAGE - 1, count)
+            page_label = f"Page {page + 1} of {page_count} · launches {first}–{last}"
+            page_title = f"{title} · {page_label}" if split else title
             write_report(
                 {
                     "report": {**data["report"], "title": page_title},
@@ -105,7 +106,7 @@ def render_site(data, template, destination, *, layout):
                 template,
                 page_dir,
             )
-            page_links.append((f"part-{page + 1}/", f"Launches {first}–{last}"))
+            page_links.append((f"part-{page + 1}/", page_label))
         if page_count > 1:
             link_list(
                 benchmark_dir / "index.html",
@@ -118,37 +119,9 @@ def render_site(data, template, destination, *, layout):
     link_list(
         destination / "index.html",
         data["report"]["title"],
-        "Open the overview for progress and accuracy. Benchmark reports contain every launch.",
+        "The overview summarizes all paired dispatches. Benchmark reports contain every launch.",
         links,
         "./overview/report.css",
-    )
-
-
-def render_overview(data, template, destination):
-    charts = defaultdict(list)
-    for point in data["data"]:
-        fixed = tuple(sorted(point["non_scaling_params"].items()))
-        charts[(point["benchmark"], fixed)].append(point)
-    shown = list(charts.values())[:LAUNCHES_PER_PAGE]
-    points = [point for chart in shown for point in chart]
-    names = {point["benchmark"] for point in points}
-    header = dict(data["report"])
-    if len(shown) < len(charts):
-        header["description"] += (
-            f" The overview uses {len(shown):,} of {len(charts):,} available charts. "
-            "Complete benchmark results are linked from the report directory."
-        )
-    write_report(
-        {
-            **data,
-            "report": header,
-            "benchmarks": {
-                name: meta for name, meta in data["benchmarks"].items() if name in names
-            },
-            "data": points,
-        },
-        template,
-        destination,
     )
 
 

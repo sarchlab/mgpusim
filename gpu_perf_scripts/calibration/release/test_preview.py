@@ -14,8 +14,8 @@ class PreviewTest(unittest.TestCase):
         reference = {
             "series": [
                 {
-                    "benchmark": "example",
-                    "sample": "example",
+                    "benchmark": "example" if i == 0 else "many_launches",
+                    "sample": "example" if i == 0 else "many_launches",
                     "axis": "size",
                     "parameters": {"block_size": 16 + i},
                     "cases": [
@@ -36,7 +36,8 @@ class PreviewTest(unittest.TestCase):
             "version": "test",
             "revision": "revision",
             "series": [
-                {"id": i, "benchmark": "example", "sample": "example"} for i in range(2)
+                {"id": 0, "benchmark": "example", "sample": "example"},
+                {"id": 1, "benchmark": "many_launches", "sample": "many_launches"},
             ],
         }
         fixtures = {
@@ -75,7 +76,7 @@ class PreviewTest(unittest.TestCase):
                 self.assertEqual(data["progress"]["unsuccessful"], 0)
                 self.assertTrue(data["report"]["live"])
                 self.assertEqual(data["data"][0]["values"]["mgpusim"], 1500)
-                page = json.loads((output / "example/part-2/data.json").read_text())
+                page = json.loads((output / "many_launches/part-2/data.json").read_text())
                 self.assertEqual(page["data"], [])
                 self.assertTrue(page["report"]["live"])
 
@@ -102,13 +103,22 @@ class PreviewTest(unittest.TestCase):
             final = json.loads((output / "overview/data.json").read_text())
             self.assertEqual(final["progress"]["completed"], 2)
             self.assertFalse(final["report"]["live"])
-            self.assertEqual(len(final["data"]), 48)
-            self.assertIn("48 of 50 available charts", final["report"]["description"])
-            page = json.loads((output / "example/part-2/data.json").read_text())
+            self.assertEqual(len(final["data"]), 50)
+            self.assertEqual(set(final["benchmarks"]), {"example", "many_launches"})
+            self.assertEqual(
+                sum(point["benchmark"] == "many_launches" for point in final["data"]),
+                49,
+            )
+            index = (output / "many_launches/index.html").read_text()
+            self.assertIn('href="part-1/"', index)
+            self.assertIn('href="part-2/"', index)
+            self.assertIn("Page 1 of 2", index)
+            self.assertIn("Page 2 of 2", index)
+            page = json.loads((output / "many_launches/part-2/data.json").read_text())
             self.assertEqual(page["data"][0]["values"]["mgpusim"], 1500)
             self.assertFalse(page["report"]["live"])
             self.assertEqual((output / "overview/index.html").read_text(), html)
-            self.assertEqual((output / "example/part-2/index.html").read_text(), html)
+            self.assertEqual((output / "many_launches/part-2/index.html").read_text(), html)
             self.assertIn('href="overview/"', (output / "index.html").read_text())
             self.assertFalse((output / "data.json").exists())
 
