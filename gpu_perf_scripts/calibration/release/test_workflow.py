@@ -35,6 +35,16 @@ class ReleaseCalibrationTest(unittest.TestCase):
             self.assertEqual(results["2"]["status"], "timeout")
             self.assertEqual(results["3"]["status"], "unsupported")
 
+            data = report(
+                {"series": [SERIES]},
+                {0: {"started_at": "2026-11-24T16:00:00Z", "cases": results}},
+                "test",
+                "sample-sha",
+            )
+            _, timed_out, skipped = data["data"]
+            self.assertNotIn("symbol", timed_out["statuses"]["mgpusim"])
+            self.assertEqual(skipped["statuses"]["mgpusim"]["symbol"], "↷")
+
     def test_report_matches_launches_and_keeps_failed_verification_timing(self):
         results = {
             0: {
@@ -62,6 +72,7 @@ class ReleaseCalibrationTest(unittest.TestCase):
         )
         self.assertIsNone(unmatched["values"]["mgpusim"])
         self.assertEqual(unmatched["statuses"]["mgpusim"]["state"], "unsupported")
+        self.assertNotIn("symbol", unmatched["statuses"]["mgpusim"])
         self.assertEqual(data["progress"]["completed"], 1)
 
     def test_cfd_report_labels_launch_groups_without_merging_dispatches(self):
@@ -156,6 +167,37 @@ class ReleaseCalibrationTest(unittest.TestCase):
         points = report({"series": [series]}, results, "test", "sample-sha")["data"]
         self.assertTrue(all(p["values"]["mgpusim"] is not None for p in points))
         self.assertEqual(points[0]["non_scaling_params"]["launch_group"], "copy_first")
+
+    def test_report_matches_the_lbm_exported_kernel_only_with_matching_geometry(self):
+        hardware = [
+            "lbm::lbm_collide_stream_kernel(float const*, float*, lbm::Layout)",
+            *SHAPE,
+            2000,
+        ]
+        simulated = ["lbm_collide_stream_kernel", *SHAPE, 1500]
+        different_geometry = ["lbm_collide_stream_kernel", 32, *SHAPE[1:], 1500]
+
+        for benchmark, launch, expected in (
+            ("parboil_lbm", simulated, 1500),
+            ("parboil_lbm", different_geometry, None),
+            ("example", simulated, None),
+        ):
+            with self.subTest(benchmark=benchmark, launch=launch):
+                series = {
+                    **SERIES,
+                    "benchmark": benchmark,
+                    "cases": [{"case": 1, "x": 64, "launches": [hardware]}],
+                }
+                results = {
+                    0: {
+                        "started_at": "2026-11-24T16:00:00Z",
+                        "cases": {"1": {"status": "complete", "launches": [launch]}},
+                    }
+                }
+                data = report({"series": [series]}, results, "test", "sample-sha")
+                (point,) = data["data"]
+                self.assertEqual(point["values"]["mgpusim"], expected)
+                self.assertEqual(data["progress"]["completed"], int(expected is not None))
 
     def test_report_omits_only_the_cache_latency_primer(self):
         geometry = [1, 1, 1, 1, 1, 1]

@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 BUDGET_SECONDS = 5.5 * 60 * 60
+SERIES_BUDGET_SKIP_REASON = "Series budget expired before this configuration started."
 COMMON = [
     "-arch=cdna3",
     "-gpu=mi300x",
@@ -156,7 +157,7 @@ def run_series(series, binary, output, budget=BUDGET_SECONDS):
         if remaining <= 0:
             result = {
                 "status": "unsupported",
-                "reason": "Series budget expired before this configuration started.",
+                "reason": SERIES_BUDGET_SKIP_REASON,
             }
         else:
             directory = runs / str(case["case"])
@@ -194,20 +195,21 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
-CFD_KERNEL_ALIASES = {
-    "compute_step_factor_kernel": "cfd_device::compute_step_factor_kernel",
-    "compute_flux_kernel": "cfd_device::compute_flux_kernel",
-    "rk_update_kernel": "cfd_device::rk_update_kernel",
+# These code objects export C symbols; ROCprof records their C++ namespaces.
+KERNEL_ALIASES = {
+    "altis_cfd": {
+        "compute_step_factor_kernel": "cfd_device::compute_step_factor_kernel",
+        "compute_flux_kernel": "cfd_device::compute_flux_kernel",
+        "rk_update_kernel": "cfd_device::rk_update_kernel",
+    },
+    "parboil_lbm": {"lbm_collide_stream_kernel": "lbm::lbm_collide_stream_kernel"},
 }
 
 
 def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
     simulated_name = demangled[simulated[0]]
-    # The simulator's gfx942 CFD code object exports these as C symbols,
-    # while ROCprof records their names in cfd_device.
     matches = same_kernel(hardware[0], simulated_name) or (
-        benchmark == "altis_cfd"
-        and CFD_KERNEL_ALIASES.get(simulated_name) == base_kernel_name(hardware[0])
+        KERNEL_ALIASES.get(benchmark, {}).get(simulated_name) == base_kernel_name(hardware[0])
     )
     return matches and list(simulated[1:-1]) == hardware[1:-1]
 
@@ -218,10 +220,11 @@ def cfd_launch_groups(cases, results, demangled):
     # so that a trace mismatch cannot split one plotted series across sizes.
     stage = ("cfd_device::compute_flux_kernel", "cfd_device::rk_update_kernel")
     step = ("copy_variables_kernel", "cfd_device::compute_step_factor_kernel") + stage * 3
+    aliases = KERNEL_ALIASES["altis_cfd"]
     for case in cases:
         hardware = case["launches"]
         names = (base_kernel_name(row[0]) for row in hardware)
-        if tuple(CFD_KERNEL_ALIASES.get(name, name) for name in names) != step * 10:
+        if tuple(aliases.get(name, name) for name in names) != step * 10:
             return ()
         if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
             return ()
@@ -355,9 +358,10 @@ def report(reference, results, version, revision, *, live=False):
                         }
                     }
                 elif state != "complete":
-                    point["statuses"] = {
-                        "mgpusim": {"state": state, "reason": run["reason"]}
-                    }
+                    status = {"state": state, "reason": run["reason"]}
+                    if state == "unsupported" and status["reason"] == SERIES_BUDGET_SKIP_REASON:
+                        status["symbol"] = "↷"
+                    point["statuses"] = {"mgpusim": status}
                 points.append(point)
     total = sum(counts.values())
     return {
