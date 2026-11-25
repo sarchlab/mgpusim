@@ -95,24 +95,22 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          repository: sarchlab/calibration-report
-          # Report version used for the verified multi-dispatch preview.
-          ref: 373981613f52a657dc775899bcff4b901c90d6f2
-          path: report-template
-          persist-credentials: false
+          node-version: '24.15.0'
       - uses: actions/download-artifact@v4
         with:
           pattern: series-*
           path: artifacts
-      - name: Build report
+      - name: Export data.json
         env:
           BENCHMARK: ${{ inputs.benchmark }}
           VERSION: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          python3 gpu_perf_scripts/calibration/release/build_site.py artifacts report-template/site site \
+          python3 gpu_perf_scripts/calibration/release/build_data.py artifacts data.json \
             --benchmark "$BENCHMARK" --version "$VERSION" --revision "$GITHUB_SHA"
+      - name: Generate the static report
+        run: npx --yes calibration-report@0.3.0 --data data.json --out site
       - uses: actions/upload-artifact@v4
         with:
           name: mi300x-release-calibration-report

@@ -1,22 +1,15 @@
-"""Package a complete calibration dataset with the standard report template."""
+"""Export one complete calibration dataset for the standard report viewer."""
 
 import argparse
 import json
-import shutil
 from pathlib import Path
 
 from workflow import atomic_json, read_reference, report
 
 
-def render_site(data, template, destination):
-    shutil.copytree(template, destination, dirs_exist_ok=True)
-    atomic_json(destination / "data.json", data)
-
-
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("artifacts", type=Path)
-    p.add_argument("template", type=Path)
     p.add_argument("output", type=Path)
     p.add_argument(
         "--reference",
@@ -35,11 +28,8 @@ def main():
     if args.benchmark:
         for series in reference["series"]:
             series["selection_excluded"] = series["benchmark"] != args.benchmark
-    render_site(
-        report(reference, results, args.version, args.revision),
-        args.template,
-        args.output,
-    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(args.output, report(reference, results, args.version, args.revision))
 
 
 if __name__ == "__main__":

@@ -4,8 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from build_site import render_site
-from preview import watch
+from preview import render_site, watch
 
 
 class PreviewTest(unittest.TestCase):

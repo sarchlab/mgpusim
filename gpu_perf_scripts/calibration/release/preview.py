@@ -4,14 +4,14 @@ import argparse
 import io
 import json
 import re
+import shutil
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from zipfile import ZipFile
 
-from build_site import render_site
-from workflow import matrix_rows, read_reference, report
+from workflow import atomic_json, matrix_rows, read_reference, report
 
 
 def github(*args):
@@ -53,6 +53,11 @@ def select_reference(reference, plan):
     for i, series in enumerate(reference["series"]):
         series["selection_excluded"] = i not in selection
     return selection.keys()
+
+
+def render_site(data, template, output):
+    shutil.copytree(template, output, dirs_exist_ok=True)
+    atomic_json(output / "data.json", data)
 
 
 def watch(reference, template, output, repo, run_id, interval, destination):
