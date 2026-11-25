@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 BUDGET_SECONDS = 5.5 * 60 * 60
+SERIES_BUDGET_SKIP_REASON = "Series budget expired before this configuration started."
 COMMON = [
     "-arch=cdna3",
     "-gpu=mi300x",
@@ -156,7 +157,7 @@ def run_series(series, binary, output, budget=BUDGET_SECONDS):
         if remaining <= 0:
             result = {
                 "status": "unsupported",
-                "reason": "Series budget expired before this configuration started.",
+                "reason": SERIES_BUDGET_SKIP_REASON,
             }
         else:
             directory = runs / str(case["case"])
@@ -297,9 +298,10 @@ def report(reference, results, version, revision, *, live=False):
                         }
                     }
                 elif state != "complete":
-                    point["statuses"] = {
-                        "mgpusim": {"state": state, "reason": run["reason"]}
-                    }
+                    status = {"state": state, "reason": run["reason"]}
+                    if state == "unsupported" and status["reason"] == SERIES_BUDGET_SKIP_REASON:
+                        status["symbol"] = "↷"
+                    point["statuses"] = {"mgpusim": status}
                 points.append(point)
     total = sum(counts.values())
     return {
