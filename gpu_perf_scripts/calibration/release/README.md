@@ -61,11 +61,10 @@ available and matches the hardware launch sequence. The standard report
 excludes those points from accuracy statistics. For `cache_latency`, the
 report omits the simulated cache primer from the comparison when both simulated
 pointer-chase launches match the single measured hardware launch's name and
-geometry. Small runs use a single
-unmodified Calibration Report template. For larger runs, a separate directory
-links to an overview with all results and to each benchmark report. Long launch
-sequences are split into numbered pages with explicit launch ranges. Each page
-uses the same unmodified template.
+geometry. The release and live preview each write one `data.json` with all
+available dispatches and copy the standard Calibration Report template
+unchanged. The template controls summaries, chart rendering, and pagination.
+When switching an older preview to this layout, use a fresh output directory.
 
 ## GitHub Pages setup
 
