@@ -254,6 +254,69 @@ def cfd_launch_groups(cases, results, demangled):
     return first + steady * 9
 
 
+ITERATIVE_LAUNCH_PATTERNS = {
+    "parboil_lbm": ("num_timesteps", ("lbm::lbm_collide_stream_kernel",)),
+    "polybench_fdtd2d": (
+        "tmax", ("fdtd_update_ex", "fdtd_update_ey", "fdtd_update_hz"),
+    ),
+    "polybench_jacobi2d": ("tsteps", ("jacobi2d_kernel", "jacobi2d_copy_kernel")),
+}
+
+
+def iterative_launch_groups(series):
+    benchmark = series["benchmark"]
+    parameters = series["parameters"]
+    tail = False
+    if benchmark == "rodinia_pathfinder":
+        rows = parameters.get("rows")
+        height = parameters.get("pyramid_height")
+        if type(rows) is not int or type(height) is not int or rows < 2 or height < 1:
+            return ()
+        steps, remainder = divmod(rows - 1, height)
+        tail = remainder != 0
+        count = steps + tail
+        kernels = ("dynproc_kernel",)
+    else:
+        step_count, kernels = ITERATIVE_LAUNCH_PATTERNS[benchmark]
+        count = parameters.get(step_count)
+
+    if type(count) is not int or count < 2:
+        return ()
+
+    expected = kernels * count
+    phases = len(kernels)
+    aliases = KERNEL_ALIASES.get(benchmark, {})
+    for case in series["cases"]:
+        hardware = case["launches"]
+        names = (base_kernel_name(row[0]) for row in hardware)
+        if tuple(aliases.get(name, name) for name in names) != expected:
+            return ()
+        if any(row[1:-1] != hardware[i % phases][1:-1] for i, row in enumerate(hardware)):
+            return ()
+
+    labels = tuple(kernel.rsplit("::", 1)[-1] for kernel in kernels)
+    groups = tuple(f"{label}_first" for label in labels) + labels * (count - 1)
+    if tail:
+        groups = groups[:-1] + (f"{labels[0]}_tail",)
+    return groups
+
+
+def grouped_iterative_series(series_list):
+    candidates = [
+        (i, series["benchmark"], iterative_launch_groups(series))
+        for i, series in enumerate(series_list)
+        if not series.get("selection_excluded")
+        and (
+            series["benchmark"] == "rodinia_pathfinder"
+            or series["benchmark"] in ITERATIVE_LAUNCH_PATTERNS
+        )
+    ]
+    # The format declares parameter names at benchmark scope. Keep every
+    # series ungrouped if any of its reference traces is inconsistent.
+    ungrouped = {benchmark for _, benchmark, groups in candidates if not groups}
+    return {i: groups for i, benchmark, groups in candidates if benchmark not in ungrouped}
+
+
 def report(reference, results, version, revision, *, live=False):
     durations = []
     all_simulated = (
@@ -263,6 +326,8 @@ def report(reference, results, version, revision, *, live=False):
         for row in case.get("launches", [])
     )
     demangled = kernel_names(all_simulated)
+    # Validate against the reference so labels stay stable during live updates.
+    iterative_groups = grouped_iterative_series(reference["series"])
     counts = Counter()
     benchmarks = {}
     points = []
@@ -296,7 +361,7 @@ def report(reference, results, version, revision, *, live=False):
         definition["params"].update(params)
         launch_groups = (
             cfd_launch_groups(series["cases"], group_results.get("cases", {}), demangled)
-            if bench == "altis_cfd" else ()
+            if bench == "altis_cfd" else iterative_groups.get(group_id, ())
         )
         if launch_groups:
             definition["params"]["launch_group"] = {"unit": ""}

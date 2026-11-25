@@ -78,6 +78,15 @@ later timesteps. Flux and update each group stages 1 and 2 together. The
 original `launch` labels, per-dispatch values, and statuses are preserved.
 A sequence mismatch leaves all records in that series without group annotations.
 
+Rodinia Pathfinder, Parboil LBM, PolyBench FDTD2D, and PolyBench Jacobi2D also
+label repeated launches. The exporter checks the reference launch count, phase
+order, and grid and workgroup dimensions for each configuration before adding
+the labels. It separates each phase's first launch from later launches and
+labels a shorter final Pathfinder launch separately. If a reference series
+fails those checks, the benchmark falls back to individual launch labels. The
+labels stay stable as simulator artifacts arrive. All per-dispatch values and
+existing timing and status checks are preserved.
+
 ## GitHub Pages setup
 
 Before the first release that uses this workflow, set **Settings → Pages →
