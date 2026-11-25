@@ -195,11 +195,15 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
-def same_dispatch(hardware, simulated, demangled):
-    return (
-        same_kernel(hardware[0], demangled[simulated[0]])
-        and list(simulated[1:-1]) == hardware[1:-1]
+def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
+    simulated_name = demangled[simulated[0]]
+    # The LBM code object exports a C symbol while ROCprof records its namespace.
+    matches = same_kernel(hardware[0], simulated_name) or (
+        benchmark == "parboil_lbm"
+        and simulated_name == "lbm_collide_stream_kernel"
+        and base_kernel_name(hardware[0]) == "lbm::lbm_collide_stream_kernel"
     )
+    return matches and list(simulated[1:-1]) == hardware[1:-1]
 
 
 def report(reference, results, version, revision, *, live=False):
@@ -271,7 +275,7 @@ def report(reference, results, version, revision, *, live=False):
             if len(simulated) == len(hardware):
                 for index, (real, sim) in enumerate(zip(hardware, simulated)):
                     if (
-                        same_dispatch(real, sim, demangled)
+                        same_dispatch(real, sim, demangled, benchmark=bench)
                         and math.isfinite(sim[-1])
                         and sim[-1] > 0
                     ):

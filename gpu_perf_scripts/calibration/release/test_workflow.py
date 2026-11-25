@@ -74,6 +74,37 @@ class ReleaseCalibrationTest(unittest.TestCase):
         self.assertNotIn("symbol", unmatched["statuses"]["mgpusim"])
         self.assertEqual(data["progress"]["completed"], 1)
 
+    def test_report_matches_the_lbm_exported_kernel_only_with_matching_geometry(self):
+        hardware = [
+            "lbm::lbm_collide_stream_kernel(float const*, float*, lbm::Layout)",
+            *SHAPE,
+            2000,
+        ]
+        simulated = ["lbm_collide_stream_kernel", *SHAPE, 1500]
+        different_geometry = ["lbm_collide_stream_kernel", 32, *SHAPE[1:], 1500]
+
+        for benchmark, launch, expected in (
+            ("parboil_lbm", simulated, 1500),
+            ("parboil_lbm", different_geometry, None),
+            ("example", simulated, None),
+        ):
+            with self.subTest(benchmark=benchmark, launch=launch):
+                series = {
+                    **SERIES,
+                    "benchmark": benchmark,
+                    "cases": [{"case": 1, "x": 64, "launches": [hardware]}],
+                }
+                results = {
+                    0: {
+                        "started_at": "2026-11-24T16:00:00Z",
+                        "cases": {"1": {"status": "complete", "launches": [launch]}},
+                    }
+                }
+                data = report({"series": [series]}, results, "test", "sample-sha")
+                (point,) = data["data"]
+                self.assertEqual(point["values"]["mgpusim"], expected)
+                self.assertEqual(data["progress"]["completed"], int(expected is not None))
+
     def test_report_omits_only_the_cache_latency_primer(self):
         geometry = [1, 1, 1, 1, 1, 1]
         hardware = ["pointer_chase_kernel(unsigned int const*)", *geometry, 2000]
