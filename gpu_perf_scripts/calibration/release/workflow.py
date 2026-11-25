@@ -195,15 +195,63 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
+# These code objects export C symbols; ROCprof records their C++ namespaces.
+KERNEL_ALIASES = {
+    "altis_cfd": {
+        "compute_step_factor_kernel": "cfd_device::compute_step_factor_kernel",
+        "compute_flux_kernel": "cfd_device::compute_flux_kernel",
+        "rk_update_kernel": "cfd_device::rk_update_kernel",
+    },
+    "parboil_lbm": {"lbm_collide_stream_kernel": "lbm::lbm_collide_stream_kernel"},
+}
+
+
 def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
     simulated_name = demangled[simulated[0]]
-    # The LBM code object exports a C symbol while ROCprof records its namespace.
     matches = same_kernel(hardware[0], simulated_name) or (
-        benchmark == "parboil_lbm"
-        and simulated_name == "lbm_collide_stream_kernel"
-        and base_kernel_name(hardware[0]) == "lbm::lbm_collide_stream_kernel"
+        KERNEL_ALIASES.get(benchmark, {}).get(simulated_name) == base_kernel_name(hardware[0])
     )
     return matches and list(simulated[1:-1]) == hardware[1:-1]
+
+
+def cfd_launch_groups(cases, results, demangled):
+    # CFD records ten timesteps, each with a copy, a factor calculation, and
+    # three Runge–Kutta stages. Validate the whole series before labelling it
+    # so that a trace mismatch cannot split one plotted series across sizes.
+    stage = ("cfd_device::compute_flux_kernel", "cfd_device::rk_update_kernel")
+    step = ("copy_variables_kernel", "cfd_device::compute_step_factor_kernel") + stage * 3
+    aliases = KERNEL_ALIASES["altis_cfd"]
+    for case in cases:
+        hardware = case["launches"]
+        names = (base_kernel_name(row[0]) for row in hardware)
+        if tuple(aliases.get(name, name) for name in names) != step * 10:
+            return ()
+        if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
+            return ()
+        simulated = results.get(str(case["case"]), {}).get("launches", [])
+        if simulated and (
+            len(simulated) != len(hardware)
+            or not all(
+                same_dispatch(real, sim, demangled, benchmark="altis_cfd")
+                for real, sim in zip(hardware, simulated)
+            )
+        ):
+            return ()
+
+    # Keep observed first-timestep effects separate and group the similar
+    # stage 1 and 2 timings in the MI300X reference.
+    steady = (
+        "copy",
+        "step_factor",
+        "flux_stage_0",
+        "update_stage_0",
+        "flux_stages_1_2",
+        "update_stages_1_2",
+        "flux_stages_1_2",
+        "update_stages_1_2",
+    )
+    first = ("copy_first", "step_factor_first", "flux_stage_0_first", *steady[3:])
+    return first + steady * 9
 
 
 def report(reference, results, version, revision, *, live=False):
@@ -246,6 +294,12 @@ def report(reference, results, version, revision, *, live=False):
             },
         )
         definition["params"].update(params)
+        launch_groups = (
+            cfd_launch_groups(series["cases"], group_results.get("cases", {}), demangled)
+            if bench == "altis_cfd" else ()
+        )
+        if launch_groups:
+            definition["params"]["launch_group"] = {"unit": ""}
         for case in series["cases"]:
             if live and not group_results:
                 counts["queued"] += 1
@@ -294,6 +348,8 @@ def report(reference, results, version, revision, *, live=False):
                     },
                     "values": {"mi300x": real[-1], "mgpusim": paired[index]},
                 }
+                if launch_groups:
+                    point["non_scaling_params"]["launch_group"] = launch_groups[index]
                 if state == "complete" and paired[index] is None:
                     point["statuses"] = {
                         "mgpusim": {

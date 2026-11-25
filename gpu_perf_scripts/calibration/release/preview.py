@@ -4,14 +4,14 @@ import argparse
 import io
 import json
 import re
+import shutil
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from zipfile import ZipFile
 
-from build_site import render_site, report_layout
-from workflow import matrix_rows, read_reference, report
+from workflow import atomic_json, matrix_rows, read_reference, report
 
 
 def github(*args):
@@ -55,6 +55,11 @@ def select_reference(reference, plan):
     return selection.keys()
 
 
+def render_site(data, template, output):
+    shutil.copytree(template, output, dirs_exist_ok=True)
+    atomic_json(output / "data.json", data)
+
+
 def watch(reference, template, output, repo, run_id, interval, destination):
     endpoint = f"repos/{repo}/actions/runs/{run_id}"
     plan_id = None
@@ -77,7 +82,6 @@ def watch(reference, template, output, repo, run_id, interval, destination):
                             "Calibration plan revision does not match the run"
                         )
                     selected = select_reference(reference, plan)
-                    layout = report_layout(reference)
                     plan_id = current_plan_id
 
                 if plan is not None:
@@ -113,7 +117,7 @@ def watch(reference, template, output, repo, run_id, interval, destination):
                                 f" Results published for {len(results)} of {len(selected)} series. "
                                 "Configurations in active series are pending until their artifacts arrive."
                             )
-                        render_site(data, template, output, layout=layout)
+                        render_site(data, template, output)
                         if destination:
                             subprocess.run(
                                 [

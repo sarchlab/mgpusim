@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest.mock import patch
 
@@ -73,6 +74,99 @@ class ReleaseCalibrationTest(unittest.TestCase):
         self.assertEqual(unmatched["statuses"]["mgpusim"]["state"], "unsupported")
         self.assertNotIn("symbol", unmatched["statuses"]["mgpusim"])
         self.assertEqual(data["progress"]["completed"], 1)
+
+    def test_cfd_report_labels_launch_groups_without_merging_dispatches(self):
+        names = [
+            "copy_variables_kernel",
+            "cfd_device::compute_step_factor_kernel",
+            "cfd_device::compute_flux_kernel",
+            "cfd_device::rk_update_kernel",
+            "cfd_device::compute_flux_kernel",
+            "cfd_device::rk_update_kernel",
+            "cfd_device::compute_flux_kernel",
+            "cfd_device::rk_update_kernel",
+        ] * 10
+        hardware = [[f"{name}(int)", *SHAPE, 2000] for name in names]
+        simulated = [
+            [name.removeprefix("cfd_device::"), *SHAPE, 1500 + i]
+            for i, name in enumerate(names)
+        ]
+        cases = [{"case": 1, "x": 64, "launches": hardware}]
+        series = {**SERIES, "benchmark": "altis_cfd", "cases": cases}
+        results = {
+            0: {
+                "started_at": "2026-11-24T16:00:00Z",
+                "cases": {"1": {"status": "complete", "launches": simulated}},
+            }
+        }
+
+        data = report({"series": [series]}, results, "test", "sample-sha")
+        points = data["data"]
+        self.assertEqual(len(points), 80)
+        self.assertEqual(
+            len({point["non_scaling_params"]["launch"] for point in points}), 80
+        )
+        self.assertEqual(
+            [point["values"]["mgpusim"] for point in points], list(range(1500, 1580))
+        )
+        self.assertEqual(
+            Counter(point["non_scaling_params"]["launch_group"] for point in points),
+            {
+                "copy_first": 1,
+                "copy": 9,
+                "step_factor_first": 1,
+                "step_factor": 9,
+                "flux_stage_0_first": 1,
+                "flux_stage_0": 9,
+                "flux_stages_1_2": 20,
+                "update_stage_0": 10,
+                "update_stages_1_2": 20,
+            },
+        )
+
+        for changed_rows, index, changed_value in (
+            (hardware, 0, "different_kernel"),
+            (hardware, 1, 128),
+            (simulated, 0, "different_kernel"),
+        ):
+            side = "hardware" if changed_rows is hardware else "simulated"
+            with self.subTest(side=side, index=index):
+                previous = changed_rows[0][index]
+                changed_rows[0][index] = changed_value
+                try:
+                    ungrouped = report({"series": [series]}, results, "test", "sample-sha")
+                finally:
+                    changed_rows[0][index] = previous
+                self.assertEqual(len(ungrouped["data"]), 80)
+                self.assertNotIn(
+                    "launch_group", ungrouped["benchmarks"]["altis_cfd"]["params"]
+                )
+                self.assertTrue(all(
+                    "launch_group" not in point["non_scaling_params"]
+                    for point in ungrouped["data"]
+                ))
+
+        # Timing-free configurations still share the grouping of the series.
+        cases.append({"case": 2, "x": 128, "launches": hardware})
+        results[0]["cases"]["2"] = {"status": "timeout", "reason": "Budget expired."}
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertEqual(points[80]["statuses"]["mgpusim"]["state"], "timeout")
+        self.assertEqual(
+            [p["non_scaling_params"]["launch_group"] for p in points[:80]],
+            [p["non_scaling_params"]["launch_group"] for p in points[80:]],
+        )
+
+        results[0]["cases"]["2"] = {"status": "complete", "launches": simulated[:-1]}
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertTrue(all("launch_group" not in p["non_scaling_params"] for p in points))
+
+        # Existing name matching still applies to unqualified hardware symbols.
+        for i, name in enumerate(names):
+            hardware[i][0] = name.removeprefix("cfd_device::") + "(int)"
+        cases.pop()
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertTrue(all(p["values"]["mgpusim"] is not None for p in points))
+        self.assertEqual(points[0]["non_scaling_params"]["launch_group"], "copy_first")
 
     def test_report_matches_the_lbm_exported_kernel_only_with_matching_geometry(self):
         hardware = [

@@ -4,8 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from build_site import render_site
-from preview import watch
+from preview import render_site, watch
 
 
 class PreviewTest(unittest.TestCase):
@@ -14,8 +13,8 @@ class PreviewTest(unittest.TestCase):
         reference = {
             "series": [
                 {
-                    "benchmark": "example",
-                    "sample": "example",
+                    "benchmark": "example" if i == 0 else "many_launches",
+                    "sample": "example" if i == 0 else "many_launches",
                     "axis": "size",
                     "parameters": {"block_size": 16 + i},
                     "cases": [
@@ -36,7 +35,8 @@ class PreviewTest(unittest.TestCase):
             "version": "test",
             "revision": "revision",
             "series": [
-                {"id": i, "benchmark": "example", "sample": "example"} for i in range(2)
+                {"id": 0, "benchmark": "example", "sample": "example"},
+                {"id": 1, "benchmark": "many_launches", "sample": "many_launches"},
             ],
         }
         fixtures = {
@@ -70,14 +70,15 @@ class PreviewTest(unittest.TestCase):
             output = root / "out"
 
             def inspect_live(_):
-                data = json.loads((output / "overview/data.json").read_text())
+                data = json.loads((output / "data.json").read_text())
                 self.assertEqual(data["progress"]["queued"], 1)
                 self.assertEqual(data["progress"]["unsuccessful"], 0)
                 self.assertTrue(data["report"]["live"])
                 self.assertEqual(data["data"][0]["values"]["mgpusim"], 1500)
-                page = json.loads((output / "example/part-2/data.json").read_text())
-                self.assertEqual(page["data"], [])
-                self.assertTrue(page["report"]["live"])
+                self.assertEqual(
+                    {point["benchmark"] for point in data["data"]}, {"example"}
+                )
+                self.assertEqual(list(output.rglob("data.json")), [output / "data.json"])
 
             runs = [
                 json.dumps({"head_sha": "revision", "status": state}).encode()
@@ -99,20 +100,25 @@ class PreviewTest(unittest.TestCase):
             ):
                 watch(reference, template, output, "sarchlab/mgpusim", 123, 1, None)
             self.assertEqual(download.call_count, 3)
-            final = json.loads((output / "overview/data.json").read_text())
+            final = json.loads((output / "data.json").read_text())
             self.assertEqual(final["progress"]["completed"], 2)
             self.assertFalse(final["report"]["live"])
-            self.assertEqual(len(final["data"]), 48)
-            self.assertIn("48 of 50 available charts", final["report"]["description"])
-            page = json.loads((output / "example/part-2/data.json").read_text())
-            self.assertEqual(page["data"][0]["values"]["mgpusim"], 1500)
-            self.assertFalse(page["report"]["live"])
-            self.assertEqual((output / "overview/index.html").read_text(), html)
-            self.assertEqual((output / "example/part-2/index.html").read_text(), html)
-            self.assertIn('href="overview/"', (output / "index.html").read_text())
-            self.assertFalse((output / "data.json").exists())
+            self.assertEqual(len(final["data"]), 50)
+            self.assertEqual(set(final["benchmarks"]), {"example", "many_launches"})
+            self.assertEqual(
+                sum(point["benchmark"] == "many_launches" for point in final["data"]),
+                49,
+            )
+            self.assertEqual(
+                final["data"][-1]["non_scaling_params"]["launch"], "#49 kernel"
+            )
+            self.assertEqual((output / "index.html").read_text(), html)
+            self.assertEqual(
+                {file.name for file in output.iterdir()},
+                {"index.html", "report.css", "summary.js", "report.js", "data.json"},
+            )
 
-    def test_small_report_copies_the_template_and_writes_only_data(self):
+    def test_report_copies_the_template_and_writes_only_data(self):
         with TemporaryDirectory() as folder:
             root = Path(folder)
             template = root / "template"
@@ -121,7 +127,7 @@ class PreviewTest(unittest.TestCase):
             (template / "report.js").write_bytes(b"// standard renderer")
             data = {"report": {"live": True}, "benchmarks": {}, "data": []}
             output = root / "report"
-            render_site(data, template, output, layout=({"example": 1}, False))
+            render_site(data, template, output)
             for name in ("index.html", "report.js"):
                 self.assertEqual(
                     (output / name).read_bytes(), (template / name).read_bytes()
