@@ -135,6 +135,28 @@ class ReleaseCalibrationTest(unittest.TestCase):
                     for point in ungrouped["data"]
                 ))
 
+        # Timing-free configurations still share the grouping of the series.
+        cases.append({"case": 2, "x": 128, "launches": hardware})
+        results[0]["cases"]["2"] = {"status": "timeout", "reason": "Budget expired."}
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertEqual(points[80]["statuses"]["mgpusim"]["state"], "timeout")
+        self.assertEqual(
+            [p["non_scaling_params"]["launch_group"] for p in points[:80]],
+            [p["non_scaling_params"]["launch_group"] for p in points[80:]],
+        )
+
+        results[0]["cases"]["2"] = {"status": "complete", "launches": simulated[:-1]}
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertTrue(all("launch_group" not in p["non_scaling_params"] for p in points))
+
+        # Existing name matching still applies to unqualified hardware symbols.
+        for i, name in enumerate(names):
+            hardware[i][0] = name.removeprefix("cfd_device::") + "(int)"
+        cases.pop()
+        points = report({"series": [series]}, results, "test", "sample-sha")["data"]
+        self.assertTrue(all(p["values"]["mgpusim"] is not None for p in points))
+        self.assertEqual(points[0]["non_scaling_params"]["launch_group"], "copy_first")
+
     def test_report_omits_only_the_cache_latency_primer(self):
         geometry = [1, 1, 1, 1, 1, 1]
         hardware = ["pointer_chase_kernel(unsigned int const*)", *geometry, 2000]

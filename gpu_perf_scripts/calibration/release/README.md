@@ -73,7 +73,7 @@ as aliases for the corresponding measured `cfd_device` names. Copy, step
 factor, and stage-0 flux separate the first timestep from
 later timesteps. Flux and update each group stages 1 and 2 together. The
 original `launch` labels, per-dispatch values, and statuses are preserved.
-A sequence mismatch retains the per-launch records without a group annotation.
+A sequence mismatch leaves all records in that series without group annotations.
 
 ## GitHub Pages setup
 

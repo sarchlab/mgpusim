@@ -194,17 +194,6 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
-def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
-    simulated_name = demangled[simulated[0]]
-    if benchmark == "altis_cfd" and simulated_name in CFD_KERNEL_ALIASES:
-        # The simulator's gfx942 code object exports these CFD kernels as
-        # C symbols, while ROCprof records their names in cfd_device.
-        matches = base_kernel_name(hardware[0]) == CFD_KERNEL_ALIASES[simulated_name]
-    else:
-        matches = same_kernel(hardware[0], simulated_name)
-    return matches and list(simulated[1:-1]) == hardware[1:-1]
-
-
 CFD_KERNEL_ALIASES = {
     "compute_step_factor_kernel": "cfd_device::compute_step_factor_kernel",
     "compute_flux_kernel": "cfd_device::compute_flux_kernel",
@@ -212,17 +201,42 @@ CFD_KERNEL_ALIASES = {
 }
 
 
-def cfd_launch_groups(hardware):
+def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
+    simulated_name = demangled[simulated[0]]
+    # The simulator's gfx942 CFD code object exports these as C symbols,
+    # while ROCprof records their names in cfd_device.
+    matches = same_kernel(hardware[0], simulated_name) or (
+        benchmark == "altis_cfd"
+        and CFD_KERNEL_ALIASES.get(simulated_name) == base_kernel_name(hardware[0])
+    )
+    return matches and list(simulated[1:-1]) == hardware[1:-1]
+
+
+def cfd_launch_groups(cases, results, demangled):
     # CFD records ten timesteps, each with a copy, a factor calculation, and
-    # three Runge–Kutta stages. Keep the first-timestep effects observed in the
-    # MI300X reference separate and group the similar stage 1 and 2 timings.
+    # three Runge–Kutta stages. Validate the whole series before labelling it
+    # so that a trace mismatch cannot split one plotted series across sizes.
     stage = ("cfd_device::compute_flux_kernel", "cfd_device::rk_update_kernel")
     step = ("copy_variables_kernel", "cfd_device::compute_step_factor_kernel") + stage * 3
-    if tuple(base_kernel_name(row[0]) for row in hardware) != step * 10:
-        return ()
-    if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
-        return ()
+    for case in cases:
+        hardware = case["launches"]
+        names = (base_kernel_name(row[0]) for row in hardware)
+        if tuple(CFD_KERNEL_ALIASES.get(name, name) for name in names) != step * 10:
+            return ()
+        if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
+            return ()
+        simulated = results.get(str(case["case"]), {}).get("launches", [])
+        if simulated and (
+            len(simulated) != len(hardware)
+            or not all(
+                same_dispatch(real, sim, demangled, benchmark="altis_cfd")
+                for real, sim in zip(hardware, simulated)
+            )
+        ):
+            return ()
 
+    # Keep observed first-timestep effects separate and group the similar
+    # stage 1 and 2 timings in the MI300X reference.
     steady = (
         "copy",
         "step_factor",
@@ -277,6 +291,12 @@ def report(reference, results, version, revision, *, live=False):
             },
         )
         definition["params"].update(params)
+        launch_groups = (
+            cfd_launch_groups(series["cases"], group_results.get("cases", {}), demangled)
+            if bench == "altis_cfd" else ()
+        )
+        if launch_groups:
+            definition["params"]["launch_group"] = {"unit": ""}
         for case in series["cases"]:
             if live and not group_results:
                 counts["queued"] += 1
@@ -314,11 +334,6 @@ def report(reference, results, version, revision, *, live=False):
             counts[
                 "unsupported" if state == "complete" and None in paired else state
             ] += 1
-            launch_groups = ()
-            if bench == "altis_cfd" and (not simulated or None not in paired):
-                launch_groups = cfd_launch_groups(hardware)
-                if launch_groups:
-                    definition["params"]["launch_group"] = {"unit": ""}
             for index, real in enumerate(hardware):
                 point = {
                     "benchmark": bench,
