@@ -34,6 +34,16 @@ class ReleaseCalibrationTest(unittest.TestCase):
             self.assertEqual(results["2"]["status"], "timeout")
             self.assertEqual(results["3"]["status"], "unsupported")
 
+            data = report(
+                {"series": [SERIES]},
+                {0: {"started_at": "2026-11-24T16:00:00Z", "cases": results}},
+                "test",
+                "sample-sha",
+            )
+            _, timed_out, skipped = data["data"]
+            self.assertNotIn("symbol", timed_out["statuses"]["mgpusim"])
+            self.assertEqual(skipped["statuses"]["mgpusim"]["symbol"], "↷")
+
     def test_report_matches_launches_and_keeps_failed_verification_timing(self):
         results = {
             0: {
@@ -61,6 +71,7 @@ class ReleaseCalibrationTest(unittest.TestCase):
         )
         self.assertIsNone(unmatched["values"]["mgpusim"])
         self.assertEqual(unmatched["statuses"]["mgpusim"]["state"], "unsupported")
+        self.assertNotIn("symbol", unmatched["statuses"]["mgpusim"])
         self.assertEqual(data["progress"]["completed"], 1)
 
     def test_report_matches_the_lbm_exported_kernel_only_with_matching_geometry(self):
