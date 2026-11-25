@@ -66,6 +66,15 @@ available dispatches and copy the standard Calibration Report template
 unchanged. The template controls summaries, chart rendering, and pagination.
 When switching an older preview to this layout, use a fresh output directory.
 
+ALTIS CFD includes an optional `launch_group` non-scaling parameter when its
+80-dispatch sequence matches the expected ten timesteps with common launch
+geometry. Pairing recognizes the simulator's three unqualified CFD C symbols
+as aliases for the corresponding measured `cfd_device` names. Copy, step
+factor, and stage-0 flux separate the first timestep from
+later timesteps. Flux and update each group stages 1 and 2 together. The
+original `launch` labels, per-dispatch values, and statuses are preserved.
+A sequence mismatch retains the per-launch records without a group annotation.
+
 ## GitHub Pages setup
 
 Before the first release that uses this workflow, set **Settings → Pages →

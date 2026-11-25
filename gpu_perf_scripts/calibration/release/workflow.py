@@ -194,11 +194,47 @@ def same_kernel(hardware, simulated):
     return base_kernel_name(hardware) == base_kernel_name(simulated)
 
 
-def same_dispatch(hardware, simulated, demangled):
-    return (
-        same_kernel(hardware[0], demangled[simulated[0]])
-        and list(simulated[1:-1]) == hardware[1:-1]
+def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
+    simulated_name = demangled[simulated[0]]
+    if benchmark == "altis_cfd" and simulated_name in CFD_KERNEL_ALIASES:
+        # The simulator's gfx942 code object exports these CFD kernels as
+        # C symbols, while ROCprof records their names in cfd_device.
+        matches = base_kernel_name(hardware[0]) == CFD_KERNEL_ALIASES[simulated_name]
+    else:
+        matches = same_kernel(hardware[0], simulated_name)
+    return matches and list(simulated[1:-1]) == hardware[1:-1]
+
+
+CFD_KERNEL_ALIASES = {
+    "compute_step_factor_kernel": "cfd_device::compute_step_factor_kernel",
+    "compute_flux_kernel": "cfd_device::compute_flux_kernel",
+    "rk_update_kernel": "cfd_device::rk_update_kernel",
+}
+
+
+def cfd_launch_groups(hardware):
+    # CFD records ten timesteps, each with a copy, a factor calculation, and
+    # three Runge–Kutta stages. Keep the first-timestep effects observed in the
+    # MI300X reference separate and group the similar stage 1 and 2 timings.
+    stage = ("cfd_device::compute_flux_kernel", "cfd_device::rk_update_kernel")
+    step = ("copy_variables_kernel", "cfd_device::compute_step_factor_kernel") + stage * 3
+    if tuple(base_kernel_name(row[0]) for row in hardware) != step * 10:
+        return ()
+    if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
+        return ()
+
+    steady = (
+        "copy",
+        "step_factor",
+        "flux_stage_0",
+        "update_stage_0",
+        "flux_stages_1_2",
+        "update_stages_1_2",
+        "flux_stages_1_2",
+        "update_stages_1_2",
     )
+    first = ("copy_first", "step_factor_first", "flux_stage_0_first", *steady[3:])
+    return first + steady * 9
 
 
 def report(reference, results, version, revision, *, live=False):
@@ -270,7 +306,7 @@ def report(reference, results, version, revision, *, live=False):
             if len(simulated) == len(hardware):
                 for index, (real, sim) in enumerate(zip(hardware, simulated)):
                     if (
-                        same_dispatch(real, sim, demangled)
+                        same_dispatch(real, sim, demangled, benchmark=bench)
                         and math.isfinite(sim[-1])
                         and sim[-1] > 0
                     ):
@@ -278,6 +314,11 @@ def report(reference, results, version, revision, *, live=False):
             counts[
                 "unsupported" if state == "complete" and None in paired else state
             ] += 1
+            launch_groups = ()
+            if bench == "altis_cfd" and (not simulated or None not in paired):
+                launch_groups = cfd_launch_groups(hardware)
+                if launch_groups:
+                    definition["params"]["launch_group"] = {"unit": ""}
             for index, real in enumerate(hardware):
                 point = {
                     "benchmark": bench,
@@ -289,6 +330,8 @@ def report(reference, results, version, revision, *, live=False):
                     },
                     "values": {"mi300x": real[-1], "mgpusim": paired[index]},
                 }
+                if launch_groups:
+                    point["non_scaling_params"]["launch_group"] = launch_groups[index]
                 if state == "complete" and paired[index] is None:
                     point["statuses"] = {
                         "mgpusim": {
