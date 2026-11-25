@@ -86,6 +86,10 @@ deploy through the `github-pages` environment if it has branch or tag
 restrictions. The workflow uses the built-in GitHub token.
 
 The publish job adds `calibration/releases/<tag>/` to the existing `gh-pages`
-branch and deploys the full branch contents with GitHub Pages. This retains
-earlier release reports and existing site content. After the source switch, a
-branch push publishes only when a Pages deployment workflow runs.
+branch and stores each new dataset there as `data.json.gz` to stay within
+GitHub's per-file size limit. Before uploading the Pages artifact, the job
+copies the full committed site to a temporary directory and restores each
+compressed release dataset to `data.json`. Earlier reports with plain JSON
+remain available, and every report continues to serve `data.json` at its
+versioned URL. A branch push publishes only when a Pages deployment workflow
+runs.

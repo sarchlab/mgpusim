@@ -143,7 +143,9 @@ jobs:
         run: |
           [[ "$VERSION" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]]
           dest="calibration/releases/$VERSION"
+          gzip -n -- report/data.json
           mkdir -p "pages/$dest"
+          rm -f -- "pages/$dest/data.json"
           cp -R report/. "pages/$dest/"
           git -C pages add -- "$dest"
           if ! git -C pages diff --cached --quiet; then
@@ -152,8 +154,19 @@ jobs:
               commit -m "Publish MI300X calibration for $VERSION"
             git -C pages push origin HEAD:gh-pages
           fi
+      - name: Restore report data for Pages deployment
+        shell: bash
+        run: |
+          site="$RUNNER_TEMP/calibration-pages-site"
+          mkdir -p "$site"
+          git -C pages archive HEAD | tar -xf - -C "$site"
+          for data in "$site"/calibration/releases/*/data.json.gz; do
+            if [[ -f "$data" ]]; then
+              gzip -d -- "$data"
+            fi
+          done
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: pages
+          path: ${{ runner.temp }}/calibration-pages-site
       - uses: actions/deploy-pages@v4
         id: deployment
