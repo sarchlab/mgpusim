@@ -187,11 +187,10 @@ def _pearson(a, b):
 def global_metrics(ref, sim, out_dir, report_dir):
     """Cross-benchmark global calibration: rank fidelity + magnitude spread.
 
-    Mirrors the dashboard's client-side computation. Returns (markdown, metrics)
-    or (None, None) if there is too little data. Rank correlation grades
-    cross-benchmark ORDERING (scale-invariant); geo-sigma is the multiplicative
-    spread the single global constant k cannot remove -- neither is gameable by
-    per-benchmark fitting.
+    Returns (markdown, metrics) or (None, None) if there is too little data.
+    Rank correlation grades cross-benchmark ORDERING (scale-invariant); geo-sigma
+    is the multiplicative spread the single global constant k cannot remove --
+    neither is gameable by per-benchmark fitting.
     """
     logr, scatter = [], []
     by_bench = defaultdict(list)

@@ -1,39 +1,47 @@
 # Release calibration
 
 The **MI300X Release Calibration** workflow runs on stable MGPUSim releases at
-the commit referenced by the release tag. It assigns each fixed-parameter series
-to one standard Linux GitHub-hosted runner and runs at most 40 series jobs at
-once. Each series processes increasing scaling values within a shared
-5.5-hour simulation budget. When the budget expires, the active simulation is
-terminated and the remaining cases are recorded as unstarted. Independent
-series and completed results are preserved.
+the commit referenced by the release tag. Run it manually for a preview; the
+optional benchmark parameter limits a manual run to one benchmark.
 
-Run the workflow manually to get a report artifact without publishing. The
-optional benchmark parameter limits a manual run to one benchmark. The report
-job exports a single `data.json` and packages it with the published npm viewer
-using `npx --yes calibration-report@0.3.0 --data data.json --out site`.
+The `plan` job opens a run in the hosted calibration report and declares every
+selected benchmark. Each fixed-parameter series then runs on one standard Linux
+GitHub-hosted runner, with at most 40 series jobs at once. A series processes
+increasing scaling values within a shared 5.5-hour simulation budget. When the
+budget expires, the active simulation is terminated and the remaining cases are
+recorded as unstarted. Each series job writes the points of every case to the
+report as soon as the case ends, so results appear while the workflow runs. The
+`finalize` job records the final progress and marks the run `completed` when
+every series job succeeded, or `failed` otherwise. A configuration counts as
+complete only after its points were written. Per-series `results.json` files
+and simulator logs remain available as workflow artifacts.
 
-## Preview an active run
+## Live results
 
-Run the collector on a machine with authenticated GitHub CLI access to the
-repository. It reads only the plan and result artifacts. Each completed series
-appears at the next poll. An in-flight series is pending until its result
-artifact is uploaded. The standard report refreshes its JSON every ten seconds.
+Results are at
+`https://sarchlab-calibration-report.netlify.app/?run=<run key>`; the `plan`
+job links the run from its summary. A release uses the run key
+`mgpusim-mi300x-<tag>` and a manual run uses
+`mgpusim-mi300x-preview-<workflow run ID>`. A run key must match
+`^[A-Za-z0-9_-][A-Za-z0-9._-]{0,199}$`, so a release tag containing other
+characters fails the `plan` job.
 
-```sh
-gh run list --workflow mi300x_release_calibration.yml
-template=$(mktemp -d)
-npm install --prefix "$template" --no-save --ignore-scripts calibration-report@0.3.0
-python3 gpu_perf_scripts/calibration/release/preview.py RUN_ID \
-  "$template/node_modules/calibration-report/dist" /path/to/preview/RUN_ID \
-  --publish marin-5:.cache/mgpusim/calibration-previews/RUN_ID/
-```
+**Re-run failed jobs** reruns the failed series jobs and `finalize`. A re-run
+series job reopens a `failed` run and overwrites the points of its own cases.
+A `completed` run cannot be changed. When the workflow is cancelled after
+`plan` succeeded, it attempts to run `finalize`, which marks the run `failed`
+and keeps the points already written; re-running the cancelled jobs reopens
+it. GitHub does not guarantee that `finalize` runs after a cancellation; if it
+does not, the run stays `running` and appears stale.
 
-The collector polls GitHub every 60 seconds by default and exits after its
-final update. The optional `--publish` destination must already be served over
-the Tailnet and is updated with rsync over SSH. The example destination is available at
-`http://marin-5.tail13b378.ts.net:18840/RUN_ID/`. Omit it to serve the output
-locally. Use a separate output directory for each run.
+The workflow needs the `CALIBRATION_REPORT_DSN` secret, a PostgreSQL connection
+string for the report database's `cr_ingest` role. Every database call uses a
+new connection and is retried for about 30 minutes when the connection fails
+or the statement times out. In a series job, no write attempt starts more than
+345 minutes after the series step starts, which follows checkout, setup and the
+build. The cutoff is meant to leave headroom for setup and the artifact uploads
+within the 360-minute job timeout, but does not guarantee it. `report_db.py`
+contains the writer.
 
 ## Reference data
 
@@ -60,45 +68,36 @@ The simulator records individual dispatch intervals when
 `-report-kernel-dispatches` is enabled. A comparison requires matching kernel
 names, launch order and grid and workgroup dimensions. The report shows
 verification failures with a warning and includes their timing when it is
-available and matches the hardware launch sequence. The standard report
-excludes those points from accuracy statistics. For `cache_latency`, the
-report omits the simulated cache primer from the comparison when both simulated
+available and matches the hardware launch sequence. For `cache_latency`,
+pairing omits the simulated cache primer from the comparison when both simulated
 pointer-chase launches match the single measured hardware launch's name and
-geometry. The release and live preview each write one `data.json` with all
-available dispatches and use the published Calibration Report viewer. The viewer
-controls summaries, chart rendering, and pagination.
-When switching an older preview to this layout, use a fresh output directory.
+geometry.
 
-ALTIS CFD includes an optional `launch_group` non-scaling parameter when its
-80-dispatch sequence matches the expected ten timesteps with common launch
-geometry. Pairing recognizes the simulator's three unqualified CFD C symbols
-as aliases for the corresponding measured `cfd_device` names. Copy, step
-factor, and stage-0 flux separate the first timestep from
-later timesteps. Flux and update each group stages 1 and 2 together. The
-original `launch` labels, per-dispatch values, and statuses are preserved.
-A sequence mismatch leaves all records in that series without group annotations.
+Some benchmarks label repeated dispatches with a `launch_group` non-scaling
+parameter. The labels depend only on the hardware reference, so they are
+declared before any simulation runs. A benchmark is labelled only when every
+reference series of it passes the checks; otherwise all its series
+keep individual launch labels. The original `launch` labels, per-dispatch
+values, and statuses are preserved. A simulated sequence that does not match
+marks the affected points `unsupported` without changing their labels.
 
-Rodinia Pathfinder, Parboil LBM, PolyBench FDTD2D, and PolyBench Jacobi2D also
-label repeated launches. The exporter checks the reference launch count, phase
-order, and grid and workgroup dimensions for each configuration before adding
-the labels. It separates each phase's first launch from later launches and
-labels a shorter final Pathfinder launch separately. If a reference series
-fails those checks, the benchmark falls back to individual launch labels. The
-labels stay stable as simulator artifacts arrive. All per-dispatch values and
-existing timing and status checks are preserved.
+ALTIS CFD is labelled when each configuration has the expected 80-dispatch
+sequence of ten timesteps with common launch geometry. Pairing
+recognizes the simulator's three unqualified CFD C symbols as aliases for the
+corresponding measured `cfd_device` names. Copy, step factor, and stage-0 flux
+separate the first timestep from later timesteps. Flux and update each group
+stages 1 and 2 together.
 
-## GitHub Pages setup
+Rodinia Pathfinder, Parboil LBM, PolyBench FDTD2D, and PolyBench Jacobi2D are
+labelled when each configuration has the launch count, phase order, and grid
+and workgroup dimensions implied by its parameters. Their labels separate each
+phase's first launch from later launches and mark a shorter final Pathfinder
+launch separately.
 
-Before the first release that uses this workflow, set **Settings → Pages →
-Build and deployment → Source** to **GitHub Actions**. Allow release tags to
-deploy through the `github-pages` environment if it has branch or tag
-restrictions. The workflow uses the built-in GitHub token.
+## Tests
 
-The publish job adds `calibration/releases/<tag>/` to the existing `gh-pages`
-branch and stores each new dataset there as `data.json.gz` to stay within
-GitHub's per-file size limit. Before uploading the Pages artifact, the job
-copies the full committed site to a temporary directory and restores each
-compressed release dataset to `data.json`. Earlier reports with plain JSON
-remain available, and every report continues to serve `data.json` at its
-versioned URL. A branch push publishes only when a Pages deployment workflow
-runs.
+Run `python -m unittest` in this directory with Python 3.12, `psycopg` 3 and
+`c++filt`. `test_report_db_integration.py` runs only when
+`CALIBRATION_REPORT_TEST_DSN` (the `cr_ingest` login) and
+`CALIBRATION_REPORT_TEST_ADMIN_DSN` (a role that can read schema `cr`) point at
+a database with the calibration-report migrations applied.

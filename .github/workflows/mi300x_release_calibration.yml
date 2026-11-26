@@ -18,32 +18,41 @@ permissions:
 
 env:
   CALIBRATION: gpu_perf_scripts/calibration/release/workflow.py
+  PSYCOPG: psycopg[binary]==3.2.13
+  VERSION: ${{ github.event.release.tag_name || github.ref_name }}
 
 jobs:
   plan:
     if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     outputs:
-      series: ${{ steps.matrix.outputs.series }}
+      run_key: ${{ steps.plan.outputs.run_key }}
+      started_at: ${{ steps.plan.outputs.started_at }}
+      series: ${{ steps.plan.outputs.series }}
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - id: matrix
-        env:
-          BENCHMARK: ${{ inputs.benchmark }}
-          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
-        run: |
-          series=$(python3 "$CALIBRATION" matrix --benchmark "$BENCHMARK")
-          echo "series=$series" >> "$GITHUB_OUTPUT"
-          python3 -c 'import json,sys; print(json.dumps({
-              "series": json.loads(sys.argv[1]), "version": sys.argv[2], "revision": sys.argv[3]
-          }))' "$series" "$VERSION" "$GITHUB_SHA" > calibration-plan.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-python@v6
         with:
-          name: calibration-plan
-          path: calibration-plan.json
-          overwrite: true
+          python-version: '3.12'
+      - run: python -m pip install "$PSYCOPG"
+      - id: plan
+        name: Open the calibration report run
+        env:
+          CALIBRATION_REPORT_DSN: ${{ secrets.CALIBRATION_REPORT_DSN }}
+          BENCHMARK: ${{ inputs.benchmark }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python "$CALIBRATION" plan --benchmark "$BENCHMARK" --tag "$TAG" \
+            --run-id "$GITHUB_RUN_ID" --version "$VERSION" --revision "$GITHUB_SHA" \
+            > plan.txt
+          cat plan.txt >> "$GITHUB_OUTPUT"
+      - name: Link the live report
+        env:
+          URL: ${{ steps.plan.outputs.url }}
+        run: |
+          echo "Live calibration results: $URL" >> "$GITHUB_STEP_SUMMARY"
 
   sweep:
     needs: plan
@@ -62,13 +71,20 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "$PSYCOPG"
       - name: Build benchmark and run series
         env:
+          CALIBRATION_REPORT_DSN: ${{ secrets.CALIBRATION_REPORT_DSN }}
+          RUN_KEY: ${{ needs.plan.outputs.run_key }}
           SAMPLE: ${{ matrix.series.sample }}
           SERIES: ${{ matrix.series.id }}
         run: |
           go build -o "$RUNNER_TEMP/sample" "./amd/samples/$SAMPLE"
-          python3 "$CALIBRATION" run "$SERIES" "$RUNNER_TEMP/sample" result
+          python "$CALIBRATION" run "$SERIES" "$RUNNER_TEMP/sample" result \
+            --run-key "$RUN_KEY" --version "$VERSION" --revision "$GITHUB_SHA"
       - name: Upload series results
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,87 +102,30 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
 
-  report:
+  finalize:
     needs: [plan, sweep]
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ always() && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-python@v6
         with:
-          node-version: '24.15.0'
+          python-version: '3.12'
+      - run: python -m pip install "$PSYCOPG"
       - uses: actions/download-artifact@v4
         with:
           pattern: series-*
           path: artifacts
-      - name: Export data.json
+      - name: Finish the calibration report run
         env:
+          CALIBRATION_REPORT_DSN: ${{ secrets.CALIBRATION_REPORT_DSN }}
           BENCHMARK: ${{ inputs.benchmark }}
-          VERSION: ${{ github.event.release.tag_name || github.ref_name }}
+          RUN_KEY: ${{ needs.plan.outputs.run_key }}
+          STARTED_AT: ${{ needs.plan.outputs.started_at }}
+          SWEEP_RESULT: ${{ needs.sweep.result }}
         run: |
-          python3 gpu_perf_scripts/calibration/release/build_data.py artifacts data.json \
-            --benchmark "$BENCHMARK" --version "$VERSION" --revision "$GITHUB_SHA"
-      - name: Generate the static report
-        run: npx --yes calibration-report@0.3.0 --data data.json --out site
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mi300x-release-calibration-report
-          path: site
-
-  publish:
-    needs: report
-    if: github.event_name == 'release' && !github.event.release.prerelease
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}calibration/releases/${{ github.event.release.tag_name }}/
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: gh-pages
-          path: pages
-      - uses: actions/download-artifact@v4
-        with:
-          name: mi300x-release-calibration-report
-          path: report
-      - name: Save versioned report in Pages branch
-        env:
-          VERSION: ${{ github.event.release.tag_name }}
-        run: |
-          [[ "$VERSION" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]]
-          dest="calibration/releases/$VERSION"
-          gzip -n -- report/data.json
-          mkdir -p "pages/$dest"
-          rm -f -- "pages/$dest/data.json"
-          cp -R report/. "pages/$dest/"
-          git -C pages add -- "$dest"
-          if ! git -C pages diff --cached --quiet; then
-            git -C pages -c user.name='github-actions[bot]' \
-              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m "Publish MI300X calibration for $VERSION"
-            git -C pages push origin HEAD:gh-pages
-          fi
-      - name: Restore report data for Pages deployment
-        shell: bash
-        run: |
-          site="$RUNNER_TEMP/calibration-pages-site"
-          mkdir -p "$site"
-          git -C pages archive HEAD | tar -xf - -C "$site"
-          for data in "$site"/calibration/releases/*/data.json.gz; do
-            if [[ -f "$data" ]]; then
-              gzip -d -- "$data"
-            fi
-          done
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: ${{ runner.temp }}/calibration-pages-site
-      - uses: actions/deploy-pages@v4
-        id: deployment
+          python "$CALIBRATION" finalize artifacts --benchmark "$BENCHMARK" \
+            --run-key "$RUN_KEY" --started-at "$STARTED_AT" --sweep-result "$SWEEP_RESULT"
