@@ -21,7 +21,7 @@ from workflow import (
     cfd_launch_groups,
     final_progress,
     finalize,
-    reference_clock_flags,
+    read_reference,
     run_key,
     run_series,
     series_launch_groups,
@@ -328,11 +328,19 @@ class IterativeLaunchGroupTest(unittest.TestCase):
 
 
 class RunTest(unittest.TestCase):
-    def test_reference_clock_belongs_to_collection(self):
-        self.assertEqual(reference_clock_flags({"gpu_clock_mhz": 1680}), ("-mi300x-clock-mhz=1680",))
-        self.assertEqual(reference_clock_flags({}), ())
-        with self.assertRaises(ValueError):
-            reference_clock_flags({"gpu_clock_mhz": -1})
+    def test_only_calibrated_lds_series_override_the_preset_clock(self):
+        reference = read_reference(Path(__file__).with_name("mi300x-v1.1.json.gz"))
+        calibrated = []
+        for series in reference["series"]:
+            lds = series["benchmark"] == "shared_mem_bandwidth"
+            if lds:
+                params = series["parameters"]
+                calibrated.append((params["block_size"], params["access_pattern"], params["num_blocks"]))
+            for case in series["cases"]:
+                clock = [arg for arg in case["args"] if arg.startswith("-mi300x-clock-mhz")]
+                self.assertEqual(clock, ["-mi300x-clock-mhz=1680"] if lds else [], case["case"])
+        self.assertCountEqual(calibrated, [(b, p, 1) for b in (32, 64, 256, 1024)
+                                           for p in ("conflict", "no_conflict")])
 
     def test_run_key(self):
         self.assertEqual(run_key("v4.1.0", "123"), "mgpusim-mi300x-v4.1.0")
@@ -404,7 +412,7 @@ class RunTest(unittest.TestCase):
             sweep({"series": [SERIES]}, args)
         self.assertEqual(open_run.call_args.kwargs, {"deadline": 1000 + WRITE_DEADLINE_SECONDS})
         self.assertEqual(open_run.call_args.args[2], benchmark_definitions([SERIES]))
-        self.assertEqual(run.call_args.kwargs, {"start": 1000, "clock_flags": ()})
+        self.assertEqual(run.call_args.kwargs, {"start": 1000})
         self.assertLess(BUDGET_SECONDS, WRITE_DEADLINE_SECONDS)
 
     def test_finalize_counts_configurations_and_sets_the_state(self):

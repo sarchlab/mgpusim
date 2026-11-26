@@ -5,17 +5,17 @@ from pathlib import Path
 from statistics import linear_regression
 from tempfile import TemporaryDirectory
 
-from workflow import kernel_names, paired_timings, read_reference, reference_clock_flags, run_case
+from workflow import kernel_names, paired_timings, read_reference, run_case
 
 
-def slopes(series, binary, clock_flags, scratch):
+def slopes(series, binary, scratch):
     cases = {case["x"]: case for case in series["cases"]}
     xs = (64, 128, 256)
     hardware, simulated = [], []
     for x in xs:
         case = cases[x]
         directory = scratch / str(case["case"])
-        result = run_case(binary, case, directory, remaining=600, clock_flags=clock_flags)
+        result = run_case(binary, case, directory, remaining=600)
         if result["status"] != "complete":
             raise RuntimeError(f"{series['parameters']}, inner_iters={x}: {result}")
         real, sim = case["launches"], result["launches"]
@@ -44,7 +44,7 @@ def main():
     print("threads pattern       HW us/iter  Sim us/iter  relative error", flush=True)
     with TemporaryDirectory() as folder:
         for (threads, pattern, _), row in sorted(zip(configs, series, strict=True)):
-            hw, sim = slopes(row, binary, reference_clock_flags(reference), Path(folder))
+            hw, sim = slopes(row, binary, Path(folder))
             error = sim / hw - 1
             print(f"{threads:7d} {pattern:11s} {hw:10.4f} {sim:12.4f} {error:+13.2%}", flush=True)
             errors.append(abs(error))

@@ -120,3 +120,69 @@ func checkLDSResult(t *testing.T, w *Wavefront, i *testInstruction) {
 	}
 	assertLifecycleHolders(t, w.cu)
 }
+
+func TestLDSPortTransferCycles(t *testing.T) {
+	for _, tc := range []struct {
+		bytes    int
+		write    bool
+		ds, flat int
+	}{
+		{4, false, 4, 8}, {4, true, 8, 12},
+		{16, false, 16, 16}, {16, true, 20, 24},
+	} {
+		access := insts.CDNA3LDSAccess{Count: 1, Bytes: tc.bytes, Write: tc.write}
+		ds, flat := ldsPortCycles(insts.DS, access), ldsPortCycles(insts.FLAT, access)
+		if ds != tc.ds || flat != tc.flat {
+			t.Fatalf("bytes=%d write=%v: DS/FLAT took %d/%d cycles, want %d/%d",
+				tc.bytes, tc.write, ds, flat, tc.ds, tc.flat)
+		}
+	}
+}
+
+func TestLDSOrdersSameWaveReturnsAcrossWidths(t *testing.T) {
+	spec := DefaultSpec()
+	spec.IsCDNA3 = true
+	f := newVMUFixture(t, spec)
+	w := checkpointGroup(f.c).waves()[0]
+	w.group().state().LDS = make([]byte, 64*128)
+	// ds_write_b128 v0, v[4:7]. Each phase sends eight distinct words
+	// per bank, requiring 64 bank cycles and 56 replays across the wave.
+	store := lifecycleInstruction(t, f.c, []byte{0, 0, 0xbe, 0xd9, 0, 4, 0, 0})
+	w.setTestInst(store)
+	f.c.beginInstruction(w, store.ID)
+	w.SetEXEC(^uint64(0))
+	for i := range 64 {
+		w.WriteOperand(store.Addr, i, uint64(i)*128)
+	}
+	value := [16]byte{7}
+	w.WriteOperandBytes(store.Data, 0, value[:])
+	f.c.LDSUnit.AcceptWave(w)
+	f.c.LDSUnit.Run()
+	// ds_read_b32 v8, v0. Only lane zero is active. After the bank frees
+	// at cycle 64 this needs just four transfer cycles and zero replays.
+	load := lifecycleInstruction(t, f.c, []byte{0, 0, 0x6c, 0xd8, 0, 0, 0, 8})
+	w.setTestInst(load)
+	w.SetEXEC(1)
+	f.c.beginInstruction(w, load.ID)
+	f.c.LDSUnit.AcceptWave(w)
+	f.c.LDSUnit.Run()
+	f.runUntilCycle(63)
+	s := &f.c.comp.State.BankedLDS
+	if len(s.Waiting) != 1 || len(s.Returns) != 1 {
+		t.Fatal("younger load bypassed the bank reservation")
+	}
+	f.runUntilCycle(64)
+	due := uint64(spec.LDSReturnCycles + 20 + 56)
+	if len(s.Waiting) != 0 || len(s.Returns) != 2 || spec.Freq.Cycle(s.Returns[0].Ready) != due ||
+		s.Returns[1].Ready != s.Returns[0].Ready {
+		t.Fatalf("expected both results at cycle %d; pending=%v", due, s.Returns)
+	}
+	f.runUntilCycle(due - 1)
+	if w.ReadOperand(load.Dst, 0) != 0 || w.execution().OutstandingScalarMemAccess != 2 {
+		t.Fatal("younger load became visible before the older store completed")
+	}
+	f.runUntilCycle(due)
+	if w.ReadOperand(load.Dst, 0) != 7 || w.execution().OutstandingScalarMemAccess != 0 {
+		t.Fatal("ordered return lost the store's value or left waitcnt outstanding")
+	}
+}
