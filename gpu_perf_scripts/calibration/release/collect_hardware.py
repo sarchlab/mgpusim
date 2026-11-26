@@ -13,6 +13,7 @@ same settings: repetitions that already succeeded are kept.
 """
 
 import argparse
+import contextlib
 import csv
 import gzip
 import hashlib
@@ -32,6 +33,8 @@ from build_reference import fixed_parameters
 
 LOG_NAME = "collection-current.log"
 IDENTITY_NAME = "collection.json"
+# What a collection consists of, beside its dispatch tree.
+RECORD_NAMES = [LOG_NAME, IDENTITY_NAME, "environment.jsonl", "clock-monitor.csv"]
 ARCHIVE_NAMES = {"records": "collection-complete.tar.zst", "dispatches": "dispatch-0001.tar.zst"}
 DISPATCH_FIELDS = [
     "Kernel_Name",
@@ -48,8 +51,13 @@ SHAPE_FIELDS = DISPATCH_FIELDS[1:7]
 # Dispatches that are never the measurement: the suite's clock warmer and the
 # runtime's buffer fill. A case can narrow this further with "kernel_pattern".
 NOT_MEASURED = re.compile(r"^(bench_warmer_kernel|__amd_rocclr_fillBuffer)")
+WARMUP = "vector_add_warmup"
 CLOCK_TOLERANCE = 1.02
 TELEMETRY_START_SECONDS = 10
+# Sampling has stopped when the last sample is older than this many sampling
+# intervals, and than this many seconds.
+TELEMETRY_STALE_INTERVALS = 20
+TELEMETRY_STALE_SECONDS = 2
 SYSFS = Path("/sys/class/drm")
 
 
@@ -63,28 +71,64 @@ def series_label(parameters):
     return ", ".join(f"{key}={json.dumps(value)}" for key, value in parameters.items())
 
 
+def repeated_case(cases):
+    """An identifier that more than one of the cases carries, or None."""
+    seen = set()
+    for case in cases:
+        if case["case"] in seen:
+            return case["case"]
+        seen.add(case["case"])
+    return None
+
+
 def plan_from_references(references):
-    plan, seen = [], set()
-    for reference in references:
-        for series in reference["series"]:
-            for case in series["cases"]:
-                if case["case"] in seen:
-                    raise ValueError(f"Case {case['case']} appears twice")
-                seen.add(case["case"])
-                plan.append(
-                    {
-                        "case": case["case"],
-                        "benchmark": series["benchmark"],
-                        "sample": series["sample"],
-                        "axis": series["axis"],
-                        "series": series_label(series["parameters"]),
-                        "x": case["x"],
-                        "args": case["args"],
-                        # Name and shape of each measured launch, without its time.
-                        "expected_launches": [launch[:-1] for launch in case["launches"]],
-                    }
-                )
+    plan = [
+        {
+            "case": case["case"],
+            "benchmark": series["benchmark"],
+            "sample": series["sample"],
+            "axis": series["axis"],
+            "series": series_label(series["parameters"]),
+            "x": case["x"],
+            "args": case["args"],
+            # Name and shape of each measured launch, without its time.
+            "expected_launches": [launch[:-1] for launch in case["launches"]],
+        }
+        for reference in references
+        for series in reference["series"]
+        for case in series["cases"]
+    ]
+    if repeated_case(plan) is not None:
+        raise ValueError(f"Case {repeated_case(plan)} appears twice")
     return plan
+
+
+def case_parameters(case):
+    return {**fixed_parameters(case["series"]), case["axis"]: case["x"]}
+
+
+def collectable(case):
+    """Whether a plan entry can be run and filed as it is written.
+
+    Its identifier and benchmark become directory names and its parameters
+    environment variables, so all of them are checked before anything runs.
+    """
+    try:
+        parameters = case_parameters(case)
+        re.compile(case.get("kernel_pattern", ""))
+        return (
+            type(case["case"]) is int
+            and all(
+                isinstance(name, str) and re.fullmatch(r"\w+", name) for name in [case["benchmark"], *parameters]
+            )
+            and all(type(value) in (bool, int, float, str) for value in parameters.values())
+            and all(
+                isinstance(launch, list) and len(launch) == len(SHAPE_FIELDS) + 1
+                for launch in case.get("expected_launches", [])
+            )
+        )
+    except (AttributeError, KeyError, TypeError, ValueError, re.error):
+        return False
 
 
 # ---- benchmark processes --------------------------------------------------
@@ -112,12 +156,11 @@ def environment_value(value):
     return str(value)
 
 
-def case_parameters(case):
-    return {**fixed_parameters(case["series"]), case["axis"]: case["x"]}
-
-
-def case_environment(case, extra):
-    parameters = {**case_parameters(case), **extra}
+def case_environment(case, warmup):
+    """The benchmark parameters of a case; `warmup` None leaves the suite's default."""
+    parameters = case_parameters(case)
+    if warmup is not None:
+        parameters[WARMUP] = warmup
     return {f"BENCH_PARAM_{key}": environment_value(value) for key, value in parameters.items()}
 
 
@@ -207,10 +250,10 @@ def run_once(binary, environment, timer, directory, timeout):
     trace = directory / "profiler"
     if timer == "rocprofv3":
         command = ["rocprofv3", "--kernel-trace", "-f", "csv", "-d", str(trace), "--"] + command
+    # Only the collector decides the workload, never the caller's shell.
+    inherited = {key: value for key, value in os.environ.items() if not key.startswith("BENCH_PARAM_")}
     # Its own session, so that the benchmark the profiler started can be ended
     # with it: a survivor would keep the GPU busy during the next measurement.
-    # Only the plan and --set decide the workload, never the caller's shell.
-    inherited = {key: value for key, value in os.environ.items() if not key.startswith("BENCH_PARAM_")}
     process = subprocess.Popen(
         command,
         cwd=binary.parent,
@@ -256,6 +299,10 @@ def command_output(command):
         return f"{type(error).__name__}: {error}"
 
 
+def amd_clock_report():
+    return command_output(["amd-smi", "metric", "--clock"])
+
+
 def the_gpu(platform_name):
     """Identity of the machine's only GPU and, on ROCm, its clock sensor.
 
@@ -263,9 +310,13 @@ def the_gpu(platform_name):
     GPU that needs no device selection anywhere, so more than one is refused.
     """
     if platform_name == "rocm":
+        listed = len(re.findall(r"^GPU: *\d+", amd_clock_report(), re.MULTILINE))
         sensors = sorted(SYSFS.glob("card*/device/hwmon/hwmon*/freq1_input"))
-        if len(sensors) != 1:
-            raise SystemExit(f"Collection needs exactly one AMD GPU with a clock sensor; found {len(sensors)}")
+        if listed != 1 or len(sensors) != 1:
+            raise SystemExit(
+                f"Collection needs exactly one AMD GPU; amd-smi lists {listed} "
+                f"and {len(sensors)} have a clock sensor"
+            )
         device = sensors[0].parent.parent.parent
         return f"{device.parent.name} {device.resolve().name}", sensors[0]
     rows = [
@@ -280,47 +331,50 @@ def the_gpu(platform_name):
     return rows[0], None
 
 
-def amd_clocks(text):
-    """(current, minimum, maximum) MHz of each GFX clock in `amd-smi metric --clock`."""
-    return [
-        tuple(int(value) for value in match)
-        for match in re.findall(
-            r"GFX_\d+:\s*CLK:\s*(\d+) MHz\s*MIN_CLK:\s*(\d+) MHz\s*MAX_CLK:\s*(\d+) MHz", text
-        )
-    ]
+def gfx_clock_limits(report):
+    """Maximum MHz of every GFX clock in `amd-smi metric --clock`; None where it cannot be read."""
+    sections = re.split(r"^\s*(?=(?:[A-Z]+_\d+|GPU):)", report, flags=re.MULTILINE)
+    limits = []
+    for section in sections:
+        if re.match(r"GFX_\d+:", section):
+            limit = re.search(r"^\s*MAX_CLK:\s*(\d+) MHz\s*$", section, re.MULTILINE)
+            limits.append(int(limit.group(1)) if limit else None)
+    return limits
 
 
 class ClockLimit:
-    """Caps the AMD GPU core clock for the duration of a collection."""
+    """Caps the AMD GPU core clock for the duration of a collection.
+
+    Creating one changes nothing; it refuses a clock state that could not be
+    put back. Entering applies the cap and leaving restores what was found.
+    """
 
     def __init__(self, megahertz):
         self.megahertz = megahertz
+        limits = gfx_clock_limits(amd_clock_report())
+        levels = sorted(SYSFS.glob("card*/device/power_dpm_force_performance_level"))
+        if not limits or None in limits or len(set(limits)) != 1:
+            raise SystemExit(
+                f"A clock cap needs every GFX clock to report one common limit to restore; amd-smi reports {limits}"
+            )
+        if len(levels) != 1:
+            raise SystemExit(f"A clock cap needs one performance level to restore; found {len(levels)}")
+        self.original, self.clocks = limits[0], len(limits)
+        self.level, self.mode = levels[0], levels[0].read_text().strip()
 
     def apply(self, megahertz):
         output = command_output(["amd-smi", "set", "-L", "sclk", "max", str(megahertz)])
-        clocks = amd_clocks(command_output(["amd-smi", "metric", "--clock"]))
-        if not clocks or any(maximum != megahertz for _, _, maximum in clocks):
-            raise RuntimeError(f"Could not cap the GPU clock at {megahertz} MHz: {output.strip()}")
+        if gfx_clock_limits(amd_clock_report()) != [megahertz] * self.clocks:
+            raise RuntimeError(f"Could not set the GPU clock limit to {megahertz} MHz: {output.strip()}")
 
     def restore(self):
         try:
             self.apply(self.original)
         finally:
             # amd-smi leaves the performance level at "manual".
-            for path, mode in self.modes:
-                path.write_text(mode)
+            self.level.write_text(self.mode)
 
     def __enter__(self):
-        # Nothing is changed unless it concerns one GPU and can be put back.
-        report = command_output(["amd-smi", "metric", "--clock"])
-        maxima = {maximum for _, _, maximum in amd_clocks(report)}
-        levels = sorted(SYSFS.glob("card*/device/power_dpm_force_performance_level"))
-        if len(re.findall(r"^GPU: *\d+", report, re.MULTILINE)) != 1 or len(levels) != 1:
-            raise SystemExit("A clock cap needs exactly one AMD GPU in amd-smi and one performance level")
-        if len(maxima) != 1:
-            raise SystemExit(f"A clock cap needs one common GFX clock limit to restore; found {sorted(maxima)}")
-        self.original = maxima.pop()
-        self.modes = [(path, path.read_text().strip()) for path in levels]
         try:
             self.apply(self.megahertz)
         except BaseException:
@@ -341,13 +395,15 @@ class ClockMonitor(threading.Thread):
         self.path, self.sensor, self.interval = path, sensor, interval
         self.samples, self.lock = [], threading.Lock()
         self.stopped, self.sampled = threading.Event(), threading.Event()
-        self.process = None
+        self.process, self.latest = None, time.monotonic()
 
     def record(self, megahertz, watts, file):
+        """One sample; `watts` is None when the GPU reports no power."""
         now = time.time()
         with self.lock:
             self.samples.append((now, megahertz))
-        file.write(f"{now:.3f},{megahertz:.0f},{watts:.1f}\n")
+            self.latest = time.monotonic()
+        file.write(f"{now:.3f},{megahertz:.0f},{'' if watts is None else f'{watts:.1f}'}\n")
         self.sampled.set()
 
     def run(self):
@@ -361,26 +417,27 @@ class ClockMonitor(threading.Thread):
 
     def sample_sysfs(self, file):
         power = self.sensor.with_name("power1_input")
+        power = power if power.exists() else None
         while not self.stopped.is_set():
-            watts = int(power.read_text()) / 1e6 if power.exists() else 0
+            watts = int(power.read_text()) / 1e6 if power else None
             self.record(int(self.sensor.read_text()) / 1e6, watts, file)
             self.stopped.wait(self.interval)
 
     def sample_nvidia(self, file):
-        self.process = subprocess.Popen(
-            [
-                "nvidia-smi",
-                "--query-gpu=clocks.current.graphics,power.draw",
-                "--format=csv,noheader,nounits",
-                f"-lms={max(1, round(self.interval * 1000))}",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        for line in self.process.stdout:
-            megahertz, watts = (float(value) for value in line.split(","))
-            self.record(megahertz, watts, file)
+        command = [
+            "nvidia-smi",
+            "--query-gpu=clocks.current.graphics,power.draw",
+            "--format=csv,noheader,nounits",
+            f"-lms={max(1, round(self.interval * 1000))}",
+        ]
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as self.process:
+            for line in self.process.stdout:
+                megahertz, _, watts = line.partition(",")
+                try:
+                    watts = float(watts)
+                except ValueError:
+                    watts = None
+                self.record(float(megahertz), watts, file)
 
     def begin(self):
         """Start sampling; a collection without telemetry does not start."""
@@ -390,7 +447,10 @@ class ClockMonitor(threading.Thread):
             raise SystemExit("The GPU clock cannot be sampled; refusing to collect without telemetry")
 
     def check(self):
-        if not self.is_alive():
+        """Fail unless samples are still arriving."""
+        with self.lock:
+            age = time.monotonic() - self.latest
+        if not self.is_alive() or age > max(TELEMETRY_STALE_SECONDS, TELEMETRY_STALE_INTERVALS * self.interval):
             raise RuntimeError("GPU clock sampling stopped; the collection is not monitored any more")
 
     def maximum(self, start, end):
@@ -421,35 +481,52 @@ def completed(log):
     return done
 
 
+def planned_cases(args, plan):
+    """The cases of the plan this invocation collects, in running order."""
+    if not isinstance(plan, list) or not all(isinstance(case, dict) for case in plan):
+        raise SystemExit("The plan is not a list of cases")
+    supported = [case for case in plan if not case.get("unsupported_reason")]
+    for case in supported:
+        if not collectable(case):
+            raise SystemExit(
+                f"The plan has an invalid case {case.get('case')!r}: a case needs an integer identifier, "
+                "a benchmark and parameters with plain names and values, launches of a name and six sizes, "
+                "and a valid kernel pattern"
+            )
+        if args.vector_add_warmup is not None and WARMUP in case_parameters(case):
+            raise SystemExit(f"Case {case['case']} sets {WARMUP} itself; --vector-add-warmup would replace it")
+    # A second entry would clear and overwrite the traces of the first.
+    if repeated_case(supported) is not None:
+        raise SystemExit(f"The plan has more than one case {repeated_case(supported)}")
+    unknown = sorted(set(args.benchmark or ()) - {case["benchmark"] for case in supported})
+    if unknown:
+        raise SystemExit(f"The plan has no benchmark named {', '.join(unknown)}")
+    cases = [case for case in supported if not args.benchmark or case["benchmark"] in args.benchmark]
+    if not cases:
+        raise SystemExit("The plan has no case to collect")
+    try:
+        # Increasing size within a series: after a timeout the rest of it is skipped.
+        return sorted(cases, key=lambda case: (case["benchmark"], case["series"], case["x"]))
+    except TypeError:
+        raise SystemExit("The cases of one series must have scaling values of one type") from None
+
+
 def prepare(args):
-    """Check everything that can be checked before the GPU is touched."""
+    """Check everything that can be checked; nothing is created or changed here."""
+    if args.reps < 1 or args.timeout <= 0 or args.monitor_interval <= 0:
+        raise SystemExit("--reps, --timeout and --monitor-interval must be positive")
+    if args.sclk_max is not None and args.sclk_max <= 0:
+        raise SystemExit("--sclk-max must be positive")
     # Each benchmark runs in its own directory, so relative paths would break.
     args.benchmarks, args.output = args.benchmarks.resolve(), args.output.resolve()
     plan_text = args.plan.read_bytes()
-    cases = sorted(
-        (
-            case
-            for case in json.loads(plan_text)
-            if not case.get("unsupported_reason")
-            and (not args.benchmark or case["benchmark"] in args.benchmark)
-        ),
-        key=lambda case: (case["benchmark"], case["series"], case["x"]),
-    )
-    if not cases:
-        raise SystemExit("The plan has no case to collect")
-    extra = dict(args.set)
-    for case in cases:
-        # Both become directory names, and a repetition's directory is cleared before it runs.
-        if type(case["case"]) is not int or not re.fullmatch(r"\w+", str(case["benchmark"])):
-            raise SystemExit(f"The plan has an invalid case or benchmark name: {case['case']!r} {case['benchmark']!r}")
-        clash = sorted(set(extra) & set(case_parameters(case)))
-        if clash:
-            # The plan's labels and simulator arguments would no longer describe the run.
-            raise SystemExit(f"--set {clash[0]} would replace a parameter of {case['benchmark']} in the plan")
+    cases = planned_cases(args, json.loads(plan_text))
     platform_name = args.platform or detect_platform()
-    if args.sclk_max and platform_name != "rocm":
+    if args.sclk_max is not None and platform_name != "rocm":
         raise SystemExit("--sclk-max caps an AMD GPU clock; it does not apply on CUDA")
     timer = args.timer or ("rocprofv3" if platform_name == "rocm" else "reported")
+    if timer == "rocprofv3" and not shutil.which("rocprofv3"):
+        raise SystemExit("rocprofv3 is not on the PATH")
     binaries = {
         name: benchmark_binary(args.benchmarks, name, platform_name)
         for name in sorted({case["benchmark"] for case in cases})
@@ -471,22 +548,35 @@ def prepare(args):
         "platform": platform_name,
         "timer": timer,
         "core_clock_limit_mhz": args.sclk_max,
-        "extra_parameters": extra,
+        "vector_add_warmup": args.vector_add_warmup,
         "benchmarks_revision": revision,
     }
     record = args.output / IDENTITY_NAME
     if record.exists():
         previous = json.loads(record.read_text())
-        changed = sorted(key for key in identity if identity[key] != previous.get(key))
+        changed = sorted(key for key in {*identity, *previous} if identity.get(key) != previous.get(key))
         if changed:
             raise SystemExit(
                 f"{args.output} holds a collection made with a different {', '.join(changed)}; "
                 "use a new output directory"
             )
-    else:
-        args.output.mkdir(parents=True, exist_ok=True)
-        record.write_text(json.dumps(identity, indent=1) + "\n")
-    return cases, binaries, identity, sensor, invocation_record(args, identity)
+    elif (args.output / LOG_NAME).exists() or (args.output / "dispatch").exists():
+        # Its repetitions would be taken for ones made with the settings above.
+        raise SystemExit(f"{args.output} holds collection data but no {IDENTITY_NAME}; use a new output directory")
+    try:
+        done = completed(args.output / LOG_NAME)
+    except (KeyError, TypeError, ValueError):
+        raise SystemExit(f"{args.output / LOG_NAME} cannot be read as a collection log") from None
+    return {
+        "cases": cases,
+        "binaries": binaries,
+        "identity": identity,
+        "done": done,
+        "sensor": sensor,
+        "invocation": invocation_record(args, identity),
+        # Refuses now if the clock state could not be restored later.
+        "limit": ClockLimit(args.sclk_max) if args.sclk_max is not None else None,
+    }
 
 
 def invocation_record(args, identity):
@@ -502,77 +592,72 @@ def invocation_record(args, identity):
     if identity["platform"] == "rocm":
         record["amd_smi_version"] = command_output(["amd-smi", "version"]).strip()
         record["rocprofv3_version"] = command_output(["rocprofv3", "--version"]).strip()
-        record["clocks_before_cap"] = command_output(["amd-smi", "metric", "--clock"])
+        record["clocks_before_cap"] = amd_clock_report()
     return record
 
 
-def collect(args, cases, binaries, identity, sensor, invocation):
-    log = args.output / LOG_NAME
-    done = completed(log)
+def collect(args, monitor, cases, binaries, identity, done, invocation):
+    """Run the cases. Telemetry is running and a requested clock cap is in place."""
+    record, log = args.output / IDENTITY_NAME, args.output / LOG_NAME
+    if not record.exists():
+        record.write_text(json.dumps(identity, indent=1) + "\n")
     with open(args.output / "environment.jsonl", "a") as file:
         file.write(json.dumps(invocation) + "\n")
-    extra, timer = identity["extra_parameters"], identity["timer"]
-    monitor = ClockMonitor(args.output / "clock-monitor.csv", sensor, args.monitor_interval)
-    monitor.begin()
+    timer, cap = identity["timer"], identity["core_clock_limit_mhz"]
     counts, timed_out = {}, set()
-    try:
-        with open(log, "a") as file:
-            for case in cases:
-                series = (case["benchmark"], case["series"])
-                environment = case_environment(case, extra)
-                for rep in range(1, args.reps + 1):
-                    if (case["case"], rep) in done:
-                        continue
-                    row = {"case_id": case["case"], "rep": rep, "benchmark": case["benchmark"]}
-                    if series in timed_out:
-                        # Cases run in increasing size; a larger one will not fit either.
-                        row.update(status="skipped_after_timeout", measured_dispatches=0)
-                    else:
-                        directory = (
-                            args.output / "dispatch" / case["benchmark"] / str(case["case"]) / str(rep) / "trace"
-                        )
-                        shutil.rmtree(directory, ignore_errors=True)
-                        directory.mkdir(parents=True)
-                        start = time.time()
-                        status, dispatches = run_once(
-                            binaries[case["benchmark"]], environment, timer, directory, args.timeout
-                        )
-                        end = time.time()
-                        # A repetition that outlived the sampler is not recorded and runs again.
-                        monitor.check()
-                        measured = measured_dispatches(dispatches, case, timer) if status == "ok" else []
-                        if status == "ok" and measured is None:
-                            status, measured = "launch_mismatch", []
-                        elif status == "ok" and not measured:
-                            status = "no_dispatches"
-                        elif status == "ok" and any(d["Duration_ns"] <= 0 for d in measured):
-                            # build_reference.py rejects such a launch.
-                            status = "invalid_duration"
-                        if status == "ok":
-                            write_dispatches(directory / "measured-dispatches.csv", measured)
-                        if status == "timeout":
-                            timed_out.add(series)
-                        clock, samples = monitor.maximum(start, end)
-                        row.update(
-                            status=status,
-                            measured_dispatches=len(measured),
-                            started_at=round(start, 3),
-                            seconds=round(end - start, 3),
-                            # A repetition shorter than the sampling interval can have no sample.
-                            core_clock_mhz_max=clock,
-                            core_clock_samples=samples,
-                        )
-                        look_alikes = unselected_look_alikes(dispatches, measured)
-                        if look_alikes:
-                            row["unselected_look_alike_dispatches"] = look_alikes
-                        if args.sclk_max and clock and clock > args.sclk_max * CLOCK_TOLERANCE:
-                            row["core_clock_above_limit"] = True
-                    file.write(json.dumps(row) + "\n")
-                    file.flush()
-                    counts[row["status"]] = counts.get(row["status"], 0) + 1
-                    print(f"{case['benchmark']} case {case['case']} rep {rep}: {row['status']}", flush=True)
-    finally:
-        monitor.stop()
+    with open(log, "a") as file:
+        for case in cases:
+            series = (case["benchmark"], case["series"])
+            environment = case_environment(case, identity[WARMUP])
+            for rep in range(1, args.reps + 1):
+                if (case["case"], rep) in done:
+                    continue
+                row = {"case_id": case["case"], "rep": rep, "benchmark": case["benchmark"]}
+                if series in timed_out:
+                    # Cases run in increasing size; a larger one will not fit either.
+                    row.update(status="skipped_after_timeout", measured_dispatches=0)
+                else:
+                    directory = args.output / "dispatch" / case["benchmark"] / str(case["case"]) / str(rep) / "trace"
+                    shutil.rmtree(directory, ignore_errors=True)
+                    directory.mkdir(parents=True)
+                    start = time.time()
+                    status, dispatches = run_once(
+                        binaries[case["benchmark"]], environment, timer, directory, args.timeout
+                    )
+                    end = time.time()
+                    # A repetition that outlived the sampler is not recorded and runs again.
+                    monitor.check()
+                    measured = measured_dispatches(dispatches, case, timer) if status == "ok" else []
+                    if status == "ok" and measured is None:
+                        status, measured = "launch_mismatch", []
+                    elif status == "ok" and not measured:
+                        status = "no_dispatches"
+                    elif status == "ok" and any(d["Duration_ns"] <= 0 for d in measured):
+                        # build_reference.py rejects such a launch.
+                        status = "invalid_duration"
+                    if status == "ok":
+                        write_dispatches(directory / "measured-dispatches.csv", measured)
+                    if status == "timeout":
+                        timed_out.add(series)
+                    clock, samples = monitor.maximum(start, end)
+                    row.update(
+                        status=status,
+                        measured_dispatches=len(measured),
+                        started_at=round(start, 3),
+                        seconds=round(end - start, 3),
+                        # A repetition shorter than the sampling interval can have no sample.
+                        core_clock_mhz_max=clock,
+                        core_clock_samples=samples,
+                    )
+                    look_alikes = unselected_look_alikes(dispatches, measured)
+                    if look_alikes:
+                        row["unselected_look_alike_dispatches"] = look_alikes
+                    if cap is not None and clock is not None and clock > cap * CLOCK_TOLERANCE:
+                        row["core_clock_above_limit"] = True
+                file.write(json.dumps(row) + "\n")
+                file.flush()
+                counts[row["status"]] = counts.get(row["status"], 0) + 1
+                print(f"{case['benchmark']} case {case['case']} rep {rep}: {row['status']}", flush=True)
     print(json.dumps(counts, sort_keys=True))
     return 0 if set(counts) <= {"ok"} else 1
 
@@ -583,14 +668,21 @@ def interrupt(*_):
 
 def run(args):
     prepared = prepare(args)
+    limit = prepared.pop("limit") or contextlib.nullcontext()
+    sensor = prepared.pop("sensor")
     # SIGTERM takes the path of Ctrl-C: end the benchmark, then lift the cap.
     # A forced kill of the collector (SIGKILL) skips both.
     previous = signal.signal(signal.SIGTERM, interrupt)
     try:
-        if args.sclk_max:
-            with ClockLimit(args.sclk_max):
-                return collect(args, *prepared)
-        return collect(args, *prepared)
+        args.output.mkdir(parents=True, exist_ok=True)
+        monitor = ClockMonitor(args.output / "clock-monitor.csv", sensor, args.monitor_interval)
+        # Telemetry first: without it the clock is not touched either.
+        monitor.begin()
+        try:
+            with limit:
+                return collect(args, monitor, **prepared)
+        finally:
+            monitor.stop()
     finally:
         signal.signal(signal.SIGTERM, previous)
 
@@ -608,16 +700,19 @@ def archive(source, members, target):
 
 
 def pack(args):
-    args.archives.mkdir(parents=True, exist_ok=True)
-    if any(args.archives.glob("*.tar.zst")):
+    missing = [name for name in [*RECORD_NAMES, "dispatch"] if not (args.collection / name).exists()]
+    if missing:
+        raise SystemExit(f"{args.collection} is not a complete collection; it has no {', '.join(missing)}")
+    if not completed(args.collection / LOG_NAME):
+        raise SystemExit(f"{args.collection} has no successful repetition to pack")
+    for tool in ("tar", "zstd"):
+        if not shutil.which(tool):
+            raise SystemExit(f"{tool} is not on the PATH")
+    if args.archives.exists() and any(args.archives.glob("*.tar.zst")):
         # build_reference.py reads every dispatch archive it finds there.
         raise SystemExit(f"{args.archives} already holds archives; pack into a new directory")
-    records = [
-        name
-        for name in (LOG_NAME, IDENTITY_NAME, "environment.jsonl", "clock-monitor.csv")
-        if (args.collection / name).exists()
-    ]
-    members = {"records": records, "dispatches": ["dispatch"]}
+    args.archives.mkdir(parents=True, exist_ok=True)
+    members = {"records": RECORD_NAMES, "dispatches": ["dispatch"]}
     partial = {kind: args.archives / (name + ".partial") for kind, name in ARCHIVE_NAMES.items()}
     try:
         for kind, path in partial.items():
@@ -633,13 +728,6 @@ def pack(args):
 
 
 # ---- command line ---------------------------------------------------------
-
-
-def parameter(text):
-    name, separator, value = text.partition("=")
-    if not name or not separator:
-        raise argparse.ArgumentTypeError("expected NAME=VALUE")
-    return name, value
 
 
 def main(argv=None):
@@ -666,8 +754,11 @@ def main(argv=None):
         "reported: the GPU event times the benchmark prints (default on CUDA)",
     )
     runner.add_argument("--sclk-max", type=int, help="cap the AMD GPU core clock at this many MHz")
-    runner.add_argument("--set", action="append", default=[], type=parameter, metavar="NAME=VALUE",
-                        help="benchmark parameter added to every case (repeatable)")
+    runner.add_argument(
+        "--vector-add-warmup",
+        choices=["true", "false"],
+        help="run every case with the suite's clock warmer on or off (default: the suite's own default)",
+    )
     runner.add_argument("--monitor-interval", type=float, default=0.1, help="seconds between clock samples")
 
     packer = commands.add_parser("pack", help="pack a collection for build_reference.py")

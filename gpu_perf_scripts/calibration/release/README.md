@@ -97,9 +97,10 @@ launch separately.
 ## Collecting a reference
 
 `collect_hardware.py` produces the archives that `build_reference.py` reads. It
-needs Python 3.9 or later, `zstd`, a built GPU Benchmarks checkout (it does not
-build the benchmarks) and a machine with exactly one GPU, so that the launch,
-the clock cap and the telemetry all concern the same device. When the
+needs Python 3.9 or later, `tar`, `zstd`, a built GPU Benchmarks checkout (it
+does not build the benchmarks) and a machine with exactly one GPU, so that the
+launch, the clock cap and the telemetry all concern the same device. On ROCm
+that means one GPU listed by `amd-smi` and one clock sensor in sysfs. When the
 benchmarks directory is not a git checkout, pass its commit hash with
 `--benchmarks-revision`; a collection without a known revision does not start.
 
@@ -115,13 +116,26 @@ python3 collect_hardware.py run plan.json --benchmarks /path/to/gpu_benchmarks \
 python3 collect_hardware.py pack collection verified-archives
 ```
 
+`run` checks the plan, its options, the benchmarks, the GPU, the revision, the
+output directory and, for a cap, the clock state before it creates a file or
+touches the clock. It then creates the output directory and starts sampling the
+clock, and applies a cap only once a first sample has arrived.
+
+A plan is rejected when two of its supported cases share an identifier,
+or when a case has an identifier that is not an integer, a benchmark or
+parameter name that is not a plain word, a parameter value that is not a
+number, string or boolean, an expected launch that is not a name and six sizes,
+or an invalid `kernel_pattern`. `--benchmark NAME`, which limits a run to one
+benchmark, must name a benchmark of the plan.
+
 `run` can be interrupted and started again; repetitions that already succeeded
-are kept. The first invocation writes the plan's hash, host, GPU, timer, clock
-cap, extra parameters and GPU Benchmarks revision to `collection.json`, and a
-later invocation with any of them changed is refused, so one collection never
-mixes measurements taken under different settings. Repetition count, timeout
-and `--benchmark NAME`, which limits a run to one benchmark, may differ between
-invocations. Do not run two collectors on one output directory.
+are kept. The first invocation that gets as far as running a benchmark writes
+the plan's hash, host, GPU, timer, clock cap, warmer setting and GPU Benchmarks
+revision to `collection.json`, and a later invocation with any of them changed
+is refused, so one collection never mixes measurements taken under different
+settings. A directory that holds a log or dispatches but no `collection.json`
+is refused as well. Repetition count, timeout and `--benchmark` may differ
+between invocations. Do not run two collectors on one output directory.
 
 A repetition that exceeds `--timeout` is recorded as `timeout` and the larger
 cases of the same series as `skipped_after_timeout`. On a timeout, Ctrl-C or
@@ -129,11 +143,14 @@ SIGTERM the benchmark's whole process group is killed before the collector
 goes on or exits; killing the collector itself with SIGKILL skips that and
 leaves a clock cap in place.
 
-`--set NAME=VALUE` adds a benchmark parameter to every case, for example
-`--set vector_add_warmup=false`. It cannot replace a parameter or the scaling
-axis of a case in the plan: the plan's labels and simulator arguments would no
-longer describe what ran. `BENCH_PARAM_*` variables in the caller's
-environment are not passed on; only the plan and `--set` reach a benchmark.
+A benchmark receives the parameters of its case and nothing else. Variables
+named `BENCH_PARAM_*` in the caller's environment are not passed on, and there
+is no option to add or replace a workload parameter, because the plan's labels
+and simulator arguments would no longer describe what ran. The one exception is
+the suite's clock warmer, a harness control: `--vector-add-warmup true` or
+`false` sets it for every case, and without the option the suite's default
+applies. A plan that sets `vector_add_warmup` itself cannot be combined with
+the option.
 
 On ROCm the timer is `rocprofv3 --kernel-trace`: every kernel dispatch of the
 run is kept in `all-dispatches.csv`, and the measured ones go to
@@ -153,25 +170,32 @@ the default on CUDA, records no launch shape, and sums repeated launches of a
 kernel, so it is suited to checking a collection setup, not to a reference.
 
 `--sclk-max` caps the AMD GPU core clock with `amd-smi` for the whole run and
-restores the previous limit and performance level afterwards. Nothing is
-changed unless `amd-smi` reports one GPU, its GFX clocks share one limit and
-its performance level can be read, so that the previous state can be put back.
-If the cap then cannot be confirmed, that state is restored and nothing runs.
+restores the previous limit and performance level afterwards. It is refused
+unless every GFX clock in `amd-smi metric --clock` reports the same readable
+limit and exactly one performance level can be read, so that the previous
+state can be put back. If the cap then cannot be confirmed on every GFX clock,
+that state is restored and nothing runs.
 
 The core clock and power are sampled throughout into `clock-monitor.csv` (sysfs
-on ROCm, `nvidia-smi` on CUDA). A collection does not start without a first
-sample and stops if sampling stops; the repetition that was running then is
-not recorded and runs again on the next invocation. Each log row carries the highest clock
-sampled during that repetition and the number of samples; a repetition shorter
-than `--monitor-interval` can have none. A row is marked
-`core_clock_above_limit` when its highest sample exceeds the cap by more than
-2%.
+on ROCm, `nvidia-smi` on CUDA; the power column is empty where the GPU reports
+none). Sampling starts before a cap is applied, and a collection does not start
+without a first sample. It stops when the sampler ends or when its last sample
+is older than both 2 seconds and 20 sampling intervals; the repetition that was
+running then is not recorded and runs again on the next invocation. Each log
+row carries the highest clock sampled during that repetition and the number of
+samples; a repetition shorter than `--monitor-interval` can have none. A row is
+marked `core_clock_above_limit` when its highest sample exceeds the cap by more
+than 2%.
 
 `environment.jsonl` has one record per `run` invocation: the settings in
 `collection.json`, the start time, operating system and Python version, and on
 ROCm the `amd-smi` and `rocprofv3` versions and the clock limits found before
-a cap was applied.
-On CUDA the GPU identity includes the driver version.
+a cap was applied. On CUDA the GPU identity includes the driver version.
+
+`pack` needs a collection with its log, `collection.json`, `environment.jsonl`,
+`clock-monitor.csv`, dispatches and at least one successful repetition, and a
+destination that holds no archives yet. Both archives are published together or
+not at all.
 
 The MI300X v1.1 reference was collected with the core clock at about 1680 MHz:
 capping an "AMD Instinct MI300X VF" instance (default 2100 MHz) at 1680 MHz

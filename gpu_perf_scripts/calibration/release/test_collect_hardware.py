@@ -12,8 +12,8 @@ from unittest.mock import patch
 import build_reference
 import collect_hardware
 from collect_hardware import (
-    amd_clocks,
     case_environment,
+    gfx_clock_limits,
     main,
     measured_dispatches,
     plan_from_references,
@@ -55,6 +55,10 @@ BENCHMARK = """#!/bin/sh
 [ "$BENCH_PARAM_size" = 128 ] && [ -n "$FAIL_LARGE" ] && exit 3
 echo "{\\"type\\":\\"kernel\\",\\"name\\":\\"example_kernel\\",\\"time_ms\\":0.$BENCH_PARAM_size}"
 """
+TRACE_COLUMNS = (
+    "Kind,Kernel_Name,Start_Timestamp,End_Timestamp,"
+    "Workgroup_Size_X,Workgroup_Size_Y,Workgroup_Size_Z,Grid_Size_X,Grid_Size_Y,Grid_Size_Z"
+)
 PROFILER = """#!/bin/sh
 [ "$1" = --version ] && { echo "stand-in profiler"; exit 0; }
 directory=$5
@@ -62,7 +66,7 @@ shift 6
 "$@" || exit $?
 mkdir -p "$directory/host"
 cat > "$directory/host/1_kernel_trace.csv" <<EOF
-"Kind","Kernel_Name","Start_Timestamp","End_Timestamp","Workgroup_Size_X","Workgroup_Size_Y","Workgroup_Size_Z","Grid_Size_X","Grid_Size_Y","Grid_Size_Z"
+""" + TRACE_COLUMNS + """
 "KERNEL_DISPATCH","example_kernel(float*, int)",4000,$((4000 + ${ZERO_DURATION:+0 * }BENCH_PARAM_size)),256,1,1,256,1,1
 "KERNEL_DISPATCH","example_kernel(float*, int)",3000,3999,256,1,1,256,1,1
 "KERNEL_DISPATCH","__amd_rocclr_fillBufferUnAligned",1000,1500,256,1,1,256,1,1
@@ -83,10 +87,18 @@ elif [ "$1" = metric ]; then
     printf '            MIN_CLK: 500 MHz\\n            MAX_CLK: %s MHz\\n' "$(cat $state)"
     [ -z "$UNEQUAL_LIMITS" ] || printf '        GFX_1:\\n            CLK: 1 MHz\\n'
     [ -z "$UNEQUAL_LIMITS" ] || printf '            MIN_CLK: 500 MHz\\n            MAX_CLK: 1900 MHz\\n'
+    [ -z "$UNREADABLE_LIMIT" ] || printf '        GFX_1:\\n            CLK: N/A\\n            MAX_CLK: N/A\\n'
   done
 else
   echo "stand-in amd-smi"
 fi
+"""
+# One GPU; its clock query yields a single sample and then nothing more.
+NVIDIA_SMI = """#!/bin/sh
+case "$*" in
+  *uuid*) echo "GPU-0123, Stand-in GPU, 1.0" ;;
+  *) echo "1755, [N/A]"; exec sleep 60 ;;
+esac
 """
 CLOCKS = """GPU: 0
     CLOCK:
@@ -126,15 +138,15 @@ class PlanTest(unittest.TestCase):
         plan = plan_from_references([REFERENCE])
         self.assertEqual([case["case"] for case in plan], [7, 8])
         self.assertEqual(plan[0]["expected_launches"], [[KERNEL, *SHAPE]])
+        environment = {
+            "BENCH_PARAM_block_size": "256",
+            "BENCH_PARAM_pattern": "no_conflict",
+            "BENCH_PARAM_pinned": "true",
+            "BENCH_PARAM_size": "128",
+        }
+        self.assertEqual(case_environment(plan[1], None), environment)
         self.assertEqual(
-            case_environment(plan[1], {"vector_add_warmup": "false"}),
-            {
-                "BENCH_PARAM_block_size": "256",
-                "BENCH_PARAM_pattern": "no_conflict",
-                "BENCH_PARAM_pinned": "true",
-                "BENCH_PARAM_size": "128",
-                "BENCH_PARAM_vector_add_warmup": "false",
-            },
+            case_environment(plan[1], "false"), {**environment, "BENCH_PARAM_vector_add_warmup": "false"}
         )
 
     def test_repeated_case_identifiers_are_rejected(self):
@@ -184,8 +196,15 @@ class DispatchTest(unittest.TestCase):
             [(d["Kernel_Name"], d["Duration_ns"]) for d in reported_dispatches(output)], [("k", 1500000)]
         )
 
-    def test_clock_report_is_parsed_per_gfx_clock(self):
-        self.assertEqual(amd_clocks(CLOCKS), [(132, 500, 1680), (1679, 500, 1680)])
+    def test_every_gfx_clock_of_a_report_has_a_limit_or_none(self):
+        self.assertEqual(gfx_clock_limits(CLOCKS), [1680, 1680])
+        # A clock that reports no frequency still has its limit read ...
+        second = "MAX_CLK: 1680 MHz\n        MEM"
+        partly = CLOCKS.replace("CLK: 1679 MHz", "CLK: N/A").replace(second, second.replace("1680", "1900"))
+        self.assertEqual(gfx_clock_limits(partly), [1680, 1900])
+        # ... and one without a readable limit is not dropped from the list.
+        self.assertEqual(gfx_clock_limits(partly.replace("MAX_CLK: 1900 MHz", "MAX_CLK: N/A")), [1680, None])
+        self.assertEqual(gfx_clock_limits("FileNotFoundError: amd-smi"), [])
 
 
 @unittest.skipUnless(shutil.which("zstd"), "needs zstd")
@@ -264,12 +283,12 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual([row["status"] for row in self.log()], ["ok", "ok"])
 
     def test_reported_times_are_collected_without_a_profiler(self):
-        self.assertEqual(self.collect("--timer", "reported", "--set", "vector_add_warmup=false"), 0)
+        self.assertEqual(self.collect("--timer", "reported", "--vector-add-warmup", "false"), 0)
         [series] = self.reference()
         # The stand-in benchmark prints 0.64 ms and 0.128 ms.
         self.assertEqual([case["launches"][0][-1] for case in series["cases"]], [640000, 128000])
         record = json.loads((self.output / "environment.jsonl").read_text())
-        self.assertEqual(record["extra_parameters"], {"vector_add_warmup": "false"})
+        self.assertEqual(record["vector_add_warmup"], "false")
         self.assertEqual(record["timer"], "reported")
 
     def test_failures_are_logged_and_only_missing_repetitions_run_again(self):
@@ -285,7 +304,7 @@ class CollectionTest(unittest.TestCase):
     def test_a_collection_is_not_continued_with_different_settings(self):
         self.assertEqual(self.collect("--benchmark", "example"), 0)
         rows = len(self.log())
-        for changed in (["--set", "vector_add_warmup=false"], ["--timer", "reported"], ["--sclk-max", "1680"]):
+        for changed in (["--vector-add-warmup", "false"], ["--timer", "reported"], ["--sclk-max", "1680"]):
             with self.assertRaisesRegex(SystemExit, "different"):
                 self.collect(*changed)
         self.plan.write_text(self.plan.read_text() + "\n")
@@ -294,26 +313,107 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual(len(self.log()), rows)
         self.assertEqual(self.cap.read_text(), "2100\n")  # refused before the clock was touched
 
-    def test_only_the_plan_and_set_reach_the_benchmark(self):
+    def test_only_the_plan_and_the_warmer_setting_reach_the_benchmark(self):
         seen = self.root / "seen"
-        executable(self.binary, f'#!/bin/sh\necho "[$BENCH_PARAM_num_accesses]" >> {seen}\n' + BENCHMARK.split("\n", 1)[1])
-        with patch.dict(os.environ, {"BENCH_PARAM_num_accesses": "7"}):
+        report = 'echo "[$BENCH_PARAM_num_accesses|$BENCH_PARAM_vector_add_warmup|$BENCH_PARAM_size]"'
+        executable(self.binary, f"#!/bin/sh\n{report} >> {seen}\n" + BENCHMARK.split("\n", 1)[1])
+        stray = {"BENCH_PARAM_num_accesses": "7", "BENCH_PARAM_vector_add_warmup": "false", "BENCH_PARAM_size": "1"}
+        with patch.dict(os.environ, stray):
             self.assertEqual(self.collect("--reps", "1", "--benchmark", "example"), 0)
-            self.output = self.root / "explicit"
-            self.assertEqual(self.collect("--reps", "1", "--set", "num_accesses=9"), 0)
-        self.assertEqual(seen.read_text().split(), ["[]", "[]", "[9]", "[9]"])
+            self.output = self.root / "warm"
+            self.assertEqual(self.collect("--reps", "1", "--vector-add-warmup", "true"), 0)
+        self.assertEqual(seen.read_text().split(), ["[||64]", "[||128]", "[|true|64]", "[|true|128]"])
+        self.assertEqual(json.loads((self.output / "collection.json").read_text())["vector_add_warmup"], "true")
+        with self.assertRaises(SystemExit):  # no general way to set a benchmark parameter
+            self.collect("--set", "num_accesses=9")
 
-    def test_a_plan_cannot_name_a_directory_outside_the_collection(self):
+    def test_the_warmer_setting_cannot_replace_one_the_plan_makes(self):
+        plan = plan_from_references([REFERENCE])
+        plan[1]["series"] += ", vector_add_warmup=true"
+        self.plan.write_text(json.dumps(plan))
+        with self.assertRaisesRegex(SystemExit, "Case 8 sets vector_add_warmup itself"):
+            self.collect("--vector-add-warmup", "false")
+        self.assertFalse(self.output.exists())
+        self.assertEqual(self.collect("--reps", "1"), 0)
+
+    def test_a_plan_is_checked_before_anything_is_created(self):
         victim = self.root / "victim/1/trace"
         victim.mkdir(parents=True)
-        for field, value in (("case", str(self.root / "victim")), ("case", "7"), ("benchmark", "../example")):
+        invalid = (
+            ("case", str(self.root / "victim")),  # would become a directory outside the collection
+            ("case", "7"),
+            ("case", True),
+            ("benchmark", "../example"),
+            ("series", "block_size"),
+            ("series", "block size=1"),
+            ("series", "block_size=[1, 2]"),
+            ("axis", "si=ze"),
+            ("x", None),
+            ("kernel_pattern", "("),
+            ("expected_launches", [[KERNEL, 256]]),
+            ("expected_launches", None),
+        )
+        for field, value in invalid:
             plan = plan_from_references([REFERENCE])
             plan[0][field] = value
             self.plan.write_text(json.dumps(plan))
-            with self.assertRaisesRegex(SystemExit, "invalid case or benchmark name"):
+            with self.assertRaisesRegex(SystemExit, "invalid case", msg=f"{field}={value!r}"):
+                self.collect("--benchmark", "example")
+        for plan, message in (({"cases": []}, "not a list of cases"), ([7], "not a list of cases")):
+            self.plan.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(SystemExit, message):
                 self.collect()
         self.assertTrue(victim.exists())
         self.assertFalse(self.output.exists())
+
+    def test_a_case_identifier_cannot_be_used_twice(self):
+        plan = plan_from_references([REFERENCE])
+        other = {**plan[1], "benchmark": "other", "case": 7}
+        self.plan.write_text(json.dumps(plan + [other]))
+        # Refused although the filter would leave only one of the two.
+        with self.assertRaisesRegex(SystemExit, "more than one case 7"):
+            self.collect("--benchmark", "example")
+        other["unsupported_reason"] = "not simulated"
+        self.plan.write_text(json.dumps(plan + [other]))
+        self.assertEqual(self.collect("--reps", "1"), 0)
+
+    def test_requests_that_would_collect_nothing_are_refused(self):
+        for arguments, message in (
+            (["--reps", "0"], "must be positive"),
+            (["--timeout", "0"], "must be positive"),
+            (["--monitor-interval", "0"], "must be positive"),
+            (["--sclk-max", "0"], "--sclk-max must be positive"),
+            (["--benchmark", "example", "--benchmark", "exampel"], "no benchmark named exampel"),
+        ):
+            with self.assertRaisesRegex(SystemExit, message):
+                self.collect(*arguments)
+        with patch.object(collect_hardware.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(SystemExit, "rocprofv3 is not on the PATH"):
+                self.collect()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(Path(f"{self.cap}.log").exists())
+
+    def test_data_without_its_settings_is_not_adopted(self):
+        self.assertEqual(self.collect("--reps", "1"), 0)
+        (self.output / "collection.json").unlink()
+        rows = self.log()
+        for arguments in ([], ["--sclk-max", "1680"]):
+            with self.assertRaisesRegex(SystemExit, "collection data but no collection.json"):
+                self.collect(*arguments)
+        self.assertEqual(self.log(), rows)
+        self.assertFalse(Path(f"{self.cap}.log").exists())  # refused before the clock was touched
+        self.assertFalse((self.output / "collection.json").exists())
+
+    def test_a_damaged_log_is_refused_before_the_clock_is_touched(self):
+        self.assertEqual(self.collect("--reps", "1", "--sclk-max", "1680"), 0)
+        log = self.output / "collection-current.log"
+        Path(f"{self.cap}.log").unlink()
+        rows = log.read_text()
+        for damage in ('{"case_id": 7', '{"case_id": 7, "rep": 2}', "[]"):
+            log.write_text(rows + damage + "\n")
+            with self.assertRaisesRegex(SystemExit, "cannot be read as a collection log"):
+                self.collect("--reps", "2", "--sclk-max", "1680")
+        self.assertFalse(Path(f"{self.cap}.log").exists())
 
     def test_the_benchmark_revision_must_be_known(self):
         with self.assertRaisesRegex(SystemExit, "--benchmarks-revision"):
@@ -341,11 +441,20 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual(self.collect("--reps", "1"), 0)
         self.assertEqual([(row["case_id"], row["status"]) for row in self.log()], [(7, "ok"), (8, "ok")])
 
-    def test_set_cannot_replace_a_parameter_of_the_plan(self):
-        for name in ("size", "block_size"):
-            with self.assertRaisesRegex(SystemExit, f"--set {name}"):
-                self.collect("--set", f"{name}=1")
-        self.assertFalse(self.output.exists())
+    def test_a_sampler_that_falls_silent_stops_the_collection(self):
+        executable(self.root / "bin/nvidia-smi", NVIDIA_SMI)
+        executable(self.binary, "#!/bin/sh\nsleep 0.6\n" + BENCHMARK.split("\n", 1)[1])
+        with patch.object(collect_hardware, "TELEMETRY_STALE_SECONDS", 0.3):
+            # One sample arrived, so the collection starts; none follows.
+            with self.assertRaisesRegex(RuntimeError, "sampling stopped"):
+                self.collect("--platform", "cuda", "--reps", "1")
+        self.assertEqual(self.log(), [])
+        self.assertEqual(len((self.output / "clock-monitor.csv").read_text().splitlines()), 2)
+        # With samples arriving, a repetition shorter than their interval is accepted without one.
+        executable(self.binary, BENCHMARK)
+        self.output = self.root / "sampled"
+        self.assertEqual(self.collect("--reps", "1", "--monitor-interval", "1", "--timer", "reported"), 0)
+        self.assertEqual({row["core_clock_samples"] for row in self.log()}, {0})
 
     def test_a_timeout_ends_the_benchmark_and_skips_the_larger_cases(self):
         child = self.root / "child.pid"
@@ -401,11 +510,15 @@ class CollectionTest(unittest.TestCase):
     def test_collection_needs_one_gpu_whose_clock_can_be_sampled(self):
         sensor = self.root / "sys/card0/device/hwmon/hwmon0/freq1_input"
         shutil.copytree(self.root / "sys/card0", self.root / "sys/card1")
-        with self.assertRaisesRegex(SystemExit, "exactly one AMD GPU.*found 2"):
+        with self.assertRaisesRegex(SystemExit, "exactly one AMD GPU; amd-smi lists 1 and 2 have a clock sensor"):
             self.collect()
         shutil.rmtree(self.root / "sys/card1")
+        # Two GPUs of which only one exposes a clock sensor, without any clock cap.
+        with patch.dict(os.environ, {"SECOND_GPU": "1"}):
+            with self.assertRaisesRegex(SystemExit, "exactly one AMD GPU; amd-smi lists 2 and 1 have"):
+                self.collect()
         sensor.unlink()
-        with self.assertRaisesRegex(SystemExit, "exactly one AMD GPU.*found 0"):
+        with self.assertRaisesRegex(SystemExit, "exactly one AMD GPU; amd-smi lists 1 and 0 have"):
             self.collect()
         self.assertFalse(self.output.exists())
         # A sensor that cannot be read yields no sample.
@@ -413,6 +526,7 @@ class CollectionTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "cannot be sampled"):
             self.collect()
         self.assertFalse((self.output / "collection-current.log").exists())
+        self.assertFalse((self.output / "collection.json").exists())  # nothing binds the directory yet
 
     def test_the_clock_cap_holds_during_the_collection_and_is_lifted_after(self):
         executable(self.binary, f"#!/bin/sh\ncat {self.cap} >> {self.root}/seen\n" + BENCHMARK.split("\n", 1)[1])
@@ -428,20 +542,21 @@ class CollectionTest(unittest.TestCase):
 
     def test_no_clock_is_capped_unless_it_is_one_gpu_whose_state_can_be_restored(self):
         refusals = (
-            ({"SECOND_GPU": "1"}, "exactly one AMD GPU in amd-smi"),
-            ({"UNEQUAL_LIMITS": "1"}, r"one common GFX clock limit.*\[1900, 2100\]"),
+            ({"SECOND_GPU": "1"}, "exactly one AMD GPU; amd-smi lists 2"),
+            ({"UNEQUAL_LIMITS": "1"}, r"one common limit to restore.*\[2100, 1900\]"),
+            ({"UNREADABLE_LIMIT": "1"}, r"one common limit to restore.*\[2100, None\]"),
         )
         for environment, message in refusals:
             with patch.dict(os.environ, environment):
                 with self.assertRaisesRegex(SystemExit, message):
                     self.collect("--sclk-max", "1680")
         self.level.unlink()
-        with self.assertRaisesRegex(SystemExit, "one performance level"):
+        with self.assertRaisesRegex(SystemExit, "one performance level to restore; found 0"):
             self.collect("--sclk-max", "1680")
         with self.assertRaisesRegex(SystemExit, "does not apply on CUDA"):
             self.collect("--sclk-max", "1680", "--platform", "cuda")
         self.assertFalse(Path(f"{self.cap}.log").exists())  # no set command was issued
-        self.assertFalse((self.output / "collection-current.log").exists())
+        self.assertFalse(self.output.exists())
 
     def test_a_sampled_clock_above_the_cap_marks_the_repetition(self):
         executable(self.binary, "#!/bin/sh\nsleep 0.3\n" + BENCHMARK.split("\n", 1)[1])
@@ -451,7 +566,7 @@ class CollectionTest(unittest.TestCase):
 
     def test_a_cap_that_does_not_take_effect_is_rolled_back_and_nothing_runs(self):
         with patch.dict(os.environ, {"CAP_IGNORED": "1"}):
-            with self.assertRaisesRegex(RuntimeError, "Could not cap the GPU clock at 1680"):
+            with self.assertRaisesRegex(RuntimeError, "Could not set the GPU clock limit to 1680"):
                 self.collect("--sclk-max", "1680")
         self.assertEqual(Path(f"{self.cap}.log").read_text(), "set 1680\nset 2100\n")
         self.assertEqual(self.level.read_text(), "auto")
@@ -467,11 +582,29 @@ class CollectionTest(unittest.TestCase):
             ["collection-complete.tar.zst", "dispatch-0001.tar.zst"],
         )
         # A failed pack publishes nothing.
-        shutil.rmtree(self.output / "dispatch")
+        executable(self.root / "bin/zstd", "#!/bin/sh\nexit 1\n")
         with self.assertRaises(RuntimeError):
             main(["pack", str(self.output), str(self.root / "second")])
         self.assertEqual(list((self.root / "second").iterdir()), [])
 
+    def test_only_a_complete_collection_with_a_measurement_is_packed(self):
+        with patch.dict(os.environ, {"FAIL_LARGE": "1"}):
+            self.assertEqual(self.collect("--reps", "1", "--benchmark", "example"), 1)
+        log = self.output / "collection-current.log"
+        rows = log.read_text()
+        for name in ("collection-current.log", "collection.json", "environment.jsonl", "clock-monitor.csv"):
+            hidden = self.output / f"{name}.hidden"
+            (self.output / name).rename(hidden)
+            with self.assertRaisesRegex(SystemExit, f"not a complete collection; it has no {name}"):
+                main(["pack", str(self.output), str(self.root / "archives")])
+            hidden.rename(self.output / name)
+        log.write_text(rows.splitlines()[1] + "\n")  # only the failed repetition
+        with self.assertRaisesRegex(SystemExit, "no successful repetition"):
+            main(["pack", str(self.output), str(self.root / "archives")])
+        self.assertFalse((self.root / "archives").exists())
+        log.write_text(rows)
+        [series] = self.reference()
+        self.assertEqual([case["case"] for case in series["cases"]], [7])
 
 if __name__ == "__main__":
     unittest.main()
