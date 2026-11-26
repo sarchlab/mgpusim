@@ -88,6 +88,12 @@ func testOperationHolders(c *ComputeUnit) map[waveHandle][]string {
 		add(stage.Exec, "exec stage")
 		add(stage.Write, "write stage")
 	}
+	for _, id := range s.BankedLDS.Waiting {
+		add(id, "LDS arbitration")
+	}
+	for _, r := range s.BankedLDS.Returns {
+		add(r.Wave, "LDS writeback")
+	}
 	for _, simd := range s.SIMDs {
 		add(simd.Exec, "SIMD")
 		for _, slot := range simd.Slots {
@@ -183,6 +189,9 @@ func assertInstructionReferences(t *testing.T, c *ComputeUnit) {
 				check(id, makeWaveHandle(i, w.Generation), false)
 			}
 		}
+	}
+	for _, r := range c.comp.State.BankedLDS.Returns {
+		check(r.Inst, r.Wave, true)
 	}
 	for _, a := range c.comp.State.Scalar {
 		check(a.Inst, a.WF, true)

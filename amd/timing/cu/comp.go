@@ -60,6 +60,10 @@ type Spec struct {
 	// LDSBytes is the size of the local data share in bytes.
 	LDSBytes int `json:"lds_bytes"`
 
+	// LDSReturnCycles is the fixed gfx942 completion latency beyond SIMD
+	// port transfer and serial bank replays. GCN3 uses its legacy pipeline.
+	LDSReturnCycles int `json:"lds_return_cycles"`
+
 	// Log2CachelineSize is the cacheline size as a power of 2.
 	Log2CachelineSize uint64 `json:"log2_cacheline_size"`
 
@@ -124,6 +128,7 @@ type State struct {
 	Scheduler                                 SchedulerState
 	Decoders                                  []DecoderState
 	Branch, LDS                               StageState
+	BankedLDS                                 BankedLDSState
 	ScalarUnit                                ScalarUnitState
 	VectorUnit                                VectorUnitState
 	SIMDs                                     []SIMDState

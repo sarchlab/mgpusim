@@ -9,6 +9,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -97,7 +98,13 @@ func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*Com
 			spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 		}
 	}
-	comp := MakeBuilder().WithSimulation(simulation).WithSpec(spec).Build("CU")
+	builderCU := MakeBuilder().WithSimulation(simulation).WithSpec(spec)
+	if spec.IsCDNA3 {
+		decoder := insts.NewDisassembler()
+		decoder.IsCDNA3 = true
+		builderCU = builderCU.WithResources(Resources{Decoder: decoder, ALU: cdna3.NewALU(nil)})
+	}
+	comp := builderCU.Build("CU")
 	for _, name := range []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
 		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
