@@ -170,22 +170,32 @@ the default on CUDA, records no launch shape, and sums repeated launches of a
 kernel, so it is suited to checking a collection setup, not to a reference.
 
 `--sclk-max` caps the AMD GPU core clock with `amd-smi` for the whole run and
-restores the previous limit and performance level afterwards. It is refused
-unless every GFX clock in `amd-smi metric --clock` reports the same readable
-limit and exactly one performance level can be read, so that the previous
+restores the previous limit and performance level afterwards, also when the
+run is interrupted. It is refused unless every GFX clock in
+`amd-smi metric --clock` reports the same readable limit and exactly one
+performance level can be read and opened for writing, so that the previous
 state can be put back. If the cap then cannot be confirmed on every GFX clock,
-that state is restored and nothing runs.
+that state is restored and nothing runs. The limit is confirmed when it is
+applied; after that only the sampled clock shows whether it holds, so a limit
+lowered by another program during the run would go unnoticed.
+
+A repetition whose highest clock sample exceeds the cap by more than 2% is
+recorded as `clock_above_limit`. Like every status other than `ok` it has no
+`measured-dispatches.csv`, is left out of the reference and runs again on the
+next invocation; its `all-dispatches.csv` and sampled clock stay for diagnosis.
 
 The core clock and power are sampled throughout into `clock-monitor.csv` (sysfs
 on ROCm, `nvidia-smi` on CUDA; the power column is empty where the GPU reports
 none). Sampling starts before a cap is applied, and a collection does not start
-without a first sample. It stops when the sampler ends or when its last sample
-is older than both 2 seconds and 20 sampling intervals; the repetition that was
-running then is not recorded and runs again on the next invocation. Each log
-row carries the highest clock sampled during that repetition and the number of
-samples; a repetition shorter than `--monitor-interval` can have none. A row is
-marked `core_clock_above_limit` when its highest sample exceeds the cap by more
-than 2%.
+without a first sample. Sampling must then stay continuous: the collector
+checks it after every repetition, before recording the result, and stops if
+the sampler has ended or if any two consecutive samples, or the last sample
+and the check, are further apart than both 2 seconds and 20 sampling
+intervals. A gap counts for the rest of the invocation, also when samples have
+arrived again since. The repetition that was running at the check is not
+recorded and runs again on the next invocation. Each log row carries the
+highest clock sampled during that repetition and the number of samples; a
+repetition shorter than `--monitor-interval` can have none.
 
 `environment.jsonl` has one record per `run` invocation: the settings in
 `collection.json`, the start time, operating system and Python version, and on
@@ -194,8 +204,9 @@ a cap was applied. On CUDA the GPU identity includes the driver version.
 
 `pack` needs a collection with its log, `collection.json`, `environment.jsonl`,
 `clock-monitor.csv`, dispatches and at least one successful repetition, and a
-destination that holds no archives yet. Both archives are published together or
-not at all.
+destination that holds no archives yet. Both archives are written in full
+under temporary names before either gets its final name. If `pack` is
+interrupted, pack again into a fresh directory.
 
 The MI300X v1.1 reference was collected with the core clock at about 1680 MHz:
 capping an "AMD Instinct MI300X VF" instance (default 2100 MHz) at 1680 MHz

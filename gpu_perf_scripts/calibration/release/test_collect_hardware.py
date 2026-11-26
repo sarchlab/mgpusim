@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ from unittest.mock import patch
 import build_reference
 import collect_hardware
 from collect_hardware import (
+    ClockLimit,
     case_environment,
     gfx_clock_limits,
     main,
@@ -450,6 +452,16 @@ class CollectionTest(unittest.TestCase):
                 self.collect("--platform", "cuda", "--reps", "1")
         self.assertEqual(self.log(), [])
         self.assertEqual(len((self.output / "clock-monitor.csv").read_text().splitlines()), 2)
+        # A pause counts even when samples arrive again before the benchmark returns.
+        resumed = 'echo "1755, 90"; sleep 0.6; while :; do echo "1755, 90"; sleep 0.05; done'
+        executable(self.root / "bin/nvidia-smi", NVIDIA_SMI.replace('echo "1755, [N/A]"; exec sleep 60', resumed))
+        executable(self.binary, "#!/bin/sh\nsleep 1.2\n" + BENCHMARK.split("\n", 1)[1])
+        self.output = self.root / "paused"
+        with patch.object(collect_hardware, "TELEMETRY_STALE_SECONDS", 0.3):
+            with self.assertRaisesRegex(RuntimeError, "stopped or paused"):
+                self.collect("--platform", "cuda", "--reps", "1")
+        self.assertEqual(self.log(), [])
+        self.assertGreater(len((self.output / "clock-monitor.csv").read_text().splitlines()), 5)
         # With samples arriving, a repetition shorter than their interval is accepted without one.
         executable(self.binary, BENCHMARK)
         self.output = self.root / "sampled"
@@ -535,7 +547,7 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual(Path(f"{self.cap}.log").read_text(), "set 1680\nset 2100\n")
         self.assertEqual(self.cap.read_text(), "2100\n")
         self.assertEqual(self.level.read_text(), "auto")
-        self.assertNotIn("core_clock_above_limit", self.log()[0])
+        self.assertEqual({row["status"] for row in self.log()}, {"ok"})
         record = json.loads((self.output / "environment.jsonl").read_text())
         self.assertEqual(record["core_clock_limit_mhz"], 1680)
         self.assertIn("MAX_CLK: 2100 MHz", record["clocks_before_cap"])  # what was found, not the cap
@@ -550,6 +562,14 @@ class CollectionTest(unittest.TestCase):
             with patch.dict(os.environ, environment):
                 with self.assertRaisesRegex(SystemExit, message):
                     self.collect("--sclk-max", "1680")
+        if os.geteuid():  # root can write anything
+            self.level.chmod(0o444)  # readable, but restoring it would fail
+            with self.assertRaisesRegex(SystemExit, "performance level that can be written back"):
+                self.collect("--sclk-max", "1680")
+            self.level.chmod(0o644)
+        self.level.write_text("\n")
+        with self.assertRaisesRegex(SystemExit, "is empty"):
+            self.collect("--sclk-max", "1680")
         self.level.unlink()
         with self.assertRaisesRegex(SystemExit, "one performance level to restore; found 0"):
             self.collect("--sclk-max", "1680")
@@ -558,11 +578,44 @@ class CollectionTest(unittest.TestCase):
         self.assertFalse(Path(f"{self.cap}.log").exists())  # no set command was issued
         self.assertFalse(self.output.exists())
 
-    def test_a_sampled_clock_above_the_cap_marks_the_repetition(self):
+    def test_a_repetition_sampled_above_the_cap_is_not_a_measurement(self):
+        sensor = self.root / "sys/card0/device/hwmon/hwmon0/freq1_input"
         executable(self.binary, "#!/bin/sh\nsleep 0.3\n" + BENCHMARK.split("\n", 1)[1])
-        self.assertEqual(self.collect("--sclk-max", "1500", "--reps", "1", "--benchmark", "example"), 0)
-        self.assertEqual([row.get("core_clock_above_limit") for row in self.log()], [True, True])
-        self.assertEqual({row["core_clock_mhz_max"] for row in self.log()}, {1679.0})
+        capped = ("--sclk-max", "1500", "--benchmark", "example")
+        self.assertEqual(self.collect(*capped, "--reps", "1"), 1)  # sampled at 1679 MHz
+        rows = self.log()
+        self.assertEqual([row["status"] for row in rows], ["clock_above_limit"] * 2)
+        self.assertEqual({row["core_clock_mhz_max"] for row in rows}, {1679.0})
+        trace = self.output / "dispatch/example/7/1/trace"
+        self.assertFalse((trace / "measured-dispatches.csv").exists())
+        self.assertTrue((trace / "all-dispatches.csv").exists())  # kept for diagnosis
+        with self.assertRaisesRegex(SystemExit, "no successful repetition"):
+            main(["pack", str(self.output), str(self.root / "archives")])
+        # Within the tolerance of the cap, the same repetition is collected again and counts.
+        sensor.write_text("1520000000\n")
+        self.assertEqual(self.collect(*capped, "--reps", "2"), 0)
+        self.assertEqual(
+            [(row["case_id"], row["rep"], row["status"]) for row in self.log()[2:]],
+            [(7, 1, "ok"), (7, 2, "ok"), (8, 1, "ok"), (8, 2, "ok")],
+        )
+        [series] = self.reference()
+        self.assertEqual([case["repetitions"] for case in series["cases"]], [2, 2])
+
+    def test_lifting_the_cap_is_not_cut_short_by_another_interrupt(self):
+        limit = ClockLimit(1680)
+        limit.__enter__()
+        self.assertEqual((self.cap.read_text(), self.level.read_text()), ("1680\n", "manual\n"))
+        command_output = collect_hardware.command_output
+
+        def interrupted(command):
+            if command[1] == "set":
+                os.kill(os.getpid(), signal.SIGINT)  # an impatient second Ctrl-C
+            return command_output(command)
+
+        with patch.object(collect_hardware, "command_output", interrupted):
+            limit.__exit__(None, None, None)
+        self.assertEqual((self.cap.read_text(), self.level.read_text()), ("2100\n", "auto"))
+        self.assertIs(signal.getsignal(signal.SIGINT), signal.default_int_handler)
 
     def test_a_cap_that_does_not_take_effect_is_rolled_back_and_nothing_runs(self):
         with patch.dict(os.environ, {"CAP_IGNORED": "1"}):

@@ -359,8 +359,15 @@ class ClockLimit:
             )
         if len(levels) != 1:
             raise SystemExit(f"A clock cap needs one performance level to restore; found {len(levels)}")
-        self.original, self.clocks = limits[0], len(limits)
-        self.level, self.mode = levels[0], levels[0].read_text().strip()
+        self.original, self.clocks, self.level = limits[0], len(limits), levels[0]
+        try:
+            # Opened the way restoring it will need, but without changing it.
+            with open(self.level, "r+") as control:
+                self.mode = control.read().strip()
+        except OSError as error:
+            raise SystemExit(f"A clock cap needs a performance level that can be written back: {error}") from None
+        if not self.mode:
+            raise SystemExit(f"A clock cap needs a performance level to restore; {self.level} is empty")
 
     def apply(self, megahertz):
         output = command_output(["amd-smi", "set", "-L", "sclk", "max", str(megahertz)])
@@ -368,11 +375,17 @@ class ClockLimit:
             raise RuntimeError(f"Could not set the GPU clock limit to {megahertz} MHz: {output.strip()}")
 
     def restore(self):
+        # A second Ctrl-C or SIGTERM must not leave the GPU capped.
+        handlers = {number: signal.signal(number, signal.SIG_IGN) for number in (signal.SIGINT, signal.SIGTERM)}
         try:
             self.apply(self.original)
         finally:
-            # amd-smi leaves the performance level at "manual".
-            self.level.write_text(self.mode)
+            try:
+                # amd-smi leaves the performance level at "manual".
+                self.level.write_text(self.mode)
+            finally:
+                for number, handler in handlers.items():
+                    signal.signal(number, handler)
 
     def __enter__(self):
         try:
@@ -395,13 +408,20 @@ class ClockMonitor(threading.Thread):
         self.path, self.sensor, self.interval = path, sensor, interval
         self.samples, self.lock = [], threading.Lock()
         self.stopped, self.sampled = threading.Event(), threading.Event()
-        self.process, self.latest = None, time.monotonic()
+        self.process, self.latest, self.interrupted = None, None, False
+
+    def stale(self, moment):
+        """Whether the sample before `moment` is too old for sampling to count as continuous."""
+        limit = max(TELEMETRY_STALE_SECONDS, TELEMETRY_STALE_INTERVALS * self.interval)
+        return self.latest is not None and moment - self.latest > limit
 
     def record(self, megahertz, watts, file):
         """One sample; `watts` is None when the GPU reports no power."""
         now = time.time()
         with self.lock:
             self.samples.append((now, megahertz))
+            # Remembered: a later sample does not make up for the gap before it.
+            self.interrupted = self.interrupted or self.stale(time.monotonic())
             self.latest = time.monotonic()
         file.write(f"{now:.3f},{megahertz:.0f},{'' if watts is None else f'{watts:.1f}'}\n")
         self.sampled.set()
@@ -447,11 +467,11 @@ class ClockMonitor(threading.Thread):
             raise SystemExit("The GPU clock cannot be sampled; refusing to collect without telemetry")
 
     def check(self):
-        """Fail unless samples are still arriving."""
+        """Fail unless sampling has been continuous since it began and still is."""
         with self.lock:
-            age = time.monotonic() - self.latest
-        if not self.is_alive() or age > max(TELEMETRY_STALE_SECONDS, TELEMETRY_STALE_INTERVALS * self.interval):
-            raise RuntimeError("GPU clock sampling stopped; the collection is not monitored any more")
+            interrupted = self.interrupted or self.stale(time.monotonic())
+        if interrupted or not self.is_alive():
+            raise RuntimeError("GPU clock sampling stopped or paused; the collection is not monitored any more")
 
     def maximum(self, start, end):
         """Highest clock sampled in [start, end], and the number of samples."""
@@ -635,11 +655,14 @@ def collect(args, monitor, cases, binaries, identity, done, invocation):
                     elif status == "ok" and any(d["Duration_ns"] <= 0 for d in measured):
                         # build_reference.py rejects such a launch.
                         status = "invalid_duration"
+                    clock, samples = monitor.maximum(start, end)
+                    if status == "ok" and cap is not None and clock is not None and clock > cap * CLOCK_TOLERANCE:
+                        # It did not run under the cap, so it is collected again.
+                        status = "clock_above_limit"
                     if status == "ok":
                         write_dispatches(directory / "measured-dispatches.csv", measured)
                     if status == "timeout":
                         timed_out.add(series)
-                    clock, samples = monitor.maximum(start, end)
                     row.update(
                         status=status,
                         measured_dispatches=len(measured),
@@ -652,8 +675,6 @@ def collect(args, monitor, cases, binaries, identity, done, invocation):
                     look_alikes = unselected_look_alikes(dispatches, measured)
                     if look_alikes:
                         row["unselected_look_alike_dispatches"] = look_alikes
-                    if cap is not None and clock is not None and clock > cap * CLOCK_TOLERANCE:
-                        row["core_clock_above_limit"] = True
                 file.write(json.dumps(row) + "\n")
                 file.flush()
                 counts[row["status"]] = counts.get(row["status"], 0) + 1
