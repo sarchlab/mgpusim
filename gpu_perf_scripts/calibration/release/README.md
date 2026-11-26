@@ -53,16 +53,56 @@ limited to the existing MGPUSim replay plan with successful hardware kernel
 traces. Eleven otherwise supported configurations lacked kernel timings.
 Transfer-only and unsupported cases are outside this comparison.
 
-The release reference stores exact simulator sample arguments and the median
-time of each matched hardware launch across successful repetitions. Regenerate
-it from the archived simulator replay plan and the verified MI300X collection
-archives with Python and zstd.
+Each reference stores exact simulator sample arguments and the median time of
+each matched hardware launch across successful repetitions. Regenerate the v1.1
+reference from the archived simulator replay plan and the verified MI300X
+collection archives with Python and zstd.
 
 ```sh
 python3 gpu_perf_scripts/calibration/release/build_reference.py \
   /path/to/plan-full.json /path/to/verified-archives \
   gpu_perf_scripts/calibration/release/mi300x-v1.1.json.gz
 ```
+
+The workflow reads every checked-in reference and concatenates their series in
+the order of `REFERENCES` in `workflow.py`, v1.1 first. A series is identified
+by its position, so a new reference only appends series. Pass `--reference`
+once per file to use other files.
+
+### Supplementary `code_fetch_latency` collection
+
+`mi300x-code-fetch-latency.json.gz` adds 52 configurations in four series: 13
+loop-body sizes for each of 1, 4, 8 and 16 loops. `code_fetch_latency` was
+added to GPU Benchmarks after v1.1, so these timings are not part of the v1.1
+collection. They come from an AMD Developer Cloud instance that reports an
+"AMD Instinct MI300X VF", with ROCm 10.2.0, on November 26, 2026 UTC: the
+median over 20 fresh processes of the dispatch duration that
+`rocprofv3 --kernel-trace` records for the single launch. That machine is not
+the one of the v1.1 collection. The report names the hardware value of this
+benchmark "MI300X VF kernel time (median, supplementary collection)". The file
+records the benchmark revision, machine, ROCm version, timing source and the
+SHA-256 of its raw input next to the series.
+
+Build it from a CSV with one row per repetition, kept outside the repository:
+
+```sh
+python3 gpu_perf_scripts/calibration/release/build_code_fetch_latency_reference.py \
+  /path/to/timings.csv \
+  gpu_perf_scripts/calibration/release/mi300x-code-fetch-latency.json.gz \
+  --benchmark-revision <GPU Benchmarks commit> --machine "AMD Instinct MI300X VF" \
+  --provider "AMD Developer Cloud" --rocm-version 10.2.0 \
+  --collected-at 2026-11-26T15:04:43+00:00
+```
+
+The CSV needs `body_ops`, `loops` and `rep`, and the duration either as the
+profiler's `Start_Timestamp` and `End_Timestamp`, as `Duration_ns` or as
+`dispatch_ns`. With the profiler's `Kernel_Name`, `Grid_Size_*` and
+`Workgroup_Size_*` columns the launch is taken from the trace and checked;
+without them the benchmark's default launch of one 64-thread block is assumed.
+Rows whose `rc` is not 0, whose `n_dispatch` is not 1 or whose `op` is not
+`fma` are dropped.
+
+## Comparison
 
 The simulator records individual dispatch intervals when
 `-report-kernel-dispatches` is enabled. A comparison requires matching kernel

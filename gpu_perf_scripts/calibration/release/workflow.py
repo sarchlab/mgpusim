@@ -23,6 +23,12 @@ SERIES_BUDGET_SKIP_REASON = "Series budget expired before this configuration sta
 REASON_BYTES = 1000
 RUN_KEY = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,199}")
 SITE_URL = "https://sarchlab-calibration-report.netlify.app/?run="
+# Later files append series; the v1.1 collection stays first.
+REFERENCES = [
+    Path(__file__).with_name(name)
+    for name in ("mi300x-v1.1.json.gz", "mi300x-code-fetch-latency.json.gz")
+]
+HARDWARE_VALUE_NAME = "MI300X kernel time (median)"
 COMMON = [
     "-arch=cdna3",
     "-gpu=mi300x",
@@ -41,9 +47,14 @@ UNITS = {
 }
 
 
-def read_reference(path):
-    with gzip.open(path, "rt") as file:
-        return json.load(file)
+def read_reference(paths):
+    # A series is identified by its position, so the order of the files and of
+    # the series within each file must stay stable.
+    series = []
+    for path in paths:
+        with gzip.open(path, "rt") as file:
+            series += json.load(file)["series"]
+    return {"series": series}
 
 
 def matrix_rows(reference, benchmark):
@@ -284,7 +295,7 @@ def report_header(version, revision):
     return {
         "title": f"MGPUSim {version} MI300X calibration",
         "description": f"Simulation commit {revision}. Each chart compares one dispatch "
-        "with its median MI300X timing from GPU Benchmarks v1.1.",
+        "with its median timing on an MI300X.",
         "live": True,  # Required by the schema; the database derives it from the run state.
         "groups": {"mi300x": {"name": "AMD MI300X"}},
     }
@@ -302,7 +313,8 @@ def benchmark_definitions(series_list):
                 "params": params,
                 "values": {
                     "mi300x": {
-                        "name": "MI300X kernel time (median)",
+                        # A supplementary collection names its own hardware.
+                        "name": series.get("hardware", HARDWARE_VALUE_NAME),
                         "unit": "ns",
                         "role": "hardware_measurement",
                     },
@@ -527,7 +539,9 @@ def main():
     p.add_argument(
         "--reference",
         type=Path,
-        default=Path(__file__).with_name("mi300x-v1.1.json.gz"),
+        action="append",
+        help="reference file; repeat to append the series of further files "
+        "(default: every checked-in reference)",
     )
     sub = p.add_subparsers(dest="command", required=True)
     plan_parser = sub.add_parser("plan")
@@ -552,7 +566,7 @@ def main():
     final.add_argument("--started-at", default="")
     final.add_argument("--sweep-result", required=True)
     args = p.parse_args()
-    args.function(read_reference(args.reference), args)
+    args.function(read_reference(args.reference or REFERENCES), args)
 
 
 if __name__ == "__main__":
