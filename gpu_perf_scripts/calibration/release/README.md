@@ -94,6 +94,59 @@ and workgroup dimensions implied by its parameters. Their labels separate each
 phase's first launch from later launches and mark a shorter final Pathfinder
 launch separately.
 
+## Collecting a reference
+
+`collect_hardware.py` produces the archives that `build_reference.py` reads. It
+needs Python 3.9 or later, `zstd`, and a built GPU Benchmarks checkout; it does
+not build the benchmarks.
+
+```sh
+# 1. Cases, parameters and expected launches, taken from existing references.
+python3 collect_hardware.py plan mi300x-v1.1.json.gz -o plan.json
+
+# 2. On the GPU machine: one fresh process per repetition.
+python3 collect_hardware.py run plan.json --benchmarks /path/to/gpu_benchmarks \
+  --output collection --reps 7 --sclk-max 1680
+
+# 3. Archives for build_reference.py.
+python3 collect_hardware.py pack collection verified-archives
+```
+
+`run` can be interrupted and started again; repetitions that already succeeded
+are kept. A repetition that exceeds `--timeout` is recorded as `timeout`, its
+whole process group is killed, and the larger cases of the same series are
+recorded as `skipped_after_timeout`. `--benchmark NAME` limits a run to one
+benchmark, and `--set NAME=VALUE` adds a benchmark parameter to every case, for
+example `--set vector_add_warmup=false`.
+
+On ROCm the timer is `rocprofv3 --kernel-trace`: every kernel dispatch of the
+run is kept in `all-dispatches.csv`, and the measured ones go to
+`measured-dispatches.csv`. A case taken from an earlier reference must show the
+launches that reference recorded, by kernel name and launch shape, in the same
+order; otherwise the repetition is recorded as `launch_mismatch`. A case
+without expected launches keeps every dispatch except the suite's clock warmer
+and the runtime's buffer fill, or the dispatches matching its `kernel_pattern`.
+`--timer reported` uses the GPU event times the benchmark prints instead. It is
+the default on CUDA, records no launch shape, and sums repeated launches of a
+kernel, so it is suited to checking a collection setup, not to a reference.
+
+`--sclk-max` caps the AMD GPU core clock with `amd-smi` for the whole run and
+restores the previous limit and performance level afterwards. The run fails to
+start if the cap does not take effect. The core clock and power are sampled
+throughout into `clock-monitor.csv` (sysfs on ROCm, `nvidia-smi` on CUDA), and
+each log row carries the highest clock sampled during that repetition; a row is
+marked `core_clock_above_limit` when it exceeds the cap by more than 2%.
+`environment.jsonl` records the host, tool versions, GPU Benchmarks revision,
+timer, clock cap and extra parameters of every `run` invocation.
+
+The MI300X v1.1 reference was collected with the core clock at about 1680 MHz:
+capping an "AMD Instinct MI300X VF" instance (default 2100 MHz) at 1680 MHz
+reproduces its `fp32_throughput` and `empty_kernel` times to within 0.3%.
+
+`build_reference.py` still writes the GPU Benchmarks revision and completion
+time of the v1.1 collection into its output; change them when building a
+reference from a new collection.
+
 ## Tests
 
 Run `python -m unittest` in this directory with Python 3.12, `psycopg` 3 and
