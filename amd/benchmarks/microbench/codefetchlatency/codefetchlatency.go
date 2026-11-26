@@ -31,6 +31,9 @@ const (
 	maxChain         = 1 << 20
 )
 
+// maxThreadsPerBlock is the largest gfx942 work-group.
+const maxThreadsPerBlock = 1024
+
 // BodySizes lists every body size the benchmark defines: one kernel,
 // fetch_kernel_<size>, per entry.
 var BodySizes = []int{
@@ -75,15 +78,34 @@ func KernelName(bodyOps int) string {
 	return fmt.Sprintf("fetch_kernel_%d", bodyOps)
 }
 
-func (b *Benchmark) loadProgram() {
-	if !slices.Contains(BodySizes, b.bodyOps()) {
-		log.Panicf("code_fetch_latency has no kernel with %d body operations; "+
-			"supported sizes are %v", b.bodyOps(), BodySizes)
+// checkParameters rejects a run that has no kernel, whose chain is too long,
+// or whose launch does not fit the dispatch packet: the grid is a uint32 and
+// the work-group a uint16.
+func checkParameters(bodyOps, loops, numBlocks, threadsPerBlock int) error {
+	if !slices.Contains(BodySizes, bodyOps) {
+		return fmt.Errorf("code_fetch_latency has no kernel with %d body operations; "+
+			"supported sizes are %v", bodyOps, BodySizes)
 	}
-	if b.loops() > maxChain/b.bodyOps() {
-		log.Panicf("code_fetch_latency runs at most %d operations per thread; "+
-			"%d body operations x %d loops exceeds it",
-			maxChain, b.bodyOps(), b.loops())
+	if loops < 1 || loops > maxChain/bodyOps {
+		return fmt.Errorf("code_fetch_latency runs 1 to %d operations per thread; "+
+			"got %d body operations x %d loops", maxChain, bodyOps, loops)
+	}
+	if threadsPerBlock < 1 || threadsPerBlock > maxThreadsPerBlock {
+		return fmt.Errorf("code_fetch_latency needs 1 to %d threads per block; got %d",
+			maxThreadsPerBlock, threadsPerBlock)
+	}
+	if numBlocks < 1 || uint64(numBlocks) > math.MaxUint32/uint64(threadsPerBlock) {
+		return fmt.Errorf("code_fetch_latency needs 1 block or more and at most %d "+
+			"threads; got %d blocks of %d threads",
+			uint32(math.MaxUint32), numBlocks, threadsPerBlock)
+	}
+	return nil
+}
+
+func (b *Benchmark) loadProgram() {
+	err := checkParameters(b.bodyOps(), b.loops(), b.numBlocks(), b.threadsPerBlock())
+	if err != nil {
+		log.Panic(err)
 	}
 
 	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
@@ -118,33 +140,19 @@ func (b *Benchmark) submit() {
 	b.exec()
 }
 
-func (b *Benchmark) bodyOps() int {
-	if b.BodyOps <= 0 {
-		return 256
+// A parameter left at zero takes its default. Any other value is used as
+// given and checked before the launch.
+func orDefault(value, fallback int) int {
+	if value == 0 {
+		return fallback
 	}
-	return b.BodyOps
+	return value
 }
 
-func (b *Benchmark) loops() int {
-	if b.Loops <= 0 {
-		return 1
-	}
-	return b.Loops
-}
-
-func (b *Benchmark) numBlocks() int {
-	if b.NumBlocks <= 0 {
-		return 1
-	}
-	return b.NumBlocks
-}
-
-func (b *Benchmark) threadsPerBlock() int {
-	if b.ThreadsPerBlock <= 0 {
-		return 64
-	}
-	return b.ThreadsPerBlock
-}
+func (b *Benchmark) bodyOps() int         { return orDefault(b.BodyOps, 256) }
+func (b *Benchmark) loops() int           { return orDefault(b.Loops, 1) }
+func (b *Benchmark) numBlocks() int       { return orDefault(b.NumBlocks, 1) }
+func (b *Benchmark) threadsPerBlock() int { return orDefault(b.ThreadsPerBlock, 64) }
 
 func (b *Benchmark) numThreads() int {
 	return b.numBlocks() * b.threadsPerBlock()
@@ -152,7 +160,7 @@ func (b *Benchmark) numThreads() int {
 
 func (b *Benchmark) initMem() {
 	numElem := b.numThreads()
-	outBytes := uint64(numElem * 4)
+	outBytes := uint64(numElem) * 4
 
 	if b.UseUnifiedMemory {
 		b.GOut = b.rt.AllocateUnifiedMemory(b.Context, outBytes)

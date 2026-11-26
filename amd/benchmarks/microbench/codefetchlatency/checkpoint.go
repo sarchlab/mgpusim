@@ -14,14 +14,15 @@ type State struct {
 	Gpus      []int
 	Arch      arch.Type
 	// BodyOps is the number of FMAs in the straight-line loop body. It selects
-	// the kernel fetch_kernel_<BodyOps> and must be one of BodySizes.
+	// the kernel fetch_kernel_<BodyOps> and must be one of BodySizes. Zero
+	// selects 256.
 	BodyOps int
-	// Loops is how many times the kernel executes its body.
+	// Loops is how many times the kernel executes its body. Zero selects 1.
 	Loops int
-	// NumBlocks is the number of thread blocks to launch.
+	// NumBlocks is the number of thread blocks to launch. Zero selects 1.
 	NumBlocks int
-	// ThreadsPerBlock is the work-group (block) size. Defaults to 64, one
-	// wavefront; must be <= 1024 (the gfx942 hardware maximum).
+	// ThreadsPerBlock is the work-group (block) size, at most 1024 (the
+	// gfx942 hardware maximum). Zero selects 64, one wavefront.
 	ThreadsPerBlock  int
 	GOut             gpuruntime.Ptr
 	UseUnifiedMemory bool
