@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks/microbench/codefetchlatency"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner"
@@ -17,6 +19,13 @@ var threadsPerBlock = flag.Int("threads-per-block", 64,
 
 func main() {
 	flag.Parse()
+
+	// The flags carry their own defaults, so a zero here was asked for.
+	err := codefetchlatency.CheckParameters(*bodyOps, *loops, *numBlocks, *threadsPerBlock)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 
 	config := sample.ParseConfig()
 	simulation, runtime, finish := config.Build()

@@ -78,10 +78,11 @@ func KernelName(bodyOps int) string {
 	return fmt.Sprintf("fetch_kernel_%d", bodyOps)
 }
 
-// checkParameters rejects a run that has no kernel, whose chain is too long,
+// CheckParameters rejects a run that has no kernel, whose chain is too long,
 // or whose launch does not fit the dispatch packet: the grid is a uint32 and
-// the work-group a uint16.
-func checkParameters(bodyOps, loops, numBlocks, threadsPerBlock int) error {
+// the work-group a uint16. It takes the values as they will be used, so a
+// zero is rejected here even though a zero field of State selects a default.
+func CheckParameters(bodyOps, loops, numBlocks, threadsPerBlock int) error {
 	if !slices.Contains(BodySizes, bodyOps) {
 		return fmt.Errorf("code_fetch_latency has no kernel with %d body operations; "+
 			"supported sizes are %v", bodyOps, BodySizes)
@@ -103,7 +104,7 @@ func checkParameters(bodyOps, loops, numBlocks, threadsPerBlock int) error {
 }
 
 func (b *Benchmark) loadProgram() {
-	err := checkParameters(b.bodyOps(), b.loops(), b.numBlocks(), b.threadsPerBlock())
+	err := CheckParameters(b.bodyOps(), b.loops(), b.numBlocks(), b.threadsPerBlock())
 	if err != nil {
 		log.Panic(err)
 	}

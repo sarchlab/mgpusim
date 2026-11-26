@@ -17,6 +17,10 @@ func TestCheckParameters(t *testing.T) {
 		{"largest grid", 16, 1, 4194303, 1024, ""},
 		{"unsupported body size", 100, 1, 1, 64, "no kernel with 100"},
 		{"negative body size", -16, 1, 1, 64, "no kernel with -16"},
+		{"no body", 0, 1, 1, 64, "no kernel with 0"},
+		{"no loops", 16, 0, 1, 64, "operations per thread"},
+		{"no blocks", 16, 1, 0, 64, "1 block or more"},
+		{"no threads", 16, 1, 1, 0, "threads per block"},
 		{"chain too long", 65536, 17, 1, 64, "operations per thread"},
 		{"negative loops", 16, -1, 1, 64, "operations per thread"},
 		{"work-group above the gfx942 limit", 16, 1, 1, 1025, "threads per block"},
@@ -27,7 +31,7 @@ func TestCheckParameters(t *testing.T) {
 		{"grid that wraps an int", 16, 1, 1 << 62, 1024, "1 block or more"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := checkParameters(tc.body, tc.loops, tc.blocks, tc.threads)
+			err := CheckParameters(tc.body, tc.loops, tc.blocks, tc.threads)
 			switch {
 			case tc.rejected == "" && err != nil:
 				t.Fatalf("expected the launch to be accepted, got %v", err)
