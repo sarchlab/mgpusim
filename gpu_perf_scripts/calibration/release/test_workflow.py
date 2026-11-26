@@ -21,7 +21,6 @@ from workflow import (
     cfd_launch_groups,
     final_progress,
     finalize,
-    read_reference,
     run_key,
     run_series,
     series_launch_groups,
@@ -328,20 +327,6 @@ class IterativeLaunchGroupTest(unittest.TestCase):
 
 
 class RunTest(unittest.TestCase):
-    def test_only_calibrated_lds_series_override_the_preset_clock(self):
-        reference = read_reference(Path(__file__).with_name("mi300x-v1.1.json.gz"))
-        calibrated = []
-        for series in reference["series"]:
-            lds = series["benchmark"] == "shared_mem_bandwidth"
-            if lds:
-                params = series["parameters"]
-                calibrated.append((params["block_size"], params["access_pattern"], params["num_blocks"]))
-            for case in series["cases"]:
-                clock = [arg for arg in case["args"] if arg.startswith("-mi300x-clock-mhz")]
-                self.assertEqual(clock, ["-mi300x-clock-mhz=1680"] if lds else [], case["case"])
-        self.assertCountEqual(calibrated, [(b, p, 1) for b in (32, 64, 256, 1024)
-                                           for p in ("conflict", "no_conflict")])
-
     def test_run_key(self):
         self.assertEqual(run_key("v4.1.0", "123"), "mgpusim-mi300x-v4.1.0")
         self.assertEqual(run_key("", "123"), "mgpusim-mi300x-preview-123")

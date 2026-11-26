@@ -128,30 +128,23 @@ func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s;
 // MakeBuilder creates a new builder with MI300X default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		// MI300X boost clock (TechPowerUp). CUs, caches, and the dispatcher run
-		// in this clock domain. The cycle-denominated latencies below were
-		// re-derived for 2.1 GHz (scaled x2100/1700 from the old 1.7 GHz values)
-		// so their nanosecond targets are preserved. NOTE: the DRAM controllers
-		// are pinned at 1 GHz (see buildDRAMControllers), so HBM bandwidth is
-		// independent of this clock and was not rescaled.
-		freq:                2100 * timing.MHz,
+		// The v1.1 MI300X hardware measurements ran at approximately 1680 MHz.
+		// CUs, caches and command dispatch share this clock. The independent
+		// DRAM controllers run at 1 GHz (see buildDRAMControllers).
+		freq:                1680 * timing.MHz,
 		numCUPerShaderArray: NumCUPerShaderArray,
 		numShaderArray:      NumShaderArray,
 		// MI300X L2 is a per-XCD 4 MB cache (16-way, 16x256 KB channels). A
 		// single work-item touches only its own XCD's L2, so the cache_latency
 		// pointer chase sees 4 MB here, not the device-wide aggregate.
 		l2CacheSize: 4 * mem.MB,
-		// L2 bank latency in cycles. Tuned so an L1-miss/L2-hit dependent load
-		// lands near the ~60-100 ns the real MI300X L2 shows in cache_latency.
-		// 124 cyc / 2.1 GHz = ~59 ns (was 100 cyc / 1.7 GHz = ~59 ns).
+		// At the reference clock, 124 cycles of L2 bank latency are about 74 ns.
 		l2BankLatency: 124,
 		// MI300X adds a 256 MB MALL (Memory-Attached Last-Level / Infinity
 		// Cache) on the IODs between the L2 and HBM. Modeling it gives the
 		// cache_latency curve its third plateau (8 MB-256 MB working sets).
 		mallCacheSize: 256 * mem.MB,
-		// MALL bank latency in cycles. Tuned so an L2-miss/MALL-hit dependent
-		// load lands near the ~170-330 ns the real MI300X MALL shows.
-		// 371 cyc / 2.1 GHz = ~177 ns (was 300 cyc / 1.7 GHz = ~176 ns).
+		// At the reference clock, 371 cycles of MALL bank latency are about 221 ns.
 		mallBankLatency:                371,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
@@ -573,7 +566,7 @@ func (b *Builder) buildSAs() {
 		WithVecMemTransPipelineWidth(8).
 		WithCUMemPipelineBufferSize(64).
 		WithL1VCacheSize(32 * mem.KB).
-		WithL1VBankLatency(9). // ~4.3 ns at 2.1 GHz (was 7 cyc / 1.7 GHz)
+		WithL1VBankLatency(9). // About 5.4 ns at the reference clock.
 		WithMemPipelineBufferSize(64).
 		WithMaxCoalescingPenalty(3).
 		WithRegisterScoreboard(true)
@@ -787,10 +780,10 @@ func (b *Builder) buildCP() {
 	spec.SubsequentKernelLaunchOverhead = 0
 	spec.ConstantKernelOverhead = 0
 
-	// Calibrate the effective per-XCD rates from the GPU-side empty-kernel
-	// dispatch sweep. Across eight XCDs at 2.1 GHz, 10 cycles per work-group
-	// and 21 cycles per 16 wavefronts reproduce the two sustained rates
-	// observed in the sweep (about 0.60 and 1.26 ns per work-group).
+	// These per-XCD dispatch periods were calibrated in cycles using the
+	// empty-kernel sweep. At 1680 MHz across eight XCDs, 10 and 21 cycles
+	// correspond to about 0.74 and 1.56 ns, respectively, per work-group
+	// for one- and sixteen-wave work-groups.
 	spec.Alg = "per-die"
 	spec.NumDies = NumXCD
 	spec.WavefrontDispatchCycles = 21

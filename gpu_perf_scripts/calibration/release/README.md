@@ -53,10 +53,11 @@ limited to the existing MGPUSim replay plan with successful hardware kernel
 traces. Eleven otherwise supported configurations lacked kernel timings.
 Transfer-only and unsupported cases are outside this comparison.
 
-The reference passes `-mi300x-clock-mhz=1680` in the sample arguments
-for its eight `shared_mem_bandwidth` series to match the approximate v1.1
-graphics clock used for the LDS fit. All other series keep their original
-arguments. Standalone timing samples default to the 2100 MHz MI300X preset.
+Every MI300X timing sample and release calibration uses the same 1680 MHz
+GPU preset, the approximate graphics clock of the v1.1 hardware measurements.
+The preset drives the CUs, caches and command dispatcher. DRAM has its own
+1 GHz clock. The existing cycle counts for caches and dispatch now translate
+to longer times than under the previous 2100 MHz preset.
 
 ### LDS slope regression
 

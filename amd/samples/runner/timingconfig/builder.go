@@ -45,7 +45,6 @@ type Builder struct {
 	log2PageSize       uint64
 	useMagicMemoryCopy bool
 	gpuType            string
-	mi300xFreq         timing.Freq
 	switchLatency      int // latency of a PCIe switch or mesh hop in cycles
 	rootComplexLatency int // latency of the PCIe root complex in cycles
 	d2hCycles          int
@@ -125,14 +124,6 @@ func (b Builder) WithAllocator(allocator gpuruntime.AllocatorType) Builder {
 // has one GPU per non-host position of its mesh.
 func (b Builder) WithGPUType(gpuType string) Builder {
 	b.gpuType = gpuType
-	return b
-}
-
-// WithMI300XFreq selects the clock for the MI300X GPU clock domain. A zero
-// frequency keeps the model's default. Independent clock domains retain
-// their configured frequencies.
-func (b Builder) WithMI300XFreq(freq timing.Freq) Builder {
-	b.mi300xFreq = freq
 	return b
 }
 
@@ -359,9 +350,6 @@ func (b *Builder) createGPUBuilder(
 			WithSimulation(b.simulation).
 			WithLog2PageSize(b.log2PageSize).
 			WithGlobalStorage(b.globalStorage)
-		if b.mi300xFreq != 0 {
-			gpu = gpu.WithFreq(b.mi300xFreq)
-		}
 		if mmuComponent != nil {
 			gpu = gpu.WithMMU(mmuComponent)
 		} else {

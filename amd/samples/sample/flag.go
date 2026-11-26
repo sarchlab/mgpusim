@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
 )
@@ -19,8 +18,6 @@ var parallelFlag = flag.Bool("parallel", false,
 	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var archFlag = flag.String("arch", "gcn3", "GPU architecture: gcn3 or cdna3.")
-var mi300xClockMHz = flag.Uint64("mi300x-clock-mhz", 0,
-	"MI300X timing clock in MHz (0 uses the GPU preset).")
 var gpuTypeFlag = flag.String("gpu", "r9nano",
 	`GPU model for timing simulation: r9nano, mi300x, or waferscale.
 waferscale is a mesh of R9 Nano-based tiles with the host in the centre (see
@@ -136,13 +133,6 @@ func (r *Config) parseSimulationFlags() {
 
 	r.ArchType = parseArchFlag()
 	r.GPUType = parseGPUTypeFlag()
-	if *mi300xClockMHz > 1_000_000 {
-		panic("-mi300x-clock-mhz exceeds the simulator's 1 ps clock resolution")
-	}
-	r.MI300XFreq = timing.Freq(*mi300xClockMHz) * timing.MHz
-	if r.MI300XFreq != 0 && (!r.Timing || r.GPUType != "mi300x") {
-		panic("-mi300x-clock-mhz requires -timing and -gpu=mi300x")
-	}
 
 	width, height, err := parseMeshShape(*waferMeshFlag)
 	if err != nil {

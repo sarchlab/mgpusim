@@ -6,7 +6,9 @@ import (
 
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -43,6 +45,9 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 	found := make(map[string]bool)
 	for _, c := range s.Components() {
 		found[c.Name()] = true
+		if unit, ok := c.(*cu.Comp); ok && gpuType == "mi300x" && unit.Spec.Freq != 1680*timing.MHz {
+			t.Fatalf("%s clock is %v; expected the 1680 MHz MI300X preset", unit.Name(), unit.Spec.Freq)
+		}
 		checkRouting(t, s, c, numGPUs)
 	}
 	if !found["Driver"] {

@@ -140,12 +140,6 @@ def main():
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     series = build(json.loads(args.plan.read_text()), args.archives)
-    # The LDS timing fit uses the approximately 1680 MHz v1.1 collection
-    # clock. Other series retain the replay plan's original sample arguments.
-    for row in series:
-        if row["benchmark"] == "shared_mem_bandwidth":
-            for case in row["cases"]:
-                case["args"].append("-mi300x-clock-mhz=1680")
     result = {
         "benchmark_revision": "a8ca84f8ce4373b3c091d4dc97a8f067607847a9",
         "collection_finished_at": "2026-11-24T04:59:18+00:00",
