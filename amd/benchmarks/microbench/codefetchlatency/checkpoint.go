@@ -29,6 +29,5 @@ type State struct {
 }
 
 func (b *Benchmark) bind() error {
-	b.loadProgram()
-	return nil
+	return b.loadProgram()
 }

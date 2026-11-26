@@ -1,8 +1,12 @@
 package codefetchlatency
 
 import (
+	"bytes"
+	"debug/elf"
 	"strings"
 	"testing"
+
+	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 )
 
 func TestCheckParameters(t *testing.T) {
@@ -49,5 +53,78 @@ func TestZeroParametersTakeTheDefaults(t *testing.T) {
 	got := [4]int{b.bodyOps(), b.loops(), b.numBlocks(), b.threadsPerBlock()}
 	if want := [4]int{256, 1, 1, 64}; got != want {
 		t.Fatalf("expected the defaults %v, got %v", want, got)
+	}
+}
+
+func TestEveryBodySizeHasAKernel(t *testing.T) {
+	object, err := elf.NewFile(bytes.NewReader(cdna3HSACOBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	symbols, err := object.Symbols()
+	if err != nil {
+		t.Fatal(err)
+	}
+	kernels := make(map[string]bool)
+	for _, symbol := range symbols {
+		kernels[symbol.Name] = true
+	}
+	for _, size := range BodySizes {
+		if !kernels[KernelName(size)] {
+			t.Errorf("the embedded object has no %s", KernelName(size))
+		}
+	}
+}
+
+// A checkpoint from an executable with other kernels or limits must be
+// reported, leaving the benchmark as it was.
+func TestAnUnsupportedCheckpointIsReportedAndLeavesTheBenchmarkUnchanged(t *testing.T) {
+	saved := &Benchmark{State: &State{BodyOps: 100, Loops: 4}}
+	saved.Checkpoint = benchmarks.NewCheckpoint(saved.State, saved.bind)
+	var checkpoint bytes.Buffer
+	if err := saved.SaveCheckpoint(&checkpoint); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &Benchmark{State: &State{BodyOps: 64, Loops: 8}}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
+	if err := b.bind(); err != nil {
+		t.Fatal(err)
+	}
+	kernel := b.hsaco
+
+	err := b.LoadCheckpoint(&checkpoint)
+	if err == nil || !strings.Contains(err.Error(), "no kernel with 100") {
+		t.Fatalf("expected the unsupported body size to be reported, got %v", err)
+	}
+	if b.BodyOps != 64 || b.Loops != 8 {
+		t.Fatalf("expected the parameters to be restored, got %d x %d", b.BodyOps, b.Loops)
+	}
+	if b.hsaco != kernel {
+		t.Fatal("expected the loaded kernel to be kept")
+	}
+	if b.Step() == nil {
+		t.Fatal("expected the next step to report the failed load")
+	}
+}
+
+func TestACheckpointRestoresTheKernelOfItsBodySize(t *testing.T) {
+	saved := &Benchmark{State: &State{BodyOps: 1024, Loops: 4}}
+	saved.Checkpoint = benchmarks.NewCheckpoint(saved.State, saved.bind)
+	var checkpoint bytes.Buffer
+	if err := saved.SaveCheckpoint(&checkpoint); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &Benchmark{State: &State{BodyOps: 64}}
+	b.Checkpoint = benchmarks.NewCheckpoint(b.State, b.bind)
+	if err := b.LoadCheckpoint(&checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	if b.BodyOps != 1024 || b.Loops != 4 || b.hsaco == nil {
+		t.Fatalf("expected the saved parameters and a kernel, got %d x %d", b.BodyOps, b.Loops)
+	}
+	if got := len(b.hsaco.Data); got != 8*1024+116 {
+		t.Fatalf("expected the 1024-operation kernel of 8308 bytes, got %d bytes", got)
 	}
 }

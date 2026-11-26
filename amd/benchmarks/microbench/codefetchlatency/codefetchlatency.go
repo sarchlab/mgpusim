@@ -103,17 +103,21 @@ func CheckParameters(bodyOps, loops, numBlocks, threadsPerBlock int) error {
 	return nil
 }
 
-func (b *Benchmark) loadProgram() {
+// loadProgram selects the kernel of the current parameters. It keeps the
+// kernel it already holds when the parameters cannot be run.
+func (b *Benchmark) loadProgram() error {
 	err := CheckParameters(b.bodyOps(), b.loops(), b.numBlocks(), b.threadsPerBlock())
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
-	b.hsaco = insts.LoadKernelCodeObjectFromBytes(
+	hsaco := insts.LoadKernelCodeObjectFromBytes(
 		cdna3HSACOBytes, KernelName(b.bodyOps()))
-	if b.hsaco == nil {
-		log.Panicf("Failed to load %s kernel binary", KernelName(b.bodyOps()))
+	if hsaco == nil {
+		return fmt.Errorf("failed to load %s kernel binary", KernelName(b.bodyOps()))
 	}
+	b.hsaco = hsaco
+	return nil
 }
 
 // SelectGPU selects the GPUs to run on. This benchmark uses a single GPU.
@@ -127,18 +131,21 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 // Prepare the inputs for the first queued phase.
-func (b *Benchmark) submit() {
+func (b *Benchmark) submit() error {
 	if b.Arch != arch.CDNA3 {
 		log.Panic("the code_fetch_latency benchmark ships only a gfx942 " +
 			"kernel; run with -arch cdna3 -gpu mi300x")
 	}
 
-	b.loadProgram()
+	if err := b.loadProgram(); err != nil {
+		return err
+	}
 
 	b.rt.SelectGPU(b.Context, b.Gpus[0])
 	b.Queue = b.rt.CreateCommandQueue(b.Context)
 	b.initMem()
 	b.exec()
+	return nil
 }
 
 // A parameter left at zero takes its default. Any other value is used as
@@ -241,7 +248,9 @@ func (b *Benchmark) Step() error {
 
 	switch b.Phase {
 	case 0:
-		b.submit()
+		if err := b.submit(); err != nil {
+			return err
+		}
 		b.Phase = 1
 	case 1:
 		if !b.Verification {
