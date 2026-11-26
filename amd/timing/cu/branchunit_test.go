@@ -3,6 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
@@ -70,27 +72,58 @@ var _ = Describe("Branch Unit", func() {
 		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 
-	It("should continue at the address named by s_setpc_b64", func() {
-		wave := newTestWave()
-		wave.execution().State = wavefront.WfRunning
-		wave.execution().InstBuffer = make([]byte, 256)
-		wave.execution().InstBufferStartPC = 0x2000
-		inst := testInst(testIDs.NewID(), insts.NewInst())
-		inst.FormatType = insts.SOP1
-		inst.Opcode = 29
-		inst.ByteSize = 4
-		wave.setTestInst(inst)
-		wave.SetPC(0x2010)
-		bu = NewBranchUnit(cu, &jumpALU{target: 0x1004})
-		bu.state().Exec = testWaveID(cu, wave)
+	Context("when s_setpc_b64 names an address", func() {
+		var wave *Wavefront
 
-		bu.Run()
-		bu.Run()
+		BeforeEach(func() {
+			wave = newTestWave()
+			wave.execution().State = wavefront.WfRunning
+			wave.execution().InstBuffer = make([]byte, 64)
+			wave.execution().InstBufferStartPC = 0x2000
+			inst := testInst(testIDs.NewID(), insts.NewInst())
+			inst.FormatType = insts.SOP1
+			inst.Opcode = 29
+			inst.ByteSize = 4
+			wave.setTestInst(inst)
+			wave.SetPC(0x2010)
+			bu = NewBranchUnit(cu, &jumpALU{target: 0x1004})
+			bu.state().Exec = testWaveID(cu, wave)
+		})
 
-		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
-		Expect(wave.PC()).To(Equal(uint64(0x1004)))
-		Expect(wave.execution().InstBuffer).To(HaveLen(0))
-		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+		It("should hold that address from execution through writeback", func() {
+			bu.Run()
+
+			// The instruction completes at the start of the write stage, so
+			// this is the PC that completion observers see.
+			Expect(wave.PC()).To(Equal(uint64(0x1004)))
+			Expect(wave.execution().State).To(Equal(wavefront.WfRunning))
+
+			bu.Run()
+
+			Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+			Expect(wave.PC()).To(Equal(uint64(0x1004)))
+			Expect(wave.execution().InstBuffer).To(HaveLen(0))
+			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+		})
+
+		It("should drop a fall-through fetch that returns after the jump", func() {
+			req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{
+				Address: 0x2040, AccessByteSize: 64}}
+			wave.execution().IsFetching = true
+			cu.comp.State.InstFetch = append(cu.comp.State.InstFetch,
+				testFetchState(cu, &InstFetchReqInfo{Req: req, Wavefront: wave, Address: 0x2040}))
+
+			bu.Run()
+			bu.Run()
+			cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: req.ID,
+				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+
+			Expect(wave.execution().IsFetching).To(BeFalse())
+			Expect(cu.comp.State.InstFetch).To(HaveLen(0))
+			Expect(wave.execution().InstBuffer).To(HaveLen(0))
+			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+			Expect(wave.PC()).To(Equal(uint64(0x1004)))
+		})
 	})
 
 })

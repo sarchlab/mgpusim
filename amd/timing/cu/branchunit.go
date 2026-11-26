@@ -2,7 +2,7 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
-	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // A BranchUnit performs branch operations
@@ -71,15 +71,7 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.state().Write == 0 {
-		operation := u.cu.wave(u.state().Exec).emulation()
-		inst := operation.Inst()
-		u.alu.Run(operation)
-		if inst != nil && inst.FormatType == insts.SOP1 && inst.Opcode == 29 {
-			// S_SETPC_B64 names the next instruction itself, while the write
-			// stage advances the PC by this instruction's size as it does
-			// after a PC-relative branch. Step back by that size here.
-			operation.SetPC(operation.PC() - uint64(inst.ByteSize))
-		}
+		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
 
 		u.state().Write = u.state().Exec
 		u.state().Exec = 0
@@ -93,11 +85,18 @@ func (u *BranchUnit) runWriteStage() bool {
 		return false
 	}
 
-	u.cu.completeInstruction(u.cu.wave(u.state().Write), u.cu.wave(u.state().Write).InstID())
+	wave := u.cu.wave(u.state().Write)
+	u.cu.completeInstruction(wave, wave.InstID())
 
-	u.cu.wave(u.state().Write).execution().InstBuffer = nil
-	u.cu.UpdatePCAndSetReady(u.cu.wave(u.state().Write))
-	u.cu.wave(u.state().Write).execution().InstBufferStartPC = u.cu.wave(u.state().Write).PC() & 0xffffffffffffffc0
+	wave.execution().InstBuffer = nil
+	if wave.Inst().AssignsPC() {
+		// The PC already holds the address to continue at. A PC-relative
+		// branch leaves it one instruction short of that address.
+		wave.execution().State = wavefront.WfReady
+	} else {
+		u.cu.UpdatePCAndSetReady(wave)
+	}
+	wave.execution().InstBufferStartPC = wave.PC() & 0xffffffffffffffc0
 	u.state().Write = 0
 	u.state().Idle = false
 	return true
