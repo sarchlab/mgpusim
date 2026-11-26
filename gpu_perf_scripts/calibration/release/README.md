@@ -97,12 +97,18 @@ python3 gpu_perf_scripts/calibration/release/build_code_fetch_latency_reference.
   --benchmark-revision 9678825670a00099b575560b3695aec029852c58 \
   --machine "AMD Instinct MI300X VF" --provider "AMD Developer Cloud" \
   --rocm-version 10.2.0 --collected-at 2026-11-26T17:55:51+00:00 \
-  --field driver_version=7.1.3.31500000 --field "profiler=rocprofv3 1.4.2"
+  --field collection_started_at=2026-11-26T17:51:04+00:00 \
+  --field hip_version=7.17.26434 \
+  --field "compiler=AMD clang 24.0.0git bdc35841c97ff51400273b91d7bc05c96e19c2d9" \
+  --field driver_version=7.1.3.31500000 \
+  --field "profiler=rocprofv3 1.4.2" \
+  --field "protocol=Each repetition is a fresh process with one cold launch: kernel attribute query, the suite's vector-add warmer, then the timed launch."
 ```
 
-Repeat `--field NAME=VALUE` for further provenance. The CSV needs `body_ops`,
-`loops` and `rep`, and the duration either as the profiler's `Start_Timestamp`
-and `End_Timestamp`, as `Duration_ns` or as `dispatch_ns`. With the profiler's
+This is the command that produced the committed file, with Python 3.12; the
+fields are recorded in the order given. The CSV needs `body_ops`, `loops` and
+`rep`, and the duration either as the profiler's `Start_Timestamp` and
+`End_Timestamp`, as `Duration_ns` or as `dispatch_ns`. With the profiler's
 `Kernel_Name`, `Grid_Size_*` and `Workgroup_Size_*` columns the launch is taken
 from the trace and checked, and a blank one is an error; without those columns
 the benchmark's default launch of one 64-thread block is assumed. A row is
