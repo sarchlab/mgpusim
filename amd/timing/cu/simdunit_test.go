@@ -44,6 +44,28 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(bu.state().Cycles).To(Equal(4))
 	})
 
+	DescribeTable("should take twice the cycles on the double-width datapath",
+		func(name string, cycles int) {
+			wave := newTestWave()
+			inst := testInst(testIDs.NewID(), insts.NewInst())
+			inst.InstName = name
+			wave.setTestInst(inst)
+			registerTestWave(cu, wave)
+
+			bu.AcceptWave(wave)
+
+			Expect(bu.state().Cycles).To(Equal(cycles))
+		},
+		Entry("f32 FMA", "v_fma_f32", 4),
+		Entry("f64 FMA", "v_fma_f64", 8),
+		Entry("packed f32 FMA", "v_pk_fma_f32", 8),
+		Entry("packed f32 multiply", "v_pk_mul_f32", 8),
+		Entry("packed f32 add", "v_pk_add_f32", 8),
+		Entry("packed b32 move", "v_pk_mov_b32", 8),
+		Entry("b64 move", "v_mov_b64_e32", 8),
+		Entry("64-bit shift-add stays narrow", "v_lshl_add_u64", 4),
+	)
+
 	It("should run", func() {
 		wave := newTestWave()
 		inst := testInst(testIDs.NewID(), insts.NewInst())

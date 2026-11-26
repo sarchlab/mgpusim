@@ -1,8 +1,6 @@
 package cu
 
 import (
-	"strings"
-
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
@@ -196,7 +194,7 @@ func (s *Scoreboard) Clear() {
 func GetScoreboardLatency(inst *insts.Inst) int {
 	switch inst.ExeUnit {
 	case insts.ExeUnitVALU:
-		if strings.Contains(inst.InstName, "f64") {
+		if usesTwoVGPRsPerLane(inst.InstName) {
 			return 8
 		}
 		return 4

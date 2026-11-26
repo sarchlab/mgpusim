@@ -275,6 +275,29 @@ var _ = Describe("Scoreboard", func() {
 			Expect(GetScoreboardLatency(inst)).To(Equal(8))
 		})
 
+		DescribeTable("VALU instructions on the double-width datapath",
+			func(name string, latency int) {
+				inst := insts.NewInst()
+				inst.ExeUnit = insts.ExeUnitVALU
+				inst.InstName = name
+
+				Expect(usesTwoVGPRsPerLane(name)).To(Equal(latency == 8))
+				Expect(GetScoreboardLatency(inst)).To(Equal(latency))
+			},
+			Entry("f32 FMA", "v_fma_f32", 4),
+			Entry("packed f16 FMA", "v_pk_fma_f16", 4),
+			Entry("f64 FMA", "v_fma_f64", 8),
+			Entry("f64 square root", "v_sqrt_f64", 8),
+			Entry("packed f32 FMA", "v_pk_fma_f32", 8),
+			Entry("packed f32 multiply", "v_pk_mul_f32", 8),
+			Entry("packed f32 add", "v_pk_add_f32", 8),
+			Entry("packed b32 move", "v_pk_mov_b32", 8),
+			Entry("b64 move", "v_mov_b64_e32", 8),
+			Entry("64-bit shift-add stays narrow", "v_lshl_add_u64", 4),
+			Entry("64-bit shift stays narrow", "v_lshlrev_b64", 4),
+			Entry("64-bit multiply-add stays narrow", "v_mad_u64_u32", 4),
+		)
+
 		It("should return 2 for scalar", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitScalar
@@ -359,6 +382,35 @@ func TestCDNA3VOP2WaitsForFP32Accumulator(t *testing.T) {
 			scoreboard.Tick()
 			if scoreboard.HasHazard(inst) {
 				t.Fatal("CDNA3 accumulator still blocked after v7 became available")
+			}
+		})
+	}
+}
+
+// The double-width list is keyed by decoded instruction names, so decode the
+// instructions of the MI300X fp32_throughput loop to pin those names.
+func TestFP32ThroughputLoopUsesDoubleWidthLatency(t *testing.T) {
+	cases := []struct {
+		name string
+		code []byte
+	}{
+		{"v_pk_fma_f32", []byte{0x02, 0x00, 0xb0, 0xd3, 0x02, 0x0d, 0x18, 0x0c}},
+		{"v_pk_add_f32", []byte{0x04, 0x40, 0xb2, 0xd3, 0x06, 0x09, 0x00, 0x10}},
+		{"v_mov_b64_e32", []byte{0x04, 0x70, 0x0c, 0x7e}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := insts.NewDisassembler()
+			d.IsCDNA3 = true
+			inst, err := d.Decode(tc.code)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inst.InstName != tc.name {
+				t.Fatalf("decoded %q, want %q", inst.InstName, tc.name)
+			}
+			if got := GetScoreboardLatency(inst); got != 8 {
+				t.Fatalf("scoreboard latency = %d, want 8", got)
 			}
 		})
 	}

@@ -9,6 +9,35 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
 )
 
+// twoVGPRNonF64Insts lists the VALU instructions that move or compute a pair
+// of VGPRs per lane although their name does not say f64: the packed-f32
+// family, which runs two f32 operations per lane, and the 64-bit move.
+var twoVGPRNonF64Insts = map[string]bool{
+	"v_pk_fma_f32":  true,
+	"v_pk_mul_f32":  true,
+	"v_pk_add_f32":  true,
+	"v_pk_mov_b32":  true,
+	"v_mov_b64_e32": true,
+}
+
+// usesTwoVGPRsPerLane reports whether a VALU instruction is timed on the
+// double-width datapath: half as many lanes per cycle in the SIMD unit, and
+// twice the scoreboard latency. It is the single owner of that classification
+// for the SIMD unit and the scoreboard.
+//
+// f64 instructions are recognized by name. The instructions in
+// twoVGPRNonF64Insts are added because timing them as 32-bit operations made
+// the MI300X fp32_throughput loop, two v_pk_fma_f32 and one v_mov_b64 per
+// iteration, run at 4.40 ns per FMA against 7.73 ns measured on hardware.
+//
+// The list is interim. It does not use the decoder's operand widths, which
+// are not consistent enough for timing, and it leaves 64-bit integer
+// instructions on the 32-bit path because no measurement says otherwise.
+// Measured per-instruction costs should replace it.
+func usesTwoVGPRsPerLane(instName string) bool {
+	return strings.Contains(instName, "f64") || twoVGPRNonF64Insts[instName]
+}
+
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
 	hooking.HookableBase
@@ -66,7 +95,7 @@ func (u *SIMDUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *SIMDUnit) AcceptWave(wave *Wavefront) {
 	cycleLeft := 64 / u.NumSinglePrecisionUnit
-	if strings.Contains(wave.Inst().InstName, "f64") {
+	if usesTwoVGPRsPerLane(wave.Inst().InstName) {
 		cycleLeft = 64 / (u.NumSinglePrecisionUnit / 2)
 	}
 
