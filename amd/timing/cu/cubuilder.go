@@ -21,6 +21,7 @@ func DefaultSpec() Spec {
 		VGPRCounts:                   []int{16384, 16384, 16384, 16384},
 		SGPRCount:                    3200,
 		LDSBytes:                     64 * 1024,
+		LDSReturnCycles:              44,
 		Log2CachelineSize:            6,
 		NumSinglePrecisionUnits:      16,
 		VecMemInstPipelineStages:     6,
@@ -90,6 +91,9 @@ func (b Builder) Build(name string) *Comp {
 }
 
 func (b *Builder) mustHaveValidSpec() {
+	if b.spec.LDSReturnCycles < 0 {
+		panic("cu: LDSReturnCycles must be non-negative")
+	}
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
 	}
@@ -155,11 +159,13 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder.index = 2
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.resources.ALU)
-	cu.LDSUnit = ldsUnit
+	cu.LDSUnit = NewLDSUnit(cu, b.resources.ALU)
+	if b.spec.IsCDNA3 {
+		cu.LDSUnit = &cdna3LDSUnit{cu: cu, alu: b.resources.ALU}
+	}
 
 	for i := 0; i < b.spec.SIMDCount; i++ {
-		ldsDecoder.AddExecutionUnit(ldsUnit)
+		ldsDecoder.AddExecutionUnit(cu.LDSUnit)
 	}
 }
 

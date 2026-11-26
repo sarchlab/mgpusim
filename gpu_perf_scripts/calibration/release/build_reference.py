@@ -143,6 +143,7 @@ def main():
     result = {
         "benchmark_revision": "a8ca84f8ce4373b3c091d4dc97a8f067607847a9",
         "collection_finished_at": "2026-11-24T04:59:18+00:00",
+        "gpu_clock_mhz": 1680,
         "series": series,
     }
     args.output.write_bytes(

@@ -89,12 +89,21 @@ def simulated_launches(path):
         ).fetchall()
 
 
-def run_case(binary, case, directory, remaining):
+def reference_clock_flags(reference):
+    clock = reference.get("gpu_clock_mhz")
+    if clock is not None:
+        if type(clock) is not int or not 1 <= clock <= 1_000_000:
+            raise ValueError(f"Invalid reference GPU clock in MHz: {clock}")
+        return (f"-mi300x-clock-mhz={clock}",)
+    return ()
+
+
+def run_case(binary, case, directory, remaining, *, clock_flags=()):
     directory.mkdir()
     with (directory / "stdout.log").open("w+") as log:
         try:
             process = subprocess.run(
-                [str(binary), *COMMON, *case["args"]],
+                [str(binary), *COMMON, *clock_flags, *case["args"]],
                 cwd=directory,
                 stdout=log,
                 stderr=subprocess.STDOUT,
@@ -410,7 +419,7 @@ def case_points(series, case, result, launch_groups=()):
     return points
 
 
-def run_series(series, binary, output, key, launch_groups=(), budget=BUDGET_SECONDS, start=None):
+def run_series(series, binary, output, key, launch_groups=(), budget=BUDGET_SECONDS, start=None, clock_flags=()):
     start = time.monotonic() if start is None else start
     deadline = start + budget
     write_deadline = start + WRITE_DEADLINE_SECONDS
@@ -430,7 +439,7 @@ def run_series(series, binary, output, key, launch_groups=(), budget=BUDGET_SECO
             }
         else:
             directory = runs / str(case["case"])
-            result = run_case(binary.resolve(), case, directory, remaining)
+            result = run_case(binary.resolve(), case, directory, remaining, clock_flags=clock_flags)
             # The dispatch rows are already in the results artifact.
             for file in directory.glob("timing.sqlite3*"):
                 file.unlink()
@@ -508,7 +517,8 @@ def sweep(reference, args):
         deadline=start + WRITE_DEADLINE_SECONDS,
     )
     labels = series_launch_groups(series, benchmarks[series["benchmark"]])
-    run_series(series, args.binary, args.output, args.run_key, labels, start=start)
+    run_series(series, args.binary, args.output, args.run_key, labels, start=start,
+               clock_flags=reference_clock_flags(reference))
 
 
 def finalize(reference, args):

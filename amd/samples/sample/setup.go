@@ -12,6 +12,7 @@ import (
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v5/monitoring"
 	simulation "github.com/sarchlab/akita/v5/sim"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/arch"
 	"github.com/sarchlab/mgpusim/v5/amd/benchmarks"
 	gpuruntime "github.com/sarchlab/mgpusim/v5/amd/runtime"
@@ -26,6 +27,7 @@ type Config struct {
 	ArchType                                   arch.Type
 	GPUType                                    string
 	GPUIDs                                     []int
+	MI300XFreq                                 timing.Freq
 	// WaferMeshWidth and WaferMeshHeight set the mesh of a waferscale GPU.
 	// Zero keeps the default mesh.
 	WaferMeshWidth, WaferMeshHeight int
@@ -136,7 +138,8 @@ func (r *assembly) buildTimingPlatform() {
 	b := timingconfig.MakeBuilder().WithMonitor(r.monitor).
 		WithSimulation(r.simulation).
 		WithNumGPUs(slices.Max(r.GPUIDs)).
-		WithGPUType(r.GPUType)
+		WithGPUType(r.GPUType).
+		WithMI300XFreq(r.MI300XFreq)
 
 	if r.WaferMeshWidth != 0 && r.WaferMeshHeight != 0 {
 		b = b.WithWaferScaleMesh(r.WaferMeshWidth, r.WaferMeshHeight)

@@ -53,6 +53,37 @@ limited to the existing MGPUSim replay plan with successful hardware kernel
 traces. Eleven otherwise supported configurations lacked kernel timings.
 Transfer-only and unsupported cases are outside this comparison.
 
+For this collection the release workflow passes `-mi300x-clock-mhz=1680`
+to every timing sample to match the approximate reference graphics clock.
+This changes the clock for CUs and other GPU-clocked components for all
+benchmarks in this collection. Standalone samples default to 2100 MHz.
+
+### LDS slope regression
+
+The gfx942 CU models 32 four-byte LDS banks, with broadcasts and conflicts
+computed separately inside each instruction phase. The CU reserves bank
+service and SIMD-pair transport separately, so other waves can overlap
+the outstanding result latency. Generic FLAT through the shared aperture
+uses the DS phase schedule and transports a 64-bit lane address.
+The FLAT transport and the fixed 44-cycle `cu.Spec.LDSReturnCycles` are
+effective estimates from the existing dependent loop. The widest reads
+and writes use different lane groups.
+
+To check the eight single-workgroup series, build the sample and use the
+release workflow's Python dependencies (no report database is needed).
+
+```sh
+go build -o /tmp/shared_mem_bandwidth ./amd/samples/shared_mem_bandwidth
+python3 gpu_perf_scripts/calibration/release/check_lds_slopes.py /tmp/shared_mem_bandwidth
+```
+
+The check verifies each output, matches the recorded kernel and geometry,
+and fits duration against 64, 128 and 256 inner iterations with a free
+intercept on both sides. Each simulated slope must be within 5% of the
+hardware slope. The table reports microseconds per iteration.
+
+### Regenerating the reference
+
 The release reference stores exact simulator sample arguments and the median
 time of each matched hardware launch across successful repetitions. Regenerate
 it from the archived simulator replay plan and the verified MI300X collection
