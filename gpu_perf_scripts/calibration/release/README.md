@@ -104,10 +104,14 @@ Repeat `--field NAME=VALUE` for further provenance. The CSV needs `body_ops`,
 `loops` and `rep`, and the duration either as the profiler's `Start_Timestamp`
 and `End_Timestamp`, as `Duration_ns` or as `dispatch_ns`. With the profiler's
 `Kernel_Name`, `Grid_Size_*` and `Workgroup_Size_*` columns the launch is taken
-from the trace and checked; without them the benchmark's default launch of one
-64-thread block is assumed. A row is dropped unless each of these columns, when
-present, has the value shown: `status=ok`, `rc=0`, `n_dispatch=1`,
-`n_fetch_dispatches=1`, `op=fma`.
+from the trace and checked, and a blank one is an error; without those columns
+the benchmark's default launch of one 64-thread block is assumed. A row is
+dropped unless each of these columns, when present, has the value shown:
+`status=ok`, `rc=0`, `n_dispatch=1`, `n_fetch_dispatches=1`, `op=fma`.
+
+The builder writes nothing unless the collection is complete: all 13 body
+sizes for all four loop counts, each with `--repetitions` kept rows (20 by
+default), and every row within the limits of the sample.
 
 ## Comparison
 
