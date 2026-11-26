@@ -4,8 +4,8 @@
 A run is identified by (benchmark, scaling point, non-scaling combo). The
 non-scaling combo is carried verbatim as a JSON string (`non_scaling_json`) in
 both the ground-truth CSV and the sweep CSVs; these helpers turn it into the
-human label / id-safe slug used by the report, the Firestore points, and the
-PNG filenames -- so all of them agree.
+human label / id-safe slug used by the report and the PNG filenames -- so they
+agree.
 """
 import json
 import re
@@ -30,7 +30,7 @@ def ns_label(ns):
 
 
 def ns_slug(ns):
-    """Stable id-safe slug for a non-scaling combo (PNG name / Firestore doc id)."""
+    """Stable id-safe slug for a non-scaling combo (PNG name)."""
     if not ns:
         return "default"
     return re.sub(r"[^A-Za-z0-9_.-]", "_", "_".join(f"{k}-{ns[k]}" for k in sorted(ns)))

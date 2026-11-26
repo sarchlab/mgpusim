@@ -3,8 +3,7 @@
 
 Reads the ground-truth CSV for <benchmark>, runs the matching mgpusim sample in
 timing mode at each measured configuration, and writes a sim-results CSV that
-plot_calibration.py / fb_publish.py consume. Streams points to Firestore for the
-live dashboard when FB_RUN_ID is set (best-effort -- never fails the sweep).
+plot_calibration.py consumes.
 
 Each benchmark's SPEC maps the ground-truth params to the sample's CLI flags. A
 sample may not expose every ground-truth param (e.g. fp64/int32 have no
@@ -13,8 +12,7 @@ only in an unsupported param produce identical sim runs -- memoized here, and th
 sim curve repeats across that dimension in the report (the honest result).
 
 Usage:  run_sweep.py <benchmark> <out.csv> [--ref CSV]
-Env: PER_RUN_TIMEOUT (s, default 1800), SWEEP_TIMEOUT (s, default 86400),
-     FB_RUN_ID, FB_EVERY (default 5), GOOGLE_APPLICATION_CREDENTIALS, FB_PY.
+Env: PER_RUN_TIMEOUT (s, default 1800), SWEEP_TIMEOUT (s, default 86400).
 """
 import argparse
 import csv
@@ -184,7 +182,7 @@ def sim_cost(scaling_value, ns):
     ~0.5 ms regardless of size, so the "cheapest real" configs include ones that
     are enormous to cycle-accurately simulate (e.g. 4096 blocks x 64 threads).
     Those burn the full PER_RUN_TIMEOUT producing nothing and starve the sweep
-    (the dashboard stays empty). Ordering by simulated work instead streams the
+    (no results appear). Ordering by simulated work instead runs the
     genuinely fast configs first; the expensive tail (which may time out) runs
     last. Benchmarks that don't pass threads_per_block collapse those configs via
     memoization, so the proxy still orders the distinct sims correctly.
@@ -265,21 +263,6 @@ def run_one(binary, args, work_dir, per_run_timeout):
         return None
 
 
-def fb_stream(benchmark, out_csv, ref):
-    """Best-effort: publish new CSV rows to Firestore via fb_publish.py."""
-    run_id = os.environ.get("FB_RUN_ID")
-    if not run_id:
-        return
-    py = os.environ.get("FB_PY", sys.executable)
-    try:
-        subprocess.run([py, os.path.join(SCRIPT_DIR, "fb_publish.py"), "publish-points",
-                        "--run-id", run_id, "--benchmark", benchmark,
-                        "--csv", out_csv, "--ref", ref],
-                       timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except (subprocess.SubprocessError, OSError):
-        pass
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("benchmark")
@@ -292,7 +275,6 @@ def main():
         sys.exit(f"no sweep spec for benchmark '{args.benchmark}'")
     per_run = int(os.environ.get("PER_RUN_TIMEOUT", "1800"))
     budget = int(os.environ.get("SWEEP_TIMEOUT", "86400"))
-    every = int(os.environ.get("FB_EVERY", "5"))
     # Configs are ordered cheapest-to-simulate first, so the first config that
     # times out or fails means every remaining config is at least as expensive.
     # Stop there instead of burning a full PER_RUN_TIMEOUT on each remaining
@@ -335,8 +317,6 @@ def main():
             writer_f.flush()
             ran += 1
             print(f"  ok      {tag}  sim={kt}s{' (cached)' if cached else ''}", flush=True)
-            if ran % every == 0:
-                fb_stream(args.benchmark, out_abs, args.ref)
         elif kt == "timeout":
             timed_out += 1
             print(f"  timeout {tag}  (> {per_run}s)", flush=True)
@@ -353,7 +333,6 @@ def main():
                       f"configs are more expensive. Skipping them.", flush=True)
                 break
     writer_f.close()
-    fb_stream(args.benchmark, out_abs, args.ref)  # final flush
     print(f"Done {args.benchmark}: {ran} ok, {timed_out} timed out, {failed} failed. Wrote {out_abs}")
     # Surface a wholly-broken sweep (e.g. a sample that panics for every config) so
     # the matrix child fails and the run isn't silently marked completed with no

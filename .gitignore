@@ -24,8 +24,6 @@ debug
 .ropeproject
 __pycache__
 *.html
-# Committed MI300X calibration dashboard assets (served from gh-pages).
-!gpu_perf_scripts/calibration/web/*.html
 _bench_*
 *.atp
 *.swo

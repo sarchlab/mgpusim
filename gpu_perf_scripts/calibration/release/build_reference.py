@@ -11,7 +11,20 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import median
 
-from workflow import fixed_parameters
+
+def fixed_parameters(label):
+    def parse(value):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+
+    if label in {"默认参数", "Default parameters", ""}:
+        return {}
+    return {
+        key: parse(value)
+        for key, value in (pair.split("=", 1) for pair in label.split(", "))
+    }
 
 
 def members(directory, pattern):

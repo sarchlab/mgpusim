@@ -1,4 +1,4 @@
-"""Prepare, run and report release calibration against recorded MI300X dispatches."""
+"""Plan, run and report release calibration against recorded MI300X dispatches."""
 
 import argparse
 import gzip
@@ -8,13 +8,21 @@ import re
 import sqlite3
 import subprocess
 import time
-from collections import Counter
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
+import report_db
+
 BUDGET_SECONDS = 5.5 * 60 * 60
+# Database retries end before the 360-minute job timeout, leaving time for
+# setup before the series starts and for the artifact uploads after it.
+WRITE_DEADLINE_SECONDS = 345 * 60
 SERIES_BUDGET_SKIP_REASON = "Series budget expired before this configuration started."
+# cr.observations.reason holds at most this many UTF-8 bytes.
+REASON_BYTES = 1000
+RUN_KEY = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,199}")
+SITE_URL = "https://sarchlab-calibration-report.netlify.app/?run="
 COMMON = [
     "-arch=cdna3",
     "-gpu=mi300x",
@@ -31,21 +39,6 @@ UNITS = {
     "grid_spacing": "Å",
     "amb_temp": "°C",
 }
-
-
-def fixed_parameters(label):
-    def parse(value):
-        try:
-            return json.loads(value)
-        except ValueError:
-            return value
-
-    if label in {"默认参数", "Default parameters", ""}:
-        return {}
-    return {
-        key: parse(value)
-        for key, value in (pair.split("=", 1) for pair in label.split(", "))
-    }
 
 
 def read_reference(path):
@@ -143,33 +136,6 @@ def run_case(binary, case, directory, remaining):
         }
 
 
-def run_series(series, binary, output, budget=BUDGET_SECONDS):
-    output.mkdir(parents=True, exist_ok=True)
-    runs = output / "runs"
-    runs.mkdir()
-    results = {}
-    start = timestamp()
-    status_file = output / "results.json"
-    deadline = time.monotonic() + budget
-    atomic_json(status_file, {"started_at": start, "cases": results})
-    for case in sorted(series["cases"], key=lambda case: case["x"]):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            result = {
-                "status": "unsupported",
-                "reason": SERIES_BUDGET_SKIP_REASON,
-            }
-        else:
-            directory = runs / str(case["case"])
-            result = run_case(binary.resolve(), case, directory, remaining)
-            # The dispatch rows are already in the results artifact.
-            for file in directory.glob("timing.sqlite3*"):
-                file.unlink()
-        results[str(case["case"])] = result
-        atomic_json(status_file, {"started_at": start, "cases": results})
-        print(f"{case['x']}: {result['status']}", flush=True)
-
-
 def kernel_names(rows):
     names = sorted({row[0] for row in rows})
     if not names:
@@ -214,10 +180,10 @@ def same_dispatch(hardware, simulated, demangled, *, benchmark=""):
     return matches and list(simulated[1:-1]) == hardware[1:-1]
 
 
-def cfd_launch_groups(cases, results, demangled):
+def cfd_launch_groups(cases):
     # CFD records ten timesteps, each with a copy, a factor calculation, and
-    # three Runge–Kutta stages. Validate the whole series before labelling it
-    # so that a trace mismatch cannot split one plotted series across sizes.
+    # three Runge–Kutta stages. Validate the whole hardware series before
+    # labelling it so that labels are known before any simulation runs.
     stage = ("cfd_device::compute_flux_kernel", "cfd_device::rk_update_kernel")
     step = ("copy_variables_kernel", "cfd_device::compute_step_factor_kernel") + stage * 3
     aliases = KERNEL_ALIASES["altis_cfd"]
@@ -227,15 +193,6 @@ def cfd_launch_groups(cases, results, demangled):
         if tuple(aliases.get(name, name) for name in names) != step * 10:
             return ()
         if any(row[1:-1] != hardware[0][1:-1] for row in hardware):
-            return ()
-        simulated = results.get(str(case["case"]), {}).get("launches", [])
-        if simulated and (
-            len(simulated) != len(hardware)
-            or not all(
-                same_dispatch(real, sim, demangled, benchmark="altis_cfd")
-                for real, sim in zip(hardware, simulated)
-            )
-        ):
             return ()
 
     # Keep observed first-timestep effects separate and group the similar
@@ -301,42 +258,41 @@ def iterative_launch_groups(series):
     return groups
 
 
-def grouped_iterative_series(series_list):
-    candidates = [
-        (i, series["benchmark"], iterative_launch_groups(series))
-        for i, series in enumerate(series_list)
-        if not series.get("selection_excluded")
-        and (
-            series["benchmark"] == "rodinia_pathfinder"
-            or series["benchmark"] in ITERATIVE_LAUNCH_PATTERNS
-        )
-    ]
-    # The format declares parameter names at benchmark scope. Keep every
-    # series ungrouped if any of its reference traces is inconsistent.
-    ungrouped = {benchmark for _, benchmark, groups in candidates if not groups}
-    return {i: groups for i, benchmark, groups in candidates if benchmark not in ungrouped}
+def launch_groups(series):
+    # Labels depend only on the hardware reference, so they are known before
+    # any simulation runs.
+    benchmark = series["benchmark"]
+    if benchmark == "altis_cfd":
+        return cfd_launch_groups(series["cases"])
+    if benchmark == "rodinia_pathfinder" or benchmark in ITERATIVE_LAUNCH_PATTERNS:
+        return iterative_launch_groups(series)
+    return None
 
 
-def report(reference, results, version, revision, *, live=False):
-    durations = []
-    all_simulated = (
-        row
-        for series in results.values()
-        for case in series["cases"].values()
-        for row in case.get("launches", [])
-    )
-    demangled = kernel_names(all_simulated)
-    # Validate against the reference so labels stay stable during live updates.
-    iterative_groups = grouped_iterative_series(reference["series"])
-    counts = Counter()
+def series_launch_groups(series, definition):
+    return launch_groups(series) if "launch_group" in definition["params"] else ()
+
+
+def run_key(tag, run_id):
+    key = f"mgpusim-mi300x-{tag}" if tag else f"mgpusim-mi300x-preview-{run_id}"
+    if not RUN_KEY.fullmatch(key):
+        raise ValueError(f"Invalid calibration report run key {key!r}")
+    return key
+
+
+def report_header(version, revision):
+    return {
+        "title": f"MGPUSim {version} MI300X calibration",
+        "description": f"Simulation commit {revision}. Each chart compares one dispatch "
+        "with its median MI300X timing from GPU Benchmarks v1.1.",
+        "live": True,  # Required by the schema; the database derives it from the run state.
+        "groups": {"mi300x": {"name": "AMD MI300X"}},
+    }
+
+
+def benchmark_definitions(series_list):
     benchmarks = {}
-    points = []
-    for group_id, series in enumerate(reference["series"]):
-        if series.get("selection_excluded"):
-            continue
-        group_results = results.get(group_id, {})
-        if group_results:
-            durations.append(group_results["started_at"])
+    for series in series_list:
         bench, axis, fixed = series["benchmark"], series["axis"], series["parameters"]
         params = {key: {"unit": UNITS.get(key, "")} for key in (axis, "launch", *fixed)}
         definition = benchmarks.setdefault(
@@ -359,96 +315,211 @@ def report(reference, results, version, revision, *, live=False):
             },
         )
         definition["params"].update(params)
-        launch_groups = (
-            cfd_launch_groups(series["cases"], group_results.get("cases", {}), demangled)
-            if bench == "altis_cfd" else iterative_groups.get(group_id, ())
-        )
-        if launch_groups:
-            definition["params"]["launch_group"] = {"unit": ""}
-        for case in series["cases"]:
-            if live and not group_results:
-                counts["queued"] += 1
-                continue
-            run = group_results.get("cases", {}).get(
-                str(case["case"]),
-                {
-                    "status": "failed",
-                    "reason": "Series job ended without producing a result for this configuration.",
-                },
-            )
-            state = run["status"]
-            hardware = case["launches"]
-            simulated = run.get("launches", [])
-            # The cache-latency sample launches a primer before the measured
-            # pointer chase. The hardware reference records only the latter.
-            if (
-                bench == "cache_latency"
-                and len(hardware) == 1
-                and len(simulated) == 2
-                and base_kernel_name(hardware[0][0]) == "pointer_chase_kernel"
-                and same_dispatch(hardware[0], simulated[0], demangled)
-            ):
-                simulated = simulated[1:]
+    # Parameters are declared per benchmark. Keep every series of a benchmark
+    # ungrouped if any of its reference traces is inconsistent.
+    grouped = {}
+    for series in series_list:
+        groups = launch_groups(series)
+        if groups is not None:
+            bench = series["benchmark"]
+            grouped[bench] = grouped.get(bench, True) and bool(groups)
+    for bench, declared in grouped.items():
+        if declared:
+            benchmarks[bench]["params"]["launch_group"] = {"unit": ""}
+    return benchmarks
 
-            paired = [None] * len(hardware)
-            if len(simulated) == len(hardware):
-                for index, (real, sim) in enumerate(zip(hardware, simulated)):
-                    if (
-                        same_dispatch(real, sim, demangled, benchmark=bench)
-                        and math.isfinite(sim[-1])
-                        and sim[-1] > 0
-                    ):
-                        paired[index] = sim[-1]
-            counts[
-                "unsupported" if state == "complete" and None in paired else state
-            ] += 1
-            for index, real in enumerate(hardware):
-                point = {
-                    "benchmark": bench,
-                    "group": "mi300x",
-                    "x": case["x"],
-                    "non_scaling_params": {
-                        "launch": f"#{index + 1} {base_kernel_name(real[0])}",
-                        **fixed,
-                    },
-                    "values": {"mi300x": real[-1], "mgpusim": paired[index]},
-                }
-                if launch_groups:
-                    point["non_scaling_params"]["launch_group"] = launch_groups[index]
-                if state == "complete" and paired[index] is None:
-                    point["statuses"] = {
-                        "mgpusim": {
-                            "state": "unsupported",
-                            "reason": "Hardware and simulated kernel names, order or launch geometry differ.",
-                        }
-                    }
-                elif state != "complete":
-                    status = {"state": state, "reason": run["reason"]}
-                    if state == "unsupported" and status["reason"] == SERIES_BUDGET_SKIP_REASON:
-                        status["symbol"] = "↷"
-                    point["statuses"] = {"mgpusim": status}
-                points.append(point)
-    total = sum(counts.values())
+
+def queued_progress(series_list):
+    total = sum(len(series["cases"]) for series in series_list)
+    now = timestamp()
     return {
-        "report": {
-            "title": f"MGPUSim {version} MI300X calibration",
-            "description": f"Simulation commit {revision}. Each chart compares one dispatch "
-            "with its median MI300X timing from GPU Benchmarks v1.1.",
-            "live": live,
-            "groups": {"mi300x": {"name": "AMD MI300X"}},
-        },
-        "progress": {
-            "started_at": min(durations, default=None),
-            "updated_at": timestamp(),
-            "total": total,
-            "running": 0,
-            "queued": counts["queued"],
-            "completed": counts["complete"],
-            "unsuccessful": total - counts["complete"] - counts["queued"],
-        },
-        "benchmarks": benchmarks,
-        "data": points,
+        "started_at": now,
+        "updated_at": now,
+        "total": total,
+        "running": 0,
+        "queued": total,
+        "completed": 0,
+        "unsuccessful": 0,
     }
+
+
+def paired_timings(bench, hardware, simulated, demangled):
+    # The cache-latency sample launches a primer before the measured
+    # pointer chase. The hardware reference records only the latter.
+    if (
+        bench == "cache_latency"
+        and len(hardware) == 1
+        and len(simulated) == 2
+        and base_kernel_name(hardware[0][0]) == "pointer_chase_kernel"
+        and same_dispatch(hardware[0], simulated[0], demangled)
+    ):
+        simulated = simulated[1:]
+    paired = [None] * len(hardware)
+    if len(simulated) == len(hardware):
+        for index, (real, sim) in enumerate(zip(hardware, simulated)):
+            if (
+                same_dispatch(real, sim, demangled, benchmark=bench)
+                and math.isfinite(sim[-1])
+                and sim[-1] > 0
+            ):
+                paired[index] = sim[-1]
+    return paired
+
+
+def bounded_reason(reason):
+    data = reason.encode()
+    if len(data) <= REASON_BYTES:
+        return reason
+    ellipsis = "…"
+    kept = data[:REASON_BYTES - len(ellipsis.encode())].decode(errors="ignore")
+    return kept + ellipsis
+
+
+def case_points(series, case, result, launch_groups=()):
+    bench, fixed, state = series["benchmark"], series["parameters"], result["status"]
+    hardware = case["launches"]
+    simulated = result.get("launches", [])
+    paired = paired_timings(bench, hardware, simulated, kernel_names(simulated))
+    points = []
+    for index, real in enumerate(hardware):
+        point = {
+            "benchmark": bench,
+            "group": "mi300x",
+            "x": case["x"],
+            "non_scaling_params": {
+                "launch": f"#{index + 1} {base_kernel_name(real[0])}",
+                **fixed,
+            },
+            "values": {"mi300x": real[-1], "mgpusim": paired[index]},
+        }
+        if launch_groups:
+            point["non_scaling_params"]["launch_group"] = launch_groups[index]
+        if state == "complete" and paired[index] is None:
+            point["statuses"] = {
+                "mgpusim": {
+                    "state": "unsupported",
+                    "reason": "Hardware and simulated kernel names, order or launch geometry differ.",
+                }
+            }
+        elif state != "complete":
+            status = {"state": state, "reason": bounded_reason(result["reason"])}
+            if state == "unsupported" and status["reason"] == SERIES_BUDGET_SKIP_REASON:
+                status["symbol"] = "↷"
+            point["statuses"] = {"mgpusim": status}
+        points.append(point)
+    return points
+
+
+def run_series(series, binary, output, key, launch_groups=(), budget=BUDGET_SECONDS, start=None):
+    start = time.monotonic() if start is None else start
+    deadline = start + budget
+    write_deadline = start + WRITE_DEADLINE_SECONDS
+    output.mkdir(parents=True, exist_ok=True)
+    runs = output / "runs"
+    runs.mkdir()
+    results = {}
+    started_at = timestamp()
+    status_file = output / "results.json"
+    atomic_json(status_file, {"started_at": started_at, "cases": results})
+    for case in sorted(series["cases"], key=lambda case: case["x"]):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            result = {
+                "status": "unsupported",
+                "reason": SERIES_BUDGET_SKIP_REASON,
+            }
+        else:
+            directory = runs / str(case["case"])
+            result = run_case(binary.resolve(), case, directory, remaining)
+            # The dispatch rows are already in the results artifact.
+            for file in directory.glob("timing.sqlite3*"):
+                file.unlink()
+        results[str(case["case"])] = result
+        atomic_json(status_file, {"started_at": started_at, "cases": results})
+        report_db.put_points(
+            key, case_points(series, case, result, launch_groups), deadline=write_deadline
+        )
+        result["published"] = True
+        atomic_json(status_file, {"started_at": started_at, "cases": results})
+        print(f"{case['x']}: {result['status']}", flush=True)
+
+
+def final_progress(series_list, results, started_at):
+    total = completed = 0
+    for series_id, series in series_list.items():
+        cases = results.get(series_id, {}).get("cases", {})
+        for case in series["cases"]:
+            total += 1
+            result = cases.get(str(case["case"]), {})
+            # A case counts only once the database has its points.
+            if result.get("status") != "complete" or not result.get("published"):
+                continue
+            simulated = result["launches"]
+            paired = paired_timings(
+                series["benchmark"], case["launches"], simulated, kernel_names(simulated)
+            )
+            completed += None not in paired
+    return {
+        "started_at": started_at or None,
+        "updated_at": timestamp(),
+        "total": total,
+        "running": 0,
+        "queued": 0,
+        "completed": completed,
+        "unsuccessful": total - completed,
+    }
+
+
+def selected_series(reference, benchmark):
+    return {row["id"]: reference["series"][row["id"]] for row in matrix_rows(reference, benchmark)}
+
+
+def plan(reference, args):
+    report_db.dsn()  # Fail before any work when the secret is missing.
+    key = run_key(args.tag, args.run_id)
+    rows = matrix_rows(reference, args.benchmark)
+    series_list = [reference["series"][row["id"]] for row in rows]
+    progress = queued_progress(series_list)
+    report_db.open_run(
+        key,
+        report_header(args.version, args.revision),
+        benchmark_definitions(series_list),
+        progress,
+    )
+    print(f"run_key={key}")
+    print(f"started_at={progress['started_at']}")
+    print(f"url={SITE_URL}{key}")
+    print("series=" + json.dumps(rows, separators=(",", ":")))
+
+
+def sweep(reference, args):
+    start = time.monotonic()
+    series = reference["series"][args.series]
+    # Every series of the benchmark declares the same definition.
+    benchmarks = benchmark_definitions(
+        [peer for peer in reference["series"] if peer["benchmark"] == series["benchmark"]]
+    )
+    # Reopens the run if it was marked failed and a failed job is re-run.
+    report_db.open_run(
+        args.run_key,
+        report_header(args.version, args.revision),
+        benchmarks,
+        queued_progress([series]),
+        deadline=start + WRITE_DEADLINE_SECONDS,
+    )
+    labels = series_launch_groups(series, benchmarks[series["benchmark"]])
+    run_series(series, args.binary, args.output, args.run_key, labels, start=start)
+
+
+def finalize(reference, args):
+    results = {
+        int(path.parent.name.removeprefix("series-")): json.loads(path.read_text())
+        for path in args.artifacts.glob("series-*/results.json")
+    }
+    progress = final_progress(selected_series(reference, args.benchmark), results, args.started_at)
+    state = "completed" if args.sweep_result == "success" else "failed"
+    report_db.finish_run(args.run_key, state, progress)
+    print(f"{state}: {progress['completed']}/{progress['total']} configurations complete")
 
 
 def main():
@@ -459,18 +530,29 @@ def main():
         default=Path(__file__).with_name("mi300x-v1.1.json.gz"),
     )
     sub = p.add_subparsers(dest="command", required=True)
-    matrix = sub.add_parser("matrix")
-    matrix.add_argument("--benchmark")
+    plan_parser = sub.add_parser("plan")
+    plan_parser.set_defaults(function=plan)
+    plan_parser.add_argument("--benchmark")
+    plan_parser.add_argument("--tag", default="")
+    plan_parser.add_argument("--run-id", required=True)
     run = sub.add_parser("run")
+    run.set_defaults(function=sweep)
     run.add_argument("series", type=int)
     run.add_argument("binary", type=Path)
     run.add_argument("output", type=Path)
+    run.add_argument("--run-key", required=True)
+    for parser in (plan_parser, run):
+        parser.add_argument("--version", required=True)
+        parser.add_argument("--revision", required=True)
+    final = sub.add_parser("finalize")
+    final.set_defaults(function=finalize)
+    final.add_argument("artifacts", type=Path)
+    final.add_argument("--benchmark")
+    final.add_argument("--run-key", required=True)
+    final.add_argument("--started-at", default="")
+    final.add_argument("--sweep-result", required=True)
     args = p.parse_args()
-    reference = read_reference(args.reference)
-    if args.command == "matrix":
-        print(json.dumps(matrix_rows(reference, args.benchmark), separators=(",", ":")))
-    else:
-        run_series(reference["series"][args.series], args.binary, args.output)
+    args.function(read_reference(args.reference), args)
 
 
 if __name__ == "__main__":
