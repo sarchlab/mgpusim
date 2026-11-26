@@ -387,9 +387,9 @@ func TestCDNA3VOP2WaitsForFP32Accumulator(t *testing.T) {
 	}
 }
 
-// The double-width list is keyed by decoded instruction names, so decode the
-// instructions of the MI300X fp32_throughput loop to pin those names.
-func TestFP32ThroughputLoopUsesDoubleWidthLatency(t *testing.T) {
+// The double-width list is keyed by decoded instruction names, so decode
+// instructions taken from the MI300X fp32_throughput kernel to pin those names.
+func TestFP32ThroughputKernelUsesDoubleWidthLatency(t *testing.T) {
 	cases := []struct {
 		name string
 		code []byte
