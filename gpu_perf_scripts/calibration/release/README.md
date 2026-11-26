@@ -74,33 +74,40 @@ once per file to use other files.
 `mi300x-code-fetch-latency.json.gz` adds 52 configurations in four series: 13
 loop-body sizes for each of 1, 4, 8 and 16 loops. `code_fetch_latency` was
 added to GPU Benchmarks after v1.1, so these timings are not part of the v1.1
-collection. They come from an AMD Developer Cloud instance that reports an
-"AMD Instinct MI300X VF", with ROCm 10.2.0, on November 26, 2026 UTC: the
-median over 20 fresh processes of the dispatch duration that
-`rocprofv3 --kernel-trace` records for the single launch. That machine is not
-the one of the v1.1 collection. The report names the hardware value of this
-benchmark "MI300X VF kernel time (median, supplementary collection)". The file
-records the benchmark revision, machine, ROCm version, timing source and the
-SHA-256 of its raw input next to the series.
+collection. They were collected on November 26, 2026 UTC from GPU Benchmarks
+revision `9678825670a00099b575560b3695aec029852c58`, built with ROCm 10.2.0 on
+an AMD Developer Cloud instance that reports an "AMD Instinct MI300X VF". That
+machine is not the one of the v1.1 collection.
+
+Each configuration ran in 20 fresh processes. A process queries the kernel's
+attributes, runs the suite's vector-add warmer and launches the kernel once.
+The reference stores the median dispatch duration that `rocprofv3
+--kernel-trace` records for that launch. The report names the hardware value of
+this benchmark "MI300X VF kernel time (median, supplementary collection)". The
+file records the benchmark revision, machine, toolchain, driver and profiler
+versions, the timing source and the SHA-256 of its raw input next to the
+series.
 
 Build it from a CSV with one row per repetition, kept outside the repository:
 
 ```sh
 python3 gpu_perf_scripts/calibration/release/build_code_fetch_latency_reference.py \
-  /path/to/timings.csv \
+  /path/to/reference_raw.csv \
   gpu_perf_scripts/calibration/release/mi300x-code-fetch-latency.json.gz \
-  --benchmark-revision <GPU Benchmarks commit> --machine "AMD Instinct MI300X VF" \
-  --provider "AMD Developer Cloud" --rocm-version 10.2.0 \
-  --collected-at 2026-11-26T15:04:43+00:00
+  --benchmark-revision 9678825670a00099b575560b3695aec029852c58 \
+  --machine "AMD Instinct MI300X VF" --provider "AMD Developer Cloud" \
+  --rocm-version 10.2.0 --collected-at 2026-11-26T17:55:51+00:00 \
+  --field driver_version=7.1.3.31500000 --field "profiler=rocprofv3 1.4.2"
 ```
 
-The CSV needs `body_ops`, `loops` and `rep`, and the duration either as the
-profiler's `Start_Timestamp` and `End_Timestamp`, as `Duration_ns` or as
-`dispatch_ns`. With the profiler's `Kernel_Name`, `Grid_Size_*` and
-`Workgroup_Size_*` columns the launch is taken from the trace and checked;
-without them the benchmark's default launch of one 64-thread block is assumed.
-Rows whose `rc` is not 0, whose `n_dispatch` is not 1 or whose `op` is not
-`fma` are dropped.
+Repeat `--field NAME=VALUE` for further provenance. The CSV needs `body_ops`,
+`loops` and `rep`, and the duration either as the profiler's `Start_Timestamp`
+and `End_Timestamp`, as `Duration_ns` or as `dispatch_ns`. With the profiler's
+`Kernel_Name`, `Grid_Size_*` and `Workgroup_Size_*` columns the launch is taken
+from the trace and checked; without them the benchmark's default launch of one
+64-thread block is assumed. A row is dropped unless each of these columns, when
+present, has the value shown: `status=ok`, `rc=0`, `n_dispatch=1`,
+`n_fetch_dispatches=1`, `op=fma`.
 
 ## Comparison
 

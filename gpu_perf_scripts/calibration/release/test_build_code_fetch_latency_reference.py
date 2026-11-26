@@ -47,9 +47,12 @@ class BuildTest(unittest.TestCase):
             reduced(2, 9000, rc="1", n_dispatch="1", op="fma"),
             reduced(3, 9000, rc="0", n_dispatch="0", op="fma"),
             reduced(4, 9000, rc="0", n_dispatch="1", op="xor_add"),
+            # A failed run of the collection script has no trace columns.
+            traced(5, "", "", status="failed", n_fetch_dispatches="0", Kernel_Name=""),
+            traced(6, 0, 2000, status="ok", n_fetch_dispatches="1"),
         ]
         (series,) = build(rows)
-        self.assertEqual(series["cases"][0]["repetitions"], 1)
+        self.assertEqual(series["cases"][0]["repetitions"], 2)
         self.assertEqual(series["cases"][0]["launches"][0][-1], 2000)
 
     def test_series_and_cases_are_ordered_and_numbered(self):

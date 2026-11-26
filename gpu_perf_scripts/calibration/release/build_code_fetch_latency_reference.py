@@ -6,10 +6,11 @@ the single dispatch of fetch_kernel_<body_ops> in that process.
 Required columns: body_ops, loops, rep.
 Duration, first match: Start_Timestamp and End_Timestamp (ns), Duration_ns,
 dispatch_ns.
-Optional columns: rc (rows other than 0 are dropped), n_dispatch (rows other
-than 1 are dropped), op (rows other than fma are dropped), Kernel_Name,
-Grid_Size_{X,Y,Z} and Workgroup_Size_{X,Y,Z}. Without the profiler's name and
-size columns the launch the benchmark makes by default is assumed.
+Optional columns: Kernel_Name, Grid_Size_{X,Y,Z} and Workgroup_Size_{X,Y,Z};
+without the profiler's name and size columns the launch the benchmark makes by
+default is assumed. A row is dropped unless each of these columns, when
+present, has the value shown: status=ok, rc=0, n_dispatch=1,
+n_fetch_dispatches=1, op=fma.
 """
 
 import argparse
@@ -28,6 +29,7 @@ TIMING_SOURCE = "rocprofv3 --kernel-trace dispatch duration"
 FIRST_CASE = 100_001
 THREADS = 64
 SIZES = [f"{kind}_Size_{axis}" for kind in ("Grid", "Workgroup") for axis in "XYZ"]
+KEPT = {"status": "ok", "rc": "0", "n_dispatch": "1", "n_fetch_dispatches": "1", "op": "fma"}
 
 
 def duration(row):
@@ -50,11 +52,7 @@ def launch(row):
 def build(rows):
     cells = defaultdict(dict)
     for row in rows:
-        if (
-            row.get("rc", "0") != "0"
-            or row.get("n_dispatch", "1") != "1"
-            or row.get("op", "fma") != "fma"
-        ):
+        if any(row.get(column, value) != value for column, value in KEPT.items()):
             continue
         cell, rep = (int(row["loops"]), int(row["body_ops"])), int(row["rep"])
         where = f"loops={cell[0]} body_ops={cell[1]}"
@@ -99,8 +97,15 @@ def main():
     parser.add_argument("output", type=Path)
     for name in ("benchmark-revision", "machine", "provider", "rocm-version", "collected-at"):
         parser.add_argument(f"--{name}", required=True)
-    parser.add_argument("--note", default="")
+    parser.add_argument(
+        "--field",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="further provenance to record, for example driver_version=7.1.3",
+    )
     args = parser.parse_args()
+    fields = dict(field.split("=", 1) for field in args.field)
     raw = args.timings.read_bytes()
     series = build(csv.DictReader(raw.decode().splitlines()))
     repetitions = sorted({case["repetitions"] for group in series for case in group["cases"]})
@@ -113,7 +118,7 @@ def main():
         "timing_source": TIMING_SOURCE,
         "repetitions": repetitions[0] if len(repetitions) == 1 else repetitions,
         "raw_input": {"name": args.timings.name, "sha256": hashlib.sha256(raw).hexdigest()},
-        "note": args.note,
+        **fields,
         "series": series,
     }
     args.output.write_bytes(
