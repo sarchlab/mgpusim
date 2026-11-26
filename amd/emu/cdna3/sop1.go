@@ -21,6 +21,8 @@ func (u *ALU) runSOP1(state emu.InstEmuState) {
 		u.runSBREVB32(state)
 	case 28:
 		u.runSGETPCB64(state)
+	case 29:
+		u.runSSETPCB64(state)
 	case 32:
 		u.runSANDSAVEEXECB64(state)
 	case 33:
@@ -83,6 +85,12 @@ func (u *ALU) runSGETPCB64(state emu.InstEmuState) {
 	inst := state.Inst()
 	pc := state.PC()
 	state.WriteOperand(inst.Dst, 0, pc)
+}
+
+// runSSETPCB64 jumps to the byte address held in the source scalar pair.
+func (u *ALU) runSSETPCB64(state emu.InstEmuState) {
+	inst := state.Inst()
+	state.SetPC(state.ReadOperand(inst.Src0, 0))
 }
 
 func (u *ALU) runSANDSAVEEXECB64(state emu.InstEmuState) {

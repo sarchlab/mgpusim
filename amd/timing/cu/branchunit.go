@@ -2,6 +2,7 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 )
 
 // A BranchUnit performs branch operations
@@ -70,7 +71,15 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.state().Write == 0 {
-		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
+		operation := u.cu.wave(u.state().Exec).emulation()
+		inst := operation.Inst()
+		u.alu.Run(operation)
+		if inst != nil && inst.FormatType == insts.SOP1 && inst.Opcode == 29 {
+			// S_SETPC_B64 names the next instruction itself, while the write
+			// stage advances the PC by this instruction's size as it does
+			// after a PC-relative branch. Step back by that size here.
+			operation.SetPC(operation.PC() - uint64(inst.ByteSize))
+		}
 
 		u.state().Write = u.state().Exec
 		u.state().Exec = 0

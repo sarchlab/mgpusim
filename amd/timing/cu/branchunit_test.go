@@ -3,6 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/mgpusim/v5/amd/emu"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
@@ -69,4 +70,35 @@ var _ = Describe("Branch Unit", func() {
 		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 
+	It("should continue at the address named by s_setpc_b64", func() {
+		wave := newTestWave()
+		wave.execution().State = wavefront.WfRunning
+		wave.execution().InstBuffer = make([]byte, 256)
+		wave.execution().InstBufferStartPC = 0x2000
+		inst := testInst(testIDs.NewID(), insts.NewInst())
+		inst.FormatType = insts.SOP1
+		inst.Opcode = 29
+		inst.ByteSize = 4
+		wave.setTestInst(inst)
+		wave.SetPC(0x2010)
+		bu = NewBranchUnit(cu, &jumpALU{target: 0x1004})
+		bu.state().Exec = testWaveID(cu, wave)
+
+		bu.Run()
+		bu.Run()
+
+		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		Expect(wave.PC()).To(Equal(uint64(0x1004)))
+		Expect(wave.execution().InstBuffer).To(HaveLen(0))
+		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+	})
+
 })
+
+// jumpALU sets the PC to an absolute address, as s_setpc_b64 does.
+type jumpALU struct {
+	mockALU
+	target uint64
+}
+
+func (alu *jumpALU) Run(wf emu.InstEmuState) { wf.SetPC(alu.target) }
