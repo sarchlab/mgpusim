@@ -168,6 +168,91 @@ class ReleaseCalibrationTest(unittest.TestCase):
         self.assertTrue(all(p["values"]["mgpusim"] is not None for p in points))
         self.assertEqual(points[0]["non_scaling_params"]["launch_group"], "copy_first")
 
+    def test_reports_group_repeated_dispatches_without_merging_them(self):
+        examples = (
+            (
+                "rodinia_pathfinder", {"rows": 8, "pyramid_height": 3},
+                ("dynproc_kernel",) * 3,
+                ("dynproc_kernel_first", "dynproc_kernel", "dynproc_kernel_tail"),
+            ),
+            (
+                "parboil_lbm", {"num_timesteps": 2},
+                ("lbm::lbm_collide_stream_kernel",) * 2,
+                ("lbm_collide_stream_kernel_first", "lbm_collide_stream_kernel"),
+            ),
+            (
+                "polybench_fdtd2d", {"tmax": 2},
+                ("fdtd_update_ex", "fdtd_update_ey", "fdtd_update_hz") * 2,
+                (
+                    "fdtd_update_ex_first", "fdtd_update_ey_first",
+                    "fdtd_update_hz_first", "fdtd_update_ex", "fdtd_update_ey",
+                    "fdtd_update_hz",
+                ),
+            ),
+            (
+                "polybench_jacobi2d", {"tsteps": 2},
+                ("jacobi2d_kernel", "jacobi2d_copy_kernel") * 2,
+                (
+                    "jacobi2d_kernel_first", "jacobi2d_copy_kernel_first",
+                    "jacobi2d_kernel", "jacobi2d_copy_kernel",
+                ),
+            ),
+        )
+        for bench, parameters, kernels, groups in examples:
+            with self.subTest(benchmark=bench):
+                hardware = [[f"{name}(int)", *SHAPE, 2000 + i] for i, name in enumerate(kernels)]
+                simulated = [[name.split("::")[-1], *SHAPE, 1500 + i] for i, name in enumerate(kernels)]
+                cases = [
+                    {"case": 1, "x": 64, "launches": hardware},
+                    {"case": 2, "x": 128, "launches": hardware},
+                ]
+                series = {**SERIES, "benchmark": bench, "parameters": parameters, "cases": cases}
+                results = {
+                    0: {
+                        "started_at": "2026-11-24T16:00:00Z",
+                        "cases": {
+                            "1": {"status": "complete", "launches": simulated},
+                            "2": {"status": "timeout", "reason": "Budget expired."},
+                        },
+                    }
+                }
+
+                data = report({"series": [series]}, results, "test", "sample-sha")
+                points = data["data"]
+                self.assertEqual(
+                    [p["non_scaling_params"].get("launch_group") for p in points],
+                    list(groups) * 2,
+                )
+                self.assertEqual(
+                    [p["values"]["mi300x"] for p in points],
+                    [row[-1] for row in hardware] * 2,
+                )
+                self.assertEqual(
+                    [p["values"]["mgpusim"] for p in points],
+                    [row[-1] for row in simulated] + [None] * len(kernels),
+                )
+                self.assertEqual(data["progress"]["completed"], 1)
+                self.assertEqual(
+                    [p["non_scaling_params"]["launch"] for p in points[:len(kernels)]],
+                    [f"#{i + 1} {name}" for i, name in enumerate(kernels)],
+                )
+
+    def test_repeated_groups_fall_back_when_a_reference_series_is_inconsistent(self):
+        hardware = [["lbm_collide_stream_kernel", *SHAPE, 2000] for _ in range(2)]
+        first = {
+            **SERIES, "benchmark": "parboil_lbm", "parameters": {"num_timesteps": 2},
+            "cases": [{"case": 1, "x": 64, "launches": hardware}],
+        }
+        other_shape = ["lbm_collide_stream_kernel", 32, *SHAPE[1:], 2000]
+        second = {
+            **first, "cases": [{"case": 2, "x": 128, "launches": [hardware[0], other_shape]}],
+        }
+        data = report({"series": [first, second]}, {}, "test", "sample-sha")
+        self.assertNotIn("launch_group", data["benchmarks"]["parboil_lbm"]["params"])
+        self.assertEqual(len(data["data"]), 4)
+        for point in data["data"]:
+            self.assertNotIn("launch_group", point["non_scaling_params"])
+
     def test_report_matches_the_lbm_exported_kernel_only_with_matching_geometry(self):
         hardware = [
             "lbm::lbm_collide_stream_kernel(float const*, float*, lbm::Layout)",
