@@ -918,7 +918,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"s_bitset1_b32", 26, FormatTable[SOP1], 0, ExeUnitScalar, 32, 32, 0, 0, 0})
 	d.addInstType(&InstType{"s_bitset1_b64", 27, FormatTable[SOP1], 0, ExeUnitScalar, 64, 64, 0, 0, 0})
 	d.addInstType(&InstType{"s_getpc_b64", 28, FormatTable[SOP1], 0, ExeUnitScalar, 64, 64, 0, 0, 0})
-	d.addInstType(&InstType{"s_setpc_b64", 29, FormatTable[SOP1], 0, ExeUnitBranch, 64, 64, 0, 0, 0})
+	d.addInstType(&InstType{"s_setpc_b64", 29, FormatTable[SOP1], 0, ExeUnitBranch, 0, 64, 0, 0, 0})
 	d.addInstType(&InstType{"s_swappc_b64", 30, FormatTable[SOP1], 0, ExeUnitScalar, 64, 64, 0, 0, 0})
 	d.addInstType(&InstType{"s_rfe_b64", 31, FormatTable[SOP1], 0, ExeUnitScalar, 64, 64, 0, 0, 0})
 	d.addInstType(&InstType{"s_and_saveexec_b64", 32, FormatTable[SOP1], 0, ExeUnitScalar, 64, 64, 0, 0, 0})
