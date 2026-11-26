@@ -210,7 +210,9 @@ class DispatchTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("zstd"), "needs zstd")
-class CollectionTest(unittest.TestCase):
+class CollectionFixture(unittest.TestCase):
+    """A plan of two cases, a built stand-in benchmark, and stand-ins for the tools and the GPU."""
+
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root)
@@ -253,6 +255,8 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual(main(["pack", str(self.output), str(self.root / archives)]), 0)
         return build_reference.build(json.loads(self.plan.read_text()), self.root / archives)
 
+
+class CollectionTest(CollectionFixture):
     def test_profiler_collection_builds_a_reference(self):
         self.assertEqual(self.collect(), 0)
         rows = self.log()

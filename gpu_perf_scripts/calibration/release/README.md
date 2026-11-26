@@ -208,6 +208,49 @@ destination that holds no archives yet. Both archives are written in full
 under temporary names before either gets its final name. If `pack` is
 interrupted, pack again into a fresh directory.
 
+### Watching a collection in the hosted report
+
+With `--report-run KEY --report-device KEY=NAME`, `run` shows the collection
+as a run of the hosted calibration report while it is collected, for example:
+
+```sh
+CALIBRATION_REPORT_DSN=postgresql://... python3 collect_hardware.py run plan.json \
+  --benchmarks /path/to/gpu_benchmarks --output collection --sclk-max 1680 \
+  --report-run mi300x-hardware-v1.2 --report-device mi300x="AMD MI300X"
+```
+
+It needs `psycopg` 3 and the report database's ingest connection string in
+`CALIBRATION_REPORT_DSN`; both are checked before anything is created or the
+GPU is touched. A collection without these options needs neither.
+
+The run is titled after the device, which is its only group, and has one
+hardware series per benchmark. A case appears when its repetitions are over:
+one point per measured launch, labelled like the simulator's launches
+(`#1 kernel_name`), with the median over the successful repetitions, the
+number `build_reference.py` computes. A case without a successful repetition
+appears as a failed or timed-out point with the last repetition's status,
+provided the plan names its launches; a case whose repetitions measured
+different launches appears as failed. Progress counts the cases of the whole
+plan: complete ones, and ones whose repetitions ended in this invocation
+without all succeeding.
+
+When an invocation ends, the run is finished as `completed` only if every case
+of the plan has all its repetitions, and as `failed` otherwise, also after
+Ctrl-C or with `--benchmark`. A failed run is opened again by the next
+invocation with the same run key, which first sends the cases finished so far
+again. A completed run cannot be changed; use a new run key to collect more.
+
+The report is secondary to the measurement. A write is retried for up to 30
+seconds; if it still fails, one line says that the report is no longer updated
+(the connection string and its password are never printed) and the collection
+goes on without the report, with its exit status unaffected. Starting it again
+with the same run key brings the report up to date.
+
+The hosted viewer's progress card counts points that have a simulator series,
+so for a hardware-only run it shows "0 / 0 points" although the run's own
+progress is stored; the curves are on the device tab, and the Overview tab has
+nothing to compare.
+
 The MI300X v1.1 reference was collected with the core clock at about 1680 MHz:
 capping an "AMD Instinct MI300X VF" instance (default 2100 MHz) at 1680 MHz
 reproduces its `fp32_throughput` and `empty_kernel` times to within 0.3%.
@@ -219,7 +262,8 @@ reference from a new collection.
 ## Tests
 
 Run `python -m unittest` in this directory with Python 3.12, `psycopg` 3 and
-`c++filt`. `test_report_db_integration.py` runs only when
+`c++filt`. `test_collect_hardware.py` and `test_hardware_report.py` also run
+with Python 3.9; the latter skips its report tests without `psycopg`. `test_report_db_integration.py` runs only when
 `CALIBRATION_REPORT_TEST_DSN` (the `cr_ingest` login) and
 `CALIBRATION_REPORT_TEST_ADMIN_DSN` (a role that can read schema `cr`) point at
 a database with the calibration-report migrations applied.

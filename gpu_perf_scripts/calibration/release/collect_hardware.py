@@ -237,6 +237,16 @@ def unselected_look_alikes(dispatches, measured):
     return sum(signature(dispatch) in signatures for dispatch in dispatches) - len(measured)
 
 
+def read_dispatches(path):
+    """The dispatches write_dispatches stored, in start order."""
+    with open(path, newline="") as file:
+        rows = [
+            {field: value if field == "Kernel_Name" else int(value) for field, value in row.items()}
+            for row in csv.DictReader(file)
+        ]
+    return sorted(rows, key=lambda row: row["Start_Timestamp"])
+
+
 def write_dispatches(path, dispatches):
     with open(path, "w", newline="") as file:
         writer = csv.DictWriter(file, DISPATCH_FIELDS)
@@ -594,9 +604,36 @@ def prepare(args):
         "done": done,
         "sensor": sensor,
         "invocation": invocation_record(args, identity),
+        "report": hosted_report(args, json.loads(plan_text), identity),
         # Refuses now if the clock state could not be restored later.
         "limit": ClockLimit(args.sclk_max) if args.sclk_max is not None else None,
     }
+
+
+def hosted_report(args, plan, identity):
+    """The hosted report this collection is shown in, if one was asked for."""
+    if args.report_run is None:
+        if args.report_device is not None:
+            raise SystemExit("--report-device needs --report-run")
+        return None
+    if args.report_device is None:
+        raise SystemExit("--report-run needs --report-device, for example mi300x='AMD MI300X'")
+    if not os.environ.get("CALIBRATION_REPORT_DSN", "").strip():
+        raise SystemExit("--report-run needs the report database in CALIBRATION_REPORT_DSN")
+    try:
+        from hardware_report import HardwareReport
+    except ImportError as error:
+        raise SystemExit(f"--report-run needs psycopg: {error}") from None
+    cap = identity["core_clock_limit_mhz"]
+    description = (
+        f"GPU Benchmarks {identity['benchmarks_revision'][:8]} on {identity['host']}. "
+        f"{args.reps} repetitions per case, {identity['timer']} timer, "
+        f"core clock {f'capped at {cap} MHz' if cap is not None else 'not capped'}. "
+        "Each point is the median of one launch over the successful repetitions."
+    )
+    # The whole plan, so that invocations limited to some benchmarks add up to one run.
+    cases = [case for case in plan if not case.get("unsupported_reason")]
+    return HardwareReport(args.report_run, args.report_device, cases, args.reps, description)
 
 
 def invocation_record(args, identity):
@@ -608,6 +645,7 @@ def invocation_record(args, identity):
         "python": platform.python_version(),
         "repetitions": args.reps,
         "timeout_seconds": args.timeout,
+        "report_run": args.report_run,
     }
     if identity["platform"] == "rocm":
         record["amd_smi_version"] = command_output(["amd-smi", "version"]).strip()
@@ -616,19 +654,45 @@ def invocation_record(args, identity):
     return record
 
 
-def collect(args, monitor, cases, binaries, identity, done, invocation):
+def measured_path(output, case, rep):
+    return output / "dispatch" / case["benchmark"] / str(case["case"]) / str(rep) / "trace" / "measured-dispatches.csv"
+
+
+def collected(args, case, done):
+    """The measured dispatches of each successful repetition of a case."""
+    return [
+        read_dispatches(measured_path(args.output, case, rep))
+        for rep in range(1, args.reps + 1)
+        if (case["case"], rep) in done
+    ]
+
+
+def collect(args, monitor, cases, binaries, identity, done, invocation, report):
     """Run the cases. Telemetry is running and a requested clock cap is in place."""
     record, log = args.output / IDENTITY_NAME, args.output / LOG_NAME
     if not record.exists():
         record.write_text(json.dumps(identity, indent=1) + "\n")
     with open(args.output / "environment.jsonl", "a") as file:
         file.write(json.dumps(invocation) + "\n")
+    if report is None:
+        return run_cases(args, monitor, cases, binaries, identity, done, None, log)
+    finished = [(case, collected(args, case, done)) for case in report.cases]
+    report.begin([(case, repetitions) for case, repetitions in finished if len(repetitions) == args.reps])
+    try:
+        return run_cases(args, monitor, cases, binaries, identity, done, report, log)
+    finally:
+        # Also after Ctrl-C or an error: the run then ends as failed, and can be opened again.
+        report.end()
+
+
+def run_cases(args, monitor, cases, binaries, identity, done, report, log):
     timer, cap = identity["timer"], identity["core_clock_limit_mhz"]
     counts, timed_out = {}, set()
     with open(log, "a") as file:
         for case in cases:
             series = (case["benchmark"], case["series"])
             environment = case_environment(case, identity[WARMUP])
+            reason = None
             for rep in range(1, args.reps + 1):
                 if (case["case"], rep) in done:
                     continue
@@ -637,7 +701,7 @@ def collect(args, monitor, cases, binaries, identity, done, invocation):
                     # Cases run in increasing size; a larger one will not fit either.
                     row.update(status="skipped_after_timeout", measured_dispatches=0)
                 else:
-                    directory = args.output / "dispatch" / case["benchmark"] / str(case["case"]) / str(rep) / "trace"
+                    directory = measured_path(args.output, case, rep).parent
                     shutil.rmtree(directory, ignore_errors=True)
                     directory.mkdir(parents=True)
                     start = time.time()
@@ -677,10 +741,25 @@ def collect(args, monitor, cases, binaries, identity, done, invocation):
                         row["unselected_look_alike_dispatches"] = look_alikes
                 file.write(json.dumps(row) + "\n")
                 file.flush()
+                if row["status"] == "ok":
+                    done.add((case["case"], rep))
+                    reason = reason or ""
+                else:
+                    reason = row["status"]
                 counts[row["status"]] = counts.get(row["status"], 0) + 1
                 print(f"{case['benchmark']} case {case['case']} rep {rep}: {row['status']}", flush=True)
+            # A case that was complete before is already in the report.
+            if report and reason is not None:
+                report.case_over(case, collected(args, case, done), reason)
     print(json.dumps(counts, sort_keys=True))
     return 0 if set(counts) <= {"ok"} else 1
+
+
+def device(text):
+    key, separator, name = text.partition("=")
+    if not re.fullmatch(r"\w+", key) or not separator or not name.strip():
+        raise argparse.ArgumentTypeError("expected KEY=NAME, for example mi300x='AMD MI300X'")
+    return key, name.strip()
 
 
 def interrupt(*_):
@@ -781,6 +860,11 @@ def main(argv=None):
         help="run every case with the suite's clock warmer on or off (default: the suite's own default)",
     )
     runner.add_argument("--monitor-interval", type=float, default=0.1, help="seconds between clock samples")
+    runner.add_argument("--report-run", metavar="KEY",
+                        help="show the collection as this run of the hosted calibration report "
+                        "(database in CALIBRATION_REPORT_DSN)")
+    runner.add_argument("--report-device", type=device, metavar="KEY=NAME",
+                        help="the device's series key and display name in that run")
 
     packer = commands.add_parser("pack", help="pack a collection for build_reference.py")
     packer.add_argument("collection", type=Path)
