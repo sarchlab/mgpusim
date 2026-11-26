@@ -99,7 +99,9 @@ launch separately.
 `collect_hardware.py` produces the archives that `build_reference.py` reads. It
 needs Python 3.9 or later, `zstd`, a built GPU Benchmarks checkout (it does not
 build the benchmarks) and a machine with exactly one GPU, so that the launch,
-the clock cap and the telemetry all concern the same device.
+the clock cap and the telemetry all concern the same device. When the
+benchmarks directory is not a git checkout, pass its commit hash with
+`--benchmarks-revision`; a collection without a known revision does not start.
 
 ```sh
 # 1. Cases, parameters and expected launches, taken from existing references.
@@ -130,7 +132,8 @@ leaves a clock cap in place.
 `--set NAME=VALUE` adds a benchmark parameter to every case, for example
 `--set vector_add_warmup=false`. It cannot replace a parameter or the scaling
 axis of a case in the plan: the plan's labels and simulator arguments would no
-longer describe what ran.
+longer describe what ran. `BENCH_PARAM_*` variables in the caller's
+environment are not passed on; only the plan and `--set` reach a benchmark.
 
 On ROCm the timer is `rocprofv3 --kernel-trace`: every kernel dispatch of the
 run is kept in `all-dispatches.csv`, and the measured ones go to
@@ -142,19 +145,23 @@ ones are the measurement: `cache_latency` launches an untimed primer of the
 same kernel before its timed chase. The log row then counts the others as
 `unselected_look_alike_dispatches`. A case without expected launches keeps
 every dispatch except the suite's clock warmer and the runtime's buffer fill,
-or the dispatches matching its `kernel_pattern`.
+or the dispatches matching its `kernel_pattern`. A repetition whose measured
+launch has no positive duration is recorded as `invalid_duration`.
 
 `--timer reported` uses the GPU event times the benchmark prints instead. It is
 the default on CUDA, records no launch shape, and sums repeated launches of a
 kernel, so it is suited to checking a collection setup, not to a reference.
 
 `--sclk-max` caps the AMD GPU core clock with `amd-smi` for the whole run and
-restores the previous limit and performance level afterwards. If the cap
-cannot be confirmed, the previous state is restored and nothing runs.
+restores the previous limit and performance level afterwards. Nothing is
+changed unless `amd-smi` reports one GPU, its GFX clocks share one limit and
+its performance level can be read, so that the previous state can be put back.
+If the cap then cannot be confirmed, that state is restored and nothing runs.
 
 The core clock and power are sampled throughout into `clock-monitor.csv` (sysfs
 on ROCm, `nvidia-smi` on CUDA). A collection does not start without a first
-sample and stops if sampling stops. Each log row carries the highest clock
+sample and stops if sampling stops; the repetition that was running then is
+not recorded and runs again on the next invocation. Each log row carries the highest clock
 sampled during that repetition and the number of samples; a repetition shorter
 than `--monitor-interval` can have none. A row is marked
 `core_clock_above_limit` when its highest sample exceeds the cap by more than
@@ -162,7 +169,8 @@ than `--monitor-interval` can have none. A row is marked
 
 `environment.jsonl` has one record per `run` invocation: the settings in
 `collection.json`, the start time, operating system and Python version, and on
-ROCm the `amd-smi` and `rocprofv3` versions and the clock limits at the start.
+ROCm the `amd-smi` and `rocprofv3` versions and the clock limits found before
+a cap was applied.
 On CUDA the GPU identity includes the driver version.
 
 The MI300X v1.1 reference was collected with the core clock at about 1680 MHz:

@@ -209,10 +209,12 @@ def run_once(binary, environment, timer, directory, timeout):
         command = ["rocprofv3", "--kernel-trace", "-f", "csv", "-d", str(trace), "--"] + command
     # Its own session, so that the benchmark the profiler started can be ended
     # with it: a survivor would keep the GPU busy during the next measurement.
+    # Only the plan and --set decide the workload, never the caller's shell.
+    inherited = {key: value for key, value in os.environ.items() if not key.startswith("BENCH_PARAM_")}
     process = subprocess.Popen(
         command,
         cwd=binary.parent,
-        env={**os.environ, **environment},
+        env={**inherited, **environment},
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -309,14 +311,16 @@ class ClockLimit:
                 path.write_text(mode)
 
     def __enter__(self):
-        clocks = amd_clocks(command_output(["amd-smi", "metric", "--clock"]))
-        if not clocks:
-            raise RuntimeError("amd-smi reports no GFX clock; cannot cap the GPU clock")
-        self.original = max(maximum for _, _, maximum in clocks)
-        self.modes = [
-            (path, path.read_text().strip())
-            for path in sorted(SYSFS.glob("card*/device/power_dpm_force_performance_level"))
-        ]
+        # Nothing is changed unless it concerns one GPU and can be put back.
+        report = command_output(["amd-smi", "metric", "--clock"])
+        maxima = {maximum for _, _, maximum in amd_clocks(report)}
+        levels = sorted(SYSFS.glob("card*/device/power_dpm_force_performance_level"))
+        if len(re.findall(r"^GPU: *\d+", report, re.MULTILINE)) != 1 or len(levels) != 1:
+            raise SystemExit("A clock cap needs exactly one AMD GPU in amd-smi and one performance level")
+        if len(maxima) != 1:
+            raise SystemExit(f"A clock cap needs one common GFX clock limit to restore; found {sorted(maxima)}")
+        self.original = maxima.pop()
+        self.modes = [(path, path.read_text().strip()) for path in levels]
         try:
             self.apply(self.megahertz)
         except BaseException:
@@ -435,18 +439,30 @@ def prepare(args):
         raise SystemExit("The plan has no case to collect")
     extra = dict(args.set)
     for case in cases:
+        # Both become directory names, and a repetition's directory is cleared before it runs.
+        if type(case["case"]) is not int or not re.fullmatch(r"\w+", str(case["benchmark"])):
+            raise SystemExit(f"The plan has an invalid case or benchmark name: {case['case']!r} {case['benchmark']!r}")
         clash = sorted(set(extra) & set(case_parameters(case)))
         if clash:
             # The plan's labels and simulator arguments would no longer describe the run.
             raise SystemExit(f"--set {clash[0]} would replace a parameter of {case['benchmark']} in the plan")
     platform_name = args.platform or detect_platform()
+    if args.sclk_max and platform_name != "rocm":
+        raise SystemExit("--sclk-max caps an AMD GPU clock; it does not apply on CUDA")
     timer = args.timer or ("rocprofv3" if platform_name == "rocm" else "reported")
     binaries = {
         name: benchmark_binary(args.benchmarks, name, platform_name)
         for name in sorted({case["benchmark"] for case in cases})
     }
     gpu, sensor = the_gpu(platform_name)
-    revision = command_output(["git", "-C", str(args.benchmarks), "rev-parse", "HEAD"]).strip()
+    revision = args.benchmarks_revision or command_output(
+        ["git", "-C", str(args.benchmarks), "rev-parse", "HEAD"]
+    ).strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise SystemExit(
+            f"Cannot tell the GPU Benchmarks revision of {args.benchmarks}; "
+            "pass --benchmarks-revision with the full commit hash"
+        )
     # What must not change between the invocations that fill one collection.
     identity = {
         "plan_sha256": hashlib.sha256(plan_text).hexdigest(),
@@ -456,7 +472,7 @@ def prepare(args):
         "timer": timer,
         "core_clock_limit_mhz": args.sclk_max,
         "extra_parameters": extra,
-        "benchmarks_revision": revision if re.fullmatch(r"[0-9a-f]{40}", revision) else None,
+        "benchmarks_revision": revision,
     }
     record = args.output / IDENTITY_NAME
     if record.exists():
@@ -470,10 +486,11 @@ def prepare(args):
     else:
         args.output.mkdir(parents=True, exist_ok=True)
         record.write_text(json.dumps(identity, indent=1) + "\n")
-    return cases, binaries, identity, sensor
+    return cases, binaries, identity, sensor, invocation_record(args, identity)
 
 
 def invocation_record(args, identity):
+    """Taken before a clock cap is applied, so it shows the limits found."""
     record = {
         **identity,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -485,15 +502,15 @@ def invocation_record(args, identity):
     if identity["platform"] == "rocm":
         record["amd_smi_version"] = command_output(["amd-smi", "version"]).strip()
         record["rocprofv3_version"] = command_output(["rocprofv3", "--version"]).strip()
-        record["clocks"] = command_output(["amd-smi", "metric", "--clock"])
+        record["clocks_before_cap"] = command_output(["amd-smi", "metric", "--clock"])
     return record
 
 
-def collect(args, cases, binaries, identity, sensor):
+def collect(args, cases, binaries, identity, sensor, invocation):
     log = args.output / LOG_NAME
     done = completed(log)
     with open(args.output / "environment.jsonl", "a") as file:
-        file.write(json.dumps(invocation_record(args, identity)) + "\n")
+        file.write(json.dumps(invocation) + "\n")
     extra, timer = identity["extra_parameters"], identity["timer"]
     monitor = ClockMonitor(args.output / "clock-monitor.csv", sensor, args.monitor_interval)
     monitor.begin()
@@ -506,7 +523,6 @@ def collect(args, cases, binaries, identity, sensor):
                 for rep in range(1, args.reps + 1):
                     if (case["case"], rep) in done:
                         continue
-                    monitor.check()
                     row = {"case_id": case["case"], "rep": rep, "benchmark": case["benchmark"]}
                     if series in timed_out:
                         # Cases run in increasing size; a larger one will not fit either.
@@ -522,11 +538,16 @@ def collect(args, cases, binaries, identity, sensor):
                             binaries[case["benchmark"]], environment, timer, directory, args.timeout
                         )
                         end = time.time()
+                        # A repetition that outlived the sampler is not recorded and runs again.
+                        monitor.check()
                         measured = measured_dispatches(dispatches, case, timer) if status == "ok" else []
                         if status == "ok" and measured is None:
                             status, measured = "launch_mismatch", []
                         elif status == "ok" and not measured:
                             status = "no_dispatches"
+                        elif status == "ok" and any(d["Duration_ns"] <= 0 for d in measured):
+                            # build_reference.py rejects such a launch.
+                            status = "invalid_duration"
                         if status == "ok":
                             write_dispatches(directory / "measured-dispatches.csv", measured)
                         if status == "timeout":
@@ -632,6 +653,7 @@ def main(argv=None):
     runner = commands.add_parser("run", help="collect a plan on this machine")
     runner.add_argument("plan", type=Path)
     runner.add_argument("--benchmarks", type=Path, required=True, help="built GPU Benchmarks checkout")
+    runner.add_argument("--benchmarks-revision", help="its commit hash, when it is not a git checkout")
     runner.add_argument("--output", type=Path, required=True, help="collection directory")
     runner.add_argument("--reps", type=int, default=7)
     runner.add_argument("--timeout", type=float, default=600, help="seconds per repetition")

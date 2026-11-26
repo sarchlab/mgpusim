@@ -25,6 +25,7 @@ from collect_hardware import (
 )
 
 SHAPE = [256, 1, 1, 256, 1, 1]
+REVISION = "0123456789abcdef0123456789abcdef01234567"
 KERNEL = "example_kernel(float*, int)"
 REFERENCE = {
     "series": [
@@ -62,7 +63,7 @@ shift 6
 mkdir -p "$directory/host"
 cat > "$directory/host/1_kernel_trace.csv" <<EOF
 "Kind","Kernel_Name","Start_Timestamp","End_Timestamp","Workgroup_Size_X","Workgroup_Size_Y","Workgroup_Size_Z","Grid_Size_X","Grid_Size_Y","Grid_Size_Z"
-"KERNEL_DISPATCH","example_kernel(float*, int)",4000,$((4000 + BENCH_PARAM_size)),256,1,1,256,1,1
+"KERNEL_DISPATCH","example_kernel(float*, int)",4000,$((4000 + ${ZERO_DURATION:+0 * }BENCH_PARAM_size)),256,1,1,256,1,1
 "KERNEL_DISPATCH","example_kernel(float*, int)",3000,3999,256,1,1,256,1,1
 "KERNEL_DISPATCH","__amd_rocclr_fillBufferUnAligned",1000,1500,256,1,1,256,1,1
 "KERNEL_DISPATCH","bench_warmer_kernel(float*, unsigned long long, int)",2000,2600,256,1,1,4096,1,1
@@ -77,8 +78,12 @@ if [ "$1" = set ]; then
   [ -n "$CAP_IGNORED" ] || echo "$5" > $state
   echo manual > {level}
 elif [ "$1" = metric ]; then
-  printf 'GPU: 0\\n    CLOCK:\\n        GFX_0:\\n            CLK: 132 MHz\\n'
-  printf '            MIN_CLK: 500 MHz\\n            MAX_CLK: %s MHz\\n' "$(cat $state)"
+  for gpu in 0 ${{SECOND_GPU:+1}}; do
+    printf 'GPU: %s\\n    CLOCK:\\n        GFX_0:\\n            CLK: 132 MHz\\n' $gpu
+    printf '            MIN_CLK: 500 MHz\\n            MAX_CLK: %s MHz\\n' "$(cat $state)"
+    [ -z "$UNEQUAL_LIMITS" ] || printf '        GFX_1:\\n            CLK: 1 MHz\\n'
+    [ -z "$UNEQUAL_LIMITS" ] || printf '            MIN_CLK: 500 MHz\\n            MAX_CLK: 1900 MHz\\n'
+  done
 else
   echo "stand-in amd-smi"
 fi
@@ -215,7 +220,9 @@ class CollectionTest(unittest.TestCase):
     def collect(self, *extra):
         return main(
             ["run", str(self.plan), "--benchmarks", str(self.root / "benchmarks"), "--output", str(self.output),
-             "--reps", "3", "--platform", "rocm", "--monitor-interval", "0.01", *extra]
+             "--reps", "3", "--platform", "rocm", "--monitor-interval", "0.01",
+             *(() if "--no-revision" in extra else ("--benchmarks-revision", REVISION)),
+             *(argument for argument in extra if argument != "--no-revision")]
         )
 
     def log(self):
@@ -243,6 +250,7 @@ class CollectionTest(unittest.TestCase):
         record = json.loads((self.output / "environment.jsonl").read_text())
         self.assertEqual(record["rocprofv3_version"], "stand-in profiler")
         self.assertEqual(record["gpu"], "card0 device")
+        self.assertEqual(record["benchmarks_revision"], REVISION)
 
     def test_relative_paths_work_although_benchmarks_run_in_their_own_directory(self):
         previous = os.getcwd()
@@ -250,7 +258,7 @@ class CollectionTest(unittest.TestCase):
         os.chdir(self.root)
         self.assertEqual(
             main(["run", "plan.json", "--benchmarks", "benchmarks", "--output", "collection", "--reps", "1",
-                  "--platform", "rocm", "--monitor-interval", "0.01"]),
+                  "--platform", "rocm", "--monitor-interval", "0.01", "--benchmarks-revision", REVISION]),
             0,
         )
         self.assertEqual([row["status"] for row in self.log()], ["ok", "ok"])
@@ -285,6 +293,53 @@ class CollectionTest(unittest.TestCase):
             self.collect()
         self.assertEqual(len(self.log()), rows)
         self.assertEqual(self.cap.read_text(), "2100\n")  # refused before the clock was touched
+
+    def test_only_the_plan_and_set_reach_the_benchmark(self):
+        seen = self.root / "seen"
+        executable(self.binary, f'#!/bin/sh\necho "[$BENCH_PARAM_num_accesses]" >> {seen}\n' + BENCHMARK.split("\n", 1)[1])
+        with patch.dict(os.environ, {"BENCH_PARAM_num_accesses": "7"}):
+            self.assertEqual(self.collect("--reps", "1", "--benchmark", "example"), 0)
+            self.output = self.root / "explicit"
+            self.assertEqual(self.collect("--reps", "1", "--set", "num_accesses=9"), 0)
+        self.assertEqual(seen.read_text().split(), ["[]", "[]", "[9]", "[9]"])
+
+    def test_a_plan_cannot_name_a_directory_outside_the_collection(self):
+        victim = self.root / "victim/1/trace"
+        victim.mkdir(parents=True)
+        for field, value in (("case", str(self.root / "victim")), ("case", "7"), ("benchmark", "../example")):
+            plan = plan_from_references([REFERENCE])
+            plan[0][field] = value
+            self.plan.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(SystemExit, "invalid case or benchmark name"):
+                self.collect()
+        self.assertTrue(victim.exists())
+        self.assertFalse(self.output.exists())
+
+    def test_the_benchmark_revision_must_be_known(self):
+        with self.assertRaisesRegex(SystemExit, "--benchmarks-revision"):
+            self.collect("--no-revision")
+        with self.assertRaisesRegex(SystemExit, "--benchmarks-revision"):
+            self.collect("--no-revision", "--benchmarks-revision", "main")
+        self.assertFalse(self.output.exists())
+
+    def test_a_launch_without_a_positive_duration_is_collected_again(self):
+        with patch.dict(os.environ, {"ZERO_DURATION": "1"}):
+            self.assertEqual(self.collect("--reps", "1"), 1)
+        self.assertEqual([row["status"] for row in self.log()], ["invalid_duration"] * 2)
+        self.assertFalse((self.output / "dispatch/example/7/1/trace/measured-dispatches.csv").exists())
+        self.assertEqual(self.collect("--reps", "1"), 0)
+        self.assertEqual([row["status"] for row in self.log()[2:]], ["ok", "ok"])
+
+    def test_a_repetition_that_outlives_the_sampler_is_collected_again(self):
+        sensor = self.root / "sys/card0/device/hwmon/hwmon0/freq1_input"
+        executable(self.binary, f"#!/bin/sh\necho broken > {sensor}\nsleep 0.3\n" + BENCHMARK.split("\n", 1)[1])
+        with self.assertRaisesRegex(RuntimeError, "sampling stopped"):
+            self.collect("--reps", "1")
+        self.assertEqual(self.log(), [])
+        sensor.write_text("1679000000\n")
+        executable(self.binary, BENCHMARK)
+        self.assertEqual(self.collect("--reps", "1"), 0)
+        self.assertEqual([(row["case_id"], row["status"]) for row in self.log()], [(7, "ok"), (8, "ok")])
 
     def test_set_cannot_replace_a_parameter_of_the_plan(self):
         for name in ("size", "block_size"):
@@ -367,7 +422,26 @@ class CollectionTest(unittest.TestCase):
         self.assertEqual(self.cap.read_text(), "2100\n")
         self.assertEqual(self.level.read_text(), "auto")
         self.assertNotIn("core_clock_above_limit", self.log()[0])
-        self.assertEqual(json.loads((self.output / "collection.json").read_text())["core_clock_limit_mhz"], 1680)
+        record = json.loads((self.output / "environment.jsonl").read_text())
+        self.assertEqual(record["core_clock_limit_mhz"], 1680)
+        self.assertIn("MAX_CLK: 2100 MHz", record["clocks_before_cap"])  # what was found, not the cap
+
+    def test_no_clock_is_capped_unless_it_is_one_gpu_whose_state_can_be_restored(self):
+        refusals = (
+            ({"SECOND_GPU": "1"}, "exactly one AMD GPU in amd-smi"),
+            ({"UNEQUAL_LIMITS": "1"}, r"one common GFX clock limit.*\[1900, 2100\]"),
+        )
+        for environment, message in refusals:
+            with patch.dict(os.environ, environment):
+                with self.assertRaisesRegex(SystemExit, message):
+                    self.collect("--sclk-max", "1680")
+        self.level.unlink()
+        with self.assertRaisesRegex(SystemExit, "one performance level"):
+            self.collect("--sclk-max", "1680")
+        with self.assertRaisesRegex(SystemExit, "does not apply on CUDA"):
+            self.collect("--sclk-max", "1680", "--platform", "cuda")
+        self.assertFalse(Path(f"{self.cap}.log").exists())  # no set command was issued
+        self.assertFalse((self.output / "collection-current.log").exists())
 
     def test_a_sampled_clock_above_the_cap_marks_the_repetition(self):
         executable(self.binary, "#!/bin/sh\nsleep 0.3\n" + BENCHMARK.split("\n", 1)[1])
