@@ -74,35 +74,40 @@ once per file to use other files.
 `mi300x-code-fetch-latency.json.gz` adds 52 configurations in four series: 13
 loop-body sizes for each of 1, 4, 8 and 16 loops. `code_fetch_latency` was
 added to GPU Benchmarks after v1.1, so these timings are not part of the v1.1
-collection. They were collected on November 26, 2026 UTC from GPU Benchmarks
-revision `9678825670a00099b575560b3695aec029852c58`, built with ROCm 10.2.0 on
+collection. They are the `code_fetch_latency` cases of the GPU Benchmarks v1.2
+tier 1/2 collection, taken on November 27, 2026 UTC from GPU Benchmarks
+revision `7f2c5552a43b16ad95b90fed88e61f0c80c5236b`, built with ROCm 10.2.0 on
 an AMD Developer Cloud instance that reports an "AMD Instinct MI300X VF". That
-machine is not the one of the v1.1 collection.
+machine is not the one of the v1.1 collection. Its GPU core clock was capped at
+1680 MHz for the collection, the clock of the v1.1 collection; uncapped, the
+instance runs up to 2100 MHz.
 
-Each configuration ran in 20 fresh processes. A process queries the kernel's
+Each configuration ran in 7 fresh processes. A process queries the kernel's
 attributes, runs the suite's vector-add warmer and launches the kernel once.
 The reference stores the median dispatch duration that `rocprofv3
 --kernel-trace` records for that launch. The report names the hardware value of
 this benchmark "MI300X VF kernel time (median, supplementary collection)". The
-file records the benchmark revision, machine, toolchain, driver and profiler
-versions, the timing source and the SHA-256 of its raw input next to the
-series.
+file records the benchmark revision, machine, clock cap, toolchain, driver and
+profiler versions, the timing source and the SHA-256 of its raw input next to
+the series.
 
 Build it from a CSV with one row per repetition, kept outside the repository:
 
 ```sh
 python3 gpu_perf_scripts/calibration/release/build_code_fetch_latency_reference.py \
-  /path/to/reference_raw.csv \
+  /path/to/reference_raw_1680mhz.csv \
   gpu_perf_scripts/calibration/release/mi300x-code-fetch-latency.json.gz \
-  --benchmark-revision 9678825670a00099b575560b3695aec029852c58 \
+  --benchmark-revision 7f2c5552a43b16ad95b90fed88e61f0c80c5236b \
   --machine "AMD Instinct MI300X VF" --provider "AMD Developer Cloud" \
-  --rocm-version 10.2.0 --collected-at 2026-11-26T17:55:51+00:00 \
-  --field collection_started_at=2026-11-26T17:51:04+00:00 \
+  --rocm-version 10.2.0 --collected-at 2026-11-27T02:32:41+00:00 --repetitions 7 \
+  --field collection_started_at=2026-11-27T02:31:01+00:00 \
+  --field core_clock_limit_mhz=1680 \
   --field hip_version=7.17.26434 \
   --field "compiler=AMD clang 24.0.0git bdc35841c97ff51400273b91d7bc05c96e19c2d9" \
   --field driver_version=7.1.3.31500000 \
   --field "profiler=rocprofv3 1.4.2" \
-  --field "protocol=Each repetition is a fresh process with one cold launch: kernel attribute query, the suite's vector-add warmer, then the timed launch."
+  --field "protocol=Each repetition is a fresh process with one cold launch: kernel attribute query, the suite's vector-add warmer, then the timed launch. The GPU core clock was capped at 1680 MHz with amd-smi set -L sclk max 1680." \
+  --field "collection=GPU Benchmarks v1.2 tier 1/2 collection, plan sha256 637cf81b36e748e4949ee144489b059f1d4aaa269a70930aa9c6465aa794d945, cases 100137-100188"
 ```
 
 This is the command that produced the committed file, with Python 3.12; the
