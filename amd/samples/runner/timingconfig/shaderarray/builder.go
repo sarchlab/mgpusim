@@ -81,6 +81,10 @@ type Builder struct {
 	memPipelineBufferSize     int
 	maxCoalescingPenalty      int
 	registerScoreboard        bool
+	issueRotation             bool
+	valuIssueOverlap          bool
+	uniformVALUCycles         bool
+	takenBranchIssueGap       int
 	l1AddressMapper           *mem.AddressMapper
 	l1TLBAddressMapper        *mem.AddressMapper
 	aluBuilder                func() emu.ALU
@@ -254,6 +258,34 @@ func (b Builder) WithMaxCoalescingPenalty(n int) Builder {
 // SIMD pipelining feature in each CU.
 func (b Builder) WithRegisterScoreboard(enabled bool) Builder {
 	b.registerScoreboard = enabled
+	return b
+}
+
+// WithIssueRotation makes each CU serve one SIMD's wavefronts per cycle, in
+// rotation.
+func (b Builder) WithIssueRotation(enabled bool) Builder {
+	b.issueRotation = enabled
+	return b
+}
+
+// WithVALUIssueOverlap lets a wavefront issue its next instruction during
+// the last execute cycle of a VALU instruction.
+func (b Builder) WithVALUIssueOverlap(enabled bool) Builder {
+	b.valuIssueOverlap = enabled
+	return b
+}
+
+// WithUniformVALUCycles gives f64 VALU instructions the same execution time
+// as other VALU instructions.
+func (b Builder) WithUniformVALUCycles(enabled bool) Builder {
+	b.uniformVALUCycles = enabled
+	return b
+}
+
+// WithTakenBranchIssueGap sets the number of cycles between issuing a taken
+// branch and the earliest issue of its target.
+func (b Builder) WithTakenBranchIssueGap(n int) Builder {
+	b.takenBranchIssueGap = n
 	return b
 }
 
@@ -431,6 +463,10 @@ func (b *Builder) cuSpec() cu.Spec {
 	}
 
 	spec.RegisterScoreboard = b.registerScoreboard
+	spec.IssueRotation = b.issueRotation
+	spec.VALUIssueOverlap = b.valuIssueOverlap
+	spec.UniformVALUCycles = b.uniformVALUCycles
+	spec.TakenBranchIssueGap = b.takenBranchIssueGap
 
 	return spec
 }

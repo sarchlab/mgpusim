@@ -573,6 +573,85 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	}
 }
 
+// branchHoldFixture is a wavefront that waits out the hold after a taken
+// branch with its target instruction already decoded.
+func branchHoldFixture(t *testing.T) (
+	*fakeEngine, *ComputeUnit, *cuMilestoneRecorder, *Wavefront, *SchedulerImpl, *mockWfArbitor,
+) {
+	t.Helper()
+
+	engine := newFakeEngine()
+	cu := newTestComputeUnit("CU", engine)
+	cu.comp.Spec.TakenBranchIssueGap = 32
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
+	cu.VectorDecoder = &mockCUComponent{canAccept: true}
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
+	cu.WfPools[0].AddWf(wf)
+	wf.execution().State = wavefront.WfReady
+	target := insts.NewInst()
+	target.ExeUnit = insts.ExeUnitVALU
+	wf.setTestNextInst(testInst(testIDs.NewID(), target))
+	wf.execution().IssueNotBefore = 8000
+
+	issueArbiter := newMockWfArbitor()
+
+	return engine, cu, rec, wf, NewScheduler(cu, newMockWfArbitor(), issueArbiter), issueArbiter
+}
+
+// The wait for the end of a hold after a taken branch belongs to the branch,
+// not to the execution unit of the target instruction, which was free. Only
+// what the wavefront waits after the hold may be attributed to that unit.
+func TestBranchHoldEndRecordsBranchMilestone(t *testing.T) {
+	engine, cu, rec, wf, s, issueArbiter := branchHoldFixture(t)
+	wfTask := cu.comp.State.WFTasks[wf.UID]
+
+	engine.now = 7000
+	s.Run()
+	if len(rec.milestones) != 0 {
+		t.Fatalf("no milestone is due before the hold ends, got %+v", rec.milestones)
+	}
+
+	engine.now = 8000
+	issueArbiter.wfsToReturn = append(issueArbiter.wfsToReturn, []*Wavefront{wf})
+	s.Run()
+
+	if len(rec.milestones) != 2 {
+		t.Fatalf("expected the branch hold and the issue, got %+v", rec.milestones)
+	}
+	hold, issue := rec.milestones[0], rec.milestones[1]
+	if hold.TaskID != wfTask || hold.Kind != tasks.MilestoneKindHardwareResource ||
+		hold.What != "CU.Branch" || hold.Time != 8000 {
+		t.Fatalf("the hold should end as a branch-unit wait at 8000 ps, got %+v", hold)
+	}
+	if issue.TaskID != wfTask || issue.What != "CU.VALU" || issue.Time != 8000 {
+		t.Fatalf("the execution unit may only get the time after the hold, got %+v", issue)
+	}
+
+	engine.now = 9000
+	s.Run()
+	if len(rec.milestones) != 2 {
+		t.Fatalf("the hold must be marked once, got %+v", rec.milestones)
+	}
+}
+
+// A hold that ends while an earlier instruction is still in flight is not a
+// gap between instructions, so it leaves no wavefront milestone.
+func TestBranchHoldEndIsSilentWhileAnInstructionIsInFlight(t *testing.T) {
+	engine, _, rec, wf, s, _ := branchHoldFixture(t)
+	wf.execution().InFlightInsts = 1
+
+	engine.now = 8000
+	s.Run()
+
+	if len(rec.milestones) != 0 {
+		t.Fatalf("expected no milestone, got %+v", rec.milestones)
+	}
+}
+
 func startTestInst(c *ComputeUnit, inst uint64) uint64 {
 	id := c.comp.TaskTracker().StartTask(c.comp, tasks.StartInfo{Kind: "inst", What: "test", Detail: inst})
 	c.comp.State.InstTasks[inst] = id

@@ -25,6 +25,13 @@ type SIMDUnit struct {
 
 	scoreboardEnabled bool
 
+	// issueOverlap releases the wavefront for its next issue during the last
+	// execute cycle of an instruction (pipeline mode only).
+	issueOverlap bool
+
+	// uniformCycles gives f64 instructions the same execution time as others.
+	uniformCycles bool
+
 	NumSinglePrecisionUnit int
 }
 
@@ -66,7 +73,7 @@ func (u *SIMDUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *SIMDUnit) AcceptWave(wave *Wavefront) {
 	cycleLeft := 64 / u.NumSinglePrecisionUnit
-	if strings.Contains(wave.Inst().InstName, "f64") {
+	if !u.uniformCycles && strings.Contains(wave.Inst().InstName, "f64") {
 		cycleLeft = 64 / (u.NumSinglePrecisionUnit / 2)
 	}
 
@@ -74,6 +81,7 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront) {
 		slot := SIMDSlotState{
 			WF:     u.cu.useWave(wave),
 			Cycles: cycleLeft,
+			Inst:   wave.InstID(),
 		}
 		u.state().Slots = append(u.state().Slots, slot)
 		u.state().Slots[len(u.state().Slots)-1].Task = u.logPipelineTaskStart(wave.InstID())
@@ -104,13 +112,20 @@ func (u *SIMDUnit) runPipelined() bool {
 	for _, slot := range u.state().Slots {
 		slot.Cycles--
 		madeProgress = true
+		wave := u.cu.wave(slot.WF)
+
+		lastCycle := u.issueOverlap && slot.Cycles == 1
+		if !slot.Released && (slot.Cycles <= 0 || lastCycle) {
+			// The result is usable from here on, so the wavefront can issue
+			// its next instruction while this one finishes its last cycle.
+			u.alu.Run(wave.emulation())
+			u.cu.UpdatePCAndSetReady(wave)
+			slot.Released = true
+		}
 
 		if slot.Cycles <= 0 {
-			u.alu.Run(u.cu.wave(slot.WF).emulation())
-			u.cu.UpdatePCAndSetReady(u.cu.wave(slot.WF))
-
 			u.logPipelineTaskEnd(slot.Task)
-			u.cu.completeInstruction(u.cu.wave(slot.WF), u.cu.wave(slot.WF).InstID())
+			u.cu.completeInstruction(wave, slot.Inst)
 		} else {
 			remaining = append(remaining, slot)
 		}

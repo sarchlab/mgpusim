@@ -575,6 +575,39 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
 	cu.removeStaleInstBuffer(wf)
 }
 
+// servedSIMD returns the SIMD whose wavefronts may issue in this cycle when
+// the scheduler rotates over the SIMDs.
+func (cu *ComputeUnit) servedSIMD() int {
+	cycle := cu.comp.Spec.Freq.Cycle(cu.CurrentTime())
+	return int(cycle % numWfPools)
+}
+
+// nextIssueTurn returns the first clock edge at or after the given time at
+// which the SIMD's wavefronts may issue: any edge without issue rotation,
+// otherwise the SIMD's next turn.
+func (cu *ComputeUnit) nextIssueTurn(
+	simd int,
+	at timing.VTimeInPicoSec,
+) timing.VTimeInPicoSec {
+	freq := cu.comp.Spec.Freq
+	edge := freq.ThisTick(at)
+	if !cu.comp.Spec.IssueRotation {
+		return edge
+	}
+
+	wait := (uint64(simd) + numWfPools - freq.Cycle(edge)%numWfPools) % numWfPools
+
+	return freq.NCyclesLater(int(wait), edge)
+}
+
+// issueHeldBack reports whether the wavefront must still wait before it can
+// issue, for example while its instruction buffer refills after a taken
+// branch.
+func (cu *ComputeUnit) issueHeldBack(wf *Wavefront) bool {
+	notBefore := wf.execution().IssueNotBefore
+	return notBefore != 0 && cu.CurrentTime() < notBefore
+}
+
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
 	if len(wf.execution().InstBuffer) != 0 {
 		for wf.PC() >= wf.execution().InstBufferStartPC+64 {
@@ -604,7 +637,8 @@ func wfHasInstructionReady(wf *Wavefront) bool {
 // markWfMilestone records a milestone on the wavefront task itself (TaskID
 // wf.UID), not on its instruction. These tile the wavefront's life into
 // execution (work) and the reasons for a gap between instructions — waiting
-// to fetch (hardware_resource), waiting for the fetched bytes (data), and
+// to fetch (hardware_resource), waiting for the fetched bytes (data), waiting
+// out the hold after a taken branch (hardware_resource, the branch unit), and
 // waiting for the exec unit to accept the issue (hardware_resource). They are
 // only emitted while nothing is in flight (see beginInstruction), so they never
 // overlap and a prefetch overlapping execution stays silent.

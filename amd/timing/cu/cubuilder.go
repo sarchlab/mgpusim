@@ -97,6 +97,12 @@ func (b *Builder) mustHaveValidSpec() {
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
 	}
+	if b.spec.IssueRotation && b.spec.SIMDCount != numWfPools {
+		panic("cu: IssueRotation requires SIMDCount to equal the number of wavefront pools, 4")
+	}
+	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
+		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
+	}
 }
 
 func (b *Builder) fillResourceDefaults() {
@@ -114,13 +120,18 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
 	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
+	issueArbitor.rotation = b.spec.IssueRotation
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard
+	scheduler.uniformVALUCycles = b.spec.UniformVALUCycles
+	scheduler.issueRotation = b.spec.IssueRotation
 	cu.Scheduler = scheduler
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu, b.resources.ALU)
+	branchUnit := NewBranchUnit(cu, b.resources.ALU)
+	branchUnit.takenIssueGap = b.spec.TakenBranchIssueGap
+	cu.BranchUnit = branchUnit
 
 	scalarDecoder := NewDecodeUnit(cu)
 	scalarDecoder.stage = "decode_scalar"
@@ -145,8 +156,10 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 		simdUnit.index = i
 		simdUnit.NumSinglePrecisionUnit = b.spec.NumSinglePrecisionUnits
 		simdUnit.scoreboardEnabled = b.spec.RegisterScoreboard
+		simdUnit.uniformCycles = b.spec.UniformVALUCycles
 		if b.spec.RegisterScoreboard {
 			simdUnit.pipelineCapacity = 1
+			simdUnit.issueOverlap = b.spec.VALUIssueOverlap
 		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)

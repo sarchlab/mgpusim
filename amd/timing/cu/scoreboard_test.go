@@ -258,13 +258,13 @@ var _ = Describe("Scoreboard", func() {
 		})
 	})
 
-	Describe("GetScoreboardLatency", func() {
+	Describe("scoreboardLatency", func() {
 		It("should return 4 for VALU FP32", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitVALU
 			inst.InstName = "v_add_f32"
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(4))
+			Expect(scoreboardLatency(inst, false)).To(Equal(4))
 		})
 
 		It("should return 8 for VALU FP64", func() {
@@ -272,35 +272,43 @@ var _ = Describe("Scoreboard", func() {
 			inst.ExeUnit = insts.ExeUnitVALU
 			inst.InstName = "v_add_f64"
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(8))
+			Expect(scoreboardLatency(inst, false)).To(Equal(8))
+		})
+
+		It("should return 4 for VALU FP64 with uniform VALU cycles", func() {
+			inst := insts.NewInst()
+			inst.ExeUnit = insts.ExeUnitVALU
+			inst.InstName = "v_add_f64"
+
+			Expect(scoreboardLatency(inst, true)).To(Equal(4))
 		})
 
 		It("should return 2 for scalar", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitScalar
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(2))
+			Expect(scoreboardLatency(inst, false)).To(Equal(2))
 		})
 
 		It("should return 3 for branch", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitBranch
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(3))
+			Expect(scoreboardLatency(inst, false)).To(Equal(3))
 		})
 
 		It("should return 0 for VMem", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitVMem
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(0))
+			Expect(scoreboardLatency(inst, false)).To(Equal(0))
 		})
 
 		It("should return 0 for LDS", func() {
 			inst := insts.NewInst()
 			inst.ExeUnit = insts.ExeUnitLDS
 
-			Expect(GetScoreboardLatency(inst)).To(Equal(0))
+			Expect(scoreboardLatency(inst, false)).To(Equal(0))
 		})
 	})
 })

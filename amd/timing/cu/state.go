@@ -93,6 +93,10 @@ type SIMDSlotState struct {
 	WF     waveHandle
 	Cycles int
 	Task   uint64
+	// Inst is the instruction in the slot. Its wavefront may already have
+	// issued the next one once Released is set.
+	Inst     uint64
+	Released bool
 }
 type SIMDState struct {
 	Exec   waveHandle

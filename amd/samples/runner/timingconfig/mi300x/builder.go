@@ -569,7 +569,25 @@ func (b *Builder) buildSAs() {
 		WithL1VBankLatency(9). // About 5.4 ns at the reference clock.
 		WithMemPipelineBufferSize(64).
 		WithMaxCoalescingPenalty(3).
-		WithRegisterScoreboard(true)
+		WithRegisterScoreboard(true).
+		// instruction_cost on MI300X: a wavefront issues one instruction every
+		// 4 cycles whatever the instruction, f64 included, and a dependent
+		// instruction is not delayed. A CU accepts one SIMD instruction per
+		// clock, so its four SIMDs take turns. A VALU instruction is one
+		// operand stage and four execute cycles; the last one overlaps the
+		// operand stage of the wavefront's next instruction.
+		WithIssueRotation(true).
+		WithVALUIssueOverlap(true).
+		WithUniformVALUCycles(true).
+		// The target of a taken branch issues 32 cycles after the branch: the
+		// branch's own turn and seven idle turns, as the compiled
+		// fp32_throughput loop measures (52 cycles for six instructions). The
+		// hand-written loop s_add, s_cmp, s_cbranch waits only five idle turns
+		// (32 cycles in total); what makes compiled loops wait longer is not
+		// known, and fp32_throughput is the reference. A branch that is not
+		// taken is assumed to cost one issue turn; that case has not been
+		// measured.
+		WithTakenBranchIssueGap(32)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)

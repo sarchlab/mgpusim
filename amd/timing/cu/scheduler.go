@@ -29,6 +29,13 @@ type SchedulerImpl struct {
 	stopTickingAfterNCyclesNoProgress int
 
 	scoreboardEnabled bool
+
+	// uniformVALUCycles drops the longer register-busy time of f64
+	// instructions.
+	uniformVALUCycles bool
+
+	// issueRotation is set when the issue arbiter serves one SIMD per cycle.
+	issueRotation bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -56,9 +63,15 @@ func (s *SchedulerImpl) Run() bool {
 	if s.scoreboardEnabled {
 		madeProgress = s.tickScoreboards() || madeProgress
 	}
+	if s.cu.comp.Spec.TakenBranchIssueGap > 0 {
+		s.markEndedBranchHolds()
+	}
 	madeProgress = s.EvaluateInternalInst() || madeProgress
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue() || madeProgress
+	if s.issueRotation {
+		s.wakeForIssueTurns()
+	}
 	madeProgress = s.DoFetch() || madeProgress
 	if !madeProgress {
 		s.state().NoProgress++
@@ -70,6 +83,66 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
+}
+
+// markEndedBranchHolds closes, on the wavefront trace, the wait of every
+// wavefront whose hold after a taken branch ends in this cycle, and attributes
+// it to the branch unit. The hold scheduled a tick for exactly this cycle, so
+// each hold is marked once, before the wavefront can issue again; what the
+// wavefront waits for after that is attributed to its execution unit.
+func (s *SchedulerImpl) markEndedBranchHolds() {
+	now := s.cu.CurrentTime()
+
+	for _, wfPool := range s.cu.WfPools {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
+			state := wf.execution()
+			if state.IssueNotBefore != now || state.InFlightInsts != 0 {
+				continue
+			}
+
+			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
+				s.cu.comp.Name()+"."+s.cu.execUnitToString(insts.ExeUnitBranch))
+		}
+	}
+}
+
+// wakeForIssueTurns schedules a tick at the next turn of every SIMD, other
+// than the one served in this cycle, that has an instruction its execution
+// unit could accept. Without it the compute unit could go idle while such an
+// instruction only waits for its SIMD's turn.
+func (s *SchedulerImpl) wakeForIssueTurns() {
+	served := s.cu.servedSIMD()
+	now := s.cu.CurrentTime()
+
+	for simd, wfPool := range s.cu.WfPools {
+		if simd != served && s.hasIssuableInst(wfPool) {
+			s.cu.comp.TickAt(s.cu.nextIssueTurn(simd, now))
+		}
+	}
+}
+
+// hasIssuableInst reports whether a wavefront in the pool could issue now if
+// it were the pool's turn.
+func (s *SchedulerImpl) hasIssuableInst(wfPool *WavefrontPool) bool {
+	for _, handle := range wfPool.ids() {
+		wf := wfPool.cu.wave(handle)
+		if wf.execution().State != wavefront.WfReady || s.cu.issueHeldBack(wf) {
+			continue
+		}
+
+		inst := wf.NextInst()
+		if inst == nil {
+			continue
+		}
+
+		if inst.ExeUnit == insts.ExeUnitSpecial ||
+			s.getUnitToIssueTo(inst.ExeUnit).CanAcceptWave() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *SchedulerImpl) tickScoreboards() bool {
@@ -218,7 +291,7 @@ func (s *SchedulerImpl) DoIssue() bool {
 			s.cu.beginInstruction(wf, wf.InstID())
 
 			if s.scoreboardEnabled && wf.scoreboard() != nil {
-				latency := GetScoreboardLatency(inst)
+				latency := scoreboardLatency(inst, s.uniformVALUCycles)
 				if latency > 0 {
 					wf.scoreboard().MarkBusy(
 						inst, latency)
