@@ -9,6 +9,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/messaging/twowaybuffered"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -97,7 +98,13 @@ func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*Com
 			spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"VectorMem"}}
 		}
 	}
-	comp := MakeBuilder().WithSimulation(simulation).WithSpec(spec).Build("CU")
+	builderCU := MakeBuilder().WithSimulation(simulation).WithSpec(spec)
+	if spec.IsCDNA3 {
+		decoder := insts.NewDisassembler()
+		decoder.IsCDNA3 = true
+		builderCU = builderCU.WithResources(Resources{Decoder: decoder, ALU: cdna3.NewALU(nil)})
+	}
+	comp := builderCU.Build("CU")
 	for _, name := range []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
 		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
@@ -218,7 +225,9 @@ func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
 	scoreboard := wf.scoreboard()
 	scoreboard.VGPRBusyUntil[7] = 9
 	original.comp.State.InstTasks[wf.execution().InstID] = 0
-	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{{WF: handleOf(wf), Cycles: 2}}
+	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{
+		{WF: handleOf(wf), Cycles: 2, Inst: wf.execution().InstID},
+	}
 	var archive bytes.Buffer
 	if err := original.comp.SaveCheckpoint(&archive); err != nil {
 		t.Fatal(err)
@@ -245,6 +254,60 @@ func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
 	unit.Run()
 	if len(restored.comp.State.SIMDs[0].Slots) != 0 || view.PC() != 4 {
 		t.Fatal("pipeline slot did not complete")
+	}
+}
+
+func TestCheckpointKeepsOverlappedSIMDSlotAndBranchHold(t *testing.T) {
+	spec := DefaultSpec()
+	spec.RegisterScoreboard = true
+	spec.VALUIssueOverlap = true
+	original := checkpointCU(t, spec)
+	wf := checkpointGroup(original).waves()[0]
+
+	// The VALU instruction is in its last execute cycle: its wavefront was
+	// released and has already issued the next instruction.
+	executing := checkpointInstruction(t, original)
+	wf.setTestInst(executing)
+	original.beginInstruction(wf, executing.ID)
+	next := checkpointInstruction(t, original)
+	wf.setTestInst(next)
+	original.beginInstruction(wf, next.ID)
+	wf.execution().State = wavefront.WfRunning
+	wf.execution().IssueNotBefore = 12345
+	original.comp.State.BranchTaken = true
+	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{
+		{WF: handleOf(wf), Cycles: 1, Inst: executing.ID, Released: true},
+	}
+
+	restored := roundTripCUState(t, original)
+
+	view := restored.wave(handleOf(wf))
+	if view.execution().IssueNotBefore != 12345 {
+		t.Fatal("issue hold was lost")
+	}
+	if !restored.comp.State.BranchTaken {
+		t.Fatal("branch outcome was lost")
+	}
+	slot := restored.comp.State.SIMDs[0].Slots[0]
+	if slot.Inst != executing.ID || !slot.Released {
+		t.Fatalf("overlapped slot was restored as %+v", slot)
+	}
+
+	alu := &mockALU{}
+	unit := restored.SIMDUnit[0].(*SIMDUnit)
+	unit.alu = alu
+	unit.Run()
+	if len(restored.comp.State.SIMDs[0].Slots) != 0 {
+		t.Fatal("overlapped slot did not complete")
+	}
+	if alu.wfExecuted != nil || view.PC() != 0 {
+		t.Fatal("a released instruction executed again")
+	}
+	if view.execution().InstID != next.ID || view.execution().InFlightInsts != 1 {
+		t.Fatal("completing the overlapped instruction disturbed the next one")
+	}
+	if _, pending := restored.comp.State.Instructions[executing.ID]; pending {
+		t.Fatal("the completed instruction is still registered")
 	}
 }
 

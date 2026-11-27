@@ -6,7 +6,9 @@ import (
 
 	simulation "github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/messaging"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/waferscale"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/dma"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/rdma"
 )
@@ -43,6 +45,12 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 	found := make(map[string]bool)
 	for _, c := range s.Components() {
 		found[c.Name()] = true
+		if unit, ok := c.(*cu.Comp); ok && gpuType == "mi300x" && unit.Spec.Freq != 1680*timing.MHz {
+			t.Fatalf("%s clock is %v; expected the 1680 MHz MI300X preset", unit.Name(), unit.Spec.Freq)
+		}
+		if unit, ok := c.(*cu.Comp); ok {
+			checkIssueTiming(t, unit, gpuType == "mi300x")
+		}
 		checkRouting(t, s, c, numGPUs)
 	}
 	if !found["Driver"] {
@@ -107,5 +115,36 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 		if len(c.Spec.LocalDataSource.Destinations) == 0 {
 			t.Fatal("missing DMA routes")
 		}
+	}
+}
+
+// issueTiming is the part of a compute unit's Spec that sets when
+// instructions issue.
+type issueTiming struct {
+	rotation, valuOverlap, uniformVALU bool
+	takenBranchGap                     int
+}
+
+// checkIssueTiming verifies that only the MI300X preset uses the measured
+// issue cadence: one SIMD served per cycle, overlapped VALU issue, f64 at the
+// same cost, and a 32-cycle gap after a taken branch.
+func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
+	t.Helper()
+
+	spec := unit.Spec
+	got := issueTiming{
+		rotation:       spec.IssueRotation,
+		valuOverlap:    spec.VALUIssueOverlap,
+		uniformVALU:    spec.UniformVALUCycles,
+		takenBranchGap: spec.TakenBranchIssueGap,
+	}
+
+	want := issueTiming{}
+	if measured {
+		want = issueTiming{rotation: true, valuOverlap: true, uniformVALU: true, takenBranchGap: 32}
+	}
+
+	if got != want {
+		t.Fatalf("%s issue timing is %+v; expected %+v", unit.Name(), got, want)
 	}
 }

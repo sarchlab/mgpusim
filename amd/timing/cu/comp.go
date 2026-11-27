@@ -60,6 +60,10 @@ type Spec struct {
 	// LDSBytes is the size of the local data share in bytes.
 	LDSBytes int `json:"lds_bytes"`
 
+	// LDSReturnCycles is the fixed gfx942 completion latency beyond SIMD
+	// port transfer and serial bank replays. GCN3 uses its legacy pipeline.
+	LDSReturnCycles int `json:"lds_return_cycles"`
+
 	// Log2CachelineSize is the cacheline size as a power of 2.
 	Log2CachelineSize uint64 `json:"log2_cacheline_size"`
 
@@ -91,6 +95,27 @@ type Spec struct {
 	// RegisterScoreboard enables the register scoreboard and SIMD pipelining
 	// feature.
 	RegisterScoreboard bool `json:"register_scoreboard"`
+
+	// IssueRotation makes the scheduler serve one SIMD's wavefronts per
+	// cycle, in rotation over the compute unit's four wavefront pools, so a
+	// wavefront issues at most one instruction every four cycles. It requires
+	// SIMDCount to be 4.
+	IssueRotation bool `json:"issue_rotation"`
+
+	// VALUIssueOverlap lets a wavefront issue its next instruction during the
+	// last execute cycle of a VALU instruction. It applies only with
+	// RegisterScoreboard.
+	VALUIssueOverlap bool `json:"valu_issue_overlap"`
+
+	// UniformVALUCycles gives every VALU instruction the same execution time.
+	// Otherwise instructions whose name contains "f64" take twice as long.
+	UniformVALUCycles bool `json:"uniform_valu_cycles"`
+
+	// TakenBranchIssueGap is the number of cycles between issuing a taken
+	// branch and the earliest issue of its target. When positive, a branch
+	// that is not taken keeps the instruction buffer. Zero keeps the legacy
+	// behavior: every branch discards the buffer and adds no extra delay.
+	TakenBranchIssueGap int `json:"taken_branch_issue_gap"`
 
 	// InFlightVectorMemAccessLimit caps the number of outstanding vector
 	// memory transactions.
@@ -124,9 +149,12 @@ type State struct {
 	Scheduler                                 SchedulerState
 	Decoders                                  []DecoderState
 	Branch, LDS                               StageState
-	ScalarUnit                                ScalarUnitState
-	VectorUnit                                VectorUnitState
-	SIMDs                                     []SIMDState
+	// BranchTaken records whether the branch in the write stage changed the PC.
+	BranchTaken bool
+	BankedLDS   BankedLDSState
+	ScalarUnit  ScalarUnitState
+	VectorUnit  VectorUnitState
+	SIMDs       []SIMDState
 
 	// Running indicates that at least one work-group has been mapped.
 	Running bool `json:"running"`

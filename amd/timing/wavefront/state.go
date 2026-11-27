@@ -29,4 +29,7 @@ type ExecutionState struct {
 	OutstandingScalarMemAccess        int
 	OutstandingVectorMemAccess        int
 	InFlightInsts                     int
+	// IssueNotBefore holds back the next issue, for example while the
+	// instruction buffer refills after a taken branch.
+	IssueNotBefore timing.VTimeInPicoSec
 }

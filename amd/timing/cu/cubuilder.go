@@ -21,6 +21,7 @@ func DefaultSpec() Spec {
 		VGPRCounts:                   []int{16384, 16384, 16384, 16384},
 		SGPRCount:                    3200,
 		LDSBytes:                     64 * 1024,
+		LDSReturnCycles:              44,
 		Log2CachelineSize:            6,
 		NumSinglePrecisionUnits:      16,
 		VecMemInstPipelineStages:     6,
@@ -90,8 +91,17 @@ func (b Builder) Build(name string) *Comp {
 }
 
 func (b *Builder) mustHaveValidSpec() {
+	if b.spec.LDSReturnCycles < 0 {
+		panic("cu: LDSReturnCycles must be non-negative")
+	}
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
+	}
+	if b.spec.IssueRotation && b.spec.SIMDCount != numWfPools {
+		panic("cu: IssueRotation requires SIMDCount to equal the number of wavefront pools, 4")
+	}
+	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
+		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
 	}
 }
 
@@ -110,13 +120,18 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
 	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
+	issueArbitor.rotation = b.spec.IssueRotation
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard
+	scheduler.uniformVALUCycles = b.spec.UniformVALUCycles
+	scheduler.issueRotation = b.spec.IssueRotation
 	cu.Scheduler = scheduler
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu, b.resources.ALU)
+	branchUnit := NewBranchUnit(cu, b.resources.ALU)
+	branchUnit.takenIssueGap = b.spec.TakenBranchIssueGap
+	cu.BranchUnit = branchUnit
 
 	scalarDecoder := NewDecodeUnit(cu)
 	scalarDecoder.stage = "decode_scalar"
@@ -141,8 +156,10 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 		simdUnit.index = i
 		simdUnit.NumSinglePrecisionUnit = b.spec.NumSinglePrecisionUnits
 		simdUnit.scoreboardEnabled = b.spec.RegisterScoreboard
+		simdUnit.uniformCycles = b.spec.UniformVALUCycles
 		if b.spec.RegisterScoreboard {
 			simdUnit.pipelineCapacity = 1
+			simdUnit.issueOverlap = b.spec.VALUIssueOverlap
 		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
@@ -155,11 +172,13 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder.index = 2
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.resources.ALU)
-	cu.LDSUnit = ldsUnit
+	cu.LDSUnit = NewLDSUnit(cu, b.resources.ALU)
+	if b.spec.IsCDNA3 {
+		cu.LDSUnit = &cdna3LDSUnit{cu: cu, alu: b.resources.ALU}
+	}
 
 	for i := 0; i < b.spec.SIMDCount; i++ {
-		ldsDecoder.AddExecutionUnit(ldsUnit)
+		ldsDecoder.AddExecutionUnit(cu.LDSUnit)
 	}
 }
 

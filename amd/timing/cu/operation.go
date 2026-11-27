@@ -15,6 +15,8 @@ type operationWave struct {
 	value       *wavefront.ExecutionState
 	instruction *insts.Inst
 	view        *Wavefront
+	// pcWritten records that the operation set the PC, as a taken branch does.
+	pcWritten bool
 }
 
 func (wf *Wavefront) operation() *operationWave {
@@ -48,6 +50,7 @@ func (wf *operationWave) PC() uint64 {
 // SetPC sets the program counter
 func (wf *operationWave) SetPC(v uint64) {
 	wf.value.PC = v
+	wf.pcWritten = true
 }
 
 // EXEC returns the exec mask

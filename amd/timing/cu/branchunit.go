@@ -5,11 +5,19 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
+// branchPipelineCycles is the number of cycles from issuing a branch to its
+// write stage.
+const branchPipelineCycles = 3
+
 // A BranchUnit performs branch operations
 type BranchUnit struct {
 	cu *ComputeUnit
 
 	alu emu.ALU
+
+	// takenIssueGap is the number of cycles between issuing a taken branch
+	// and the earliest issue of its target. Zero keeps the legacy behavior.
+	takenIssueGap int
 }
 
 // NewBranchUnit creates a new branch unit, injecting the dependency of
@@ -71,7 +79,11 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.state().Write == 0 {
-		u.alu.Run(u.cu.wave(u.state().Exec).emulation())
+		// The ALU writes the PC only when the branch is taken, even if the
+		// target is the next instruction.
+		operation := u.cu.wave(u.state().Exec).emulation()
+		u.alu.Run(operation)
+		u.cu.comp.State.BranchTaken = operation.pcWritten
 
 		u.state().Write = u.state().Exec
 		u.state().Exec = 0
@@ -88,18 +100,46 @@ func (u *BranchUnit) runWriteStage() bool {
 	wave := u.cu.wave(u.state().Write)
 	u.cu.completeInstruction(wave, wave.InstID())
 
-	wave.execution().InstBuffer = nil
+	if u.takenIssueGap > 0 && !u.cu.comp.State.BranchTaken {
+		// Fetch continues in sequence, so the buffered instructions stay valid.
+		u.setReadyAtNextPC(wave)
+	} else {
+		wave.execution().InstBuffer = nil
+		u.setReadyAtNextPC(wave)
+		wave.execution().InstBufferStartPC = wave.PC() & 0xffffffffffffffc0
+		u.holdIssueAfterTakenBranch(wave)
+	}
+
+	u.state().Write = 0
+	u.state().Idle = false
+	return true
+}
+
+// setReadyAtNextPC readies the wavefront at the address it continues from.
+func (u *BranchUnit) setReadyAtNextPC(wave *Wavefront) {
 	if wave.Inst().AssignsPC() {
 		// The PC already holds the address to continue at. A PC-relative
 		// branch leaves it one instruction short of that address.
 		wave.execution().State = wavefront.WfReady
-	} else {
-		u.cu.UpdatePCAndSetReady(wave)
+		return
 	}
-	wave.execution().InstBufferStartPC = wave.PC() & 0xffffffffffffffc0
-	u.state().Write = 0
-	u.state().Idle = false
-	return true
+
+	u.cu.UpdatePCAndSetReady(wave)
+}
+
+// holdIssueAfterTakenBranch keeps the wavefront from issuing until its SIMD's
+// first turn after the configured gap since the branch was issued, and wakes
+// the compute unit then.
+func (u *BranchUnit) holdIssueAfterTakenBranch(wave *Wavefront) {
+	if u.takenIssueGap <= 0 {
+		return
+	}
+
+	gapEnd := u.cu.comp.Spec.Freq.NCyclesLater(
+		u.takenIssueGap-branchPipelineCycles, u.cu.CurrentTime())
+	state := wave.execution()
+	state.IssueNotBefore = u.cu.nextIssueTurn(state.SIMDID, gapEnd)
+	u.cu.comp.TickAt(state.IssueNotBefore)
 }
 
 func (u *BranchUnit) state() *StageState { return &u.cu.comp.State.Branch }
