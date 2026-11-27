@@ -82,7 +82,7 @@ type Builder struct {
 	maxCoalescingPenalty      int
 	registerScoreboard        bool
 	issueRotation             bool
-	valuOverlapCycles         int
+	valuIssueOverlap          bool
 	uniformVALUCycles         bool
 	takenBranchIssueGap       int
 	l1AddressMapper           *mem.AddressMapper
@@ -268,10 +268,10 @@ func (b Builder) WithIssueRotation(enabled bool) Builder {
 	return b
 }
 
-// WithVALUOverlapCycles sets how many cycles before a VALU instruction
-// leaves its SIMD the wavefront may issue again.
-func (b Builder) WithVALUOverlapCycles(n int) Builder {
-	b.valuOverlapCycles = n
+// WithVALUIssueOverlap lets a wavefront issue its next instruction during
+// the last execute cycle of a VALU instruction.
+func (b Builder) WithVALUIssueOverlap(enabled bool) Builder {
+	b.valuIssueOverlap = enabled
 	return b
 }
 
@@ -464,7 +464,7 @@ func (b *Builder) cuSpec() cu.Spec {
 
 	spec.RegisterScoreboard = b.registerScoreboard
 	spec.IssueRotation = b.issueRotation
-	spec.VALUOverlapCycles = b.valuOverlapCycles
+	spec.VALUIssueOverlap = b.valuIssueOverlap
 	spec.UniformVALUCycles = b.uniformVALUCycles
 	spec.TakenBranchIssueGap = b.takenBranchIssueGap
 

@@ -577,7 +577,7 @@ func (b *Builder) buildSAs() {
 		// operand stage and four execute cycles; the last one overlaps the
 		// operand stage of the wavefront's next instruction.
 		WithIssueRotation(true).
-		WithVALUOverlapCycles(1).
+		WithVALUIssueOverlap(true).
 		WithUniformVALUCycles(true).
 		// The target of a taken branch issues 32 cycles after the branch: the
 		// branch's own turn and seven idle turns, as the compiled

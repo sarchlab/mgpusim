@@ -5,18 +5,23 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/emu/cdna3"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-// jumpingALU moves the PC by a fixed offset, as a taken branch does.
+// jumpingALU writes the PC, moved by a fixed offset, as a taken branch does.
+// With skip set it leaves the PC alone, as a branch that is not taken does.
 type jumpingALU struct {
 	mockALU
 	offset uint64
+	skip   bool
 }
 
 func (alu *jumpingALU) Run(wf emu.InstEmuState) {
-	wf.SetPC(wf.PC() + alu.offset)
+	if !alu.skip {
+		wf.SetPC(wf.PC() + alu.offset)
+	}
 }
 
 func readyWaveWithNext(unit insts.ExeUnit) *Wavefront {
@@ -133,7 +138,7 @@ var _ = Describe("Pipelined SIMD unit", func() {
 
 	It("should let the wavefront issue again before the instruction leaves", func() {
 		simd.uniformCycles = true
-		simd.overlapCycles = 1
+		simd.issueOverlap = true
 		simd.AcceptWave(wave)
 
 		simd.Run()
@@ -192,6 +197,25 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		period timing.VTimeInPicoSec
 	)
 
+	// branchInst is a SOPP branch with the given opcode and displacement.
+	branchInst := func(opcode insts.Opcode, displacement int64) *testInstruction {
+		description := insts.NewInst()
+		description.FormatType = insts.SOPP
+		description.Opcode = opcode
+		description.SImm16 = insts.NewIntOperand(0, displacement)
+		description.ByteSize = 4
+
+		return testInst(testIDs.NewID(), description)
+	}
+
+	wakeTimes := func() []timing.VTimeInPicoSec {
+		times := make([]timing.VTimeInPicoSec, 0, len(engine.scheduled))
+		for _, evt := range engine.scheduled {
+			times = append(times, evt.Time())
+		}
+		return times
+	}
+
 	BeforeEach(func() {
 		engine = newFakeEngine()
 		cu = newTestComputeUnit("CU", engine)
@@ -204,10 +228,8 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		wave.execution().State = wavefront.WfRunning
 		wave.execution().InstBuffer = make([]byte, 256)
 		wave.execution().InstBufferStartPC = 0x100
-		description := insts.NewInst()
-		description.FormatType = insts.SOPP
-		description.ByteSize = 4
-		wave.setTestInst(testInst(testIDs.NewID(), description))
+		wave.execution().SIMDID = 1
+		wave.setTestInst(branchInst(2, 0))
 		wave.SetPC(0x13C)
 		bu.state().Exec = testWaveID(cu, wave)
 		engine.now = 10 * period
@@ -219,16 +241,33 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		bu.Run()
 		bu.Run()
 
+		gapEnd := timing.VTimeInPicoSec(10+24-branchPipelineCycles) * period
 		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC()).To(Equal(uint64(0x100)))
 		Expect(wave.execution().InstBuffer).To(BeEmpty())
 		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x100)))
-		Expect(wave.execution().IssueNotBefore).To(
-			Equal(timing.VTimeInPicoSec(10+24-branchPipelineCycles) * period))
+		Expect(wave.execution().IssueNotBefore).To(Equal(gapEnd))
 		Expect(cu.issueHeldBack(wave)).To(BeTrue())
+		Expect(wakeTimes()).To(Equal([]timing.VTimeInPicoSec{gapEnd}))
+	})
+
+	It("should hold the wavefront until its SIMD's turn with issue rotation", func() {
+		cu.comp.Spec.IssueRotation = true
+		alu.offset = ^uint64(0x3f)
+
+		bu.Run()
+		bu.Run()
+
+		// The gap ends in cycle 31, when SIMD 3 is served; SIMD 1 is next
+		// served in cycle 33.
+		turn := 33 * period
+		Expect(wave.execution().IssueNotBefore).To(Equal(turn))
+		Expect(wakeTimes()).To(Equal([]timing.VTimeInPicoSec{turn}))
 	})
 
 	It("should keep the instruction buffer when the branch is not taken", func() {
+		alu.skip = true
+
 		bu.Run()
 		bu.Run()
 
@@ -238,10 +277,12 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x140)))
 		Expect(wave.execution().IssueNotBefore).To(BeZero())
 		Expect(cu.issueHeldBack(wave)).To(BeFalse())
+		Expect(wakeTimes()).To(BeEmpty())
 	})
 
 	It("should flush without a hold when the gap is not configured", func() {
 		bu.takenIssueGap = 0
+		alu.skip = true
 
 		bu.Run()
 		bu.Run()
@@ -249,10 +290,58 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		Expect(wave.PC()).To(Equal(uint64(0x140)))
 		Expect(wave.execution().InstBuffer).To(BeEmpty())
 		Expect(wave.execution().IssueNotBefore).To(BeZero())
+		Expect(wakeTimes()).To(BeEmpty())
+	})
+
+	Context("with the CDNA3 ALU and a zero displacement", func() {
+		BeforeEach(func() {
+			bu.alu = cdna3.NewALU(nil)
+		})
+
+		expectTaken := func() {
+			Expect(wave.PC()).To(Equal(uint64(0x140)))
+			Expect(wave.execution().InstBuffer).To(BeEmpty())
+			Expect(cu.issueHeldBack(wave)).To(BeTrue())
+		}
+
+		expectNotTaken := func() {
+			Expect(wave.PC()).To(Equal(uint64(0x140)))
+			Expect(wave.execution().InstBuffer).To(HaveLen(192))
+			Expect(cu.issueHeldBack(wave)).To(BeFalse())
+		}
+
+		It("should treat an unconditional branch as taken", func() {
+			wave.setTestInst(branchInst(2, 0)) // s_branch 0
+
+			bu.Run()
+			bu.Run()
+
+			expectTaken()
+		})
+
+		It("should treat a conditional branch whose condition holds as taken", func() {
+			wave.setTestInst(branchInst(4, 0)) // s_cbranch_scc0 0
+			wave.SetSCC(0)
+
+			bu.Run()
+			bu.Run()
+
+			expectTaken()
+		})
+
+		It("should treat a conditional branch whose condition fails as not taken", func() {
+			wave.setTestInst(branchInst(4, 0)) // s_cbranch_scc0 0
+			wave.SetSCC(1)
+
+			bu.Run()
+			bu.Run()
+
+			expectNotTaken()
+		})
 	})
 })
 
-var _ = Describe("Scheduler with timed issue", func() {
+var _ = Describe("Scheduler with issue rotation", func() {
 	var (
 		engine        *fakeEngine
 		cu            *ComputeUnit
@@ -262,22 +351,13 @@ var _ = Describe("Scheduler with timed issue", func() {
 		period        timing.VTimeInPicoSec
 	)
 
-	BeforeEach(func() {
-		engine = newFakeEngine()
-		cu = newTestComputeUnit("CU", engine)
-		period = cu.comp.Spec.Freq.Period()
-		for i := 0; i < 4; i++ {
-			cu.WfPools = append(cu.WfPools, NewWavefrontPool(cu, i, 10))
+	wakeTimes := func() []timing.VTimeInPicoSec {
+		times := make([]timing.VTimeInPicoSec, 0, len(engine.scheduled))
+		for _, evt := range engine.scheduled {
+			times = append(times, evt.Time())
 		}
-		vectorDecoder = &mockCUComponent{canAccept: true}
-		cu.VectorDecoder = vectorDecoder
-
-		scheduler = NewScheduler(cu, newMockWfArbitor(), newMockWfArbitor())
-		scheduler.timedIssue = true
-
-		wave = readyWaveWithNext(insts.ExeUnitVALU)
-		testAddWave(cu.WfPools[1], wave)
-	})
+		return times
+	}
 
 	runUntilIdle := func() int {
 		for i := 0; i < 20; i++ {
@@ -288,27 +368,69 @@ var _ = Describe("Scheduler with timed issue", func() {
 		return 20
 	}
 
-	It("should keep ticking while a wavefront waits out a hold", func() {
-		wave.execution().IssueNotBefore = 100 * period
+	BeforeEach(func() {
+		engine = newFakeEngine()
+		cu = newTestComputeUnit("CU", engine)
+		cu.comp.Spec.IssueRotation = true
+		period = cu.comp.Spec.Freq.Period()
+		for i := 0; i < numWfPools; i++ {
+			cu.WfPools = append(cu.WfPools, NewWavefrontPool(cu, i, 10))
+		}
+		vectorDecoder = &mockCUComponent{canAccept: true}
+		cu.VectorDecoder = vectorDecoder
 
-		Expect(runUntilIdle()).To(Equal(20))
+		scheduler = NewScheduler(cu, newMockWfArbitor(), newMockWfArbitor())
+		scheduler.issueRotation = true
+
+		wave = readyWaveWithNext(insts.ExeUnitVALU)
+		testAddWave(cu.WfPools[1], wave)
 	})
 
-	It("should keep ticking while a wavefront waits for its SIMD's turn", func() {
-		cu.comp.Spec.IssueRotation = true
+	It("should wake the compute unit at the next turn of a waiting SIMD", func() {
 		engine.now = 2 * period
 
-		Expect(runUntilIdle()).To(Equal(20))
+		scheduler.Run()
+
+		Expect(wakeTimes()).To(Equal([]timing.VTimeInPicoSec{5 * period}))
 	})
 
-	It("should go idle when the execution unit cannot accept the instruction", func() {
+	It("should not report progress while an instruction waits for its turn", func() {
+		engine.now = 2 * period
+
+		Expect(runUntilIdle()).To(BeNumerically("<", 20))
+	})
+
+	It("should not wake for the SIMD that is served in this cycle", func() {
+		engine.now = 1 * period
+
+		scheduler.Run()
+
+		Expect(wakeTimes()).To(BeEmpty())
+	})
+
+	It("should not wake for a wavefront that is held back", func() {
+		engine.now = 2 * period
 		wave.execution().IssueNotBefore = 100 * period
+
+		Expect(runUntilIdle()).To(BeNumerically("<", 20))
+		Expect(wakeTimes()).To(BeEmpty())
+	})
+
+	It("should not wake when the execution unit cannot accept the instruction", func() {
+		engine.now = 2 * period
 		vectorDecoder.canAccept = false
 
-		Expect(runUntilIdle()).To(BeNumerically("<", 20))
+		scheduler.Run()
+
+		Expect(wakeTimes()).To(BeEmpty())
 	})
 
-	It("should go idle when nothing is waiting for a known cycle", func() {
-		Expect(runUntilIdle()).To(BeNumerically("<", 20))
+	It("should not wake without issue rotation", func() {
+		scheduler.issueRotation = false
+		engine.now = 2 * period
+
+		scheduler.Run()
+
+		Expect(wakeTimes()).To(BeEmpty())
 	})
 })

@@ -577,9 +577,27 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
 
 // servedSIMD returns the SIMD whose wavefronts may issue in this cycle when
 // the scheduler rotates over the SIMDs.
-func (cu *ComputeUnit) servedSIMD(numSIMDs int) int {
+func (cu *ComputeUnit) servedSIMD() int {
 	cycle := cu.comp.Spec.Freq.Cycle(cu.CurrentTime())
-	return int(cycle % uint64(numSIMDs))
+	return int(cycle % numWfPools)
+}
+
+// nextIssueTurn returns the first clock edge at or after the given time at
+// which the SIMD's wavefronts may issue: any edge without issue rotation,
+// otherwise the SIMD's next turn.
+func (cu *ComputeUnit) nextIssueTurn(
+	simd int,
+	at timing.VTimeInPicoSec,
+) timing.VTimeInPicoSec {
+	freq := cu.comp.Spec.Freq
+	edge := freq.ThisTick(at)
+	if !cu.comp.Spec.IssueRotation {
+		return edge
+	}
+
+	wait := (uint64(simd) + numWfPools - freq.Cycle(edge)%numWfPools) % numWfPools
+
+	return freq.NCyclesLater(int(wait), edge)
 }
 
 // issueHeldBack reports whether the wavefront must still wait before it can

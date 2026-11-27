@@ -118,6 +118,13 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 	}
 }
 
+// issueTiming is the part of a compute unit's Spec that sets when
+// instructions issue.
+type issueTiming struct {
+	rotation, valuOverlap, uniformVALU bool
+	takenBranchGap                     int
+}
+
 // checkIssueTiming verifies that only the MI300X preset uses the measured
 // issue cadence: one SIMD served per cycle, overlapped VALU issue, f64 at the
 // same cost, and a 32-cycle gap after a taken branch.
@@ -125,22 +132,19 @@ func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
 	t.Helper()
 
 	spec := unit.Spec
-	got := [4]int{0, spec.VALUOverlapCycles, 0, spec.TakenBranchIssueGap}
-	if spec.IssueRotation {
-		got[0] = 1
-	}
-	if spec.UniformVALUCycles {
-		got[2] = 1
+	got := issueTiming{
+		rotation:       spec.IssueRotation,
+		valuOverlap:    spec.VALUIssueOverlap,
+		uniformVALU:    spec.UniformVALUCycles,
+		takenBranchGap: spec.TakenBranchIssueGap,
 	}
 
-	want := [4]int{}
+	want := issueTiming{}
 	if measured {
-		want = [4]int{1, 1, 1, 32}
+		want = issueTiming{rotation: true, valuOverlap: true, uniformVALU: true, takenBranchGap: 32}
 	}
 
 	if got != want {
-		t.Fatalf("%s issue timing is %v; expected %v "+
-			"(rotation, VALU overlap, uniform VALU, taken-branch gap)",
-			unit.Name(), got, want)
+		t.Fatalf("%s issue timing is %+v; expected %+v", unit.Name(), got, want)
 	}
 }

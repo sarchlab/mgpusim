@@ -78,10 +78,11 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.state().Write == 0 {
+		// The ALU writes the PC only when the branch is taken, even if the
+		// target is the next instruction.
 		operation := u.cu.wave(u.state().Exec).emulation()
-		pc := operation.PC()
 		u.alu.Run(operation)
-		u.cu.comp.State.BranchTaken = operation.PC() != pc
+		u.cu.comp.State.BranchTaken = operation.pcWritten
 
 		u.state().Write = u.state().Exec
 		u.state().Exec = 0
@@ -113,15 +114,19 @@ func (u *BranchUnit) runWriteStage() bool {
 	return true
 }
 
-// holdIssueAfterTakenBranch keeps the wavefront from issuing until the
-// configured gap after the branch was issued has passed.
+// holdIssueAfterTakenBranch keeps the wavefront from issuing until its SIMD's
+// first turn after the configured gap since the branch was issued, and wakes
+// the compute unit then.
 func (u *BranchUnit) holdIssueAfterTakenBranch(wave *Wavefront) {
 	if u.takenIssueGap <= 0 {
 		return
 	}
 
-	wave.execution().IssueNotBefore = u.cu.comp.Spec.Freq.NCyclesLater(
+	gapEnd := u.cu.comp.Spec.Freq.NCyclesLater(
 		u.takenIssueGap-branchPipelineCycles, u.cu.CurrentTime())
+	state := wave.execution()
+	state.IssueNotBefore = u.cu.nextIssueTurn(state.SIMDID, gapEnd)
+	u.cu.comp.TickAt(state.IssueNotBefore)
 }
 
 func (u *BranchUnit) state() *StageState { return &u.cu.comp.State.Branch }

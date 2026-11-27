@@ -97,9 +97,6 @@ func (b *Builder) mustHaveValidSpec() {
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
 	}
-	if b.spec.VALUOverlapCycles < 0 {
-		panic("cu: VALUOverlapCycles must be non-negative")
-	}
 	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
 		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
 	}
@@ -124,7 +121,7 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard
 	scheduler.uniformVALUCycles = b.spec.UniformVALUCycles
-	scheduler.timedIssue = b.spec.IssueRotation || b.spec.TakenBranchIssueGap > 0
+	scheduler.issueRotation = b.spec.IssueRotation
 	cu.Scheduler = scheduler
 }
 
@@ -159,7 +156,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit, name string) {
 		simdUnit.uniformCycles = b.spec.UniformVALUCycles
 		if b.spec.RegisterScoreboard {
 			simdUnit.pipelineCapacity = 1
-			simdUnit.overlapCycles = b.spec.VALUOverlapCycles
+			simdUnit.issueOverlap = b.spec.VALUIssueOverlap
 		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)

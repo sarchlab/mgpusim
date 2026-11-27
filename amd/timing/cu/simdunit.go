@@ -25,9 +25,9 @@ type SIMDUnit struct {
 
 	scoreboardEnabled bool
 
-	// overlapCycles is how many cycles before an instruction leaves the SIMD
-	// its wavefront may issue again (pipeline mode only).
-	overlapCycles int
+	// issueOverlap releases the wavefront for its next issue during the last
+	// execute cycle of an instruction (pipeline mode only).
+	issueOverlap bool
 
 	// uniformCycles gives f64 instructions the same execution time as others.
 	uniformCycles bool
@@ -114,9 +114,10 @@ func (u *SIMDUnit) runPipelined() bool {
 		madeProgress = true
 		wave := u.cu.wave(slot.WF)
 
-		if !slot.Released && slot.Cycles <= u.overlapCycles {
+		lastCycle := u.issueOverlap && slot.Cycles == 1
+		if !slot.Released && (slot.Cycles <= 0 || lastCycle) {
 			// The result is usable from here on, so the wavefront can issue
-			// its next instruction while this one finishes its last cycles.
+			// its next instruction while this one finishes its last cycle.
 			u.alu.Run(wave.emulation())
 			u.cu.UpdatePCAndSetReady(wave)
 			slot.Released = true

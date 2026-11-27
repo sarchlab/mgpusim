@@ -27,7 +27,7 @@ func (a *IssueArbiter) Arbitrate(
 
 	wfToIssue := make([]*Wavefront, 0)
 	if a.rotation {
-		return a.arbitratePool(wfPools[a.cu.servedSIMD(len(wfPools))], wfToIssue)
+		return a.arbitratePool(wfPools[a.cu.servedSIMD()], wfToIssue)
 	}
 
 	for i := 0; i < len(wfPools); i++ {

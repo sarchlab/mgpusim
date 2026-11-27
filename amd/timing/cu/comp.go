@@ -101,10 +101,10 @@ type Spec struct {
 	// SIMDCount cycles.
 	IssueRotation bool `json:"issue_rotation"`
 
-	// VALUOverlapCycles is the number of cycles before a VALU instruction
-	// leaves its SIMD at which its wavefront may issue again. It applies only
-	// with RegisterScoreboard.
-	VALUOverlapCycles int `json:"valu_overlap_cycles"`
+	// VALUIssueOverlap lets a wavefront issue its next instruction during the
+	// last execute cycle of a VALU instruction. It applies only with
+	// RegisterScoreboard.
+	VALUIssueOverlap bool `json:"valu_issue_overlap"`
 
 	// UniformVALUCycles gives every VALU instruction the same execution time.
 	// Otherwise instructions whose name contains "f64" take twice as long.
