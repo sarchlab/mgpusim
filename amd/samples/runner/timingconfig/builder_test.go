@@ -120,7 +120,7 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 
 // checkIssueTiming verifies that only the MI300X preset uses the measured
 // issue cadence: one SIMD served per cycle, overlapped VALU issue, f64 at the
-// same cost, and a 24-cycle gap after a taken branch.
+// same cost, and a 32-cycle gap after a taken branch.
 func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
 	t.Helper()
 
@@ -135,7 +135,7 @@ func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
 
 	want := [4]int{}
 	if measured {
-		want = [4]int{1, 1, 1, 24}
+		want = [4]int{1, 1, 1, 32}
 	}
 
 	if got != want {

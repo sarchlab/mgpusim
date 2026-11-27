@@ -579,11 +579,15 @@ func (b *Builder) buildSAs() {
 		WithIssueRotation(true).
 		WithVALUOverlapCycles(1).
 		WithUniformVALUCycles(true).
-		// The loop control s_add, s_cmp, s_cbranch measures 32 cycles: the
-		// target of a taken branch issues 24 cycles after the branch. A branch
-		// that is not taken is assumed to cost one issue turn; that case has
-		// not been measured.
-		WithTakenBranchIssueGap(24)
+		// The target of a taken branch issues 32 cycles after the branch: the
+		// branch's own turn and seven idle turns, as the compiled
+		// fp32_throughput loop measures (52 cycles for six instructions). The
+		// hand-written loop s_add, s_cmp, s_cbranch waits only five idle turns
+		// (32 cycles in total); what makes compiled loops wait longer is not
+		// known, and fp32_throughput is the reference. A branch that is not
+		// taken is assumed to cost one issue turn; that case has not been
+		// measured.
+		WithTakenBranchIssueGap(32)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
