@@ -52,6 +52,12 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
+	// Without fetch-ahead a wavefront has one fetch outstanding at a time,
+	// including one made obsolete by a taken branch.
+	if a.FetchAheadLines <= 1 && state.IsFetching {
+		return false
+	}
+
 	if state.State == wavefront.WfCompleted {
 		return false
 	}

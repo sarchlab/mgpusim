@@ -326,18 +326,12 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	info := cu.comp.State.InstFetch[matchIdx]
 	wf := cu.wave(info.WF)
-	addr := info.Address
 	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf)
 	cu.comp.State.InstFetch = append(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	// A fetch of an earlier stream was made obsolete by a taken branch. Within
-	// a stream the lines return in the order they were requested.
-	if info.Epoch == wf.execution().FetchEpoch {
-		if addr != wf.execution().InstBufferStartPC+uint64(len(wf.execution().InstBuffer)) {
-			log.Panicf("cu: fetched line 0x%x does not continue the instruction buffer", addr)
-		}
+	if cu.continuesInstBuffer(wf, info) {
 		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
@@ -355,6 +349,30 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	cu.completeRequest(info.Req.ID)
 	cu.comp.TaskTracker().EndTask(info.Task)
+	return true
+}
+
+// continuesInstBuffer reports whether a returned line is appended to the
+// wavefront's instruction buffer.
+func (cu *ComputeUnit) continuesInstBuffer(wf *Wavefront, info FetchState) bool {
+	state := wf.execution()
+	continues := info.Address == state.InstBufferStartPC+uint64(len(state.InstBuffer))
+
+	// Fetching one line at a time, a line that continues the buffer is used
+	// even when a taken branch has made its fetch obsolete.
+	if cu.comp.Spec.InstFetchAheadLines <= 1 {
+		return continues
+	}
+
+	// A fetch of an earlier stream is dropped. Within a stream the lines
+	// return in the order they were requested.
+	if info.Epoch != state.FetchEpoch {
+		return false
+	}
+	if !continues {
+		log.Panicf("cu: fetched line 0x%x does not continue the instruction buffer", info.Address)
+	}
+
 	return true
 }
 
