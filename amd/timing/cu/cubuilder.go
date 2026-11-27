@@ -97,6 +97,9 @@ func (b *Builder) mustHaveValidSpec() {
 	if len(b.spec.VGPRCounts) != b.spec.SIMDCount {
 		panic("cu: VGPRCounts must have a length that equals to the SIMDCount")
 	}
+	if b.spec.IssueRotation && b.spec.SIMDCount != numWfPools {
+		panic("cu: IssueRotation requires SIMDCount to equal the number of wavefront pools, 4")
+	}
 	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
 		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
 	}

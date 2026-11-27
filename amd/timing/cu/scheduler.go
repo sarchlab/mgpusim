@@ -63,6 +63,9 @@ func (s *SchedulerImpl) Run() bool {
 	if s.scoreboardEnabled {
 		madeProgress = s.tickScoreboards() || madeProgress
 	}
+	if s.cu.comp.Spec.TakenBranchIssueGap > 0 {
+		s.markEndedBranchHolds()
+	}
 	madeProgress = s.EvaluateInternalInst() || madeProgress
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue() || madeProgress
@@ -80,6 +83,28 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
+}
+
+// markEndedBranchHolds closes, on the wavefront trace, the wait of every
+// wavefront whose hold after a taken branch ends in this cycle, and attributes
+// it to the branch unit. The hold scheduled a tick for exactly this cycle, so
+// each hold is marked once, before the wavefront can issue again; what the
+// wavefront waits for after that is attributed to its execution unit.
+func (s *SchedulerImpl) markEndedBranchHolds() {
+	now := s.cu.CurrentTime()
+
+	for _, wfPool := range s.cu.WfPools {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
+			state := wf.execution()
+			if state.IssueNotBefore != now || state.InFlightInsts != 0 {
+				continue
+			}
+
+			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
+				s.cu.comp.Name()+"."+s.cu.execUnitToString(insts.ExeUnitBranch))
+		}
+	}
 }
 
 // wakeForIssueTurns schedules a tick at the next turn of every SIMD, other

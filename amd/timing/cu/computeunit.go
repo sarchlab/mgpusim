@@ -637,7 +637,8 @@ func wfHasInstructionReady(wf *Wavefront) bool {
 // markWfMilestone records a milestone on the wavefront task itself (TaskID
 // wf.UID), not on its instruction. These tile the wavefront's life into
 // execution (work) and the reasons for a gap between instructions — waiting
-// to fetch (hardware_resource), waiting for the fetched bytes (data), and
+// to fetch (hardware_resource), waiting for the fetched bytes (data), waiting
+// out the hold after a taken branch (hardware_resource, the branch unit), and
 // waiting for the exec unit to accept the issue (hardware_resource). They are
 // only emitted while nothing is in flight (see beginInstruction), so they never
 // overlap and a prefetch overlapping execution stays silent.

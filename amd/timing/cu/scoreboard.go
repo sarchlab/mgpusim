@@ -190,16 +190,11 @@ func (s *Scoreboard) Clear() {
 	s.EXECBusyUntil = 0
 }
 
-// GetScoreboardLatency returns the scoreboard latency for an instruction based
-// on its execution unit. LDS/VMem instructions return 0 (not tracked by
+// scoreboardLatency returns the number of cycles an instruction keeps its
+// destination registers busy, based on its execution unit. f64 VALU
+// instructions take twice as long as other VALU instructions unless
+// uniformVALUCycles is set. LDS/VMem instructions return 0 (not tracked by
 // scoreboard; handled by s_waitcnt).
-func GetScoreboardLatency(inst *insts.Inst) int {
-	return scoreboardLatency(inst, false)
-}
-
-// scoreboardLatency is GetScoreboardLatency for a compute unit's settings:
-// with uniformVALUCycles, f64 instructions are busy no longer than other VALU
-// instructions.
 func scoreboardLatency(inst *insts.Inst, uniformVALUCycles bool) int {
 	switch inst.ExeUnit {
 	case insts.ExeUnitVALU:

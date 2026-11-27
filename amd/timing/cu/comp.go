@@ -97,8 +97,9 @@ type Spec struct {
 	RegisterScoreboard bool `json:"register_scoreboard"`
 
 	// IssueRotation makes the scheduler serve one SIMD's wavefronts per
-	// cycle, in rotation, so a wavefront issues at most one instruction every
-	// SIMDCount cycles.
+	// cycle, in rotation over the compute unit's four wavefront pools, so a
+	// wavefront issues at most one instruction every four cycles. It requires
+	// SIMDCount to be 4.
 	IssueRotation bool `json:"issue_rotation"`
 
 	// VALUIssueOverlap lets a wavefront issue its next instruction during the

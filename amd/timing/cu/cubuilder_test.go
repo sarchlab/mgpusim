@@ -63,4 +63,18 @@ var _ = Describe("Builder", func() {
 		Expect(view.DispatchingPort()).To(
 			Equal(messaging.RemotePort("GPU.CU.Top")))
 	})
+
+	It("should reject issue rotation without four SIMDs", func() {
+		reg := sim.MakeBuilder().Build()
+		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
+
+		spec := DefaultSpec()
+		spec.IssueRotation = true
+		spec.SIMDCount = 2
+		spec.VGPRCounts = []int{16384, 16384}
+
+		Expect(func() {
+			MakeBuilder().WithSpec(spec).WithSimulation(reg).Build("GPU.CU")
+		}).To(PanicWith(ContainSubstring("IssueRotation requires SIMDCount")))
+	})
 })
