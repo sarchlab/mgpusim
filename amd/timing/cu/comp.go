@@ -96,6 +96,26 @@ type Spec struct {
 	// feature.
 	RegisterScoreboard bool `json:"register_scoreboard"`
 
+	// IssueRotation makes the scheduler serve one SIMD's wavefronts per
+	// cycle, in rotation, so a wavefront issues at most one instruction every
+	// SIMDCount cycles.
+	IssueRotation bool `json:"issue_rotation"`
+
+	// VALUOverlapCycles is the number of cycles before a VALU instruction
+	// leaves its SIMD at which its wavefront may issue again. It applies only
+	// with RegisterScoreboard.
+	VALUOverlapCycles int `json:"valu_overlap_cycles"`
+
+	// UniformVALUCycles gives every VALU instruction the same execution time.
+	// Otherwise instructions whose name contains "f64" take twice as long.
+	UniformVALUCycles bool `json:"uniform_valu_cycles"`
+
+	// TakenBranchIssueGap is the number of cycles between issuing a taken
+	// branch and the earliest issue of its target. When positive, a branch
+	// that is not taken keeps the instruction buffer. Zero keeps the legacy
+	// behavior: every branch discards the buffer and adds no extra delay.
+	TakenBranchIssueGap int `json:"taken_branch_issue_gap"`
+
 	// InFlightVectorMemAccessLimit caps the number of outstanding vector
 	// memory transactions.
 	InFlightVectorMemAccessLimit int `json:"in_flight_vector_mem_access_limit"`
@@ -128,10 +148,12 @@ type State struct {
 	Scheduler                                 SchedulerState
 	Decoders                                  []DecoderState
 	Branch, LDS                               StageState
-	BankedLDS                                 BankedLDSState
-	ScalarUnit                                ScalarUnitState
-	VectorUnit                                VectorUnitState
-	SIMDs                                     []SIMDState
+	// BranchTaken records whether the branch in the write stage changed the PC.
+	BranchTaken bool
+	BankedLDS   BankedLDSState
+	ScalarUnit  ScalarUnitState
+	VectorUnit  VectorUnitState
+	SIMDs       []SIMDState
 
 	// Running indicates that at least one work-group has been mapped.
 	Running bool `json:"running"`

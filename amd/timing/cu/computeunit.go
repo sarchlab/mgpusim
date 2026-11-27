@@ -575,6 +575,21 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
 	cu.removeStaleInstBuffer(wf)
 }
 
+// servedSIMD returns the SIMD whose wavefronts may issue in this cycle when
+// the scheduler rotates over the SIMDs.
+func (cu *ComputeUnit) servedSIMD(numSIMDs int) int {
+	cycle := cu.comp.Spec.Freq.Cycle(cu.CurrentTime())
+	return int(cycle % uint64(numSIMDs))
+}
+
+// issueHeldBack reports whether the wavefront must still wait before it can
+// issue, for example while its instruction buffer refills after a taken
+// branch.
+func (cu *ComputeUnit) issueHeldBack(wf *Wavefront) bool {
+	notBefore := wf.execution().IssueNotBefore
+	return notBefore != 0 && cu.CurrentTime() < notBefore
+}
+
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
 	if len(wf.execution().InstBuffer) != 0 {
 		for wf.PC() >= wf.execution().InstBufferStartPC+64 {

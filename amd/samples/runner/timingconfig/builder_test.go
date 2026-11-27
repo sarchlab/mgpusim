@@ -48,6 +48,9 @@ func buildPlatform(t *testing.T, gpuType string, numGPUs int) {
 		if unit, ok := c.(*cu.Comp); ok && gpuType == "mi300x" && unit.Spec.Freq != 1680*timing.MHz {
 			t.Fatalf("%s clock is %v; expected the 1680 MHz MI300X preset", unit.Name(), unit.Spec.Freq)
 		}
+		if unit, ok := c.(*cu.Comp); ok {
+			checkIssueTiming(t, unit, gpuType == "mi300x")
+		}
 		checkRouting(t, s, c, numGPUs)
 	}
 	if !found["Driver"] {
@@ -112,5 +115,32 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 		if len(c.Spec.LocalDataSource.Destinations) == 0 {
 			t.Fatal("missing DMA routes")
 		}
+	}
+}
+
+// checkIssueTiming verifies that only the MI300X preset uses the measured
+// issue cadence: one SIMD served per cycle, overlapped VALU issue, f64 at the
+// same cost, and a 24-cycle gap after a taken branch.
+func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
+	t.Helper()
+
+	spec := unit.Spec
+	got := [4]int{0, spec.VALUOverlapCycles, 0, spec.TakenBranchIssueGap}
+	if spec.IssueRotation {
+		got[0] = 1
+	}
+	if spec.UniformVALUCycles {
+		got[2] = 1
+	}
+
+	want := [4]int{}
+	if measured {
+		want = [4]int{1, 1, 1, 24}
+	}
+
+	if got != want {
+		t.Fatalf("%s issue timing is %v; expected %v "+
+			"(rotation, VALU overlap, uniform VALU, taken-branch gap)",
+			unit.Name(), got, want)
 	}
 }

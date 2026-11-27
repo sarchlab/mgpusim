@@ -29,6 +29,14 @@ type SchedulerImpl struct {
 	stopTickingAfterNCyclesNoProgress int
 
 	scoreboardEnabled bool
+
+	// uniformVALUCycles drops the longer register-busy time of f64
+	// instructions.
+	uniformVALUCycles bool
+
+	// timedIssue is set when an instruction that is ready to issue may have
+	// to wait for its SIMD's turn or for a hold after a taken branch.
+	timedIssue bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -60,6 +68,10 @@ func (s *SchedulerImpl) Run() bool {
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue() || madeProgress
 	madeProgress = s.DoFetch() || madeProgress
+	if s.timedIssue && !madeProgress {
+		// Waiting for a known future cycle is not being stuck: keep ticking.
+		madeProgress = s.hasTimedIssuePending()
+	}
 	if !madeProgress {
 		s.state().NoProgress++
 	} else {
@@ -70,6 +82,43 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
+}
+
+// hasTimedIssuePending reports whether a wavefront has an instruction that
+// its execution unit could accept, and is only waiting for its SIMD's turn or
+// for the end of a hold.
+func (s *SchedulerImpl) hasTimedIssuePending() bool {
+	rotation := s.cu.comp.Spec.IssueRotation
+	served := 0
+	if rotation {
+		served = s.cu.servedSIMD(len(s.cu.WfPools))
+	}
+
+	for i, wfPool := range s.cu.WfPools {
+		for _, handle := range wfPool.ids() {
+			wf := wfPool.cu.wave(handle)
+			if wf.execution().State != wavefront.WfReady {
+				continue
+			}
+
+			inst := wf.NextInst()
+			if inst == nil {
+				continue
+			}
+
+			waiting := s.cu.issueHeldBack(wf) || (rotation && i != served)
+			if !waiting {
+				continue
+			}
+
+			if inst.ExeUnit == insts.ExeUnitSpecial ||
+				s.getUnitToIssueTo(inst.ExeUnit).CanAcceptWave() {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (s *SchedulerImpl) tickScoreboards() bool {
@@ -218,7 +267,7 @@ func (s *SchedulerImpl) DoIssue() bool {
 			s.cu.beginInstruction(wf, wf.InstID())
 
 			if s.scoreboardEnabled && wf.scoreboard() != nil {
-				latency := GetScoreboardLatency(inst)
+				latency := GetScoreboardLatency(inst, s.uniformVALUCycles)
 				if latency > 0 {
 					wf.scoreboard().MarkBusy(
 						inst, latency)
