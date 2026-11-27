@@ -11,6 +11,10 @@ import (
 // instructions
 type FetchArbiter struct {
 	InstBufByteSize int
+
+	// FetchAheadLines is the number of lines a wavefront may have in flight.
+	// Zero or one fetches one line at a time.
+	FetchAheadLines int
 }
 
 // Arbitrate decide which wavefront can fetch the next instruction
@@ -44,7 +48,7 @@ func (a *FetchArbiter) Arbitrate(
 
 func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	state := wf.execution()
-	if wf.state().StopFetch || state.IsFetching {
+	if wf.state().StopFetch {
 		return false
 	}
 
@@ -52,7 +56,13 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	if len(state.InstBuffer) >= a.InstBufByteSize {
+	nextFetchPC := nextFetchPC(state)
+	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
+	if nextFetchPC-bufferEnd >= uint64(max(a.FetchAheadLines, 1))*instFetchByteSize {
+		return false
+	}
+
+	if nextFetchPC-state.InstBufferStartPC >= uint64(a.InstBufByteSize) {
 		return false
 	}
 
@@ -61,12 +71,33 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	if co.Present && co.HasSymbol {
 		lastPCInBinary := co.Symbol.Size +
 			group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset
-		lastPCInInstBuffer := state.InstBufferStartPC +
-			uint64(len(state.InstBuffer))
-		if lastPCInInstBuffer >= lastPCInBinary {
+		if nextFetchPC >= lastPCInBinary {
 			return false
 		}
 	}
 
 	return true
+}
+
+// instFetchByteSize is the size of one instruction fetch, a cache line.
+const instFetchByteSize = 64
+
+// nextFetchPC returns the address of the next line the wavefront requests:
+// the line after those buffered and in flight in the current fetch stream.
+func nextFetchPC(state *wavefront.ExecutionState) uint64 {
+	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
+	bufferEnd &^= instFetchByteSize - 1
+
+	return max(state.NextFetchPC, bufferEnd)
+}
+
+// redirectFetch starts a new fetch stream at the wavefront's PC. The
+// instruction buffer is emptied, and the fetches still in flight are dropped
+// when they return.
+func redirectFetch(wf *Wavefront) {
+	state := wf.execution()
+	state.InstBuffer = nil
+	state.InstBufferStartPC = wf.PC() &^ (instFetchByteSize - 1)
+	state.FetchEpoch++
+	state.NextFetchPC = 0
 }

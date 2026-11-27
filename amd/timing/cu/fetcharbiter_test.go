@@ -76,3 +76,73 @@ func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
 		t.Fatal("allowed a fetch beyond the linked kernel instructions")
 	}
 }
+
+func TestFetchAheadKeepsSeveralLinesInFlight(t *testing.T) {
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+
+	one := FetchArbiter{InstBufByteSize: 256}
+	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 3}
+
+	state.NextFetchPC = 0x1040
+	if one.canFetchFromWF(wave) {
+		t.Fatal("fetched a second line while one was in flight")
+	}
+	if !ahead.canFetchFromWF(wave) {
+		t.Fatal("refused a second line in flight")
+	}
+
+	state.NextFetchPC = 0x10c0
+	if ahead.canFetchFromWF(wave) {
+		t.Fatal("exceeded the number of lines in flight")
+	}
+
+	// One line arrived: two are in flight again.
+	state.InstBuffer = make([]byte, 64)
+	if !ahead.canFetchFromWF(wave) {
+		t.Fatal("refused to refill after a line arrived")
+	}
+}
+
+func TestFetchAheadStopsAtTheInstructionBufferSize(t *testing.T) {
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+	arbiter := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 4}
+
+	// Two lines buffered and two in flight fill the buffer.
+	state.InstBuffer = make([]byte, 128)
+	state.NextFetchPC = 0x1100
+	if arbiter.canFetchFromWF(wave) {
+		t.Fatal("requested more lines than the instruction buffer holds")
+	}
+
+	state.NextFetchPC = 0x10c0
+	if !arbiter.canFetchFromWF(wave) {
+		t.Fatal("refused a line the instruction buffer has room for")
+	}
+}
+
+func TestRedirectFetchStartsANewStream(t *testing.T) {
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	state := wave.execution()
+	state.InstBuffer = make([]byte, 128)
+	state.InstBufferStartPC = 0x1000
+	state.NextFetchPC = 0x1100
+	wave.SetPC(0x2044)
+
+	redirectFetch(wave)
+
+	if len(state.InstBuffer) != 0 || state.InstBufferStartPC != 0x2040 {
+		t.Fatalf("buffer holds %d bytes from 0x%x", len(state.InstBuffer), state.InstBufferStartPC)
+	}
+	if state.FetchEpoch != 1 {
+		t.Fatalf("fetch epoch %d, want 1", state.FetchEpoch)
+	}
+	if next := nextFetchPC(state); next != 0x2040 {
+		t.Fatalf("next fetch at 0x%x, want the line of the new PC", next)
+	}
+}

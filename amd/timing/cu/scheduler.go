@@ -220,8 +220,7 @@ func (s *SchedulerImpl) DoFetch() bool {
 		if len(wf.execution().InstBuffer) == 0 {
 			wf.execution().InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
 		}
-		addr := wf.execution().InstBufferStartPC + uint64(len(wf.execution().InstBuffer))
-		addr = addr & 0xffffffffffffffc0
+		addr := nextFetchPC(wf.execution())
 		req := messaging.Msg{ID: s.cu.comp.NewID(),
 			Src: s.cu.instMemPort().AsRemote(),
 			Dst: s.cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: addr,
@@ -236,8 +235,10 @@ func (s *SchedulerImpl) DoFetch() bool {
 		info.Wavefront = wf
 		info.Req = req
 		info.Address = addr
+		info.Epoch = wf.execution().FetchEpoch
 
 		wf.execution().IsFetching = true
+		wf.execution().NextFetchPC = addr + instFetchByteSize
 
 		madeProgress = true
 

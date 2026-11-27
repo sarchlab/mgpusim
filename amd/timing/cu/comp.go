@@ -124,6 +124,12 @@ type Spec struct {
 	// InstBufByteSize is the per-wavefront instruction buffer size that the
 	// fetch arbiter fills up to.
 	InstBufByteSize int `json:"inst_buf_byte_size"`
+
+	// InstFetchAheadLines is the number of cache lines a wavefront may have
+	// in flight at once, fetching ahead of the instruction it executes. The
+	// lines in flight and the buffered bytes together never exceed
+	// InstBufByteSize. Zero or one fetches one line at a time.
+	InstFetchAheadLines int `json:"inst_fetch_ahead_lines"`
 }
 
 // SampledCompletion is a pending wave completion, ordered by At in State.

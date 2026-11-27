@@ -118,6 +118,7 @@ func (b *Builder) fillResourceDefaults() {
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
+	fetchArbitor.FetchAheadLines = b.spec.InstFetchAheadLines
 	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
 	issueArbitor.rotation = b.spec.IssueRotation

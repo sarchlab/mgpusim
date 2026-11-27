@@ -104,9 +104,11 @@ func (u *BranchUnit) runWriteStage() bool {
 		// Fetch continues in sequence, so the buffered instructions stay valid.
 		u.setReadyAtNextPC(wave)
 	} else {
+		// The buffered lines are not on the taken path; drop them before the
+		// PC update walks the buffer.
 		wave.execution().InstBuffer = nil
 		u.setReadyAtNextPC(wave)
-		wave.execution().InstBufferStartPC = wave.PC() & 0xffffffffffffffc0
+		redirectFetch(wave)
 		u.holdIssueAfterTakenBranch(wave)
 	}
 

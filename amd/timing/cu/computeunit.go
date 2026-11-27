@@ -332,12 +332,17 @@ func (cu *ComputeUnit) handleFetchReturn(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	if addr == wf.execution().InstBufferStartPC+uint64(len(wf.execution().InstBuffer)) {
+	// A fetch of an earlier stream was made obsolete by a taken branch. Within
+	// a stream the lines return in the order they were requested.
+	if info.Epoch == wf.execution().FetchEpoch {
+		if addr != wf.execution().InstBufferStartPC+uint64(len(wf.execution().InstBuffer)) {
+			log.Panicf("cu: fetched line 0x%x does not continue the instruction buffer", addr)
+		}
 		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
-	wf.execution().IsFetching = false
-	if wf.execution().State == wavefront.WfDraining {
+	wf.execution().IsFetching = cu.hasOutstandingFetch(info.WF)
+	if !wf.execution().IsFetching && wf.execution().State == wavefront.WfDraining {
 		wf.execution().State = wavefront.WfCompleted
 	}
 	wf.execution().LastFetchTime = cu.CurrentTime()
@@ -351,6 +356,18 @@ func (cu *ComputeUnit) handleFetchReturn(
 	cu.completeRequest(info.Req.ID)
 	cu.comp.TaskTracker().EndTask(info.Task)
 	return true
+}
+
+// hasOutstandingFetch reports whether any fetch of the wavefront, of any
+// fetch stream, has not returned yet.
+func (cu *ComputeUnit) hasOutstandingFetch(wf waveHandle) bool {
+	for _, info := range cu.comp.State.InstFetch {
+		if info.WF == wf {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (cu *ComputeUnit) processInputFromScalarMem() bool {
