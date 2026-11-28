@@ -95,8 +95,8 @@ func codeEnd(wf *Wavefront) (uint64, bool) {
 	return co.Symbol.Size + group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset, true
 }
 
-// InstFetchByteSize is the size of one instruction fetch without block fetch,
-// and of one line read ahead into the instruction cache with it.
+// InstFetchByteSize is the size of one instruction fetch with line fetch, that
+// is, without block fetch.
 const InstFetchByteSize = 64
 
 // DefaultInstBufByteSize is the default size of a wavefront's instruction
