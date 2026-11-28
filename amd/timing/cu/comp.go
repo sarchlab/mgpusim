@@ -150,9 +150,14 @@ type Spec struct {
 	// issued the instruction that holds its last byte. A taken branch empties
 	// the buffer and starts a new fetch stream at its target; a branch that
 	// is not taken keeps the buffer. It must be a multiple of 4 that divides
-	// the cache line size (Log2CachelineSize). Zero
-	// keeps fetching whole InstFetchByteSize lines, one at a time, and every
-	// branch empties the buffer.
+	// the cache line size (Log2CachelineSize). With block fetch, the demand
+	// replies from InstMem must arrive in the order of their requests: the
+	// compute unit panics on a block that arrives out of order within a fetch
+	// stream. The stock assembly sends demand fetches through the L1I reorder
+	// buffer; a custom assembly needs a reorder buffer or another responder
+	// that answers in order. Replies from InstPrefetchMem may arrive in any
+	// order. Zero keeps fetching whole InstFetchByteSize lines, one at a time,
+	// and every branch empties the buffer.
 	InstBlockByteSize int `json:"inst_block_byte_size"`
 
 	// InstBlockFetchCycles is, with block fetch, the least number of cycles
@@ -165,8 +170,9 @@ type Spec struct {
 	// (Log2CachelineSize) past the next block a wavefront requests that the
 	// compute unit reads ahead into the instruction cache for it. The
 	// responses only warm the cache; they never enter the instruction buffer,
-	// and no wavefront waits for them. A line that this compute unit already
-	// has a request in flight for is not requested again. Only wavefronts
+	// and no wavefront waits for them. The compute unit skips a prefetch when
+	// a demand fetch or a prefetch of the same process and cache line is
+	// already in flight; demand block fetches are always sent. Only wavefronts
 	// whose code object records exactly where their code ends (a V5 code
 	// object with a kernel symbol) prefetch, and never past that end.
 	// Prefetches go to InstPrefetchMem through the InstPrefetch port, which is
