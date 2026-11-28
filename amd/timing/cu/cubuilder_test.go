@@ -77,4 +77,22 @@ var _ = Describe("Builder", func() {
 			MakeBuilder().WithSpec(spec).WithSimulation(reg).Build("GPU.CU")
 		}).To(PanicWith(ContainSubstring("IssueRotation requires SIMDCount")))
 	})
+
+	It("should require a fetch-ahead buffer of at least two whole fetches", func() {
+		reg := sim.MakeBuilder().Build()
+		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
+
+		build := func(name string, lines, bufferSize int) func() {
+			spec := DefaultSpec()
+			spec.InstFetchAheadLines = lines
+			spec.InstBufByteSize = bufferSize
+			return func() { MakeBuilder().WithSpec(spec).WithSimulation(reg).Build(name) }
+		}
+
+		Expect(build("GPU.CU[0]", 2, 100)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
+		Expect(build("GPU.CU[1]", 2, 64)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
+		Expect(build("GPU.CU[2]", 2, 128)).NotTo(Panic())
+		// One line at a time keeps its capacity rule.
+		Expect(build("GPU.CU[3]", 1, 100)).NotTo(Panic())
+	})
 })

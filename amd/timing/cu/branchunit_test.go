@@ -72,6 +72,29 @@ var _ = Describe("Branch Unit", func() {
 		Expect(wave3.execution().InstBuffer).To(HaveLen(0))
 	})
 
+	It("should redirect fetch to a target beyond the buffered lines", func() {
+		wave := newTestWave()
+		wave.execution().State = wavefront.WfRunning
+		wave.execution().InstBuffer = make([]byte, 128)
+		wave.execution().InstBufferStartPC = 0x100
+		wave.execution().NextFetchPC = 0x200
+		inst := testInst(testIDs.NewID(), insts.NewInst())
+		inst.FormatType = insts.SOPP
+		inst.ByteSize = 4
+		wave.setTestInst(inst)
+		// A taken branch: the PC is one instruction short of its target.
+		wave.SetPC(0x1ffc)
+		bu.state().Write = testWaveID(cu, wave)
+
+		bu.Run()
+
+		Expect(wave.PC()).To(Equal(uint64(0x2000)))
+		Expect(wave.execution().InstBuffer).To(HaveLen(0))
+		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x2000)))
+		Expect(wave.execution().FetchEpoch).To(Equal(uint64(1)))
+		Expect(nextFetchPC(wave.execution())).To(Equal(uint64(0x2000)))
+	})
+
 	Context("when s_setpc_b64 names an address", func() {
 		var wave *Wavefront
 
@@ -104,6 +127,66 @@ var _ = Describe("Branch Unit", func() {
 			Expect(wave.PC()).To(Equal(uint64(0x1004)))
 			Expect(wave.execution().InstBuffer).To(HaveLen(0))
 			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+		})
+
+		It("should drop every fetch in flight, even one for the target line", func() {
+			cu.comp.Spec.InstFetchAheadLines = 4
+			recordCodeEnd(wave, 0x1000, 0x2000)
+			var reqs []messaging.Msg
+			wave.execution().IsFetching = true
+			wave.execution().NextFetchPC = 0x2100
+			for _, addr := range []uint64{0x2040, 0x1000, 0x20c0} {
+				req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{
+					Address: addr, AccessByteSize: 64}}
+				reqs = append(reqs, req)
+				cu.comp.State.InstFetch = append(cu.comp.State.InstFetch,
+					testFetchState(cu, &InstFetchReqInfo{Req: req, Wavefront: wave, Address: addr}))
+			}
+
+			bu.Run()
+			bu.Run()
+
+			Expect(wave.execution().FetchEpoch).To(Equal(uint64(1)))
+			Expect(wave.execution().NextFetchPC).To(Equal(uint64(0)))
+			for i, req := range reqs {
+				cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: req.ID,
+					Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+				Expect(wave.execution().InstBuffer).To(HaveLen(0))
+				Expect(wave.execution().IsFetching).To(Equal(i < len(reqs)-1))
+			}
+			Expect(cu.comp.State.InstFetch).To(HaveLen(0))
+			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
+		})
+
+		It("should take the lines of the new stream in order", func() {
+			cu.comp.Spec.InstFetchAheadLines = 4
+			recordCodeEnd(wave, 0x1000, 0x2000)
+			bu.Run()
+			bu.Run()
+
+			var reqs []messaging.Msg
+			for _, addr := range []uint64{0x1000, 0x1040} {
+				req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{
+					Address: addr, AccessByteSize: 64}}
+				reqs = append(reqs, req)
+				cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu,
+					&InstFetchReqInfo{Req: req, Wavefront: wave, Address: addr,
+						Epoch: wave.execution().FetchEpoch}))
+			}
+			wave.execution().IsFetching = true
+			wave.execution().State = wavefront.WfDraining
+
+			cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: reqs[0].ID,
+				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+			Expect(wave.execution().InstBuffer).To(HaveLen(64))
+			Expect(wave.execution().IsFetching).To(BeTrue())
+			Expect(wave.execution().State).To(Equal(wavefront.WfDraining))
+
+			cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: reqs[1].ID,
+				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+			Expect(wave.execution().InstBuffer).To(HaveLen(128))
+			Expect(wave.execution().IsFetching).To(BeFalse())
+			Expect(wave.execution().State).To(Equal(wavefront.WfCompleted))
 		})
 
 		It("should drop a fall-through fetch that returns after the jump", func() {

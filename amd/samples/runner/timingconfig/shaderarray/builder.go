@@ -85,6 +85,7 @@ type Builder struct {
 	valuIssueOverlap          bool
 	uniformVALUCycles         bool
 	takenBranchIssueGap       int
+	instFetchAheadLines       int
 	l1AddressMapper           *mem.AddressMapper
 	l1TLBAddressMapper        *mem.AddressMapper
 	aluBuilder                func() emu.ALU
@@ -289,6 +290,13 @@ func (b Builder) WithTakenBranchIssueGap(n int) Builder {
 	return b
 }
 
+// WithInstFetchAheadLines lets a wavefront keep n instruction fetches in
+// flight, and sizes its instruction buffer to hold them.
+func (b Builder) WithInstFetchAheadLines(n int) Builder {
+	b.instFetchAheadLines = n
+	return b
+}
+
 // Build builds the shader array.
 func (b Builder) Build(name string) *ShaderArray {
 	b.name = name
@@ -467,6 +475,10 @@ func (b *Builder) cuSpec() cu.Spec {
 	spec.VALUIssueOverlap = b.valuIssueOverlap
 	spec.UniformVALUCycles = b.uniformVALUCycles
 	spec.TakenBranchIssueGap = b.takenBranchIssueGap
+	if b.instFetchAheadLines > 0 {
+		spec.InstFetchAheadLines = b.instFetchAheadLines
+		spec.InstBufByteSize = max(spec.InstBufByteSize, b.instFetchAheadLines*cu.InstFetchByteSize)
+	}
 
 	return spec
 }

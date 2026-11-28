@@ -587,7 +587,15 @@ func (b *Builder) buildSAs() {
 		// known, and fp32_throughput is the reference. A branch that is not
 		// taken is assumed to cost one issue turn; that case has not been
 		// measured.
-		WithTakenBranchIssueGap(32)
+		WithTakenBranchIssueGap(32).
+		// code_fetch_latency on MI300X: the first pass over cold code costs
+		// 11 to 16 ns per 64-byte line on top of executing it, far less than
+		// one L2 and MALL round trip per line, and repeat passes over bodies
+		// of up to 512 KB cost no more than over small ones. Ten lines in
+		// flight reproduce both: a cold line then arrives every 50 cycles,
+		// and a line refetched from L2 arrives faster than its instructions
+		// execute.
+		WithInstFetchAheadLines(10)
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)

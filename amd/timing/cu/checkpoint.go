@@ -125,7 +125,7 @@ func (cu *ComputeUnit) useWave(w *Wavefront) waveHandle {
 }
 
 func (cu *ComputeUnit) fetchState(v *InstFetchReqInfo) FetchState {
-	return FetchState{v.Req, cu.useWave(v.Wavefront), v.Address, v.FetchTaskID}
+	return FetchState{v.Req, cu.useWave(v.Wavefront), v.Address, v.FetchTaskID, v.Epoch}
 }
 func (cu *ComputeUnit) scalarState(v *ScalarMemAccessInfo) ScalarAccessState {
 	return ScalarAccessState{v.Req, cu.useWave(v.Wavefront), v.InstID, v.DstSGPR.RegType}

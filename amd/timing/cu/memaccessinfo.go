@@ -30,6 +30,8 @@ type InstFetchReqInfo struct {
 	Req       messaging.Msg
 	Wavefront *Wavefront
 	Address   uint64
+	// Epoch is the wavefront's fetch stream at the time of the request.
+	Epoch uint64
 
 	// FetchTaskID is the tracing task ID of the fetch task (v4 used the
 	// string ID req.ID+"_fetch").

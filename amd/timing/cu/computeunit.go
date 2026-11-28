@@ -326,31 +326,68 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	info := cu.comp.State.InstFetch[matchIdx]
 	wf := cu.wave(info.WF)
-	addr := info.Address
 	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf)
 	cu.comp.State.InstFetch = append(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	if addr == wf.execution().InstBufferStartPC+uint64(len(wf.execution().InstBuffer)) {
+	used := cu.continuesInstBuffer(wf, info)
+	if used {
 		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
-	wf.execution().IsFetching = false
-	if wf.execution().State == wavefront.WfDraining {
+	wf.execution().IsFetching = cu.hasOutstandingFetch(info.WF)
+	if !wf.execution().IsFetching && wf.execution().State == wavefront.WfDraining {
 		wf.execution().State = wavefront.WfCompleted
 	}
 	wf.execution().LastFetchTime = cu.CurrentTime()
 
-	if wasWaitingForFetch {
+	if used && wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
-		// interval since the fetch went out was spent waiting for this data.
+		// interval since the fetch went out was spent waiting for this data. A
+		// line that is dropped ends no wait.
 		cu.markWfMilestone(wf, tasks.MilestoneKindData, "inst_fetch")
 	}
 
 	cu.completeRequest(info.Req.ID)
 	cu.comp.TaskTracker().EndTask(info.Task)
 	return true
+}
+
+// continuesInstBuffer reports whether a returned line is appended to the
+// wavefront's instruction buffer.
+func (cu *ComputeUnit) continuesInstBuffer(wf *Wavefront, info FetchState) bool {
+	state := wf.execution()
+	continues := info.Address == state.InstBufferStartPC+uint64(len(state.InstBuffer))
+
+	// Fetching one line at a time, a line that continues the buffer is used
+	// even when a taken branch has made its fetch obsolete.
+	if !fetchesAhead(wf, cu.comp.Spec.InstFetchAheadLines) {
+		return continues
+	}
+
+	// A fetch of an earlier stream is dropped. Within a stream the lines
+	// return in the order they were requested.
+	if info.Epoch != state.FetchEpoch {
+		return false
+	}
+	if !continues {
+		log.Panicf("cu: fetched line 0x%x does not continue the instruction buffer", info.Address)
+	}
+
+	return true
+}
+
+// hasOutstandingFetch reports whether any fetch of the wavefront, of any
+// fetch stream, has not returned yet.
+func (cu *ComputeUnit) hasOutstandingFetch(wf waveHandle) bool {
+	for _, info := range cu.comp.State.InstFetch {
+		if info.WF == wf {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (cu *ComputeUnit) processInputFromScalarMem() bool {
