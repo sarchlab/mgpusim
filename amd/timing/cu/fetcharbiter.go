@@ -62,9 +62,17 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
+	codeEnd, codeEndKnown := codeEnd(wf)
+	linesInFlight := 1
+	if codeEndKnown {
+		// Fetching ahead requests lines the wavefront may never execute, so
+		// it needs to know where the code ends.
+		linesInFlight = max(a.FetchAheadLines, 1)
+	}
+
 	nextFetchPC := nextFetchPC(state)
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
-	if nextFetchPC-bufferEnd >= uint64(max(a.FetchAheadLines, 1))*instFetchByteSize {
+	if nextFetchPC-bufferEnd >= uint64(linesInFlight)*InstFetchByteSize {
 		return false
 	}
 
@@ -72,27 +80,33 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	group := wf.group()
-	co := &group.raw().CodeObject
-	if co.Present && co.HasSymbol {
-		lastPCInBinary := co.Symbol.Size +
-			group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset
-		if nextFetchPC >= lastPCInBinary {
-			return false
-		}
+	if codeEndKnown && nextFetchPC >= codeEnd {
+		return false
 	}
 
 	return true
 }
 
-// instFetchByteSize is the size of one instruction fetch, a cache line.
-const instFetchByteSize = 64
+// codeEnd returns the address after the last instruction of the wavefront's
+// kernel, when the code object records it.
+func codeEnd(wf *Wavefront) (uint64, bool) {
+	group := wf.group()
+	co := &group.raw().CodeObject
+	if !co.Present || !co.HasSymbol {
+		return 0, false
+	}
+
+	return co.Symbol.Size + group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset, true
+}
+
+// InstFetchByteSize is the size of one instruction fetch.
+const InstFetchByteSize = 64
 
 // nextFetchPC returns the address of the next line the wavefront requests:
 // the line after those buffered and in flight in the current fetch stream.
 func nextFetchPC(state *wavefront.ExecutionState) uint64 {
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
-	bufferEnd &^= instFetchByteSize - 1
+	bufferEnd &^= InstFetchByteSize - 1
 
 	return max(state.NextFetchPC, bufferEnd)
 }
@@ -103,7 +117,7 @@ func nextFetchPC(state *wavefront.ExecutionState) uint64 {
 func redirectFetch(wf *Wavefront) {
 	state := wf.execution()
 	state.InstBuffer = nil
-	state.InstBufferStartPC = wf.PC() &^ (instFetchByteSize - 1)
+	state.InstBufferStartPC = wf.PC() &^ (InstFetchByteSize - 1)
 	state.FetchEpoch++
 	state.NextFetchPC = 0
 }

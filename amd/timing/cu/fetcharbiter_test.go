@@ -77,8 +77,21 @@ func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
 	}
 }
 
+// waveWithCode returns a wavefront whose kernel occupies size bytes from
+// address 0x1000 and records that extent.
+func waveWithCode(t *testing.T, size uint64) *Wavefront {
+	t.Helper()
+	group := checkpointGroup(checkpointCU(t))
+	group.raw().Packet.Packet.KernelObject = 0x1000
+	code := &group.raw().CodeObject
+	code.Present, code.HasSymbol, code.HasMeta = true, true, true
+	code.Symbol.Size = size
+
+	return group.waves()[0]
+}
+
 func TestFetchAheadKeepsSeveralLinesInFlight(t *testing.T) {
-	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	wave := waveWithCode(t, 0x1000)
 	state := wave.execution()
 	state.State = wavefront.WfReady
 	state.InstBufferStartPC = 0x1000
@@ -106,8 +119,48 @@ func TestFetchAheadKeepsSeveralLinesInFlight(t *testing.T) {
 	}
 }
 
-func TestFetchAheadStopsAtTheInstructionBufferSize(t *testing.T) {
+// Lines fetched ahead may never execute, so a wavefront that cannot tell
+// where its code ends requests one line at a time.
+func TestFetchAheadNeedsTheCodeExtent(t *testing.T) {
 	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 3}
+
+	if !ahead.canFetchFromWF(wave) {
+		t.Fatal("refused the first line")
+	}
+	state.NextFetchPC = 0x1040
+	if ahead.canFetchFromWF(wave) {
+		t.Fatal("fetched ahead without knowing where the code ends")
+	}
+
+	state.InstBuffer = make([]byte, 64)
+	if !ahead.canFetchFromWF(wave) {
+		t.Fatal("refused the next line after the first arrived")
+	}
+}
+
+func TestFetchAheadStopsAtTheEndOfTheCode(t *testing.T) {
+	wave := waveWithCode(t, 0x80)
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 4}
+
+	state.NextFetchPC = 0x1040
+	if !ahead.canFetchFromWF(wave) {
+		t.Fatal("refused the last line of the code")
+	}
+	state.NextFetchPC = 0x1080
+	if ahead.canFetchFromWF(wave) {
+		t.Fatal("requested a line after the end of the code")
+	}
+}
+
+func TestFetchAheadStopsAtTheInstructionBufferSize(t *testing.T) {
+	wave := waveWithCode(t, 0x1000)
 	state := wave.execution()
 	state.State = wavefront.WfReady
 	state.InstBufferStartPC = 0x1000

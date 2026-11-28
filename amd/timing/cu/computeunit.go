@@ -331,7 +331,8 @@ func (cu *ComputeUnit) handleFetchReturn(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	if cu.continuesInstBuffer(wf, info) {
+	used := cu.continuesInstBuffer(wf, info)
+	if used {
 		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
 
@@ -341,9 +342,10 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 	wf.execution().LastFetchTime = cu.CurrentTime()
 
-	if wasWaitingForFetch {
+	if used && wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
-		// interval since the fetch went out was spent waiting for this data.
+		// interval since the fetch went out was spent waiting for this data. A
+		// line that is dropped ends no wait.
 		cu.markWfMilestone(wf, tasks.MilestoneKindData, "inst_fetch")
 	}
 

@@ -312,6 +312,53 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 	}
 }
 
+// A line made obsolete by a taken branch ends no wait: the milestone belongs
+// to the line the wavefront is waiting for.
+func TestObsoleteFetchReturnDoesNotRecordDataMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.comp.Spec.InstFetchAheadLines = 4
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
+	wf.SetPC(0x100)
+	redirectFetch(wf)
+
+	fetch := func(address, epoch uint64) messaging.Msg {
+		req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: address,
+			AccessByteSize: 64}}
+		cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
+			Wavefront:   wf,
+			Req:         req,
+			Address:     address,
+			Epoch:       epoch,
+			FetchTaskID: testIDs.NewID(),
+		}))
+
+		return messaging.Msg{ID: testIDs.NewID(),
+			RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}}
+	}
+	obsolete := fetch(0x100, wf.execution().FetchEpoch-1)
+	target := fetch(0x100, wf.execution().FetchEpoch)
+	task := cu.comp.State.WFTasks[wf.UID]
+
+	cu.handleFetchReturn(obsolete)
+	if rec.has(task, tasks.MilestoneKindData, "inst_fetch") {
+		t.Fatalf("an obsolete line should not be marked as the awaited data, got %+v",
+			rec.milestones)
+	}
+	if len(wf.execution().InstBuffer) != 0 {
+		t.Fatal("an obsolete line entered the instruction buffer")
+	}
+
+	cu.handleFetchReturn(target)
+	if !rec.has(task, tasks.MilestoneKindData, "inst_fetch") {
+		t.Fatalf("the target line should be marked as the awaited data, got %+v",
+			rec.milestones)
+	}
+}
+
 type decodeTraceUnit struct {
 	canAccept bool
 	accepted  []*Wavefront

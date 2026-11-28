@@ -103,6 +103,11 @@ func (b *Builder) mustHaveValidSpec() {
 	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
 		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
 	}
+	if b.spec.InstFetchAheadLines > 1 &&
+		(b.spec.InstBufByteSize%InstFetchByteSize != 0 || b.spec.InstBufByteSize < 2*InstFetchByteSize) {
+		panic("cu: with InstFetchAheadLines above one, InstBufByteSize must be a multiple of " +
+			"InstFetchByteSize and hold at least two fetches")
+	}
 }
 
 func (b *Builder) fillResourceDefaults() {

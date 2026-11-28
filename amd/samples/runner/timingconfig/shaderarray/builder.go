@@ -290,8 +290,8 @@ func (b Builder) WithTakenBranchIssueGap(n int) Builder {
 	return b
 }
 
-// WithInstFetchAheadLines lets a wavefront keep n cache lines of instruction
-// fetch in flight, and sizes its instruction buffer to hold them.
+// WithInstFetchAheadLines lets a wavefront keep n instruction fetches in
+// flight, and sizes its instruction buffer to hold them.
 func (b Builder) WithInstFetchAheadLines(n int) Builder {
 	b.instFetchAheadLines = n
 	return b
@@ -477,7 +477,7 @@ func (b *Builder) cuSpec() cu.Spec {
 	spec.TakenBranchIssueGap = b.takenBranchIssueGap
 	if b.instFetchAheadLines > 0 {
 		spec.InstFetchAheadLines = b.instFetchAheadLines
-		spec.InstBufByteSize = max(spec.InstBufByteSize, b.instFetchAheadLines<<b.log2CacheLineSize)
+		spec.InstBufByteSize = max(spec.InstBufByteSize, b.instFetchAheadLines*cu.InstFetchByteSize)
 	}
 
 	return spec
