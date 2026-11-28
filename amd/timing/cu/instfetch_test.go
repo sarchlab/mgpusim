@@ -8,6 +8,7 @@ import (
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim"
 	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/timing"
@@ -107,6 +108,7 @@ func mi300xFetchSpec() Spec {
 type fetchHarness struct {
 	t      *testing.T
 	cu     *ComputeUnit
+	sim    *sim.Simulation
 	engine *timing.SerialEngine
 	port   *fakePort
 	ace    *fakePort
@@ -136,8 +138,15 @@ type issueRecord struct {
 
 func newFetchHarness(t *testing.T, spec Spec, code []byte, numWaves int) *fetchHarness {
 	t.Helper()
-	c, simulation := checkpointCUAndSimulation(t, false, spec)
-	h := &fetchHarness{t: t, cu: c, engine: simulation.Engine().(*timing.SerialEngine),
+	return newFetchHarnessIn(t, false, spec, code, numWaves)
+}
+
+// newFetchHarnessIn is newFetchHarness in a simulation that tracks tasks when
+// tracking is set.
+func newFetchHarnessIn(t *testing.T, tracking bool, spec Spec, code []byte, numWaves int) *fetchHarness {
+	t.Helper()
+	c, simulation := checkpointCUAndSimulation(t, tracking, spec)
+	h := &fetchHarness{t: t, cu: c, sim: simulation, engine: simulation.Engine().(*timing.SerialEngine),
 		port: newFakePort("CU.InstMem"), code: code, base: 0x10000}
 	// One fake memory serves fetches and prefetches; it answers each on the
 	// instruction port, which takes either.

@@ -224,11 +224,12 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 
 // StartTask is called when a task is started.
 func (h *CPIStackTracer) TaskStarted(task tasks.Task) {
-	// Only track the task kinds the CPI stack models. Other kinds — notably the
-	// port-level "incoming_queue" tasks akita emits — are hooked in from a
-	// different component's goroutine under the parallel engine; dropping them
-	// before touching any state keeps the accounting unchanged and avoids
-	// retaining tasks that EndTask would otherwise have to match.
+	// Only track the task kinds the CPI stack models. Other kinds are dropped
+	// before touching any state, which keeps the accounting unchanged and
+	// avoids retaining tasks that EndTask would otherwise have to match. Among
+	// them are instruction prefetches, which stall no wavefront, and the
+	// port-level "incoming_queue" tasks akita emits, which under the parallel
+	// engine are hooked in from a different component's goroutine.
 	switch task.Kind {
 	case "wavefront", "inst", "fetch", "req_out", "req_in":
 	default:
@@ -306,6 +307,12 @@ func (h *CPIStackTracer) handleRegularTaskStart(task tasks.Task) {
 }
 
 func (h *CPIStackTracer) handleReqStart(task tasks.Task) {
+	// Keep only the requests the stack accounts for. Every task end moves
+	// lastWFEndTime, so a request kept but not accounted for, such as an
+	// instruction prefetch's read (whose prefetch task is not tracked), would
+	// stretch the reported time if it returned after the last wavefront ended.
+	delete(h.inflightTasks, task.ID)
+
 	if task.What != "ReadReq" && task.What != "WriteReq" {
 		return
 	}

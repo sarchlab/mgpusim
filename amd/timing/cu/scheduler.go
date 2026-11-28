@@ -241,20 +241,24 @@ func (s *SchedulerImpl) sendInstFetch(wf *Wavefront, addr uint64, byteSize uint6
 		wf.execution().IsFetching = true
 	}
 
-	what := "fetch"
+	// Give instruction fetch its own unit location instead of letting it fall
+	// back to the bare CU name (singleKindLocation's default). That keeps "one
+	// location, one kind": the bare CU name is no longer a task row, and fetch
+	// can't collide with the sampled wavefront task (which also used to fall
+	// back to the bare CU name). A prefetch is a task kind of its own, at its
+	// own location: it stalls no wavefront, so consumers that account for
+	// wavefront time, such as the CPI stack tracer, must not count it as a
+	// fetch. Its parent is the wavefront whose fetch stream issued it, which
+	// may end first, as a memory request may outlive its instruction.
+	kind, location := "fetch", s.cu.comp.Name()+".InstFetcher"
 	if prefetch {
-		what = "prefetch"
+		kind, location = "prefetch", s.cu.comp.Name()+".InstPrefetcher"
 	}
 	info.FetchTaskID = s.cu.comp.TaskTracker().StartTask(s.cu.comp, tasks.StartInfo{
 		ParentID: s.cu.comp.State.WFTasks[wf.UID],
-		Kind:     "fetch",
-		What:     what,
-		// Give instruction fetch its own unit location instead of letting it
-		// fall back to the bare CU name (singleKindLocation's default). That
-		// keeps "one location, one kind": the bare CU name is no longer a task
-		// row, and fetch can't collide with the sampled wavefront task (which
-		// also used to fall back to the bare CU name).
-		Location: s.cu.comp.Name() + ".InstFetcher",
+		Kind:     kind,
+		What:     kind,
+		Location: location,
 	})
 
 	// The demand fetch is the one for the bytes right after the buffer; those
