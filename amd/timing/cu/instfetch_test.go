@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/mem/vm"
+	"github.com/sarchlab/akita/v5/sim/hooking"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
@@ -94,7 +96,7 @@ func mi300xFetchSpec() Spec {
 	spec.InstBlockByteSize = 32
 	spec.InstBufByteSize = 64
 	spec.InstBlockFetchCycles = 16
-	spec.InstPrefetchLines = 10
+	spec.InstPrefetchLines = 8
 	spec.InstPrefetchMem = "L1I"
 
 	return spec
@@ -121,6 +123,9 @@ type fetchHarness struct {
 	// checkpointAt replaces the compute unit's state with a copy restored
 	// from its checkpoint form after the tick of that cycle, when positive.
 	checkpointAt uint64
+	// tickCycles records, when run event-driven, the cycles at which the
+	// compute unit ticked.
+	tickCycles []uint64
 }
 
 type issueRecord struct {
@@ -194,6 +199,45 @@ func (h *fetchHarness) step() {
 	}
 }
 
+// runEventDriven runs the compute unit for the given number of cycles, as the
+// simulation does: it ticks only when it asks to be ticked or when a response
+// arrives. Each response is due instMemLatency cycles after its request, and
+// the compute unit is woken then, as its port would wake it. tickCycles
+// records the cycles at which the compute unit ticked.
+func (h *fetchHarness) runEventDriven(cycles uint64) {
+	h.engine.AcceptHook(eventDrivenMemory{h})
+	h.cu.comp.TickLater()
+	if err := h.engine.RunUntil(timing.VTimeInPicoSec(cycles) * h.cu.comp.Spec.Freq.Period()); err != nil {
+		h.t.Fatal(err)
+	}
+}
+
+// eventDrivenMemory answers the instruction requests of the compute unit that
+// are due before each of its ticks, and records what each tick did.
+type eventDrivenMemory struct{ h *fetchHarness }
+
+func (m eventDrivenMemory) Func(ctx hooking.HookCtx) {
+	h := m.h
+	if ctx.Pos == timing.HookPosBeforeEvent {
+		now := h.cu.comp.Spec.Freq.Cycle(ctx.Item.(timing.Event).Time())
+		for h.answered < len(h.port.sent) && h.sentAt[h.answered]+instMemLatency <= now {
+			h.answer(h.port.sent[h.answered])
+			h.answered++
+		}
+		return
+	}
+
+	h.tickCycles = append(h.tickCycles, h.cycle())
+	for len(h.sentAt) < len(h.port.sent) {
+		h.sentAt = append(h.sentAt, h.cycle())
+		due := timing.VTimeInPicoSec(h.cycle()+instMemLatency) * h.cu.comp.Spec.Freq.Period()
+		h.cu.comp.TickAt(due)
+	}
+	if !h.retired() {
+		h.recordIssues()
+	}
+}
+
 // retired reports whether the work-group has finished and left the compute
 // unit.
 func (h *fetchHarness) retired() bool { return len(h.ace.sent) > 0 }
@@ -257,6 +301,23 @@ func loopPeriod(t *testing.T, spec Spec, kernel loopKernel, checkpointAt uint64)
 	return cycles[iterations] - cycles[iterations-1], cycles
 }
 
+// loopPeriodEventDriven is loopPeriod with the compute unit ticking only when
+// it asks to, as in the simulation.
+func loopPeriodEventDriven(t *testing.T, spec Spec, kernel loopKernel) (uint64, *fetchHarness) {
+	t.Helper()
+	code, branchOffset := kernel.code(0)
+	h := newFetchHarness(t, spec, code, 1)
+	h.runEventDriven(4000)
+
+	const iterations = 8
+	cycles := h.issueCycles(0, h.base+branchOffset)
+	if len(cycles) <= iterations {
+		t.Fatalf("event-driven, the loop branch issued only %d times", len(cycles))
+	}
+
+	return cycles[iterations] - cycles[iterations-1], h
+}
+
 // A single wave in a hot loop: the target block of a taken branch is
 // available 20 cycles after the branch issues, each next block 16 cycles
 // after the one before it or 20 cycles after the block two before it is used
@@ -289,6 +350,10 @@ func TestBlockFetchLoopTiming(t *testing.T) {
 			if got, _ := loopPeriod(t, mi300xFetchSpec(), c.kernel, 0); got != c.want {
 				t.Fatalf("%d cycles per iteration, want %d", got, c.want)
 			}
+			// The compute unit wakes itself in time for every block and issue.
+			if got, _ := loopPeriodEventDriven(t, mi300xFetchSpec(), c.kernel); got != c.want {
+				t.Fatalf("event-driven, %d cycles per iteration, want %d", got, c.want)
+			}
 		})
 	}
 }
@@ -307,6 +372,82 @@ func TestSCCBranchWaitIsHiddenByOneInstruction(t *testing.T) {
 	spec.SCCToBranchCycles = 0
 	if got, _ := loopPeriod(t, spec, loopKernel{0, "SCB"}, 0); got != 28 {
 		t.Fatalf("without the SCC wait the empty loop takes %d cycles, want 28", got)
+	}
+}
+
+// The least time between block requests applies within a fetch stream: the
+// target block of a taken branch is requested at once, even right after the
+// fall-through block.
+func TestTakenBranchTargetIsNotHeldByTheBlockInterval(t *testing.T) {
+	spec := mi300xFetchSpec()
+	// Seven VALU instructions and s_add fill block 0; s_cmp and the branch
+	// back start block 1. Issuing s_cmp frees block 0 for the fall-through
+	// block 2, requested a few cycles before the branch requests block 0
+	// again. The code runs on past block 2 so that the fall-through block is
+	// real.
+	code, _ := loopKernel{0, "vvvvvvvSCB"}.code(0)
+	code = append(code, sNopBytes(64)...)
+	h := newFetchHarness(t, spec, code, 1)
+
+	type request struct{ cycle, addr uint64 }
+	var blocks []request
+	for range 400 {
+		h.step()
+	}
+	for i, req := range h.port.sent {
+		if read := req.Payload.(memprotocol.ReadReq); read.AccessByteSize == 32 {
+			blocks = append(blocks, request{h.sentAt[i], read.Address - h.base})
+		}
+	}
+
+	pairs := 0
+	for i := 1; i < len(blocks); i++ {
+		if blocks[i].addr != 0 || blocks[i-1].addr != 0x40 {
+			continue
+		}
+		pairs++
+		if gap := blocks[i].cycle - blocks[i-1].cycle; gap >= uint64(spec.InstBlockFetchCycles) {
+			t.Fatalf("the target block followed the fall-through block by %d cycles: %v", gap, blocks)
+		}
+	}
+	if pairs < 2 {
+		t.Fatalf("want a fall-through block right before the target in every iteration: %v", blocks)
+	}
+}
+
+// The smallest blocks the builder accepts, 4 bytes in a buffer of two, still
+// hold every 8-byte instruction, wherever it starts.
+func TestSmallestBlocksRunEightByteInstructions(t *testing.T) {
+	spec := mi300xFetchSpec()
+	spec.InstBlockByteSize, spec.InstBufByteSize = 4, 8
+	for _, offset := range []int{0, 4} {
+		// loopPeriod fails the test if the loop stops.
+		loopPeriod(t, spec, loopKernel{offset, "VVVVSCB"}, 0)
+	}
+}
+
+// While a branch on SCC waits after s_cmp, nothing else keeps the compute unit
+// busy: it stops ticking and wakes in time to issue the branch.
+func TestComputeUnitSleepsThroughTheSCCWait(t *testing.T) {
+	spec := mi300xFetchSpec()
+	spec.SCCToBranchCycles = 40
+	kernel := loopKernel{0, "SCB"}
+	_, h := loopPeriodEventDriven(t, spec, kernel)
+
+	cmp, branch := h.issueCycles(0, h.base+4), h.issueCycles(0, h.base+8)
+	const iteration = 4
+	from, to := cmp[iteration], branch[iteration]
+	if to-from != 40 {
+		t.Fatalf("the branch issued %d cycles after s_cmp, want 40", to-from)
+	}
+	ticks := 0
+	for _, c := range h.tickCycles {
+		if c > from && c < to {
+			ticks++
+		}
+	}
+	if ticks >= 20 {
+		t.Fatalf("the compute unit ticked in %d of the %d cycles of the wait", ticks, to-from-1)
 	}
 }
 
@@ -368,11 +509,58 @@ func TestPrefetchReadsEachLineOnce(t *testing.T) {
 	}
 }
 
+// Two processes that run code at the same virtual addresses each read every
+// line ahead once: a request in flight for one process's line does not stand
+// for the other's.
+func TestPrefetchDedupKeepsProcessesApart(t *testing.T) {
+	code := straightLineCode(2048)
+	h := newFetchHarness(t, mi300xFetchSpec(), code, 2)
+	h.waves[0].SetPID(1)
+	h.waves[1].SetPID(2)
+	for range 3000 {
+		h.step()
+		if h.retired() {
+			break
+		}
+	}
+	if !h.retired() {
+		t.Fatal("the waves did not finish")
+	}
+
+	type line struct {
+		pid  vm.PID
+		addr uint64
+	}
+	prefetched := make(map[line]int)
+	for _, req := range h.port.sent {
+		read := req.Payload.(memprotocol.ReadReq)
+		if read.AccessByteSize == InstFetchByteSize {
+			prefetched[line{read.PID, read.Address}]++
+		}
+	}
+	for l, n := range prefetched {
+		if n != 1 {
+			t.Fatalf("line 0x%x of process %d was prefetched %d times", l.addr, l.pid, n)
+		}
+	}
+	shared := 0
+	for l := range prefetched {
+		if l.pid == 1 && prefetched[line{2, l.addr}] == 1 {
+			shared++
+		}
+	}
+	if shared == 0 {
+		t.Fatalf("no line was prefetched for both processes: %v", prefetched)
+	}
+}
+
 // A wave reads at most InstPrefetchLines lines past the line of its next
 // block.
 func TestPrefetchStaysWithinItsWindow(t *testing.T) {
 	code := straightLineCode(4096)
-	h := newFetchHarness(t, mi300xFetchSpec(), code, 1)
+	spec := mi300xFetchSpec()
+	window := uint64(spec.InstPrefetchLines) * InstFetchByteSize
+	h := newFetchHarness(t, spec, code, 1)
 	state := h.waves[0].execution()
 	for range 400 {
 		h.step()
@@ -381,7 +569,7 @@ func TestPrefetchStaysWithinItsWindow(t *testing.T) {
 				continue
 			}
 			demandLine := state.NextFetchPC &^ (InstFetchByteSize - 1)
-			if info.Address > demandLine+10*InstFetchByteSize {
+			if info.Address > demandLine+window {
 				t.Fatalf("cycle %d: line 0x%x in flight, next block at 0x%x", h.cycle(), info.Address,
 					state.NextFetchPC)
 			}

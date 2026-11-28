@@ -81,34 +81,30 @@ var _ = Describe("Issue rotation", func() {
 	})
 
 	It("should hold back a branch on SCC after a scalar ALU instruction", func() {
-		arbiter.scoreboardEnabled = true
 		description := insts.NewInst()
 		description.ExeUnit = insts.ExeUnitBranch
 		description.FormatType = insts.SOPP
 		description.InstName = "s_cbranch_scc0"
 		waves[0].setTestNextInst(testInst(testIDs.NewID(), description))
-		waves[0].state().HasScoreboard = true
-		waves[0].scoreboard().MarkSCCBranchBusy(8)
+		waves[0].execution().SCCBranchNotBefore = 12 * period
 		engine.now = 4 * period
 
 		Expect(arbiter.Arbitrate(wfPools)).To(BeEmpty())
+		Expect(engine.scheduled).To(HaveLen(1))
+		Expect(engine.scheduled[0].Time()).To(Equal(12 * period))
 
-		for i := 0; i < 8; i++ {
-			waves[0].scoreboard().Tick()
-		}
+		engine.now = 12 * period
 
 		Expect(arbiter.Arbitrate(wfPools)).To(Equal([]*Wavefront{waves[0]}))
 	})
 
 	It("should not hold back other branches after a scalar ALU instruction", func() {
-		arbiter.scoreboardEnabled = true
 		description := insts.NewInst()
 		description.ExeUnit = insts.ExeUnitBranch
 		description.FormatType = insts.SOPP
 		description.InstName = "s_cbranch_vccz"
 		waves[0].setTestNextInst(testInst(testIDs.NewID(), description))
-		waves[0].state().HasScoreboard = true
-		waves[0].scoreboard().MarkSCCBranchBusy(8)
+		waves[0].execution().SCCBranchNotBefore = 12 * period
 		engine.now = 4 * period
 
 		Expect(arbiter.Arbitrate(wfPools)).To(Equal([]*Wavefront{waves[0]}))

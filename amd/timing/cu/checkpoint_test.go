@@ -342,7 +342,7 @@ func TestCheckpointKeepsBlockFetchState(t *testing.T) {
 	wf.execution().IssuedEnd = 0x1028
 	wf.execution().BlockFetchNotBefore = 12345
 	wf.execution().PrefetchPC = 0x10c0
-	wf.scoreboard().MarkSCCBranchBusy(5)
+	wf.execution().SCCBranchNotBefore = 6789
 	original.comp.State.InstFetch = append(original.comp.State.InstFetch, FetchState{
 		Req: messaging.Msg{ID: 77, Payload: memprotocol.ReadReq{Address: 0x1080, AccessByteSize: 64}},
 		WF:  handleOf(wf), Address: 0x1080, Epoch: 3, Prefetch: true})
@@ -354,7 +354,7 @@ func TestCheckpointKeepsBlockFetchState(t *testing.T) {
 		view.execution().PrefetchPC != 0x10c0 {
 		t.Fatalf("block fetch state was restored as %+v", *view.execution())
 	}
-	if view.scoreboard().SCCBranchBusyUntil != 5 {
+	if view.execution().SCCBranchNotBefore != 6789 {
 		t.Fatal("SCC branch wait was lost")
 	}
 	fetch := restored.comp.State.InstFetch[len(restored.comp.State.InstFetch)-1]

@@ -78,7 +78,7 @@ var _ = Describe("Builder", func() {
 		}).To(PanicWith(ContainSubstring("IssueRotation requires SIMDCount")))
 	})
 
-	It("should require a block-fetch buffer of at least two whole blocks", func() {
+	It("should require 4-byte-multiple blocks and a buffer of at least two whole blocks", func() {
 		reg := sim.MakeBuilder().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
@@ -96,6 +96,10 @@ var _ = Describe("Builder", func() {
 		Expect(build("GPU.CU[0]", 32, 48, 0)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
 		Expect(build("GPU.CU[1]", 32, 32, 0)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
 		Expect(build("GPU.CU[2]", 24, 48, 0)).To(PanicWith(ContainSubstring("divides InstFetchByteSize")))
+		// Two-byte blocks in a four-byte buffer could never hold an 8-byte
+		// instruction.
+		Expect(build("GPU.CU[7]", 2, 4, 0)).To(PanicWith(ContainSubstring("multiple of 4")))
+		Expect(build("GPU.CU[8]", 4, 8, 0)).NotTo(Panic())
 		Expect(build("GPU.CU[3]", 0, 256, 4)).To(PanicWith(ContainSubstring("require InstBlockByteSize")))
 		Expect(build("GPU.CU[4]", 32, 64, 10)).NotTo(Panic())
 		Expect(func() {

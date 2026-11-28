@@ -3,6 +3,8 @@ package cu
 import (
 	"math"
 
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/mem/vm"
 	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
@@ -156,7 +158,7 @@ func (s *SchedulerImpl) nextPrefetchLine(wf *Wavefront) (uint64, bool) {
 
 	addr := max(state.PrefetchPC, demandLine+InstFetchByteSize)
 	for ; addr <= last && addr < codeEnd; addr += InstFetchByteSize {
-		if !s.cu.lineInFlight(addr) {
+		if !s.cu.lineInFlight(wf.PID(), addr) {
 			state.PrefetchPC = addr
 			return addr, true
 		}
@@ -168,10 +170,11 @@ func (s *SchedulerImpl) nextPrefetchLine(wf *Wavefront) (uint64, bool) {
 }
 
 // lineInFlight reports whether the compute unit has an instruction-memory
-// request in flight that reads the line.
-func (cu *ComputeUnit) lineInFlight(line uint64) bool {
+// request in flight that reads the line in the address space of the process.
+func (cu *ComputeUnit) lineInFlight(pid vm.PID, line uint64) bool {
 	for _, info := range cu.comp.State.InstFetch {
-		if info.Address&^(InstFetchByteSize-1) == line {
+		read := info.Req.Payload.(memprotocol.ReadReq)
+		if read.PID == pid && info.Address&^(InstFetchByteSize-1) == line {
 			return true
 		}
 	}

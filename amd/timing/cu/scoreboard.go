@@ -14,9 +14,6 @@ type Scoreboard struct {
 	SCCBusyUntil  int
 	VCCBusyUntil  int
 	EXECBusyUntil int
-	// SCCBranchBusyUntil holds back a conditional branch on SCC after a
-	// scalar ALU instruction (see Spec.SCCToBranchCycles).
-	SCCBranchBusyUntil int
 }
 
 // NewScoreboard creates a new Scoreboard with all counters at zero.
@@ -48,10 +45,6 @@ func (s *Scoreboard) Tick() {
 
 	if s.EXECBusyUntil > 0 {
 		s.EXECBusyUntil--
-	}
-
-	if s.SCCBranchBusyUntil > 0 {
-		s.SCCBranchBusyUntil--
 	}
 }
 
@@ -114,20 +107,8 @@ func (s *Scoreboard) markOperandBusy(op *insts.Operand, latency int) {
 	}
 }
 
-// MarkSCCBranchBusy holds back conditional branches on SCC for the given
-// number of cycles.
-func (s *Scoreboard) MarkSCCBranchBusy(cycles int) {
-	s.SCCBranchBusyUntil = max(s.SCCBranchBusyUntil, cycles)
-}
-
-// HasHazard checks if any source operand reads a register that is still busy,
-// or if the instruction is a conditional branch on SCC that must still wait
-// after a scalar ALU instruction.
+// HasHazard checks if any source operand reads a register that is still busy.
 func (s *Scoreboard) HasHazard(inst *insts.Inst) bool {
-	if s.SCCBranchBusyUntil > 0 && isSCCBranch(inst) {
-		return true
-	}
-
 	operands := []*insts.Operand{
 		inst.Src0, inst.Src1, inst.Src2,
 		inst.Addr, inst.Data, inst.Base, inst.Offset,
@@ -197,8 +178,7 @@ func (s *Scoreboard) AnyBusy() bool {
 			return true
 		}
 	}
-	return s.SCCBusyUntil > 0 || s.VCCBusyUntil > 0 || s.EXECBusyUntil > 0 ||
-		s.SCCBranchBusyUntil > 0
+	return s.SCCBusyUntil > 0 || s.VCCBusyUntil > 0 || s.EXECBusyUntil > 0
 }
 
 // Clear resets all counters to 0.
@@ -208,7 +188,6 @@ func (s *Scoreboard) Clear() {
 	s.SCCBusyUntil = 0
 	s.VCCBusyUntil = 0
 	s.EXECBusyUntil = 0
-	s.SCCBranchBusyUntil = 0
 }
 
 // isSCCBranch reports whether the instruction is a conditional branch on SCC.

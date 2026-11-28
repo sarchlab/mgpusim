@@ -35,6 +35,10 @@ type ExecutionState struct {
 	// BlockFetchNotBefore is, with block fetch, the earliest time at which
 	// the wavefront may request its next instruction block.
 	BlockFetchNotBefore timing.VTimeInPicoSec
+	// SCCBranchNotBefore is the earliest time at which the wavefront may issue
+	// a conditional branch on SCC, which waits after a scalar ALU instruction
+	// (see the compute unit's Spec.SCCToBranchCycles).
+	SCCBranchNotBefore timing.VTimeInPicoSec
 	// PrefetchPC is the next line to read ahead into the instruction cache in
 	// the current stream. Zero when the stream has prefetched nothing yet.
 	PrefetchPC                 uint64

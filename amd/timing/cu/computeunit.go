@@ -355,7 +355,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	info := cu.comp.State.InstFetch[matchIdx]
 	wf := cu.wave(info.WF)
-	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf)
+	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasCompleteInstruction(wf)
 	cu.comp.State.InstFetch = append(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
@@ -683,21 +683,28 @@ func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
 	}
 }
 
-func wfHasInstructionReady(wf *Wavefront) bool {
+// hasCompleteInstruction reports whether the wavefront has every byte of the
+// instruction at its PC, decoded or not. An 8-byte instruction that straddles
+// two fetched blocks is not complete until the second one arrives, so the wait
+// for it is a wait on instruction fetch.
+func (cu *ComputeUnit) hasCompleteInstruction(wf *Wavefront) bool {
 	if wf.NextInst() != nil {
 		return true
 	}
 
-	if len(wf.execution().InstBuffer) == 0 || wf.PC() < wf.execution().InstBufferStartPC {
+	state := wf.execution()
+	if wf.PC() < state.InstBufferStartPC {
 		return false
 	}
 
-	offset := wf.PC() - wf.execution().InstBufferStartPC
-	if offset > uint64(len(wf.execution().InstBuffer)) {
+	offset := wf.PC() - state.InstBufferStartPC
+	if offset+4 > uint64(len(state.InstBuffer)) {
 		return false
 	}
 
-	return len(wf.execution().InstBuffer[int(offset):]) >= 4
+	_, err := cu.Decoder.Decode(state.InstBuffer[offset:])
+
+	return err == nil
 }
 
 // markWfMilestone records a milestone on the wavefront task itself (TaskID

@@ -122,7 +122,8 @@ type Spec struct {
 	// SCCToBranchCycles is the number of cycles from issuing a scalar ALU
 	// instruction, which writes SCC, to the earliest issue of a conditional
 	// branch on SCC (s_cbranch_scc0 and s_cbranch_scc1). Zero adds no wait.
-	// It applies only with RegisterScoreboard.
+	// The issue arbiter holds the branch back, with or without
+	// RegisterScoreboard, and the compute unit wakes when the wait is over.
 	SCCToBranchCycles int `json:"scc_to_branch_cycles"`
 
 	// InFlightVectorMemAccessLimit caps the number of outstanding vector
@@ -148,7 +149,9 @@ type Spec struct {
 	InstBlockByteSize int `json:"inst_block_byte_size"`
 
 	// InstBlockFetchCycles is, with block fetch, the least number of cycles
-	// between two block requests of a wavefront.
+	// between two block requests of one fetch stream of a wavefront. A taken
+	// branch starts a new stream, so the target block is requested at once,
+	// however recently the fall-through block was.
 	InstBlockFetchCycles int `json:"inst_block_fetch_cycles"`
 
 	// InstPrefetchLines is, with block fetch, the number of InstFetchByteSize

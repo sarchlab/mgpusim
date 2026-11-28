@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
@@ -229,11 +230,12 @@ func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
+	cu.Decoder = gfx942Decoder()
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
 	wf.execution().InstBufferStartPC = 0x100
-	wf.execution().InstBuffer = make([]byte, 64)
+	wf.execution().InstBuffer = sNopBytes(64)
 
 	fetchArbiter := newMockWfArbitor()
 	fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn,
@@ -356,6 +358,7 @@ func TestPrefetchRecordsNoWaveMilestone(t *testing.T) {
 // data/inst_fetch milestone over an execution-unit stall.
 func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.Decoder = gfx942Decoder()
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
@@ -363,7 +366,7 @@ func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
 	wf.execution().InstBufferStartPC = 0x100
-	wf.execution().InstBuffer = make([]byte, 64)
+	wf.execution().InstBuffer = sNopBytes(64)
 
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x140,
 		AccessByteSize: 64}}
@@ -412,6 +415,79 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 	if !rec.has(cu.comp.State.WFTasks[wf.UID], tasks.MilestoneKindData, "inst_fetch") {
 		t.Fatalf("blocking fetch return should be marked as data wait, got %+v",
 			rec.milestones)
+	}
+}
+
+// gfx942Decoder decodes the instructions MI300X runs.
+func gfx942Decoder() *insts.Disassembler {
+	decoder := insts.NewDisassembler()
+	decoder.IsCDNA3 = true
+	return decoder
+}
+
+// sNopBytes returns n bytes of s_nop instructions.
+func sNopBytes(n int) []byte {
+	var b []byte
+	for range n / 4 {
+		b = binary.LittleEndian.AppendUint32(b, encSNop[0])
+	}
+	return b
+}
+
+// An 8-byte instruction whose first half ends one block is not ready until the
+// next block brings its second half: the return of that block ends a wait on
+// instruction fetch, not one on an execution unit.
+func TestStraddlingInstructionWaitsForItsSecondBlock(t *testing.T) {
+	engine := newFakeEngine()
+	cu := newTestComputeUnit("CU", engine)
+	cu.Decoder = gfx942Decoder()
+	cu.comp.Spec.InstBlockByteSize = 32
+	period := cu.comp.Spec.Freq.Period()
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
+	wf.SetPC(0x11C) // v_fma_f32 at block offset 28
+	cu.redirectFetch(wf)
+	task := cu.comp.State.WFTasks[wf.UID]
+
+	first := append(sNopBytes(28), binary.LittleEndian.AppendUint32(nil, encVFma[0])...)
+	second := append(binary.LittleEndian.AppendUint32(nil, encVFma[1]), sNopBytes(28)...)
+	fetch := func(address uint64, data []byte) messaging.Msg {
+		req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: address,
+			AccessByteSize: 32}}
+		cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
+			Wavefront: wf, Req: req, Address: address, Epoch: wf.execution().FetchEpoch,
+			FetchTaskID: testIDs.NewID(),
+		}))
+		return messaging.Msg{ID: testIDs.NewID(), RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: data}}
+	}
+	firstRsp, secondRsp := fetch(0x100, first), fetch(0x120, second)
+	fetchMilestones := func() []tasks.Milestone {
+		var ms []tasks.Milestone
+		for _, m := range rec.milestones {
+			if m.TaskID == task && m.Kind == tasks.MilestoneKindData && m.What == "inst_fetch" {
+				ms = append(ms, m)
+			}
+		}
+		return ms
+	}
+
+	engine.now = 16 * period
+	cu.handleFetchReturn(firstRsp)
+	if cu.hasCompleteInstruction(wf) {
+		t.Fatal("half of the 8-byte instruction counts as complete")
+	}
+
+	engine.now = 40 * period
+	cu.handleFetchReturn(secondRsp)
+	ms := fetchMilestones()
+	if len(ms) != 2 || ms[1].Time != engine.now {
+		t.Fatalf("want inst_fetch milestones at both block returns, the last at %d; got %+v", engine.now, ms)
+	}
+	if !cu.hasCompleteInstruction(wf) {
+		t.Fatal("the 8-byte instruction is not complete after its second block")
 	}
 }
 
