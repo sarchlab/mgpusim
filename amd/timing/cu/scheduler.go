@@ -36,6 +36,9 @@ type SchedulerImpl struct {
 
 	// issueRotation is set when the issue arbiter serves one SIMD per cycle.
 	issueRotation bool
+
+	// sccToBranchCycles is Spec.SCCToBranchCycles.
+	sccToBranchCycles int
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -63,9 +66,6 @@ func (s *SchedulerImpl) Run() bool {
 	if s.scoreboardEnabled {
 		madeProgress = s.tickScoreboards() || madeProgress
 	}
-	if s.cu.comp.Spec.TakenBranchIssueGap > 0 {
-		s.markEndedBranchHolds()
-	}
 	madeProgress = s.EvaluateInternalInst() || madeProgress
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue() || madeProgress
@@ -83,28 +83,6 @@ func (s *SchedulerImpl) Run() bool {
 		return false
 	}
 	return true
-}
-
-// markEndedBranchHolds closes, on the wavefront trace, the wait of every
-// wavefront whose hold after a taken branch ends in this cycle, and attributes
-// it to the branch unit. The hold scheduled a tick for exactly this cycle, so
-// each hold is marked once, before the wavefront can issue again; what the
-// wavefront waits for after that is attributed to its execution unit.
-func (s *SchedulerImpl) markEndedBranchHolds() {
-	now := s.cu.CurrentTime()
-
-	for _, wfPool := range s.cu.WfPools {
-		for _, handle := range wfPool.ids() {
-			wf := wfPool.cu.wave(handle)
-			state := wf.execution()
-			if state.IssueNotBefore != now || state.InFlightInsts != 0 {
-				continue
-			}
-
-			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
-				s.cu.comp.Name()+"."+s.cu.execUnitToString(insts.ExeUnitBranch))
-		}
-	}
 }
 
 // wakeForIssueTurns schedules a tick at the next turn of every SIMD, other
@@ -127,12 +105,12 @@ func (s *SchedulerImpl) wakeForIssueTurns() {
 func (s *SchedulerImpl) hasIssuableInst(wfPool *WavefrontPool) bool {
 	for _, handle := range wfPool.ids() {
 		wf := wfPool.cu.wave(handle)
-		if wf.execution().State != wavefront.WfReady || s.cu.issueHeldBack(wf) {
+		if wf.execution().State != wavefront.WfReady {
 			continue
 		}
 
 		inst := wf.NextInst()
-		if inst == nil {
+		if inst == nil || s.cu.sccBranchWaits(wf, inst) {
 			continue
 		}
 
@@ -169,7 +147,7 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 		for _, handle := range wfPool.ids() {
 			wf := wfPool.cu.wave(handle)
 			if len(wf.execution().InstBuffer) == 0 {
-				wf.execution().InstBufferStartPC = wf.PC() & 0xffffffffffffffc0
+				wf.execution().InstBufferStartPC = wf.PC() &^ (s.cu.fetchUnitByteSize() - 1)
 				continue
 			}
 
@@ -207,9 +185,13 @@ func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
-// instruction memory. It fetches for up to 4 wavefronts per cycle to
-// reduce startup latency for streaming workloads.
+// instruction memory. Without block fetch it requests the next line of the
+// one wavefront that has waited longest.
 func (s *SchedulerImpl) DoFetch() bool {
+	if s.cu.comp.Spec.InstBlockByteSize > 0 {
+		return s.doBlockFetch()
+	}
+
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
@@ -217,63 +199,86 @@ func (s *SchedulerImpl) DoFetch() bool {
 	for idx := 0; idx < fetchLimit; idx++ {
 		wf := wfs[idx]
 
-		if len(wf.execution().InstBuffer) == 0 {
-			wf.execution().InstBufferStartPC = wf.PC() &^ (InstFetchByteSize - 1)
-		}
-		addr := nextFetchPC(wf.execution())
-		// The demand fetch is the one for the line right after the buffer;
-		// those issued while it is in flight fetch ahead.
-		bufferEnd := wf.execution().InstBufferStartPC + uint64(len(wf.execution().InstBuffer))
-		isDemandFetch := addr == bufferEnd&^(InstFetchByteSize-1)
-		req := messaging.Msg{ID: s.cu.comp.NewID(),
-			Src: s.cu.instMemPort().AsRemote(),
-			Dst: s.cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: addr,
-				AccessByteSize: InstFetchByteSize,
-				PID:            wf.PID()}}
-
 		if !s.cu.instMemPort().CanSend() {
 			continue
 		}
 
-		info := new(InstFetchReqInfo)
-		info.Wavefront = wf
-		info.Req = req
-		info.Address = addr
-		info.Epoch = wf.execution().FetchEpoch
-
-		wf.execution().IsFetching = true
-		wf.execution().NextFetchPC = addr + InstFetchByteSize
-
-		madeProgress = true
-
-		info.FetchTaskID = s.cu.comp.TaskTracker().StartTask(s.cu.comp, tasks.StartInfo{
-			ParentID: s.cu.comp.State.WFTasks[wf.UID],
-			Kind:     "fetch",
-			What:     "fetch",
-			// Give instruction fetch its own unit location instead of letting it
-			// fall back to the bare CU name (singleKindLocation's default). That
-			// keeps "one location, one kind": the bare CU name is no longer a task
-			// row, and fetch can't collide with the sampled wavefront task (which
-			// also used to fall back to the bare CU name).
-			Location: s.cu.comp.Name() + ".InstFetcher",
-		})
-		if isDemandFetch && wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf) {
-			// Fetching while nothing is in flight: the wavefront is stalled with no
-			// instruction available, waiting on the fetch path. (A prefetch issued
-			// while an instruction executes leaves InFlightInsts > 0 and is silent;
-			// a fetch-ahead with decoded/available bytes is also silent because the
-			// real blocker is the execution unit that has not accepted the ready
-			// instruction yet. So is a fetch issued behind the demand fetch: from
-			// then on the wavefront waits for the demand fetch's data.)
-			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
-				s.cu.comp.Name()+".InstFetcher")
+		if len(wf.execution().InstBuffer) == 0 {
+			wf.execution().InstBufferStartPC = wf.PC() &^ (InstFetchByteSize - 1)
 		}
-		s.cu.comp.State.InstFetch = append(s.cu.comp.State.InstFetch, s.cu.fetchState(info))
-		s.cu.startRequest(req, info.FetchTaskID)
-		s.cu.instMemPort().Send(req)
+		addr := nextFetchPC(wf.execution())
+		s.sendInstFetch(wf, addr, InstFetchByteSize, false)
+		wf.execution().NextFetchPC = addr + InstFetchByteSize
+		madeProgress = true
 	}
 
 	return madeProgress
+}
+
+// sendInstFetch sends one instruction-memory read for the wavefront: a fetch
+// into its instruction buffer, or a prefetch whose data is dropped.
+func (s *SchedulerImpl) sendInstFetch(wf *Wavefront, addr uint64, byteSize uint64, prefetch bool) {
+	port, dst := s.cu.instMemPort(), s.cu.comp.Spec.InstMem
+	if prefetch {
+		port, dst = s.cu.instPrefetchPort(), s.cu.comp.Spec.InstPrefetchMem
+	}
+	req := messaging.Msg{ID: s.cu.comp.NewID(),
+		Src: port.AsRemote(),
+		Dst: dst, Payload: memprotocol.ReadReq{Address: addr,
+			AccessByteSize: byteSize,
+			PID:            wf.PID()}}
+
+	info := new(InstFetchReqInfo)
+	info.Req = req
+	info.Address = addr
+	info.Epoch = wf.execution().FetchEpoch
+	info.Prefetch = prefetch
+
+	// A prefetch belongs to no wavefront: the wavefront may end, and its slot
+	// be reused, before the reply arrives, which is then dropped.
+	if !prefetch {
+		info.Wavefront = wf
+		wf.execution().IsFetching = true
+	}
+
+	// Give instruction fetch its own unit location instead of letting it fall
+	// back to the bare CU name (singleKindLocation's default). That keeps "one
+	// location, one kind": the bare CU name is no longer a task row, and fetch
+	// can't collide with the sampled wavefront task (which also used to fall
+	// back to the bare CU name). A prefetch is a task kind of its own, at its
+	// own location: it stalls no wavefront, so consumers that account for
+	// wavefront time, such as the CPI stack tracer, must not count it as a
+	// fetch. Its parent is the wavefront whose fetch stream issued it, which
+	// may end first, as a memory request may outlive its instruction.
+	kind, location := "fetch", s.cu.comp.Name()+".InstFetcher"
+	if prefetch {
+		kind, location = "prefetch", s.cu.comp.Name()+".InstPrefetcher"
+	}
+	info.FetchTaskID = s.cu.comp.TaskTracker().StartTask(s.cu.comp, tasks.StartInfo{
+		ParentID: s.cu.comp.State.WFTasks[wf.UID],
+		Kind:     kind,
+		What:     kind,
+		Location: location,
+	})
+
+	// The demand fetch is the one for the bytes right after the buffer; those
+	// requested while it is in flight, and prefetches, wait for nothing.
+	state := wf.execution()
+	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
+	isDemandFetch := !prefetch && addr == bufferEnd&^(byteSize-1)
+	if isDemandFetch && state.InFlightInsts == 0 && !s.cu.hasInstructionReady(wf) {
+		// Fetching while nothing is in flight: the wavefront is stalled with no
+		// instruction available, waiting on the fetch path. (A fetch issued
+		// while an instruction executes leaves InFlightInsts > 0 and is silent;
+		// one with decoded/available bytes is also silent because the real
+		// blocker is the execution unit that has not accepted the ready
+		// instruction yet.)
+		s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
+			s.cu.comp.Name()+".InstFetcher")
+	}
+	s.cu.comp.State.InstFetch = append(s.cu.comp.State.InstFetch, s.cu.fetchState(info))
+	s.cu.startRequest(req, info.FetchTaskID)
+	port.Send(req)
 }
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
@@ -302,6 +307,11 @@ func (s *SchedulerImpl) DoIssue() bool {
 					wf.scoreboard().MarkBusy(
 						inst, latency)
 				}
+			}
+
+			if s.sccToBranchCycles > 0 && isScalarALU(inst) {
+				wf.execution().SCCBranchNotBefore = s.cu.comp.Spec.Freq.NCyclesLater(
+					s.sccToBranchCycles, s.cu.CurrentTime())
 			}
 
 			unit.AcceptWave(wf)

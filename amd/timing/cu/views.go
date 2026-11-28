@@ -153,6 +153,11 @@ func (wf *Wavefront) requireInstruction(id uint64) {
 // or decoding it. The previous instruction may still belong to memory traffic.
 func (wf *Wavefront) issueNext() {
 	state := wf.execution()
+	if wf.cu.comp.Spec.InstBlockByteSize > 0 {
+		// The instruction is issued from the PC; the buffer blocks before its
+		// end are free.
+		state.IssuedEnd = wf.PC() + uint64(wf.NextInst().ByteSize)
+	}
 	old := state.InstID
 	state.InstID, state.ToIssueID = state.ToIssueID, 0
 	wf.cu.releaseInstruction(old)

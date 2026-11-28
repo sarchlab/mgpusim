@@ -105,7 +105,11 @@ func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*Com
 		builderCU = builderCU.WithResources(Resources{Decoder: decoder, ALU: cdna3.NewALU(nil)})
 	}
 	comp := builderCU.Build("CU")
-	for _, name := range []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName} {
+	names := []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName}
+	if spec.InstPrefetchLines > 0 {
+		names = append(names, InstPrefetchPortName)
+	}
+	for _, name := range names {
 		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}
@@ -257,7 +261,7 @@ func TestCheckpointScoreboardAndPipelinedSIMDIdentity(t *testing.T) {
 	}
 }
 
-func TestCheckpointKeepsOverlappedSIMDSlotAndBranchHold(t *testing.T) {
+func TestCheckpointKeepsOverlappedSIMDSlot(t *testing.T) {
 	spec := DefaultSpec()
 	spec.RegisterScoreboard = true
 	spec.VALUIssueOverlap = true
@@ -273,7 +277,6 @@ func TestCheckpointKeepsOverlappedSIMDSlotAndBranchHold(t *testing.T) {
 	wf.setTestInst(next)
 	original.beginInstruction(wf, next.ID)
 	wf.execution().State = wavefront.WfRunning
-	wf.execution().IssueNotBefore = 12345
 	original.comp.State.BranchTaken = true
 	original.comp.State.SIMDs[0].Slots = []SIMDSlotState{
 		{WF: handleOf(wf), Cycles: 1, Inst: executing.ID, Released: true},
@@ -282,9 +285,6 @@ func TestCheckpointKeepsOverlappedSIMDSlotAndBranchHold(t *testing.T) {
 	restored := roundTripCUState(t, original)
 
 	view := restored.wave(handleOf(wf))
-	if view.execution().IssueNotBefore != 12345 {
-		t.Fatal("issue hold was lost")
-	}
 	if !restored.comp.State.BranchTaken {
 		t.Fatal("branch outcome was lost")
 	}
@@ -334,6 +334,35 @@ func TestCompletedGroupRetiresAfterFetchAheadResponse(t *testing.T) {
 	c.retireGroups()
 	if liveTestGroups(&c.comp.State) != 0 || liveTestWaves(&c.comp.State) != 0 || len(c.comp.State.Instructions) != 0 {
 		t.Fatal("completed graph was retained")
+	}
+}
+
+func TestCheckpointKeepsBlockFetchState(t *testing.T) {
+	spec := DefaultSpec()
+	spec.RegisterScoreboard = true
+	original := checkpointCU(t, spec)
+	wf := checkpointGroup(original).waves()[0]
+	wf.execution().IssuedEnd = 0x1028
+	wf.execution().BlockFetchNotBefore = 12345
+	wf.execution().PrefetchPC = 0x10c0
+	wf.execution().SCCBranchNotBefore = 6789
+	original.comp.State.InstFetch = append(original.comp.State.InstFetch, FetchState{
+		Req: messaging.Msg{ID: 77, Payload: memprotocol.ReadReq{Address: 0x1080, AccessByteSize: 64}},
+		WF:  handleOf(wf), Address: 0x1080, Epoch: 3, Prefetch: true})
+
+	restored := roundTripCUState(t, original)
+
+	view := restored.wave(handleOf(wf))
+	if view.execution().IssuedEnd != 0x1028 || view.execution().BlockFetchNotBefore != 12345 ||
+		view.execution().PrefetchPC != 0x10c0 {
+		t.Fatalf("block fetch state was restored as %+v", *view.execution())
+	}
+	if view.execution().SCCBranchNotBefore != 6789 {
+		t.Fatal("SCC branch wait was lost")
+	}
+	fetch := restored.comp.State.InstFetch[len(restored.comp.State.InstFetch)-1]
+	if !fetch.Prefetch || fetch.Epoch != 3 || fetch.Address != 0x1080 {
+		t.Fatalf("prefetch was restored as %+v", fetch)
 	}
 }
 

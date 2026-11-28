@@ -129,9 +129,8 @@ var _ = Describe("Branch Unit", func() {
 			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
 		})
 
-		It("should drop every fetch in flight, even one for the target line", func() {
-			cu.comp.Spec.InstFetchAheadLines = 4
-			recordCodeEnd(wave, 0x1000, 0x2000)
+		It("should drop every block fetch in flight, even one for the target block", func() {
+			cu.comp.Spec.InstBlockByteSize = 32
 			var reqs []messaging.Msg
 			wave.execution().IsFetching = true
 			wave.execution().NextFetchPC = 0x2100
@@ -158,16 +157,15 @@ var _ = Describe("Branch Unit", func() {
 			Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x1000)))
 		})
 
-		It("should take the lines of the new stream in order", func() {
-			cu.comp.Spec.InstFetchAheadLines = 4
-			recordCodeEnd(wave, 0x1000, 0x2000)
+		It("should take the blocks of the new stream in order", func() {
+			cu.comp.Spec.InstBlockByteSize = 32
 			bu.Run()
 			bu.Run()
 
 			var reqs []messaging.Msg
-			for _, addr := range []uint64{0x1000, 0x1040} {
+			for _, addr := range []uint64{0x1000, 0x1020} {
 				req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{
-					Address: addr, AccessByteSize: 64}}
+					Address: addr, AccessByteSize: 32}}
 				reqs = append(reqs, req)
 				cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu,
 					&InstFetchReqInfo{Req: req, Wavefront: wave, Address: addr,
@@ -177,14 +175,14 @@ var _ = Describe("Branch Unit", func() {
 			wave.execution().State = wavefront.WfDraining
 
 			cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: reqs[0].ID,
-				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
-			Expect(wave.execution().InstBuffer).To(HaveLen(64))
+				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 32)}})
+			Expect(wave.execution().InstBuffer).To(HaveLen(32))
 			Expect(wave.execution().IsFetching).To(BeTrue())
 			Expect(wave.execution().State).To(Equal(wavefront.WfDraining))
 
 			cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(), RspTo: reqs[1].ID,
-				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
-			Expect(wave.execution().InstBuffer).To(HaveLen(128))
+				Payload: memprotocol.DataReadyRsp{Data: make([]byte, 32)}})
+			Expect(wave.execution().InstBuffer).To(HaveLen(64))
 			Expect(wave.execution().IsFetching).To(BeFalse())
 			Expect(wave.execution().State).To(Equal(wavefront.WfCompleted))
 		})

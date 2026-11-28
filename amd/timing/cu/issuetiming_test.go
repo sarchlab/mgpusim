@@ -80,13 +80,32 @@ var _ = Describe("Issue rotation", func() {
 		Expect(arbiter.Arbitrate(wfPools)).To(Equal([]*Wavefront{waves[2], scalar}))
 	})
 
-	It("should skip a wavefront that is held back", func() {
+	It("should hold back a branch on SCC after a scalar ALU instruction", func() {
+		description := insts.NewInst()
+		description.ExeUnit = insts.ExeUnitBranch
+		description.FormatType = insts.SOPP
+		description.InstName = "s_cbranch_scc0"
+		waves[0].setTestNextInst(testInst(testIDs.NewID(), description))
+		waves[0].execution().SCCBranchNotBefore = 12 * period
 		engine.now = 4 * period
-		waves[0].execution().IssueNotBefore = 8 * period
 
 		Expect(arbiter.Arbitrate(wfPools)).To(BeEmpty())
+		Expect(engine.scheduled).To(HaveLen(1))
+		Expect(engine.scheduled[0].Time()).To(Equal(12 * period))
 
-		engine.now = 8 * period
+		engine.now = 12 * period
+
+		Expect(arbiter.Arbitrate(wfPools)).To(Equal([]*Wavefront{waves[0]}))
+	})
+
+	It("should not hold back other branches after a scalar ALU instruction", func() {
+		description := insts.NewInst()
+		description.ExeUnit = insts.ExeUnitBranch
+		description.FormatType = insts.SOPP
+		description.InstName = "s_cbranch_vccz"
+		waves[0].setTestNextInst(testInst(testIDs.NewID(), description))
+		waves[0].execution().SCCBranchNotBefore = 12 * period
+		engine.now = 4 * period
 
 		Expect(arbiter.Arbitrate(wfPools)).To(Equal([]*Wavefront{waves[0]}))
 	})
@@ -187,7 +206,7 @@ var _ = Describe("Pipelined SIMD unit", func() {
 	})
 })
 
-var _ = Describe("Branch unit with a taken-branch issue gap", func() {
+var _ = Describe("Branch unit with block fetch", func() {
 	var (
 		engine *fakeEngine
 		cu     *ComputeUnit
@@ -208,26 +227,22 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		return testInst(testIDs.NewID(), description)
 	}
 
-	wakeTimes := func() []timing.VTimeInPicoSec {
-		times := make([]timing.VTimeInPicoSec, 0, len(engine.scheduled))
-		for _, evt := range engine.scheduled {
-			times = append(times, evt.Time())
-		}
-		return times
-	}
-
 	BeforeEach(func() {
 		engine = newFakeEngine()
 		cu = newTestComputeUnit("CU", engine)
+		cu.comp.Spec.InstBlockByteSize = 32
 		period = cu.comp.Spec.Freq.Period()
 		alu = new(jumpingALU)
 		bu = NewBranchUnit(cu, alu)
-		bu.takenIssueGap = 24
 
 		wave = newTestWave()
 		wave.execution().State = wavefront.WfRunning
 		wave.execution().InstBuffer = make([]byte, 256)
 		wave.execution().InstBufferStartPC = 0x100
+		wave.execution().NextFetchPC = 0x200
+		wave.execution().IssuedEnd = 0x140
+		wave.execution().PrefetchPC = 0x280
+		wave.execution().BlockFetchNotBefore = 20 * period
 		wave.execution().SIMDID = 1
 		wave.setTestInst(branchInst(2, 0))
 		wave.SetPC(0x13C)
@@ -235,34 +250,23 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		engine.now = 10 * period
 	})
 
-	It("should flush and hold back the wavefront after a taken branch", func() {
-		alu.offset = ^uint64(0x3f) // back by 64 bytes
+	It("should start a new fetch stream after a taken branch, without a hold", func() {
+		alu.offset = ^uint64(0x3b) // back by 60 bytes, to 0x104
 
 		bu.Run()
 		bu.Run()
 
-		gapEnd := timing.VTimeInPicoSec(10+24-branchPipelineCycles) * period
-		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
-		Expect(wave.PC()).To(Equal(uint64(0x100)))
-		Expect(wave.execution().InstBuffer).To(BeEmpty())
-		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x100)))
-		Expect(wave.execution().IssueNotBefore).To(Equal(gapEnd))
-		Expect(cu.issueHeldBack(wave)).To(BeTrue())
-		Expect(wakeTimes()).To(Equal([]timing.VTimeInPicoSec{gapEnd}))
-	})
-
-	It("should hold the wavefront until its SIMD's turn with issue rotation", func() {
-		cu.comp.Spec.IssueRotation = true
-		alu.offset = ^uint64(0x3f)
-
-		bu.Run()
-		bu.Run()
-
-		// The gap ends in cycle 31, when SIMD 3 is served; SIMD 1 is next
-		// served in cycle 33.
-		turn := 33 * period
-		Expect(wave.execution().IssueNotBefore).To(Equal(turn))
-		Expect(wakeTimes()).To(Equal([]timing.VTimeInPicoSec{turn}))
+		state := wave.execution()
+		Expect(state.State).To(Equal(wavefront.WfReady))
+		Expect(wave.PC()).To(Equal(uint64(0x104)))
+		Expect(state.InstBuffer).To(BeEmpty())
+		Expect(state.InstBufferStartPC).To(Equal(uint64(0x100)))
+		Expect(state.FetchEpoch).To(Equal(uint64(1)))
+		Expect(state.NextFetchPC).To(BeZero())
+		Expect(state.IssuedEnd).To(BeZero())
+		Expect(state.PrefetchPC).To(BeZero())
+		Expect(state.BlockFetchNotBefore).To(BeZero())
+		Expect(engine.scheduled).To(BeEmpty())
 	})
 
 	It("should keep the instruction buffer when the branch is not taken", func() {
@@ -271,17 +275,18 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		bu.Run()
 		bu.Run()
 
-		Expect(wave.execution().State).To(Equal(wavefront.WfReady))
+		state := wave.execution()
+		Expect(state.State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC()).To(Equal(uint64(0x140)))
-		Expect(wave.execution().InstBuffer).To(HaveLen(192))
-		Expect(wave.execution().InstBufferStartPC).To(Equal(uint64(0x140)))
-		Expect(wave.execution().IssueNotBefore).To(BeZero())
-		Expect(cu.issueHeldBack(wave)).To(BeFalse())
-		Expect(wakeTimes()).To(BeEmpty())
+		Expect(state.InstBuffer).To(HaveLen(192))
+		Expect(state.InstBufferStartPC).To(Equal(uint64(0x140)))
+		Expect(state.FetchEpoch).To(BeZero())
+		Expect(state.NextFetchPC).To(Equal(uint64(0x200)))
+		Expect(engine.scheduled).To(BeEmpty())
 	})
 
-	It("should flush without a hold when the gap is not configured", func() {
-		bu.takenIssueGap = 0
+	It("should flush on every branch without block fetch", func() {
+		cu.comp.Spec.InstBlockByteSize = 0
 		alu.skip = true
 
 		bu.Run()
@@ -289,8 +294,7 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 
 		Expect(wave.PC()).To(Equal(uint64(0x140)))
 		Expect(wave.execution().InstBuffer).To(BeEmpty())
-		Expect(wave.execution().IssueNotBefore).To(BeZero())
-		Expect(wakeTimes()).To(BeEmpty())
+		Expect(wave.execution().FetchEpoch).To(Equal(uint64(1)))
 	})
 
 	Context("with the CDNA3 ALU and a zero displacement", func() {
@@ -301,13 +305,13 @@ var _ = Describe("Branch unit with a taken-branch issue gap", func() {
 		expectTaken := func() {
 			Expect(wave.PC()).To(Equal(uint64(0x140)))
 			Expect(wave.execution().InstBuffer).To(BeEmpty())
-			Expect(cu.issueHeldBack(wave)).To(BeTrue())
+			Expect(wave.execution().FetchEpoch).To(Equal(uint64(1)))
 		}
 
 		expectNotTaken := func() {
 			Expect(wave.PC()).To(Equal(uint64(0x140)))
 			Expect(wave.execution().InstBuffer).To(HaveLen(192))
-			Expect(cu.issueHeldBack(wave)).To(BeFalse())
+			Expect(wave.execution().FetchEpoch).To(BeZero())
 		}
 
 		It("should treat an unconditional branch as taken", func() {
@@ -405,14 +409,6 @@ var _ = Describe("Scheduler with issue rotation", func() {
 
 		scheduler.Run()
 
-		Expect(wakeTimes()).To(BeEmpty())
-	})
-
-	It("should not wake for a wavefront that is held back", func() {
-		engine.now = 2 * period
-		wave.execution().IssueNotBefore = 100 * period
-
-		Expect(runUntilIdle()).To(BeNumerically("<", 20))
 		Expect(wakeTimes()).To(BeEmpty())
 	})
 

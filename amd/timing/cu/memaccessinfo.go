@@ -32,6 +32,8 @@ type InstFetchReqInfo struct {
 	Address   uint64
 	// Epoch is the wavefront's fetch stream at the time of the request.
 	Epoch uint64
+	// Prefetch marks a line read ahead into the instruction cache.
+	Prefetch bool
 
 	// FetchTaskID is the tracing task ID of the fetch task (v4 used the
 	// string ID req.ID+"_fetch").

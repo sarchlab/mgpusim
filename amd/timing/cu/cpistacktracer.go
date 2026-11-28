@@ -224,11 +224,12 @@ func (h *CPIStackTracer) GetSIMDCPIStack() map[string]float64 {
 
 // StartTask is called when a task is started.
 func (h *CPIStackTracer) TaskStarted(task tasks.Task) {
-	// Only track the task kinds the CPI stack models. Other kinds — notably the
-	// port-level "incoming_queue" tasks akita emits — are hooked in from a
-	// different component's goroutine under the parallel engine; dropping them
-	// before touching any state keeps the accounting unchanged and avoids
-	// retaining tasks that EndTask would otherwise have to match.
+	// Only track the task kinds the CPI stack models. Other kinds are dropped
+	// before touching any state, which keeps the accounting unchanged and
+	// avoids retaining tasks that EndTask would otherwise have to match. Among
+	// them are instruction prefetches, which stall no wavefront, and the
+	// port-level "incoming_queue" tasks akita emits, which under the parallel
+	// engine are hooked in from a different component's goroutine.
 	switch task.Kind {
 	case "wavefront", "inst", "fetch", "req_out", "req_in":
 	default:
@@ -276,8 +277,15 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 			h.firstWFStarted = true
 			h.firstWFStartTime = task.StartTime
 			h.lastRecordedTime = h.firstWFStartTime
-			h.runningWFCount++
+		} else if h.runningWFCount == 0 {
+			// No wavefront ran since the last one ended: the gap is idle, even
+			// if a reply for an ended wavefront is still on its way.
+			h.timeStack[taskType(taskTypeIdle).ToString()] += task.StartTime - h.lastRecordedTime
+			h.lastRecordedTime = task.StartTime
 		}
+		// Count every wavefront. TaskEnded handles only the tasks stored by
+		// TaskStarted, so each counted start is matched by exactly one end.
+		h.runningWFCount++
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
 	case "req_out":
@@ -293,19 +301,33 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 	}
 }
 
+// advance charges the time since the last recorded event to the highest task
+// type running, while a wavefront runs. Once none runs, the total stops at the
+// last wavefront's end, so a task that ends later (a fetch or memory reply that
+// arrives after its wavefront has ended) charges nothing. If another wavefront
+// starts later, the gap is inside the total, and that wavefront's start
+// charges it to Idle, so the components still add up to the total.
+func (h *CPIStackTracer) advance(now timing.VTimeInPicoSec) {
+	if h.runningWFCount == 0 {
+		return
+	}
+
+	h.timeStack[h.highestRunningTaskType().ToString()] += now - h.lastRecordedTime
+	h.lastRecordedTime = now
+}
+
 func (h *CPIStackTracer) handleRegularTaskStart(task tasks.Task) {
 	currentTaskType := taskTypeFromString(task)
-	highestTaskType := h.highestRunningTaskType()
-
-	currentTime := task.StartTime
-	duration := currentTime - h.lastRecordedTime
-	h.timeStack[highestTaskType.ToString()] += duration
-	h.lastRecordedTime = currentTime
-
+	h.advance(task.StartTime)
 	h.inFlightTaskCountMap[currentTaskType]++
 }
 
 func (h *CPIStackTracer) handleReqStart(task tasks.Task) {
+	// Keep only the requests the stack accounts for; the others, such as an
+	// instruction prefetch's read (whose prefetch task is not tracked), need
+	// no handling when they end.
+	delete(h.inflightTasks, task.ID)
+
 	if task.What != "ReadReq" && task.What != "WriteReq" {
 		return
 	}
@@ -340,13 +362,7 @@ func (h *CPIStackTracer) handleRegularTaskEnd(
 	endTime timing.VTimeInPicoSec,
 ) {
 	currentTaskType := taskTypeFromString(task)
-	highestTaskType := h.highestRunningTaskType()
-
-	currentTime := endTime
-	duration := currentTime - h.lastRecordedTime
-
-	h.timeStack[highestTaskType.ToString()] += duration
-	h.lastRecordedTime = currentTime
+	h.advance(endTime)
 
 	if currentTaskType.isInst() {
 		h.instCount++
@@ -391,16 +407,16 @@ func (h *CPIStackTracer) handleTaskEnd(
 ) {
 	switch task.Kind {
 	case "wavefront":
-		if h.firstWFStarted {
-			h.lastWFEndTime = endTime
-			h.lastRecordedTime = h.lastWFEndTime
-			h.runningWFCount--
-		}
+		// Only wavefront ends set the end time: the stack covers the time from
+		// the first wavefront's start to the last one's end, and another task
+		// (a work-group request, or a memory request) ending after the last
+		// wavefront must not stretch it.
+		h.advance(endTime)
+		h.lastWFEndTime = endTime
+		h.runningWFCount--
 	case "inst", "fetch":
 		h.handleRegularTaskEnd(task, endTime)
 	case "req_out":
 		h.handleReqEnd(task, endTime)
 	}
-
-	h.lastWFEndTime = endTime
 }

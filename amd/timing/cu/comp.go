@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
@@ -21,6 +23,13 @@ const (
 	// InstMemPortName sends instruction-fetch reads (v4: ToInstMem).
 	InstMemPortName = "InstMem"
 
+	// InstPrefetchPortName is the one slot of the optional InstPrefetch port
+	// group, bound only when Spec.InstPrefetchLines is positive. It sends the
+	// reads of lines prefetched into the instruction cache. Their responses
+	// are dropped, so they need not return in order with the instruction
+	// fetches.
+	InstPrefetchPortName = "InstPrefetch[0]"
+
 	// ScalarMemPortName sends scalar memory reads (v4: ToScalarMem).
 	ScalarMemPortName = "ScalarMem"
 
@@ -39,6 +48,9 @@ type Spec struct {
 	// InstMem and ScalarMem are fixed request destinations, supplied before Build.
 	InstMem   messaging.RemotePort `json:"inst_mem"`
 	ScalarMem messaging.RemotePort `json:"scalar_mem"`
+	// InstPrefetchMem is the destination of instruction prefetches (see
+	// InstPrefetchLines), usually the instruction cache itself.
+	InstPrefetchMem messaging.RemotePort `json:"inst_prefetch_mem"`
 
 	// IsCDNA3 is captured from the configured decoder by the builder.
 	IsCDNA3 bool        `json:"is_cdna3"`
@@ -64,7 +76,9 @@ type Spec struct {
 	// port transfer and serial bank replays. GCN3 uses its legacy pipeline.
 	LDSReturnCycles int `json:"lds_return_cycles"`
 
-	// Log2CachelineSize is the cacheline size as a power of 2.
+	// Log2CachelineSize is the cacheline size as a power of 2. It is also the
+	// line size of the instruction cache: with block fetch, a block lies in
+	// one line, and a prefetch reads one whole line.
 	Log2CachelineSize uint64 `json:"log2_cacheline_size"`
 
 	// NumSinglePrecisionUnits is the number of single-precision units per
@@ -111,31 +125,60 @@ type Spec struct {
 	// Otherwise instructions whose name contains "f64" take twice as long.
 	UniformVALUCycles bool `json:"uniform_valu_cycles"`
 
-	// TakenBranchIssueGap is the number of cycles between issuing a taken
-	// branch and the earliest issue of its target. When positive, a branch
-	// that is not taken keeps the instruction buffer. Zero keeps the legacy
-	// behavior: every branch discards the buffer and adds no extra delay.
-	TakenBranchIssueGap int `json:"taken_branch_issue_gap"`
+	// SCCToBranchCycles is the number of cycles from issuing a scalar ALU
+	// instruction, which writes SCC, to the earliest issue of a conditional
+	// branch on SCC (s_cbranch_scc0 and s_cbranch_scc1). Zero adds no wait.
+	// The issue arbiter holds the branch back, with or without
+	// RegisterScoreboard, and the compute unit wakes when the wait is over.
+	SCCToBranchCycles int `json:"scc_to_branch_cycles"`
 
 	// InFlightVectorMemAccessLimit caps the number of outstanding vector
 	// memory transactions.
 	InFlightVectorMemAccessLimit int `json:"in_flight_vector_mem_access_limit"`
 
-	// InstBufByteSize is the per-wavefront instruction buffer size that the
-	// fetch arbiter fills up to. With InstFetchAheadLines above one it must
-	// be a whole number of fetches of InstFetchByteSize and hold at least
-	// two, because an instruction can straddle two of them.
+	// InstBufByteSize is the per-wavefront instruction buffer size. Without
+	// block fetch the fetch arbiter fills the buffer up to it, one
+	// InstFetchByteSize line at a time. With block fetch it must be a whole
+	// number of blocks, at least two, because an instruction can straddle two
+	// of them.
 	InstBufByteSize int `json:"inst_buf_byte_size"`
 
-	// InstFetchAheadLines is the number of fetches of InstFetchByteSize a
-	// wavefront may have in flight at once, fetching ahead of the
-	// instruction it executes. The fetches in flight and the buffered bytes
-	// together never exceed InstBufByteSize. Zero or one fetches one line at
-	// a time. A wavefront whose code object does not record exactly where
-	// its code ends (no symbol, or a V2 or V3 symbol, which also covers the
-	// header) also fetches one line at a time, and holds at most
-	// DefaultInstBufByteSize bytes when InstBufByteSize is larger.
-	InstFetchAheadLines int `json:"inst_fetch_ahead_lines"`
+	// InstBlockByteSize, when positive, selects block fetch: a wavefront's
+	// instruction buffer holds InstBufByteSize/InstBlockByteSize blocks of
+	// this size, and a wavefront requests the next block from the instruction
+	// memory as soon as one is free. A block is free once the wavefront has
+	// issued the instruction that holds its last byte. A taken branch empties
+	// the buffer and starts a new fetch stream at its target; a branch that
+	// is not taken keeps the buffer. It must be a multiple of 4 that divides
+	// the cache line size (Log2CachelineSize). With block fetch, the demand
+	// replies from InstMem must arrive in the order of their requests: the
+	// compute unit panics on a block that arrives out of order within a fetch
+	// stream. The stock assembly sends demand fetches through the L1I reorder
+	// buffer; a custom assembly needs a reorder buffer or another responder
+	// that answers in order. Replies from InstPrefetchMem may arrive in any
+	// order. Zero keeps fetching whole InstFetchByteSize lines, one at a time,
+	// and every branch empties the buffer.
+	InstBlockByteSize int `json:"inst_block_byte_size"`
+
+	// InstBlockFetchCycles is, with block fetch, the least number of cycles
+	// between two block requests of one fetch stream of a wavefront. A taken
+	// branch starts a new stream, so the target block is requested at once,
+	// however recently the fall-through block was.
+	InstBlockFetchCycles int `json:"inst_block_fetch_cycles"`
+
+	// InstPrefetchLines is, with block fetch, the number of cache lines
+	// (Log2CachelineSize) past the next block a wavefront requests that the
+	// compute unit reads ahead into the instruction cache for it. The
+	// responses only warm the cache; they never enter the instruction buffer,
+	// and no wavefront waits for them. The compute unit skips a prefetch when
+	// a demand fetch or a prefetch of the same process and cache line is
+	// already in flight; demand block fetches are always sent. Only wavefronts
+	// whose code object records exactly where their code ends (a V5 code
+	// object with a kernel symbol) prefetch, and never past that end.
+	// Prefetches go to InstPrefetchMem through the InstPrefetch port, which is
+	// bound (InstPrefetchPortName) exactly when this is positive. Zero
+	// prefetches nothing.
+	InstPrefetchLines int `json:"inst_prefetch_lines"`
 }
 
 // SampledCompletion is a pending wave completion, ordered by At in State.
@@ -187,10 +230,13 @@ type Resources struct {
 // Comp is the timing ComputeUnit component.
 type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
-	Top       messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
-	InstMem   messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
-	ScalarMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
-	VectorMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	Top     messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
+	InstMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	// InstPrefetch holds the instruction-prefetch requester port when
+	// Spec.InstPrefetchLines is positive, and nothing otherwise.
+	InstPrefetch []messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	ScalarMem    messaging.Port   `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	VectorMem    messaging.Port   `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 }
 type Middlewares struct{ CU *cuMiddleware }
 type cuMiddleware struct{ cu *ComputeUnit }
@@ -199,6 +245,14 @@ func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
 func (m *Middlewares) Initialize(c *Comp) {
 	if err := c.Spec.VectorMemModules.Validate(); err != nil {
 		panic("cu: VectorMemModules: " + err.Error())
+	}
+	wantPrefetchPorts := 0
+	if c.Spec.InstPrefetchLines > 0 {
+		wantPrefetchPorts = 1
+	}
+	if len(c.Ports.InstPrefetch) != wantPrefetchPorts {
+		panic(fmt.Sprintf("cu: %s has %d InstPrefetch ports; it needs one exactly when InstPrefetchLines is positive",
+			c.Name(), len(c.Ports.InstPrefetch)))
 	}
 
 	cu := &ComputeUnit{comp: c, Decoder: c.Resources.Decoder}

@@ -10,7 +10,7 @@ import (
 )
 
 var _ = Describe("Builder", func() {
-	It("should build a fully equipped compute unit", func() {
+	It("should build a fully equipped compute unit with its four original ports", func() {
 		reg := sim.MakeBuilder().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
@@ -20,10 +20,10 @@ var _ = Describe("Builder", func() {
 			WithSimulation(reg).
 			Build("GPU.CU")
 
-		// All four ports must be declared so external code can assign them.
+		// Without instruction prefetch, a compute unit has the four ports
+		// it always had.
 		for _, portName := range []string{
-			DispatchPortName,
-			InstMemPortName, ScalarMemPortName, VectorMemPortName,
+			DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName,
 		} {
 			p := twowaybuffered.MakeBuilder().
 				WithSimulation(reg).
@@ -78,21 +78,67 @@ var _ = Describe("Builder", func() {
 		}).To(PanicWith(ContainSubstring("IssueRotation requires SIMDCount")))
 	})
 
-	It("should require a fetch-ahead buffer of at least two whole fetches", func() {
+	It("should take an InstPrefetch port exactly when it prefetches", func() {
+		initialize := func(prefetch bool, ports ...string) func() {
+			reg := sim.MakeBuilder().Build()
+			DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
+			spec := DefaultSpec()
+			spec.VectorMemModules = mem.AddressMapper{Destinations: []messaging.RemotePort{"Memory.Top"}}
+			if prefetch {
+				spec.InstBlockByteSize, spec.InstBufByteSize = 32, 64
+				spec.InstPrefetchLines, spec.InstPrefetchMem = 8, "L1I.Top"
+			}
+			comp := MakeBuilder().WithSpec(spec).WithSimulation(reg).Build("GPU.CU")
+			for _, name := range append([]string{DispatchPortName, InstMemPortName, ScalarMemPortName,
+				VectorMemPortName}, ports...) {
+				comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(reg).
+					WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
+			}
+			return func() { _ = reg.Initialize() }
+		}
+
+		Expect(initialize(true, InstPrefetchPortName)).NotTo(Panic())
+		Expect(initialize(true)).To(PanicWith(ContainSubstring("0 InstPrefetch ports")))
+		Expect(initialize(false, InstPrefetchPortName)).To(PanicWith(ContainSubstring("1 InstPrefetch ports")))
+	})
+
+	It("should require 4-byte-multiple blocks and a buffer of at least two whole blocks", func() {
 		reg := sim.MakeBuilder().Build()
 		DeferCleanup(func() { Expect(reg.Terminate()).To(Succeed()) })
 
-		build := func(name string, lines, bufferSize int) func() {
+		build := func(name string, block, bufferSize, prefetch int) func() {
 			spec := DefaultSpec()
-			spec.InstFetchAheadLines = lines
+			spec.InstBlockByteSize = block
 			spec.InstBufByteSize = bufferSize
+			spec.InstPrefetchLines = prefetch
+			if prefetch > 0 {
+				spec.InstPrefetchMem = "GPU.L1I.Top"
+			}
 			return func() { MakeBuilder().WithSpec(spec).WithSimulation(reg).Build(name) }
 		}
 
-		Expect(build("GPU.CU[0]", 2, 100)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
-		Expect(build("GPU.CU[1]", 2, 64)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
-		Expect(build("GPU.CU[2]", 2, 128)).NotTo(Panic())
-		// One line at a time keeps its capacity rule.
-		Expect(build("GPU.CU[3]", 1, 100)).NotTo(Panic())
+		Expect(build("GPU.CU[0]", 32, 48, 0)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
+		Expect(build("GPU.CU[1]", 32, 32, 0)).To(PanicWith(ContainSubstring("InstBufByteSize must be a multiple")))
+		Expect(build("GPU.CU[2]", 24, 48, 0)).To(PanicWith(ContainSubstring("divides the cache line size")))
+		// Two-byte blocks in a four-byte buffer could never hold an 8-byte
+		// instruction.
+		Expect(build("GPU.CU[7]", 2, 4, 0)).To(PanicWith(ContainSubstring("multiple of 4")))
+		Expect(build("GPU.CU[8]", 4, 8, 0)).NotTo(Panic())
+		Expect(build("GPU.CU[3]", 0, 256, 4)).To(PanicWith(ContainSubstring("require InstBlockByteSize")))
+		Expect(build("GPU.CU[4]", 32, 64, 10)).NotTo(Panic())
+		Expect(func() {
+			spec := DefaultSpec()
+			spec.InstBlockByteSize, spec.InstBufByteSize, spec.InstPrefetchLines = 32, 64, 10
+			MakeBuilder().WithSpec(spec).WithSimulation(reg).Build("GPU.CU[6]")
+		}).To(PanicWith(ContainSubstring("requires InstPrefetchMem")))
+		// A block must lie in one cache line.
+		Expect(func() {
+			spec := DefaultSpec()
+			spec.Log2CachelineSize = 5
+			spec.InstBlockByteSize, spec.InstBufByteSize = 64, 128
+			MakeBuilder().WithSpec(spec).WithSimulation(reg).Build("GPU.CU[9]")
+		}).To(PanicWith(ContainSubstring("divides the cache line size")))
+		// Line fetch keeps its capacity rule.
+		Expect(build("GPU.CU[5]", 0, 100, 0)).NotTo(Panic())
 	})
 })

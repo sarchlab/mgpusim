@@ -1,6 +1,9 @@
 package cu
 
-import "github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
+import (
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
+)
 
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {
@@ -54,7 +57,10 @@ func (a *IssueArbiter) arbitratePool(
 		}
 
 		next := wf.NextInst()
-		if next == nil || a.cu.issueHeldBack(wf) {
+		if next == nil {
+			continue
+		}
+		if a.cu.sccBranchWaits(wf, next) {
 			continue
 		}
 		if a.scoreboardEnabled && wf.scoreboard() != nil {
@@ -71,6 +77,21 @@ func (a *IssueArbiter) arbitratePool(
 	}
 
 	return wfToIssue
+}
+
+// sccBranchWaits reports whether the instruction is a conditional branch on
+// SCC that must still wait after a scalar ALU instruction. The compute unit
+// then wakes when the wait is over, so that it can go idle meanwhile. Issue
+// and the wake-ups for issue turns both ask it.
+func (cu *ComputeUnit) sccBranchWaits(wf *Wavefront, next *insts.Inst) bool {
+	notBefore := wf.execution().SCCBranchNotBefore
+	if !isSCCBranch(next) || cu.CurrentTime() >= notBefore {
+		return false
+	}
+
+	cu.comp.TickAt(notBefore)
+
+	return true
 }
 
 func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {

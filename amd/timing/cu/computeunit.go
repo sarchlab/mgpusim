@@ -48,10 +48,12 @@ type ComputeUnit struct {
 
 	// Port instances, resolved lazily from the component (ports are assigned
 	// externally after Build). Tests may set these fields directly.
-	ToACE       messaging.Port
-	ToInstMem   messaging.Port
-	ToScalarMem messaging.Port
-	ToVectorMem messaging.Port
+	ToACE     messaging.Port
+	ToInstMem messaging.Port
+	// ToInstPrefetch sends instruction prefetches.
+	ToInstPrefetch messaging.Port
+	ToScalarMem    messaging.Port
+	ToVectorMem    messaging.Port
 }
 
 // Comp returns the component this middleware belongs to.
@@ -73,6 +75,14 @@ func (cu *ComputeUnit) instMemPort() messaging.Port {
 	}
 
 	return cu.ToInstMem
+}
+
+func (cu *ComputeUnit) instPrefetchPort() messaging.Port {
+	if cu.ToInstPrefetch == nil {
+		cu.ToInstPrefetch = cu.comp.Ports.InstPrefetch[0]
+	}
+
+	return cu.ToInstPrefetch
 }
 
 func (cu *ComputeUnit) scalarMemPort() messaging.Port {
@@ -138,6 +148,9 @@ func (cu *ComputeUnit) processInput() bool {
 
 	madeProgress = cu.processInputFromACE() || madeProgress
 	madeProgress = cu.processInputFromInstMem() || madeProgress
+	if cu.comp.Spec.InstPrefetchLines > 0 {
+		madeProgress = cu.processInputFromInstPrefetch() || madeProgress
+	}
 	madeProgress = cu.processInputFromScalarMem() || madeProgress
 	madeProgress = cu.processInputFromVectorMem() || madeProgress
 
@@ -292,6 +305,22 @@ func (cu *ComputeUnit) wrapWG(
 	return cu.newGroup(raw, req)
 }
 
+// processInputFromInstPrefetch takes the response of a prefetched line.
+func (cu *ComputeUnit) processInputFromInstPrefetch() bool {
+	rsp, ok := cu.instPrefetchPort().RetrieveIncoming()
+	if !ok {
+		return false
+	}
+
+	if _, isData := rsp.Payload.(memprotocol.DataReadyRsp); !isData {
+		log.Panicf("cannot handle request of type %s from InstPrefetch port",
+			reflect.TypeOf(rsp))
+	}
+	cu.handleFetchReturn(rsp)
+
+	return true
+}
+
 func (cu *ComputeUnit) processInputFromInstMem() bool {
 	rsp, ok := cu.instMemPort().RetrieveIncoming()
 	if !ok {
@@ -325,11 +354,19 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	info := cu.comp.State.InstFetch[matchIdx]
-	wf := cu.wave(info.WF)
-	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf)
 	cu.comp.State.InstFetch = append(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
+
+	// A prefetch only warmed the instruction cache. Its wavefront may be gone.
+	if info.Prefetch {
+		cu.completeRequest(info.Req.ID)
+		cu.comp.TaskTracker().EndTask(info.Task)
+		return true
+	}
+
+	wf := cu.wave(info.WF)
+	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasInstructionReady(wf)
 
 	used := cu.continuesInstBuffer(wf, info)
 	if used {
@@ -354,32 +391,32 @@ func (cu *ComputeUnit) handleFetchReturn(
 	return true
 }
 
-// continuesInstBuffer reports whether a returned line is appended to the
-// wavefront's instruction buffer.
+// continuesInstBuffer reports whether a returned line or block is appended to
+// the wavefront's instruction buffer.
 func (cu *ComputeUnit) continuesInstBuffer(wf *Wavefront, info FetchState) bool {
 	state := wf.execution()
 	continues := info.Address == state.InstBufferStartPC+uint64(len(state.InstBuffer))
 
 	// Fetching one line at a time, a line that continues the buffer is used
 	// even when a taken branch has made its fetch obsolete.
-	if !fetchesAhead(wf, cu.comp.Spec.InstFetchAheadLines) {
+	if cu.comp.Spec.InstBlockByteSize == 0 {
 		return continues
 	}
 
-	// A fetch of an earlier stream is dropped. Within a stream the lines
+	// A block of an earlier stream is dropped. Within a stream the blocks
 	// return in the order they were requested.
 	if info.Epoch != state.FetchEpoch {
 		return false
 	}
 	if !continues {
-		log.Panicf("cu: fetched line 0x%x does not continue the instruction buffer", info.Address)
+		log.Panicf("cu: fetched block 0x%x does not continue the instruction buffer", info.Address)
 	}
 
 	return true
 }
 
 // hasOutstandingFetch reports whether any fetch of the wavefront, of any
-// fetch stream, has not returned yet.
+// fetch stream, has not returned yet. Prefetches belong to no wavefront.
 func (cu *ComputeUnit) hasOutstandingFetch(wf waveHandle) bool {
 	for _, info := range cu.comp.State.InstFetch {
 		if info.WF == wf {
@@ -637,21 +674,31 @@ func (cu *ComputeUnit) nextIssueTurn(
 	return freq.NCyclesLater(int(wait), edge)
 }
 
-// issueHeldBack reports whether the wavefront must still wait before it can
-// issue, for example while its instruction buffer refills after a taken
-// branch.
-func (cu *ComputeUnit) issueHeldBack(wf *Wavefront) bool {
-	notBefore := wf.execution().IssueNotBefore
-	return notBefore != 0 && cu.CurrentTime() < notBefore
+// removeStaleInstBuffer drops the fetch units (lines or blocks) at the start
+// of the instruction buffer that the PC has moved past.
+func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
+	state := wf.execution()
+	if len(state.InstBuffer) == 0 {
+		return
+	}
+
+	unit := cu.fetchUnitByteSize()
+	for wf.PC() >= state.InstBufferStartPC+unit && uint64(len(state.InstBuffer)) >= unit {
+		state.InstBuffer = state.InstBuffer[unit:]
+		state.InstBufferStartPC += unit
+	}
 }
 
-func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
-	if len(wf.execution().InstBuffer) != 0 {
-		for wf.PC() >= wf.execution().InstBufferStartPC+64 {
-			wf.execution().InstBuffer = wf.execution().InstBuffer[64:]
-			wf.execution().InstBufferStartPC += 64
-		}
+// hasInstructionReady reports, for tracing, whether the wavefront has the
+// instruction at its PC, so that it is not waiting on instruction fetch. With
+// block fetch that takes every byte of the instruction. Fetching whole lines,
+// it takes the first 4 bytes, as it always has.
+func (cu *ComputeUnit) hasInstructionReady(wf *Wavefront) bool {
+	if cu.comp.Spec.InstBlockByteSize > 0 {
+		return cu.hasCompleteInstruction(wf)
 	}
+
+	return wfHasInstructionReady(wf)
 }
 
 func wfHasInstructionReady(wf *Wavefront) bool {
@@ -671,11 +718,34 @@ func wfHasInstructionReady(wf *Wavefront) bool {
 	return len(wf.execution().InstBuffer[int(offset):]) >= 4
 }
 
+// hasCompleteInstruction reports whether the wavefront has every byte of the
+// instruction at its PC, decoded or not. An 8-byte instruction that straddles
+// two fetched blocks is not complete until the second one arrives, so the wait
+// for it is a wait on instruction fetch.
+func (cu *ComputeUnit) hasCompleteInstruction(wf *Wavefront) bool {
+	if wf.NextInst() != nil {
+		return true
+	}
+
+	state := wf.execution()
+	if wf.PC() < state.InstBufferStartPC {
+		return false
+	}
+
+	offset := wf.PC() - state.InstBufferStartPC
+	if offset+4 > uint64(len(state.InstBuffer)) {
+		return false
+	}
+
+	_, err := cu.Decoder.Decode(state.InstBuffer[offset:])
+
+	return err == nil
+}
+
 // markWfMilestone records a milestone on the wavefront task itself (TaskID
 // wf.UID), not on its instruction. These tile the wavefront's life into
 // execution (work) and the reasons for a gap between instructions — waiting
-// to fetch (hardware_resource), waiting for the fetched bytes (data), waiting
-// out the hold after a taken branch (hardware_resource, the branch unit), and
+// to fetch (hardware_resource), waiting for the fetched bytes (data), and
 // waiting for the exec unit to accept the issue (hardware_resource). They are
 // only emitted while nothing is in flight (see beginInstruction), so they never
 // overlap and a prefetch overlapping execution stays silent.

@@ -190,6 +190,23 @@ func (s *Scoreboard) Clear() {
 	s.EXECBusyUntil = 0
 }
 
+// isSCCBranch reports whether the instruction is a conditional branch on SCC.
+func isSCCBranch(inst *insts.Inst) bool {
+	return inst.FormatType == insts.SOPP &&
+		(inst.InstName == "s_cbranch_scc0" || inst.InstName == "s_cbranch_scc1")
+}
+
+// isScalarALU reports whether the instruction runs on the scalar ALU, which
+// covers every instruction that writes SCC. Scalar memory instructions do not.
+func isScalarALU(inst *insts.Inst) bool {
+	switch inst.FormatType {
+	case insts.SOP1, insts.SOP2, insts.SOPK, insts.SOPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // scoreboardLatency returns the number of cycles an instruction keeps its
 // destination registers busy, based on its execution unit. f64 VALU
 // instructions take twice as long as other VALU instructions unless

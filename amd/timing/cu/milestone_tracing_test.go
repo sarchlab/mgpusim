@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/sarchlab/akita/v5/mem/memprotocol"
@@ -249,15 +250,17 @@ func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 	}
 }
 
-// While a stalled wavefront fetches ahead, only the fetch for the line it is
-// waiting for is a wait on the fetcher. The fetches issued behind it must not
-// move that milestone: the time until the first line returns is spent waiting
-// for its data.
+// While a stalled wavefront requests several blocks, only the request for the
+// block it is waiting for is a wait on the fetcher. The requests issued behind
+// it must not move that milestone: the time until the first block returns is
+// spent waiting for its data.
 func TestOnlyTheDemandFetchRecordsFetcherMilestone(t *testing.T) {
 	engine := newFakeEngine()
 	cu := newTestComputeUnit("CU", engine)
 	cu.comp.Spec.InstMem = "InstMem"
-	cu.comp.Spec.InstFetchAheadLines = 4
+	cu.comp.Spec.InstBlockByteSize = 32
+	cu.comp.Spec.InstBufByteSize = 128
+	period := cu.comp.Spec.Freq.Period()
 	toInstMem := newFakePort("CU.ToInstMem")
 	cu.ToInstMem = toInstMem
 	rec := &cuMilestoneRecorder{}
@@ -267,6 +270,8 @@ func TestOnlyTheDemandFetchRecordsFetcherMilestone(t *testing.T) {
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
 	wf.execution().InstBufferStartPC = 0x100
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
+	cu.WfPools[0].AddWf(wf)
 	task := cu.comp.State.WFTasks[wf.UID]
 
 	fetchArbiter := newMockWfArbitor()
@@ -282,8 +287,7 @@ func TestOnlyTheDemandFetchRecordsFetcherMilestone(t *testing.T) {
 	}
 
 	for tick := 1; tick <= 3; tick++ {
-		engine.now = timing.VTimeInPicoSec(tick)
-		fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn, []*Wavefront{wf})
+		engine.now = timing.VTimeInPicoSec(tick) * period
 		s.DoFetch()
 
 		if got := count(tasks.MilestoneKindHardwareResource, "CU.InstFetcher"); got != 1 {
@@ -295,12 +299,56 @@ func TestOnlyTheDemandFetchRecordsFetcherMilestone(t *testing.T) {
 		t.Fatalf("issued %d requests, tracking %d; want 3", len(toInstMem.sent), len(cu.comp.State.InstFetch))
 	}
 
-	engine.now = 4
+	engine.now = 4 * period
+	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
+		RspTo: toInstMem.sent[0].ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 32)}})
+	if got := count(tasks.MilestoneKindData, "inst_fetch"); got != 1 {
+		t.Fatalf("the first block's return recorded the data milestone %d times, got %+v",
+			got, rec.milestones)
+	}
+}
+
+// A line read ahead into the instruction cache neither starts nor ends a wait
+// of the wavefront.
+func TestPrefetchRecordsNoWaveMilestone(t *testing.T) {
+	engine := newFakeEngine()
+	cu := newTestComputeUnit("CU", engine)
+	cu.comp.Spec.InstMem = "InstMem"
+	cu.comp.Spec.InstBlockByteSize = 32
+	cu.comp.Spec.InstBufByteSize = 64
+	cu.comp.Spec.InstPrefetchLines = 1
+	toInstMem := newFakePort("CU.ToInstMem")
+	cu.ToInstMem = toInstMem
+	cu.ToInstPrefetch = toInstMem
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
+	recordCodeEnd(wf, 0x100, 0x1000)
+	wf.SetPC(0x100)
+	wf.execution().InstBufferStartPC = 0x100
+	wf.execution().NextFetchPC = 0x140
+	wf.execution().IssuedEnd = 0x100
+	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
+	cu.WfPools[0].AddWf(wf)
+	s := NewScheduler(cu, newMockWfArbitor(), nil)
+
+	s.DoFetch()
+
+	if len(toInstMem.sent) != 1 || !cu.comp.State.InstFetch[0].Prefetch {
+		t.Fatalf("expected one prefetch, sent %d requests", len(toInstMem.sent))
+	}
+	if req := toInstMem.sent[0].Payload.(memprotocol.ReadReq); req.Address != 0x180 || req.AccessByteSize != 64 {
+		t.Fatalf("prefetched %+v, want the 64-byte line at 0x180", req)
+	}
 	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
 		RspTo: toInstMem.sent[0].ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
-	if got := count(tasks.MilestoneKindData, "inst_fetch"); got != 1 {
-		t.Fatalf("the first line's return recorded the data milestone %d times, got %+v",
-			got, rec.milestones)
+	if len(rec.milestones) != 0 {
+		t.Fatalf("a prefetch recorded %+v", rec.milestones)
+	}
+	if len(wf.execution().InstBuffer) != 0 || wf.execution().IsFetching {
+		t.Fatal("prefetched data entered the instruction buffer")
 	}
 }
 
@@ -368,23 +416,115 @@ func TestBlockingFetchReturnRecordsDataMilestone(t *testing.T) {
 	}
 }
 
-// A line made obsolete by a taken branch ends no wait: the milestone belongs
-// to the line the wavefront is waiting for.
-func TestObsoleteFetchReturnDoesNotRecordDataMilestone(t *testing.T) {
-	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.comp.Spec.InstFetchAheadLines = 4
+// gfx942Decoder decodes the instructions MI300X runs.
+func gfx942Decoder() *insts.Disassembler {
+	decoder := insts.NewDisassembler()
+	decoder.IsCDNA3 = true
+	return decoder
+}
+
+// sNopBytes returns n bytes of s_nop instructions.
+func sNopBytes(n int) []byte {
+	var b []byte
+	for range n / 4 {
+		b = binary.LittleEndian.AppendUint32(b, encSNop[0])
+	}
+	return b
+}
+
+// An 8-byte instruction whose first half ends one block is not ready until the
+// next block brings its second half: the return of that block ends a wait on
+// instruction fetch, not one on an execution unit. Fetching whole lines, the
+// first 4 bytes count as ready, as they always have, so only the first line's
+// return ends a wait.
+func TestStraddlingInstructionWaitsForItsSecondBlock(t *testing.T) {
+	cases := []struct {
+		name           string
+		block          int // block size, or 0 to fetch whole lines
+		wantMilestones int
+	}{
+		{"block fetch", 32, 2},
+		{"line fetch", 0, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			checkStraddlingFetchMilestones(t, c.block, c.wantMilestones)
+		})
+	}
+}
+
+func checkStraddlingFetchMilestones(t *testing.T, block, want int) {
+	t.Helper()
+	engine := newFakeEngine()
+	cu := newTestComputeUnit("CU", engine)
+	cu.Decoder = gfx942Decoder()
+	cu.comp.Spec.InstBlockByteSize = block
+	unit := cu.fetchUnitByteSize()
+	period := cu.comp.Spec.Freq.Period()
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	recordCodeEnd(wf, 0x100, 0x1000)
+	wf.SetPC(0x100 + unit - 4) // v_fma_f32 in the last 4 bytes of the first unit
+	cu.redirectFetch(wf)
+	task := cu.comp.State.WFTasks[wf.UID]
+
+	first := append(sNopBytes(int(unit)-4), binary.LittleEndian.AppendUint32(nil, encVFma[0])...)
+	second := append(binary.LittleEndian.AppendUint32(nil, encVFma[1]), sNopBytes(int(unit)-4)...)
+	fetch := func(address uint64, data []byte) messaging.Msg {
+		req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: address,
+			AccessByteSize: unit}}
+		cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
+			Wavefront: wf, Req: req, Address: address, Epoch: wf.execution().FetchEpoch,
+			FetchTaskID: testIDs.NewID(),
+		}))
+		return messaging.Msg{ID: testIDs.NewID(), RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: data}}
+	}
+	firstRsp, secondRsp := fetch(0x100, first), fetch(0x100+unit, second)
+	fetchMilestones := func() []tasks.Milestone {
+		var ms []tasks.Milestone
+		for _, m := range rec.milestones {
+			if m.TaskID == task && m.Kind == tasks.MilestoneKindData && m.What == "inst_fetch" {
+				ms = append(ms, m)
+			}
+		}
+		return ms
+	}
+
+	engine.now = 16 * period
+	cu.handleFetchReturn(firstRsp)
+	if cu.hasCompleteInstruction(wf) {
+		t.Fatal("half of the 8-byte instruction counts as complete")
+	}
+
+	engine.now = 40 * period
+	cu.handleFetchReturn(secondRsp)
+	ms := fetchMilestones()
+	if len(ms) != want || ms[0].Time != 16*period || ms[len(ms)-1].Time != period*timing.VTimeInPicoSec(16+24*(want-1)) {
+		t.Fatalf("want %d inst_fetch milestones, from cycle 16; got %+v", want, ms)
+	}
+	if !cu.hasCompleteInstruction(wf) {
+		t.Fatal("the 8-byte instruction is not complete after its second unit")
+	}
+}
+
+// A line made obsolete by a taken branch ends no wait: the milestone belongs
+// to the line the wavefront is waiting for.
+func TestObsoleteFetchReturnDoesNotRecordDataMilestone(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.comp.Spec.InstBlockByteSize = 32
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
 	wf.SetPC(0x100)
-	redirectFetch(wf)
+	cu.redirectFetch(wf)
 
 	fetch := func(address, epoch uint64) messaging.Msg {
 		req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: address,
-			AccessByteSize: 64}}
+			AccessByteSize: 32}}
 		cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
 			Wavefront:   wf,
 			Req:         req,
@@ -394,7 +534,7 @@ func TestObsoleteFetchReturnDoesNotRecordDataMilestone(t *testing.T) {
 		}))
 
 		return messaging.Msg{ID: testIDs.NewID(),
-			RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}}
+			RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 32)}}
 	}
 	obsolete := fetch(0x100, wf.execution().FetchEpoch-1)
 	target := fetch(0x100, wf.execution().FetchEpoch)
@@ -674,85 +814,6 @@ func TestVectorMemDataMilestoneWaitsForLastResponse(t *testing.T) {
 	if got := countVMemData(rec, instTask); got != 1 {
 		t.Fatalf("expected one data milestone after the last response; got %d",
 			got)
-	}
-}
-
-// branchHoldFixture is a wavefront that waits out the hold after a taken
-// branch with its target instruction already decoded.
-func branchHoldFixture(t *testing.T) (
-	*fakeEngine, *ComputeUnit, *cuMilestoneRecorder, *Wavefront, *SchedulerImpl, *mockWfArbitor,
-) {
-	t.Helper()
-
-	engine := newFakeEngine()
-	cu := newTestComputeUnit("CU", engine)
-	cu.comp.Spec.TakenBranchIssueGap = 32
-	cu.WfPools = []*WavefrontPool{NewWavefrontPool(cu, 0, 10)}
-	cu.VectorDecoder = &mockCUComponent{canAccept: true}
-	rec := &cuMilestoneRecorder{}
-	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
-
-	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
-	startTestWave(cu, wf)
-	cu.WfPools[0].AddWf(wf)
-	wf.execution().State = wavefront.WfReady
-	target := insts.NewInst()
-	target.ExeUnit = insts.ExeUnitVALU
-	wf.setTestNextInst(testInst(testIDs.NewID(), target))
-	wf.execution().IssueNotBefore = 8000
-
-	issueArbiter := newMockWfArbitor()
-
-	return engine, cu, rec, wf, NewScheduler(cu, newMockWfArbitor(), issueArbiter), issueArbiter
-}
-
-// The wait for the end of a hold after a taken branch belongs to the branch,
-// not to the execution unit of the target instruction, which was free. Only
-// what the wavefront waits after the hold may be attributed to that unit.
-func TestBranchHoldEndRecordsBranchMilestone(t *testing.T) {
-	engine, cu, rec, wf, s, issueArbiter := branchHoldFixture(t)
-	wfTask := cu.comp.State.WFTasks[wf.UID]
-
-	engine.now = 7000
-	s.Run()
-	if len(rec.milestones) != 0 {
-		t.Fatalf("no milestone is due before the hold ends, got %+v", rec.milestones)
-	}
-
-	engine.now = 8000
-	issueArbiter.wfsToReturn = append(issueArbiter.wfsToReturn, []*Wavefront{wf})
-	s.Run()
-
-	if len(rec.milestones) != 2 {
-		t.Fatalf("expected the branch hold and the issue, got %+v", rec.milestones)
-	}
-	hold, issue := rec.milestones[0], rec.milestones[1]
-	if hold.TaskID != wfTask || hold.Kind != tasks.MilestoneKindHardwareResource ||
-		hold.What != "CU.Branch" || hold.Time != 8000 {
-		t.Fatalf("the hold should end as a branch-unit wait at 8000 ps, got %+v", hold)
-	}
-	if issue.TaskID != wfTask || issue.What != "CU.VALU" || issue.Time != 8000 {
-		t.Fatalf("the execution unit may only get the time after the hold, got %+v", issue)
-	}
-
-	engine.now = 9000
-	s.Run()
-	if len(rec.milestones) != 2 {
-		t.Fatalf("the hold must be marked once, got %+v", rec.milestones)
-	}
-}
-
-// A hold that ends while an earlier instruction is still in flight is not a
-// gap between instructions, so it leaves no wavefront milestone.
-func TestBranchHoldEndIsSilentWhileAnInstructionIsInFlight(t *testing.T) {
-	engine, _, rec, wf, s, _ := branchHoldFixture(t)
-	wf.execution().InFlightInsts = 1
-
-	engine.now = 8000
-	s.Run()
-
-	if len(rec.milestones) != 0 {
-		t.Fatalf("expected no milestone, got %+v", rec.milestones)
 	}
 }
 
