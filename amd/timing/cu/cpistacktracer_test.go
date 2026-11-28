@@ -179,6 +179,68 @@ func checkStackAddsUp(t *testing.T, tracer *CPIStackTracer, log *taskLog) {
 	}
 }
 
+// lateFetchRun runs work-groups of wavefronts whose code object runs on past
+// their s_endpgm, so they fetch ahead into it, and holds back the replies to
+// the fetches past the s_endpgm while hold is set.
+type lateFetchRun struct {
+	t       *testing.T
+	h       *fetchHarness
+	tracer  *CPIStackTracer
+	log     *taskLog
+	codeEnd uint64
+}
+
+func newLateFetchRun(t *testing.T, numWaves int) *lateFetchRun {
+	t.Helper()
+	program := straightLineCode(256)
+	code := append(program, make([]byte, 256)...)
+	h := newFetchHarnessIn(t, true, mi300xFetchSpec(), code, numWaves)
+	r := &lateFetchRun{t: t, h: h, tracer: NewCPIStackInstHook(h.cu.comp, h.engine), log: newTaskLog(),
+		codeEnd: h.base + uint64(len(program))}
+	h.sim.TaskTracker().Subscribe(r.tracer, h.cu.comp)
+	h.sim.TaskTracker().Subscribe(r.log, h.cu.comp)
+	trackGroup(h, h.wg)
+	r.hold(true)
+
+	return r
+}
+
+func (r *lateFetchRun) hold(on bool) {
+	r.h.hold = nil
+	if on {
+		r.h.hold = func(read memprotocol.ReadReq) bool {
+			return read.AccessByteSize != r.h.cu.instLineByteSize() && read.Address >= r.codeEnd
+		}
+	}
+}
+
+func (r *lateFetchRun) steps(n int) {
+	for range n {
+		r.h.step()
+	}
+}
+
+func (r *lateFetchRun) stepUntil(done func() bool) {
+	r.t.Helper()
+	for cycle := 0; !done(); cycle++ {
+		if cycle == 4000 {
+			r.t.Fatal("the work did not finish")
+		}
+		r.h.step()
+	}
+}
+
+// checkFetchHeld checks that a fetch past the s_endpgm is in flight.
+func (r *lateFetchRun) checkFetchHeld() {
+	r.t.Helper()
+	for _, f := range r.h.cu.comp.State.InstFetch {
+		if !f.Prefetch && f.Address >= r.codeEnd {
+			return
+		}
+	}
+	r.t.Fatal("no fetch past the s_endpgm is in flight")
+}
+
 // A wavefront can end with a fetch for the bytes past its s_endpgm still in
 // flight. The CPI stack stops at the last wavefront's end, so however late
 // that reply arrives, it charges no fetch time; and when another work-group
@@ -186,56 +248,60 @@ func checkStackAddsUp(t *testing.T, tracer *CPIStackTracer, log *taskLog) {
 // to.
 func TestCPIStackStopsAtTheLastWavefrontsEnd(t *testing.T) {
 	const numWaves = 2
-	// The code object runs on past the s_endpgm, so the wavefronts fetch
-	// ahead into it.
-	program := straightLineCode(256)
-	code := append(program, make([]byte, 256)...)
-	h := newFetchHarnessIn(t, true, mi300xFetchSpec(), code, numWaves)
-	tracer := NewCPIStackInstHook(h.cu.comp, h.engine)
-	log := newTaskLog()
-	h.sim.TaskTracker().Subscribe(tracer, h.cu.comp)
-	h.sim.TaskTracker().Subscribe(log, h.cu.comp)
-	trackGroup(h, h.wg)
-	codeEnd := h.base + uint64(len(program))
-	h.hold = func(read memprotocol.ReadReq) bool {
-		return read.AccessByteSize != h.cu.instLineByteSize() && read.Address >= codeEnd
-	}
-	stepUntil := func(done func() bool) {
-		t.Helper()
-		for cycle := 0; !done(); cycle++ {
-			if cycle == 4000 {
-				t.Fatal("the work did not finish")
-			}
-			h.step()
-		}
-	}
-
-	stepUntil(func() bool { return log.waves == numWaves })
-	held := false
-	for _, f := range h.cu.comp.State.InstFetch {
-		held = held || (!f.Prefetch && f.Address >= codeEnd)
-	}
-	if !held {
-		t.Fatal("no fetch past the s_endpgm was in flight when the wavefronts ended")
-	}
-	atEnd := tracer.GetCPIStack()
-	for range 300 {
-		h.step()
-	}
-	h.hold = nil
-	stepUntil(func() bool { return len(h.ace.sent) == 1 })
-	for range 300 {
-		h.step()
-	}
-	if stack := tracer.GetCPIStack(); !maps.Equal(stack, atEnd) {
+	r := newLateFetchRun(t, numWaves)
+	r.stepUntil(func() bool { return r.log.waves == numWaves })
+	r.checkFetchHeld()
+	atEnd := r.tracer.GetCPIStack()
+	r.steps(300)
+	r.hold(false)
+	r.stepUntil(func() bool { return len(r.h.ace.sent) == 1 })
+	r.steps(300)
+	if stack := r.tracer.GetCPIStack(); !maps.Equal(stack, atEnd) {
 		t.Fatalf("a late fetch reply changed the CPI stack from %v to %v", atEnd, stack)
 	}
-	checkStackAddsUp(t, tracer, log)
+	checkStackAddsUp(t, r.tracer, r.log)
 
-	trackGroup(h, h.addGroup(numWaves))
-	stepUntil(func() bool { return len(h.ace.sent) == 2 })
-	if log.waves != 2*numWaves {
-		t.Fatalf("%d wavefronts ended, want %d", log.waves, 2*numWaves)
+	trackGroup(r.h, r.h.addGroup(numWaves))
+	r.stepUntil(func() bool { return len(r.h.ace.sent) == 2 })
+	if r.log.waves != 2*numWaves {
+		t.Fatalf("%d wavefronts ended, want %d", r.log.waves, 2*numWaves)
 	}
-	checkStackAddsUp(t, tracer, log)
+	checkStackAddsUp(t, r.tracer, r.log)
+}
+
+// While no wavefront runs, the compute unit is idle, even with a fetch for an
+// ended wavefront still in flight: when the next work-group starts before the
+// reply arrives, the gap is charged to Idle, not to Fetch.
+func TestCPIStackChargesTheGapBetweenWorkGroupsToIdle(t *testing.T) {
+	const numWaves = 2
+	r := newLateFetchRun(t, numWaves)
+	r.stepUntil(func() bool { return r.log.waves == numWaves })
+	lastEnd := r.log.lastWFEnd
+	r.steps(100)
+	r.checkFetchHeld()
+	idle, fetch := r.tracer.timeStack["Idle"], r.tracer.timeStack["Fetch"]
+
+	trackGroup(r.h, r.h.addGroup(numWaves))
+	gap := r.h.engine.CurrentTime() - lastEnd
+	if got := r.tracer.timeStack["Idle"] - idle; got != gap {
+		t.Fatalf("the next work-group's start charged %d ps to Idle, want the %d ps gap", got, gap)
+	}
+	if got := r.tracer.timeStack["Fetch"]; got != fetch {
+		t.Fatalf("the next work-group's start moved Fetch from %d ps to %d ps", fetch, got)
+	}
+	r.steps(1)
+	if got := r.tracer.timeStack["Fetch"] - fetch; got >= gap {
+		t.Fatalf("the cycle after the next work-group's start charged %d ps to Fetch", got)
+	}
+
+	r.steps(50)
+	r.hold(false)
+	r.stepUntil(func() bool { return r.log.waves == 2*numWaves })
+	atEnd := r.tracer.GetCPIStack()
+	r.stepUntil(func() bool { return len(r.h.ace.sent) == 2 })
+	r.steps(300)
+	if stack := r.tracer.GetCPIStack(); !maps.Equal(stack, atEnd) {
+		t.Fatalf("the CPI stack changed from %v to %v after the last wavefront ended", atEnd, stack)
+	}
+	checkStackAddsUp(t, r.tracer, r.log)
 }

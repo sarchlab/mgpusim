@@ -277,6 +277,11 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 			h.firstWFStarted = true
 			h.firstWFStartTime = task.StartTime
 			h.lastRecordedTime = h.firstWFStartTime
+		} else if h.runningWFCount == 0 {
+			// No wavefront ran since the last one ended: the gap is idle, even
+			// if a reply for an ended wavefront is still on its way.
+			h.timeStack[taskType(taskTypeIdle).ToString()] += task.StartTime - h.lastRecordedTime
+			h.lastRecordedTime = task.StartTime
 		}
 		// Count every wavefront. TaskEnded handles only the tasks stored by
 		// TaskStarted, so each counted start is matched by exactly one end.
@@ -300,8 +305,8 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 // type running, while a wavefront runs. Once none runs, the total stops at the
 // last wavefront's end, so a task that ends later (a fetch or memory reply that
 // arrives after its wavefront has ended) charges nothing. If another wavefront
-// starts later, the gap is inside the total, and the next event once it runs
-// charges it, so the components still add up to the total.
+// starts later, the gap is inside the total, and that wavefront's start
+// charges it to Idle, so the components still add up to the total.
 func (h *CPIStackTracer) advance(now timing.VTimeInPicoSec) {
 	if h.runningWFCount == 0 {
 		return
