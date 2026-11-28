@@ -277,8 +277,10 @@ func (h *CPIStackTracer) handleTaskStart(task tasks.Task) {
 			h.firstWFStarted = true
 			h.firstWFStartTime = task.StartTime
 			h.lastRecordedTime = h.firstWFStartTime
-			h.runningWFCount++
 		}
+		// Count every wavefront. TaskEnded handles only the tasks stored by
+		// TaskStarted, so each counted start is matched by exactly one end.
+		h.runningWFCount++
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
 	case "req_out":
@@ -307,10 +309,9 @@ func (h *CPIStackTracer) handleRegularTaskStart(task tasks.Task) {
 }
 
 func (h *CPIStackTracer) handleReqStart(task tasks.Task) {
-	// Keep only the requests the stack accounts for. Every task end moves
-	// lastWFEndTime, so a request kept but not accounted for, such as an
-	// instruction prefetch's read (whose prefetch task is not tracked), would
-	// stretch the reported time if it returned after the last wavefront ended.
+	// Keep only the requests the stack accounts for; the others, such as an
+	// instruction prefetch's read (whose prefetch task is not tracked), need
+	// no handling when they end.
 	delete(h.inflightTasks, task.ID)
 
 	if task.What != "ReadReq" && task.What != "WriteReq" {
@@ -398,16 +399,16 @@ func (h *CPIStackTracer) handleTaskEnd(
 ) {
 	switch task.Kind {
 	case "wavefront":
-		if h.firstWFStarted {
-			h.lastWFEndTime = endTime
-			h.lastRecordedTime = h.lastWFEndTime
-			h.runningWFCount--
-		}
+		// Only wavefront ends set the end time: the stack covers the time from
+		// the first wavefront's start to the last one's end, and another task
+		// (a work-group request, or a memory request) ending after the last
+		// wavefront must not stretch it.
+		h.lastWFEndTime = endTime
+		h.lastRecordedTime = h.lastWFEndTime
+		h.runningWFCount--
 	case "inst", "fetch":
 		h.handleRegularTaskEnd(task, endTime)
 	case "req_out":
 		h.handleReqEnd(task, endTime)
 	}
-
-	h.lastWFEndTime = endTime
 }

@@ -112,6 +112,7 @@ type fetchHarness struct {
 	engine *timing.SerialEngine
 	port   *fakePort
 	ace    *fakePort
+	wg     *WorkGroup
 	waves  []*Wavefront
 	code   []byte
 	base   uint64
@@ -156,6 +157,7 @@ func newFetchHarnessIn(t *testing.T, tracking bool, spec Spec, code []byte, numW
 	c.ToACE = h.ace
 
 	group := lifecycleGroup(c, numWaves)
+	h.wg = group
 	raw := group.raw()
 	raw.Packet.Present = true
 	raw.Packet.Packet.KernelObject = h.base
