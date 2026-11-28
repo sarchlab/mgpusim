@@ -81,6 +81,20 @@ class PointTest(unittest.TestCase):
         self.assertEqual(unmatched["statuses"]["mgpusim"]["state"], "unsupported")
         self.assertNotIn("symbol", unmatched["statuses"]["mgpusim"])
 
+    def test_case_parameters_are_added_to_those_of_the_series(self):
+        cases = [
+            {**case, "parameters": {"ops_per_iter": ops}}
+            for case, ops in zip(SERIES["cases"], (2, 4, 4))
+        ]
+        series = {**SERIES, "cases": cases}
+        point = point_for(series, [SIMULATED])
+        self.assertEqual(
+            point["non_scaling_params"],
+            {"launch": "#1 kernel", "block_size": 16, "ops_per_iter": 2},
+        )
+        params = benchmark_definitions([series])["example"]["params"]
+        self.assertEqual(list(params), ["size", "launch", "block_size", "ops_per_iter"])
+
     def test_long_reasons_are_bounded_without_splitting_characters(self):
         reason = "panic: " + "é" * 600  # 1,207 UTF-8 bytes
         result = {"status": "failed", "reason": reason}
@@ -355,15 +369,47 @@ class ReferenceTest(unittest.TestCase):
             names, {"first": HARDWARE_VALUE_NAME, "second": "Other machine (median)"}
         )
 
-    def test_checked_in_references_keep_the_v11_series_first(self):
-        v11 = read_reference(REFERENCES[:1])["series"]
+    def test_checked_in_references_keep_the_v12_series_first(self):
+        self.assertEqual(
+            [path.name for path in REFERENCES],
+            ["mi300x-v1.2.json.gz", "mi300x-code-fetch-latency.json.gz",
+             "mi300x-loop-kernels.json.gz"],
+        )
+        with gzip.open(REFERENCES[0], "rt") as file:
+            main = json.load(file)
+        self.assertEqual(main["benchmark_revision"], "7f2c5552a43b16ad95b90fed88e61f0c80c5236b")
+        self.assertEqual(main["core_clock_limit_mhz"], 1680)
+        self.assertEqual(main["timer"], "rocprofv3")
+        v12 = main["series"]
+        self.assertEqual(sum(len(row["cases"]) for row in v12), 2861)
         series = read_reference(REFERENCES)["series"]
-        self.assertEqual(series[: len(v11)], v11)
-        added = series[len(v11):]
-        self.assertEqual({row["benchmark"] for row in added}, {"code_fetch_latency"})
-        self.assertNotIn("code_fetch_latency", {row["benchmark"] for row in v11})
-        self.assertEqual([row["parameters"]["loops"] for row in added], [1, 4, 8, 16])
-        for row in added:
+        self.assertEqual(series[: len(v12)], v12)
+        fetch = read_reference(REFERENCES[1:2])["series"]
+        self.assertEqual(series[len(v12): len(v12) + len(fetch)], fetch)
+        loops = series[len(v12) + len(fetch):]
+        self.assertEqual(
+            {row["benchmark"] for row in loops}, {"instruction_cost", "loop_wait"}
+        )
+        self.assertFalse(
+            {"code_fetch_latency", "instruction_cost", "loop_wait"}
+            & {row["benchmark"] for row in v12}
+        )
+        # Two iteration counts of each of the 782 loop-kernel configurations.
+        self.assertEqual(sum(len(row["cases"]) for row in loops), 1564)
+        self.assertEqual({case["x"] for row in loops for case in row["cases"]}, {4096, 16384})
+        for row in loops:
+            for case in row["cases"]:
+                ((name, *shape, nanoseconds),) = case["launches"]
+                self.assertTrue(name.startswith(("ic_", "lw_")))
+                threads = row["parameters"]["threads_per_block"]
+                self.assertEqual(shape, [threads, 1, 1, threads, 1, 1])
+                self.assertGreater(nanoseconds, 0)
+                self.assertIn(f"-iterations={case['x']}", case["args"])
+                self.assertEqual(set(case["parameters"]), {"ops_per_iter"} | (
+                    {"dependency"} if row["benchmark"] == "instruction_cost" else {"layout"}
+                ))
+        self.assertEqual([row["parameters"]["loops"] for row in fetch], [1, 4, 8, 16])
+        for row in fetch:
             sizes = [2**k for k in range(4, 17)]
             self.assertEqual([case["x"] for case in row["cases"]], sizes)
             for case in row["cases"]:
