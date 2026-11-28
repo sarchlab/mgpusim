@@ -5,7 +5,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
+	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
+	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -77,17 +81,24 @@ func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
 	}
 }
 
+// recordCodeEnd makes the wavefront's kernel a code object whose symbol covers
+// exactly size bytes of instructions from address base.
+func recordCodeEnd(wave *Wavefront, base, size uint64) {
+	raw := wave.group().raw()
+	raw.Packet.Packet.KernelObject = base
+	raw.CodeObject.Present, raw.CodeObject.HasSymbol, raw.CodeObject.HasMeta = true, true, true
+	raw.CodeObject.Version = insts.CodeObjectV5
+	raw.CodeObject.Symbol.Size = size
+}
+
 // waveWithCode returns a wavefront whose kernel occupies size bytes from
 // address 0x1000 and records that extent.
 func waveWithCode(t *testing.T, size uint64) *Wavefront {
 	t.Helper()
-	group := checkpointGroup(checkpointCU(t))
-	group.raw().Packet.Packet.KernelObject = 0x1000
-	code := &group.raw().CodeObject
-	code.Present, code.HasSymbol, code.HasMeta = true, true, true
-	code.Symbol.Size = size
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	recordCodeEnd(wave, 0x1000, size)
 
-	return group.waves()[0]
+	return wave
 }
 
 func TestFetchAheadKeepsSeveralLinesInFlight(t *testing.T) {
@@ -190,6 +201,70 @@ func TestFetchAheadFillsItsBuffer(t *testing.T) {
 	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
 	if got := fillInstBuffer(ahead, wave); got != 640 {
 		t.Fatalf("buffered %d bytes, want 640", got)
+	}
+}
+
+// A V2 or V3 symbol covers the header as well as the instructions, so its
+// end is past the uploaded code and does not let the wavefront fetch ahead.
+func TestFetchAheadNeedsASymbolOfTheCodeAlone(t *testing.T) {
+	wave := waveWithCode(t, 0x1000)
+	wave.group().raw().CodeObject.Version = insts.CodeObjectV3
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
+
+	state.NextFetchPC = 0x1040
+	if ahead.canFetchFromWF(wave) {
+		t.Fatal("fetched ahead with a symbol that includes the header")
+	}
+	state.NextFetchPC = 0
+	if got := fillInstBuffer(ahead, wave); got != DefaultInstBufByteSize {
+		t.Fatalf("buffered %d bytes, want %d", got, DefaultInstBufByteSize)
+	}
+}
+
+// A wavefront that cannot fetch ahead behaves as without fetch-ahead in every
+// respect, also in a compute unit that fetches ahead: after a taken branch it
+// waits for the outstanding fetch, and uses its line if it continues the
+// buffer.
+func TestWithoutCodeExtentARedirectWaitsForTheOutstandingFetch(t *testing.T) {
+	cu := newTestComputeUnit("CU", newFakeEngine())
+	cu.comp.Spec.InstFetchAheadLines = 10
+	arbiter := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
+
+	wave := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wave)
+	state := wave.execution()
+	state.State = wavefront.WfReady
+	state.InstBufferStartPC = 0x1000
+	state.InstBuffer = make([]byte, 64)
+
+	// The fetch of the next line is outstanding when a branch jumps to it.
+	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x1040,
+		AccessByteSize: 64}}
+	cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
+		Wavefront: wave, Req: req, Address: 0x1040, Epoch: state.FetchEpoch, FetchTaskID: testIDs.NewID()}))
+	state.IsFetching = true
+	state.NextFetchPC = 0x1080
+	wave.SetPC(0x1040)
+	redirectFetch(wave)
+
+	if arbiter.canFetchFromWF(wave) {
+		t.Fatal("requested the target while the obsolete fetch was outstanding")
+	}
+
+	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
+		RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+	if len(state.InstBuffer) != 64 || state.InstBufferStartPC != 0x1040 {
+		t.Fatalf("the returned line was not used: %d bytes from 0x%x",
+			len(state.InstBuffer), state.InstBufferStartPC)
+	}
+	if state.IsFetching {
+		t.Fatal("still fetching after the only fetch returned")
+	}
+	if !arbiter.canFetchFromWF(wave) || nextFetchPC(state) != 0x1080 {
+		t.Fatalf("next fetch at 0x%x, want 0x1080", nextFetchPC(state))
 	}
 }
 

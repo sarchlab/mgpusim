@@ -131,6 +131,7 @@ var _ = Describe("Branch Unit", func() {
 
 		It("should drop every fetch in flight, even one for the target line", func() {
 			cu.comp.Spec.InstFetchAheadLines = 4
+			recordCodeEnd(wave, 0x1000, 0x2000)
 			var reqs []messaging.Msg
 			wave.execution().IsFetching = true
 			wave.execution().NextFetchPC = 0x2100
@@ -159,6 +160,7 @@ var _ = Describe("Branch Unit", func() {
 
 		It("should take the lines of the new stream in order", func() {
 			cu.comp.Spec.InstFetchAheadLines = 4
+			recordCodeEnd(wave, 0x1000, 0x2000)
 			bu.Run()
 			bu.Run()
 

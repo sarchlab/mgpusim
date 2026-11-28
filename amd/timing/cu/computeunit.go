@@ -362,7 +362,7 @@ func (cu *ComputeUnit) continuesInstBuffer(wf *Wavefront, info FetchState) bool 
 
 	// Fetching one line at a time, a line that continues the buffer is used
 	// even when a taken branch has made its fetch obsolete.
-	if cu.comp.Spec.InstFetchAheadLines <= 1 {
+	if !fetchesAhead(wf, cu.comp.Spec.InstFetchAheadLines) {
 		return continues
 	}
 

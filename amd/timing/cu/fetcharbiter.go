@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/sarchlab/akita/v5/sim/timing"
+	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
@@ -54,7 +55,8 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 
 	// Without fetch-ahead a wavefront has one fetch outstanding at a time,
 	// including one made obsolete by a taken branch.
-	if a.FetchAheadLines <= 1 && state.IsFetching {
+	ahead := fetchesAhead(wf, a.FetchAheadLines)
+	if !ahead && state.IsFetching {
 		return false
 	}
 
@@ -62,8 +64,7 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	codeEnd, codeEndKnown := codeEnd(wf)
-	linesInFlight, bufferSize := a.limits(codeEndKnown)
+	linesInFlight, bufferSize := a.limits(ahead)
 
 	nextFetchPC := nextFetchPC(state)
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
@@ -75,7 +76,7 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	if codeEndKnown && nextFetchPC >= codeEnd {
+	if codeEnd, known := codeEnd(wf); known && nextFetchPC >= codeEnd {
 		return false
 	}
 
@@ -84,24 +85,40 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 
 // limits returns the number of fetches a wavefront may have in flight and the
 // number of bytes, buffered and in flight, it may hold.
-func (a *FetchArbiter) limits(codeEndKnown bool) (linesInFlight, bufferSize int) {
-	if a.FetchAheadLines <= 1 {
-		return 1, a.InstBufByteSize
+func (a *FetchArbiter) limits(fetchesAhead bool) (linesInFlight, bufferSize int) {
+	if fetchesAhead {
+		return a.FetchAheadLines, a.InstBufByteSize
 	}
 
-	// Fetching ahead requests lines the wavefront may never execute, so it
-	// needs to know where the code ends. A wavefront that does not know
-	// fetches one line at a time into a buffer of the default size, which
-	// bounds how far past its instructions it reads.
-	if !codeEndKnown {
+	// A wavefront that cannot fetch ahead in a compute unit that does keeps
+	// the default buffer, so that it reads no farther past its instructions
+	// than it would without fetch-ahead.
+	if a.FetchAheadLines > 1 {
 		return 1, min(a.InstBufByteSize, DefaultInstBufByteSize)
 	}
 
-	return a.FetchAheadLines, a.InstBufByteSize
+	return 1, a.InstBufByteSize
+}
+
+// fetchesAhead reports whether the wavefront fetches ahead, given the number
+// of lines its compute unit lets a wavefront keep in flight. Lines fetched
+// ahead may never execute, so the wavefront must know exactly where its code
+// ends. Otherwise it fetches one line at a time, in every respect: one fetch
+// outstanding, and a returned line is used whenever it continues the buffer.
+func fetchesAhead(wf *Wavefront, lines int) bool {
+	if lines <= 1 {
+		return false
+	}
+
+	// A V2 or V3 symbol also covers the 256-byte header that is not part of
+	// the uploaded code, so its end is past the code.
+	co := &wf.group().raw().CodeObject
+	return co.Present && co.HasSymbol && co.Version == insts.CodeObjectV5
 }
 
 // codeEnd returns the address after the last instruction of the wavefront's
-// kernel, when the code object records it.
+// kernel, when the code object records it. For a V2 or V3 code object it is
+// 256 bytes past the uploaded code.
 func codeEnd(wf *Wavefront) (uint64, bool) {
 	group := wf.group()
 	co := &group.raw().CodeObject

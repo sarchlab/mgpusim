@@ -378,6 +378,7 @@ func TestObsoleteFetchReturnDoesNotRecordDataMilestone(t *testing.T) {
 
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
+	recordCodeEnd(wf, 0x100, 0x1000)
 	wf.SetPC(0x100)
 	redirectFetch(wf)
 
