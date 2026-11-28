@@ -4,6 +4,7 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/sarchlab/akita/v5/mem/memprotocol"
 	"github.com/sarchlab/akita/v5/sim/tasks"
 	"github.com/sarchlab/akita/v5/sim/timing"
 )
@@ -100,15 +101,7 @@ func TestCPIStackIgnoresInstructionPrefetches(t *testing.T) {
 		log := newTaskLog()
 		h.sim.TaskTracker().Subscribe(tracer, h.cu.comp)
 		h.sim.TaskTracker().Subscribe(log, h.cu.comp)
-		// Track the work-group and its wavefronts as dispatch does: the
-		// work-group's request ends after its last wavefront.
-		req := h.wg.state().Request
-		h.cu.comp.State.WGTasks[req.ID] = h.cu.comp.TaskTracker().StartReqIn(h.cu.comp, req)
-		for _, w := range h.waves {
-			h.cu.comp.State.WFTasks[w.UID] = h.cu.comp.TaskTracker().StartTask(h.cu.comp, tasks.StartInfo{
-				Kind: "wavefront", What: "wavefront", Location: h.cu.comp.Name() + ".WFPool",
-			})
-		}
+		trackGroup(h, h.wg)
 		// Hold the work-group's completion back for a while after its last
 		// wavefront ends.
 		h.ace.full = true
@@ -152,4 +145,97 @@ func TestCPIStackIgnoresInstructionPrefetches(t *testing.T) {
 	if !maps.Equal(fast, slow) {
 		t.Fatalf("with slow prefetches the CPI stack is %v, want %v", slow, fast)
 	}
+}
+
+// trackGroup starts the tasks of the work-group and its wavefronts, as
+// dispatch does: the work-group's request ends after its last wavefront.
+func trackGroup(h *fetchHarness, group *WorkGroup) {
+	req := group.state().Request
+	h.cu.comp.State.WGTasks[req.ID] = h.cu.comp.TaskTracker().StartReqIn(h.cu.comp, req)
+	for _, w := range group.waves() {
+		h.cu.comp.State.WFTasks[w.UID] = h.cu.comp.TaskTracker().StartTask(h.cu.comp, tasks.StartInfo{
+			Kind: "wavefront", What: "wavefront", Location: h.cu.comp.Name() + ".WFPool",
+		})
+	}
+}
+
+// checkStackAddsUp checks that the components of the CPI stack add up to the
+// time from the first wavefront's start to the last one's end, and that the
+// total is that time per instruction.
+func checkStackAddsUp(t *testing.T, tracer *CPIStackTracer, log *taskLog) {
+	t.Helper()
+	var charged timing.VTimeInPicoSec
+	for _, d := range tracer.timeStack {
+		charged += d
+	}
+	span := log.lastWFEnd - log.firstWFStart
+	if charged != span {
+		t.Fatalf("the components add up to %d ps, want %d ps from the first wavefront's start to the "+
+			"last one's end", charged, span)
+	}
+	want := secondsOf(span) * float64(tracer.cu.Spec.Freq) / float64(log.insts)
+	if total := tracer.GetCPIStack()["total"]; total != want {
+		t.Fatalf("total CPI %.17g, want %.17g", total, want)
+	}
+}
+
+// A wavefront can end with a fetch for the bytes past its s_endpgm still in
+// flight. The CPI stack stops at the last wavefront's end, so however late
+// that reply arrives, it charges no fetch time; and when another work-group
+// starts after a gap, the gap is inside the total, which its components add up
+// to.
+func TestCPIStackStopsAtTheLastWavefrontsEnd(t *testing.T) {
+	const numWaves = 2
+	// The code object runs on past the s_endpgm, so the wavefronts fetch
+	// ahead into it.
+	program := straightLineCode(256)
+	code := append(program, make([]byte, 256)...)
+	h := newFetchHarnessIn(t, true, mi300xFetchSpec(), code, numWaves)
+	tracer := NewCPIStackInstHook(h.cu.comp, h.engine)
+	log := newTaskLog()
+	h.sim.TaskTracker().Subscribe(tracer, h.cu.comp)
+	h.sim.TaskTracker().Subscribe(log, h.cu.comp)
+	trackGroup(h, h.wg)
+	codeEnd := h.base + uint64(len(program))
+	h.hold = func(read memprotocol.ReadReq) bool {
+		return read.AccessByteSize != h.cu.instLineByteSize() && read.Address >= codeEnd
+	}
+	stepUntil := func(done func() bool) {
+		t.Helper()
+		for cycle := 0; !done(); cycle++ {
+			if cycle == 4000 {
+				t.Fatal("the work did not finish")
+			}
+			h.step()
+		}
+	}
+
+	stepUntil(func() bool { return log.waves == numWaves })
+	held := false
+	for _, f := range h.cu.comp.State.InstFetch {
+		held = held || (!f.Prefetch && f.Address >= codeEnd)
+	}
+	if !held {
+		t.Fatal("no fetch past the s_endpgm was in flight when the wavefronts ended")
+	}
+	atEnd := tracer.GetCPIStack()
+	for range 300 {
+		h.step()
+	}
+	h.hold = nil
+	stepUntil(func() bool { return len(h.ace.sent) == 1 })
+	for range 300 {
+		h.step()
+	}
+	if stack := tracer.GetCPIStack(); !maps.Equal(stack, atEnd) {
+		t.Fatalf("a late fetch reply changed the CPI stack from %v to %v", atEnd, stack)
+	}
+	checkStackAddsUp(t, tracer, log)
+
+	trackGroup(h, h.addGroup(numWaves))
+	stepUntil(func() bool { return len(h.ace.sent) == 2 })
+	if log.waves != 2*numWaves {
+		t.Fatalf("%d wavefronts ended, want %d", log.waves, 2*numWaves)
+	}
+	checkStackAddsUp(t, tracer, log)
 }

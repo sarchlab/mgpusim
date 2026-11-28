@@ -121,6 +121,8 @@ type fetchHarness struct {
 	answered []bool   // whether each request in port.sent has been answered
 	// prefetchLatency, when positive, replaces instMemLatency for prefetches.
 	prefetchLatency uint64
+	// hold, when set, keeps back the replies to the requests it reports.
+	hold func(memprotocol.ReadReq) bool
 	// issues records, for each wave, the cycle and address of every
 	// instruction it issues.
 	issues [][]issueRecord
@@ -156,26 +158,35 @@ func newFetchHarnessIn(t *testing.T, tracking bool, spec Spec, code []byte, numW
 	h.ace = newFakePort("CU.ACE")
 	c.ToACE = h.ace
 
-	group := lifecycleGroup(c, numWaves)
-	h.wg = group
+	h.wg = h.addGroup(numWaves)
+	h.issues = make([][]issueRecord, numWaves)
+	h.lastID = make([]uint64, numWaves)
+
+	return h
+}
+
+// addGroup places a work-group of numWaves wavefronts that run the code on the
+// compute unit. h.waves holds the first work-group's wavefronts only.
+func (h *fetchHarness) addGroup(numWaves int) *WorkGroup {
+	group := lifecycleGroup(h.cu, numWaves)
 	raw := group.raw()
 	raw.Packet.Present = true
 	raw.Packet.Packet.KernelObject = h.base
 	raw.CodeObject.Present, raw.CodeObject.HasSymbol = true, true
 	raw.CodeObject.Version = insts.CodeObjectV5
-	raw.CodeObject.Symbol.Size = uint64(len(code))
+	raw.CodeObject.Symbol.Size = uint64(len(h.code))
 	for i, w := range group.waves() {
 		w.SetPC(h.base)
 		w.SetEXEC(^uint64(0))
 		w.execution().State = wavefront.WfReady
 		w.execution().SIMDID = i % numWfPools
-		c.WfPools[i%numWfPools].AddWf(w)
-		h.waves = append(h.waves, w)
+		h.cu.WfPools[i%numWfPools].AddWf(w)
+		if h.wg == nil {
+			h.waves = append(h.waves, w)
+		}
 	}
-	h.issues = make([][]issueRecord, numWaves)
-	h.lastID = make([]uint64, numWaves)
 
-	return h
+	return group
 }
 
 // cycle returns the current cycle number.
@@ -263,7 +274,8 @@ func (h *fetchHarness) due(i int) uint64 {
 // are due by the cycle.
 func (h *fetchHarness) answerDue(cycle uint64) {
 	for i := range h.sentAt {
-		if !h.answered[i] && h.due(i) <= cycle {
+		held := h.hold != nil && h.hold(h.port.sent[i].Payload.(memprotocol.ReadReq))
+		if !h.answered[i] && !held && h.due(i) <= cycle {
 			h.answer(h.port.sent[i])
 			h.answered[i] = true
 		}
