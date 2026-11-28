@@ -45,16 +45,37 @@ contains the writer.
 
 ## Reference data
 
-`mi300x-v1.1.json.gz` contains the MI300X ROCm 10.2 remeasurement completed on
-November 23, 2026 EST, using GPU Benchmarks revision
-`a8ca84f8ce4373b3c091d4dc97a8f067607847a9`. It contains 2,861 configurations
-across 164 series and 455,291 median dispatch timings. Configurations are
-limited to the existing MGPUSim replay plan with successful hardware kernel
-traces. Eleven otherwise supported configurations lacked kernel timings.
-Transfer-only and unsupported cases are outside this comparison.
+`mi300x-v1.2.json.gz` is the main reference. It holds the GPU Benchmarks v1.2
+tier 1/2 collection, taken from GPU Benchmarks revision
+`7f2c5552a43b16ad95b90fed88e61f0c80c5236b` with ROCm 10.2.0 (amdgpu 7.1.3) on
+an AMD Developer Cloud instance that reports an "AMD Instinct MI300X VF". The
+repetitions ran from November 26, 2026 22:31 UTC to November 28, 2026 01:21
+UTC. The GPU core clock was capped at 1680 MHz with
+`amd-smi set -L sclk max 1680`; the highest core clock sampled during any
+repetition was 1691 MHz. Each configuration ran in 7 fresh processes with the
+suite's vector-add warmer on, and the times are the dispatch durations that
+`rocprofv3 --kernel-trace` records.
+
+The reference keeps the 2,861 configurations of the earlier v1.1 reference,
+with the same case numbers, simulator arguments and series order: 164 series
+and 455,291 median dispatch timings. Every configuration had 7 successful
+repetitions with one launch sequence, so none was dropped. The other v1.2
+configurations have no simulator arguments yet and are not part of it.
+Transfer-only and unsupported cases are outside this comparison. The file
+records the benchmark revision, collection start and end, clock cap, timer and
+plan hash next to the series, and lists dropped cases (none).
+
+Short kernels, under about 10 µs, are about 2–3 µs slower in v1.2 than in the
+v1.1 collection (GPU Benchmarks `a8ca84f8`, November 2026, on another MI300X);
+the cause is unknown, and v1.1 was inconsistent at those sizes. The difference
+is clearest for the single-launch throughput microbenchmarks
+(`fp16_throughput`, `fp32_throughput`, `fp64_throughput`, `int32_throughput`:
+median +1.9 to +2.7 µs); short launches inside long launch sequences, such as
+Pathfinder, Gaussian and LUD, are mostly unchanged. The device code of these
+benchmarks is the same in both revisions.
 
 Every MI300X timing sample and release calibration uses the same 1680 MHz
-GPU preset, the approximate graphics clock of the v1.1 hardware measurements.
+GPU preset, the core clock cap of the hardware collection.
 The preset drives the CUs, caches and command dispatcher. DRAM has its own
 1 GHz clock. The existing cycle counts for caches and dispatch now translate
 to longer times than under the previous 2100 MHz preset.
@@ -86,33 +107,81 @@ hardware slope. The table reports microseconds per iteration.
 ### Regenerating the reference
 
 Each reference stores exact simulator sample arguments and the median time of
-each matched hardware launch across successful repetitions. Regenerate the v1.1
-reference from the archived simulator replay plan and the verified MI300X
-collection archives with Python and zstd.
+each matched hardware launch across successful repetitions. Regenerate the
+main reference from the collection plan and the collection directory with
+Python 3.12. The collection holds `collection.json`, `collection-current.log`
+and, for each successful repetition,
+`dispatch/<benchmark>/<case>/<rep>/trace/measured-dispatches.csv`.
 
 ```sh
 python3 gpu_perf_scripts/calibration/release/build_reference.py \
-  /path/to/plan-full.json /path/to/verified-archives \
-  gpu_perf_scripts/calibration/release/mi300x-v1.1.json.gz
+  /path/to/plan_v1.2_tier12.json /path/to/collection_v1.2 \
+  gpu_perf_scripts/calibration/release/mi300x-v1.2.json.gz
 ```
 
+Only plan cases with simulator `args` are used. The builder checks that the
+collection ran this plan (its SHA-256) and that each case measured the
+launches the plan expects. A case is dropped when it has no successful
+repetition or its repetitions disagree on the launch sequence.
+
 The workflow reads every checked-in reference and concatenates their series in
-the order of `REFERENCES` in `workflow.py`, v1.1 first. A series is identified
-by its position, so a new reference only appends series. Pass `--reference`
-once per file to use other files.
+the order of `REFERENCES` in `workflow.py`: the main reference first, then
+`code_fetch_latency`, then the loop kernels. A series is identified by its
+position, so a new reference only appends series. Pass `--reference` once per
+file to use other files. The release workflow runs one job per series and
+GitHub allows at most 256, so the references together must stay within 256
+series; they have 228.
+
+### Supplementary `instruction_cost` and `loop_wait` collection
+
+`mi300x-loop-kernels.json.gz` adds 3,128 configurations in 60 series for the
+`instruction_cost` and `loop_wait` samples, each a single measured `ic_*` or
+`lw_*` kernel:
+
+- `instruction_cost`, 1,976 configurations in 52 series: the 640 v1.2 cases of
+  the original bodies at 64 and 256 threads (cases 100189–100956), and 1,336
+  cases of a second collection with the new pair, scalar and branch bodies and
+  512 and 1024 threads.
+- `loop_wait`, 1,152 configurations in 8 series, all from the second
+  collection.
+
+The second collection used the same instance, collector, clock cap and
+protocol from November 28, 2026 01:26 to 02:44 UTC, with GPU Benchmarks at
+`cd5f922`, whose kernel sources are those merged in GPU Benchmarks `8355c041`
+(#204). Each of its cases selected the measured kernel by name; in the v1.2
+cases the builder drops the `__amd_rocclr_copyBuffer` launch that follows it.
+128 `instruction_cost` configurations (chained, 64 threads, 2 to 16 copies of
+the eight single VALU instructions) are in both collections and agree within
+0.5% (median 0.02%). The reference uses the second collection's measurement,
+taken in the same session as `loop_wait`, and lists the replaced v1.2 cases.
+
+A series is one benchmark, instruction and launch shape. The dependency or
+layout and the copies per iteration are parameters of each case, which the
+report shows like series parameters; grouping them keeps the workflow within
+256 jobs. Each series runs its cases in order of increasing iterations. The
+report names the hardware value of these benchmarks "MI300X VF kernel time
+(median, supplementary collection)". The file records the provenance of both
+collections.
+
+```sh
+python3 gpu_perf_scripts/calibration/release/build_loop_kernel_reference.py \
+  /path/to/plan_v1.2_tier12.json:/path/to/collection_v1.2 \
+  /path/to/plan_i203.json:/path/to/collection_i203 \
+  gpu_perf_scripts/calibration/release/mi300x-loop-kernels.json.gz
+```
+
+A configuration measured by a later collection replaces an earlier one. The
+builder checks that each measured kernel and launch shape is the one the
+sample launches for the recorded arguments.
 
 ### Supplementary `code_fetch_latency` collection
 
 `mi300x-code-fetch-latency.json.gz` adds 52 configurations in four series: 13
-loop-body sizes for each of 1, 4, 8 and 16 loops. `code_fetch_latency` was
-added to GPU Benchmarks after v1.1, so these timings are not part of the v1.1
-collection. They are the `code_fetch_latency` cases of the GPU Benchmarks v1.2
-tier 1/2 collection, taken on November 27, 2026 UTC from GPU Benchmarks
-revision `7f2c5552a43b16ad95b90fed88e61f0c80c5236b`, built with ROCm 10.2.0 on
-an AMD Developer Cloud instance that reports an "AMD Instinct MI300X VF". That
-machine is not the one of the v1.1 collection. Its GPU core clock was capped at
-1680 MHz for the collection, the clock of the v1.1 collection; uncapped, the
-instance runs up to 2100 MHz.
+loop-body sizes for each of 1, 4, 8 and 16 loops. They are the
+`code_fetch_latency` cases (100137–100188) of the same GPU Benchmarks v1.2
+collection as the main reference, taken on November 27, 2026 UTC. The file
+was built before the main reference, from a per-repetition CSV of these
+cases.
 
 Each configuration ran in 7 fresh processes. A process queries the kernel's
 attributes, runs the suite's vector-add warmer and launches the kernel once.

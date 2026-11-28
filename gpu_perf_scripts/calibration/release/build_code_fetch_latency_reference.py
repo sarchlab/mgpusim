@@ -28,7 +28,7 @@ from statistics import median
 BENCHMARK = "code_fetch_latency"
 HARDWARE = "MI300X VF kernel time (median, supplementary collection)"
 TIMING_SOURCE = "rocprofv3 --kernel-trace dispatch duration"
-# The v1.1 plan numbers its cases below this.
+# The main reference numbers its cases below this.
 FIRST_CASE = 100_001
 # The sweep of the benchmark and the limits of its sample.
 BODY_SIZES = [2**k for k in range(4, 17)]

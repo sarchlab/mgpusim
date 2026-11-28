@@ -23,10 +23,14 @@ SERIES_BUDGET_SKIP_REASON = "Series budget expired before this configuration sta
 REASON_BYTES = 1000
 RUN_KEY = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,199}")
 SITE_URL = "https://sarchlab-calibration-report.netlify.app/?run="
-# Later files append series; the v1.1 collection stays first.
+# Later files append series; the v1.2 collection stays first.
 REFERENCES = [
     Path(__file__).with_name(name)
-    for name in ("mi300x-v1.1.json.gz", "mi300x-code-fetch-latency.json.gz")
+    for name in (
+        "mi300x-v1.2.json.gz",
+        "mi300x-code-fetch-latency.json.gz",
+        "mi300x-loop-kernels.json.gz",
+    )
 ]
 HARDWARE_VALUE_NAME = "MI300X kernel time (median)"
 COMMON = [
@@ -305,7 +309,11 @@ def benchmark_definitions(series_list):
     benchmarks = {}
     for series in series_list:
         bench, axis, fixed = series["benchmark"], series["axis"], series["parameters"]
-        params = {key: {"unit": UNITS.get(key, "")} for key in (axis, "launch", *fixed)}
+        # A case may add parameters of its own to those of its series.
+        varied = (key for case in series["cases"] for key in case.get("parameters", {}))
+        params = {
+            key: {"unit": UNITS.get(key, "")} for key in (axis, "launch", *fixed, *varied)
+        }
         definition = benchmarks.setdefault(
             bench,
             {
@@ -401,6 +409,7 @@ def case_points(series, case, result, launch_groups=()):
             "non_scaling_params": {
                 "launch": f"#{index + 1} {base_kernel_name(real[0])}",
                 **fixed,
+                **case.get("parameters", {}),
             },
             "values": {"mi300x": real[-1], "mgpusim": paired[index]},
         }

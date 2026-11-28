@@ -128,7 +128,7 @@ func (b Builder) WithSampler(s *sampling.SampledEngine) Builder { b.sampler = s;
 // MakeBuilder creates a new builder with MI300X default configuration.
 func MakeBuilder() Builder {
 	return Builder{
-		// The v1.1 MI300X hardware measurements ran at approximately 1680 MHz.
+		// The MI300X reference measurements ran with the core clock capped at 1680 MHz.
 		// CUs, caches and command dispatch share this clock. The independent
 		// DRAM controllers run at 1 GHz (see buildDRAMControllers).
 		freq:                1680 * timing.MHz,
