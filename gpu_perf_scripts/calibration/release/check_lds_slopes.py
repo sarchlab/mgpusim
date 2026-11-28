@@ -1,11 +1,11 @@
-"""Check the eight shared_mem_bandwidth slopes against MI300X v1.1."""
+"""Check the eight shared_mem_bandwidth slopes against the MI300X v1.2 reference."""
 
 import argparse
 from pathlib import Path
 from statistics import linear_regression
 from tempfile import TemporaryDirectory
 
-from workflow import kernel_names, paired_timings, read_reference, run_case
+from workflow import REFERENCES, kernel_names, paired_timings, read_reference, run_case
 
 
 def slopes(series, binary, scratch):
@@ -32,7 +32,7 @@ def main():
     parser.add_argument("binary", type=Path, help="built shared_mem_bandwidth timing sample")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
-    reference = read_reference(Path(__file__).with_name("mi300x-v1.1.json.gz"))
+    reference = read_reference(REFERENCES[:1])
     series = [s for s in reference["series"] if s["benchmark"] == "shared_mem_bandwidth"]
     configs = [(s["parameters"]["block_size"], s["parameters"]["access_pattern"],
                 s["parameters"]["num_blocks"]) for s in series]
