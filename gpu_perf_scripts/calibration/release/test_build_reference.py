@@ -134,7 +134,9 @@ class BuildLoopKernelReferenceTest(unittest.TestCase):
                  loop_case(11, "instruction_cost", IC.format(0), 4096),
                  {**planned(1, 64), "case": 12}]
         second = [loop_case(20, "instruction_cost", IC.format(4), 4096),
-                  loop_case(21, "loop_wait", LW, 16384)]
+                  loop_case(21, "loop_wait", LW, 16384),
+                  # Longer than the default cap, so left out.
+                  loop_case(22, "loop_wait", LW, 65536)]
         fma = ["ic_v_fma_f32_chained_k4", 256, 1, 1, 256, 1, 1]
         with tempfile.TemporaryDirectory() as folder:
             inputs = [
@@ -147,11 +149,13 @@ class BuildLoopKernelReferenceTest(unittest.TestCase):
                 collection(folder, "b", second, {
                     (20, 1): [[*fma, 110]], (20, 2): [[*fma, 120]],
                     (21, 1): [["lw_compiled_v_fma_f32_k2", 64, 1, 1, 64, 1, 1, 70]],
+                    (22, 1): [["lw_compiled_v_fma_f32_k2", 64, 1, 1, 64, 1, 1, 280]],
                 }),
             ]
-            series, dropped, replaced = build_loop_kernel_reference.build(
-                [(json.loads(plan.read_text()), directory) for plan, directory in inputs]
-            )
+            loaded = [(json.loads(plan.read_text()), directory) for plan, directory in inputs]
+            series, dropped, replaced = build_loop_kernel_reference.build(loaded)
+            uncapped, _, _ = build_loop_kernel_reference.build(loaded, max_iterations=65536)
+        self.assertEqual([case["x"] for case in uncapped[1]["cases"]], [16384, 65536])
         self.assertEqual(replaced, [10])
         self.assertEqual(dropped, {"no_successful_repetitions": [], "inconsistent_launches": []})
         self.assertEqual([row["benchmark"] for row in series], ["instruction_cost", "loop_wait"])
@@ -169,6 +173,7 @@ class BuildLoopKernelReferenceTest(unittest.TestCase):
                       "-dependency=chained", "-ops-per-iter=4", "-iterations=4096"],
              "repetitions": 2, "launches": [[*fma, 115]]},
         ])
+        self.assertEqual([case["x"] for case in lw["cases"]], [16384])
         self.assertEqual(lw["cases"][0]["parameters"], {"layout": "compiled", "ops_per_iter": 2})
         self.assertEqual(lw["cases"][0]["args"][-3:],
                          ["-layout=compiled", "-ops-per-iter=2", "-iterations=16384"])

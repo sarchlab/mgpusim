@@ -134,25 +134,33 @@ series; they have 228.
 
 ### Supplementary `instruction_cost` and `loop_wait` collection
 
-`mi300x-loop-kernels.json.gz` adds 3,128 configurations in 60 series for the
+`mi300x-loop-kernels.json.gz` adds 1,564 configurations in 60 series for the
 `instruction_cost` and `loop_wait` samples, each a single measured `ic_*` or
-`lw_*` kernel:
+`lw_*` kernel. They are 782 kernel and launch combinations, each at 4,096 and
+16,384 loop iterations:
 
-- `instruction_cost`, 1,976 configurations in 52 series: the 640 v1.2 cases of
-  the original bodies at 64 and 256 threads (cases 100189–100956), and 1,336
+- `instruction_cost`, 988 configurations in 52 series: 320 v1.2 cases of the
+  original bodies at 64 and 256 threads (from cases 100189–100956), and 668
   cases of a second collection with the new pair, scalar and branch bodies and
   512 and 1024 threads.
-- `loop_wait`, 1,152 configurations in 8 series, all from the second
-  collection.
+- `loop_wait`, 576 configurations in 8 series, all from the second collection.
+
+Both collections also measured 65,536 and 262,144 iterations. The builder
+leaves those out (`MAX_ITERATIONS`, option `--max-iterations`, recorded in
+the file as `max_iterations`): two points per combination give the cycles per
+iteration, and the longer points would take about three quarters of the
+simulation time, which the cap reduces from about 29 to about 1.7 laptop
+hours. The full measurements stay in the collections.
 
 The second collection used the same instance, collector, clock cap and
 protocol from November 28, 2026 01:26 to 02:44 UTC, with GPU Benchmarks at
 `cd5f922`, whose kernel sources are those merged in GPU Benchmarks `8355c041`
 (#204). Each of its cases selected the measured kernel by name; in the v1.2
 cases the builder drops the `__amd_rocclr_copyBuffer` launch that follows it.
-128 `instruction_cost` configurations (chained, 64 threads, 2 to 16 copies of
-the eight single VALU instructions) are in both collections and agree within
-0.5% (median 0.02%). The reference uses the second collection's measurement,
+`instruction_cost` with chained dependency, 64 threads and 2 to 16 copies of
+the eight single VALU instructions is in both collections: 128 configurations
+over the four iteration counts, which agree within 0.5% (median 0.02%), 64 of
+them within the cap. The reference uses the second collection's measurement,
 taken in the same session as `loop_wait`, and lists the replaced v1.2 cases.
 
 A series is one benchmark, instruction and launch shape. The dependency or

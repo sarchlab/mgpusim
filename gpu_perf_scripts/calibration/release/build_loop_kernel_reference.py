@@ -4,6 +4,11 @@ Each input is PLAN:COLLECTION in the format build_reference.py reads. Only the
 measured ic_* or lw_* kernel of a repetition is kept. A configuration (series
 label and iterations) measured by a later input replaces the earlier one.
 
+Only configurations of at most --max-iterations loop iterations (16384 by
+default) are kept: two points per configuration give the cycles per iteration,
+and the longer ones would dominate the simulation time. The collections keep
+all measurements.
+
 A series is one benchmark, instruction and launch shape, which keeps the
 release workflow within its 256 jobs. The dependency or layout and
 ops_per_iter of each configuration are case parameters.
@@ -23,6 +28,8 @@ PARAMETERS = {
     "loop_wait": (("instruction",), ("layout", "ops_per_iter")),
 }
 SHAPE = ("num_blocks", "threads_per_block")
+# The longest configuration kept, in loop iterations; see the docstring.
+MAX_ITERATIONS = 16384
 
 
 def kernel(benchmark, p):
@@ -36,9 +43,13 @@ def kernel(benchmark, p):
     return f"ic_{p['instruction']}_{p['dependency']}_k{p['ops_per_iter']}"
 
 
-def configurations(plan, directory):
+def configurations(plan, directory, max_iterations):
     """Measured configurations, by benchmark, series label and iterations."""
-    cases = {case["case"]: case for case in plan if case["benchmark"] in PARAMETERS}
+    cases = {
+        case["case"]: case
+        for case in plan
+        if case["benchmark"] in PARAMETERS and case["x"] <= max_iterations
+    }
     runs = repetitions(directory, cases, keep=lambda name: name.startswith(("ic_", "lw_")))
     measured, dropped = medians(cases, runs)
     found = {}
@@ -58,10 +69,10 @@ def configurations(plan, directory):
     return found, dropped
 
 
-def build(inputs):
+def build(inputs, max_iterations=MAX_ITERATIONS):
     found, dropped, replaced = {}, {}, []
     for plan, directory in inputs:
-        measured, lost = configurations(plan, directory)
+        measured, lost = configurations(plan, directory, max_iterations)
         replaced += sorted(found[key][0] for key in measured.keys() & found.keys())
         found.update(measured)
         for reason, cases in lost.items():
@@ -108,10 +119,17 @@ def main():
     )
     parser.add_argument("inputs", nargs="+", metavar="PLAN:COLLECTION")
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=MAX_ITERATIONS,
+        help=f"longest configuration kept, in loop iterations (default: {MAX_ITERATIONS})",
+    )
     args = parser.parse_args()
     inputs = [tuple(map(Path, pair.split(":", 1))) for pair in args.inputs]
     series, dropped, replaced = build(
-        [(json.loads(plan.read_text()), directory) for plan, directory in inputs]
+        [(json.loads(plan.read_text()), directory) for plan, directory in inputs],
+        args.max_iterations,
     )
     for reason, cases in dropped.items():
         print(f"Dropped for {reason.replace('_', ' ')}: {cases}")
@@ -120,6 +138,7 @@ def main():
         args.output,
         {
             "collections": [provenance(plan, directory) for plan, directory in inputs],
+            "max_iterations": args.max_iterations,
             "dropped_cases": dropped,
             "replaced_cases": replaced,
             "series": series,

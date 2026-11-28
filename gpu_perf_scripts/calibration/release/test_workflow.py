@@ -394,7 +394,9 @@ class ReferenceTest(unittest.TestCase):
             {"code_fetch_latency", "instruction_cost", "loop_wait"}
             & {row["benchmark"] for row in v12}
         )
-        self.assertEqual(sum(len(row["cases"]) for row in loops), 3128)
+        # Two iteration counts of each of the 782 loop-kernel configurations.
+        self.assertEqual(sum(len(row["cases"]) for row in loops), 1564)
+        self.assertEqual({case["x"] for row in loops for case in row["cases"]}, {4096, 16384})
         for row in loops:
             for case in row["cases"]:
                 ((name, *shape, nanoseconds),) = case["launches"]
