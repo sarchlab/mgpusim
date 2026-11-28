@@ -63,12 +63,7 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	}
 
 	codeEnd, codeEndKnown := codeEnd(wf)
-	linesInFlight := 1
-	if codeEndKnown {
-		// Fetching ahead requests lines the wavefront may never execute, so
-		// it needs to know where the code ends.
-		linesInFlight = max(a.FetchAheadLines, 1)
-	}
+	linesInFlight, bufferSize := a.limits(codeEndKnown)
 
 	nextFetchPC := nextFetchPC(state)
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
@@ -76,7 +71,7 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	if nextFetchPC-state.InstBufferStartPC >= uint64(a.InstBufByteSize) {
+	if nextFetchPC-state.InstBufferStartPC >= uint64(bufferSize) {
 		return false
 	}
 
@@ -85,6 +80,24 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	}
 
 	return true
+}
+
+// limits returns the number of fetches a wavefront may have in flight and the
+// number of bytes, buffered and in flight, it may hold.
+func (a *FetchArbiter) limits(codeEndKnown bool) (linesInFlight, bufferSize int) {
+	if a.FetchAheadLines <= 1 {
+		return 1, a.InstBufByteSize
+	}
+
+	// Fetching ahead requests lines the wavefront may never execute, so it
+	// needs to know where the code ends. A wavefront that does not know
+	// fetches one line at a time into a buffer of the default size, which
+	// bounds how far past its instructions it reads.
+	if !codeEndKnown {
+		return 1, min(a.InstBufByteSize, DefaultInstBufByteSize)
+	}
+
+	return a.FetchAheadLines, a.InstBufByteSize
 }
 
 // codeEnd returns the address after the last instruction of the wavefront's
@@ -101,6 +114,10 @@ func codeEnd(wf *Wavefront) (uint64, bool) {
 
 // InstFetchByteSize is the size of one instruction fetch.
 const InstFetchByteSize = 64
+
+// DefaultInstBufByteSize is the default size of a wavefront's instruction
+// buffer.
+const DefaultInstBufByteSize = 256
 
 // nextFetchPC returns the address of the next line the wavefront requests:
 // the line after those buffered and in flight in the current fetch stream.

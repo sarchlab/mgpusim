@@ -132,7 +132,8 @@ type Spec struct {
 	// instruction it executes. The fetches in flight and the buffered bytes
 	// together never exceed InstBufByteSize. Zero or one fetches one line at
 	// a time. A wavefront whose code object does not record where its code
-	// ends also fetches one line at a time.
+	// ends also fetches one line at a time, and holds at most
+	// DefaultInstBufByteSize bytes when InstBufByteSize is larger.
 	InstFetchAheadLines int `json:"inst_fetch_ahead_lines"`
 }
 

@@ -31,7 +31,7 @@ func DefaultSpec() Spec {
 		MaxCoalescingPenalty:         0,
 		RegisterScoreboard:           false,
 		InFlightVectorMemAccessLimit: 512,
-		InstBufByteSize:              256,
+		InstBufByteSize:              DefaultInstBufByteSize,
 	}
 }
 

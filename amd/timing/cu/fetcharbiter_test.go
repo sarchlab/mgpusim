@@ -142,6 +142,57 @@ func TestFetchAheadNeedsTheCodeExtent(t *testing.T) {
 	}
 }
 
+// fillInstBuffer returns each admitted request at once, as when the
+// wavefront's PC does not move, and reports the bytes buffered when the
+// arbiter stops admitting.
+func fillInstBuffer(arbiter FetchArbiter, wave *Wavefront) int {
+	state := wave.execution()
+	for arbiter.canFetchFromWF(wave) && len(state.InstBuffer) < 1<<20 {
+		state.NextFetchPC = nextFetchPC(state) + InstFetchByteSize
+		state.InstBuffer = append(state.InstBuffer, make([]byte, InstFetchByteSize)...)
+	}
+
+	return len(state.InstBuffer)
+}
+
+// A wavefront that cannot tell where its code ends must not read farther past
+// its instructions than it did with the default buffer, however large the
+// fetch-ahead buffer is.
+func TestUnknownCodeExtentKeepsTheDefaultBuffer(t *testing.T) {
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	wave.execution().State = wavefront.WfReady
+	wave.execution().InstBufferStartPC = 0x1000
+
+	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
+	if got := fillInstBuffer(ahead, wave); got != DefaultInstBufByteSize {
+		t.Fatalf("buffered %d bytes without a code end, want %d", got, DefaultInstBufByteSize)
+	}
+}
+
+// Fetching one line at a time fills the buffer the spec configures.
+func TestOneLineFetchFillsTheConfiguredBuffer(t *testing.T) {
+	wave := checkpointGroup(checkpointCU(t)).waves()[0]
+	wave.execution().State = wavefront.WfReady
+	wave.execution().InstBufferStartPC = 0x1000
+
+	one := FetchArbiter{InstBufByteSize: 640}
+	if got := fillInstBuffer(one, wave); got != 640 {
+		t.Fatalf("buffered %d bytes, want the configured 640", got)
+	}
+}
+
+// With a recorded code end, fetch-ahead fills its whole buffer.
+func TestFetchAheadFillsItsBuffer(t *testing.T) {
+	wave := waveWithCode(t, 0x1000)
+	wave.execution().State = wavefront.WfReady
+	wave.execution().InstBufferStartPC = 0x1000
+
+	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
+	if got := fillInstBuffer(ahead, wave); got != 640 {
+		t.Fatalf("buffered %d bytes, want 640", got)
+	}
+}
+
 func TestFetchAheadStopsAtTheEndOfTheCode(t *testing.T) {
 	wave := waveWithCode(t, 0x80)
 	state := wave.execution()

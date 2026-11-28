@@ -221,6 +221,10 @@ func (s *SchedulerImpl) DoFetch() bool {
 			wf.execution().InstBufferStartPC = wf.PC() &^ (InstFetchByteSize - 1)
 		}
 		addr := nextFetchPC(wf.execution())
+		// The demand fetch is the one for the line right after the buffer;
+		// those issued while it is in flight fetch ahead.
+		bufferEnd := wf.execution().InstBufferStartPC + uint64(len(wf.execution().InstBuffer))
+		isDemandFetch := addr == bufferEnd&^(InstFetchByteSize-1)
 		req := messaging.Msg{ID: s.cu.comp.NewID(),
 			Src: s.cu.instMemPort().AsRemote(),
 			Dst: s.cu.comp.Spec.InstMem, Payload: memprotocol.ReadReq{Address: addr,
@@ -253,13 +257,14 @@ func (s *SchedulerImpl) DoFetch() bool {
 			// also used to fall back to the bare CU name).
 			Location: s.cu.comp.Name() + ".InstFetcher",
 		})
-		if wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf) {
+		if isDemandFetch && wf.execution().InFlightInsts == 0 && !wfHasInstructionReady(wf) {
 			// Fetching while nothing is in flight: the wavefront is stalled with no
 			// instruction available, waiting on the fetch path. (A prefetch issued
 			// while an instruction executes leaves InFlightInsts > 0 and is silent;
 			// a fetch-ahead with decoded/available bytes is also silent because the
 			// real blocker is the execution unit that has not accepted the ready
-			// instruction yet.
+			// instruction yet. So is a fetch issued behind the demand fetch: from
+			// then on the wavefront waits for the demand fetch's data.)
 			s.cu.markWfMilestone(wf, tasks.MilestoneKindHardwareResource,
 				s.cu.comp.Name()+".InstFetcher")
 		}

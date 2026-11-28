@@ -7,6 +7,7 @@ import (
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/queueing"
 	"github.com/sarchlab/akita/v5/sim/tasks"
+	"github.com/sarchlab/akita/v5/sim/timing"
 	"github.com/sarchlab/mgpusim/v5/amd/insts"
 	"github.com/sarchlab/mgpusim/v5/amd/kernels"
 	"github.com/sarchlab/mgpusim/v5/amd/protocol"
@@ -245,6 +246,61 @@ func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 		"CU.InstFetcher") {
 		t.Fatalf("fetch-ahead should not be marked as a blocker, got %+v",
 			rec.milestones)
+	}
+}
+
+// While a stalled wavefront fetches ahead, only the fetch for the line it is
+// waiting for is a wait on the fetcher. The fetches issued behind it must not
+// move that milestone: the time until the first line returns is spent waiting
+// for its data.
+func TestOnlyTheDemandFetchRecordsFetcherMilestone(t *testing.T) {
+	engine := newFakeEngine()
+	cu := newTestComputeUnit("CU", engine)
+	cu.comp.Spec.InstMem = "InstMem"
+	cu.comp.Spec.InstFetchAheadLines = 4
+	toInstMem := newFakePort("CU.ToInstMem")
+	cu.ToInstMem = toInstMem
+	rec := &cuMilestoneRecorder{}
+	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
+
+	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
+	startTestWave(cu, wf)
+	wf.SetPC(0x100)
+	wf.execution().InstBufferStartPC = 0x100
+	task := cu.comp.State.WFTasks[wf.UID]
+
+	fetchArbiter := newMockWfArbitor()
+	s := NewScheduler(cu, fetchArbiter, nil)
+	count := func(kind tasks.MilestoneKind, what string) int {
+		n := 0
+		for _, m := range rec.milestones {
+			if m.TaskID == task && m.Kind == kind && m.What == what {
+				n++
+			}
+		}
+		return n
+	}
+
+	for tick := 1; tick <= 3; tick++ {
+		engine.now = timing.VTimeInPicoSec(tick)
+		fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn, []*Wavefront{wf})
+		s.DoFetch()
+
+		if got := count(tasks.MilestoneKindHardwareResource, "CU.InstFetcher"); got != 1 {
+			t.Fatalf("after %d fetches the fetcher milestone was recorded %d times, got %+v",
+				tick, got, rec.milestones)
+		}
+	}
+	if len(toInstMem.sent) != 3 || len(cu.comp.State.InstFetch) != 3 {
+		t.Fatalf("issued %d requests, tracking %d; want 3", len(toInstMem.sent), len(cu.comp.State.InstFetch))
+	}
+
+	engine.now = 4
+	cu.handleFetchReturn(messaging.Msg{ID: testIDs.NewID(),
+		RspTo: toInstMem.sent[0].ID, Payload: memprotocol.DataReadyRsp{Data: make([]byte, 64)}})
+	if got := count(tasks.MilestoneKindData, "inst_fetch"); got != 1 {
+		t.Fatalf("the first line's return recorded the data milestone %d times, got %+v",
+			got, rec.milestones)
 	}
 }
 
