@@ -360,10 +360,10 @@ func (p migrationPlatform) mustCopyAPageOfGPU1(t *testing.T) {
 	}
 }
 
-// checkFetchAhead checks that every compute unit keeps the given number of
-// instruction fetches in flight and, when it fetches ahead, can hold them.
-// Instruction fetches keep their own size, whatever the cache line size.
-func checkFetchAhead(t *testing.T, s *simulation.Simulation, lines int) {
+// checkInstPrefetch checks that every compute unit reads the given number of
+// lines ahead of its block fetches, in blocks of the given size. Instruction
+// fetches keep their own size, whatever the cache line size.
+func checkInstPrefetch(t *testing.T, s *simulation.Simulation, blockBytes, lines int) {
 	t.Helper()
 
 	units := 0
@@ -373,10 +373,9 @@ func checkFetchAhead(t *testing.T, s *simulation.Simulation, lines int) {
 			continue
 		}
 		units++
-		if unit.Spec.InstFetchAheadLines != lines ||
-			unit.Spec.InstBufByteSize < lines*cu.InstFetchByteSize {
-			t.Fatalf("%s fetches %d lines ahead into %d bytes, want %d lines", unit.Name(),
-				unit.Spec.InstFetchAheadLines, unit.Spec.InstBufByteSize, lines)
+		if unit.Spec.InstBlockByteSize != blockBytes || unit.Spec.InstPrefetchLines != lines {
+			t.Fatalf("%s fetches %d-byte blocks and reads %d lines ahead, want %d and %d", unit.Name(),
+				unit.Spec.InstBlockByteSize, unit.Spec.InstPrefetchLines, blockBytes, lines)
 		}
 	}
 	if units == 0 {
@@ -402,11 +401,11 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 			b.createRDMAAddressMapper()
 			b.pageTable.GPU.MaxZeroWriteSize = 0
 			wantSize := uint64(32)
-			wantFetchAhead := 0
+			wantBlock, wantPrefetch := 0, 0
 			if g.name == "mi300x" {
 				b.pageTable.GPU.MaxZeroWriteSize = 16
 				wantSize = 16
-				wantFetchAhead = 10
+				wantBlock, wantPrefetch = 32, 8
 			}
 			builder := b.createGPUBuilder(nil, 1)
 			switch gpu := builder.(type) {
@@ -426,7 +425,7 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 			if walker.Spec.MaxZeroWriteSize != wantSize {
 				t.Fatalf("zero write limit %d, want %d", walker.Spec.MaxZeroWriteSize, wantSize)
 			}
-			checkFetchAhead(t, s, wantFetchAhead)
+			checkInstPrefetch(t, s, wantBlock, wantPrefetch)
 			p := migrationPlatform{client: client, sim: s}
 			pageSize := uint64(1) << g.log2PageSize
 			page := vm.Page{PID: 1, VAddr: pageSize, PAddr: deviceBytes + 32<<20, PageSize: pageSize, DeviceID: 1, Valid: true}

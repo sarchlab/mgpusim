@@ -100,13 +100,32 @@ func (b *Builder) mustHaveValidSpec() {
 	if b.spec.IssueRotation && b.spec.SIMDCount != numWfPools {
 		panic("cu: IssueRotation requires SIMDCount to equal the number of wavefront pools, 4")
 	}
-	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
-		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
+	if b.spec.SCCToBranchCycles < 0 {
+		panic("cu: SCCToBranchCycles must be non-negative")
 	}
-	if b.spec.InstFetchAheadLines > 1 &&
-		(b.spec.InstBufByteSize%InstFetchByteSize != 0 || b.spec.InstBufByteSize < 2*InstFetchByteSize) {
-		panic("cu: with InstFetchAheadLines above one, InstBufByteSize must be a multiple of " +
-			"InstFetchByteSize and hold at least two fetches")
+	b.validateBlockFetch()
+}
+
+func (b *Builder) validateBlockFetch() {
+	block := b.spec.InstBlockByteSize
+	if block < 0 || b.spec.InstBlockFetchCycles < 0 || b.spec.InstPrefetchLines < 0 {
+		panic("cu: InstBlockByteSize, InstBlockFetchCycles, and InstPrefetchLines must be non-negative")
+	}
+	if b.spec.InstPrefetchLines > 0 && b.spec.InstPrefetchMem == "" {
+		panic("cu: InstPrefetchLines requires InstPrefetchMem")
+	}
+	if block == 0 {
+		if b.spec.InstBlockFetchCycles != 0 || b.spec.InstPrefetchLines != 0 {
+			panic("cu: InstBlockFetchCycles and InstPrefetchLines require InstBlockByteSize")
+		}
+		return
+	}
+	if InstFetchByteSize%block != 0 || block&(block-1) != 0 {
+		panic("cu: InstBlockByteSize must be a power of two that divides InstFetchByteSize")
+	}
+	if b.spec.InstBufByteSize%block != 0 || b.spec.InstBufByteSize < 2*block {
+		panic("cu: with block fetch, InstBufByteSize must be a multiple of InstBlockByteSize " +
+			"and hold at least two blocks")
 	}
 }
 
@@ -123,7 +142,6 @@ func (b *Builder) fillResourceDefaults() {
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
-	fetchArbitor.FetchAheadLines = b.spec.InstFetchAheadLines
 	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
 	issueArbitor.rotation = b.spec.IssueRotation
@@ -131,12 +149,12 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	scheduler.scoreboardEnabled = b.spec.RegisterScoreboard
 	scheduler.uniformVALUCycles = b.spec.UniformVALUCycles
 	scheduler.issueRotation = b.spec.IssueRotation
+	scheduler.sccToBranchCycles = b.spec.SCCToBranchCycles
 	cu.Scheduler = scheduler
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	branchUnit := NewBranchUnit(cu, b.resources.ALU)
-	branchUnit.takenIssueGap = b.spec.TakenBranchIssueGap
 	cu.BranchUnit = branchUnit
 
 	scalarDecoder := NewDecodeUnit(cu)

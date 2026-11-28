@@ -14,10 +14,6 @@ type BranchUnit struct {
 	cu *ComputeUnit
 
 	alu emu.ALU
-
-	// takenIssueGap is the number of cycles between issuing a taken branch
-	// and the earliest issue of its target. Zero keeps the legacy behavior.
-	takenIssueGap int
 }
 
 // NewBranchUnit creates a new branch unit, injecting the dependency of
@@ -100,7 +96,7 @@ func (u *BranchUnit) runWriteStage() bool {
 	wave := u.cu.wave(u.state().Write)
 	u.cu.completeInstruction(wave, wave.InstID())
 
-	if u.takenIssueGap > 0 && !u.cu.comp.State.BranchTaken {
+	if u.cu.comp.Spec.InstBlockByteSize > 0 && !u.cu.comp.State.BranchTaken {
 		// Fetch continues in sequence, so the buffered instructions stay valid.
 		u.setReadyAtNextPC(wave)
 	} else {
@@ -108,8 +104,7 @@ func (u *BranchUnit) runWriteStage() bool {
 		// PC update walks the buffer.
 		wave.execution().InstBuffer = nil
 		u.setReadyAtNextPC(wave)
-		redirectFetch(wave)
-		u.holdIssueAfterTakenBranch(wave)
+		u.cu.redirectFetch(wave)
 	}
 
 	u.state().Write = 0
@@ -127,21 +122,6 @@ func (u *BranchUnit) setReadyAtNextPC(wave *Wavefront) {
 	}
 
 	u.cu.UpdatePCAndSetReady(wave)
-}
-
-// holdIssueAfterTakenBranch keeps the wavefront from issuing until its SIMD's
-// first turn after the configured gap since the branch was issued, and wakes
-// the compute unit then.
-func (u *BranchUnit) holdIssueAfterTakenBranch(wave *Wavefront) {
-	if u.takenIssueGap <= 0 {
-		return
-	}
-
-	gapEnd := u.cu.comp.Spec.Freq.NCyclesLater(
-		u.takenIssueGap-branchPipelineCycles, u.cu.CurrentTime())
-	state := wave.execution()
-	state.IssueNotBefore = u.cu.nextIssueTurn(state.SIMDID, gapEnd)
-	u.cu.comp.TickAt(state.IssueNotBefore)
 }
 
 func (u *BranchUnit) state() *StageState { return &u.cu.comp.State.Branch }

@@ -85,6 +85,7 @@ func TestFetchStartsAtLinkedKernelEntry(t *testing.T) {
 // exactly size bytes of instructions from address base.
 func recordCodeEnd(wave *Wavefront, base, size uint64) {
 	raw := wave.group().raw()
+	raw.Packet.Present = true
 	raw.Packet.Packet.KernelObject = base
 	raw.CodeObject.Present, raw.CodeObject.HasSymbol, raw.CodeObject.HasMeta = true, true, true
 	raw.CodeObject.Version = insts.CodeObjectV5
@@ -101,58 +102,6 @@ func waveWithCode(t *testing.T, size uint64) *Wavefront {
 	return wave
 }
 
-func TestFetchAheadKeepsSeveralLinesInFlight(t *testing.T) {
-	wave := waveWithCode(t, 0x1000)
-	state := wave.execution()
-	state.State = wavefront.WfReady
-	state.InstBufferStartPC = 0x1000
-
-	one := FetchArbiter{InstBufByteSize: 256}
-	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 3}
-
-	state.NextFetchPC = 0x1040
-	if one.canFetchFromWF(wave) {
-		t.Fatal("fetched a second line while one was in flight")
-	}
-	if !ahead.canFetchFromWF(wave) {
-		t.Fatal("refused a second line in flight")
-	}
-
-	state.NextFetchPC = 0x10c0
-	if ahead.canFetchFromWF(wave) {
-		t.Fatal("exceeded the number of lines in flight")
-	}
-
-	// One line arrived: two are in flight again.
-	state.InstBuffer = make([]byte, 64)
-	if !ahead.canFetchFromWF(wave) {
-		t.Fatal("refused to refill after a line arrived")
-	}
-}
-
-// Lines fetched ahead may never execute, so a wavefront that cannot tell
-// where its code ends requests one line at a time.
-func TestFetchAheadNeedsTheCodeExtent(t *testing.T) {
-	wave := checkpointGroup(checkpointCU(t)).waves()[0]
-	state := wave.execution()
-	state.State = wavefront.WfReady
-	state.InstBufferStartPC = 0x1000
-	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 3}
-
-	if !ahead.canFetchFromWF(wave) {
-		t.Fatal("refused the first line")
-	}
-	state.NextFetchPC = 0x1040
-	if ahead.canFetchFromWF(wave) {
-		t.Fatal("fetched ahead without knowing where the code ends")
-	}
-
-	state.InstBuffer = make([]byte, 64)
-	if !ahead.canFetchFromWF(wave) {
-		t.Fatal("refused the next line after the first arrived")
-	}
-}
-
 // fillInstBuffer returns each admitted request at once, as when the
 // wavefront's PC does not move, and reports the bytes buffered when the
 // arbiter stops admitting.
@@ -164,20 +113,6 @@ func fillInstBuffer(arbiter FetchArbiter, wave *Wavefront) int {
 	}
 
 	return len(state.InstBuffer)
-}
-
-// A wavefront that cannot tell where its code ends must not read farther past
-// its instructions than it did with the default buffer, however large the
-// fetch-ahead buffer is.
-func TestUnknownCodeExtentKeepsTheDefaultBuffer(t *testing.T) {
-	wave := checkpointGroup(checkpointCU(t)).waves()[0]
-	wave.execution().State = wavefront.WfReady
-	wave.execution().InstBufferStartPC = 0x1000
-
-	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
-	if got := fillInstBuffer(ahead, wave); got != DefaultInstBufByteSize {
-		t.Fatalf("buffered %d bytes without a code end, want %d", got, DefaultInstBufByteSize)
-	}
 }
 
 // Fetching one line at a time fills the buffer the spec configures.
@@ -192,46 +127,11 @@ func TestOneLineFetchFillsTheConfiguredBuffer(t *testing.T) {
 	}
 }
 
-// With a recorded code end, fetch-ahead fills its whole buffer.
-func TestFetchAheadFillsItsBuffer(t *testing.T) {
-	wave := waveWithCode(t, 0x1000)
-	wave.execution().State = wavefront.WfReady
-	wave.execution().InstBufferStartPC = 0x1000
-
-	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
-	if got := fillInstBuffer(ahead, wave); got != 640 {
-		t.Fatalf("buffered %d bytes, want 640", got)
-	}
-}
-
-// A V2 or V3 symbol covers the header as well as the instructions, so its
-// end is past the uploaded code and does not let the wavefront fetch ahead.
-func TestFetchAheadNeedsASymbolOfTheCodeAlone(t *testing.T) {
-	wave := waveWithCode(t, 0x1000)
-	wave.group().raw().CodeObject.Version = insts.CodeObjectV3
-	state := wave.execution()
-	state.State = wavefront.WfReady
-	state.InstBufferStartPC = 0x1000
-	ahead := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
-
-	state.NextFetchPC = 0x1040
-	if ahead.canFetchFromWF(wave) {
-		t.Fatal("fetched ahead with a symbol that includes the header")
-	}
-	state.NextFetchPC = 0
-	if got := fillInstBuffer(ahead, wave); got != DefaultInstBufByteSize {
-		t.Fatalf("buffered %d bytes, want %d", got, DefaultInstBufByteSize)
-	}
-}
-
-// A wavefront that cannot fetch ahead behaves as without fetch-ahead in every
-// respect, also in a compute unit that fetches ahead: after a taken branch it
-// waits for the outstanding fetch, and uses its line if it continues the
-// buffer.
-func TestWithoutCodeExtentARedirectWaitsForTheOutstandingFetch(t *testing.T) {
+// Fetching whole lines, after a taken branch a wavefront waits for the
+// outstanding fetch, and uses its line if it continues the buffer.
+func TestLineFetchRedirectWaitsForTheOutstandingFetch(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.comp.Spec.InstFetchAheadLines = 10
-	arbiter := FetchArbiter{InstBufByteSize: 640, FetchAheadLines: 10}
+	arbiter := FetchArbiter{InstBufByteSize: 640}
 
 	wave := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wave)
@@ -248,7 +148,7 @@ func TestWithoutCodeExtentARedirectWaitsForTheOutstandingFetch(t *testing.T) {
 	state.IsFetching = true
 	state.NextFetchPC = 0x1080
 	wave.SetPC(0x1040)
-	redirectFetch(wave)
+	cu.redirectFetch(wave)
 
 	if arbiter.canFetchFromWF(wave) {
 		t.Fatal("requested the target while the obsolete fetch was outstanding")
@@ -268,43 +168,6 @@ func TestWithoutCodeExtentARedirectWaitsForTheOutstandingFetch(t *testing.T) {
 	}
 }
 
-func TestFetchAheadStopsAtTheEndOfTheCode(t *testing.T) {
-	wave := waveWithCode(t, 0x80)
-	state := wave.execution()
-	state.State = wavefront.WfReady
-	state.InstBufferStartPC = 0x1000
-	ahead := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 4}
-
-	state.NextFetchPC = 0x1040
-	if !ahead.canFetchFromWF(wave) {
-		t.Fatal("refused the last line of the code")
-	}
-	state.NextFetchPC = 0x1080
-	if ahead.canFetchFromWF(wave) {
-		t.Fatal("requested a line after the end of the code")
-	}
-}
-
-func TestFetchAheadStopsAtTheInstructionBufferSize(t *testing.T) {
-	wave := waveWithCode(t, 0x1000)
-	state := wave.execution()
-	state.State = wavefront.WfReady
-	state.InstBufferStartPC = 0x1000
-	arbiter := FetchArbiter{InstBufByteSize: 256, FetchAheadLines: 4}
-
-	// Two lines buffered and two in flight fill the buffer.
-	state.InstBuffer = make([]byte, 128)
-	state.NextFetchPC = 0x1100
-	if arbiter.canFetchFromWF(wave) {
-		t.Fatal("requested more lines than the instruction buffer holds")
-	}
-
-	state.NextFetchPC = 0x10c0
-	if !arbiter.canFetchFromWF(wave) {
-		t.Fatal("refused a line the instruction buffer has room for")
-	}
-}
-
 func TestRedirectFetchStartsANewStream(t *testing.T) {
 	wave := checkpointGroup(checkpointCU(t)).waves()[0]
 	state := wave.execution()
@@ -313,7 +176,7 @@ func TestRedirectFetchStartsANewStream(t *testing.T) {
 	state.NextFetchPC = 0x1100
 	wave.SetPC(0x2044)
 
-	redirectFetch(wave)
+	wave.cu.redirectFetch(wave)
 
 	if len(state.InstBuffer) != 0 || state.InstBufferStartPC != 0x2040 {
 		t.Fatalf("buffer holds %d bytes from 0x%x", len(state.InstBuffer), state.InstBufferStartPC)

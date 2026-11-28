@@ -39,6 +39,9 @@ type FetchState struct {
 	Address, Task uint64
 	// Epoch is the wavefront's fetch stream this request belongs to.
 	Epoch uint64
+	// Prefetch marks a line read ahead into the instruction cache; its data
+	// is dropped when it returns.
+	Prefetch bool
 }
 type ScalarAccessState struct {
 	Req      messaging.Msg

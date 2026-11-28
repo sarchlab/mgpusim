@@ -54,7 +54,7 @@ func (a *IssueArbiter) arbitratePool(
 		}
 
 		next := wf.NextInst()
-		if next == nil || a.cu.issueHeldBack(wf) {
+		if next == nil {
 			continue
 		}
 		if a.scoreboardEnabled && wf.scoreboard() != nil {

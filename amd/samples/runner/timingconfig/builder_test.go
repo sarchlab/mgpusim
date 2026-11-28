@@ -122,26 +122,37 @@ func checkRouting(t *testing.T, s *simulation.Simulation, c any, numGPUs int) {
 // instructions issue.
 type issueTiming struct {
 	rotation, valuOverlap, uniformVALU bool
-	takenBranchGap                     int
+	sccToBranch                        int
+	instBlock, instBuf, blockCycles    int
+	prefetchLines                      int
 }
 
 // checkIssueTiming verifies that only the MI300X preset uses the measured
 // issue cadence: one SIMD served per cycle, overlapped VALU issue, f64 at the
-// same cost, and a 32-cycle gap after a taken branch.
+// same cost, an 8-cycle wait from a scalar ALU instruction to a branch on
+// SCC, and two 32-byte instruction blocks per wavefront with eight lines read
+// ahead.
 func checkIssueTiming(t *testing.T, unit *cu.Comp, measured bool) {
 	t.Helper()
 
 	spec := unit.Spec
 	got := issueTiming{
-		rotation:       spec.IssueRotation,
-		valuOverlap:    spec.VALUIssueOverlap,
-		uniformVALU:    spec.UniformVALUCycles,
-		takenBranchGap: spec.TakenBranchIssueGap,
+		rotation:      spec.IssueRotation,
+		valuOverlap:   spec.VALUIssueOverlap,
+		uniformVALU:   spec.UniformVALUCycles,
+		sccToBranch:   spec.SCCToBranchCycles,
+		instBlock:     spec.InstBlockByteSize,
+		blockCycles:   spec.InstBlockFetchCycles,
+		prefetchLines: spec.InstPrefetchLines,
+	}
+	if spec.InstBlockByteSize > 0 {
+		got.instBuf = spec.InstBufByteSize
 	}
 
 	want := issueTiming{}
 	if measured {
-		want = issueTiming{rotation: true, valuOverlap: true, uniformVALU: true, takenBranchGap: 32}
+		want = issueTiming{rotation: true, valuOverlap: true, uniformVALU: true, sccToBranch: 8,
+			instBlock: 32, instBuf: 64, blockCycles: 16, prefetchLines: 8}
 	}
 
 	if got != want {

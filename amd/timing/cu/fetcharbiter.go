@@ -8,14 +8,10 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
-// A FetchArbiter can decide which wavefront in a scheduler can fetch
-// instructions
+// A FetchArbiter decides which wavefront fetches the next line of
+// instructions, when the compute unit fetches whole lines (no block fetch).
 type FetchArbiter struct {
 	InstBufByteSize int
-
-	// FetchAheadLines is the number of lines a wavefront may have in flight.
-	// Zero or one fetches one line at a time.
-	FetchAheadLines int
 }
 
 // Arbitrate decide which wavefront can fetch the next instruction
@@ -47,16 +43,12 @@ func (a *FetchArbiter) Arbitrate(
 	return list
 }
 
+// canFetchFromWF reports whether the wavefront can request its next line. A
+// wavefront has one fetch outstanding at a time, including one made obsolete
+// by a taken branch.
 func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	state := wf.execution()
-	if wf.state().StopFetch {
-		return false
-	}
-
-	// Without fetch-ahead a wavefront has one fetch outstanding at a time,
-	// including one made obsolete by a taken branch.
-	ahead := fetchesAhead(wf, a.FetchAheadLines)
-	if !ahead && state.IsFetching {
+	if wf.state().StopFetch || state.IsFetching {
 		return false
 	}
 
@@ -64,15 +56,13 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 		return false
 	}
 
-	linesInFlight, bufferSize := a.limits(ahead)
-
 	nextFetchPC := nextFetchPC(state)
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
-	if nextFetchPC-bufferEnd >= uint64(linesInFlight)*InstFetchByteSize {
+	if nextFetchPC-bufferEnd >= InstFetchByteSize {
 		return false
 	}
 
-	if nextFetchPC-state.InstBufferStartPC >= uint64(bufferSize) {
+	if nextFetchPC-state.InstBufferStartPC >= uint64(a.InstBufByteSize) {
 		return false
 	}
 
@@ -83,35 +73,11 @@ func (a *FetchArbiter) canFetchFromWF(wf *Wavefront) bool {
 	return true
 }
 
-// limits returns the number of fetches a wavefront may have in flight and the
-// number of bytes, buffered and in flight, it may hold.
-func (a *FetchArbiter) limits(fetchesAhead bool) (linesInFlight, bufferSize int) {
-	if fetchesAhead {
-		return a.FetchAheadLines, a.InstBufByteSize
-	}
-
-	// A wavefront that cannot fetch ahead in a compute unit that does keeps
-	// the default buffer, so that it reads no farther past its instructions
-	// than it would without fetch-ahead.
-	if a.FetchAheadLines > 1 {
-		return 1, min(a.InstBufByteSize, DefaultInstBufByteSize)
-	}
-
-	return 1, a.InstBufByteSize
-}
-
-// fetchesAhead reports whether the wavefront fetches ahead, given the number
-// of lines its compute unit lets a wavefront keep in flight. Lines fetched
-// ahead may never execute, so the wavefront must know exactly where its code
-// ends. Otherwise it fetches one line at a time, in every respect: one fetch
-// outstanding, and a returned line is used whenever it continues the buffer.
-func fetchesAhead(wf *Wavefront, lines int) bool {
-	if lines <= 1 {
-		return false
-	}
-
-	// A V2 or V3 symbol also covers the 256-byte header that is not part of
-	// the uploaded code, so its end is past the code.
+// knowsCodeEnd reports whether the wavefront's code object records exactly
+// where its code ends, so that lines read ahead stay within the code. A V2 or
+// V3 symbol also covers the 256-byte header that is not part of the uploaded
+// code, so its end is past the code.
+func knowsCodeEnd(wf *Wavefront) bool {
 	co := &wf.group().raw().CodeObject
 	return co.Present && co.HasSymbol && co.Version == insts.CodeObjectV5
 }
@@ -129,7 +95,8 @@ func codeEnd(wf *Wavefront) (uint64, bool) {
 	return co.Symbol.Size + group.packet().KernelObject + co.Meta.KernelCodeEntryByteOffset, true
 }
 
-// InstFetchByteSize is the size of one instruction fetch.
+// InstFetchByteSize is the size of one instruction fetch without block fetch,
+// and of one line read ahead into the instruction cache with it.
 const InstFetchByteSize = 64
 
 // DefaultInstBufByteSize is the default size of a wavefront's instruction
@@ -145,13 +112,27 @@ func nextFetchPC(state *wavefront.ExecutionState) uint64 {
 	return max(state.NextFetchPC, bufferEnd)
 }
 
-// redirectFetch starts a new fetch stream at the wavefront's PC. The
+// redirectFetch starts a new fetch stream at the wavefront's PC, whose
+// buffer starts at the fetch unit (line or block) holding the PC. The
 // instruction buffer is emptied, and the fetches still in flight are dropped
 // when they return.
-func redirectFetch(wf *Wavefront) {
+func (cu *ComputeUnit) redirectFetch(wf *Wavefront) {
 	state := wf.execution()
 	state.InstBuffer = nil
-	state.InstBufferStartPC = wf.PC() &^ (InstFetchByteSize - 1)
+	state.InstBufferStartPC = wf.PC() &^ (cu.fetchUnitByteSize() - 1)
 	state.FetchEpoch++
 	state.NextFetchPC = 0
+	state.IssuedEnd = 0
+	state.PrefetchPC = 0
+	state.BlockFetchNotBefore = 0
+}
+
+// fetchUnitByteSize is the size of one instruction-buffer fetch: a block
+// with block fetch, otherwise a line.
+func (cu *ComputeUnit) fetchUnitByteSize() uint64 {
+	if b := cu.comp.Spec.InstBlockByteSize; b > 0 {
+		return uint64(b)
+	}
+
+	return InstFetchByteSize
 }

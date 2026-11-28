@@ -84,8 +84,12 @@ type Builder struct {
 	issueRotation             bool
 	valuIssueOverlap          bool
 	uniformVALUCycles         bool
-	takenBranchIssueGap       int
-	instFetchAheadLines       int
+	sccToBranchCycles         int
+	instBlockByteSize         int
+	instBlocks                int
+	instBlockFetchCycles      int
+	instPrefetchLines         int
+	l1iBankLatency            int
 	l1AddressMapper           *mem.AddressMapper
 	l1TLBAddressMapper        *mem.AddressMapper
 	aluBuilder                func() emu.ALU
@@ -283,17 +287,35 @@ func (b Builder) WithUniformVALUCycles(enabled bool) Builder {
 	return b
 }
 
-// WithTakenBranchIssueGap sets the number of cycles between issuing a taken
-// branch and the earliest issue of its target.
-func (b Builder) WithTakenBranchIssueGap(n int) Builder {
-	b.takenBranchIssueGap = n
+// WithSCCToBranchCycles sets the number of cycles from issuing a scalar ALU
+// instruction to the earliest issue of a conditional branch on SCC.
+func (b Builder) WithSCCToBranchCycles(n int) Builder {
+	b.sccToBranchCycles = n
 	return b
 }
 
-// WithInstFetchAheadLines lets a wavefront keep n instruction fetches in
-// flight, and sizes its instruction buffer to hold them.
-func (b Builder) WithInstFetchAheadLines(n int) Builder {
-	b.instFetchAheadLines = n
+// WithInstBlockFetch makes each wavefront fetch its instructions in blocks of
+// blockBytes, into an instruction buffer of the given number of blocks, with
+// at least the given number of cycles between two block requests.
+func (b Builder) WithInstBlockFetch(blockBytes, blocks, cycles int) Builder {
+	b.instBlockByteSize = blockBytes
+	b.instBlocks = blocks
+	b.instBlockFetchCycles = cycles
+	return b
+}
+
+// WithInstPrefetchLines makes each CU read n instruction lines ahead of a
+// wavefront's block fetches into the L1 instruction cache. It requires
+// WithInstBlockFetch.
+func (b Builder) WithInstPrefetchLines(n int) Builder {
+	b.instPrefetchLines = n
+	return b
+}
+
+// WithL1IBankLatency sets the bank latency, in cycles, of the L1 instruction
+// cache. Zero keeps the default of one cycle.
+func (b Builder) WithL1IBankLatency(n int) Builder {
+	b.l1iBankLatency = n
 	return b
 }
 
@@ -405,8 +427,13 @@ func (b *Builder) connectInstMem() {
 	tlbComp := b.sa.L1ITLB
 	l1i := b.sa.L1ICache
 
-	b.connectWithDirectConnection(
-		robComp.Ports.Bottom, l1i.Ports.Top)
+	// Instruction prefetches go to the L1I directly: their responses are
+	// dropped, so they do not wait in the reorder buffer behind fetches.
+	l1iTop := []messaging.Port{robComp.Ports.Bottom, l1i.Ports.Top}
+	for _, cuComp := range b.sa.CUs {
+		l1iTop = append(l1iTop, cuComp.Ports.InstPrefetch)
+	}
+	b.connectWithDirectConnection(l1iTop...)
 	b.connectWithDirectConnection(
 		l1i.Ports.Bottom, atComp.Ports.Top)
 	b.connectWithDirectConnection(
@@ -423,14 +450,15 @@ func (b *Builder) connectInstMem() {
 	}
 }
 
-func (b *Builder) connectWithDirectConnection(port1, port2 messaging.Port) {
+func (b *Builder) connectWithDirectConnection(ports ...messaging.Port) {
 	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
 	b.connectionCount++
 
 	conn := directconnection.NewConnection(name, b.simulation, b.freq)
 
-	conn.BindPort(port1)
-	conn.BindPort(port2)
+	for _, port := range ports {
+		conn.BindPort(port)
+	}
 }
 
 func (b *Builder) cuSpec() cu.Spec {
@@ -474,10 +502,12 @@ func (b *Builder) cuSpec() cu.Spec {
 	spec.IssueRotation = b.issueRotation
 	spec.VALUIssueOverlap = b.valuIssueOverlap
 	spec.UniformVALUCycles = b.uniformVALUCycles
-	spec.TakenBranchIssueGap = b.takenBranchIssueGap
-	if b.instFetchAheadLines > 0 {
-		spec.InstFetchAheadLines = b.instFetchAheadLines
-		spec.InstBufByteSize = max(spec.InstBufByteSize, b.instFetchAheadLines*cu.InstFetchByteSize)
+	spec.SCCToBranchCycles = b.sccToBranchCycles
+	if b.instBlockByteSize > 0 {
+		spec.InstBlockByteSize = b.instBlockByteSize
+		spec.InstBufByteSize = b.instBlockByteSize * b.instBlocks
+		spec.InstBlockFetchCycles = b.instBlockFetchCycles
+		spec.InstPrefetchLines = b.instPrefetchLines
 	}
 
 	return spec
@@ -486,6 +516,7 @@ func (b *Builder) cuSpec() cu.Spec {
 func (b *Builder) buildCUs() {
 	spec := b.cuSpec()
 	spec.InstMem = b.sa.L1IROB.Ports.Top.AsRemote()
+	spec.InstPrefetchMem = b.sa.L1ICache.Ports.Top.AsRemote()
 	spec.ScalarMem = b.sa.L1SROB.Ports.Top.AsRemote()
 
 	for i := 0; i < b.numCUs; i++ {
@@ -508,6 +539,7 @@ func (b *Builder) buildCUs() {
 
 		b.buildPort(computeUnit, cu.DispatchPortName, cuTopBufSize)
 		b.buildPort(computeUnit, cu.InstMemPortName, cuInstMemBufSize)
+		b.buildPort(computeUnit, cu.InstPrefetchPortName, cuInstMemBufSize)
 		b.buildPort(computeUnit, cu.ScalarMemPortName, cuScalarMemBufSize)
 		b.buildPort(computeUnit, cu.VectorMemPortName, cuVectorMemBufSize)
 
@@ -741,6 +773,9 @@ func (b *Builder) buildL1ICache() {
 	spec.Freq = b.freq
 	spec.WritePolicy = "write-through" // v4: writethrough package
 	spec.BankLatency = 1
+	if b.l1iBankLatency > 0 {
+		spec.BankLatency = b.l1iBankLatency
+	}
 	spec.NumBanks = 1
 	spec.Log2BlockSize = b.log2CacheLineSize
 	spec.NumWays = 4
