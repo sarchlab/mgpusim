@@ -23,6 +23,12 @@ straight-line loop body. This compiler crashes in a loop pass on it under the
 default 8 MiB stack, so run `ulimit -s unlimited` in the shell before building
 that object or rebuilding every kernel.
 
+The `amd/benchmarks/microbench/loopkernels` objects (`instruction_cost` and
+`loop_wait`) have no native directory: they are hand-written gfx942 assembly
+from [GPU Benchmarks](https://github.com/sarchlab/gpu_benchmarks), assembled
+there with ROCm 10.2.0 and embedded unchanged, so that the simulator runs the
+bytes the MI300X measured. Rebuild them in GPU Benchmarks.
+
 On macOS, run the Linux toolchain in a container. With the distribution extracted
 to a local directory containing `.info/version` and `lib/llvm/bin/clang++`:
 
