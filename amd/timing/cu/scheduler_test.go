@@ -127,6 +127,27 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.execution().IsFetching).To(BeTrue())
 	})
 
+	It("should fetch the line after those in flight", func() {
+		wf := newTestWave()
+		wf.execution().InstBufferStartPC = 0x100
+		wf.execution().InstBuffer = make([]byte, 0x40)
+		wf.execution().FetchEpoch = 3
+		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
+			[]*Wavefront{wf}, []*Wavefront{wf})
+
+		registerTestWave(cu, wf)
+		scheduler.DoFetch()
+		scheduler.DoFetch()
+
+		Expect(toInstMem.sent).To(HaveLen(2))
+		Expect(toInstMem.sent[0].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x140)))
+		Expect(toInstMem.sent[1].Payload.(memprotocol.ReadReq).Address).To(Equal(uint64(0x180)))
+		Expect(wf.execution().NextFetchPC).To(Equal(uint64(0x1c0)))
+		Expect(cu.comp.State.InstFetch).To(HaveLen(2))
+		Expect(cu.comp.State.InstFetch[0].Epoch).To(Equal(uint64(3)))
+		Expect(cu.comp.State.InstFetch[1].Epoch).To(Equal(uint64(3)))
+	})
+
 	It("should wait if fetch failed", func() {
 		wf := newTestWave()
 		wf.execution().InstBufferStartPC = 0x100

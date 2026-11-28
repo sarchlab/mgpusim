@@ -31,7 +31,7 @@ func DefaultSpec() Spec {
 		MaxCoalescingPenalty:         0,
 		RegisterScoreboard:           false,
 		InFlightVectorMemAccessLimit: 512,
-		InstBufByteSize:              256,
+		InstBufByteSize:              DefaultInstBufByteSize,
 	}
 }
 
@@ -103,6 +103,11 @@ func (b *Builder) mustHaveValidSpec() {
 	if b.spec.TakenBranchIssueGap != 0 && b.spec.TakenBranchIssueGap < branchPipelineCycles {
 		panic("cu: TakenBranchIssueGap must be zero or at least the branch pipeline length")
 	}
+	if b.spec.InstFetchAheadLines > 1 &&
+		(b.spec.InstBufByteSize%InstFetchByteSize != 0 || b.spec.InstBufByteSize < 2*InstFetchByteSize) {
+		panic("cu: with InstFetchAheadLines above one, InstBufByteSize must be a multiple of " +
+			"InstFetchByteSize and hold at least two fetches")
+	}
 }
 
 func (b *Builder) fillResourceDefaults() {
@@ -118,6 +123,7 @@ func (b *Builder) fillResourceDefaults() {
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = b.spec.InstBufByteSize
+	fetchArbitor.FetchAheadLines = b.spec.InstFetchAheadLines
 	issueArbitor := NewIssueArbiter(cu)
 	issueArbitor.scoreboardEnabled = b.spec.RegisterScoreboard
 	issueArbitor.rotation = b.spec.IssueRotation

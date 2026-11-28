@@ -37,6 +37,8 @@ type FetchState struct {
 	Req           messaging.Msg
 	WF            waveHandle
 	Address, Task uint64
+	// Epoch is the wavefront's fetch stream this request belongs to.
+	Epoch uint64
 }
 type ScalarAccessState struct {
 	Req      messaging.Msg

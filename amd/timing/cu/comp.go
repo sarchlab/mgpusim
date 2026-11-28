@@ -122,8 +122,20 @@ type Spec struct {
 	InFlightVectorMemAccessLimit int `json:"in_flight_vector_mem_access_limit"`
 
 	// InstBufByteSize is the per-wavefront instruction buffer size that the
-	// fetch arbiter fills up to.
+	// fetch arbiter fills up to. With InstFetchAheadLines above one it must
+	// be a whole number of fetches of InstFetchByteSize and hold at least
+	// two, because an instruction can straddle two of them.
 	InstBufByteSize int `json:"inst_buf_byte_size"`
+
+	// InstFetchAheadLines is the number of fetches of InstFetchByteSize a
+	// wavefront may have in flight at once, fetching ahead of the
+	// instruction it executes. The fetches in flight and the buffered bytes
+	// together never exceed InstBufByteSize. Zero or one fetches one line at
+	// a time. A wavefront whose code object does not record exactly where
+	// its code ends (no symbol, or a V2 or V3 symbol, which also covers the
+	// header) also fetches one line at a time, and holds at most
+	// DefaultInstBufByteSize bytes when InstBufByteSize is larger.
+	InstFetchAheadLines int `json:"inst_fetch_ahead_lines"`
 }
 
 // SampledCompletion is a pending wave completion, ordered by At in State.

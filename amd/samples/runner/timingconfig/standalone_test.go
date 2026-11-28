@@ -27,6 +27,7 @@ import (
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/mi300x"
 	"github.com/sarchlab/mgpusim/v5/amd/samples/runner/timingconfig/r9nano"
 	"github.com/sarchlab/mgpusim/v5/amd/sampling"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/cu"
 )
 
 // standaloneGPU is one GPU that a caller assembles itself with the exported
@@ -359,6 +360,30 @@ func (p migrationPlatform) mustCopyAPageOfGPU1(t *testing.T) {
 	}
 }
 
+// checkFetchAhead checks that every compute unit keeps the given number of
+// instruction fetches in flight and, when it fetches ahead, can hold them.
+// Instruction fetches keep their own size, whatever the cache line size.
+func checkFetchAhead(t *testing.T, s *simulation.Simulation, lines int) {
+	t.Helper()
+
+	units := 0
+	for _, c := range s.Components() {
+		unit, ok := c.(*cu.Comp)
+		if !ok {
+			continue
+		}
+		units++
+		if unit.Spec.InstFetchAheadLines != lines ||
+			unit.Spec.InstBufByteSize < lines*cu.InstFetchByteSize {
+			t.Fatalf("%s fetches %d lines ahead into %d bytes, want %d lines", unit.Name(),
+				unit.Spec.InstFetchAheadLines, unit.Spec.InstBufByteSize, lines)
+		}
+	}
+	if units == 0 {
+		t.Fatal("no compute unit was built")
+	}
+}
+
 // Exercise each public builder with 32-byte L2 lines. The MI300X caller
 // explicitly asks for an even smaller transaction on the same physical path.
 func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
@@ -377,9 +402,11 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 			b.createRDMAAddressMapper()
 			b.pageTable.GPU.MaxZeroWriteSize = 0
 			wantSize := uint64(32)
+			wantFetchAhead := 0
 			if g.name == "mi300x" {
 				b.pageTable.GPU.MaxZeroWriteSize = 16
 				wantSize = 16
+				wantFetchAhead = 10
 			}
 			builder := b.createGPUBuilder(nil, 1)
 			switch gpu := builder.(type) {
@@ -399,6 +426,7 @@ func TestStandaloneWalkerWithSmallL2Lines(t *testing.T) {
 			if walker.Spec.MaxZeroWriteSize != wantSize {
 				t.Fatalf("zero write limit %d, want %d", walker.Spec.MaxZeroWriteSize, wantSize)
 			}
+			checkFetchAhead(t, s, wantFetchAhead)
 			p := migrationPlatform{client: client, sim: s}
 			pageSize := uint64(1) << g.log2PageSize
 			page := vm.Page{PID: 1, VAddr: pageSize, PAddr: deviceBytes + 32<<20, PageSize: pageSize, DeviceID: 1, Valid: true}

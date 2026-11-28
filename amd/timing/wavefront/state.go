@@ -16,19 +16,29 @@ type ExecutionState struct {
 	CompletedLanes                    int
 	InstBuffer                        []byte
 	InstBufferStartPC                 uint64
-	IsFetching                        bool
-	SIMDID                            int
-	SRegOffset                        int
-	VRegOffset                        int
-	LDSOffset                         int
-	PC                                uint64
-	EXEC                              uint64
-	VCC                               uint64
-	M0                                uint32
-	SCC                               byte
-	OutstandingScalarMemAccess        int
-	OutstandingVectorMemAccess        int
-	InFlightInsts                     int
+	// IsFetching is true while any fetch of this wavefront is outstanding,
+	// including fetches made obsolete by a taken branch.
+	IsFetching bool
+	// FetchEpoch numbers the fetch streams of the wavefront. A taken branch
+	// starts a new stream; fetches of an earlier stream are dropped when they
+	// return.
+	FetchEpoch uint64
+	// NextFetchPC is the address of the next line to request in the current
+	// stream. Lines between the end of the instruction buffer and this
+	// address are in flight. Zero when the stream has requested nothing yet.
+	NextFetchPC                uint64
+	SIMDID                     int
+	SRegOffset                 int
+	VRegOffset                 int
+	LDSOffset                  int
+	PC                         uint64
+	EXEC                       uint64
+	VCC                        uint64
+	M0                         uint32
+	SCC                        byte
+	OutstandingScalarMemAccess int
+	OutstandingVectorMemAccess int
+	InFlightInsts              int
 	// IssueNotBefore holds back the next issue, for example while the
 	// instruction buffer refills after a taken branch.
 	IssueNotBefore timing.VTimeInPicoSec

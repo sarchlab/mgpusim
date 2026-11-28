@@ -57,7 +57,7 @@ func assertWaveDrainState(t *testing.T, c *ComputeUnit) {
 				fetches++
 			}
 		}
-		if fetches > 1 || state.IsFetching != (fetches == 1) {
+		if state.IsFetching != (fetches > 0) {
 			t.Fatalf("fetch state disagrees with transaction queue for %d", handle)
 		}
 		if executionEnded(state.State) && (!w.StopFetch ||
