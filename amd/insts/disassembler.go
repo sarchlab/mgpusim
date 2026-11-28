@@ -750,9 +750,13 @@ func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
 		inst.Src0.RegCount = 2
 	}
 
-	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
-	if inst.DSTWidth == 64 {
-		inst.Dst.RegCount = 2
+	// An instruction without a destination, such as S_SETPC_B64, leaves the
+	// destination field zero.
+	if inst.DSTWidth != 0 {
+		inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
+		if inst.DSTWidth == 64 {
+			inst.Dst.RegCount = 2
+		}
 	}
 
 	if inst.Src0.OperandType == LiteralConstant {

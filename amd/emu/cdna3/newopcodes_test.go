@@ -639,3 +639,20 @@ func TestVOPCNotGreaterF64ReadsRegisterPairs(t *testing.T) {
 		t.Fatalf("v_cmp_ngt_f64 returned mask %b, want 110", state.vcc)
 	}
 }
+
+// TestSOP1SetPC checks s_setpc_b64 (29): PC = S0.
+func TestSOP1SetPC(t *testing.T) {
+	alu := NewALU(nil)
+	state := newMockInstState()
+	state.inst.FormatType = insts.SOP1
+	state.inst.Opcode = 29
+	state.inst.Src0 = &insts.Operand{}
+	state.pc = 0x2000
+
+	state.setOperand(state.inst.Src0, 0, 0x1_0000_1234)
+	alu.Run(state)
+
+	if state.pc != 0x1_0000_1234 {
+		t.Fatalf("s_setpc_b64 expected PC=0x100001234, got 0x%x", state.pc)
+	}
+}

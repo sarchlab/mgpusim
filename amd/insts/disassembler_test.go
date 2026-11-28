@@ -34,6 +34,32 @@ var _ = Describe("GCN3 Disassembler", func() {
 		Expect(printer.Print(inst)).To(Equal("s_waitcnt vmcnt(0)"))
 	})
 
+	It("should decode BE801D04 without a destination", func() {
+		// s_setpc_b64 as it closes a long loop in code_fetch_latency.
+		buf := []byte{0x04, 0x1d, 0x80, 0xbe}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.Dst).To(BeNil())
+		Expect(inst.Src0.Register).To(Equal(insts.Regs[insts.S4]))
+		Expect(inst.Src0.RegCount).To(Equal(2))
+		Expect(inst.AssignsPC()).To(BeTrue())
+		Expect(printer.Print(inst)).To(Equal("s_setpc_b64 s[4:5]"))
+	})
+
+	It("should decode BE841C00 with a destination", func() {
+		// s_getpc_b64, the instruction before it in that sequence.
+		buf := []byte{0x00, 0x1c, 0x84, 0xbe}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.Dst.Register).To(Equal(insts.Regs[insts.S4]))
+		Expect(inst.Dst.RegCount).To(Equal(2))
+		Expect(inst.AssignsPC()).To(BeFalse())
+	})
+
 	It("should decode BF8C0171", func() {
 		buf := []byte{0x71, 0x01, 0x8c, 0xbf}
 

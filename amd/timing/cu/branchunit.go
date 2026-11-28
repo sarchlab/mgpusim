@@ -2,6 +2,7 @@ package cu
 
 import (
 	"github.com/sarchlab/mgpusim/v5/amd/emu"
+	"github.com/sarchlab/mgpusim/v5/amd/timing/wavefront"
 )
 
 // branchPipelineCycles is the number of cycles from issuing a branch to its
@@ -101,10 +102,10 @@ func (u *BranchUnit) runWriteStage() bool {
 
 	if u.takenIssueGap > 0 && !u.cu.comp.State.BranchTaken {
 		// Fetch continues in sequence, so the buffered instructions stay valid.
-		u.cu.UpdatePCAndSetReady(wave)
+		u.setReadyAtNextPC(wave)
 	} else {
 		wave.execution().InstBuffer = nil
-		u.cu.UpdatePCAndSetReady(wave)
+		u.setReadyAtNextPC(wave)
 		wave.execution().InstBufferStartPC = wave.PC() & 0xffffffffffffffc0
 		u.holdIssueAfterTakenBranch(wave)
 	}
@@ -112,6 +113,18 @@ func (u *BranchUnit) runWriteStage() bool {
 	u.state().Write = 0
 	u.state().Idle = false
 	return true
+}
+
+// setReadyAtNextPC readies the wavefront at the address it continues from.
+func (u *BranchUnit) setReadyAtNextPC(wave *Wavefront) {
+	if wave.Inst().AssignsPC() {
+		// The PC already holds the address to continue at. A PC-relative
+		// branch leaves it one instruction short of that address.
+		wave.execution().State = wavefront.WfReady
+		return
+	}
+
+	u.cu.UpdatePCAndSetReady(wave)
 }
 
 // holdIssueAfterTakenBranch keeps the wavefront from issuing until its SIMD's

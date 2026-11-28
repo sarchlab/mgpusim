@@ -1,3 +1,4 @@
+import gzip
 import json
 import math
 import os
@@ -14,6 +15,8 @@ import psycopg.errors
 import report_db
 from workflow import (
     BUDGET_SECONDS,
+    HARDWARE_VALUE_NAME,
+    REFERENCES,
     SERIES_BUDGET_SKIP_REASON,
     WRITE_DEADLINE_SECONDS,
     benchmark_definitions,
@@ -21,6 +24,8 @@ from workflow import (
     cfd_launch_groups,
     final_progress,
     finalize,
+    matrix_rows,
+    read_reference,
     run_key,
     run_series,
     series_launch_groups,
@@ -324,6 +329,53 @@ class IterativeLaunchGroupTest(unittest.TestCase):
             self.assertEqual(len(points), 2)
             for point in points:
                 self.assertNotIn("launch_group", point["non_scaling_params"])
+
+
+class ReferenceTest(unittest.TestCase):
+    def test_series_of_several_references_are_concatenated_in_order(self):
+        first = {**SERIES, "benchmark": "first"}
+        second = {**SERIES, "benchmark": "second", "hardware": "Other machine (median)"}
+        with tempfile.TemporaryDirectory() as folder:
+            paths = []
+            for name, series in (("a", [first, first]), ("b", [second])):
+                paths.append(Path(folder) / f"{name}.json.gz")
+                with gzip.open(paths[-1], "wt") as file:
+                    json.dump({"benchmark_revision": name, "series": series}, file)
+            reference = read_reference(paths)
+        self.assertEqual(
+            [(row["id"], row["benchmark"]) for row in matrix_rows(reference, "")],
+            [(0, "first"), (1, "first"), (2, "second")],
+        )
+        self.assertEqual(matrix_rows(reference, "second"), [
+            {"id": 2, "benchmark": "second", "sample": "example"},
+        ])
+        definitions = benchmark_definitions(reference["series"])
+        names = {name: row["values"]["mi300x"]["name"] for name, row in definitions.items()}
+        self.assertEqual(
+            names, {"first": HARDWARE_VALUE_NAME, "second": "Other machine (median)"}
+        )
+
+    def test_checked_in_references_keep_the_v11_series_first(self):
+        v11 = read_reference(REFERENCES[:1])["series"]
+        series = read_reference(REFERENCES)["series"]
+        self.assertEqual(series[: len(v11)], v11)
+        added = series[len(v11):]
+        self.assertEqual({row["benchmark"] for row in added}, {"code_fetch_latency"})
+        self.assertNotIn("code_fetch_latency", {row["benchmark"] for row in v11})
+        self.assertEqual([row["parameters"]["loops"] for row in added], [1, 4, 8, 16])
+        for row in added:
+            sizes = [2**k for k in range(4, 17)]
+            self.assertEqual([case["x"] for case in row["cases"]], sizes)
+            for case in row["cases"]:
+                ((name, *shape, nanoseconds),) = case["launches"]
+                self.assertEqual(name.split("(")[0], f"fetch_kernel_{case['x']}")
+                self.assertEqual(shape, [64, 1, 1, 64, 1, 1])
+                self.assertGreater(nanoseconds, 0)
+                loops = row["parameters"]["loops"]
+                self.assertEqual(case["args"], [f"-body-ops={case['x']}", f"-loops={loops}"])
+        cases = [case["case"] for row in series for case in row["cases"]]
+        self.assertEqual(len(cases), len(set(cases)))
+        self.assertLessEqual(len(matrix_rows({"series": series}, "")), 256)
 
 
 class RunTest(unittest.TestCase):

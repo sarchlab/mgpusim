@@ -85,6 +85,13 @@ type Inst struct {
 	Src2Abs   bool
 }
 
+// AssignsPC reports whether the instruction continues at an absolute address
+// taken from a register, as S_SETPC_B64 does, instead of at an offset from the
+// next instruction.
+func (i *Inst) AssignsPC() bool {
+	return i.FormatType == SOP1 && i.Opcode == 29
+}
+
 // NewInst creates a zero-filled instruction
 func NewInst() *Inst {
 	i := new(Inst)

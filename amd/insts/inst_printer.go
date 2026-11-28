@@ -283,6 +283,9 @@ func (p *InstPrinter) vop3bString(i *Inst) string {
 }
 
 func (p *InstPrinter) sop1String(i *Inst) string {
+	if i.Dst == nil {
+		return fmt.Sprintf("%s %s", i.InstName, i.Src0.String())
+	}
 	return fmt.Sprintf("%s %s, %s", i.InstName, i.Dst.String(), i.Src0.String())
 }
 

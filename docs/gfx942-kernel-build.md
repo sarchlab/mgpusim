@@ -18,6 +18,11 @@ make -C amd/benchmarks/parboil/sgemm/native ROCM_PATH=/opt/rocm/core-10.2 update
 Use `all` (the default) when building only the native object, and `regen-disasm`
 to inspect a native object. To force a rebuild, pass `-B` to make.
 
+The `code_fetch_latency` object holds a kernel with a 65536-instruction
+straight-line loop body. This compiler crashes in a loop pass on it under the
+default 8 MiB stack, so run `ulimit -s unlimited` in the shell before building
+that object or rebuilding every kernel.
+
 On macOS, run the Linux toolchain in a container. With the distribution extracted
 to a local directory containing `.info/version` and `lib/llvm/bin/clang++`:
 
