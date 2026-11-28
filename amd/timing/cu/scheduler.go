@@ -229,13 +229,17 @@ func (s *SchedulerImpl) sendInstFetch(wf *Wavefront, addr uint64, byteSize uint6
 			PID:            wf.PID()}}
 
 	info := new(InstFetchReqInfo)
-	info.Wavefront = wf
 	info.Req = req
 	info.Address = addr
 	info.Epoch = wf.execution().FetchEpoch
 	info.Prefetch = prefetch
 
-	wf.execution().IsFetching = true
+	// A prefetch belongs to no wavefront: the wavefront may end, and its slot
+	// be reused, before the reply arrives, which is then dropped.
+	if !prefetch {
+		info.Wavefront = wf
+		wf.execution().IsFetching = true
+	}
 
 	what := "fetch"
 	if prefetch {

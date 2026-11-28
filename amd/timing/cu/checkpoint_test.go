@@ -105,8 +105,11 @@ func checkpointCUAndSimulation(t *testing.T, tracking bool, specs ...Spec) (*Com
 		builderCU = builderCU.WithResources(Resources{Decoder: decoder, ALU: cdna3.NewALU(nil)})
 	}
 	comp := builderCU.Build("CU")
-	for _, name := range []string{DispatchPortName, InstMemPortName, InstPrefetchPortName, ScalarMemPortName,
-		VectorMemPortName} {
+	names := []string{DispatchPortName, InstMemPortName, ScalarMemPortName, VectorMemPortName}
+	if spec.InstPrefetchLines > 0 {
+		names = append(names, InstPrefetchPortName)
+	}
+	for _, name := range names {
 		comp.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(simulation).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}

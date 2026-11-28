@@ -456,3 +456,18 @@ func (n directTestNetwork) BindHostPort(port messaging.Port) { n.conn.BindPort(p
 func (directTestNetwork) BindHostMemoryPort(messaging.Port)        {}
 func (n directTestNetwork) BindGPUPort(_ int, port messaging.Port) { n.conn.BindPort(port) }
 func (n directTestNetwork) Connect()                               {}
+
+// An MI300X built with 32-byte cache lines reads instructions ahead in lines
+// of that size: a kernel runs through its L1 instruction cache.
+func TestMI300XPrefetchesWithSmallCacheLines(t *testing.T) {
+	const log2PageSize = 21
+	p := buildStandaloneGPU(t, "mi300x", log2PageSize, false,
+		func(b gpubuilder.GPUBuilder) gpubuilder.GPUBuilder {
+			return b.(mi300x.Builder).WithLog2CacheLineSize(5)
+		})
+	if err := p.sim.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	checkInstPrefetch(t, p.sim, 32, 8)
+	p.mustRunAKernel(t, "mi300x")
+}

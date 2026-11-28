@@ -122,10 +122,12 @@ func (b *Builder) validateBlockFetch() {
 	}
 	// Instructions are 4-byte aligned and at most 8 bytes long, so with whole
 	// 4-byte multiples an instruction spans at most two blocks, and a buffer
-	// of two blocks can always hold the next one. The multiples of 4 that
-	// divide InstFetchByteSize are powers of two, as the alignment needs.
-	if block%4 != 0 || InstFetchByteSize%block != 0 {
-		panic("cu: InstBlockByteSize must be a multiple of 4 that divides InstFetchByteSize")
+	// of two blocks can always hold the next one. A block must lie in one
+	// cache line, which the instruction cache serves whole. The multiples of 4
+	// that divide a power of two are powers of two, as the alignment needs.
+	line := 1 << b.spec.Log2CachelineSize
+	if block%4 != 0 || line%block != 0 {
+		panic("cu: InstBlockByteSize must be a multiple of 4 that divides the cache line size")
 	}
 	if b.spec.InstBufByteSize%block != 0 || b.spec.InstBufByteSize < 2*block {
 		panic("cu: with block fetch, InstBufByteSize must be a multiple of InstBlockByteSize " +

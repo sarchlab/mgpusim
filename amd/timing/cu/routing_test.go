@@ -62,7 +62,7 @@ func TestVectorMemModulesIsImmutableCheckpointConfiguration(t *testing.T) {
 
 func initializeRoutingComponent(t *testing.T, s *sim.Simulation, c *Comp) {
 	t.Helper()
-	for _, name := range []string{"Top", "InstMem", "InstPrefetch", "ScalarMem", "VectorMem"} {
+	for _, name := range []string{"Top", "InstMem", "ScalarMem", "VectorMem"} {
 		c.BindPort(name, twowaybuffered.MakeBuilder().WithSimulation(s).
 			WithSpec(twowaybuffered.Spec{IncomingCapacity: 4, OutgoingCapacity: 4}).Build())
 	}

@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/akita/v5/mem"
 	"github.com/sarchlab/akita/v5/sim/messaging"
 	"github.com/sarchlab/akita/v5/sim/modeling/ticking"
@@ -21,10 +23,12 @@ const (
 	// InstMemPortName sends instruction-fetch reads (v4: ToInstMem).
 	InstMemPortName = "InstMem"
 
-	// InstPrefetchPortName sends the reads of lines prefetched into the
-	// instruction cache. Their responses are dropped, so they need not return
-	// in order with the instruction fetches.
-	InstPrefetchPortName = "InstPrefetch"
+	// InstPrefetchPortName is the one slot of the optional InstPrefetch port
+	// group, bound only when Spec.InstPrefetchLines is positive. It sends the
+	// reads of lines prefetched into the instruction cache. Their responses
+	// are dropped, so they need not return in order with the instruction
+	// fetches.
+	InstPrefetchPortName = "InstPrefetch[0]"
 
 	// ScalarMemPortName sends scalar memory reads (v4: ToScalarMem).
 	ScalarMemPortName = "ScalarMem"
@@ -72,7 +76,9 @@ type Spec struct {
 	// port transfer and serial bank replays. GCN3 uses its legacy pipeline.
 	LDSReturnCycles int `json:"lds_return_cycles"`
 
-	// Log2CachelineSize is the cacheline size as a power of 2.
+	// Log2CachelineSize is the cacheline size as a power of 2. It is also the
+	// line size of the instruction cache: with block fetch, a block lies in
+	// one line, and a prefetch reads one whole line.
 	Log2CachelineSize uint64 `json:"log2_cacheline_size"`
 
 	// NumSinglePrecisionUnits is the number of single-precision units per
@@ -143,7 +149,8 @@ type Spec struct {
 	// memory as soon as one is free. A block is free once the wavefront has
 	// issued the instruction that holds its last byte. A taken branch empties
 	// the buffer and starts a new fetch stream at its target; a branch that
-	// is not taken keeps the buffer. It must divide InstFetchByteSize. Zero
+	// is not taken keeps the buffer. It must be a multiple of 4 that divides
+	// the cache line size (Log2CachelineSize). Zero
 	// keeps fetching whole InstFetchByteSize lines, one at a time, and every
 	// branch empties the buffer.
 	InstBlockByteSize int `json:"inst_block_byte_size"`
@@ -154,15 +161,17 @@ type Spec struct {
 	// however recently the fall-through block was.
 	InstBlockFetchCycles int `json:"inst_block_fetch_cycles"`
 
-	// InstPrefetchLines is, with block fetch, the number of InstFetchByteSize
-	// lines past the next block a wavefront requests that the compute unit
-	// reads ahead into the instruction cache for it. The responses only warm
-	// the cache; they never enter the instruction buffer. A line that this
-	// compute unit already has a request in flight for is not requested
-	// again. Only wavefronts whose code object records exactly where their
-	// code ends (a V5 code object with a kernel symbol) prefetch, and never
-	// past that end. Prefetches go to InstPrefetchMem through the
-	// InstPrefetch port. Zero prefetches nothing.
+	// InstPrefetchLines is, with block fetch, the number of cache lines
+	// (Log2CachelineSize) past the next block a wavefront requests that the
+	// compute unit reads ahead into the instruction cache for it. The
+	// responses only warm the cache; they never enter the instruction buffer,
+	// and no wavefront waits for them. A line that this compute unit already
+	// has a request in flight for is not requested again. Only wavefronts
+	// whose code object records exactly where their code ends (a V5 code
+	// object with a kernel symbol) prefetch, and never past that end.
+	// Prefetches go to InstPrefetchMem through the InstPrefetch port, which is
+	// bound (InstPrefetchPortName) exactly when this is positive. Zero
+	// prefetches nothing.
 	InstPrefetchLines int `json:"inst_prefetch_lines"`
 }
 
@@ -217,10 +226,11 @@ type Comp = ticking.Component[Spec, State, Resources, Ports, Middlewares]
 type Ports struct {
 	Top     messaging.Port `akita:"role=github.com/sarchlab/mgpusim/v5/amd/protocol.cu"`
 	InstMem messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
-	// InstPrefetch is the instruction-prefetch requester port.
-	InstPrefetch messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
-	ScalarMem    messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
-	VectorMem    messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	// InstPrefetch holds the instruction-prefetch requester port when
+	// Spec.InstPrefetchLines is positive, and nothing otherwise.
+	InstPrefetch []messaging.Port `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	ScalarMem    messaging.Port   `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
+	VectorMem    messaging.Port   `akita:"role=github.com/sarchlab/akita/v5/mem/memprotocol.requester"`
 }
 type Middlewares struct{ CU *cuMiddleware }
 type cuMiddleware struct{ cu *ComputeUnit }
@@ -229,6 +239,14 @@ func (m *cuMiddleware) Handle(timing.Event) bool { return m.cu.Tick() }
 func (m *Middlewares) Initialize(c *Comp) {
 	if err := c.Spec.VectorMemModules.Validate(); err != nil {
 		panic("cu: VectorMemModules: " + err.Error())
+	}
+	wantPrefetchPorts := 0
+	if c.Spec.InstPrefetchLines > 0 {
+		wantPrefetchPorts = 1
+	}
+	if len(c.Ports.InstPrefetch) != wantPrefetchPorts {
+		panic(fmt.Sprintf("cu: %s has %d InstPrefetch ports; it needs one exactly when InstPrefetchLines is positive",
+			c.Name(), len(c.Ports.InstPrefetch)))
 	}
 
 	cu := &ComputeUnit{comp: c, Decoder: c.Resources.Decoder}

@@ -790,6 +790,8 @@ func (b *Builder) buildRDMAEngine() {
 func (b *Builder) buildDMAEngine() {
 	spec := dma.DefaultSpec()
 	spec.LocalDataSource = *b.dmaLocalDataSource
+	// The DMA engine writes the MALL, which serves one cache line at most.
+	spec.Log2AccessSize = b.log2CacheLineSize
 	b.dmaEngine = dma.MakeBuilder().
 		WithSimulation(b.simulation).
 		WithSpec(spec).

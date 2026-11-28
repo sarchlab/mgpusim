@@ -24,8 +24,9 @@ func (s *SchedulerImpl) doBlockFetch() bool {
 
 	if s.cu.comp.Spec.InstPrefetchLines > 0 && s.cu.instPrefetchPort().CanSend() {
 		if wf, addr, ok := s.prefetchCandidate(); ok {
-			s.sendInstFetch(wf, addr, InstFetchByteSize, true)
-			wf.execution().PrefetchPC = addr + InstFetchByteSize
+			line := s.cu.instLineByteSize()
+			s.sendInstFetch(wf, addr, line, true)
+			wf.execution().PrefetchPC = addr + line
 			madeProgress = true
 		}
 	}
@@ -80,8 +81,15 @@ func (s *SchedulerImpl) hasFreeBlock(wf *Wavefront) bool {
 		return false
 	}
 
+	// Once the stream has issued anything, the blocks before the end of the
+	// last issued instruction are free. The PC only seeds an empty stream: a
+	// taken branch writes its target into the PC before it redirects the
+	// stream, and that target frees nothing.
 	blockSize := s.cu.fetchUnitByteSize()
-	issued := max(state.IssuedEnd, wf.PC())
+	issued := state.IssuedEnd
+	if issued == 0 {
+		issued = wf.PC()
+	}
 	firstTaken := issued &^ (blockSize - 1)
 
 	return next-firstTaken < uint64(s.cu.comp.Spec.InstBufByteSize)
@@ -153,11 +161,12 @@ func (s *SchedulerImpl) nextPrefetchLine(wf *Wavefront) (uint64, bool) {
 	}
 
 	codeEnd, _ := codeEnd(wf)
-	demandLine := s.nextBlockPC(wf) &^ (InstFetchByteSize - 1)
-	last := demandLine + uint64(s.cu.comp.Spec.InstPrefetchLines)*InstFetchByteSize
+	line := s.cu.instLineByteSize()
+	demandLine := s.nextBlockPC(wf) &^ (line - 1)
+	last := demandLine + uint64(s.cu.comp.Spec.InstPrefetchLines)*line
 
-	addr := max(state.PrefetchPC, demandLine+InstFetchByteSize)
-	for ; addr <= last && addr < codeEnd; addr += InstFetchByteSize {
+	addr := max(state.PrefetchPC, demandLine+line)
+	for ; addr <= last && addr < codeEnd; addr += line {
 		if !s.cu.lineInFlight(wf.PID(), addr) {
 			state.PrefetchPC = addr
 			return addr, true
@@ -169,12 +178,19 @@ func (s *SchedulerImpl) nextPrefetchLine(wf *Wavefront) (uint64, bool) {
 	return 0, false
 }
 
+// instLineByteSize is the size of a line of the instruction cache, which
+// prefetches read whole.
+func (cu *ComputeUnit) instLineByteSize() uint64 {
+	return 1 << cu.comp.Spec.Log2CachelineSize
+}
+
 // lineInFlight reports whether the compute unit has an instruction-memory
 // request in flight that reads the line in the address space of the process.
 func (cu *ComputeUnit) lineInFlight(pid vm.PID, line uint64) bool {
+	lineSize := cu.instLineByteSize()
 	for _, info := range cu.comp.State.InstFetch {
 		read := info.Req.Payload.(memprotocol.ReadReq)
-		if read.PID == pid && info.Address&^(InstFetchByteSize-1) == line {
+		if read.PID == pid && info.Address&^(lineSize-1) == line {
 			return true
 		}
 	}

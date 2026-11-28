@@ -431,7 +431,7 @@ func (b *Builder) connectInstMem() {
 	// dropped, so they do not wait in the reorder buffer behind fetches.
 	l1iTop := []messaging.Port{robComp.Ports.Bottom, l1i.Ports.Top}
 	for _, cuComp := range b.sa.CUs {
-		l1iTop = append(l1iTop, cuComp.Ports.InstPrefetch)
+		l1iTop = append(l1iTop, cuComp.Ports.InstPrefetch...)
 	}
 	b.connectWithDirectConnection(l1iTop...)
 	b.connectWithDirectConnection(
@@ -516,7 +516,9 @@ func (b *Builder) cuSpec() cu.Spec {
 func (b *Builder) buildCUs() {
 	spec := b.cuSpec()
 	spec.InstMem = b.sa.L1IROB.Ports.Top.AsRemote()
-	spec.InstPrefetchMem = b.sa.L1ICache.Ports.Top.AsRemote()
+	if spec.InstPrefetchLines > 0 {
+		spec.InstPrefetchMem = b.sa.L1ICache.Ports.Top.AsRemote()
+	}
 	spec.ScalarMem = b.sa.L1SROB.Ports.Top.AsRemote()
 
 	for i := 0; i < b.numCUs; i++ {
@@ -539,7 +541,9 @@ func (b *Builder) buildCUs() {
 
 		b.buildPort(computeUnit, cu.DispatchPortName, cuTopBufSize)
 		b.buildPort(computeUnit, cu.InstMemPortName, cuInstMemBufSize)
-		b.buildPort(computeUnit, cu.InstPrefetchPortName, cuInstMemBufSize)
+		if spec.InstPrefetchLines > 0 {
+			b.buildPort(computeUnit, cu.InstPrefetchPortName, cuInstMemBufSize)
+		}
 		b.buildPort(computeUnit, cu.ScalarMemPortName, cuScalarMemBufSize)
 		b.buildPort(computeUnit, cu.VectorMemPortName, cuVectorMemBufSize)
 

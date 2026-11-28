@@ -79,7 +79,7 @@ func (cu *ComputeUnit) instMemPort() messaging.Port {
 
 func (cu *ComputeUnit) instPrefetchPort() messaging.Port {
 	if cu.ToInstPrefetch == nil {
-		cu.ToInstPrefetch = cu.comp.Ports.InstPrefetch
+		cu.ToInstPrefetch = cu.comp.Ports.InstPrefetch[0]
 	}
 
 	return cu.ToInstPrefetch
@@ -354,13 +354,21 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	info := cu.comp.State.InstFetch[matchIdx]
-	wf := cu.wave(info.WF)
-	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasCompleteInstruction(wf)
 	cu.comp.State.InstFetch = append(
 		cu.comp.State.InstFetch[:matchIdx],
 		cu.comp.State.InstFetch[matchIdx+1:]...)
 
-	used := !info.Prefetch && cu.continuesInstBuffer(wf, info)
+	// A prefetch only warmed the instruction cache. Its wavefront may be gone.
+	if info.Prefetch {
+		cu.completeRequest(info.Req.ID)
+		cu.comp.TaskTracker().EndTask(info.Task)
+		return true
+	}
+
+	wf := cu.wave(info.WF)
+	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasCompleteInstruction(wf)
+
+	used := cu.continuesInstBuffer(wf, info)
 	if used {
 		wf.execution().InstBuffer = append(wf.execution().InstBuffer, rsp.Payload.(memprotocol.DataReadyRsp).Data...)
 	}
@@ -369,9 +377,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	if !wf.execution().IsFetching && wf.execution().State == wavefront.WfDraining {
 		wf.execution().State = wavefront.WfCompleted
 	}
-	if !info.Prefetch {
-		wf.execution().LastFetchTime = cu.CurrentTime()
-	}
+	wf.execution().LastFetchTime = cu.CurrentTime()
 
 	if used && wasWaitingForFetch {
 		// The fetched instruction bytes arrived while nothing was executing: the
@@ -410,7 +416,7 @@ func (cu *ComputeUnit) continuesInstBuffer(wf *Wavefront, info FetchState) bool 
 }
 
 // hasOutstandingFetch reports whether any fetch of the wavefront, of any
-// fetch stream, has not returned yet.
+// fetch stream, has not returned yet. Prefetches belong to no wavefront.
 func (cu *ComputeUnit) hasOutstandingFetch(wf waveHandle) bool {
 	for _, info := range cu.comp.State.InstFetch {
 		if info.WF == wf {

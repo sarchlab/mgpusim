@@ -40,7 +40,8 @@ type FetchState struct {
 	// Epoch is the wavefront's fetch stream this request belongs to.
 	Epoch uint64
 	// Prefetch marks a line read ahead into the instruction cache; its data
-	// is dropped when it returns.
+	// is dropped when it returns. A prefetch has no WF: it keeps no
+	// wavefront waiting.
 	Prefetch bool
 }
 type ScalarAccessState struct {

@@ -115,7 +115,9 @@ type fetchHarness struct {
 	base   uint64
 
 	sentAt   []uint64 // cycle of each request in port.sent
-	answered int
+	answered []bool   // whether each request in port.sent has been answered
+	// prefetchLatency, when positive, replaces instMemLatency for prefetches.
+	prefetchLatency uint64
 	// issues records, for each wave, the cycle and address of every
 	// instruction it issues.
 	issues [][]issueRecord
@@ -175,10 +177,7 @@ func (h *fetchHarness) cycle() uint64 {
 func (h *fetchHarness) step() {
 	next := h.cu.comp.Spec.Freq.NextTick(h.engine.CurrentTime())
 	nextCycle := h.cu.comp.Spec.Freq.Cycle(next)
-	for h.answered < len(h.port.sent) && h.sentAt[h.answered]+instMemLatency <= nextCycle {
-		h.answer(h.port.sent[h.answered])
-		h.answered++
-	}
+	h.answerDue(nextCycle)
 
 	// The fake port does not notify the compute unit, so tick every edge.
 	h.cu.comp.TickLater()
@@ -188,6 +187,7 @@ func (h *fetchHarness) step() {
 
 	for len(h.sentAt) < len(h.port.sent) {
 		h.sentAt = append(h.sentAt, h.cycle())
+		h.answered = append(h.answered, false)
 	}
 	if !h.retired() {
 		h.recordIssues()
@@ -220,21 +220,42 @@ func (m eventDrivenMemory) Func(ctx hooking.HookCtx) {
 	h := m.h
 	if ctx.Pos == timing.HookPosBeforeEvent {
 		now := h.cu.comp.Spec.Freq.Cycle(ctx.Item.(timing.Event).Time())
-		for h.answered < len(h.port.sent) && h.sentAt[h.answered]+instMemLatency <= now {
-			h.answer(h.port.sent[h.answered])
-			h.answered++
-		}
+		h.answerDue(now)
 		return
 	}
 
 	h.tickCycles = append(h.tickCycles, h.cycle())
 	for len(h.sentAt) < len(h.port.sent) {
 		h.sentAt = append(h.sentAt, h.cycle())
-		due := timing.VTimeInPicoSec(h.cycle()+instMemLatency) * h.cu.comp.Spec.Freq.Period()
+		h.answered = append(h.answered, false)
+		due := timing.VTimeInPicoSec(h.due(len(h.sentAt)-1)) * h.cu.comp.Spec.Freq.Period()
 		h.cu.comp.TickAt(due)
 	}
 	if !h.retired() {
 		h.recordIssues()
+	}
+}
+
+// due returns the cycle at which the response to the i-th request reaches the
+// compute unit.
+func (h *fetchHarness) due(i int) uint64 {
+	read := h.port.sent[i].Payload.(memprotocol.ReadReq)
+	if h.prefetchLatency > 0 && read.AccessByteSize == h.cu.instLineByteSize() &&
+		h.cu.comp.Spec.InstBlockByteSize > 0 {
+		return h.sentAt[i] + h.prefetchLatency
+	}
+
+	return h.sentAt[i] + instMemLatency
+}
+
+// answerDue answers, in the order they were sent, the requests whose responses
+// are due by the cycle.
+func (h *fetchHarness) answerDue(cycle uint64) {
+	for i := range h.sentAt {
+		if !h.answered[i] && h.due(i) <= cycle {
+			h.answer(h.port.sent[i])
+			h.answered[i] = true
+		}
 	}
 }
 
@@ -412,6 +433,55 @@ func TestTakenBranchTargetIsNotHeldByTheBlockInterval(t *testing.T) {
 	}
 	if pairs < 2 {
 		t.Fatalf("want a fall-through block right before the target in every iteration: %v", blocks)
+	}
+}
+
+// A taken branch writes its target into the PC a cycle before it redirects
+// the fetch stream. In that cycle the buffer is still taken up to the branch:
+// the target PC must not make a block look free.
+func TestBranchTargetPCFreesNoBlockBeforeTheRedirect(t *testing.T) {
+	// s_nop up to the s_branch at 0x18, which jumps forward to 0x30, in the
+	// second block; the code runs on past the third block.
+	words := make([]uint32, 0, 64)
+	for range 6 {
+		words = append(words, encSNop...)
+	}
+	words = append(words, sBranch|uint32((0x30-0x1C)/4))
+	for len(words) < 0x80/4 {
+		words = append(words, encSNop...)
+	}
+	words = append(words, encEndPgm...)
+	code := make([]byte, 0, 4*len(words))
+	for _, w := range words {
+		code = binary.LittleEndian.AppendUint32(code, w)
+	}
+
+	h := newFetchHarness(t, mi300xFetchSpec(), code, 1)
+	branchIssue := uint64(0)
+	for range 120 {
+		h.step()
+		if c := h.issueCycles(0, h.base+0x18); len(c) > 0 {
+			branchIssue = c[0]
+		}
+	}
+	if branchIssue == 0 {
+		t.Fatal("the branch did not issue")
+	}
+
+	var blocks []uint64
+	for i, req := range h.port.sent {
+		read := req.Payload.(memprotocol.ReadReq)
+		if read.AccessByteSize == 32 {
+			blocks = append(blocks, read.Address-h.base)
+			// Both blocks were taken, and the interval was over, before the
+			// branch executed.
+			if len(blocks) == 2 && h.sentAt[i]+uint64(h.cu.comp.Spec.InstBlockFetchCycles) > branchIssue {
+				t.Fatalf("the second block went out at cycle %d, the branch issued at %d", h.sentAt[i], branchIssue)
+			}
+		}
+	}
+	if len(blocks) < 3 || blocks[0] != 0 || blocks[1] != 0x20 || blocks[2] != 0x20 {
+		t.Fatalf("blocks requested %#x, want 0x0, 0x20, then the target block 0x20", blocks)
 	}
 }
 
@@ -605,3 +675,59 @@ func TestLineFetchIsUnchanged(t *testing.T) {
 }
 
 func (r issueRecord) String() string { return fmt.Sprintf("%d@0x%x", r.cycle, r.addr) }
+
+// retiredAt runs the harness until the work-group finishes and returns that
+// cycle.
+func (h *fetchHarness) retiredAt(limit int) uint64 {
+	h.t.Helper()
+	for range limit {
+		h.step()
+		if h.retired() {
+			return h.cycle()
+		}
+	}
+	h.t.Fatal("the work-group did not finish")
+	return 0
+}
+
+// Lines read ahead keep no wavefront waiting: however late their replies, the
+// work-group finishes when its last instruction does, and the replies that
+// arrive after it, even once its slot holds another wavefront, are dropped
+// without touching that wavefront.
+func TestLatePrefetchRepliesNeitherDelayNorTouchWaves(t *testing.T) {
+	code := straightLineCode(512)
+	fast := newFetchHarness(t, mi300xFetchSpec(), code, 1)
+	want := fast.retiredAt(2000)
+
+	h := newFetchHarness(t, mi300xFetchSpec(), code, 1)
+	h.prefetchLatency = 3000
+	old := h.waves[0].handle
+	if got := h.retiredAt(2000); got != want {
+		t.Fatalf("with slow prefetches the work-group finished at cycle %d, want %d", got, want)
+	}
+	if len(h.cu.comp.State.InstFetch) == 0 {
+		t.Fatal("no prefetch was in flight when the work-group finished")
+	}
+	for _, f := range h.cu.comp.State.InstFetch {
+		if !f.Prefetch {
+			t.Fatalf("a fetch of 0x%x was in flight when the work-group finished", f.Address)
+		}
+	}
+
+	next := lifecycleGroup(h.cu, 1).waves()[0]
+	if slotIndex(next.handle) != slotIndex(old) || next.handle == old {
+		t.Fatalf("the new wavefront has slot handle %#x, the old one %#x", next.handle, old)
+	}
+	next.execution().InstBuffer = []byte{1, 2, 3, 4}
+	next.execution().LastFetchTime = 123
+	for range 3200 {
+		h.step()
+	}
+	if len(h.cu.comp.State.InstFetch) != 0 {
+		t.Fatalf("%d prefetches are still in flight", len(h.cu.comp.State.InstFetch))
+	}
+	state := next.execution()
+	if !slices.Equal(state.InstBuffer, []byte{1, 2, 3, 4}) || state.LastFetchTime != 123 || state.IsFetching {
+		t.Fatalf("a late prefetch reply changed the new wavefront: %+v", *state)
+	}
+}
