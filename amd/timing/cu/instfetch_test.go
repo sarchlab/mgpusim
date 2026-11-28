@@ -497,7 +497,9 @@ func TestSmallestBlocksRunEightByteInstructions(t *testing.T) {
 }
 
 // While a branch on SCC waits after s_cmp, nothing else keeps the compute unit
-// busy: it stops ticking and wakes in time to issue the branch.
+// busy: it stops ticking and wakes in time to issue the branch. The held
+// branch itself wakes nothing, not even for its SIMD's issue turns: once the
+// compute unit has gone idle, it ticks again only to issue the branch.
 func TestComputeUnitSleepsThroughTheSCCWait(t *testing.T) {
 	spec := mi300xFetchSpec()
 	spec.SCCToBranchCycles = 40
@@ -510,14 +512,22 @@ func TestComputeUnitSleepsThroughTheSCCWait(t *testing.T) {
 	if to-from != 40 {
 		t.Fatalf("the branch issued %d cycles after s_cmp, want 40", to-from)
 	}
-	ticks := 0
+	ticked := make(map[uint64]bool)
 	for _, c := range h.tickCycles {
-		if c > from && c < to {
-			ticks++
-		}
+		ticked[c] = true
 	}
-	if ticks >= 20 {
-		t.Fatalf("the compute unit ticked in %d of the %d cycles of the wait", ticks, to-from-1)
+	idle := from + 1
+	for idle < to && ticked[idle] {
+		idle++
+	}
+	if idle-from > 20 {
+		t.Fatalf("the compute unit kept ticking for %d of the %d cycles of the wait", idle-from-1, to-from-1)
+	}
+	for c := idle; c < to; c++ {
+		if ticked[c] {
+			t.Fatalf("idle from cycle %d of the wait, the compute unit woke at cycle %d, before the branch at %d",
+				idle-from, c-from, to-from)
+		}
 	}
 }
 

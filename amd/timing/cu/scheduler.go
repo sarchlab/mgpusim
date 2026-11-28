@@ -110,7 +110,7 @@ func (s *SchedulerImpl) hasIssuableInst(wfPool *WavefrontPool) bool {
 		}
 
 		inst := wf.NextInst()
-		if inst == nil {
+		if inst == nil || s.cu.sccBranchWaits(wf, inst) {
 			continue
 		}
 
@@ -262,7 +262,7 @@ func (s *SchedulerImpl) sendInstFetch(wf *Wavefront, addr uint64, byteSize uint6
 	state := wf.execution()
 	bufferEnd := state.InstBufferStartPC + uint64(len(state.InstBuffer))
 	isDemandFetch := !prefetch && addr == bufferEnd&^(byteSize-1)
-	if isDemandFetch && state.InFlightInsts == 0 && !s.cu.hasCompleteInstruction(wf) {
+	if isDemandFetch && state.InFlightInsts == 0 && !s.cu.hasInstructionReady(wf) {
 		// Fetching while nothing is in flight: the wavefront is stalled with no
 		// instruction available, waiting on the fetch path. (A fetch issued
 		// while an instruction executes leaves InFlightInsts > 0 and is silent;

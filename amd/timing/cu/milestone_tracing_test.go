@@ -230,12 +230,11 @@ func TestFetchAheadDoesNotRecordFetcherMilestone(t *testing.T) {
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
-	cu.Decoder = gfx942Decoder()
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
 	wf.execution().InstBufferStartPC = 0x100
-	wf.execution().InstBuffer = sNopBytes(64)
+	wf.execution().InstBuffer = make([]byte, 64)
 
 	fetchArbiter := newMockWfArbitor()
 	fetchArbiter.wfsToReturn = append(fetchArbiter.wfsToReturn,
@@ -358,7 +357,6 @@ func TestPrefetchRecordsNoWaveMilestone(t *testing.T) {
 // data/inst_fetch milestone over an execution-unit stall.
 func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	cu := newTestComputeUnit("CU", newFakeEngine())
-	cu.Decoder = gfx942Decoder()
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
@@ -366,7 +364,7 @@ func TestFetchAheadReturnDoesNotRecordDataMilestone(t *testing.T) {
 	startTestWave(cu, wf)
 	wf.SetPC(0x100)
 	wf.execution().InstBufferStartPC = 0x100
-	wf.execution().InstBuffer = sNopBytes(64)
+	wf.execution().InstBuffer = make([]byte, 64)
 
 	req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: 0x140,
 		AccessByteSize: 64}}
@@ -436,34 +434,54 @@ func sNopBytes(n int) []byte {
 
 // An 8-byte instruction whose first half ends one block is not ready until the
 // next block brings its second half: the return of that block ends a wait on
-// instruction fetch, not one on an execution unit.
+// instruction fetch, not one on an execution unit. Fetching whole lines, the
+// first 4 bytes count as ready, as they always have, so only the first line's
+// return ends a wait.
 func TestStraddlingInstructionWaitsForItsSecondBlock(t *testing.T) {
+	cases := []struct {
+		name           string
+		block          int // block size, or 0 to fetch whole lines
+		wantMilestones int
+	}{
+		{"block fetch", 32, 2},
+		{"line fetch", 0, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			checkStraddlingFetchMilestones(t, c.block, c.wantMilestones)
+		})
+	}
+}
+
+func checkStraddlingFetchMilestones(t *testing.T, block, want int) {
+	t.Helper()
 	engine := newFakeEngine()
 	cu := newTestComputeUnit("CU", engine)
 	cu.Decoder = gfx942Decoder()
-	cu.comp.Spec.InstBlockByteSize = 32
+	cu.comp.Spec.InstBlockByteSize = block
+	unit := cu.fetchUnitByteSize()
 	period := cu.comp.Spec.Freq.Period()
 	rec := &cuMilestoneRecorder{}
 	cu.comp.TaskTracker().Subscribe(rec, cu.comp)
 
 	wf := newTestRawWave(kernels.NewWavefront(testIDs.NewID()))
 	startTestWave(cu, wf)
-	wf.SetPC(0x11C) // v_fma_f32 at block offset 28
+	wf.SetPC(0x100 + unit - 4) // v_fma_f32 in the last 4 bytes of the first unit
 	cu.redirectFetch(wf)
 	task := cu.comp.State.WFTasks[wf.UID]
 
-	first := append(sNopBytes(28), binary.LittleEndian.AppendUint32(nil, encVFma[0])...)
-	second := append(binary.LittleEndian.AppendUint32(nil, encVFma[1]), sNopBytes(28)...)
+	first := append(sNopBytes(int(unit)-4), binary.LittleEndian.AppendUint32(nil, encVFma[0])...)
+	second := append(binary.LittleEndian.AppendUint32(nil, encVFma[1]), sNopBytes(int(unit)-4)...)
 	fetch := func(address uint64, data []byte) messaging.Msg {
 		req := messaging.Msg{ID: testIDs.NewID(), Payload: memprotocol.ReadReq{Address: address,
-			AccessByteSize: 32}}
+			AccessByteSize: unit}}
 		cu.comp.State.InstFetch = append(cu.comp.State.InstFetch, testFetchState(cu, &InstFetchReqInfo{
 			Wavefront: wf, Req: req, Address: address, Epoch: wf.execution().FetchEpoch,
 			FetchTaskID: testIDs.NewID(),
 		}))
 		return messaging.Msg{ID: testIDs.NewID(), RspTo: req.ID, Payload: memprotocol.DataReadyRsp{Data: data}}
 	}
-	firstRsp, secondRsp := fetch(0x100, first), fetch(0x120, second)
+	firstRsp, secondRsp := fetch(0x100, first), fetch(0x100+unit, second)
 	fetchMilestones := func() []tasks.Milestone {
 		var ms []tasks.Milestone
 		for _, m := range rec.milestones {
@@ -483,11 +501,11 @@ func TestStraddlingInstructionWaitsForItsSecondBlock(t *testing.T) {
 	engine.now = 40 * period
 	cu.handleFetchReturn(secondRsp)
 	ms := fetchMilestones()
-	if len(ms) != 2 || ms[1].Time != engine.now {
-		t.Fatalf("want inst_fetch milestones at both block returns, the last at %d; got %+v", engine.now, ms)
+	if len(ms) != want || ms[0].Time != 16*period || ms[len(ms)-1].Time != period*timing.VTimeInPicoSec(16+24*(want-1)) {
+		t.Fatalf("want %d inst_fetch milestones, from cycle 16; got %+v", want, ms)
 	}
 	if !cu.hasCompleteInstruction(wf) {
-		t.Fatal("the 8-byte instruction is not complete after its second block")
+		t.Fatal("the 8-byte instruction is not complete after its second unit")
 	}
 }
 

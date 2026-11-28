@@ -60,7 +60,7 @@ func (a *IssueArbiter) arbitratePool(
 		if next == nil {
 			continue
 		}
-		if a.sccBranchWaits(wf, next) {
+		if a.cu.sccBranchWaits(wf, next) {
 			continue
 		}
 		if a.scoreboardEnabled && wf.scoreboard() != nil {
@@ -81,14 +81,15 @@ func (a *IssueArbiter) arbitratePool(
 
 // sccBranchWaits reports whether the instruction is a conditional branch on
 // SCC that must still wait after a scalar ALU instruction. The compute unit
-// then wakes when the wait is over, so that it can go idle meanwhile.
-func (a *IssueArbiter) sccBranchWaits(wf *Wavefront, next *insts.Inst) bool {
+// then wakes when the wait is over, so that it can go idle meanwhile. Issue
+// and the wake-ups for issue turns both ask it.
+func (cu *ComputeUnit) sccBranchWaits(wf *Wavefront, next *insts.Inst) bool {
 	notBefore := wf.execution().SCCBranchNotBefore
-	if !isSCCBranch(next) || a.cu.CurrentTime() >= notBefore {
+	if !isSCCBranch(next) || cu.CurrentTime() >= notBefore {
 		return false
 	}
 
-	a.cu.comp.TickAt(notBefore)
+	cu.comp.TickAt(notBefore)
 
 	return true
 }

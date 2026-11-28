@@ -503,11 +503,13 @@ func (b *Builder) cuSpec() cu.Spec {
 	spec.VALUIssueOverlap = b.valuIssueOverlap
 	spec.UniformVALUCycles = b.uniformVALUCycles
 	spec.SCCToBranchCycles = b.sccToBranchCycles
+	// The CU validates the fetch settings: prefetch without block fetch, for
+	// example, is rejected there rather than quietly dropped here.
+	spec.InstBlockByteSize = b.instBlockByteSize
+	spec.InstBlockFetchCycles = b.instBlockFetchCycles
+	spec.InstPrefetchLines = b.instPrefetchLines
 	if b.instBlockByteSize > 0 {
-		spec.InstBlockByteSize = b.instBlockByteSize
 		spec.InstBufByteSize = b.instBlockByteSize * b.instBlocks
-		spec.InstBlockFetchCycles = b.instBlockFetchCycles
-		spec.InstPrefetchLines = b.instPrefetchLines
 	}
 
 	return spec

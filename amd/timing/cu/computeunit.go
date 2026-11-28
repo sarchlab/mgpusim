@@ -366,7 +366,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	wf := cu.wave(info.WF)
-	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasCompleteInstruction(wf)
+	wasWaitingForFetch := wf.execution().InFlightInsts == 0 && !cu.hasInstructionReady(wf)
 
 	used := cu.continuesInstBuffer(wf, info)
 	if used {
@@ -687,6 +687,35 @@ func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
 		state.InstBuffer = state.InstBuffer[unit:]
 		state.InstBufferStartPC += unit
 	}
+}
+
+// hasInstructionReady reports, for tracing, whether the wavefront has the
+// instruction at its PC, so that it is not waiting on instruction fetch. With
+// block fetch that takes every byte of the instruction. Fetching whole lines,
+// it takes the first 4 bytes, as it always has.
+func (cu *ComputeUnit) hasInstructionReady(wf *Wavefront) bool {
+	if cu.comp.Spec.InstBlockByteSize > 0 {
+		return cu.hasCompleteInstruction(wf)
+	}
+
+	return wfHasInstructionReady(wf)
+}
+
+func wfHasInstructionReady(wf *Wavefront) bool {
+	if wf.NextInst() != nil {
+		return true
+	}
+
+	if len(wf.execution().InstBuffer) == 0 || wf.PC() < wf.execution().InstBufferStartPC {
+		return false
+	}
+
+	offset := wf.PC() - wf.execution().InstBufferStartPC
+	if offset > uint64(len(wf.execution().InstBuffer)) {
+		return false
+	}
+
+	return len(wf.execution().InstBuffer[int(offset):]) >= 4
 }
 
 // hasCompleteInstruction reports whether the wavefront has every byte of the
